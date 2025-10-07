@@ -1,0 +1,222 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-gray-50 via-white to-red-50 font-sans;
+  }
+  
+  * {
+    @apply transition-all duration-200 ease-in-out;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-100 backdrop-blur-sm transform hover:scale-[1.02] hover:-translate-y-1;
+  }
+  
+  .card-premium {
+    @apply bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-500 border border-gray-200 backdrop-blur-lg transform hover:scale-[1.03] hover:-translate-y-2;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-ifood-red to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 active:scale-95 relative overflow-hidden;
+  }
+  
+  .btn-primary::before {
+    @apply absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300;
+    content: '';
+  }
+  
+  .btn-secondary {
+    @apply bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 text-ifood-red font-bold py-3 px-6 rounded-xl transition-all duration-300 border-2 border-red-200 hover:border-red-300 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95;
+  }
+  
+  .btn-success {
+    @apply bg-gradient-to-r from-ifood-green to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 active:scale-95;
+  }
+  
+  .btn-warning {
+    @apply bg-gradient-to-r from-ifood-orange to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 active:scale-95;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300 bg-white hover:border-gray-300 shadow-sm hover:shadow-md;
+  }
+  
+  .badge-success {
+    @apply inline-flex items-center px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-800 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105;
+  }
+  
+  .badge-warning {
+    @apply inline-flex items-center px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105;
+  }
+  
+  .badge-danger {
+    @apply inline-flex items-center px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-red-100 to-red-200 text-red-800 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105;
+  }
+  
+  .gradient-bg {
+    @apply bg-gradient-to-br from-ifood-red via-red-500 to-ifood-darkRed;
+  }
+  
+  .icon-bounce {
+    @apply transition-transform duration-300 hover:scale-110 hover:rotate-3;
+  }
+  
+  .icon-pulse {
+    @apply animate-pulse;
+  }
+  
+  .glass-effect {
+    @apply bg-white/80 backdrop-blur-lg border border-white/20;
+  }
+  
+  .floating-animation {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  .glow-effect {
+    @apply shadow-lg;
+    box-shadow: 0 0 20px rgba(234, 29, 44, 0.3);
+  }
+  
+  .nav-link {
+    @apply flex items-center px-4 py-3 text-sm font-semibold text-gray-600 rounded-xl hover:bg-gradient-to-r hover:from-ifood-red/10 hover:to-red-100 hover:text-ifood-red transition-all duration-300 transform hover:scale-105 hover:translate-x-2 relative overflow-hidden;
+  }
+  
+  .nav-link::before {
+    @apply absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-ifood-red to-red-600 transform scale-y-0 transition-transform duration-300 origin-bottom;
+    content: '';
+  }
+  
+  .nav-link:hover::before {
+    @apply scale-y-100;
+  }
+  
+  .nav-link-active {
+    @apply bg-gradient-to-r from-ifood-red to-red-600 text-white shadow-lg;
+  }
+  
+  .nav-link-active::before {
+    @apply scale-y-100 bg-white;
+  }
+  
+  /* Submenu styles */
+  .nav-submenu-link {
+    @apply flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gradient-to-r hover:from-ifood-red/10 hover:to-red-100 hover:text-ifood-red transition-all duration-300 transform hover:scale-105 hover:translate-x-1 relative overflow-hidden group;
+  }
+  
+  .nav-submenu-link::before {
+    @apply absolute left-0 top-0 h-full w-0.5 bg-gradient-to-b from-ifood-red to-red-600 transform scale-y-0 transition-transform duration-300 origin-bottom;
+    content: '';
+  }
+  
+  .nav-submenu-link:hover::before {
+    @apply scale-y-100;
+  }
+  
+  .nav-submenu-active {
+    @apply bg-gradient-to-r from-ifood-red/20 to-red-100 text-ifood-red shadow-md;
+  }
+  
+  .nav-submenu-active::before {
+    @apply scale-y-100;
+  }
+  
+  /* Highlight style for quick access items */
+  .nav-link-highlight {
+    @apply relative;
+  }
+  
+  .nav-link-highlight::after {
+    @apply absolute -top-1 -right-1 h-3 w-3 bg-gradient-to-r from-red-400 to-red-500 rounded-full animate-ping;
+    content: '';
+  }
+  
+  /* Premium animations */
+  .icon-float {
+    animation: iconFloat 2s ease-in-out infinite;
+  }
+  
+  .icon-pulse-glow {
+    animation: iconPulseGlow 2s ease-in-out infinite;
+  }
+  
+  .icon-rotate-hover:hover {
+    animation: iconRotate 0.5s ease-in-out;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+  
+  .card-hover-lift:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-ifood-red via-red-500 to-red-600 bg-clip-text text-transparent;
+  }
+  
+  .premium-border {
+    @apply border-2 border-transparent bg-gradient-to-r from-ifood-red/20 via-red-500/20 to-red-600/20 bg-clip-padding;
+  }
+  
+  @keyframes iconFloat {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-3px) rotate(1deg); }
+    50% { transform: translateY(-6px) rotate(0deg); }
+    75% { transform: translateY(-3px) rotate(-1deg); }
+  }
+  
+  @keyframes iconPulseGlow {
+    0%, 100% { 
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(234, 29, 44, 0.4);
+    }
+    50% { 
+      transform: scale(1.05);
+      box-shadow: 0 0 20px 5px rgba(234, 29, 44, 0.2);
+    }
+  }
+  
+  @keyframes iconRotate {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(5deg); }
+    75% { transform: rotate(-5deg); }
+    100% { transform: rotate(0deg); }
+  }
+  
+  @keyframes pulseGlow {
+    0%, 100% { 
+      box-shadow: 0 0 5px rgba(239, 68, 68, 0.3);
+    }
+    50% { 
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), 0 0 30px rgba(239, 68, 68, 0.4);
+    }
+  }
+  
+  /* Responsive utilities */
+  .responsive-text {
+    @apply text-sm sm:text-base lg:text-lg;
+  }
+  
+  .responsive-padding {
+    @apply p-4 sm:p-6 lg:p-8;
+  }
+  
+  .responsive-margin {
+    @apply m-4 sm:m-6 lg:m-8;
+  }
+}
