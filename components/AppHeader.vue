@@ -3,12 +3,27 @@
     <div class="px-4 sm:px-6 lg:px-8 relative">
       <div class="flex justify-between h-16">
         <div class="flex items-center">
-          <!-- Mobile menu button -->
+          <!-- Menu toggle button (mobile & desktop) -->
           <button
             @click="$emit('toggle-sidebar')"
-            class="lg:hidden -ml-2 mr-2 p-3 rounded-xl text-gray-400 hover:text-ifood-red hover:bg-red-50 transition-all duration-300 transform hover:scale-110 active:scale-95"
+            :class="[
+              '-ml-2 mr-2 p-3 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 group',
+              sidebarOpen ? 'text-ifood-red bg-red-50' : 'text-gray-400 hover:text-ifood-red hover:bg-red-50'
+            ]"
+            aria-label="Toggle sidebar"
           >
-            <Bars3Icon class="h-6 w-6 icon-bounce" />
+            <Transition
+              mode="out-in"
+              enter-active-class="transition duration-200"
+              enter-from-class="opacity-0 rotate-90"
+              enter-to-class="opacity-100 rotate-0"
+              leave-active-class="transition duration-200"
+              leave-from-class="opacity-100 rotate-0"
+              leave-to-class="opacity-0 -rotate-90"
+            >
+              <XMarkIcon v-if="sidebarOpen" key="close" class="h-6 w-6" />
+              <Bars3Icon v-else key="menu" class="h-6 w-6" />
+            </Transition>
           </button>
           
           <!-- Logo -->
@@ -42,8 +57,11 @@
           <NotificationPanel />
 
           <!-- Profile dropdown -->
-          <div class="relative group" @click="showProfileMenu = !showProfileMenu">
-            <button class="flex items-center p-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 hover:bg-red-50 transition-all duration-300 transform hover:scale-105">
+          <div class="relative group" ref="profileDropdown">
+            <button
+              @click="showProfileMenu = !showProfileMenu"
+              class="flex items-center p-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 hover:bg-red-50 transition-all duration-300 transform hover:scale-105"
+            >
               <div class="relative">
                 <img class="h-10 w-10 rounded-xl shadow-lg ring-2 ring-white transform group-hover:scale-110 transition-transform duration-300" src="https://images.pexels.com/photos/1040881/pexels-photo-1040881.jpeg?auto=compress&cs=tinysrgb&w=50&h=50&fit=crop" alt="Avatar">
                 <div class="absolute -bottom-1 -right-1 h-4 w-4 bg-gradient-to-r from-green-400 to-green-500 rounded-full border-2 border-white shadow-sm"></div>
@@ -89,9 +107,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import {
   Bars3Icon,
+  XMarkIcon,
   MagnifyingGlassIcon,
   ChevronDownIcon,
   UserIcon,
@@ -100,10 +119,29 @@ import {
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 
+defineProps({
+  sidebarOpen: Boolean
+})
+
 defineEmits(['toggle-sidebar'])
 
 const showProfileMenu = ref(false)
+const profileDropdown = ref(null)
 const { logout } = useAuth()
+
+const handleClickOutside = (event) => {
+  if (profileDropdown.value && !profileDropdown.value.contains(event.target)) {
+    showProfileMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 const handleLogout = async () => {
   try {
