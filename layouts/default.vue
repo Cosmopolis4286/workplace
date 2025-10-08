@@ -31,8 +31,10 @@ const toggleSidebar = (value) => {
 }
 
 onMounted(() => {
-  if (window.innerWidth >= 1024) {
-    sidebarOpen.value = true
+  if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+    setTimeout(() => {
+      sidebarOpen.value = true
+    }, 100)
   }
 })
 </script>
