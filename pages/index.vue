@@ -190,12 +190,159 @@
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition ease-out duration-300"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition ease-in duration-200"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showOrderDetailModal"
+          class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          @click="closeDetailModal"
+        >
+          <div
+            @click.stop
+            class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
+          >
+            <div class="bg-gradient-to-r from-ifood-red via-red-500 to-red-600 text-white p-6 relative">
+              <button
+                @click="closeDetailModal"
+                class="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-lg transition-colors duration-200"
+              >
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <div class="flex items-center space-x-4">
+                <img
+                  v-if="selectedOrder"
+                  :src="selectedOrder.customerImage"
+                  :alt="selectedOrder.customerName"
+                  class="w-16 h-16 rounded-2xl object-cover ring-4 ring-white/20"
+                >
+                <div>
+                  <h2 class="text-2xl font-bold">{{ selectedOrder?.customerName }}</h2>
+                  <p class="text-red-100">Pedido #{{ selectedOrder?.id }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div class="mb-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Detalles del Pedido</h3>
+                <div class="space-y-3">
+                  <div
+                    v-for="item in selectedOrder?.items"
+                    :key="item.id"
+                    class="flex justify-between items-center bg-gray-50 rounded-xl p-4"
+                  >
+                    <div class="flex items-center space-x-3">
+                      <span class="bg-ifood-red text-white font-bold px-3 py-1 rounded-full text-sm">
+                        {{ item.quantity }}x
+                      </span>
+                      <span class="font-semibold text-gray-800">{{ item.name }}</span>
+                    </div>
+                    <span class="font-bold text-gray-800">${{ (item.price * item.quantity).toFixed(2) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 mb-6">
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center text-gray-700">
+                    <span>Subtotal:</span>
+                    <span class="font-semibold">${{ selectedOrder?.subtotal.toFixed(2) }}</span>
+                  </div>
+                  <div class="flex justify-between items-center text-gray-700">
+                    <span>Costo de entrega:</span>
+                    <span class="font-semibold">${{ selectedOrder?.deliveryFee.toFixed(2) }}</span>
+                  </div>
+                  <div class="h-px bg-gray-300"></div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-xl font-bold text-gray-800">Total:</span>
+                    <span class="text-2xl font-black text-ifood-red">${{ selectedOrder?.total.toFixed(2) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="selectedOrder?.deliveryAddress" class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4 mb-6">
+                <h4 class="font-bold text-gray-800 mb-2 flex items-center">
+                  <svg class="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Dirección de Entrega
+                </h4>
+                <p class="text-gray-700">{{ selectedOrder?.deliveryAddress }}</p>
+                <div class="flex items-center space-x-4 mt-3">
+                  <div class="flex items-center text-sm text-gray-600">
+                    <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Tiempo estimado: {{ selectedOrder?.estimatedTime }} min
+                  </div>
+                  <div v-if="selectedOrder?.driverName" class="flex items-center text-sm text-gray-600">
+                    <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                    Conductor: {{ selectedOrder?.driverName }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-yellow-50 border-l-4 border-yellow-400 rounded-lg p-4">
+                <h4 class="font-bold text-gray-800 mb-2">Estado del Pedido</h4>
+                <div class="flex items-center justify-between">
+                  <span
+                    :class="[
+                      'px-4 py-2 rounded-full font-semibold',
+                      selectedOrder?.status === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                      selectedOrder?.status === 'aceptado' ? 'bg-blue-100 text-blue-800' :
+                      selectedOrder?.status === 'preparando' ? 'bg-orange-100 text-orange-800' :
+                      selectedOrder?.status === 'listo' ? 'bg-green-100 text-green-800' :
+                      selectedOrder?.status === 'enviado' ? 'bg-purple-100 text-purple-800' :
+                      'bg-gray-100 text-gray-800'
+                    ]"
+                  >
+                    {{ selectedOrder?.status.charAt(0).toUpperCase() + selectedOrder?.status.slice(1) }}
+                  </span>
+                  <span class="text-sm text-gray-600">
+                    {{ new Date(selectedOrder?.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-gray-50 px-6 py-4 flex space-x-3 border-t border-gray-200">
+              <button
+                @click="closeDetailModal"
+                class="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-xl hover:bg-gray-300 transition-colors duration-200 font-semibold"
+              >
+                Cerrar
+              </button>
+              <button
+                v-if="selectedOrder?.status === 'pendiente'"
+                @click="handleAcceptOrder(selectedOrder.id); closeDetailModal()"
+                class="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-200 font-semibold shadow-md"
+              >
+                Aceptar Pedido
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { 
+import { ref, computed } from 'vue'
+import {
   CurrencyDollarIcon,
   ShoppingCartIcon,
   ExclamationTriangleIcon,
@@ -245,30 +392,116 @@ const recentOrders = ref([
     type: 'pickup',
     estimatedTime: 15,
     createdAt: new Date()
+  },
+  {
+    id: '001245',
+    customerName: 'Ana Martínez',
+    customerImage: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=50&h=50&fit=crop',
+    items: [
+      { id: 4, name: 'Ensalada César', quantity: 1, price: 9.99 },
+      { id: 5, name: 'Jugo Natural', quantity: 1, price: 3.50 }
+    ],
+    subtotal: 13.49,
+    deliveryFee: 2.50,
+    total: 15.99,
+    status: 'aceptado',
+    type: 'delivery',
+    deliveryAddress: 'Calle Reforma 456, Col. Norte',
+    estimatedTime: 20,
+    createdAt: new Date(Date.now() - 300000)
+  },
+  {
+    id: '001244',
+    customerName: 'Carlos Rodríguez',
+    customerImage: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=50&h=50&fit=crop',
+    items: [
+      { id: 6, name: 'Tacos al Pastor', quantity: 3, price: 4.50 },
+      { id: 7, name: 'Agua de Horchata', quantity: 1, price: 2.00 }
+    ],
+    subtotal: 15.50,
+    deliveryFee: 0,
+    total: 15.50,
+    status: 'listo',
+    type: 'pickup',
+    estimatedTime: 5,
+    createdAt: new Date(Date.now() - 600000)
   }
 ])
 
+const showOrderDetailModal = ref(false)
+const selectedOrder = ref(null)
+
 const handleAcceptOrder = (orderId) => {
-  console.log('Accepting order:', orderId)
+  const order = recentOrders.value.find(o => o.id === orderId)
+  if (order) {
+    order.status = 'aceptado'
+    useNotifications().addNotification({
+      type: 'success',
+      message: `Pedido #${orderId} aceptado correctamente`,
+      duration: 3000
+    })
+  }
 }
 
 const handleStartPreparation = (orderId) => {
-  console.log('Starting preparation:', orderId)
+  const order = recentOrders.value.find(o => o.id === orderId)
+  if (order) {
+    order.status = 'preparando'
+    useNotifications().addNotification({
+      type: 'info',
+      message: `Preparando pedido #${orderId}`,
+      duration: 3000
+    })
+  }
 }
 
 const handleOrderReady = (orderId) => {
-  console.log('Order ready:', orderId)
+  const order = recentOrders.value.find(o => o.id === orderId)
+  if (order) {
+    order.status = 'listo'
+    useNotifications().addNotification({
+      type: 'success',
+      message: `Pedido #${orderId} está listo`,
+      duration: 3000
+    })
+  }
 }
 
 const handleDispatchOrder = (orderId) => {
-  console.log('Dispatching order:', orderId)
+  const order = recentOrders.value.find(o => o.id === orderId)
+  if (order) {
+    order.status = 'enviado'
+    order.driverName = 'Carlos Ramírez'
+    useNotifications().addNotification({
+      type: 'success',
+      message: `Pedido #${orderId} despachado para entrega`,
+      duration: 3000
+    })
+  }
 }
 
 const handleCancelOrder = (orderId) => {
-  console.log('Canceling order:', orderId)
+  const order = recentOrders.value.find(o => o.id === orderId)
+  if (order && confirm(`¿Estás seguro de cancelar el pedido #${orderId}?`)) {
+    order.status = 'cancelado'
+    useNotifications().addNotification({
+      type: 'warning',
+      message: `Pedido #${orderId} cancelado`,
+      duration: 3000
+    })
+    setTimeout(() => {
+      recentOrders.value = recentOrders.value.filter(o => o.id !== orderId)
+    }, 2000)
+  }
 }
 
 const handleViewDetails = (order) => {
-  console.log('Viewing order details:', order)
+  selectedOrder.value = order
+  showOrderDetailModal.value = true
+}
+
+const closeDetailModal = () => {
+  showOrderDetailModal.value = false
+  selectedOrder.value = null
 }
 </script>
