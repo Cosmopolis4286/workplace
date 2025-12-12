@@ -258,8 +258,9 @@
         </div>
 
         <div class="grid grid-cols-7 gap-2">
-          <div v-for="date in calendarDays" 
-               :key="date.date" 
+          <div v-for="date in calendarDays"
+               :key="date.date"
+               @click="openCalendarModal(date)"
                :class="[
                  'min-h-[80px] p-2 border rounded-lg transition-all duration-200 hover:shadow-md cursor-pointer',
                  date.isToday ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-gray-200',
@@ -269,8 +270,8 @@
               {{ date.day }}
             </div>
             <div class="space-y-1">
-              <div v-for="order in date.orders" 
-                   :key="order.id" 
+              <div v-for="order in date.orders"
+                   :key="order.id"
                    class="text-xs p-1 bg-blue-100 text-blue-800 rounded truncate">
                 {{ order.time }} - {{ order.customer }}
               </div>
@@ -332,6 +333,61 @@
         </div>
       </div>
     </div>
+
+    <!-- Calendar Date Modal -->
+    <div v-if="showCalendarModal && selectedDate" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-bold text-gray-800">
+            {{ selectedDate ? `${selectedDate.day} de enero de 2024` : 'Seleccionar fecha' }}
+          </h3>
+          <button @click="showCalendarModal = false" class="text-gray-500 hover:text-gray-700 text-2xl">
+            ×
+          </button>
+        </div>
+
+        <div v-if="selectedDate && selectedDate.hasOrders" class="mb-6">
+          <h4 class="text-sm font-semibold text-gray-700 mb-3">Pedidos en esta fecha:</h4>
+          <div class="space-y-2 max-h-48 overflow-y-auto">
+            <div v-for="order in selectedDate.orders" :key="order.id" class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <div class="flex justify-between items-start">
+                <div>
+                  <p class="font-semibold text-gray-800">{{ order.customer }}</p>
+                  <p class="text-sm text-gray-600">Hora: {{ order.time }}</p>
+                </div>
+                <button class="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">
+                  Editar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="mb-6 text-center text-gray-600">
+          <p class="text-sm">No hay pedidos programados para esta fecha</p>
+        </div>
+
+        <div class="space-y-4 mb-6">
+          <input type="text" placeholder="Nombre del cliente" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+          <input type="time" placeholder="Hora" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+          <select class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            <option>Seleccionar tipo</option>
+            <option>Pedido</option>
+            <option>Agendamiento</option>
+          </select>
+          <textarea placeholder="Notas" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" rows="2"></textarea>
+        </div>
+
+        <div class="flex space-x-3">
+          <button @click="showCalendarModal = false" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200">
+            Cancelar
+          </button>
+          <button class="flex-1 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200">
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -350,6 +406,8 @@ definePageMeta({
 // Modal states
 const showNewOrderModal = ref(false)
 const showScheduleModal = ref(false)
+const showCalendarModal = ref(false)
+const selectedDate = ref(null)
 
 // Stats data
 const stats = ref({
@@ -443,6 +501,12 @@ const calendarDays = computed(() => {
   
   return days
 })
+
+// Calendar modal functions
+const openCalendarModal = (date) => {
+  selectedDate.value = date
+  showCalendarModal.value = true
+}
 
 // Helper functions
 const getStatusClass = (status) => {
