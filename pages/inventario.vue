@@ -12,7 +12,7 @@
           <ArrowDownIcon class="h-5 w-5 mr-2" />
           Exportar
         </button>
-        <button class="btn-primary flex items-center">
+        <button @click="showProductModal = true" class="btn-primary flex items-center">
           <PlusIcon class="h-5 w-5 mr-2" />
           Agregar Producto
         </button>
@@ -57,7 +57,7 @@
       <div class="card p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Acciones Rápidas</h3>
         <div class="space-y-3">
-          <button class="w-full btn-primary">
+          <button @click="showProductModal = true" class="w-full btn-primary">
             Agregar Producto
           </button>
           <button class="w-full btn-secondary">
@@ -69,34 +69,42 @@
         </div>
       </div>
     </div>
+
+    <!-- Product Modal -->
+    <ProductModal
+      :is-open="showProductModal"
+      :product="selectedProduct"
+      :categories="categories"
+      @close="closeProductModal"
+      @save="saveProduct"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { 
+import {
   CubeIcon,
   ArrowDownIcon,
   PlusIcon
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import ProductModal from '~/components/modals/ProductModal.vue'
+import { useInventory } from '~/composables/useInventory'
 
 definePageMeta({
   layout: 'default'
 })
+
+const { products, categories, addProduct, updateProduct, deleteProduct: removeProduct } = useInventory()
 
 const breadcrumbItems = ref([
   { label: 'Dashboard', to: '/' },
   { label: 'Inventario' }
 ])
 
-// Sample inventory data
-const products = ref([
-  { id: 1, name: 'Hamburguesa Clásica', category: 'Hamburguesas', price: 12.99, stock: 45, status: 'in-stock' },
-  { id: 2, name: 'Pizza Margherita', category: 'Pizzas', price: 18.50, stock: 3, status: 'low-stock' },
-  { id: 3, name: 'Ensalada César', category: 'Ensaladas', price: 9.99, stock: 0, status: 'out-of-stock' },
-  { id: 4, name: 'Tacos al Pastor', category: 'Tacos', price: 8.75, stock: 28, status: 'in-stock' }
-])
+const showProductModal = ref(false)
+const selectedProduct = ref(null)
 
 const headerStats = computed(() => {
   const totalProducts = products.value.length
@@ -111,4 +119,17 @@ const headerStats = computed(() => {
     { label: 'Agotados', value: outOfStockProducts.toString(), change: '0%', changeType: 'neutral' }
   ]
 })
+
+const saveProduct = (productData) => {
+  if (selectedProduct.value) {
+    updateProduct(selectedProduct.value.id, productData)
+  } else {
+    addProduct(productData)
+  }
+}
+
+const closeProductModal = () => {
+  showProductModal.value = false
+  selectedProduct.value = null
+}
 </script>
