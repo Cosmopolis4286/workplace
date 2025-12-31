@@ -12,7 +12,7 @@
           <ArrowDownIcon class="h-5 w-5 mr-2" />
           Exportar
         </button>
-        <button class="btn-primary flex items-center">
+        <button @click="showExpenseModal = true" class="btn-primary flex items-center">
           <PlusIcon class="h-5 w-5 mr-2" />
           Nuevo Gasto
         </button>
@@ -58,7 +58,7 @@
       <div class="card p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Acciones Rápidas</h3>
         <div class="space-y-3">
-          <button class="w-full btn-primary">
+          <button @click="showExpenseModal = true" class="w-full btn-primary">
             Nuevo Gasto
           </button>
           <button class="w-full btn-secondary">
@@ -70,26 +70,42 @@
         </div>
       </div>
     </div>
+
+    <!-- Expense Modal -->
+    <ExpenseModal
+      :is-open="showExpenseModal"
+      :expense="selectedExpense"
+      :categories="expenseCategories"
+      @close="closeExpenseModal"
+      @save="saveExpense"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { 
+import {
   CurrencyDollarIcon,
   ArrowDownIcon,
   PlusIcon
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import ExpenseModal from '~/components/modals/ExpenseModal.vue'
+import { useExpenses } from '~/composables/useExpenses'
 
 definePageMeta({
   layout: 'default'
 })
 
+const { expenses, expenseCategories, addExpense, updateExpense, deleteExpense: removeExpense } = useExpenses()
+
 const breadcrumbItems = ref([
   { label: 'Dashboard', to: '/' },
   { label: 'Control de Gastos' }
 ])
+
+const showExpenseModal = ref(false)
+const selectedExpense = ref(null)
 
 const headerStats = ref([
   { label: 'Total Mensual', value: '$8,450', change: '+15.2%', changeType: 'increase' },
@@ -97,4 +113,17 @@ const headerStats = ref([
   { label: 'Pagados', value: '$7,200', change: '+22.1%', changeType: 'increase' },
   { label: 'Promedio Diario', value: '$280', change: '+5.3%', changeType: 'increase' }
 ])
+
+const saveExpense = (expenseData) => {
+  if (selectedExpense.value) {
+    updateExpense(selectedExpense.value.id, expenseData)
+  } else {
+    addExpense(expenseData)
+  }
+}
+
+const closeExpenseModal = () => {
+  showExpenseModal.value = false
+  selectedExpense.value = null
+}
 </script>
