@@ -60,10 +60,10 @@
           <button @click="showProductModal = true" class="w-full btn-primary">
             Agregar Producto
           </button>
-          <button class="w-full btn-secondary">
+          <button @click="showCategoryModal = true" class="w-full btn-secondary">
             Gestionar Categorías
           </button>
-          <button class="w-full btn-secondary">
+          <button @click="showStockReportModal = true" class="w-full btn-secondary">
             Reporte de Stock
           </button>
         </div>
@@ -78,6 +78,22 @@
       @close="closeProductModal"
       @save="saveProduct"
     />
+
+    <!-- Category Modal -->
+    <CategoryModal
+      :is-open="showCategoryModal"
+      :categories="categories"
+      @close="closeCategoryModal"
+      @add="handleAddCategory"
+      @delete="handleDeleteCategory"
+    />
+
+    <!-- Stock Report Modal -->
+    <StockReportModal
+      :is-open="showStockReportModal"
+      :products="products"
+      @close="closeStockReportModal"
+    />
   </div>
 </template>
 
@@ -90,13 +106,15 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
+import CategoryModal from '~/components/modals/CategoryModal.vue'
+import StockReportModal from '~/components/modals/StockReportModal.vue'
 import { useInventory } from '~/composables/useInventory'
 
 definePageMeta({
   layout: 'default'
 })
 
-const { products, categories, addProduct, updateProduct, deleteProduct: removeProduct } = useInventory()
+const { products, categories, addProduct, updateProduct, deleteProduct: removeProduct, addCategory, deleteCategory } = useInventory()
 
 const breadcrumbItems = ref([
   { label: 'Dashboard', to: '/' },
@@ -105,6 +123,8 @@ const breadcrumbItems = ref([
 
 const showProductModal = ref(false)
 const selectedProduct = ref(null)
+const showCategoryModal = ref(false)
+const showStockReportModal = ref(false)
 
 const headerStats = computed(() => {
   const totalProducts = products.value.length
@@ -131,5 +151,21 @@ const saveProduct = (productData) => {
 const closeProductModal = () => {
   showProductModal.value = false
   selectedProduct.value = null
+}
+
+const closeCategoryModal = () => {
+  showCategoryModal.value = false
+}
+
+const handleAddCategory = (category) => {
+  addCategory(category)
+}
+
+const handleDeleteCategory = (id) => {
+  deleteCategory(id)
+}
+
+const closeStockReportModal = () => {
+  showStockReportModal.value = false
 }
 </script>

@@ -107,7 +107,7 @@ export const useInventory = () => {
         product.stock = quantity
       }
       product.updatedAt = new Date()
-      
+
       // Update status based on stock
       if (product.stock === 0) {
         product.status = 'agotado'
@@ -116,6 +116,22 @@ export const useInventory = () => {
       } else {
         product.status = 'disponible'
       }
+    }
+  }
+
+  const addCategory = (category) => {
+    const newCategory = {
+      ...category,
+      id: Math.max(...categories.value.map(c => c.id), 0) + 1
+    }
+    categories.value.push(newCategory)
+    return newCategory
+  }
+
+  const deleteCategory = (id) => {
+    const index = categories.value.findIndex(c => c.id === id)
+    if (index !== -1) {
+      categories.value.splice(index, 1)
     }
   }
 
@@ -129,6 +145,8 @@ export const useInventory = () => {
     addProduct,
     updateProduct,
     deleteProduct,
-    updateStock
+    updateStock,
+    addCategory,
+    deleteCategory
   }
 }
