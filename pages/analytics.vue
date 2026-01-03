@@ -12,7 +12,7 @@
           <AnalyticsArrowDownIcon class="h-5 w-5 mr-2" />
           Exportar
         </button>
-        <button class="btn-primary flex items-center">
+        <button @click="showConfigModal = true" class="btn-primary flex items-center">
           <ChartBarIcon class="h-5 w-5 mr-2" />
           Configurar
         </button>
@@ -227,12 +227,19 @@
         </div>
       </div>
     </div>
+
+    <!-- Analytics Config Modal -->
+    <AnalyticsConfigModal
+      :is-open="showConfigModal"
+      @close="showConfigModal = false"
+      @save="saveAnalyticsConfig"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { 
+import {
   ArrowUpIcon as AnalyticsArrowUpIcon,
   ArrowDownIcon as AnalyticsArrowDownIcon,
   CurrencyDollarIcon,
@@ -244,6 +251,7 @@ import LineChart from '~/components/charts/LineChart.vue'
 import BarChart from '~/components/charts/BarChart.vue'
 import DoughnutChart from '~/components/charts/DoughnutChart.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import AnalyticsConfigModal from '~/components/modals/AnalyticsConfigModal.vue'
 
 definePageMeta({
   layout: 'default'
@@ -251,6 +259,7 @@ definePageMeta({
 
 const selectedPeriod = ref('30d')
 const compareWith = ref('previous')
+const showConfigModal = ref(false)
 
 const headerStats = ref([
   { label: 'Ingresos', value: '$24,580', change: '+18.2%', changeType: 'increase' },
@@ -315,4 +324,8 @@ const customerSegmentsChartData = computed(() => ({
     borderWidth: 0
   }]
 }))
+
+const saveAnalyticsConfig = (config) => {
+  console.log('Analytics config saved:', config)
+}
 </script>
