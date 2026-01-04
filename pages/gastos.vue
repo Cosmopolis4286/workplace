@@ -61,10 +61,10 @@
           <button @click="showExpenseModal = true" class="w-full btn-primary">
             Nuevo Gasto
           </button>
-          <button @click="showBudgetModal = true" class="w-full btn-secondary">
+          <button @click="router.push('/')" class="w-full btn-secondary">
             Ver Presupuesto
           </button>
-          <button @click="showReportModal = true" class="w-full btn-secondary">
+          <button @click="router.push('/reportes')" class="w-full btn-secondary">
             Generar Reporte
           </button>
         </div>
@@ -79,20 +79,6 @@
       @close="closeExpenseModal"
       @save="saveExpense"
     />
-
-    <!-- Budget Modal -->
-    <BudgetModal
-      :is-open="showBudgetModal"
-      @close="showBudgetModal = false"
-      @save="saveBudget"
-    />
-
-    <!-- Report Modal -->
-    <ExpenseReportModal
-      :is-open="showReportModal"
-      @close="showReportModal = false"
-      @save="generateReport"
-    />
   </div>
 </template>
 
@@ -105,9 +91,9 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ExpenseModal from '~/components/modals/ExpenseModal.vue'
-import BudgetModal from '~/components/modals/BudgetModal.vue'
-import ExpenseReportModal from '~/components/modals/ExpenseReportModal.vue'
 import { useExpenses } from '~/composables/useExpenses'
+
+const router = useRouter()
 
 definePageMeta({
   layout: 'default'
@@ -121,8 +107,6 @@ const breadcrumbItems = ref([
 ])
 
 const showExpenseModal = ref(false)
-const showBudgetModal = ref(false)
-const showReportModal = ref(false)
 const selectedExpense = ref(null)
 
 const headerStats = ref([
@@ -143,13 +127,5 @@ const saveExpense = (expenseData) => {
 const closeExpenseModal = () => {
   showExpenseModal.value = false
   selectedExpense.value = null
-}
-
-const saveBudget = (budgetData) => {
-  console.log('Budget saved:', budgetData)
-}
-
-const generateReport = (reportData) => {
-  console.log('Report generated:', reportData)
 }
 </script>
