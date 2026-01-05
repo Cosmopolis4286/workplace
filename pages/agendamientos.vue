@@ -132,10 +132,10 @@
               </span>
               
               <div class="flex space-x-2">
-                <button class="p-2 text-primary-600 hover:text-primary-700">
+                <button @click="handleEdit(booking)" class="p-2 text-primary-600 hover:text-primary-700">
                   <PencilIcon class="h-4 w-4" />
                 </button>
-                <button class="p-2 text-red-600 hover:text-red-700">
+                <button @click="handleCancel(booking)" class="p-2 text-red-600 hover:text-red-700">
                   <TrashIcon class="h-4 w-4" />
                 </button>
               </div>
@@ -188,20 +188,23 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { 
-  PlusIcon, 
+import {
+  PlusIcon,
   CalendarIcon,
   ClockIcon,
   CheckCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   PencilIcon,
-  TrashIcon 
+  TrashIcon
 } from '@heroicons/vue/24/outline'
+import { useAlert } from '~/composables/useAlert'
 
 definePageMeta({
   layout: 'default'
 })
+
+const alert = useAlert()
 
 const viewMode = ref('list')
 const selectedStatus = ref('')
@@ -288,5 +291,41 @@ function getStatusText(status) {
     'cancelada': 'Cancelada'
   }
   return statusMap[status] || status
+}
+
+async function handleEdit(booking) {
+  const result = await alert.confirm(
+    'Editar Reserva',
+    `¿Deseas editar la reserva de ${booking.customer}?`,
+    'Editar',
+    'Cancelar'
+  )
+
+  if (result.isConfirmed) {
+    alert.loading('Actualizando reserva...')
+    setTimeout(() => {
+      alert.success('Éxito', 'Reserva actualizada correctamente')
+    }, 1500)
+  }
+}
+
+async function handleCancel(booking) {
+  const result = await alert.confirm(
+    'Cancelar Reserva',
+    `¿Estás seguro de que deseas cancelar la reserva de ${booking.customer}? Esta acción no se puede deshacer.`,
+    'Cancelar Reserva',
+    'Mantener Reserva'
+  )
+
+  if (result.isConfirmed) {
+    alert.loading('Cancelando reserva...')
+    setTimeout(() => {
+      const index = bookings.value.findIndex(b => b.id === booking.id)
+      if (index !== -1) {
+        bookings.value[index].status = 'cancelada'
+      }
+      alert.success('Éxito', 'Reserva cancelada correctamente')
+    }, 1500)
+  }
 }
 </script>
