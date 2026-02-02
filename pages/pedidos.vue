@@ -107,16 +107,16 @@
             <Calendar class="w-8 h-8 mx-auto mb-2" />
             <span class="block text-sm font-semibold">Programar Servicio</span>
           </button>
-          
-          <button class="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-xl hover:scale-105 transition-transform duration-200 shadow-lg">
+
+          <NuxtLink to="/clientes" class="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-4 rounded-xl hover:scale-105 transition-transform duration-200 shadow-lg flex flex-col items-center justify-center">
             <Users class="w-8 h-8 mx-auto mb-2" />
             <span class="block text-sm font-semibold">Gestionar Clientes</span>
-          </button>
-          
-          <button class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-xl hover:scale-105 transition-transform duration-200 shadow-lg">
+          </NuxtLink>
+
+          <NuxtLink to="/reportes" class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-xl hover:scale-105 transition-transform duration-200 shadow-lg flex flex-col items-center justify-center">
             <BarChart3 class="w-8 h-8 mx-auto mb-2" />
             <span class="block text-sm font-semibold">Ver Reportes</span>
-          </button>
+          </NuxtLink>
         </div>
       </div>
 
@@ -164,10 +164,10 @@
               </div>
 
               <div class="flex space-x-2">
-                <button class="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-3 rounded-lg hover:scale-105 transition-transform duration-200 text-sm">
+                <button @click="viewOrderDetails(order)" class="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-3 rounded-lg hover:scale-105 transition-transform duration-200 text-sm font-semibold">
                   Ver Detalles
                 </button>
-                <button class="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-2 px-3 rounded-lg hover:scale-105 transition-transform duration-200 text-sm">
+                <button @click="updateOrderStatus(order)" class="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-2 px-3 rounded-lg hover:scale-105 transition-transform duration-200 text-sm font-semibold">
                   Actualizar Estado
                 </button>
               </div>
@@ -334,6 +334,101 @@
       </div>
     </div>
 
+    <!-- Order Details Modal -->
+    <div v-if="showOrderDetailsModal && selectedOrder" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-2xl p-6 w-full max-w-2xl mx-4 shadow-2xl">
+        <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+          <h3 class="text-2xl font-bold text-gray-800">Detalles del Pedido</h3>
+          <button @click="closeOrderDetailsModal" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+        </div>
+
+        <div class="space-y-6">
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <p class="text-sm text-gray-600 font-semibold">Cliente</p>
+              <p class="text-lg font-bold text-gray-800">{{ selectedOrder.customer }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600 font-semibold">Número de Pedido</p>
+              <p class="text-lg font-bold text-gray-800">{{ selectedOrder.id }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600 font-semibold">Hora</p>
+              <p class="text-lg font-bold text-gray-800">{{ selectedOrder.time }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600 font-semibold">Total</p>
+              <p class="text-lg font-bold text-green-600">${{ selectedOrder.total }}</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-sm text-gray-600 font-semibold mb-2">Estado Actual</p>
+            <span :class="getStatusClass(selectedOrder.status)" class="px-4 py-2 rounded-full text-sm font-semibold inline-block">
+              {{ selectedOrder.status }}
+            </span>
+          </div>
+        </div>
+
+        <div class="flex space-x-3 mt-8 pt-6 border-t border-gray-200">
+          <button @click="closeOrderDetailsModal" class="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-semibold">
+            Cerrar
+          </button>
+          <button @click="updateOrderStatus(selectedOrder); closeOrderDetailsModal()" class="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 font-semibold">
+            Actualizar Estado
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Update Modal -->
+    <div v-if="showStatusModal && selectedOrder" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+        <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+          <h3 class="text-2xl font-bold text-gray-800">Actualizar Estado</h3>
+          <button @click="closeStatusModal" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+        </div>
+
+        <div class="mb-6">
+          <p class="text-sm text-gray-600 font-semibold mb-3">Pedido: {{ selectedOrder.id }}</p>
+          <p class="text-sm text-gray-600 font-semibold mb-4">Estado Actual: <span class="font-bold text-gray-800">{{ selectedOrder.status }}</span></p>
+
+          <p class="text-sm text-gray-600 font-semibold mb-3">Seleccionar nuevo estado:</p>
+          <div class="space-y-2">
+            <button
+              @click="changeStatus('Pendiente')"
+              :class="['w-full p-3 rounded-lg font-semibold transition-all duration-200 text-left', selectedOrder.status === 'Pendiente' ? 'bg-yellow-100 border-2 border-yellow-500 text-yellow-800' : 'bg-yellow-50 border-2 border-yellow-200 text-yellow-800 hover:border-yellow-400']">
+              Pendiente
+            </button>
+            <button
+              @click="changeStatus('Preparando')"
+              :class="['w-full p-3 rounded-lg font-semibold transition-all duration-200 text-left', selectedOrder.status === 'Preparando' ? 'bg-blue-100 border-2 border-blue-500 text-blue-800' : 'bg-blue-50 border-2 border-blue-200 text-blue-800 hover:border-blue-400']">
+              Preparando
+            </button>
+            <button
+              @click="changeStatus('Listo')"
+              :class="['w-full p-3 rounded-lg font-semibold transition-all duration-200 text-left', selectedOrder.status === 'Listo' ? 'bg-green-100 border-2 border-green-500 text-green-800' : 'bg-green-50 border-2 border-green-200 text-green-800 hover:border-green-400']">
+              Listo
+            </button>
+            <button
+              @click="changeStatus('En Delivery')"
+              :class="['w-full p-3 rounded-lg font-semibold transition-all duration-200 text-left', selectedOrder.status === 'En Delivery' ? 'bg-purple-100 border-2 border-purple-500 text-purple-800' : 'bg-purple-50 border-2 border-purple-200 text-purple-800 hover:border-purple-400']">
+              En Delivery
+            </button>
+            <button
+              @click="changeStatus('Completado')"
+              :class="['w-full p-3 rounded-lg font-semibold transition-all duration-200 text-left', selectedOrder.status === 'Completado' ? 'bg-gray-100 border-2 border-gray-500 text-gray-800' : 'bg-gray-50 border-2 border-gray-200 text-gray-800 hover:border-gray-400']">
+              Completado
+            </button>
+          </div>
+        </div>
+
+        <button @click="closeStatusModal" class="w-full px-4 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-semibold">
+          Cancelar
+        </button>
+      </div>
+    </div>
+
     <!-- Calendar Date Modal -->
     <div v-if="showCalendarModal && selectedDate" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
@@ -407,7 +502,10 @@ definePageMeta({
 const showNewOrderModal = ref(false)
 const showScheduleModal = ref(false)
 const showCalendarModal = ref(false)
+const showOrderDetailsModal = ref(false)
+const showStatusModal = ref(false)
 const selectedDate = ref(null)
+const selectedOrder = ref(null)
 
 // Stats data
 const stats = ref({
@@ -506,6 +604,40 @@ const calendarDays = computed(() => {
 const openCalendarModal = (date) => {
   selectedDate.value = date
   showCalendarModal.value = true
+}
+
+// Order details functions
+const viewOrderDetails = (order) => {
+  selectedOrder.value = order
+  showOrderDetailsModal.value = true
+}
+
+const closeOrderDetailsModal = () => {
+  showOrderDetailsModal.value = false
+  selectedOrder.value = null
+}
+
+// Status update functions
+const updateOrderStatus = (order) => {
+  selectedOrder.value = order
+  showStatusModal.value = true
+}
+
+const closeStatusModal = () => {
+  showStatusModal.value = false
+  selectedOrder.value = null
+}
+
+const changeStatus = (newStatus) => {
+  if (selectedOrder.value) {
+    selectedOrder.value.status = newStatus
+    useNotifications().addNotification({
+      type: 'success',
+      message: `Estado actualizado a: ${newStatus}`,
+      duration: 3000
+    })
+    closeStatusModal()
+  }
 }
 
 // Helper functions
