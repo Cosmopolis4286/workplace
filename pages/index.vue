@@ -84,8 +84,8 @@
 
     <!-- Recent Orders -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <div class="card-premium p-6">
-        <div class="flex items-center justify-between mb-6">
+      <div class="card-premium p-6 flex flex-col h-[600px]">
+        <div class="flex items-center justify-between mb-6 flex-shrink-0">
           <div class="flex items-center">
             <div class="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg mr-3">
               <ShoppingCartIcon class="h-6 w-6 text-white" />
@@ -96,7 +96,7 @@
             {{ recentOrders.length }} activos
           </span>
         </div>
-        <div class="space-y-4">
+        <div class="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
           <OrderCard
             v-for="order in recentOrders"
             :key="order.id"

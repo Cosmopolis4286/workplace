@@ -219,4 +219,21 @@
   .responsive-margin {
     @apply m-4 sm:m-6 lg:m-8;
   }
+
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(234, 29, 44, 0.5) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gradient-to-b from-red-400 to-red-600 rounded-full hover:from-red-500 hover:to-red-700 transition-colors duration-300;
+  }
 }
