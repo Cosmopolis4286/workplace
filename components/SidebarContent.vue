@@ -20,10 +20,10 @@
       <div class="mb-2">
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Acceso Rápido</span>
       </div>
-      <NuxtLink 
-        to="/gastos" 
+      <NuxtLink
+        to="/gastos"
         @click="$emit('navigate')"
-        class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-red-50 to-red-100 text-red-700 hover:from-red-100 hover:to-red-200 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md"
+        class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-red-50 to-red-100 text-red-700 hover:from-red-100 hover:to-red-200 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md mb-2"
       >
         <svg class="mr-3 h-5 w-5 text-red-600 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
@@ -33,10 +33,17 @@
           ¡Rápido!
         </span>
       </NuxtLink>
-      <NuxtLink to="/pedidos" class="group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-center">
+      <NuxtLink to="/pedidos" class="group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-center mb-2">
         <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         <ShoppingCartIcon class="relative h-6 w-6 mx-auto mb-2 transform group-hover:scale-110 transition-transform duration-300" />
         <span class="relative text-sm">Pedidos</span>
+      </NuxtLink>
+      <NuxtLink to="/cliente-dashboard" @click="$emit('navigate')" class="group relative overflow-hidden bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-center">
+        <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        <svg class="relative h-6 w-6 mx-auto mb-2 transform group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span class="relative text-sm">Mi Panel</span>
       </NuxtLink>
     </div>
 
