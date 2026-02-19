@@ -46,7 +46,7 @@ const props = defineProps({
     type: String,
     required: true
   },
-  icon: Object,
+  icon: [Object, Function],
   loading: Boolean,
   disabled: Boolean
 })

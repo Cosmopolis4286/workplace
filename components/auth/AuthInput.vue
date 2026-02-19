@@ -65,7 +65,7 @@ const props = defineProps({
   },
   label: String,
   placeholder: String,
-  icon: Object,
+  icon: [Object, Function],
   error: String,
   hint: String,
   required: Boolean,

@@ -44,7 +44,7 @@ import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/vue/24/outline'
 const props = defineProps({
   title: String,
   value: String,
-  icon: Object,
+  icon: [Object, Function],
   change: String,
   changeType: String,
   period: {
