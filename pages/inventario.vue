@@ -109,11 +109,6 @@ import ProductModal from '~/components/modals/ProductModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
 import StockReportModal from '~/components/modals/StockReportModal.vue'
 import { useInventory } from '~/composables/useInventory'
-
-definePageMeta({
-  layout: 'default'
-})
-
 const { products, categories, addProduct, updateProduct, deleteProduct: removeProduct, addCategory, deleteCategory } = useInventory()
 
 const breadcrumbItems = ref([

@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Mi Perfil"
-      subtitle="Gestiona tu información personal y preferencias"
+      description="Gestiona tu información personal y preferencias"
       :icon="UserCircleIcon"
     />
 
@@ -197,10 +197,7 @@
 <script setup>
 import { ref } from 'vue'
 import { UserCircleIcon, CameraIcon, LockClosedIcon } from '@heroicons/vue/24/outline'
-
-definePageMeta({
-  layout: 'default'
-})
+import PageHeader from '~/components/ui/PageHeader.vue'
 
 const profileData = ref({
   name: 'Juan Pérez',

@@ -232,12 +232,6 @@ import {
   Users, Search, Filter, Plus, Eye, Edit, Trash2, 
   TrendingUp, Activity, DollarSign, Star, ChevronLeft, ChevronRight 
 } from 'lucide-vue-next'
-
-definePageMeta({
-  layout: 'default',
-  middleware: 'auth'
-})
-
 // Stats data
 const stats = ref({
   totalClients: 1247,

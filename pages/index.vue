@@ -356,10 +356,6 @@ import {
 import StatsCard from '~/components/StatsCard.vue'
 import OrderCard from '~/components/OrderCard.vue'
 
-definePageMeta({
-  layout: 'default'
-})
-
 const recentOrders = ref([
   {
     id: '001247',

@@ -175,11 +175,6 @@ import {
   UserPlusIcon
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
-
-definePageMeta({
-  layout: false
-})
-
 const { login } = useAuth()
 
 const form = reactive({
