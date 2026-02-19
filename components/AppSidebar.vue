@@ -24,22 +24,12 @@
       leave-from-class="translate-x-0"
       leave-to-class="-translate-x-full"
     >
-      <div 
+      <div
         v-if="open"
         class="relative flex-1 flex flex-col max-w-xs w-full bg-gradient-to-b from-white via-white to-gray-50 shadow-2xl border-r-4 border-ifood-red/20"
       >
-        <!-- Close Button -->
-        <div class="absolute top-0 right-0 -mr-12 pt-2">
-          <button 
-            @click="$emit('update:open', false)" 
-            class="ml-1 flex items-center justify-center h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white hover:bg-white/30 transition-all duration-300 transform hover:scale-110 hover:rotate-90"
-          >
-            <XMarkIcon class="h-6 w-6 text-white drop-shadow-lg" />
-          </button>
-        </div>
-        
         <!-- Mobile Header -->
-        <div class="px-6 py-4 bg-gradient-to-r from-ifood-red to-red-600 text-white">
+        <div class="px-6 py-4 bg-gradient-to-r from-ifood-red to-red-600 text-white flex items-center justify-between">
           <div class="flex items-center space-x-3">
             <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
               <span class="text-white font-bold text-lg">iF</span>
@@ -49,6 +39,13 @@
               <p class="text-xs text-red-100">Panel de Control</p>
             </div>
           </div>
+          <!-- Close Button Inside Header -->
+          <button
+            @click="$emit('update:open', false)"
+            class="flex items-center justify-center h-10 w-10 rounded-lg bg-white/20 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white hover:bg-white/30 transition-all duration-300 transform hover:scale-110 hover:rotate-90 flex-shrink-0"
+          >
+            <XMarkIcon class="h-6 w-6 text-white drop-shadow-lg" />
+          </button>
         </div>
         
         <!-- Mobile Content -->
