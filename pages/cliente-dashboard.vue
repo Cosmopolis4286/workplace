@@ -302,12 +302,6 @@ import {
   ShoppingBag, User, Bell, ShoppingCart, DollarSign, Clock, CheckCircle,
   Plus, MessageSquare, History, TrendingUp
 } from 'lucide-vue-next'
-
-definePageMeta({
-  layout: 'default',
-  middleware: 'auth'
-})
-
 const showDetailsModal = ref(false)
 const showNewOrderModal = ref(false)
 const selectedOrder = ref(null)

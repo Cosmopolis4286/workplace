@@ -94,11 +94,6 @@ import ExpenseModal from '~/components/modals/ExpenseModal.vue'
 import { useExpenses } from '~/composables/useExpenses'
 
 const router = useRouter()
-
-definePageMeta({
-  layout: 'default'
-})
-
 const { expenses, expenseCategories, addExpense, updateExpense, deleteExpense: removeExpense } = useExpenses()
 
 const breadcrumbItems = ref([

@@ -199,11 +199,6 @@ import {
   TrashIcon
 } from '@heroicons/vue/24/outline'
 import { useAlert } from '~/composables/useAlert'
-
-definePageMeta({
-  layout: 'default'
-})
-
 const alert = useAlert()
 
 const viewMode = ref('list')

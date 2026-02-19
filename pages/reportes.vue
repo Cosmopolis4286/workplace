@@ -206,11 +206,6 @@ import StatsCard from '~/components/StatsCard.vue'
 import LineChart from '~/components/charts/LineChart.vue'
 import BarChart from '~/components/charts/BarChart.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
-
-definePageMeta({
-  layout: 'default'
-})
-
 const selectedPeriod = ref('month')
 const startDate = ref('')
 const endDate = ref('')

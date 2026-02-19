@@ -492,12 +492,6 @@ import {
   ShoppingCart, Calendar, Clock, Plus, Users, BarChart3, 
   TrendingUp, DollarSign 
 } from 'lucide-vue-next'
-
-definePageMeta({
-  layout: 'default',
-  middleware: 'auth'
-})
-
 // Modal states
 const showNewOrderModal = ref(false)
 const showScheduleModal = ref(false)

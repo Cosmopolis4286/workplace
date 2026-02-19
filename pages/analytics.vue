@@ -252,11 +252,6 @@ import BarChart from '~/components/charts/BarChart.vue'
 import DoughnutChart from '~/components/charts/DoughnutChart.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import AnalyticsConfigModal from '~/components/modals/AnalyticsConfigModal.vue'
-
-definePageMeta({
-  layout: 'default'
-})
-
 const selectedPeriod = ref('30d')
 const compareWith = ref('previous')
 const showConfigModal = ref(false)

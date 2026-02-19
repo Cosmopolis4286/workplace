@@ -207,12 +207,6 @@ import {
   Truck, MapPin, Clock, Users, Star, Phone, DollarSign, 
   Plus, UserPlus, TrendingUp 
 } from 'lucide-vue-next'
-
-definePageMeta({
-  layout: 'default',
-  middleware: 'auth'
-})
-
 // Stats data
 const stats = ref({
   activeDeliveries: 24,

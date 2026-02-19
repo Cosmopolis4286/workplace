@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Configuración"
-      subtitle="Personaliza tu experiencia y gestiona las opciones del sistema"
+      description="Personaliza tu experiencia y gestiona las opciones del sistema"
       :icon="CogIcon"
     />
 
@@ -237,10 +237,7 @@ import {
   CurrencyDollarIcon,
   ClockIcon
 } from '@heroicons/vue/24/outline'
-
-definePageMeta({
-  layout: 'default'
-})
+import PageHeader from '~/components/ui/PageHeader.vue'
 
 const restaurantData = ref({
   name: 'Mi Restaurante',

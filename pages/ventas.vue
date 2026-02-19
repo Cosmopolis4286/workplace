@@ -66,11 +66,6 @@ import {
   PlusIcon
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-
-definePageMeta({
-  layout: 'default'
-})
-
 const breadcrumbItems = ref([
   { label: 'Dashboard', to: '/' },
   { label: 'Ventas' }
