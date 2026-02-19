@@ -1,67 +1,49 @@
 <template>
-  <div class="flex h-full flex-col">
-    <!-- Logo Section -->
-    <div class="flex h-16 shrink-0 items-center px-4 border-b border-gray-200/20">
-      <div class="flex items-center space-x-3">
-        <div class="w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
-          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-lg font-bold text-gray-900">RestaurantePro</h1>
-          <p class="text-xs text-gray-500">Panel de Control</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Quick Access Section -->
-    <div class="px-4 py-3 border-b border-gray-200/20">
+  <div class="flex h-full flex-col bg-gradient-to-b from-white via-white to-gray-50">
+    <!-- Quick Access Section (Reordenado para estar primero) -->
+    <div class="px-4 py-4 border-b border-gray-100">
       <div class="mb-3">
-        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Acceso Rápido</span>
+        <h3 class="text-xs font-bold text-gray-600 uppercase tracking-widest">Acceso Rápido</h3>
       </div>
 
-      <!-- Quick Action Buttons Grid -->
-      <div class="grid grid-cols-2 gap-2 mb-3">
+      <!-- Quick Action Buttons Grid - 3 en una fila -->
+      <div class="grid grid-cols-3 gap-2">
         <NuxtLink
           to="/pedidos"
           @click="$emit('navigate')"
-          class="group flex flex-col items-center justify-center p-3 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200"
+          class="group flex flex-col items-center justify-center p-3 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 relative overflow-hidden"
         >
-          <svg class="h-5 w-5 mb-1 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <svg class="h-5 w-5 mb-1 group-hover:scale-110 transition-transform duration-200 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"/>
           </svg>
-          <span class="text-xs font-semibold">Pedidos</span>
+          <span class="text-xs font-bold relative z-10">Pedidos</span>
+        </NuxtLink>
+
+        <NuxtLink
+          to="/gastos"
+          @click="$emit('navigate')"
+          class="group flex flex-col items-center justify-center p-3 bg-gradient-to-br from-red-500 via-red-600 to-red-700 text-white rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 relative overflow-hidden"
+        >
+          <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <svg class="h-5 w-5 mb-1 group-hover:scale-110 transition-transform duration-200 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+          </svg>
+          <span class="text-xs font-bold relative z-10">Gastos</span>
         </NuxtLink>
 
         <NuxtLink
           to="/cliente-dashboard"
           @click="$emit('navigate')"
-          class="group flex flex-col items-center justify-center p-3 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200"
+          class="group flex flex-col items-center justify-center p-3 bg-gradient-to-br from-green-500 via-green-600 to-emerald-700 text-white rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 relative overflow-hidden"
         >
-          <svg class="h-5 w-5 mb-1 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <svg class="h-5 w-5 mb-1 group-hover:scale-110 transition-transform duration-200 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
           </svg>
-          <span class="text-xs font-semibold">Mi Panel</span>
+          <span class="text-xs font-bold relative z-10">Mi Panel</span>
         </NuxtLink>
       </div>
-
-      <!-- Control de Gastos Full Width -->
-      <NuxtLink
-        to="/gastos"
-        @click="$emit('navigate')"
-        class="group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-red-50 to-red-100 text-red-700 hover:from-red-100 hover:to-red-200 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md"
-      >
-        <div class="flex items-center">
-          <svg class="mr-2 h-4 w-4 text-red-600 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-          </svg>
-          <span>Gastos</span>
-        </div>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-200 text-red-900 animate-pulse">
-          Rápido
-        </span>
-      </NuxtLink>
     </div>
 
     <!-- Navigation Menu -->
