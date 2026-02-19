@@ -35,7 +35,9 @@
       </NuxtLink>
       <NuxtLink to="/pedidos" class="group relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-center mb-2">
         <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <ShoppingCartIcon class="relative h-6 w-6 mx-auto mb-2 transform group-hover:scale-110 transition-transform duration-300" />
+        <svg class="relative h-6 w-6 mx-auto mb-2 transform group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"/>
+        </svg>
         <span class="relative text-sm">Pedidos</span>
       </NuxtLink>
       <NuxtLink to="/cliente-dashboard" @click="$emit('navigate')" class="group relative overflow-hidden bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-center">
