@@ -82,16 +82,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { PlusIcon, PencilIcon, TrashIcon, CubeIcon } from '@heroicons/vue/24/outline'
+import { PlusIcon, PencilIcon, TrashIcon, CubeIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
 import { useInventory } from '~/composables/useInventory'
 import ProductCard from '~/components/ProductCard.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
-
-definePageMeta({
-  layout: 'default'
-})
-
 const { products, categories, addProduct, updateProduct, deleteProduct: removeProduct } = useInventory()
 
 const showProductModal = ref(false)
