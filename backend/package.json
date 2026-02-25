@@ -1,8 +1,9 @@
 {
-  "name": "ifood-manager-backend",
+  "name": "backend",
   "version": "1.0.0",
   "description": "iFood Manager Backend API",
   "scripts": {
+    "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main",
     "start:dev": "nest start --watch",
