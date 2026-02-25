@@ -175,7 +175,7 @@ import {
   UserPlusIcon
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
-const { login } = useAuth()
+const { register } = useAuth()
 
 const form = reactive({
   firstName: '',
@@ -263,16 +263,17 @@ const handleRegister = async () => {
   isLoading.value = true
 
   try {
-    // Simulate registration API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Auto-login after registration
-    await login({ email: form.email, password: form.password })
-    
-    // Redirect to dashboard
+    await register(form)
     await navigateTo('/')
   } catch (error) {
-    console.error('Register error:', error)
+    const msg = error?.data?.message || error?.message || 'Error al crear la cuenta'
+    if (Array.isArray(msg)) {
+      errors.email = msg.join('. ')
+    } else if (msg.toLowerCase().includes('correo')) {
+      errors.email = msg
+    } else {
+      errors.email = msg
+    }
   } finally {
     isLoading.value = false
   }
