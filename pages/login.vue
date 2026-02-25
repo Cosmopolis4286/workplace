@@ -149,12 +149,14 @@ const handleLogin = async () => {
 
   try {
     await login(form)
-    
-    // Redirect to dashboard
     await navigateTo('/')
   } catch (error) {
-    console.error('Login error:', error)
-    errors.email = 'Credenciales incorrectas'
+    const msg = error?.data?.message || error?.message || 'Credenciales incorrectas'
+    if (msg.toLowerCase().includes('intentos')) {
+      errors.password = msg
+    } else {
+      errors.email = msg
+    }
   } finally {
     isLoading.value = false
   }
