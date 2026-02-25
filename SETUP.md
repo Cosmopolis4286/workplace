@@ -1,62 +1,131 @@
-# Setup - Login & Register con NestJS + PostgreSQL + Redis
+# Setup detallado
 
-## Requisitos
-- Docker y Docker Compose
-- Node.js 20+ (para desarrollo local)
+## Estructura del monorepo
 
----
-
-## Arranque rápido con Docker
-
-```bash
-# 1. Copiar variables de entorno
-cp .env.example .env
-
-# 2. Levantar todo (PostgreSQL + Redis + Backend + Frontend)
-docker compose up --build
+```
+ifood-manager/
+├── frontend/                  # Nuxt 3
+│   ├── assets/
+│   ├── components/
+│   ├── composables/
+│   │   └── useAuth.js         # Comunicación con el backend
+│   ├── layouts/
+│   ├── middleware/
+│   │   └── auth.js            # Protección de rutas con JWT
+│   ├── pages/
+│   │   ├── login.vue
+│   │   └── register.vue
+│   ├── plugins/
+│   ├── public/
+│   ├── nuxt.config.ts
+│   ├── tailwind.config.js
+│   └── Dockerfile
+├── backend/                   # NestJS
+│   ├── src/
+│   │   ├── auth/              # Login, register, refresh, logout
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── dto/
+│   │   │   └── strategies/    # JWT + JWT-Refresh (Passport)
+│   │   ├── users/             # UsersService (CRUD básico)
+│   │   ├── prisma/            # PrismaService (global)
+│   │   ├── redis/             # RedisService (global)
+│   │   ├── common/
+│   │   │   ├── guards/        # JwtAuthGuard, JwtRefreshGuard
+│   │   │   └── decorators/    # @CurrentUser()
+│   │   └── main.ts
+│   ├── prisma/
+│   │   ├── schema.prisma      # User, Restaurant, RefreshToken
+│   │   └── migrations/
+│   └── Dockerfile
+├── docker-compose.yml
+├── pnpm-workspace.yaml
+├── .env
+└── .env.example
 ```
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- Swagger/API: http://localhost:3001/api/auth
+---
+
+## Variables de entorno
+
+Copiar `.env.example` a `.env` y ajustar según el entorno:
+
+```bash
+cp .env.example .env
+```
+
+| Variable                  | Valor por defecto                          | Descripción                         |
+|---------------------------|--------------------------------------------|-------------------------------------|
+| `POSTGRES_USER`           | `ifood`                                    | Usuario de PostgreSQL               |
+| `POSTGRES_PASSWORD`       | `ifood_secret`                             | Contraseña de PostgreSQL            |
+| `POSTGRES_DB`             | `ifood_db`                                 | Nombre de la base de datos          |
+| `REDIS_PASSWORD`          | `redis_secret`                             | Contraseña de Redis                 |
+| `JWT_SECRET`              | `super_secret_jwt_key_change_in_production`| Secreto del access token            |
+| `JWT_EXPIRES_IN`          | `15m`                                      | Duración del access token           |
+| `JWT_REFRESH_SECRET`      | `super_secret_refresh_key_change_in_prod`  | Secreto del refresh token           |
+| `JWT_REFRESH_EXPIRES_IN`  | `7d`                                       | Duración del refresh token          |
+| `FRONTEND_URL`            | `http://localhost:3000`                    | Origin permitido en CORS            |
+| `NUXT_PUBLIC_API_URL`     | `http://localhost:3001`                    | URL del backend desde el frontend   |
 
 ---
 
-## Desarrollo local (sin Docker para frontend/backend)
+## Arranque en desarrollo local
 
-### 1. Levantar solo la base de datos e infraestructura
+### 1. Instalar dependencias (raíz del monorepo)
+
+```bash
+pnpm install
+```
+
+Instala las dependencias de `frontend/` y `backend/` en un solo paso.
+
+### 2. Levantar infraestructura
+
 ```bash
 docker compose up postgres redis -d
 ```
 
-### 2. Backend
+### 3. Aplicar migraciones
+
 ```bash
 cd backend
-npm install
-npx prisma migrate dev --name init
-npm run start:dev
+pnpm prisma:migrate
+cd ..
 ```
 
-### 3. Frontend
+### 4. Levantar frontend y backend
+
 ```bash
-# En la raíz del proyecto
-npm install
-npm run dev
+pnpm run dev
 ```
+
+- Frontend → http://localhost:3000
+- Backend → http://localhost:3001
 
 ---
 
-## Endpoints Auth (NestJS)
+## Arranque con Docker (producción)
 
-| Método | Ruta              | Descripción                          | Auth |
-|--------|-------------------|--------------------------------------|------|
-| POST   | /api/auth/register | Registrar nuevo usuario + restaurante | No  |
-| POST   | /api/auth/login    | Login, devuelve JWT + refresh token  | No   |
-| POST   | /api/auth/refresh  | Renovar access token                 | No   |
-| POST   | /api/auth/logout   | Logout + blacklist token en Redis    | JWT  |
-| GET    | /api/auth/me       | Perfil del usuario autenticado       | JWT  |
+```bash
+docker compose up --build
+```
 
-### Ejemplo registro
+El backend corre `prisma migrate deploy` automáticamente antes de arrancar.
+
+---
+
+## Endpoints de autenticación
+
+| Método | Ruta                | Auth requerida | Descripción                                      |
+|--------|---------------------|----------------|--------------------------------------------------|
+| POST   | `/api/auth/register`| No             | Crea usuario + restaurante, devuelve tokens      |
+| POST   | `/api/auth/login`   | No             | Verifica credenciales, devuelve tokens           |
+| POST   | `/api/auth/refresh` | Refresh token  | Rota el refresh token, devuelve nuevos tokens    |
+| POST   | `/api/auth/logout`  | Bearer JWT     | Invalida el access token (blacklist en Redis)    |
+| GET    | `/api/auth/me`      | Bearer JWT     | Devuelve el perfil del usuario autenticado       |
+
+### Registro
+
 ```json
 POST /api/auth/register
 {
@@ -69,7 +138,8 @@ POST /api/auth/register
 }
 ```
 
-### Ejemplo login
+### Login
+
 ```json
 POST /api/auth/login
 {
@@ -78,12 +148,30 @@ POST /api/auth/login
 }
 ```
 
-### Respuesta
+### Respuesta (registro y login)
+
 ```json
 {
-  "user": { "id": "...", "email": "...", "firstName": "...", "restaurant": { ... } },
-  "accessToken": "eyJ...",
-  "refreshToken": "eyJ..."
+  "user": {
+    "id": "uuid",
+    "email": "juan@restaurante.com",
+    "firstName": "Juan",
+    "lastName": "Pérez",
+    "role": "ADMIN",
+    "restaurant": { "id": "uuid", "name": "El Sabor" }
+  },
+  "accessToken": "eyJhbGci...",
+  "refreshToken": "eyJhbGci..."
+}
+```
+
+### Refresh
+
+```json
+POST /api/auth/refresh
+Authorization: Bearer <refreshToken>
+{
+  "refreshToken": "eyJhbGci..."
 }
 ```
 
@@ -92,18 +180,42 @@ POST /api/auth/login
 ## Arquitectura
 
 ```
-Frontend (Nuxt 3) ──────► Backend (NestJS)
-     :3000                      :3001
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │                           │
-              PostgreSQL                      Redis
-               :5432                          :6379
-            (usuarios,                   (token blacklist,
-            restaurantes,               rate limiting login)
-            refresh tokens)
+┌─────────────────────────────────────────────────────┐
+│                     Browser                         │
+│           Nuxt 3 SPA (localhost:3000)               │
+│                                                     │
+│  useAuth.js  ──── $fetch ────►  /api/auth/*         │
+│  localStorage (accessToken, refreshToken, user)     │
+└──────────────────────┬──────────────────────────────┘
+                       │ HTTP (JWT Bearer)
+                       ▼
+┌─────────────────────────────────────────────────────┐
+│              NestJS API (localhost:3001)             │
+│                                                     │
+│  AuthController  →  AuthService                     │
+│       │                   │                         │
+│       │              UsersService                   │
+│       │                   │                         │
+│  JwtStrategy          PrismaService                 │
+│  (valida blacklist)       │                         │
+│       │             ┌─────┴──────┐                  │
+│  RedisService    PostgreSQL    RefreshTokens         │
+│  (blacklist,      (users,      (rotación)           │
+│  rate limiting)   restaurants)                      │
+└─────────────────────────────────────────────────────┘
 ```
 
-## Redis - Usos en Auth
-- **Blacklist de JWT**: al hacer logout, el jti del access token se guarda en Redis por el TTL restante
-- **Rate limiting de login**: máximo 5 intentos fallidos por email en 15 minutos
+---
+
+## Seguridad implementada
+
+| Mecanismo               | Detalle                                                   |
+|-------------------------|-----------------------------------------------------------|
+| Contraseñas             | bcrypt con cost factor 12                                 |
+| Access token            | JWT firmado, expira en 15 minutos                         |
+| Refresh token           | Rotación en cada uso (one-time), almacenado en PostgreSQL |
+| Logout                  | JTI del access token en blacklist de Redis                |
+| Rate limiting login     | Máximo 5 intentos fallidos por email, bloqueo 15 min      |
+| CORS                    | Solo permite el origin del frontend                       |
+| Validación de entrada   | `class-validator` en todos los DTOs                       |
+| Throttling global       | 20 requests por minuto por IP                             |
