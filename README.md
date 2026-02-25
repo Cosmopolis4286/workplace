@@ -1,42 +1,72 @@
-# Nuxt 3 Minimal Starter
+# iFood Manager
 
-Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Panel de gestión para restaurantes integrado con iFood. Monorepo con frontend Nuxt 3 y backend NestJS.
 
-## Setup
+## Estructura del proyecto
 
-Make sure to install the dependencies:
+```
+ifood-manager/
+├── frontend/          # Nuxt 3 (Vue 3, Tailwind CSS)
+├── backend/           # NestJS (Prisma, PostgreSQL, Redis)
+├── docker-compose.yml
+├── pnpm-workspace.yaml
+└── .env
+```
+
+## Requisitos
+
+- [Node.js 20+](https://nodejs.org/)
+- [pnpm](https://pnpm.io/) — `npm install -g pnpm`
+- [Docker](https://www.docker.com/) y Docker Compose
+
+## Desarrollo local
 
 ```bash
-# yarn
-yarn install
-
-# npm
-npm install
-
-# pnpm
+# 1. Instalar dependencias
 pnpm install
+
+# 2. Copiar variables de entorno
+cp .env.example .env
+
+# 3. Levantar infraestructura (PostgreSQL + Redis)
+docker compose up postgres redis -d
+
+# 4. Aplicar migraciones de base de datos
+cd backend && pnpm prisma:migrate && cd ..
+
+# 5. Levantar frontend (:3000) y backend (:3001) en paralelo
+pnpm run dev
 ```
 
-## Development Server
-
-Start the development server on http://localhost:3000
+## Docker (producción)
 
 ```bash
-npm run dev
+cp .env.example .env
+docker compose up --build
 ```
 
-## Production
+- Frontend → http://localhost:3000
+- Backend API → http://localhost:3001
 
-Build the application for production:
+## Scripts disponibles
 
-```bash
-npm run build
-```
+| Comando               | Descripción                                    |
+|-----------------------|------------------------------------------------|
+| `pnpm run dev`        | Levanta frontend y backend en paralelo         |
+| `pnpm run dev:frontend` | Solo el frontend Nuxt                        |
+| `pnpm run dev:backend`  | Solo el backend NestJS                       |
+| `pnpm run build`      | Build de producción de ambos                  |
+| `pnpm run docker:up`  | `docker compose up --build`                   |
+| `pnpm run docker:down`| `docker compose down`                         |
 
-Locally preview production build:
+## Tech stack
 
-```bash
-npm run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+| Capa       | Tecnología                        |
+|------------|-----------------------------------|
+| Frontend   | Nuxt 3, Vue 3, Tailwind CSS       |
+| Backend    | NestJS, Passport, JWT             |
+| ORM        | Prisma                            |
+| Base datos | PostgreSQL 16                     |
+| Cache      | Redis 7                           |
+| Auth       | JWT (access 15m) + Refresh (7d)  |
+| Deploy     | Docker Compose                    |
