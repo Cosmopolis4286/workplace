@@ -91,7 +91,7 @@
     </template>
   </AuthLayout>
 
-  <AuthDemoCredentials @fill-credentials="fillDemoCredentials" />
+  <AuthDemoCredentials :auto-login="true" @auto-login="autoLoginDemo" @fill-credentials="fillDemoCredentials" />
 </template>
 
 <script setup lang="ts">
@@ -176,5 +176,20 @@ const loginWithFacebook = () => {
 const fillDemoCredentials = (creds: { email: string; password: string }) => {
   form.email = creds.email
   form.password = creds.password
+}
+
+const autoLoginDemo = async (creds: { email: string; password: string }) => {
+  isLoading.value = true
+  try {
+    await login(creds)
+    await navigateTo('/')
+  } catch (error) {
+    // fallback: fill the form so user can see what happened
+    fillDemoCredentials(creds)
+    const msg = error?.data?.message || error?.message || 'Error en demo login'
+    errors.email = msg
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
