@@ -50,10 +50,10 @@
     <nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
       <!-- Dashboard -->
       <NuxtLink 
-        to="/" 
+        to="/dashboard"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
-        :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/' }"
+        :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/dashboard' }"
       >
         <svg class="mr-3 h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>

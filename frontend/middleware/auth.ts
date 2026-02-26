@@ -4,7 +4,7 @@ export default defineNuxtRouteMiddleware((to) => {
   const { isAuthenticated } = useAuth()
 
   const protectedRoutes = [
-    '/', '/menu', '/inventario', '/gastos', '/ventas',
+    '/dashboard', '/menu', '/inventario', '/gastos', '/ventas',
     '/analytics', '/reportes', '/agendamientos', '/clientes', '/delivery',
     '/pedidos', '/perfil', '/configuracion', '/cliente-dashboard',
   ]
@@ -16,6 +16,6 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   if (authRoutes.includes(to.path) && isAuthenticated.value) {
-    return navigateTo('/')
+    return navigateTo('/dashboard')
   }
 })
