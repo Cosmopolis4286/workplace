@@ -3,11 +3,9 @@
   "version": "1.0.0",
   "description": "iFood Manager Backend API",
   "scripts": {
-    "dev": "nest start --watch",
-    "build": "nest build",
+    "dev": "ts-node-dev -r tsconfig-paths/register --respawn --transpile-only src/main.ts",
+    "build": "tsc -p tsconfig.json",
     "start": "node dist/main",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
     "prisma:generate": "prisma generate --schema=./prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=./prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=./prisma/schema.prisma"
@@ -44,6 +42,7 @@
     "prisma": "^5.9.1",
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.3.3"
   }
