@@ -12,7 +12,8 @@ export default defineNuxtConfig({
   ],
   css: ['~/assets/css/main.css'],
   plugins: [
-    '~/plugins/chart.client.js'
+    '~/plugins/chart.client.ts',
+    '~/plugins/auth.client.ts',
   ],
   ssr: false,
   runtimeConfig: {

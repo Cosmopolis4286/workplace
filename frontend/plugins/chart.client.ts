@@ -12,7 +12,7 @@ import {
   Legend,
   ArcElement,
   Filler,
-  DoughnutController
+  DoughnutController,
 } from 'chart.js'
 
 export default defineNuxtPlugin((nuxtApp) => {
@@ -29,7 +29,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     Legend,
     ArcElement,
     Filler,
-    DoughnutController
+    DoughnutController,
   )
 
   nuxtApp.provide('chart', ChartJS)

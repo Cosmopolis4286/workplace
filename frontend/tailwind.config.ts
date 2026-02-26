@@ -1,11 +1,13 @@
-module.exports = {
+import type { Config } from 'tailwindcss'
+
+export default {
   content: [
-    "./components/**/*.{js,vue,ts}",
-    "./layouts/**/*.vue",
-    "./pages/**/*.vue",
-    "./plugins/**/*.{js,ts}",
-    "./nuxt.config.{js,ts}",
-    "./app.vue"
+    './components/**/*.{js,vue,ts}',
+    './layouts/**/*.vue',
+    './pages/**/*.vue',
+    './plugins/**/*.{js,ts}',
+    './nuxt.config.{js,ts}',
+    './app.vue',
   ],
   theme: {
     extend: {
@@ -42,25 +44,25 @@ module.exports = {
           green: '#00d27a',
           gray: '#717171',
           lightGray: '#f5f5f5',
-        }
+        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
-        'float': 'float 3s ease-in-out infinite',
+        float: 'float 3s ease-in-out infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'bounce-slow': 'bounce 2s infinite',
       },
       boxShadow: {
         '3xl': '0 35px 60px -12px rgba(0, 0, 0, 0.25)',
-        'glow': '0 0 20px rgba(234, 29, 44, 0.3)',
+        glow: '0 0 20px rgba(234, 29, 44, 0.3)',
         'glow-lg': '0 0 40px rgba(234, 29, 44, 0.4)',
       },
       backdropBlur: {
         xs: '2px',
-      }
+      },
     },
   },
   plugins: [],
-}
+} satisfies Config
