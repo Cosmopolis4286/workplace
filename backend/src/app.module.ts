@@ -8,6 +8,7 @@ import { RedisModule } from './redis/redis.module'
 import { MenuModule } from './menu/menu.module'
 import { CustomersModule } from './customers/customers.module'
 import { SettingsModule } from './settings/settings.module'
+import { AppointmentsModule } from './appointments/appointments.module'
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SettingsModule } from './settings/settings.module'
     MenuModule,
     CustomersModule,
     SettingsModule,
+    AppointmentsModule,
   ],
 })
 export class AppModule {}
