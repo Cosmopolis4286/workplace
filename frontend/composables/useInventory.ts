@@ -1,39 +1,9 @@
 import { ref, computed } from 'vue'
+import type { ProductStatus, Category, Product } from './useMenu'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type ProductStatus = 'DISPONIBLE' | 'AGOTADO' | 'BAJO_STOCK' | 'NO_DISPONIBLE'
 export type StockUpdateType = 'set' | 'add' | 'subtract'
-
-export interface Category {
-  id: string
-  name: string
-  color: string
-  _count?: { products: number }
-}
-
-export interface Product {
-  id: string
-  name: string
-  description?: string
-  price: number
-  cost: number
-  stock: number
-  minStock: number
-  maxStock: number
-  unit: string
-  status: ProductStatus
-  image?: string
-  preparationTime?: number
-  calories?: number
-  ingredients: string[]
-  allergens: string[]
-  categoryId: string
-  category: { id: string; name: string; color: string }
-  restaurantId: string
-  createdAt: string
-  updatedAt: string
-}
 
 export interface CreateProductPayload {
   name: string
