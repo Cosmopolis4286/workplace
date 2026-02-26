@@ -32,8 +32,10 @@ model Restaurant {
   address String?
   phone   String?
 
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String     @unique
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories Category[]
+  products   Product[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -52,8 +54,55 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+model Category {
+  id           String    @id @default(uuid())
+  name         String
+  color        String    @default("#6b7280")
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  products     Product[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([name, restaurantId])
+  @@map("categories")
+}
+
+model Product {
+  id              String        @id @default(uuid())
+  name            String
+  description     String?
+  price           Float
+  cost            Float         @default(0)
+  stock           Int           @default(0)
+  minStock        Int           @default(5)
+  maxStock        Int           @default(100)
+  unit            String        @default("unidad")
+  status          ProductStatus @default(DISPONIBLE)
+  image           String?
+  preparationTime Int?
+  calories        Int?
+  ingredients     String[]
+  allergens       String[]
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  restaurantId    String
+  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("products")
+}
+
 enum Role {
   ADMIN
   MANAGER
   STAFF
+}
+
+enum ProductStatus {
+  DISPONIBLE
+  AGOTADO
+  BAJO_STOCK
+  NO_DISPONIBLE
 }

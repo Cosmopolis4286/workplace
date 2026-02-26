@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { PrismaModule } from './prisma/prisma.module'
 import { RedisModule } from './redis/redis.module'
+import { MenuModule } from './menu/menu.module'
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { RedisModule } from './redis/redis.module'
     RedisModule,
     UsersModule,
     AuthModule,
+    MenuModule,
   ],
 })
 export class AppModule {}

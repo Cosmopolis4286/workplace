@@ -152,7 +152,7 @@ const handleLogin = async () => {
 
   try {
     await login(form)
-    await navigateTo('/')
+    await navigateTo('/dashboard')
   } catch (error) {
     const msg = error?.data?.message || error?.message || 'Credenciales incorrectas'
     if (msg.toLowerCase().includes('intentos')) {
@@ -182,7 +182,7 @@ const autoLoginDemo = async (creds: { email: string; password: string }) => {
   isLoading.value = true
   try {
     await login(creds)
-    await navigateTo('/')
+    await navigateTo('/dashboard')
   } catch (error) {
     // fallback: fill the form so user can see what happened
     fillDemoCredentials(creds)
