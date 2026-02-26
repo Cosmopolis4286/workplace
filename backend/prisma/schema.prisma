@@ -31,16 +31,76 @@ model Restaurant {
   type    String?
   address String?
   phone   String?
+  email   String?
+  schedule String?
 
   userId     String     @unique
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   categories Category[]
   products   Product[]
+  customers  Customer[]
+  settings   RestaurantSettings?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("restaurants")
+}
+
+model RestaurantSettings {
+  id           String @id @default(uuid())
+  restaurantId String @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  // Payment
+  currency     String  @default("MXN")
+  tax          Float   @default(16)
+  suggestedTip Float   @default(10)
+  paymentMethods String[] @default(["cash", "card", "transfer"])
+
+  // Operations
+  avgPrepTime          Int   @default(20)
+  avgDeliveryTime      Int   @default(30)
+  deliveryFee          Float @default(35)
+  freeDeliveryMinimum  Float @default(200)
+
+  // Notifications
+  notifyNewOrders      Boolean @default(true)
+  notifyLowStock       Boolean @default(true)
+  notifyDailyReports   Boolean @default(false)
+  notifyCustomerReviews Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("restaurant_settings")
+}
+
+model Customer {
+  id           String          @id @default(uuid())
+  name         String
+  email        String?
+  phone        String?
+  address      String?
+  notes        String?
+  segment      CustomerSegment @default(NUEVO)
+  totalOrders  Int             @default(0)
+  totalSpent   Float           @default(0)
+  isActive     Boolean         @default(true)
+  restaurantId String
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([email, restaurantId])
+  @@map("customers")
+}
+
+enum CustomerSegment {
+  VIP
+  PREMIUM
+  REGULAR
+  NUEVO
 }
 
 model RefreshToken {
