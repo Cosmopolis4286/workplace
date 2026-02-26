@@ -90,6 +90,8 @@
       </p>
     </template>
   </AuthLayout>
+
+  <AuthDemoCredentials @fill-credentials="fillDemoCredentials" />
 </template>
 
 <script setup lang="ts">
@@ -169,5 +171,10 @@ const loginWithGoogle = () => {
 
 const loginWithFacebook = () => {
   console.log('Login with Facebook')
+}
+
+const fillDemoCredentials = (creds: { email: string; password: string }) => {
+  form.email = creds.email
+  form.password = creds.password
 }
 </script>
