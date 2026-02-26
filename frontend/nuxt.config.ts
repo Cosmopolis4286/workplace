@@ -16,6 +16,9 @@ export default defineNuxtConfig({
     '~/plugins/auth.client.ts',
   ],
   ssr: false,
+  router: {
+    middleware: ['auth'],
+  },
   runtimeConfig: {
     public: {
       apiUrl: process.env.NUXT_PUBLIC_API_URL || 'http://localhost:3001',

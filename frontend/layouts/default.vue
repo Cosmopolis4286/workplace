@@ -17,24 +17,16 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
-
+<script setup lang="ts">
 const sidebarOpen = ref(false)
 
-const toggleSidebar = (value) => {
-  if (typeof value === 'boolean') {
-    sidebarOpen.value = value
-  } else {
-    sidebarOpen.value = !sidebarOpen.value
-  }
+const toggleSidebar = (value?: boolean) => {
+  sidebarOpen.value = typeof value === 'boolean' ? value : !sidebarOpen.value
 }
 
 onMounted(() => {
-  if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-    setTimeout(() => {
-      sidebarOpen.value = true
-    }, 100)
+  if (window.innerWidth >= 1024) {
+    setTimeout(() => { sidebarOpen.value = true }, 100)
   }
 })
 </script>
