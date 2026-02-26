@@ -38,8 +38,9 @@ model Restaurant {
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   categories Category[]
   products   Product[]
-  customers  Customer[]
-  settings   RestaurantSettings?
+  customers     Customer[]
+  appointments  Appointment[]
+  settings      RestaurantSettings?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -89,11 +90,40 @@ model Customer {
   isActive     Boolean         @default(true)
   restaurantId String
   restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
   @@unique([email, restaurantId])
   @@map("customers")
+}
+
+model Appointment {
+  id           String            @id @default(uuid())
+  customerName String
+  customerPhone String?
+  customerId   String?
+  customer     Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  date         DateTime
+  partySize    Int               @default(1)
+  tableNumber  Int?
+  notes        String?
+  status       AppointmentStatus @default(PENDIENTE)
+  restaurantId String
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@map("appointments")
+}
+
+enum AppointmentStatus {
+  PENDIENTE
+  CONFIRMADA
+  SENTADA
+  COMPLETADA
+  CANCELADA
+  NO_SHOW
 }
 
 enum CustomerSegment {
