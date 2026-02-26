@@ -100,7 +100,8 @@
   </AuthLayout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+definePageMeta({ layout: 'auth' })
 import { ref, reactive } from 'vue'
 import { 
   EnvelopeIcon,

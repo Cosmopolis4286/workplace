@@ -6,6 +6,8 @@
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "pnpm --filter backend dev",
     "build": "pnpm --filter backend build && pnpm --filter frontend build",
+    "migrate": "pnpm --filter backend prisma:migrate",
+    "migrate:deploy": "pnpm --filter backend exec prisma migrate deploy --schema=./prisma/schema.prisma",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
     "install:all": "pnpm install"
