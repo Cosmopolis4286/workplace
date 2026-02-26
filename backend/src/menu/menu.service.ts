@@ -4,11 +4,13 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common'
+import { ProductStatus } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateCategoryDto } from './dto/create-category.dto'
 import { UpdateCategoryDto } from './dto/update-category.dto'
 import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
+import { UpdateStockDto, StockUpdateType } from './dto/update-stock.dto'
 
 @Injectable()
 export class MenuService {
@@ -140,6 +142,31 @@ export class MenuService {
     const restaurantId = await this.getRestaurantId(userId)
     await this.assertProductOwnership(productId, restaurantId)
     await this.prisma.product.delete({ where: { id: productId } })
+  }
+
+  async updateStock(userId: string, productId: string, dto: UpdateStockDto) {
+    const restaurantId = await this.getRestaurantId(userId)
+    const product = await this.assertProductOwnership(productId, restaurantId)
+
+    let newStock: number
+    if (dto.type === StockUpdateType.ADD) {
+      newStock = product.stock + dto.quantity
+    } else if (dto.type === StockUpdateType.SUBTRACT) {
+      newStock = Math.max(0, product.stock - dto.quantity)
+    } else {
+      newStock = dto.quantity
+    }
+
+    let newStatus: ProductStatus
+    if (newStock === 0) newStatus = ProductStatus.AGOTADO
+    else if (newStock <= product.minStock) newStatus = ProductStatus.BAJO_STOCK
+    else newStatus = ProductStatus.DISPONIBLE
+
+    return this.prisma.product.update({
+      where: { id: productId },
+      data: { stock: newStock, status: newStatus },
+      include: { category: { select: { id: true, name: true, color: true } } },
+    })
   }
 
   async toggleProductStatus(userId: string, productId: string) {

@@ -18,6 +18,7 @@ import { CreateCategoryDto } from './dto/create-category.dto'
 import { UpdateCategoryDto } from './dto/update-category.dto'
 import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
+import { UpdateStockDto } from './dto/update-stock.dto'
 
 @Controller('menu')
 @UseGuards(JwtAuthGuard)
@@ -81,6 +82,15 @@ export class MenuController {
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteProduct(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.menuService.deleteProduct(user.id, id)
+  }
+
+  @Patch('products/:id/stock')
+  updateStock(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() dto: UpdateStockDto,
+  ) {
+    return this.menuService.updateStock(user.id, id, dto)
   }
 
   @Patch('products/:id/toggle-status')

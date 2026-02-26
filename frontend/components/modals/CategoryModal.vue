@@ -30,41 +30,54 @@
               </DialogTitle>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Form for new category -->
+                <!-- Form: crear / editar -->
                 <div>
-                  <h4 class="text-sm font-medium text-gray-900 mb-4">Nueva Categoría</h4>
-                  <form @submit.prevent="addCategory" class="space-y-4">
+                  <h4 class="text-sm font-medium text-gray-900 mb-4">
+                    {{ editingCategory ? 'Editar Categoría' : 'Nueva Categoría' }}
+                  </h4>
+                  <form @submit.prevent="submitForm" class="space-y-4">
                     <div>
                       <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
                       <input
-                        v-model="newCategory.name"
+                        v-model="form.name"
                         type="text"
                         required
                         class="input-field"
                         placeholder="Nombre de la categoría"
-                      >
+                      />
                     </div>
 
                     <div>
                       <label class="block text-sm font-medium text-gray-700 mb-1">Color</label>
                       <div class="flex items-center space-x-2">
                         <input
-                          v-model="newCategory.color"
+                          v-model="form.color"
                           type="color"
                           class="w-12 h-10 border border-gray-300 rounded cursor-pointer"
-                        >
+                        />
                         <input
-                          v-model="newCategory.color"
+                          v-model="form.color"
                           type="text"
                           class="input-field flex-1"
                           placeholder="#000000"
-                        >
+                        />
                       </div>
                     </div>
 
-                    <button type="submit" class="w-full btn-primary">
-                      Agregar Categoría
-                    </button>
+                    <div class="flex gap-2">
+                      <button type="submit" class="flex-1 btn-primary" :disabled="saving">
+                        <span v-if="saving">Guardando…</span>
+                        <span v-else>{{ editingCategory ? 'Actualizar' : 'Agregar' }} Categoría</span>
+                      </button>
+                      <button
+                        v-if="editingCategory"
+                        type="button"
+                        @click="cancelEdit"
+                        class="btn-secondary"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   </form>
                 </div>
 
@@ -83,14 +96,26 @@
                           :style="{ backgroundColor: category.color }"
                         />
                         <span class="text-sm font-medium text-gray-900">{{ category.name }}</span>
+                        <span v-if="category._count" class="text-xs text-gray-400">
+                          {{ category._count.products }} prods.
+                        </span>
                       </div>
-                      <button
-                        @click="deleteCategory(category.id)"
-                        type="button"
-                        class="text-red-600 hover:text-red-700 text-sm font-medium"
-                      >
-                        Eliminar
-                      </button>
+                      <div class="flex items-center gap-2">
+                        <button
+                          @click="startEdit(category)"
+                          type="button"
+                          class="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          @click="$emit('delete', category)"
+                          type="button"
+                          class="text-red-600 hover:text-red-700 text-sm font-medium"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
 
                     <div v-if="categories.length === 0" class="text-center py-8">
@@ -101,11 +126,7 @@
               </div>
 
               <div class="flex justify-end space-x-3 pt-6 border-t mt-6">
-                <button
-                  @click="closeModal"
-                  type="button"
-                  class="btn-secondary"
-                >
+                <button @click="closeModal" type="button" class="btn-secondary">
                   Cerrar
                 </button>
               </div>
@@ -117,42 +138,70 @@
   </TransitionRoot>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
+<script setup lang="ts">
+import { ref, watch } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 
-const props = defineProps({
-  isOpen: Boolean,
-  categories: Array
-})
+interface Category {
+  id: string
+  name: string
+  color: string
+  _count?: { products: number }
+}
 
-const emit = defineEmits(['close', 'add', 'delete'])
+const props = defineProps<{
+  isOpen: boolean
+  categories: Category[]
+  saving?: boolean
+  editCategory?: Category | null
+}>()
 
-const newCategory = ref({
-  name: '',
-  color: '#3b82f6'
-})
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'add', data: { name: string; color: string }): void
+  (e: 'update', id: string, data: { name: string; color: string }): void
+  (e: 'delete', category: Category): void
+}>()
 
-const closeModal = () => {
-  emit('close')
+const editingCategory = ref<Category | null>(null)
+const form = ref({ name: '', color: '#3b82f6' })
+
+// Si el padre pasa editCategory (lápiz desde la fila del menú)
+watch(() => props.editCategory, (cat) => {
+  if (cat) {
+    editingCategory.value = cat
+    form.value = { name: cat.name, color: cat.color }
+  }
+}, { immediate: true })
+
+const startEdit = (category: Category) => {
+  editingCategory.value = category
+  form.value = { name: category.name, color: category.color }
+}
+
+const cancelEdit = () => {
+  editingCategory.value = null
   resetForm()
 }
 
 const resetForm = () => {
-  newCategory.value = {
-    name: '',
-    color: '#3b82f6'
-  }
+  form.value = { name: '', color: '#3b82f6' }
 }
 
-const addCategory = () => {
-  if (newCategory.value.name.trim()) {
-    emit('add', { ...newCategory.value })
+const submitForm = () => {
+  if (!form.value.name.trim()) return
+  if (editingCategory.value) {
+    emit('update', editingCategory.value.id, { ...form.value })
+    cancelEdit()
+  } else {
+    emit('add', { ...form.value })
     resetForm()
   }
 }
 
-const deleteCategory = (id) => {
-  emit('delete', id)
+const closeModal = () => {
+  editingCategory.value = null
+  resetForm()
+  emit('close')
 }
 </script>

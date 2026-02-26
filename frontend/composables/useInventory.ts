@@ -1,13 +1,21 @@
-import { ref, computed, readonly } from 'vue'
-import { v4 as uuidv4 } from 'uuid'
+import { ref, computed } from 'vue'
 
-type ProductStatus = 'disponible' | 'agotado' | 'bajo-stock'
-type StockUpdateType = 'set' | 'add' | 'subtract'
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-interface Product {
+export type ProductStatus = 'DISPONIBLE' | 'AGOTADO' | 'BAJO_STOCK' | 'NO_DISPONIBLE'
+export type StockUpdateType = 'set' | 'add' | 'subtract'
+
+export interface Category {
   id: string
   name: string
-  category: string
+  color: string
+  _count?: { products: number }
+}
+
+export interface Product {
+  id: string
+  name: string
+  description?: string
   price: number
   cost: number
   stock: number
@@ -15,76 +23,58 @@ interface Product {
   maxStock: number
   unit: string
   status: ProductStatus
-  image: string
-  description: string
+  image?: string
+  preparationTime?: number
+  calories?: number
   ingredients: string[]
-  preparationTime: number
-  calories: number
   allergens: string[]
-  createdAt: Date
-  updatedAt: Date
+  categoryId: string
+  category: { id: string; name: string; color: string }
+  restaurantId: string
+  createdAt: string
+  updatedAt: string
 }
 
-interface Category {
-  id: number
+export interface CreateProductPayload {
   name: string
-  color: string
+  description?: string
+  price: number
+  cost?: number
+  stock: number
+  minStock?: number
+  maxStock?: number
+  unit?: string
+  image?: string
+  preparationTime?: number
+  calories?: number
+  ingredients?: string[]
+  allergens?: string[]
+  categoryId: string
 }
 
-const products = ref<Product[]>([
-  {
-    id: uuidv4(),
-    name: 'Pizza Margherita',
-    category: 'Pizzas',
-    price: 15.99,
-    cost: 8.50,
-    stock: 25,
-    minStock: 5,
-    maxStock: 50,
-    unit: 'unidad',
-    status: 'disponible',
-    image: 'https://images.pexels.com/photos/315755/pexels-photo-315755.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop',
-    description: 'Pizza clásica con tomate, mozzarella y albahaca',
-    ingredients: ['Masa', 'Salsa de tomate', 'Mozzarella', 'Albahaca'],
-    preparationTime: 15,
-    calories: 250,
-    allergens: ['Gluten', 'Lácteos'],
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-15'),
-  },
-  {
-    id: uuidv4(),
-    name: 'Hamburguesa Clásica',
-    category: 'Hamburguesas',
-    price: 12.50,
-    cost: 6.75,
-    stock: 15,
-    minStock: 3,
-    maxStock: 30,
-    unit: 'unidad',
-    status: 'disponible',
-    image: 'https://images.pexels.com/photos/1639557/pexels-photo-1639557.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop',
-    description: 'Hamburguesa con carne de res, lechuga, tomate y queso',
-    ingredients: ['Pan', 'Carne de res', 'Lechuga', 'Tomate', 'Queso'],
-    preparationTime: 12,
-    calories: 450,
-    allergens: ['Gluten', 'Lácteos'],
-    createdAt: new Date('2024-01-02'),
-    updatedAt: new Date('2024-01-14'),
-  },
-])
+export interface UpdateProductPayload extends Partial<CreateProductPayload> {
+  status?: ProductStatus
+}
 
-const categories = ref<Category[]>([
-  { id: 1, name: 'Pizzas', color: '#ef4444' },
-  { id: 2, name: 'Hamburguesas', color: '#f97316' },
-  { id: 3, name: 'Bebidas', color: '#3b82f6' },
-  { id: 4, name: 'Postres', color: '#8b5cf6' },
-  { id: 5, name: 'Ensaladas', color: '#10b981' },
-])
+// ─── Module-level state (singleton across all composable instances) ──────────
+
+const products = ref<Product[]>([])
+const categories = ref<Category[]>([])
+const loading = ref(false)
+const error = ref<string | null>(null)
+
+// ─── Composable ──────────────────────────────────────────────────────────────
 
 export const useInventory = () => {
+  const { getHeaders } = useAuth()
+  const config = useRuntimeConfig()
+  const apiUrl = config.public.apiUrl as string
+  const base = `${apiUrl}/api/menu`
+
+  // ─── Computed ───────────────────────────────────────────────────────────────
+
   const lowStockProducts = computed(() =>
-    products.value.filter((p) => p.stock <= p.minStock),
+    products.value.filter((p) => p.stock > 0 && p.stock <= p.minStock),
   )
 
   const outOfStockProducts = computed(() =>
@@ -97,64 +87,209 @@ export const useInventory = () => {
     products.value.reduce((sum, p) => sum + p.price * p.stock, 0),
   )
 
-  function addProduct(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Product {
-    const newProduct: Product = { ...product, id: uuidv4(), createdAt: new Date(), updatedAt: new Date() }
-    products.value.push(newProduct)
-    return newProduct
-  }
+  // ─── Categories ─────────────────────────────────────────────────────────────
 
-  function updateProduct(id: string, updates: Partial<Product>): void {
-    const index = products.value.findIndex((p) => p.id === id)
-    if (index !== -1) {
-      products.value[index] = { ...products.value[index], ...updates, updatedAt: new Date() }
+  async function fetchCategories(): Promise<void> {
+    loading.value = true
+    error.value = null
+    try {
+      categories.value = await $fetch<Category[]>(`${base}/categories`, {
+        headers: getHeaders(),
+      })
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al cargar categorías')
+    } finally {
+      loading.value = false
     }
   }
 
-  function deleteProduct(id: string): void {
-    const index = products.value.findIndex((p) => p.id === id)
-    if (index !== -1) products.value.splice(index, 1)
-  }
-
-  function updateStock(id: string, quantity: number, type: StockUpdateType = 'set'): void {
-    const product = products.value.find((p) => p.id === id)
-    if (!product) return
-
-    if (type === 'add') product.stock += quantity
-    else if (type === 'subtract') product.stock = Math.max(0, product.stock - quantity)
-    else product.stock = quantity
-
-    product.updatedAt = new Date()
-    if (product.stock === 0) product.status = 'agotado'
-    else if (product.stock <= product.minStock) product.status = 'bajo-stock'
-    else product.status = 'disponible'
-  }
-
-  function addCategory(category: Omit<Category, 'id'>): Category {
-    const newCategory: Category = {
-      ...category,
-      id: Math.max(...categories.value.map((c) => c.id), 0) + 1,
+  async function addCategory(payload: { name: string; color?: string }): Promise<Category | null> {
+    try {
+      const created = await $fetch<Category>(`${base}/categories`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: payload,
+      })
+      categories.value.push(created)
+      return created
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al crear categoría')
+      return null
     }
-    categories.value.push(newCategory)
-    return newCategory
   }
 
-  function deleteCategory(id: number): void {
-    const index = categories.value.findIndex((c) => c.id === id)
-    if (index !== -1) categories.value.splice(index, 1)
+  async function updateCategory(
+    id: string,
+    payload: { name?: string; color?: string },
+  ): Promise<Category | null> {
+    try {
+      const updated = await $fetch<Category>(`${base}/categories/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: payload,
+      })
+      const idx = categories.value.findIndex((c) => c.id === id)
+      if (idx !== -1) categories.value[idx] = updated
+      return updated
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al actualizar categoría')
+      return null
+    }
+  }
+
+  async function deleteCategory(id: string): Promise<boolean> {
+    try {
+      await $fetch(`${base}/categories/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      })
+      categories.value = categories.value.filter((c) => c.id !== id)
+      return true
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al eliminar categoría')
+      return false
+    }
+  }
+
+  // ─── Products ────────────────────────────────────────────────────────────────
+
+  async function fetchProducts(): Promise<void> {
+    loading.value = true
+    error.value = null
+    try {
+      products.value = await $fetch<Product[]>(`${base}/products`, {
+        headers: getHeaders(),
+      })
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al cargar productos')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function addProduct(payload: CreateProductPayload): Promise<Product | null> {
+    try {
+      const created = await $fetch<Product>(`${base}/products`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: payload,
+      })
+      products.value.push(created)
+      return created
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al crear producto')
+      return null
+    }
+  }
+
+  async function updateProduct(
+    id: string,
+    payload: UpdateProductPayload,
+  ): Promise<Product | null> {
+    try {
+      const updated = await $fetch<Product>(`${base}/products/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: payload,
+      })
+      const idx = products.value.findIndex((p) => p.id === id)
+      if (idx !== -1) products.value[idx] = updated
+      return updated
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al actualizar producto')
+      return null
+    }
+  }
+
+  async function deleteProduct(id: string): Promise<boolean> {
+    try {
+      await $fetch(`${base}/products/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      })
+      products.value = products.value.filter((p) => p.id !== id)
+      return true
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al eliminar producto')
+      return false
+    }
+  }
+
+  async function updateStock(
+    id: string,
+    quantity: number,
+    type: StockUpdateType = 'set',
+  ): Promise<Product | null> {
+    try {
+      const updated = await $fetch<Product>(`${base}/products/${id}/stock`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: { quantity, type },
+      })
+      const idx = products.value.findIndex((p) => p.id === id)
+      if (idx !== -1) products.value[idx] = updated
+      return updated
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al actualizar stock')
+      return null
+    }
+  }
+
+  async function toggleProductStatus(id: string): Promise<Product | null> {
+    try {
+      const updated = await $fetch<Product>(`${base}/products/${id}/toggle-status`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+      })
+      const idx = products.value.findIndex((p) => p.id === id)
+      if (idx !== -1) products.value[idx] = updated
+      return updated
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Error al cambiar estado del producto')
+      return null
+    }
+  }
+
+  async function init(): Promise<void> {
+    await Promise.all([fetchCategories(), fetchProducts()])
   }
 
   return {
-    products: readonly(products),
-    categories: readonly(categories),
+    // State
+    products,
+    categories,
+    loading,
+    error,
+    // Computed
     lowStockProducts,
     outOfStockProducts,
     totalProducts,
     totalValue,
+    // Category actions
+    fetchCategories,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    // Product actions
+    fetchProducts,
     addProduct,
     updateProduct,
     deleteProduct,
     updateStock,
-    addCategory,
-    deleteCategory,
+    toggleProductStatus,
+    // Init
+    init,
   }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function extractMessage(err: unknown, fallback: string): string {
+  if (typeof err === 'object' && err !== null) {
+    const data = (err as any)?.data
+    if (data?.message) return Array.isArray(data.message) ? data.message[0] : data.message
+    const msg = (err as any)?.message
+    if (msg) return msg
+  }
+  return fallback
 }

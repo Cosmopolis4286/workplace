@@ -44,9 +44,9 @@
 
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                    <select v-model="form.category" required class="input-field">
+                    <select v-model="form.categoryId" required class="input-field">
                       <option value="">Seleccionar categoría</option>
-                      <option v-for="category in categories" :key="category.id" :value="category.name">
+                      <option v-for="category in categories" :key="category.id" :value="category.id">
                         {{ category.name }}
                       </option>
                     </select>
@@ -179,7 +179,7 @@ const isEditing = computed(() => !!props.product)
 
 const form = ref({
   name: '',
-  category: '',
+  categoryId: '',
   price: 0,
   cost: 0,
   stock: 0,
@@ -197,7 +197,7 @@ const form = ref({
 const resetForm = () => {
   form.value = {
     name: '',
-    category: '',
+    categoryId: '',
     price: 0,
     cost: 0,
     stock: 0,
