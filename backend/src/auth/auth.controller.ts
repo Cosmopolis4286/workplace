@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Request,
+  ForbiddenException,
 } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { AuthService } from './auth.service'
@@ -59,6 +60,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async getProfile(@CurrentUser() user: any) {
     return this.authService.getProfile(user.id)
+  }
+
+  @Get('demo-credentials')
+  async getDemoCredentials() {
+    if (this.config.get('NODE_ENV') !== 'development') {
+      throw new ForbiddenException('Solo disponible en desarrollo')
+    }
+    return this.authService.getDemoCredentials()
   }
 
   private parseTtlToSeconds(duration: string): number {

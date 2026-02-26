@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
+  NotFoundException,
   Logger,
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
@@ -91,6 +92,28 @@ export class AuthService {
 
   async getProfile(userId: string) {
     return this.usersService.findById(userId)
+  }
+
+  async getDemoCredentials() {
+    const email = this.config.get<string>('DEMO_EMAIL', 'demo@ifoodmanager.com')
+    const password = this.config.get<string>('DEMO_PASSWORD', 'demo123456')
+
+    const user = await this.usersService.findByEmail(email)
+    if (!user) {
+      throw new ForbiddenException(
+        'Demo user not found. Run: pnpm seed',
+      )
+    }
+
+    return {
+      success: true,
+      data: {
+        email,
+        password,
+        restaurantName: user.restaurant?.name || 'Restaurante Demo',
+        description: 'Cuenta demo para explorar la plataforma',
+      },
+    }
   }
 
   // --- Helpers ---
