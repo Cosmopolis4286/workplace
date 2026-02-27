@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { useAuth } from './useAuth'
 
-export type AnalyticsPeriod = '7d' | '30d' | '90d' | '1y'
+export type AnalyticsPeriod = 'today' | '7d' | 'week' | '30d' | 'quarter' | '90d' | '1y' | 'custom'
 export type CompareWith = 'previous' | 'year' | 'none'
 
 export interface AnalyticsKpis {
@@ -57,6 +57,7 @@ export interface AnalyticsOverview {
   period: AnalyticsPeriod
   compareWith: CompareWith
   dateRange: { from: string; to: string }
+  previousDateRange: { from: string; to: string } | null
   kpis: AnalyticsKpis
   revenueTrend: ChartData
   ordersByHour: ChartData
@@ -70,13 +71,24 @@ const overview = ref<AnalyticsOverview | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
+export const PERIOD_LABELS: Record<AnalyticsPeriod, string> = {
+  today: 'Hoy',
+  week: 'Esta Semana',
+  '7d': 'Últimos 7 días',
+  '30d': 'Últimos 30 días',
+  quarter: 'Este Trimestre',
+  '90d': 'Últimos 90 días',
+  '1y': 'Este Año',
+  custom: 'Personalizado',
+}
+
 export const useAnalytics = () => {
   const { getHeaders, refreshAccessToken } = useAuth()
   const config = useRuntimeConfig()
   const apiUrl = config.public.apiUrl as string
   const router = useRouter()
 
-  // ─── Computed chart data (Chart.js ready) ─────────────────────────────────
+  // ─── Computed chart data (Chart.js ready) ──────────────────────────────────
 
   const revenueChartData = computed(() => {
     if (!overview.value) return null
@@ -91,6 +103,8 @@ export const useAnalytics = () => {
           backgroundColor: 'rgba(239, 68, 68, 0.1)',
           fill: true,
           tension: 0.4,
+          pointBackgroundColor: '#ef4444',
+          pointRadius: 3,
         },
       ],
     }
@@ -105,7 +119,7 @@ export const useAnalytics = () => {
         {
           label: 'Pedidos',
           data: values,
-          backgroundColor: '#3b82f6',
+          backgroundColor: '#f97316',
           borderRadius: 4,
         },
       ],
@@ -152,30 +166,44 @@ export const useAnalytics = () => {
         label: 'Ingresos',
         value: formatCurrency(kpis.totalRevenue),
         change: formatChange(kpis.totalRevenueChange),
-        changeType: kpis.totalRevenueChange !== null && kpis.totalRevenueChange >= 0 ? 'increase' : 'decrease',
+        changeType: changeType(kpis.totalRevenueChange),
       },
       {
         label: 'Pedidos',
         value: kpis.totalOrders.toLocaleString('es-MX'),
         change: formatChange(kpis.totalOrdersChange),
-        changeType: kpis.totalOrdersChange !== null && kpis.totalOrdersChange >= 0 ? 'increase' : 'decrease',
+        changeType: changeType(kpis.totalOrdersChange),
       },
       {
         label: 'Ticket Promedio',
         value: formatCurrency(kpis.avgTicket),
         change: formatChange(kpis.avgTicketChange),
-        changeType: kpis.avgTicketChange !== null && kpis.avgTicketChange >= 0 ? 'increase' : 'decrease',
+        changeType: changeType(kpis.avgTicketChange),
       },
       {
         label: 'Nuevos Clientes',
         value: kpis.newCustomers.toLocaleString('es-MX'),
         change: formatChange(kpis.newCustomersChange),
-        changeType: kpis.newCustomersChange !== null && kpis.newCustomersChange >= 0 ? 'increase' : 'decrease',
+        changeType: changeType(kpis.newCustomersChange),
       },
     ]
   })
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+  // ─── Computed top products list (for table view) ───────────────────────────
+
+  const topProductsList = computed(() => {
+    if (!overview.value) return []
+    const { labels, values, revenue } = overview.value.topProducts
+    const maxUnits = Math.max(...values, 1)
+    return labels.map((name, i) => ({
+      name,
+      sold: values[i],
+      revenue: revenue[i],
+      percentage: Math.round((values[i] / maxUnits) * 100),
+    }))
+  })
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
 
   function formatCurrency(n: number): string {
     return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
@@ -184,6 +212,32 @@ export const useAnalytics = () => {
   function formatChange(pct: number | null): string {
     if (pct === null) return '—'
     return pct >= 0 ? `+${pct}%` : `${pct}%`
+  }
+
+  function changeType(pct: number | null): 'increase' | 'decrease' | 'neutral' {
+    if (pct === null) return 'neutral'
+    return pct >= 0 ? 'increase' : 'decrease'
+  }
+
+  function formatDateRange(from: string, to: string): string {
+    const f = new Date(from)
+    const t = new Date(to)
+    const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
+    return `${f.toLocaleDateString('es-MX', opts)} – ${t.toLocaleDateString('es-MX', opts)}`
+  }
+
+  // ─── Export ───────────────────────────────────────────────────────────────
+
+  function exportReport() {
+    if (!overview.value) return
+    const blob = new Blob([JSON.stringify(overview.value, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const period = overview.value.period
+    a.download = `reporte-${period}-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   // ─── API ──────────────────────────────────────────────────────────────────
@@ -218,18 +272,27 @@ export const useAnalytics = () => {
 
   // ─── Load ─────────────────────────────────────────────────────────────────
 
-  async function loadOverview(period: AnalyticsPeriod = '30d', compareWith: CompareWith = 'previous') {
+  async function loadOverview(
+    period: AnalyticsPeriod = '30d',
+    compareWith: CompareWith = 'previous',
+    dateFrom?: string,
+    dateTo?: string,
+  ) {
     loading.value = true
     error.value = null
     try {
       const params = new URLSearchParams({ period, compareWith })
+      if (period === 'custom' && dateFrom && dateTo) {
+        params.set('dateFrom', dateFrom)
+        params.set('dateTo', dateTo)
+      }
       const data = await withAuthRetry(() =>
         apiFetch<AnalyticsOverview>(`/overview?${params.toString()}`),
       )
       overview.value = data
     } catch (err: unknown) {
       error.value =
-        (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar los analíticos'
+        (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar los reportes'
     } finally {
       loading.value = false
     }
@@ -245,11 +308,14 @@ export const useAnalytics = () => {
     ordersHourChartData,
     topProductsChartData,
     customerSegmentsChartData,
+    topProductsList,
     headerStats,
     // helpers
     formatCurrency,
     formatChange,
+    formatDateRange,
     // actions
     loadOverview,
+    exportReport,
   }
 }
