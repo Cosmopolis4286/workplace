@@ -1,17 +1,19 @@
 export interface DemoCredential {
+  role: 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
   email: string
   password: string
-  restaurantName: string
+  label: string
   description: string
+  restaurantName: string | null
 }
 
 interface DemoCredentialsResponse {
   success: boolean
-  data: DemoCredential
+  data: DemoCredential[]
 }
 
 // Singleton state
-const credential = ref<DemoCredential | null>(null)
+const credentials = ref<DemoCredential[]>([])
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 let loadPromise: Promise<void> | null = null
@@ -20,12 +22,12 @@ export const useDemoCredentials = () => {
   const config = useRuntimeConfig()
 
   const isAvailable = computed(
-    () => process.env.NODE_ENV === 'development' && !!credential.value,
+    () => process.env.NODE_ENV === 'development' && credentials.value.length > 0,
   )
 
   const loadCredentials = async (): Promise<void> => {
     if (process.env.NODE_ENV !== 'development') return
-    if (credential.value) return
+    if (credentials.value.length > 0) return
     if (loadPromise) return loadPromise
 
     isLoading.value = true
@@ -37,7 +39,7 @@ export const useDemoCredentials = () => {
           `${config.public.apiUrl}/api/auth/demo-credentials`,
         )
         if (res?.success && res.data) {
-          credential.value = res.data
+          credentials.value = res.data
         }
       } catch (err: any) {
         error.value = err?.data?.message || 'No se pudieron cargar las credenciales demo'
@@ -51,7 +53,7 @@ export const useDemoCredentials = () => {
   }
 
   const refresh = async () => {
-    credential.value = null
+    credentials.value = []
     await loadCredentials()
   }
 
@@ -62,7 +64,7 @@ export const useDemoCredentials = () => {
   })
 
   return {
-    credential: readonly(credential),
+    credentials: readonly(credentials),
     isLoading: readonly(isLoading),
     error: readonly(error),
     isAvailable,

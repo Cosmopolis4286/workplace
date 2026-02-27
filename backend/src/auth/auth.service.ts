@@ -86,6 +86,41 @@ export class AuthService {
     return tokens
   }
 
+  async loginWithGoogle(googleUser: {
+    googleId: string
+    email: string
+    firstName: string
+    lastName: string
+    avatar?: string
+  }) {
+    // Find existing user by email or create a new COMMERCE account
+    let user = await this.usersService.findByEmail(googleUser.email)
+
+    if (!user) {
+      // Auto-register: use email prefix as restaurant name placeholder
+      const restaurantName = `${googleUser.firstName}'s Restaurant`
+      user = await this.usersService.create({
+        email: googleUser.email,
+        password: uuidv4(), // random unusable password — user logs in via Google
+        firstName: googleUser.firstName,
+        lastName: googleUser.lastName,
+        restaurantName,
+        role: Role.COMMERCE,
+      })
+    }
+
+    // Update avatar if provided and user doesn't have one yet
+    if (googleUser.avatar && !user.avatar) {
+      await this.usersService.updateAvatar(user.id, googleUser.avatar)
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email, user.role)
+    await this.saveRefreshToken(user.id, tokens.refreshToken)
+
+    const { password, ...safeUser } = user as typeof user & { password?: string }
+    return { user: safeUser, ...tokens }
+  }
+
   async logout(userId: string, accessTokenJti: string, accessTokenTtl: number) {
     // Blacklist the access token in Redis
     await this.redis.blacklistToken(accessTokenJti, accessTokenTtl)
@@ -110,24 +145,65 @@ export class AuthService {
   }
 
   async getDemoCredentials() {
-    const email = this.config.get<string>('DEMO_EMAIL', 'demo@ifoodmanager.com')
-    const password = this.config.get<string>('DEMO_PASSWORD', 'demo123456')
+    const demoAccounts = [
+      {
+        role: 'SUPERADMIN' as const,
+        email: 'superadmin@demo.com',
+        password: 'SuperAdmin123',
+        label: 'Super Admin',
+        description: 'Acceso total: gestiona todos los usuarios y roles',
+      },
+      {
+        role: 'ADMIN' as const,
+        email: 'admin@demo.com',
+        password: 'Admin1234',
+        label: 'Administrador',
+        description: 'Gestiona commerce, freelancer y normal',
+      },
+      {
+        role: 'COMMERCE' as const,
+        email: 'commerce@demo.com',
+        password: 'Commerce123',
+        label: 'Comercio',
+        description: 'Acceso completo al negocio y operaciones',
+      },
+      {
+        role: 'FREELANCER' as const,
+        email: 'freelancer@demo.com',
+        password: 'Freelancer1',
+        label: 'Freelancer',
+        description: 'Acceso a sus propios servicios',
+      },
+      {
+        role: 'NORMAL' as const,
+        email: 'normal@demo.com',
+        password: 'Normal1234',
+        label: 'Usuario Normal',
+        description: 'Acceso básico de usuario final',
+      },
+    ]
 
-    const user = await this.usersService.findByEmail(email)
-    if (!user) {
+    const results = await Promise.all(
+      demoAccounts.map(async (acc) => {
+        const user = await this.usersService.findByEmail(acc.email)
+        return {
+          ...acc,
+          restaurantName: user?.restaurant?.name ?? null,
+          exists: !!user,
+        }
+      }),
+    )
+
+    const missing = results.filter(r => !r.exists).map(r => r.role)
+    if (missing.length > 0) {
       throw new ForbiddenException(
-        'Demo user not found. Run: pnpm seed',
+        `Demo users not found: ${missing.join(', ')}. Run: pnpm seed`,
       )
     }
 
     return {
       success: true,
-      data: {
-        email,
-        password,
-        restaurantName: user.restaurant?.name || 'Restaurante Demo',
-        description: 'Cuenta demo para explorar la plataforma',
-      },
+      data: results.map(({ exists, ...rest }) => rest),
     }
   }
 
