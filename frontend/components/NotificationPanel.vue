@@ -1,5 +1,5 @@
 <template>
-  <div class="relative">
+  <div class="relative" ref="panelRef">
     <!-- Bell button -->
     <button
       @click="togglePanel"
@@ -190,9 +190,16 @@ const { restaurant } = useAuth()
 const isOpen             = ref(false)
 const wsOffline          = ref(false)
 const hasNewNotification = ref(false)
+const panelRef           = ref<HTMLElement | null>(null)
 
 function togglePanel() {
   isOpen.value = !isOpen.value
+}
+
+function handleClickOutside(event: MouseEvent) {
+  if (panelRef.value && !panelRef.value.contains(event.target as Node)) {
+    isOpen.value = false
+  }
 }
 
 async function handleNotificationClick(notification: any) {
@@ -264,6 +271,8 @@ function formatTime(timestamp: string): string {
 let stopWatch: (() => void) | null = null
 
 onMounted(async () => {
+  document.addEventListener('click', handleClickOutside)
+
   const restaurantId = restaurant.value?.id
   if (restaurantId) {
     try {
@@ -290,6 +299,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
   stopWatch?.()
   disconnectWebSocket()
 })

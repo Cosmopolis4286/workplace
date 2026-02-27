@@ -4,7 +4,7 @@
     <div
       :class="[
         'transition-all duration-300 ease-in-out',
-        sidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
+        sidebarOpen ? 'lg:pl-72' : 'lg:pl-0',
       ]"
     >
       <AppHeader @toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen" />
@@ -13,20 +13,23 @@
           <slot />
         </div>
       </main>
+      <AppFooter />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-const sidebarOpen = ref(false)
+const sidebarOpen = ref(false);
 
 const toggleSidebar = (value?: boolean) => {
-  sidebarOpen.value = typeof value === 'boolean' ? value : !sidebarOpen.value
-}
+  sidebarOpen.value = typeof value === "boolean" ? value : !sidebarOpen.value;
+};
 
 onMounted(() => {
   if (window.innerWidth >= 1024) {
-    setTimeout(() => { sidebarOpen.value = true }, 100)
+    setTimeout(() => {
+      sidebarOpen.value = true;
+    }, 100);
   }
-})
+});
 </script>
