@@ -268,31 +268,34 @@
             </svg>
           </button>
           
-          <div 
+          <div
             v-show="openDropdowns.configuracion"
             class="ml-6 mt-1 space-y-1 transition-all duration-200"
           >
-            <button class="group w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200">
+            <NuxtLink
+              to="/perfil"
+              @click="$emit('navigate')"
+              class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
+              :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/perfil' }"
+            >
               <svg class="mr-3 h-4 w-4 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
               </svg>
               Mi Perfil
-            </button>
-            
-            <button class="group w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200">
-              <svg class="mr-3 h-4 w-4 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-              </svg>
-              Restaurante
-            </button>
-            
-            <button class="group w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200">
+            </NuxtLink>
+
+            <NuxtLink
+              to="/configuracion"
+              @click="$emit('navigate')"
+              class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
+              :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/configuracion' }"
+            >
               <svg class="mr-3 h-4 w-4 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
               </svg>
-              Preferencias
-            </button>
+              Configuración
+            </NuxtLink>
           </div>
         </div>
       </div>
@@ -345,6 +348,8 @@ const autoOpenDropdowns = () => {
     openDropdowns.value.ventas = true
   } else if (['/pedidos', '/agendamientos', '/clientes', '/delivery'].includes(path)) {
     openDropdowns.value.operaciones = true
+  } else if (['/perfil', '/configuracion'].includes(path)) {
+    openDropdowns.value.configuracion = true
   }
 }
 
@@ -374,7 +379,7 @@ const isDropdownActive = (dropdown) => {
     case 'operaciones':
       return openDropdowns.value.operaciones || ['/pedidos', '/agendamientos', '/clientes', '/delivery'].includes(path)
     case 'configuracion':
-      return openDropdowns.value.configuracion
+      return openDropdowns.value.configuracion || ['/perfil', '/configuracion'].includes(path)
     default:
       return false
   }
