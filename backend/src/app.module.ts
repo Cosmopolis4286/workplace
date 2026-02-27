@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { ThrottlerModule } from '@nestjs/throttler'
+import { ServeStaticModule } from '@nestjs/serve-static'
+import { join } from 'path'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { PrismaModule } from './prisma/prisma.module'
@@ -21,6 +23,10 @@ import { BranchesModule } from './branches/branches.module'
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'uploads'),
+      serveRoot: '/uploads',
+    }),
     PrismaModule,
     RedisModule,
     UsersModule,

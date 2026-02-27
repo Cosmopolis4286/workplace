@@ -14,6 +14,7 @@ interface User {
   firstName: string
   lastName: string
   phone?: string
+  avatar?: string
   role: 'ADMIN' | 'MANAGER' | 'STAFF'
   isActive: boolean
   restaurant?: Restaurant
@@ -230,6 +231,19 @@ export const useAuth = () => {
     })
   }
 
+  async function uploadAvatar(file: File): Promise<User> {
+    const formData = new FormData()
+    formData.append('avatar', file)
+    const updated = await $fetch<User>(`${apiUrl}/api/auth/me/avatar`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: formData,
+    })
+    currentUser.value = updated
+    if (process.client) localStorage.setItem('auth_user', JSON.stringify(updated))
+    return updated
+  }
+
   return {
     user,
     isAuthenticated,
@@ -241,6 +255,7 @@ export const useAuth = () => {
     updateLocalUser,
     saveProfile,
     changePassword,
+    uploadAvatar,
     fetchProfile,
     refreshAccessToken,
     getHeaders,

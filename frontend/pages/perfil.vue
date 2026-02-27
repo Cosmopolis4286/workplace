@@ -31,9 +31,42 @@
         <div class="card-premium p-6">
           <div class="text-center">
             <div class="relative inline-block mb-4">
-              <div class="h-32 w-32 rounded-full shadow-xl ring-4 ring-white bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center mx-auto">
-                <span class="text-4xl font-bold text-white select-none">{{ userInitials }}</span>
+              <!-- Avatar image or initials -->
+              <div class="h-32 w-32 rounded-full shadow-xl ring-4 ring-white overflow-hidden mx-auto">
+                <img
+                  v-if="avatarUrl"
+                  :src="avatarUrl"
+                  alt="Foto de perfil"
+                  class="h-full w-full object-cover"
+                >
+                <div
+                  v-else
+                  class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center"
+                >
+                  <span class="text-4xl font-bold text-white select-none">{{ userInitials }}</span>
+                </div>
               </div>
+
+              <!-- Upload button overlay -->
+              <button
+                type="button"
+                :disabled="uploadingAvatar"
+                @click="triggerAvatarInput"
+                class="absolute bottom-0 right-0 h-9 w-9 rounded-full bg-white border-2 border-gray-200 shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-60"
+                title="Cambiar foto"
+              >
+                <span v-if="uploadingAvatar" class="h-4 w-4 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+                <CameraIcon v-else class="h-4 w-4 text-gray-600" />
+              </button>
+
+              <!-- Hidden file input -->
+              <input
+                ref="avatarFileInput"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                class="hidden"
+                @change="onAvatarFileSelected"
+              >
             </div>
             <h2 class="text-2xl font-bold text-gray-900 mb-1">{{ fullName }}</h2>
             <p class="text-gray-500 mb-2 text-sm">{{ auth.user.value?.email }}</p>
@@ -257,7 +290,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import {
   UserCircleIcon,
@@ -266,19 +299,25 @@ import {
   ExclamationCircleIcon,
   EyeIcon,
   EyeSlashIcon,
+  CameraIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useAuth } from '~/composables/useAuth'
 
 const auth = useAuth()
+const config = useRuntimeConfig()
+const apiUrl = config.public.apiUrl as string
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const loadingProfile = ref(false)
 const savingProfile = ref(false)
 const savingPassword = ref(false)
+const uploadingAvatar = ref(false)
+const avatarPreview = ref<string | null>(null)
+const avatarFileInput = ref<HTMLInputElement | null>(null)
 const successMsg = ref('')
 const errorMsg = ref('')
-let successTimer = null
+let successTimer: ReturnType<typeof setTimeout> | null = null
 
 const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '' })
 const passwordForm = ref({ current: '', new: '', confirm: '' })
@@ -303,7 +342,14 @@ const ROLE_STYLES = {
   STAFF: { label: 'Personal', badge: 'bg-gray-100 text-gray-800' },
 }
 
-const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role] ?? ROLE_STYLES.STAFF)
+const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role ?? 'STAFF'] ?? ROLE_STYLES.STAFF)
+
+const avatarUrl = computed(() => {
+  if (avatarPreview.value) return avatarPreview.value
+  const av = auth.user.value?.avatar
+  if (!av) return null
+  return av.startsWith('http') ? av : `${apiUrl}${av}`
+})
 
 // Track dirty state to enable/disable Save button
 const profileDirty = computed(() => {
@@ -366,22 +412,51 @@ function resetProfileForm() {
   syncFormFromUser()
 }
 
-function showSuccess(msg) {
+function showSuccess(msg: string) {
   errorMsg.value = ''
   successMsg.value = msg
-  clearTimeout(successTimer)
+  if (successTimer) clearTimeout(successTimer)
   successTimer = setTimeout(() => { successMsg.value = '' }, 4000)
 }
 
-function showError(err) {
+function showError(err: unknown) {
   successMsg.value = ''
-  const detail = err?.data?.message ?? err?.message ?? 'Ocurrió un error inesperado'
-  errorMsg.value = Array.isArray(detail) ? detail.join('. ') : detail
-  clearTimeout(successTimer)
+  const e = err as { data?: { message?: unknown }; message?: string }
+  const detail = e?.data?.message ?? e?.message ?? 'Ocurrió un error inesperado'
+  errorMsg.value = Array.isArray(detail) ? detail.join('. ') : String(detail)
+  if (successTimer) clearTimeout(successTimer)
   successTimer = setTimeout(() => { errorMsg.value = '' }, 6000)
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
+function triggerAvatarInput() {
+  avatarFileInput.value?.click()
+}
+
+async function onAvatarFileSelected(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  // Preview local
+  const reader = new FileReader()
+  reader.onload = (e) => { avatarPreview.value = e.target?.result as string }
+  reader.readAsDataURL(file)
+
+  uploadingAvatar.value = true
+  errorMsg.value = ''
+  try {
+    await auth.uploadAvatar(file)
+    avatarPreview.value = null // usar la URL del servidor ya persistida
+    showSuccess('Foto de perfil actualizada')
+  } catch (err) {
+    avatarPreview.value = null
+    showError(err)
+  } finally {
+    uploadingAvatar.value = false
+    if (avatarFileInput.value) avatarFileInput.value.value = ''
+  }
+}
+
 async function saveProfile() {
   if (!profileDirty.value) return
   savingProfile.value = true
