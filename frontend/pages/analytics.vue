@@ -8,7 +8,7 @@
       :stats="headerStats"
     >
       <template #actions>
-        <button class="btn-secondary flex items-center">
+        <button class="btn-secondary flex items-center" @click="exportData">
           <AnalyticsArrowDownIcon class="h-5 w-5 mr-2" />
           Exportar
         </button>
@@ -24,7 +24,7 @@
       <div class="flex flex-wrap items-center gap-4">
         <div class="flex items-center space-x-2">
           <label class="text-sm font-medium text-gray-700">Período:</label>
-          <select v-model="selectedPeriod" class="input-field w-auto">
+          <select v-model="selectedPeriod" class="input-field w-auto" @change="reload">
             <option value="7d">Últimos 7 días</option>
             <option value="30d">Últimos 30 días</option>
             <option value="90d">Últimos 90 días</option>
@@ -33,143 +33,223 @@
         </div>
         <div class="flex items-center space-x-2">
           <label class="text-sm font-medium text-gray-700">Comparar con:</label>
-          <select v-model="compareWith" class="input-field w-auto">
+          <select v-model="compareWith" class="input-field w-auto" @change="reload">
             <option value="previous">Período anterior</option>
             <option value="year">Año anterior</option>
             <option value="none">Sin comparación</option>
           </select>
         </div>
+        <div v-if="overview" class="ml-auto text-xs text-gray-400">
+          {{ formatDateRange(overview.dateRange.from, overview.dateRange.to) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Error banner -->
+    <div v-if="error" class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+      <span>{{ error }}</span>
+      <button @click="reload" class="text-sm underline">Reintentar</button>
+    </div>
+
+    <!-- KPI Cards skeleton -->
+    <div v-if="loading && !overview" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div v-for="i in 4" :key="i" class="card p-6 animate-pulse">
+        <div class="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
+        <div class="h-8 bg-gray-200 rounded w-1/2 mb-3"></div>
+        <div class="h-3 bg-gray-200 rounded w-2/3"></div>
       </div>
     </div>
 
     <!-- KPI Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <!-- Ingresos -->
       <div class="card p-6">
         <div class="flex items-center justify-between">
-          <div>
+          <div class="min-w-0">
             <p class="text-sm font-medium text-gray-500">Ingresos Totales</p>
-            <p class="text-3xl font-bold text-gray-900">$24,580</p>
+            <p class="text-3xl font-bold text-gray-900 truncate">
+              {{ overview ? formatCurrency(overview.kpis.totalRevenue) : '—' }}
+            </p>
             <div class="flex items-center mt-2">
-              <AnalyticsArrowUpIcon class="h-4 w-4 text-green-600 mr-1" />
-              <span class="text-sm text-green-600">+18.2% vs período anterior</span>
+              <component
+                :is="getChangeIcon(overview?.kpis.totalRevenueChange)"
+                class="h-4 w-4 mr-1"
+                :class="getChangeColor(overview?.kpis.totalRevenueChange)"
+              />
+              <span class="text-sm" :class="getChangeColor(overview?.kpis.totalRevenueChange)">
+                {{ formatChange(overview?.kpis.totalRevenueChange ?? null) }}
+                <span v-if="compareWith !== 'none'" class="text-gray-400 ml-1">vs anterior</span>
+              </span>
             </div>
           </div>
-          <div class="p-3 bg-green-100 rounded-full">
+          <div class="p-3 bg-green-100 rounded-full flex-shrink-0">
             <CurrencyDollarIcon class="h-8 w-8 text-green-600" />
           </div>
         </div>
       </div>
 
+      <!-- Pedidos -->
       <div class="card p-6">
         <div class="flex items-center justify-between">
-          <div>
+          <div class="min-w-0">
             <p class="text-sm font-medium text-gray-500">Pedidos</p>
-            <p class="text-3xl font-bold text-gray-900">1,247</p>
+            <p class="text-3xl font-bold text-gray-900">
+              {{ overview ? overview.kpis.totalOrders.toLocaleString('es-MX') : '—' }}
+            </p>
             <div class="flex items-center mt-2">
-              <AnalyticsArrowUpIcon class="h-4 w-4 text-green-600 mr-1" />
-              <span class="text-sm text-green-600">+12.5%</span>
+              <component
+                :is="getChangeIcon(overview?.kpis.totalOrdersChange)"
+                class="h-4 w-4 mr-1"
+                :class="getChangeColor(overview?.kpis.totalOrdersChange)"
+              />
+              <span class="text-sm" :class="getChangeColor(overview?.kpis.totalOrdersChange)">
+                {{ formatChange(overview?.kpis.totalOrdersChange ?? null) }}
+              </span>
             </div>
           </div>
-          <div class="p-3 bg-blue-100 rounded-full">
+          <div class="p-3 bg-blue-100 rounded-full flex-shrink-0">
             <ShoppingCartIcon class="h-8 w-8 text-blue-600" />
           </div>
         </div>
       </div>
 
+      <!-- Ticket Promedio -->
       <div class="card p-6">
         <div class="flex items-center justify-between">
-          <div>
+          <div class="min-w-0">
             <p class="text-sm font-medium text-gray-500">Ticket Promedio</p>
-            <p class="text-3xl font-bold text-gray-900">$19.71</p>
+            <p class="text-3xl font-bold text-gray-900 truncate">
+              {{ overview ? formatCurrency(overview.kpis.avgTicket) : '—' }}
+            </p>
             <div class="flex items-center mt-2">
-              <AnalyticsArrowUpIcon class="h-4 w-4 text-green-600 mr-1" />
-              <span class="text-sm text-green-600">+5.1%</span>
+              <component
+                :is="getChangeIcon(overview?.kpis.avgTicketChange)"
+                class="h-4 w-4 mr-1"
+                :class="getChangeColor(overview?.kpis.avgTicketChange)"
+              />
+              <span class="text-sm" :class="getChangeColor(overview?.kpis.avgTicketChange)">
+                {{ formatChange(overview?.kpis.avgTicketChange ?? null) }}
+              </span>
             </div>
           </div>
-          <div class="p-3 bg-yellow-100 rounded-full">
+          <div class="p-3 bg-yellow-100 rounded-full flex-shrink-0">
             <ReceiptPercentIcon class="h-8 w-8 text-yellow-600" />
           </div>
         </div>
       </div>
 
+      <!-- Nuevos Clientes -->
       <div class="card p-6">
         <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-500">Conversión</p>
-            <p class="text-3xl font-bold text-gray-900">3.2%</p>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-gray-500">Nuevos Clientes</p>
+            <p class="text-3xl font-bold text-gray-900">
+              {{ overview ? overview.kpis.newCustomers.toLocaleString('es-MX') : '—' }}
+            </p>
             <div class="flex items-center mt-2">
-              <AnalyticsArrowDownIcon class="h-4 w-4 text-red-600 mr-1" />
-              <span class="text-sm text-red-600">-0.8%</span>
+              <component
+                :is="getChangeIcon(overview?.kpis.newCustomersChange)"
+                class="h-4 w-4 mr-1"
+                :class="getChangeColor(overview?.kpis.newCustomersChange)"
+              />
+              <span class="text-sm" :class="getChangeColor(overview?.kpis.newCustomersChange)">
+                {{ formatChange(overview?.kpis.newCustomersChange ?? null) }}
+              </span>
             </div>
           </div>
-          <div class="p-3 bg-purple-100 rounded-full">
-            <ChartBarIcon class="h-8 w-8 text-purple-600" />
+          <div class="p-3 bg-purple-100 rounded-full flex-shrink-0">
+            <UsersIcon class="h-8 w-8 text-purple-600" />
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Charts Grid skeleton -->
+    <div v-if="loading && !overview" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div v-for="i in 4" :key="i" class="card p-6 animate-pulse">
+        <div class="h-4 bg-gray-200 rounded w-1/2 mb-6"></div>
+        <div class="h-64 bg-gray-100 rounded"></div>
+      </div>
+    </div>
+
     <!-- Charts Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div v-else-if="overview" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
       <!-- Revenue Trend -->
       <div class="card p-4 sm:p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Tendencia de Ingresos</h3>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-medium text-gray-900">Tendencia de Ingresos</h3>
+          <span v-if="loading" class="text-xs text-gray-400 animate-pulse">Actualizando…</span>
+        </div>
         <div class="h-64 sm:h-80">
-          <LineChart :data="revenueChartData" />
+          <LineChart v-if="revenueChartData" :data="revenueChartData" />
+          <EmptyChart v-else label="Sin datos de ingresos" />
         </div>
       </div>
 
       <!-- Orders by Hour -->
       <div class="card p-4 sm:p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Pedidos por Hora</h3>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-medium text-gray-900">Pedidos por Hora</h3>
+        </div>
         <div class="h-64 sm:h-80">
-          <BarChart :data="ordersHourChartData" />
+          <BarChart v-if="ordersHourChartData" :data="ordersHourChartData" />
+          <EmptyChart v-else label="Sin datos de pedidos" />
         </div>
       </div>
 
       <!-- Top Products -->
       <div class="card p-4 sm:p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Productos Más Vendidos</h3>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-medium text-gray-900">Productos Más Vendidos</h3>
+        </div>
         <div class="h-64 sm:h-80">
-          <BarChart :data="topProductsChartData" />
+          <BarChart v-if="topProductsChartData" :data="topProductsChartData" />
+          <EmptyChart v-else label="Sin productos registrados" />
         </div>
       </div>
 
       <!-- Customer Segments -->
       <div class="card p-4 sm:p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Segmentos de Clientes</h3>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-medium text-gray-900">Segmentos de Clientes</h3>
+        </div>
         <div class="h-64 sm:h-80">
-          <DoughnutChart :data="customerSegmentsChartData" />
+          <DoughnutChart v-if="customerSegmentsChartData" :data="customerSegmentsChartData" />
+          <EmptyChart v-else label="Sin clientes registrados" />
         </div>
       </div>
     </div>
 
     <!-- Detailed Analytics -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div v-if="overview" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Performance Metrics -->
       <div class="card p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Métricas de Rendimiento</h3>
         <div class="space-y-4">
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Tiempo Promedio de Preparación</span>
-            <span class="font-medium">18 min</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Tiempo Promedio de Entrega</span>
-            <span class="font-medium">32 min</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Tasa de Satisfacción</span>
-            <span class="font-medium text-green-600">94.5%</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Pedidos Cancelados</span>
-            <span class="font-medium text-red-600">2.1%</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Rating Promedio</span>
-            <span class="font-medium">4.7 ⭐</span>
-          </div>
+          <MetricRow
+            label="Tiempo Promedio de Preparación"
+            :value="overview.performance.operational.avgPrepTime
+              ? `${overview.performance.operational.avgPrepTime} min` : '—'"
+          />
+          <MetricRow
+            label="Tiempo Promedio de Entrega"
+            :value="overview.performance.operational.avgDeliveryTime
+              ? `${overview.performance.operational.avgDeliveryTime} min` : '—'"
+          />
+          <MetricRow
+            label="Tasa de Cancelación"
+            :value="`${overview.performance.operational.cancellationRate}%`"
+            :value-class="overview.performance.operational.cancellationRate > 10 ? 'text-red-600' : 'text-green-600'"
+          />
+          <MetricRow
+            label="Pedidos en el Período"
+            :value="overview.performance.operational.totalInPeriod.toLocaleString('es-MX')"
+          />
+          <MetricRow
+            label="Pedidos Cancelados"
+            :value="overview.performance.operational.cancellations.toLocaleString('es-MX')"
+            :value-class="overview.performance.operational.cancellations > 0 ? 'text-red-600' : 'text-gray-900'"
+          />
         </div>
       </div>
 
@@ -177,26 +257,28 @@
       <div class="card p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Métricas de Crecimiento</h3>
         <div class="space-y-4">
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Nuevos Clientes (mes)</span>
-            <span class="font-medium text-green-600">+89</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Tasa de Retención</span>
-            <span class="font-medium">78.3%</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Valor de Vida del Cliente</span>
-            <span class="font-medium">$156.80</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Frecuencia de Pedidos</span>
-            <span class="font-medium">2.3/mes</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Costo de Adquisición</span>
-            <span class="font-medium">$12.40</span>
-          </div>
+          <MetricRow
+            label="Nuevos Clientes (período)"
+            :value="`+${overview.performance.growth.newCustomers}`"
+            value-class="text-green-600"
+          />
+          <MetricRow
+            label="Tasa de Retención"
+            :value="`${overview.performance.growth.retentionRate}%`"
+            :value-class="overview.performance.growth.retentionRate >= 60 ? 'text-green-600' : 'text-yellow-600'"
+          />
+          <MetricRow
+            label="Valor de Vida del Cliente (CLV)"
+            :value="formatCurrency(overview.performance.growth.clv)"
+          />
+          <MetricRow
+            label="Frecuencia de Pedidos"
+            :value="`${overview.performance.growth.orderFrequency}/hist.`"
+          />
+          <MetricRow
+            label="Total de Clientes"
+            :value="overview.performance.growth.totalCustomers.toLocaleString('es-MX')"
+          />
         </div>
       </div>
 
@@ -204,28 +286,39 @@
       <div class="card p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Salud Financiera</h3>
         <div class="space-y-4">
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Margen Bruto</span>
-            <span class="font-medium text-green-600">68.5%</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Margen Neto</span>
-            <span class="font-medium text-green-600">15.2%</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">ROI Marketing</span>
-            <span class="font-medium text-green-600">4.2x</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Flujo de Caja</span>
-            <span class="font-medium text-green-600">+$8,450</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Punto de Equilibrio</span>
-            <span class="font-medium">$18,200/mes</span>
-          </div>
+          <MetricRow
+            label="Margen Bruto (promedio)"
+            :value="`${overview.performance.financial.grossMargin}%`"
+            :value-class="overview.performance.financial.grossMargin >= 50 ? 'text-green-600' : 'text-yellow-600'"
+          />
+          <MetricRow
+            label="Ticket Promedio"
+            :value="formatCurrency(overview.performance.financial.avgTicket)"
+          />
+          <MetricRow
+            label="Ingresos del Período"
+            :value="formatCurrency(overview.performance.financial.totalRevenue)"
+            value-class="text-green-600"
+          />
+          <MetricRow
+            label="Total de Pedidos"
+            :value="overview.performance.financial.totalOrders.toLocaleString('es-MX')"
+          />
+          <MetricRow
+            label="Ingreso por Pedido"
+            :value="overview.performance.financial.totalOrders > 0
+              ? formatCurrency(overview.performance.financial.totalRevenue / overview.performance.financial.totalOrders)
+              : '—'"
+          />
         </div>
       </div>
+    </div>
+
+    <!-- Empty state (no data, no error) -->
+    <div v-else-if="!loading && !error" class="card p-12 text-center text-gray-400">
+      <ChartBarIcon class="h-12 w-12 mx-auto mb-3 opacity-30" />
+      <p class="text-lg font-medium">Sin datos analíticos</p>
+      <p class="text-sm mt-1">Agrega clientes, productos y agendamientos para ver tus métricas.</p>
     </div>
 
     <!-- Analytics Config Modal -->
@@ -237,90 +330,116 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import {
   ArrowUpIcon as AnalyticsArrowUpIcon,
   ArrowDownIcon as AnalyticsArrowDownIcon,
+  MinusIcon,
   CurrencyDollarIcon,
   ShoppingCartIcon,
   ReceiptPercentIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  UsersIcon,
 } from '@heroicons/vue/24/outline'
 import LineChart from '~/components/charts/LineChart.vue'
 import BarChart from '~/components/charts/BarChart.vue'
 import DoughnutChart from '~/components/charts/DoughnutChart.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import AnalyticsConfigModal from '~/components/modals/AnalyticsConfigModal.vue'
-const selectedPeriod = ref('30d')
-const compareWith = ref('previous')
+import type { AnalyticsPeriod, CompareWith } from '~/composables/useAnalytics'
+
+// ─── Inline micro-components ─────────────────────────────────────────────────
+
+const MetricRow = defineComponent({
+  props: {
+    label: String,
+    value: String,
+    valueClass: { type: String, default: 'font-medium' },
+  },
+  template: `
+    <div class="flex justify-between items-center">
+      <span class="text-sm text-gray-600">{{ label }}</span>
+      <span :class="['font-medium', valueClass]">{{ value }}</span>
+    </div>
+  `,
+})
+
+const EmptyChart = defineComponent({
+  props: { label: String },
+  template: `
+    <div class="h-full flex items-center justify-center text-gray-300 text-sm">{{ label }}</div>
+  `,
+})
+
+// ─── State ────────────────────────────────────────────────────────────────────
+
+const selectedPeriod = ref<AnalyticsPeriod>('30d')
+const compareWith = ref<CompareWith>('previous')
 const showConfigModal = ref(false)
 
-const headerStats = ref([
-  { label: 'Ingresos', value: '$24,580', change: '+18.2%', changeType: 'increase' },
-  { label: 'Pedidos', value: '1,247', change: '+12.5%', changeType: 'increase' },
-  { label: 'Ticket Promedio', value: '$19.71', change: '+5.1%', changeType: 'increase' },
-  { label: 'Conversión', value: '3.2%', change: '-0.8%', changeType: 'decrease' }
-])
+const {
+  overview,
+  loading,
+  error,
+  revenueChartData,
+  ordersHourChartData,
+  topProductsChartData,
+  customerSegmentsChartData,
+  headerStats,
+  formatCurrency,
+  formatChange,
+  loadOverview,
+} = useAnalytics()
 
 const breadcrumbItems = ref([
   { label: 'Dashboard', to: '/' },
-  { label: 'Analytics' }
+  { label: 'Analytics' },
 ])
 
-const revenueChartData = computed(() => ({
-  labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-  datasets: [{
-    label: 'Ingresos',
-    data: [1200, 1900, 1500, 2100, 1800, 2400, 2200],
-    borderColor: '#ef4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    fill: true,
-    tension: 0.4
-  }]
-}))
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const ordersHourChartData = computed(() => ({
-  labels: ['6h', '8h', '10h', '12h', '14h', '16h', '18h', '20h', '22h'],
-  datasets: [{
-    label: 'Pedidos',
-    data: [5, 12, 25, 45, 38, 42, 65, 58, 35],
-    backgroundColor: '#3b82f6',
-    borderRadius: 4
-  }]
-}))
-
-const topProductsChartData = computed(() => ({
-  labels: ['Pizza Margherita', 'Hamburguesa', 'Pasta Carbonara', 'Ensalada César', 'Tacos'],
-  datasets: [{
-    label: 'Ventas',
-    data: [145, 98, 76, 65, 54],
-    backgroundColor: [
-      '#ef4444',
-      '#f97316',
-      '#eab308',
-      '#22c55e',
-      '#3b82f6'
-    ],
-    borderRadius: 4
-  }]
-}))
-
-const customerSegmentsChartData = computed(() => ({
-  labels: ['Nuevos', 'Recurrentes', 'VIP', 'Inactivos'],
-  datasets: [{
-    data: [35, 45, 15, 5],
-    backgroundColor: [
-      '#ef4444',
-      '#f97316',
-      '#eab308',
-      '#6b7280'
-    ],
-    borderWidth: 0
-  }]
-}))
-
-const saveAnalyticsConfig = (config) => {
-  console.log('Analytics config saved:', config)
+function getChangeIcon(change: number | null | undefined) {
+  if (change === null || change === undefined) return MinusIcon
+  return change >= 0 ? AnalyticsArrowUpIcon : AnalyticsArrowDownIcon
 }
+
+function getChangeColor(change: number | null | undefined): string {
+  if (change === null || change === undefined) return 'text-gray-400'
+  return change >= 0 ? 'text-green-600' : 'text-red-600'
+}
+
+function formatDateRange(from: string, to: string): string {
+  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
+  return `${new Date(from).toLocaleDateString('es-MX', opts)} – ${new Date(to).toLocaleDateString('es-MX', opts)}`
+}
+
+function reload() {
+  loadOverview(selectedPeriod.value, compareWith.value)
+}
+
+function exportData() {
+  if (!overview.value) return
+  const json = JSON.stringify(overview.value, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `analytics-${selectedPeriod.value}-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function saveAnalyticsConfig(config: unknown) {
+  const saved = config as { period?: AnalyticsPeriod; compareWith?: CompareWith }
+  if (saved.period) selectedPeriod.value = saved.period
+  if (saved.compareWith) compareWith.value = saved.compareWith
+  reload()
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+onMounted(() => {
+  loadOverview(selectedPeriod.value, compareWith.value)
+})
 </script>
