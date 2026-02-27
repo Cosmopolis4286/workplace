@@ -6,49 +6,83 @@
       :icon="UserCircleIcon"
     />
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Loading skeleton -->
+    <div v-if="loadingProfile" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="card-premium p-6 animate-pulse">
+        <div class="flex flex-col items-center space-y-4">
+          <div class="h-32 w-32 bg-gray-200 rounded-full" />
+          <div class="h-6 w-40 bg-gray-200 rounded" />
+          <div class="h-4 w-32 bg-gray-200 rounded" />
+        </div>
+      </div>
+      <div class="lg:col-span-2 space-y-6">
+        <div class="card-premium p-6 animate-pulse space-y-4">
+          <div class="h-6 w-48 bg-gray-200 rounded" />
+          <div class="grid grid-cols-2 gap-4">
+            <div v-for="i in 4" :key="i" class="h-12 bg-gray-200 rounded-xl" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Sidebar: avatar + meta -->
       <div class="lg:col-span-1">
         <div class="card-premium p-6">
           <div class="text-center">
             <div class="relative inline-block mb-4">
-              <img
-                class="h-32 w-32 rounded-full shadow-xl ring-4 ring-white"
-                src="https://images.pexels.com/photos/1040881/pexels-photo-1040881.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop"
-                alt="Avatar"
-              >
-              <button class="absolute bottom-0 right-0 bg-gradient-to-r from-ifood-red to-red-600 text-white p-3 rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300">
-                <CameraIcon class="h-5 w-5" />
-              </button>
+              <div class="h-32 w-32 rounded-full shadow-xl ring-4 ring-white bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center mx-auto">
+                <span class="text-4xl font-bold text-white select-none">{{ userInitials }}</span>
+              </div>
             </div>
-            <h2 class="text-2xl font-bold text-gray-900 mb-1">{{ profileData.name }}</h2>
-            <p class="text-gray-500 mb-4">{{ profileData.email }}</p>
-            <div class="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
-              <div class="h-2 w-2 bg-green-500 rounded-full mr-2"></div>
-              Cuenta Activa
-            </div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-1">{{ fullName }}</h2>
+            <p class="text-gray-500 mb-2 text-sm">{{ auth.user.value?.email }}</p>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold" :class="roleStyle.badge">
+              {{ roleStyle.label }}
+            </span>
           </div>
 
-          <div class="mt-6 pt-6 border-t border-gray-200">
-            <div class="space-y-4">
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Miembro desde</span>
-                <span class="text-sm font-semibold text-gray-900">{{ profileData.memberSince }}</span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Rol</span>
-                <span class="text-sm font-semibold text-gray-900">{{ profileData.role }}</span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Total ventas</span>
-                <span class="text-sm font-semibold text-ifood-red">{{ profileData.totalSales }}</span>
-              </div>
+          <div class="mt-6 pt-6 border-t border-gray-200 space-y-3">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-gray-500">Estado</span>
+              <span class="inline-flex items-center gap-1.5 font-semibold text-green-700">
+                <span class="h-2 w-2 bg-green-500 rounded-full" />
+                Activo
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-gray-500">Restaurante</span>
+              <span class="font-semibold text-gray-900 truncate max-w-[120px]" :title="auth.restaurant.value?.name">
+                {{ auth.restaurant.value?.name ?? '—' }}
+              </span>
+            </div>
+            <div v-if="auth.user.value?.phone" class="flex items-center justify-between text-sm">
+              <span class="text-gray-500">Teléfono</span>
+              <span class="font-semibold text-gray-900">{{ auth.user.value.phone }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="lg:col-span-2">
-        <div class="card-premium p-6 mb-6">
+      <!-- Main content -->
+      <div class="lg:col-span-2 space-y-6">
+
+        <!-- Success / Error banners -->
+        <transition name="fade">
+          <div v-if="successMsg" class="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-green-800 text-sm font-medium">
+            <CheckCircleIcon class="h-5 w-5 flex-shrink-0" />
+            {{ successMsg }}
+          </div>
+        </transition>
+        <transition name="fade">
+          <div v-if="errorMsg" class="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-sm font-medium">
+            <ExclamationCircleIcon class="h-5 w-5 flex-shrink-0" />
+            {{ errorMsg }}
+          </div>
+        </transition>
+
+        <!-- Personal Information -->
+        <div class="card-premium p-6">
           <div class="flex items-center mb-6">
             <div class="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg mr-3">
               <UserCircleIcon class="h-6 w-6 text-white" />
@@ -59,20 +93,37 @@
           <form @submit.prevent="saveProfile" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre Completo</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
                 <input
-                  v-model="profileData.name"
+                  v-model="profileForm.firstName"
                   type="text"
+                  required
+                  minlength="2"
+                  maxlength="50"
                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
-                  placeholder="Tu nombre completo"
+                  placeholder="Tu nombre"
+                >
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Apellido</label>
+                <input
+                  v-model="profileForm.lastName"
+                  type="text"
+                  required
+                  minlength="2"
+                  maxlength="50"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
+                  placeholder="Tu apellido"
                 >
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico</label>
                 <input
-                  v-model="profileData.email"
+                  v-model="profileForm.email"
                   type="email"
+                  required
                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
                   placeholder="tu@email.com"
                 >
@@ -81,65 +132,37 @@
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Teléfono</label>
                 <input
-                  v-model="profileData.phone"
+                  v-model="profileForm.phone"
                   type="tel"
+                  maxlength="20"
                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
                   placeholder="+52 123 456 7890"
                 >
               </div>
-
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Rol</label>
-                <select
-                  v-model="profileData.role"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
-                >
-                  <option value="Administrador">Administrador</option>
-                  <option value="Gerente">Gerente</option>
-                  <option value="Chef">Chef</option>
-                  <option value="Mesero">Mesero</option>
-                </select>
-              </div>
             </div>
 
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Dirección</label>
-              <input
-                v-model="profileData.address"
-                type="text"
-                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
-                placeholder="Calle, número, colonia"
-              >
-            </div>
-
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Biografía</label>
-              <textarea
-                v-model="profileData.bio"
-                rows="4"
-                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
-                placeholder="Cuéntanos sobre ti..."
-              ></textarea>
-            </div>
-
-            <div class="flex justify-end space-x-4">
+            <div class="flex justify-end space-x-3">
               <button
                 type="button"
-                @click="cancelEdit"
-                class="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-300 transform hover:scale-105"
+                :disabled="savingProfile"
+                @click="resetProfileForm"
+                class="px-5 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                class="px-6 py-3 bg-gradient-to-r from-ifood-red to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                :disabled="savingProfile || !profileDirty"
+                class="px-5 py-2.5 bg-gradient-to-r from-ifood-red to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Guardar Cambios
+                <span v-if="savingProfile" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                {{ savingProfile ? 'Guardando...' : 'Guardar Cambios' }}
               </button>
             </div>
           </form>
         </div>
 
+        <!-- Change Password -->
         <div class="card-premium p-6">
           <div class="flex items-center mb-6">
             <div class="p-3 bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg mr-3">
@@ -148,87 +171,275 @@
             <h3 class="text-xl font-bold text-gray-900">Cambiar Contraseña</h3>
           </div>
 
-          <form @submit.prevent="changePassword" class="space-y-6">
+          <form @submit.prevent="changePassword" class="space-y-5">
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Contraseña Actual</label>
-              <input
-                v-model="passwordData.current"
-                type="password"
-                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
-                placeholder="••••••••"
-              >
+              <div class="relative">
+                <input
+                  v-model="passwordForm.current"
+                  :type="showPasswords.current ? 'text' : 'password'"
+                  required
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300 pr-12"
+                  placeholder="••••••••"
+                  autocomplete="current-password"
+                >
+                <button type="button" @click="showPasswords.current = !showPasswords.current" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <EyeIcon v-if="!showPasswords.current" class="h-5 w-5" />
+                  <EyeSlashIcon v-else class="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Nueva Contraseña</label>
-              <input
-                v-model="passwordData.new"
-                type="password"
-                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
-                placeholder="••••••••"
-              >
+              <div class="relative">
+                <input
+                  v-model="passwordForm.new"
+                  :type="showPasswords.new ? 'text' : 'password'"
+                  required
+                  minlength="8"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300 pr-12"
+                  placeholder="••••••••"
+                  autocomplete="new-password"
+                >
+                <button type="button" @click="showPasswords.new = !showPasswords.new" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <EyeIcon v-if="!showPasswords.new" class="h-5 w-5" />
+                  <EyeSlashIcon v-else class="h-5 w-5" />
+                </button>
+              </div>
+              <!-- Password strength indicator -->
+              <div v-if="passwordForm.new" class="mt-2 space-y-1">
+                <div class="flex gap-1">
+                  <div v-for="i in 4" :key="i" class="h-1 flex-1 rounded-full transition-colors duration-300"
+                    :class="passwordStrength >= i ? passwordStrengthColor : 'bg-gray-200'" />
+                </div>
+                <p class="text-xs" :class="passwordStrengthTextColor">{{ passwordStrengthLabel }}</p>
+              </div>
             </div>
 
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Confirmar Nueva Contraseña</label>
-              <input
-                v-model="passwordData.confirm"
-                type="password"
-                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
-                placeholder="••••••••"
-              >
+              <div class="relative">
+                <input
+                  v-model="passwordForm.confirm"
+                  :type="showPasswords.confirm ? 'text' : 'password'"
+                  required
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300 pr-12"
+                  :class="{ 'border-red-400 focus:border-red-500': passwordForm.confirm && passwordForm.new !== passwordForm.confirm }"
+                  placeholder="••••••••"
+                  autocomplete="new-password"
+                >
+                <button type="button" @click="showPasswords.confirm = !showPasswords.confirm" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <EyeIcon v-if="!showPasswords.confirm" class="h-5 w-5" />
+                  <EyeSlashIcon v-else class="h-5 w-5" />
+                </button>
+              </div>
+              <p v-if="passwordForm.confirm && passwordForm.new !== passwordForm.confirm" class="mt-1 text-xs text-red-500">
+                Las contraseñas no coinciden
+              </p>
             </div>
 
             <div class="flex justify-end">
               <button
                 type="submit"
-                class="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                :disabled="savingPassword || !passwordFormValid"
+                class="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Cambiar Contraseña
+                <span v-if="savingPassword" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                {{ savingPassword ? 'Cambiando...' : 'Cambiar Contraseña' }}
               </button>
             </div>
           </form>
         </div>
+
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { UserCircleIcon, CameraIcon, LockClosedIcon } from '@heroicons/vue/24/outline'
+import { ref, computed, onMounted, watch } from 'vue'
+import {
+  UserCircleIcon,
+  LockClosedIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import { useAuth } from '~/composables/useAuth'
 
-const profileData = ref({
-  name: 'Juan Pérez',
-  email: 'juan@restaurant.com',
-  phone: '+52 123 456 7890',
-  role: 'Administrador',
-  address: 'Av. Principal 123, Col. Centro',
-  bio: 'Gerente de restaurante con más de 10 años de experiencia en la industria alimentaria.',
-  memberSince: 'Enero 2024',
-  totalSales: '$45,320'
+const auth = useAuth()
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const loadingProfile = ref(false)
+const savingProfile = ref(false)
+const savingPassword = ref(false)
+const successMsg = ref('')
+const errorMsg = ref('')
+let successTimer = null
+
+const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '' })
+const passwordForm = ref({ current: '', new: '', confirm: '' })
+const showPasswords = ref({ current: false, new: false, confirm: false })
+
+// ─── Computed ─────────────────────────────────────────────────────────────────
+const fullName = computed(() => {
+  const u = auth.user.value
+  if (!u) return ''
+  return `${u.firstName} ${u.lastName}`.trim()
 })
 
-const passwordData = ref({
-  current: '',
-  new: '',
-  confirm: ''
+const userInitials = computed(() => {
+  const u = auth.user.value
+  if (!u) return '?'
+  return `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase()
 })
 
-const saveProfile = () => {
-  console.log('Saving profile:', profileData.value)
+const ROLE_STYLES = {
+  ADMIN: { label: 'Administrador', badge: 'bg-purple-100 text-purple-800' },
+  MANAGER: { label: 'Gerente', badge: 'bg-blue-100 text-blue-800' },
+  STAFF: { label: 'Personal', badge: 'bg-gray-100 text-gray-800' },
 }
 
-const cancelEdit = () => {
-  console.log('Canceling edit')
-}
+const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role] ?? ROLE_STYLES.STAFF)
 
-const changePassword = () => {
-  if (passwordData.value.new !== passwordData.value.confirm) {
-    alert('Las contraseñas no coinciden')
-    return
+// Track dirty state to enable/disable Save button
+const profileDirty = computed(() => {
+  const u = auth.user.value
+  if (!u) return false
+  return (
+    profileForm.value.firstName !== (u.firstName ?? '') ||
+    profileForm.value.lastName !== (u.lastName ?? '') ||
+    profileForm.value.email !== (u.email ?? '') ||
+    profileForm.value.phone !== (u.phone ?? '')
+  )
+})
+
+const passwordFormValid = computed(() =>
+  passwordForm.value.current.length > 0 &&
+  passwordForm.value.new.length >= 8 &&
+  passwordForm.value.new === passwordForm.value.confirm
+)
+
+// Password strength
+const passwordStrength = computed(() => {
+  const p = passwordForm.value.new
+  if (!p) return 0
+  let score = 0
+  if (p.length >= 8) score++
+  if (/[A-Z]/.test(p)) score++
+  if (/[0-9]/.test(p)) score++
+  if (/[^A-Za-z0-9]/.test(p)) score++
+  return score
+})
+
+const passwordStrengthColor = computed(() => {
+  const colors = ['', 'bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-green-500']
+  return colors[passwordStrength.value] ?? 'bg-gray-200'
+})
+
+const passwordStrengthTextColor = computed(() => {
+  const colors = ['', 'text-red-500', 'text-orange-500', 'text-yellow-600', 'text-green-600']
+  return colors[passwordStrength.value] ?? 'text-gray-400'
+})
+
+const passwordStrengthLabel = computed(() => {
+  const labels = ['', 'Muy débil', 'Débil', 'Buena', 'Fuerte']
+  return labels[passwordStrength.value] ?? ''
+})
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function syncFormFromUser() {
+  const u = auth.user.value
+  if (!u) return
+  profileForm.value = {
+    firstName: u.firstName ?? '',
+    lastName: u.lastName ?? '',
+    email: u.email ?? '',
+    phone: u.phone ?? '',
   }
-  console.log('Changing password')
 }
+
+function resetProfileForm() {
+  syncFormFromUser()
+}
+
+function showSuccess(msg) {
+  errorMsg.value = ''
+  successMsg.value = msg
+  clearTimeout(successTimer)
+  successTimer = setTimeout(() => { successMsg.value = '' }, 4000)
+}
+
+function showError(err) {
+  successMsg.value = ''
+  const detail = err?.data?.message ?? err?.message ?? 'Ocurrió un error inesperado'
+  errorMsg.value = Array.isArray(detail) ? detail.join('. ') : detail
+  clearTimeout(successTimer)
+  successTimer = setTimeout(() => { errorMsg.value = '' }, 6000)
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+async function saveProfile() {
+  if (!profileDirty.value) return
+  savingProfile.value = true
+  errorMsg.value = ''
+  try {
+    await auth.saveProfile({
+      firstName: profileForm.value.firstName,
+      lastName: profileForm.value.lastName,
+      email: profileForm.value.email,
+      phone: profileForm.value.phone || undefined,
+    })
+    showSuccess('Perfil actualizado correctamente')
+  } catch (err) {
+    showError(err)
+  } finally {
+    savingProfile.value = false
+  }
+}
+
+async function changePassword() {
+  if (!passwordFormValid.value) return
+  savingPassword.value = true
+  errorMsg.value = ''
+  try {
+    await auth.changePassword({
+      currentPassword: passwordForm.value.current,
+      newPassword: passwordForm.value.new,
+    })
+    passwordForm.value = { current: '', new: '', confirm: '' }
+    showSuccess('Contraseña cambiada correctamente')
+  } catch (err) {
+    showError(err)
+  } finally {
+    savingPassword.value = false
+  }
+}
+
+// ─── Lifecycle ────────────────────────────────────────────────────────────────
+onMounted(async () => {
+  if (!auth.user.value) {
+    loadingProfile.value = true
+    await auth.fetchProfile()
+    loadingProfile.value = false
+  }
+  syncFormFromUser()
+})
+
+// Sync form if user changes after fetch
+watch(() => auth.user.value, syncFormFromUser)
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

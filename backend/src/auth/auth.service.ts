@@ -13,6 +13,8 @@ import { PrismaService } from '../prisma/prisma.service'
 import { RedisService } from '../redis/redis.service'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
+import { UpdateProfileDto } from './dto/update-profile.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
 
 const MAX_LOGIN_ATTEMPTS = 5
 
@@ -92,6 +94,14 @@ export class AuthService {
 
   async getProfile(userId: string) {
     return this.usersService.findById(userId)
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    return this.usersService.updateProfile(userId, dto)
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    return this.usersService.changePassword(userId, dto)
   }
 
   async getDemoCredentials() {
