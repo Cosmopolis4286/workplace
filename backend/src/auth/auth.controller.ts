@@ -8,11 +8,14 @@ import {
   HttpCode,
   HttpStatus,
   Request,
+  Res,
   ForbiddenException,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common'
+import { Response } from 'express'
+import { AuthGuard } from '@nestjs/passport'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { diskStorage } from 'multer'
 import { extname, join } from 'path'
@@ -35,6 +38,31 @@ export class AuthController {
     private authService: AuthService,
     private config: ConfigService,
   ) {}
+
+  // ─── Google OAuth ────────────────────────────────────────────────────────────
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  googleAuth() {
+    // Guard redirects to Google consent screen — no body needed
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleCallback(@Request() req: any, @Res() res: Response) {
+    const { user, accessToken, refreshToken } = await this.authService.loginWithGoogle(req.user)
+    const frontendUrl = this.config.get<string>('FRONTEND_URL', 'http://localhost:3000')
+
+    // Pass tokens via query params so the SPA can store them
+    const params = new URLSearchParams({
+      accessToken,
+      refreshToken,
+      user: JSON.stringify(user),
+    })
+    return res.redirect(`${frontendUrl}/auth/google/callback?${params}`)
+  }
+
+  // ─── Credentials auth ────────────────────────────────────────────────────────
 
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60000 } })

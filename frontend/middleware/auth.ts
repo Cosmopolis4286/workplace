@@ -15,7 +15,7 @@ const protectedRoutes: string[] = [
   ...commerceRoutes,
 ]
 
-const authRoutes: string[] = ['/login', '/register', '/recover-password', '/verify-email']
+const authRoutes: string[] = ['/login', '/register', '/recover-password', '/verify-email', '/auth/google/callback']
 
 const COMMERCE_ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE']
 const ADMIN_ROLES: Role[] = ['SUPERADMIN', 'ADMIN']

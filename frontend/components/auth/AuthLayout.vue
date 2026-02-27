@@ -121,9 +121,9 @@
         <div class="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400 max-w-md mx-auto w-full">
           <p>&copy; {{ currentYear }} iFood Manager. Todos los derechos reservados.</p>
           <div class="flex items-center space-x-4">
-            <a href="#" class="hover:text-gray-600 transition-colors duration-150">Privacidad</a>
-            <a href="#" class="hover:text-gray-600 transition-colors duration-150">Términos</a>
-            <a href="#" class="hover:text-gray-600 transition-colors duration-150">Soporte</a>
+            <NuxtLink to="/privacidad" class="hover:text-gray-600 transition-colors duration-150">Privacidad</NuxtLink>
+            <NuxtLink to="/terminos" class="hover:text-gray-600 transition-colors duration-150">Términos</NuxtLink>
+            <NuxtLink to="/soporte" class="hover:text-gray-600 transition-colors duration-150">Soporte</NuxtLink>
           </div>
         </div>
       </div>
