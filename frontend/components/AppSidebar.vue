@@ -69,28 +69,21 @@
       v-if="open"
       class="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 z-30"
     >
-      <div class="flex flex-col flex-grow bg-gradient-to-b from-white via-white to-gray-50 border-r-2 border-gray-200 overflow-y-auto shadow-2xl">
-        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-ifood-red to-red-600">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                <span class="text-white font-bold text-lg">iF</span>
-              </div>
-              <div>
-                <h1 class="text-lg font-bold text-white">iFood Manager</h1>
-                <p class="text-xs text-red-100">Panel de Control</p>
-              </div>
-            </div>
-            <button
-              @click="$emit('update:open', false)"
-              class="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 transform hover:scale-110"
-              aria-label="Close sidebar"
-            >
-              <XMarkIcon class="h-5 w-5" />
-            </button>
+      <div class="flex flex-col flex-grow bg-gradient-to-b from-white via-white to-gray-50 border-r-2 border-gray-200 shadow-2xl">
+        <!-- Header fijo, fuera del scroll -->
+        <div class="h-16 flex-shrink-0 px-6 border-b border-white/20 bg-gradient-to-r from-ifood-red to-red-700 flex items-center gap-3 shadow-md">
+          <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0 ring-1 ring-white/30">
+            <span class="text-white font-black text-base">iF</span>
+          </div>
+          <div class="min-w-0">
+            <h1 class="text-base font-bold text-white leading-tight tracking-tight">iFood Manager</h1>
+            <p class="text-xs text-red-100/80 leading-tight">Panel de Control</p>
           </div>
         </div>
-        <SidebarContent />
+        <!-- Contenido (maneja su propio scroll internamente) -->
+        <div class="flex-1 min-h-0">
+          <SidebarContent />
+        </div>
       </div>
     </div>
   </Transition>

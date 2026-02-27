@@ -1,7 +1,7 @@
 <template>
-  <div class="flex h-full flex-col bg-gradient-to-b from-white via-white to-gray-50">
-    <!-- Quick Access Section (Reordenado para estar primero) -->
-    <div class="px-4 py-4 border-b border-gray-100">
+  <div class="flex flex-col h-full bg-gradient-to-b from-white via-white to-gray-50 overflow-hidden">
+    <!-- Quick Access Section — fijo, no scrollea -->
+    <div class="flex-shrink-0 px-4 py-4 border-b border-gray-100">
       <div class="mb-3">
         <h3 class="text-xs font-bold text-gray-600 uppercase tracking-widest">Acceso Rápido</h3>
       </div>
@@ -46,8 +46,8 @@
       </div>
     </div>
 
-    <!-- Navigation Menu -->
-    <nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
+    <!-- Navigation Menu — ocupa el resto y scrollea -->
+    <nav class="flex-1 min-h-0 px-4 py-4 space-y-2 overflow-y-auto">
       <!-- Dashboard -->
       <NuxtLink 
         to="/dashboard"
@@ -359,8 +359,8 @@
       </div>
     </nav>
 
-    <!-- Footer -->
-    <div class="px-4 py-3 border-t border-gray-200/20">
+    <!-- Footer — fijo abajo -->
+    <div class="flex-shrink-0 px-4 py-3 border-t border-gray-200/20">
       <div class="flex items-center space-x-3">
         <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
           <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">

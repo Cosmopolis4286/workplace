@@ -14,6 +14,9 @@
             ]"
             aria-label="Toggle sidebar"
           >
+            <!-- Desktop: siempre hamburguesa -->
+            <Bars3Icon class="h-6 w-6 hidden lg:block" />
+            <!-- Mobile: toggle entre X y hamburguesa -->
             <Transition
               mode="out-in"
               enter-active-class="transition duration-200"
@@ -23,8 +26,8 @@
               leave-from-class="opacity-100 rotate-0"
               leave-to-class="opacity-0 -rotate-90"
             >
-              <XMarkIcon v-if="sidebarOpen" key="close" class="h-6 w-6" />
-              <Bars3Icon v-else key="menu" class="h-6 w-6" />
+              <XMarkIcon v-if="sidebarOpen" key="close" class="h-6 w-6 lg:hidden" />
+              <Bars3Icon v-else key="menu" class="h-6 w-6 lg:hidden" />
             </Transition>
           </button>
 
