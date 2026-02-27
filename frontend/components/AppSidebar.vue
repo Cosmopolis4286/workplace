@@ -69,7 +69,7 @@
       v-if="open"
       class="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 z-30"
     >
-      <div class="flex flex-col flex-grow bg-gradient-to-b from-white via-white to-gray-50 border-r-2 border-gray-200 shadow-2xl">
+      <div class="flex flex-col h-full bg-gradient-to-b from-white via-white to-gray-50 border-r-2 border-gray-200 shadow-2xl">
         <!-- Header fijo, fuera del scroll -->
         <div class="h-16 flex-shrink-0 px-6 border-b border-white/20 bg-gradient-to-r from-ifood-red to-red-700 flex items-center gap-3 shadow-md">
           <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0 ring-1 ring-white/30">
