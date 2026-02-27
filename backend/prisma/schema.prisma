@@ -43,6 +43,7 @@ model Restaurant {
   settings      RestaurantSettings?
   drivers       Driver[]
   deliveries    Delivery[]
+  orders        Order[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -93,6 +94,7 @@ model Customer {
   restaurantId String
   restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   appointments Appointment[]
+  orders       Order[]
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -268,4 +270,83 @@ model Delivery {
   updatedAt       DateTime       @updatedAt
 
   @@map("deliveries")
+}
+
+// ─── Orders (Cliente Dashboard) ──────────────────────────────────────────────
+
+enum OrderStatus {
+  PENDIENTE
+  CONFIRMADO
+  PREPARANDO
+  LISTO
+  EN_ENTREGA
+  ENTREGADO
+  CANCELADO
+}
+
+enum OrderType {
+  INMEDIATO
+  PROGRAMADO
+  PARA_LLEVAR
+  EN_SITIO
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TARJETA
+  TRANSFERENCIA
+  EN_LINEA
+}
+
+enum PaymentStatus {
+  PENDIENTE
+  PAGADO
+  REEMBOLSADO
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  customerName    String
+  customerPhone   String?
+  customerEmail   String?
+  deliveryAddress String?
+  notes           String?
+  status          OrderStatus   @default(PENDIENTE)
+  orderType       OrderType     @default(INMEDIATO)
+  paymentMethod   PaymentMethod @default(EFECTIVO)
+  paymentStatus   PaymentStatus @default(PENDIENTE)
+  subtotal        Float         @default(0)
+  tax             Float         @default(0)
+  deliveryFee     Float         @default(0)
+  discount        Float         @default(0)
+  total           Float
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  customerId      String?
+  customer        Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  restaurantId    String
+  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  items           OrderItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?
+  productName String
+  quantity    Int      @default(1)
+  unitPrice   Float
+  subtotal    Float
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@map("order_items")
 }
