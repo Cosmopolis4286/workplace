@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { NotificationsService } from '../notifications/notifications.service'
 import { CreateDriverDto } from './dto/create-driver.dto'
 import { UpdateDriverDto } from './dto/update-driver.dto'
 import { CreateDeliveryDto } from './dto/create-delivery.dto'
@@ -21,7 +22,10 @@ function endOfDay(d: Date) {
 
 @Injectable()
 export class DeliveryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -283,11 +287,17 @@ export class DeliveryService {
       }
     }
 
-    return this.prisma.delivery.update({
+    const updated = await this.prisma.delivery.update({
       where: { id: deliveryId },
       data,
       include: { driver: { select: { id: true, name: true, vehicleType: true, vehicleModel: true, phone: true, status: true } } },
     })
+
+    this.notifications
+      .notifyDeliveryStatusChange(restaurantId, delivery.orderNumber, status)
+      .catch(() => null)
+
+    return updated
   }
 
   async assignDriver(userId: string, deliveryId: string, driverId: string) {

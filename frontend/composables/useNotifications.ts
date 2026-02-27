@@ -1,128 +1,204 @@
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
+import { io, Socket } from 'socket.io-client'
+import { useAuth } from './useAuth'
 
-type NotificationType = 'order' | 'delivery' | 'inventory' | 'system'
-type NotificationColor = 'blue' | 'green' | 'yellow' | 'red' | 'gray'
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Notification {
+export type NotificationType = 'ORDER' | 'DELIVERY' | 'INVENTORY' | 'APPOINTMENT' | 'EXPENSE' | 'SYSTEM'
+export type NotificationColor = 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'gray'
+
+export interface Notification {
   id: string
   type: NotificationType
   title: string
   message: string
   read: boolean
-  timestamp: string
+  readAt?: string | null
   icon: string
   color: NotificationColor
+  link?: string | null
+  metadata?: Record<string, any> | null
+  restaurantId: string
+  createdAt: string
 }
 
-const notifications = ref<Notification[]>([])
-const loading = ref(false)
-const unreadCount = computed(() => notifications.value.filter((n) => !n.read).length)
+// ─── Global singleton state ───────────────────────────────────────────────────
 
-function generateMockNotifications(): Notification[] {
-  return [
-    {
-      id: '1',
-      type: 'order',
-      title: 'Nuevo pedido #1234',
-      message: 'Se ha recibido un nuevo pedido de $45.50',
-      read: false,
-      timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-      icon: 'ShoppingBagIcon',
-      color: 'blue',
-    },
-    {
-      id: '2',
-      type: 'delivery',
-      title: 'Pedido entregado',
-      message: 'El pedido #1230 ha sido entregado exitosamente',
-      read: false,
-      timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-      icon: 'TruckIcon',
-      color: 'green',
-    },
-    {
-      id: '3',
-      type: 'inventory',
-      title: 'Stock bajo',
-      message: 'El producto "Hamburguesa Clásica" tiene stock bajo (5 unidades)',
-      read: false,
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      icon: 'ExclamationTriangleIcon',
-      color: 'yellow',
-    },
-    {
-      id: '4',
-      type: 'system',
-      title: 'Actualización disponible',
-      message: 'Hay una nueva versión del sistema disponible',
-      read: true,
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      icon: 'BellIcon',
-      color: 'gray',
-    },
-    {
-      id: '5',
-      type: 'order',
-      title: 'Pedido cancelado',
-      message: 'El cliente ha cancelado el pedido #1229',
-      read: true,
-      timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-      icon: 'XCircleIcon',
-      color: 'red',
-    },
-  ]
-}
+const notifications  = ref<Notification[]>([])
+const loading        = ref(false)
+const error          = ref<string | null>(null)
+const totalCount     = ref(0)
+const unreadCount    = computed(() => notifications.value.filter(n => !n.read).length)
+
+let socket: Socket | null = null
+let socketRestaurantId: string | null = null
+
+// ─── Composable ───────────────────────────────────────────────────────────────
 
 export const useNotifications = () => {
-  async function fetchNotifications(): Promise<void> {
+  const { token, refreshTokens } = useAuth()
+  const config = useRuntimeConfig()
+  const apiBase = config.public.apiUrl as string
+
+  // ── Auth-aware fetch ──────────────────────────────────────────────────────
+  async function apiFetch(path: string, options: RequestInit = {}) {
+    const doRequest = async (tkn: string) =>
+      fetch(`${apiBase}${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tkn}`,
+          ...(options.headers ?? {}),
+        },
+      })
+
+    let res = await doRequest(token.value)
+    if (res.status === 401) {
+      const ok = await refreshTokens()
+      if (!ok) throw new Error('Sesión expirada')
+      res = await doRequest(token.value)
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.message ?? `Error ${res.status}`)
+    }
+    return res.json()
+  }
+
+  // ── REST: load notifications ──────────────────────────────────────────────
+  async function fetchNotifications(opts: { unread?: boolean; page?: number; limit?: number } = {}) {
     loading.value = true
+    error.value   = null
     try {
-      const stored = localStorage.getItem('notifications')
-      if (stored) {
-        notifications.value = JSON.parse(stored) as Notification[]
-      } else {
-        notifications.value = generateMockNotifications()
-        localStorage.setItem('notifications', JSON.stringify(notifications.value))
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error)
-      notifications.value = generateMockNotifications()
+      const params = new URLSearchParams()
+      if (opts.unread)  params.set('unread', 'true')
+      if (opts.page)    params.set('page',   String(opts.page))
+      if (opts.limit)   params.set('limit',  String(opts.limit))
+      const qs = params.toString()
+      const res = await apiFetch(`/api/notifications${qs ? '?' + qs : ''}`)
+      notifications.value = res.data
+      totalCount.value     = res.total
+    } catch (e: any) {
+      error.value = e.message
     } finally {
       loading.value = false
     }
   }
 
-  function markAsRead(id: string): void {
-    const notification = notifications.value.find((n) => n.id === id)
-    if (notification) {
-      notification.read = true
-      localStorage.setItem('notifications', JSON.stringify(notifications.value))
+  // ── REST: mark one as read ────────────────────────────────────────────────
+  async function markAsRead(id: string) {
+    const n = notifications.value.find(n => n.id === id)
+    if (!n || n.read) return
+    // Optimistic update
+    n.read   = true
+    n.readAt = new Date().toISOString()
+    try {
+      await apiFetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
+    } catch {
+      n.read   = false
+      n.readAt = null
     }
   }
 
-  function markAllAsRead(): void {
-    notifications.value.forEach((n) => (n.read = true))
-    localStorage.setItem('notifications', JSON.stringify(notifications.value))
+  // ── REST: mark all as read ────────────────────────────────────────────────
+  async function markAllAsRead() {
+    notifications.value.forEach(n => { n.read = true; n.readAt = new Date().toISOString() })
+    try {
+      await apiFetch('/api/notifications/read-all', { method: 'PATCH' })
+    } catch (e: any) {
+      error.value = e.message
+    }
   }
 
-  function deleteNotification(id: string): void {
-    notifications.value = notifications.value.filter((n) => n.id !== id)
-    localStorage.setItem('notifications', JSON.stringify(notifications.value))
+  // ── REST: delete one ──────────────────────────────────────────────────────
+  async function deleteNotification(id: string) {
+    notifications.value = notifications.value.filter(n => n.id !== id)
+    try {
+      await apiFetch(`/api/notifications/${id}`, { method: 'DELETE' })
+    } catch (e: any) {
+      error.value = e.message
+    }
   }
 
-  function clearAll(): void {
+  // ── REST: clear all ───────────────────────────────────────────────────────
+  async function clearAll() {
     notifications.value = []
-    localStorage.removeItem('notifications')
+    totalCount.value    = 0
+    try {
+      await apiFetch('/api/notifications/clear-all', { method: 'DELETE' })
+    } catch (e: any) {
+      error.value = e.message
+    }
+  }
+
+  // ── WebSocket: connect ────────────────────────────────────────────────────
+  function connectWebSocket(restaurantId: string) {
+    if (socket && socketRestaurantId === restaurantId) return // already connected
+
+    disconnectWebSocket()
+
+    // socket.io-client handles the HTTP→WebSocket upgrade internally
+    socket = io(`${apiBase}/notifications`, {
+      auth:              { token: token.value },
+      transports:        ['websocket'],
+      reconnection:      true,
+      reconnectionDelay: 2000,
+    })
+
+    socketRestaurantId = restaurantId
+
+    socket.on('connect', () => {
+      socket!.emit('join', { restaurantId })
+    })
+
+    socket.on('notification', (notification: Notification) => {
+      // Prepend new notification and keep latest 100
+      notifications.value.unshift(notification)
+      if (notifications.value.length > 100) notifications.value.pop()
+      totalCount.value++
+    })
+
+    socket.on('unread_count', ({ count }: { count: number }) => {
+      // Sync count from server broadcast (e.g. another tab marked all as read)
+      const currentRead = notifications.value.filter(n => n.read).length
+      const currentUnread = notifications.value.length - currentRead
+      if (count !== currentUnread) {
+        // Reload to stay in sync
+        fetchNotifications()
+      }
+    })
+
+    socket.on('connect_error', () => {
+      // Silent — will reconnect automatically
+    })
+  }
+
+  function disconnectWebSocket() {
+    if (socket) {
+      socket.disconnect()
+      socket = null
+      socketRestaurantId = null
+    }
+  }
+
+  // ── Init: fetch + connect ─────────────────────────────────────────────────
+  async function init(restaurantId: string) {
+    await fetchNotifications({ limit: 30 })
+    connectWebSocket(restaurantId)
   }
 
   return {
     notifications,
     loading,
+    error,
     unreadCount,
+    totalCount,
     fetchNotifications,
     markAsRead,
     markAllAsRead,
     deleteNotification,
     clearAll,
+    init,
+    disconnectWebSocket,
   }
 }

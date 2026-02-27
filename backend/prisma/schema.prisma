@@ -46,6 +46,7 @@ model Restaurant {
   orders            Order[]
   expenseCategories ExpenseCategory[]
   expenses          Expense[]
+  notifications     Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -351,6 +352,37 @@ model OrderItem {
   createdAt   DateTime @default(now())
 
   @@map("order_items")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+enum NotificationType {
+  ORDER
+  DELIVERY
+  INVENTORY
+  APPOINTMENT
+  EXPENSE
+  SYSTEM
+}
+
+model Notification {
+  id           String           @id @default(uuid())
+  type         NotificationType @default(SYSTEM)
+  title        String
+  message      String
+  read         Boolean          @default(false)
+  readAt       DateTime?
+  icon         String           @default("BellIcon")
+  color        String           @default("gray")
+  link         String?
+  metadata     Json?
+  restaurantId String
+  restaurant   Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime         @default(now())
+
+  @@index([restaurantId, createdAt(sort: Desc)])
+  @@index([restaurantId, read])
+  @@map("notifications")
 }
 
 // ─── Expenses ────────────────────────────────────────────────────────────────
