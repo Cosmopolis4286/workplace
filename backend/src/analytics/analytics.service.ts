@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common'
+import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { QueryAnalyticsDto } from './dto/query-analytics.dto'
 import { CustomerSegment } from '@prisma/client'
@@ -9,15 +9,32 @@ function startOfDay(d: Date) {
 function endOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
 }
+function startOfWeek(d: Date) {
+  const day = d.getDay() // 0=Sun
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Monday
+  return startOfDay(new Date(d.setDate(diff)))
+}
+function startOfQuarter(d: Date) {
+  const q = Math.floor(d.getMonth() / 3)
+  return startOfDay(new Date(d.getFullYear(), q * 3, 1))
+}
 
-function getPeriodRange(period: string): { from: Date; to: Date } {
-  const to = endOfDay(new Date())
+function getPeriodRange(period: string, dateFrom?: string, dateTo?: string): { from: Date; to: Date } {
+  const now = new Date()
+  const to = endOfDay(now)
   const from = startOfDay(new Date())
 
   switch (period) {
+    case 'today':
+      // from = start of today, to = now
+      return { from, to }
+    case 'week':
+      return { from: startOfWeek(new Date()), to }
     case '7d':
       from.setDate(from.getDate() - 6)
       break
+    case 'quarter':
+      return { from: startOfQuarter(new Date()), to }
     case '90d':
       from.setDate(from.getDate() - 89)
       break
@@ -25,6 +42,9 @@ function getPeriodRange(period: string): { from: Date; to: Date } {
       from.setFullYear(from.getFullYear() - 1)
       from.setDate(from.getDate() + 1)
       break
+    case 'custom':
+      if (!dateFrom || !dateTo) throw new BadRequestException('dateFrom and dateTo are required for custom period')
+      return { from: startOfDay(new Date(dateFrom)), to: endOfDay(new Date(dateTo)) }
     case '30d':
     default:
       from.setDate(from.getDate() - 29)
@@ -78,9 +98,9 @@ export class AnalyticsService {
 
   async getOverview(userId: string, dto: QueryAnalyticsDto) {
     const restaurantId = await this.getRestaurantId(userId)
-    const { period = '30d', compareWith = 'previous' } = dto
+    const { period = '30d', compareWith = 'previous', dateFrom, dateTo } = dto
 
-    const current = getPeriodRange(period)
+    const current = getPeriodRange(period, dateFrom, dateTo)
     const previous = getPreviousPeriodRange(period, compareWith, current)
 
     const [kpis, prevKpis, revenueTrend, ordersByHour, topProducts, customerSegments, performance] =
@@ -101,6 +121,9 @@ export class AnalyticsService {
         from: current.from.toISOString(),
         to: current.to.toISOString(),
       },
+      previousDateRange: previous
+        ? { from: previous.from.toISOString(), to: previous.to.toISOString() }
+        : null,
       kpis: {
         totalRevenue: kpis.totalRevenue,
         totalRevenueChange: pct(kpis.totalRevenue, prevKpis?.totalRevenue ?? null),
@@ -186,9 +209,26 @@ export class AnalyticsService {
     const labels: string[] = []
     const values: number[] = []
 
-    const fmt = period === '1y'
+    const fmt = (period === '1y')
       ? (d: Date) => d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' })
-      : (d: Date) => d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+      : (period === 'today')
+        ? (d: Date) => `${d.getHours()}:00`
+        : (d: Date) => d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+
+    // For today, group by hour
+    if (period === 'today') {
+      const hourly: number[] = Array(24).fill(0)
+      customers.forEach((c) => {
+        const h = new Date(c.updatedAt).getHours()
+        hourly[h] += Number(c.totalSpent)
+      })
+      const currentHour = new Date().getHours()
+      for (let h = 6; h <= Math.min(currentHour, 23); h++) {
+        labels.push(`${h}:00`)
+        values.push(Math.round(hourly[h] * 100) / 100)
+      }
+      return { labels, values }
+    }
 
     // For year period, group by month
     if (period === '1y') {
