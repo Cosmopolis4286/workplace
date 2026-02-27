@@ -11,6 +11,7 @@ import { SettingsModule } from './settings/settings.module'
 import { AppointmentsModule } from './appointments/appointments.module'
 import { AnalyticsModule } from './analytics/analytics.module'
 import { DeliveryModule } from './delivery/delivery.module'
+import { OrdersModule } from './orders/orders.module'
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { DeliveryModule } from './delivery/delivery.module'
     AppointmentsModule,
     AnalyticsModule,
     DeliveryModule,
+    OrdersModule,
   ],
 })
 export class AppModule {}
