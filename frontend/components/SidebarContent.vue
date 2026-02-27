@@ -241,6 +241,64 @@
         </div>
       </div>
 
+      <!-- Empresa Group -->
+      <div class="space-y-1">
+        <div class="px-3 py-2">
+          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Empresa</span>
+        </div>
+
+        <div>
+          <button
+            @click="toggleDropdown('empresa')"
+            class="group w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
+            :class="{ 'bg-red-50 text-red-700': isDropdownActive('empresa') }"
+          >
+            <div class="flex items-center">
+              <svg class="mr-3 h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+              </svg>
+              Empresa
+            </div>
+            <svg
+              class="h-4 w-4 transition-transform duration-200"
+              :class="{ 'rotate-180': openDropdowns.empresa }"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+
+          <div
+            v-show="openDropdowns.empresa"
+            class="ml-6 mt-1 space-y-1 transition-all duration-200"
+          >
+            <NuxtLink
+              to="/empleados"
+              @click="$emit('navigate')"
+              class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
+              :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/empleados' }"
+            >
+              <svg class="mr-3 h-4 w-4 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Empleados
+            </NuxtLink>
+
+            <NuxtLink
+              to="/sucursales"
+              @click="$emit('navigate')"
+              class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
+              :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/sucursales' }"
+            >
+              <svg class="mr-3 h-4 w-4 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+              </svg>
+              Sucursales
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+
       <!-- Configuración Group -->
       <div class="space-y-1">
         <div class="px-3 py-2">
@@ -331,7 +389,8 @@ defineEmits(['navigate'])
 const openDropdowns = ref({
   ventas: false,
   operaciones: false,
-  configuracion: false
+  empresa: false,
+  configuracion: false,
 })
 
 // Auto-open dropdown based on current route
@@ -348,6 +407,8 @@ const autoOpenDropdowns = () => {
     openDropdowns.value.ventas = true
   } else if (['/pedidos', '/agendamientos', '/clientes', '/delivery'].includes(path)) {
     openDropdowns.value.operaciones = true
+  } else if (['/empleados', '/sucursales'].includes(path)) {
+    openDropdowns.value.empresa = true
   } else if (['/perfil', '/configuracion'].includes(path)) {
     openDropdowns.value.configuracion = true
   }
@@ -378,6 +439,8 @@ const isDropdownActive = (dropdown) => {
       return openDropdowns.value.ventas || ['/ventas', '/analytics', '/reportes'].includes(path)
     case 'operaciones':
       return openDropdowns.value.operaciones || ['/pedidos', '/agendamientos', '/clientes', '/delivery'].includes(path)
+    case 'empresa':
+      return openDropdowns.value.empresa || ['/empleados', '/sucursales'].includes(path)
     case 'configuracion':
       return openDropdowns.value.configuracion || ['/perfil', '/configuracion'].includes(path)
     default:

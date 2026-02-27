@@ -14,6 +14,7 @@ model User {
   firstName String
   lastName  String
   phone     String?
+  avatar    String?
   role      Role     @default(ADMIN)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -47,6 +48,8 @@ model Restaurant {
   expenseCategories ExpenseCategory[]
   expenses          Expense[]
   notifications     Notification[]
+  employees         Employee[]
+  branches          Branch[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -441,4 +444,81 @@ model Expense {
   updatedAt     DateTime             @updatedAt
 
   @@map("expenses")
+}
+
+// ─── Employees ────────────────────────────────────────────────────────────────
+
+enum EmployeeRole {
+  GERENTE
+  SUPERVISOR
+  COCINERO
+  MESERO
+  CAJERO
+  REPARTIDOR
+  LIMPIEZA
+  SEGURIDAD
+  OTRO
+}
+
+enum EmployeeStatus {
+  ACTIVO
+  INACTIVO
+  VACACIONES
+  LICENCIA
+  SUSPENDIDO
+}
+
+model Employee {
+  id               String         @id @default(uuid())
+  firstName        String
+  lastName         String
+  email            String?
+  phone            String?
+  role             EmployeeRole   @default(OTRO)
+  status           EmployeeStatus @default(ACTIVO)
+  salary           Float?
+  hireDate         DateTime?
+  birthDate        DateTime?
+  address          String?
+  emergencyContact String?
+  emergencyPhone   String?
+  notes            String?
+  isActive         Boolean        @default(true)
+  restaurantId     String
+  restaurant       Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([email, restaurantId])
+  @@map("employees")
+}
+
+// ─── Branches ─────────────────────────────────────────────────────────────────
+
+enum BranchStatus {
+  ACTIVA
+  INACTIVA
+  EN_CONSTRUCCION
+  CERRADA
+}
+
+model Branch {
+  id           String       @id @default(uuid())
+  name         String
+  address      String?
+  phone        String?
+  email        String?
+  type         String?
+  managerName  String?
+  managerPhone String?
+  status       BranchStatus @default(ACTIVA)
+  color        String       @default("#6b7280")
+  notes        String?
+  restaurantId String
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([name, restaurantId])
+  @@map("branches")
 }
