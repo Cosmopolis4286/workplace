@@ -377,7 +377,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -414,8 +414,17 @@ const autoOpenDropdowns = () => {
   }
 }
 
-// Watch route changes to auto-open dropdowns
-watch(() => route.path, autoOpenDropdowns, { immediate: true })
+// Watch route changes to auto-open dropdowns and scroll active item into view
+watch(() => route.path, (path) => {
+  autoOpenDropdowns()
+  // After Vue updates the DOM, scroll the active link into view
+  nextTick(() => {
+    const activeEl = document.querySelector('nav a.bg-red-50')
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  })
+}, { immediate: true })
 
 // Toggle dropdown function
 const toggleDropdown = (dropdown) => {
