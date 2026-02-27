@@ -15,7 +15,7 @@ model User {
   lastName  String
   phone     String?
   avatar    String?
-  role      Role     @default(ADMIN)
+  role      Role     @default(NORMAL)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -195,9 +195,11 @@ model Product {
 }
 
 enum Role {
+  SUPERADMIN
   ADMIN
-  MANAGER
-  STAFF
+  COMMERCE
+  FREELANCER
+  NORMAL
 }
 
 enum ProductStatus {
