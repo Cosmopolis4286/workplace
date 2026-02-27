@@ -1,0 +1,116 @@
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+import { CreateBranchDto } from './dto/create-branch.dto'
+import { UpdateBranchDto } from './dto/update-branch.dto'
+import { BranchStatus } from '@prisma/client'
+
+@Injectable()
+export class BranchesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  private async getRestaurantId(userId: string): Promise<string> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { userId },
+      select: { id: true },
+    })
+    if (!restaurant) throw new ForbiddenException('El usuario no tiene un restaurante asociado')
+    return restaurant.id
+  }
+
+  private async assertOwnership(branchId: string, restaurantId: string) {
+    const branch = await this.prisma.branch.findUnique({ where: { id: branchId } })
+    if (!branch) throw new NotFoundException('Sucursal no encontrada')
+    if (branch.restaurantId !== restaurantId) throw new ForbiddenException('Acceso denegado')
+    return branch
+  }
+
+  // ─── Stats ──────────────────────────────────────────────────────────────────
+
+  async getStats(userId: string) {
+    const restaurantId = await this.getRestaurantId(userId)
+
+    const [total, active, byStatusRaw] = await Promise.all([
+      this.prisma.branch.count({ where: { restaurantId } }),
+      this.prisma.branch.count({ where: { restaurantId, status: BranchStatus.ACTIVA } }),
+      this.prisma.branch.groupBy({
+        by: ['status'],
+        where: { restaurantId },
+        _count: { status: true },
+      }),
+    ])
+
+    const byStatus = Object.fromEntries(
+      byStatusRaw.map((r) => [r.status, r._count.status]),
+    ) as Record<BranchStatus, number>
+
+    return { total, active, byStatus }
+  }
+
+  // ─── CRUD ───────────────────────────────────────────────────────────────────
+
+  async findAll(userId: string) {
+    const restaurantId = await this.getRestaurantId(userId)
+    return this.prisma.branch.findMany({
+      where: { restaurantId },
+      orderBy: { name: 'asc' },
+    })
+  }
+
+  async findOne(userId: string, branchId: string) {
+    const restaurantId = await this.getRestaurantId(userId)
+    return this.assertOwnership(branchId, restaurantId)
+  }
+
+  async create(userId: string, dto: CreateBranchDto) {
+    const restaurantId = await this.getRestaurantId(userId)
+
+    const exists = await this.prisma.branch.findUnique({
+      where: { name_restaurantId: { name: dto.name, restaurantId } },
+    })
+    if (exists) throw new ConflictException('Ya existe una sucursal con ese nombre')
+
+    return this.prisma.branch.create({
+      data: { ...dto, restaurantId },
+    })
+  }
+
+  async update(userId: string, branchId: string, dto: UpdateBranchDto) {
+    const restaurantId = await this.getRestaurantId(userId)
+    await this.assertOwnership(branchId, restaurantId)
+
+    if (dto.name) {
+      const exists = await this.prisma.branch.findUnique({
+        where: { name_restaurantId: { name: dto.name, restaurantId } },
+      })
+      if (exists && exists.id !== branchId)
+        throw new ConflictException('Ya existe una sucursal con ese nombre')
+    }
+
+    return this.prisma.branch.update({
+      where: { id: branchId },
+      data: dto,
+    })
+  }
+
+  async remove(userId: string, branchId: string) {
+    const restaurantId = await this.getRestaurantId(userId)
+    await this.assertOwnership(branchId, restaurantId)
+    await this.prisma.branch.delete({ where: { id: branchId } })
+  }
+
+  async updateStatus(userId: string, branchId: string, status: BranchStatus) {
+    const restaurantId = await this.getRestaurantId(userId)
+    await this.assertOwnership(branchId, restaurantId)
+    return this.prisma.branch.update({
+      where: { id: branchId },
+      data: { status },
+    })
+  }
+}
