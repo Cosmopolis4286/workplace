@@ -9,6 +9,7 @@
       <!-- Quick Action Buttons Grid - 3 en una fila -->
       <div class="grid grid-cols-3 gap-2">
         <NuxtLink
+          v-if="isCommerce"
           to="/pedidos"
           @click="$emit('navigate')"
           class="group flex flex-col items-center justify-center p-3 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 relative overflow-hidden"
@@ -21,6 +22,7 @@
         </NuxtLink>
 
         <NuxtLink
+          v-if="isCommerce"
           to="/gastos"
           @click="$emit('navigate')"
           class="group flex flex-col items-center justify-center p-3 bg-gradient-to-br from-red-500 via-red-600 to-red-700 text-white rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 relative overflow-hidden"
@@ -63,8 +65,9 @@
       </NuxtLink>
 
       <!-- Menu -->
-      <NuxtLink 
-        to="/menu" 
+      <NuxtLink
+        v-if="isCommerce"
+        to="/menu"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
         :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/menu' }"
@@ -76,8 +79,9 @@
       </NuxtLink>
 
       <!-- Inventario -->
-      <NuxtLink 
-        to="/inventario" 
+      <NuxtLink
+        v-if="isCommerce"
+        to="/inventario"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
         :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/inventario' }"
@@ -89,7 +93,7 @@
       </NuxtLink>
 
       <!-- Ventas & Analytics Group -->
-      <div class="space-y-1">
+      <div v-if="isCommerce" class="space-y-1">
         <div class="px-3 py-2">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ventas & Analytics</span>
         </div>
@@ -159,7 +163,7 @@
       </div>
 
       <!-- Operaciones Group -->
-      <div class="space-y-1">
+      <div v-if="isCommerce" class="space-y-1">
         <div class="px-3 py-2">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Operaciones</span>
         </div>
@@ -242,7 +246,7 @@
       </div>
 
       <!-- Empresa Group -->
-      <div class="space-y-1">
+      <div v-if="isCommerce" class="space-y-1">
         <div class="px-3 py-2">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Empresa</span>
         </div>
@@ -297,6 +301,24 @@
             </NuxtLink>
           </div>
         </div>
+      </div>
+
+      <!-- Usuarios Group (SUPERADMIN / ADMIN only) -->
+      <div v-if="isAdminOrAbove" class="space-y-1">
+        <div class="px-3 py-2">
+          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Administración</span>
+        </div>
+        <NuxtLink
+          to="/usuarios"
+          @click="$emit('navigate')"
+          class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
+          :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/usuarios' }"
+        >
+          <svg class="mr-3 h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+          Usuarios
+        </NuxtLink>
       </div>
 
       <!-- Configuración Group -->
@@ -368,8 +390,8 @@
           </svg>
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-900 truncate">Admin</p>
-          <p class="text-xs text-gray-500 truncate">admin@restaurante.com</p>
+          <p class="text-sm font-medium text-gray-900 truncate">{{ user?.firstName }} {{ user?.lastName }}</p>
+          <p class="text-xs text-gray-500 truncate">{{ user?.role }}</p>
         </div>
       </div>
     </div>
@@ -381,6 +403,11 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
+const { user } = useAuth()
+
+const role = computed(() => user.value?.role ?? 'NORMAL')
+const isCommerce = computed(() => ['SUPERADMIN', 'ADMIN', 'COMMERCE'].includes(role.value))
+const isAdminOrAbove = computed(() => ['SUPERADMIN', 'ADMIN'].includes(role.value))
 
 // Define emits
 defineEmits(['navigate'])

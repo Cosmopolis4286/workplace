@@ -15,7 +15,7 @@ interface User {
   lastName: string
   phone?: string
   avatar?: string
-  role: 'ADMIN' | 'MANAGER' | 'STAFF'
+  role: 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
   isActive: boolean
   restaurant?: Restaurant
 }

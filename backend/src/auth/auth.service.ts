@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { UsersService } from '../users/users.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { RedisService } from '../redis/redis.service'
+import { Role } from '@prisma/client'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
 import { UpdateProfileDto } from './dto/update-profile.dto'
@@ -32,7 +33,7 @@ export class AuthService {
 
   async register(dto: RegisterDto) {
     const user = await this.usersService.create(dto)
-    const tokens = await this.generateTokens(user.id, user.email)
+    const tokens = await this.generateTokens(user.id, user.email, user.role)
     await this.saveRefreshToken(user.id, tokens.refreshToken)
     return { user, ...tokens }
   }
@@ -60,7 +61,7 @@ export class AuthService {
     await this.redis.resetLoginAttempts(dto.email)
 
     const { password, ...safeUser } = user
-    const tokens = await this.generateTokens(user.id, user.email)
+    const tokens = await this.generateTokens(user.id, user.email, user.role)
     await this.saveRefreshToken(user.id, tokens.refreshToken)
 
     return { user: safeUser, ...tokens }
@@ -79,7 +80,7 @@ export class AuthService {
     await this.prisma.refreshToken.delete({ where: { id: stored.id } })
 
     const user = await this.usersService.findById(userId)
-    const tokens = await this.generateTokens(user.id, user.email)
+    const tokens = await this.generateTokens(user.id, user.email, user.role)
     await this.saveRefreshToken(user.id, tokens.refreshToken)
 
     return tokens
@@ -132,11 +133,11 @@ export class AuthService {
 
   // --- Helpers ---
 
-  private async generateTokens(userId: string, email: string) {
+  private async generateTokens(userId: string, email: string, role: Role) {
     const jti = uuidv4()
 
     const accessToken = this.jwtService.sign(
-      { sub: userId, email, jti },
+      { sub: userId, email, jti, role },
       {
         secret: this.config.get('JWT_SECRET'),
         expiresIn: this.config.get('JWT_EXPIRES_IN', '15m'),

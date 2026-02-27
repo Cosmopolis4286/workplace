@@ -1,0 +1,123 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Patch,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  ForbiddenException,
+} from '@nestjs/common'
+import { Role } from '@prisma/client'
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
+import { RolesGuard } from '../common/guards/roles.guard'
+import { Roles } from '../common/decorators/roles.decorator'
+import { CurrentUser } from '../common/decorators/current-user.decorator'
+import { UsersService } from './users.service'
+import { CreateUserDto } from './dto/create-user.dto'
+import { UpdateUserDto } from './dto/update-user.dto'
+
+// Roles that ADMIN is NOT allowed to manage
+const ADMIN_RESTRICTED_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN]
+
+@Controller('users')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get()
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async findAll(
+    @CurrentUser() caller: { id: string; role: Role },
+    @Query('role') roleFilter?: Role,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    const allowedRoles =
+      caller.role === Role.SUPERADMIN
+        ? undefined // all roles
+        : [Role.COMMERCE, Role.FREELANCER, Role.NORMAL]
+
+    return this.usersService.findAllUsers({
+      roleFilter: allowedRoles && roleFilter && allowedRoles.includes(roleFilter)
+        ? roleFilter
+        : allowedRoles
+          ? undefined // will be filtered by allowedRoles below
+          : roleFilter,
+      allowedRoles,
+      page: parseInt(page),
+      limit: parseInt(limit),
+    })
+  }
+
+  @Get(':id')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() caller: { id: string; role: Role },
+  ) {
+    const target = await this.usersService.findById(id)
+    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role)) {
+      throw new ForbiddenException('No tienes permisos para ver este usuario')
+    }
+    return target
+  }
+
+  @Post()
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async create(
+    @Body() dto: CreateUserDto,
+    @CurrentUser() caller: { id: string; role: Role },
+  ) {
+    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(dto.role)) {
+      throw new ForbiddenException('No puedes crear usuarios con ese rol')
+    }
+    return this.usersService.createUser(dto)
+  }
+
+  @Put(':id')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() caller: { id: string; role: Role },
+  ) {
+    const target = await this.usersService.findById(id)
+    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role)) {
+      throw new ForbiddenException('No tienes permisos para editar este usuario')
+    }
+    if (dto.role && caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(dto.role)) {
+      throw new ForbiddenException('No puedes asignar ese rol')
+    }
+    return this.usersService.updateUser(id, dto)
+  }
+
+  @Patch(':id/toggle-status')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async toggleStatus(
+    @Param('id') id: string,
+    @CurrentUser() caller: { id: string; role: Role },
+  ) {
+    const target = await this.usersService.findById(id)
+    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role)) {
+      throw new ForbiddenException('No tienes permisos para modificar este usuario')
+    }
+    return this.usersService.toggleUserStatus(id)
+  }
+
+  @Delete(':id')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() caller: { id: string; role: Role },
+  ) {
+    const target = await this.usersService.findById(id)
+    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role)) {
+      throw new ForbiddenException('No tienes permisos para eliminar este usuario')
+    }
+    return this.usersService.deleteUser(id)
+  }
+}
