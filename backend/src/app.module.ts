@@ -12,6 +12,7 @@ import { AppointmentsModule } from './appointments/appointments.module'
 import { AnalyticsModule } from './analytics/analytics.module'
 import { DeliveryModule } from './delivery/delivery.module'
 import { OrdersModule } from './orders/orders.module'
+import { ExpensesModule } from './expenses/expenses.module'
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { OrdersModule } from './orders/orders.module'
     AnalyticsModule,
     DeliveryModule,
     OrdersModule,
+    ExpensesModule,
   ],
 })
 export class AppModule {}
