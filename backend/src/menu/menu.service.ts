@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { ProductStatus } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
+import { NotificationsService } from '../notifications/notifications.service'
 import { CreateCategoryDto } from './dto/create-category.dto'
 import { UpdateCategoryDto } from './dto/update-category.dto'
 import { CreateProductDto } from './dto/create-product.dto'
@@ -14,7 +15,10 @@ import { UpdateStockDto, StockUpdateType } from './dto/update-stock.dto'
 
 @Injectable()
 export class MenuService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -162,11 +166,17 @@ export class MenuService {
     else if (newStock <= product.minStock) newStatus = ProductStatus.BAJO_STOCK
     else newStatus = ProductStatus.DISPONIBLE
 
-    return this.prisma.product.update({
+    const updated = await this.prisma.product.update({
       where: { id: productId },
       data: { stock: newStock, status: newStatus },
       include: { category: { select: { id: true, name: true, color: true } } },
     })
+
+    if (newStatus === ProductStatus.BAJO_STOCK || newStatus === ProductStatus.AGOTADO) {
+      this.notifications.notifyLowStock(restaurantId, product.name, newStock).catch(() => null)
+    }
+
+    return updated
   }
 
   async toggleProductStatus(userId: string, productId: string) {

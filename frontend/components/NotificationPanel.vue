@@ -1,10 +1,11 @@
 <template>
   <div class="relative">
+    <!-- Bell button -->
     <button
       @click="togglePanel"
-      class="relative p-3 text-gray-400 hover:text-ifood-red hover:bg-red-50 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 group"
+      class="relative p-3 text-gray-400 hover:text-ifood-red hover:bg-red-50 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95"
     >
-      <BellIcon class="h-6 w-6 icon-bounce" />
+      <BellIcon class="h-6 w-6" :class="{ 'animate-bounce': hasNewNotification }" />
       <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 flex h-5 w-5">
         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-ifood-red opacity-75"></span>
         <span class="relative inline-flex items-center justify-center rounded-full h-5 w-5 bg-gradient-to-r from-ifood-red to-red-600 shadow-lg text-white text-xs font-bold">
@@ -13,6 +14,7 @@
       </span>
     </button>
 
+    <!-- Panel -->
     <Transition
       enter-active-class="transition ease-out duration-200"
       enter-from-class="transform opacity-0 scale-95 translate-y-2"
@@ -25,6 +27,7 @@
         v-if="isOpen"
         class="absolute right-0 mt-3 w-96 max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden"
       >
+        <!-- Header -->
         <div class="px-4 py-3 bg-gradient-to-r from-ifood-red to-red-600 text-white">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2">
@@ -34,17 +37,37 @@
                 {{ unreadCount }} nueva{{ unreadCount !== 1 ? 's' : '' }}
               </span>
             </div>
-            <button
-              @click="togglePanel"
-              class="p-1 hover:bg-white/20 rounded-lg transition-colors duration-200"
-            >
-              <XMarkIcon class="h-5 w-5" />
-            </button>
+            <div class="flex items-center gap-1">
+              <button
+                @click="reloadNotifications"
+                :disabled="loading"
+                class="p-1 hover:bg-white/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                title="Recargar"
+              >
+                <ArrowPathIcon class="h-4 w-4" :class="{ 'animate-spin': loading }" />
+              </button>
+              <button @click="togglePanel" class="p-1 hover:bg-white/20 rounded-lg transition-colors duration-200">
+                <XMarkIcon class="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
 
+        <!-- WS offline warning -->
+        <div v-if="wsOffline" class="px-4 py-2 bg-yellow-50 border-b border-yellow-100 flex items-center gap-2 text-xs text-yellow-700">
+          <ExclamationTriangleIcon class="h-4 w-4 flex-shrink-0" />
+          Tiempo real no disponible — actualizando manualmente
+        </div>
+
+        <!-- Error banner -->
+        <div v-if="error" class="px-4 py-2 bg-red-50 border-b border-red-100 flex items-center gap-2 text-xs text-red-700">
+          <ExclamationTriangleIcon class="h-4 w-4 flex-shrink-0" />
+          {{ error }}
+        </div>
+
+        <!-- List -->
         <div class="max-h-[28rem] overflow-y-auto">
-          <div v-if="loading" class="p-8 text-center">
+          <div v-if="loading && notifications.length === 0" class="p-8 text-center">
             <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-ifood-red"></div>
             <p class="mt-2 text-sm text-gray-500">Cargando notificaciones...</p>
           </div>
@@ -53,7 +76,7 @@
             <div class="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
               <BellIcon class="h-8 w-8 text-gray-400" />
             </div>
-            <p class="text-gray-600 font-medium">No hay notificaciones</p>
+            <p class="text-gray-600 font-medium">Sin notificaciones</p>
             <p class="text-sm text-gray-500 mt-1">Te avisaremos cuando haya algo nuevo</p>
           </div>
 
@@ -62,53 +85,39 @@
               v-for="notification in notifications"
               :key="notification.id"
               class="group relative hover:bg-gradient-to-r hover:from-gray-50 hover:to-red-50/30 transition-all duration-200"
+              :class="{ 'bg-blue-50/30': !notification.read }"
             >
-              <div
-                class="p-4 cursor-pointer"
-                @click="handleNotificationClick(notification)"
-              >
+              <div class="p-4 cursor-pointer" @click="handleNotificationClick(notification)">
                 <div class="flex gap-3">
                   <div
                     :class="[
                       'flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm',
-                      getIconColor(notification.color)
+                      getIconColorClass(notification.color)
                     ]"
                   >
-                    <component :is="getIcon(notification.icon)" class="h-5 w-5" />
+                    <component :is="getIconComponent(notification.icon)" class="h-5 w-5" />
                   </div>
 
                   <div class="flex-1 min-w-0">
                     <div class="flex items-start justify-between gap-2">
-                      <h4
-                        :class="[
-                          'text-sm font-semibold',
-                          notification.read ? 'text-gray-600' : 'text-gray-900'
-                        ]"
-                      >
+                      <h4 :class="['text-sm font-semibold truncate', notification.read ? 'text-gray-600' : 'text-gray-900']">
                         {{ notification.title }}
                       </h4>
-                      <span
-                        v-if="!notification.read"
-                        class="flex-shrink-0 w-2 h-2 bg-ifood-red rounded-full"
-                      ></span>
+                      <span v-if="!notification.read" class="flex-shrink-0 w-2 h-2 mt-1 bg-ifood-red rounded-full"></span>
                     </div>
-                    <p
-                      :class="[
-                        'text-sm mt-1 line-clamp-2',
-                        notification.read ? 'text-gray-500' : 'text-gray-700'
-                      ]"
-                    >
+                    <p :class="['text-sm mt-1 line-clamp-2', notification.read ? 'text-gray-500' : 'text-gray-700']">
                       {{ notification.message }}
                     </p>
-                    <p class="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                    <p class="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
                       <ClockIcon class="h-3 w-3" />
-                      {{ formatTime(notification.timestamp) }}
+                      {{ formatTime(notification.createdAt) }}
                     </p>
                   </div>
 
                   <button
                     @click.stop="deleteNotification(notification.id)"
                     class="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                    title="Eliminar"
                   >
                     <TrashIcon class="h-4 w-4" />
                   </button>
@@ -118,19 +127,20 @@
           </div>
         </div>
 
+        <!-- Footer -->
         <div
           v-if="notifications.length > 0"
           class="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-2"
         >
           <button
             v-if="unreadCount > 0"
-            @click="markAllAsRead"
+            @click="handleMarkAllAsRead"
             class="flex-1 px-3 py-2 text-sm font-medium text-ifood-red hover:bg-red-50 rounded-lg transition-colors duration-200"
           >
             Marcar todas como leídas
           </button>
           <button
-            @click="clearAll"
+            @click="handleClearAll"
             class="flex-1 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
           >
             Limpiar todo
@@ -141,95 +151,146 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import {
   BellIcon,
   XMarkIcon,
   ClockIcon,
   TrashIcon,
+  ArrowPathIcon,
+  ExclamationTriangleIcon,
   ShoppingBagIcon,
   TruckIcon,
-  ExclamationTriangleIcon,
-  XCircleIcon
+  CalendarIcon,
+  BanknotesIcon,
+  XCircleIcon,
 } from '@heroicons/vue/24/outline'
-import { useNotifications } from '~/composables/useNotifications'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { useNotifications } from '~/composables/useNotifications'
+import { useAuth } from '~/composables/useAuth'
 
 const {
   notifications,
   loading,
+  error,
   unreadCount,
   fetchNotifications,
   markAsRead,
-  markAllAsRead: markAllRead,
-  deleteNotification: removeNotification,
-  clearAll: clearAllNotifications
+  markAllAsRead,
+  deleteNotification,
+  clearAll,
+  init,
+  disconnectWebSocket,
 } = useNotifications()
 
-const isOpen = ref(false)
+const { restaurant } = useAuth()
 
-const togglePanel = () => {
+const isOpen             = ref(false)
+const wsOffline          = ref(false)
+const hasNewNotification = ref(false)
+
+function togglePanel() {
   isOpen.value = !isOpen.value
 }
 
-const handleNotificationClick = (notification) => {
-  markAsRead(notification.id)
+async function handleNotificationClick(notification: any) {
+  await markAsRead(notification.id)
   if (notification.link) {
-    navigateTo(notification.link)
+    await navigateTo(notification.link)
     isOpen.value = false
   }
 }
 
-const deleteNotification = (id) => {
-  removeNotification(id)
+async function handleMarkAllAsRead() {
+  await markAllAsRead()
 }
 
-const markAllAsRead = () => {
-  markAllRead()
-}
-
-const clearAll = () => {
+async function handleClearAll() {
   if (confirm('¿Estás seguro de que quieres eliminar todas las notificaciones?')) {
-    clearAllNotifications()
+    await clearAll()
   }
 }
 
-const getIcon = (iconName) => {
-  const icons = {
-    ShoppingBagIcon,
-    TruckIcon,
-    ExclamationTriangleIcon,
-    XCircleIcon,
-    BellIcon
-  }
-  return icons[iconName] || BellIcon
+async function reloadNotifications() {
+  await fetchNotifications({ limit: 30 })
 }
 
-const getIconColor = (color) => {
-  const colors = {
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
+// Animate bell when a new unread arrives
+watch(unreadCount, (newVal, oldVal) => {
+  if (newVal > (oldVal ?? 0)) {
+    hasNewNotification.value = true
+    setTimeout(() => { hasNewNotification.value = false }, 2000)
+  }
+})
+
+// ── Icon helpers ──────────────────────────────────────────────────────────────
+const ICON_MAP: Record<string, any> = {
+  ShoppingBagIcon,
+  TruckIcon,
+  ExclamationTriangleIcon,
+  XCircleIcon,
+  BellIcon,
+  CalendarIcon,
+  BanknotesIcon,
+}
+
+function getIconComponent(iconName: string) {
+  return ICON_MAP[iconName] ?? BellIcon
+}
+
+function getIconColorClass(color: string): string {
+  const map: Record<string, string> = {
+    blue:   'bg-blue-100 text-blue-600',
+    green:  'bg-green-100 text-green-600',
     yellow: 'bg-yellow-100 text-yellow-600',
-    red: 'bg-red-100 text-red-600',
-    gray: 'bg-gray-100 text-gray-600'
+    red:    'bg-red-100 text-red-600',
+    purple: 'bg-purple-100 text-purple-600',
+    gray:   'bg-gray-100 text-gray-600',
   }
-  return colors[color] || colors.gray
+  return map[color] ?? map.gray
 }
 
-const formatTime = (timestamp) => {
+function formatTime(timestamp: string): string {
   try {
-    return formatDistanceToNow(new Date(timestamp), {
-      addSuffix: true,
-      locale: es
-    })
+    return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: es })
   } catch {
     return 'Hace un momento'
   }
 }
 
-onMounted(() => {
-  fetchNotifications()
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
+let stopWatch: (() => void) | null = null
+
+onMounted(async () => {
+  const restaurantId = restaurant.value?.id
+  if (restaurantId) {
+    try {
+      await init(restaurantId)
+      wsOffline.value = false
+    } catch {
+      wsOffline.value = true
+      await fetchNotifications({ limit: 30 })
+    }
+  } else {
+    stopWatch = watch(restaurant, async (r) => {
+      if (r?.id) {
+        stopWatch?.()
+        try {
+          await init(r.id)
+          wsOffline.value = false
+        } catch {
+          wsOffline.value = true
+          await fetchNotifications({ limit: 30 })
+        }
+      }
+    })
+  }
+})
+
+onBeforeUnmount(() => {
+  stopWatch?.()
+  disconnectWebSocket()
 })
 </script>

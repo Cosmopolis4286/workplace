@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { NotificationsService } from '../notifications/notifications.service'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
 import { QueryOrdersDto } from './dto/query-orders.dto'
@@ -18,7 +19,10 @@ const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
   // Stats
@@ -189,6 +193,9 @@ export class OrdersService {
       })
     }
 
+    // Fire-and-forget notification
+    this.notifications.notifyNewOrder(restaurantId, orderNumber, total).catch(() => null)
+
     return order
   }
 
@@ -233,11 +240,19 @@ export class OrdersService {
       }
     }
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data,
       include: { items: true },
     })
+
+    if (dto.status && dto.status !== existing.status) {
+      this.notifications
+        .notifyOrderStatusChange(restaurantId, existing.orderNumber, dto.status)
+        .catch(() => null)
+    }
+
+    return updated
   }
 
   // ──────────────────────────────────────────────────────────────────────────
