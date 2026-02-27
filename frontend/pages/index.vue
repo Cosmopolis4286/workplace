@@ -350,9 +350,9 @@
           <div class="flex flex-wrap gap-x-8 gap-y-2 text-sm text-gray-500">
             <a href="#features" class="hover:text-gray-900 transition-colors duration-150">Funciones</a>
             <a href="#how" class="hover:text-gray-900 transition-colors duration-150">Cómo funciona</a>
-            <a href="#" class="hover:text-gray-900 transition-colors duration-150">Privacidad</a>
-            <a href="#" class="hover:text-gray-900 transition-colors duration-150">Términos</a>
-            <a href="#" class="hover:text-gray-900 transition-colors duration-150">Soporte</a>
+            <NuxtLink to="/privacidad" class="hover:text-gray-900 transition-colors duration-150">Privacidad</NuxtLink>
+            <NuxtLink to="/terminos" class="hover:text-gray-900 transition-colors duration-150">Términos</NuxtLink>
+            <NuxtLink to="/soporte" class="hover:text-gray-900 transition-colors duration-150">Soporte</NuxtLink>
           </div>
         </div>
 

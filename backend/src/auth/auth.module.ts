@@ -5,6 +5,7 @@ import { AuthService } from './auth.service'
 import { AuthController } from './auth.controller'
 import { JwtStrategy } from './strategies/jwt.strategy'
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy'
+import { GoogleStrategy } from './strategies/google.strategy'
 import { UsersModule } from '../users/users.module'
 
 @Module({
@@ -13,7 +14,7 @@ import { UsersModule } from '../users/users.module'
     JwtModule.register({}), // secrets configured per-call in service
     UsersModule,
   ],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
+  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy],
   controllers: [AuthController],
 })
 export class AuthModule {}
