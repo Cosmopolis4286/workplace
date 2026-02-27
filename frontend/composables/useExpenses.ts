@@ -1,130 +1,346 @@
-import { ref, computed, readonly } from 'vue'
-import { v4 as uuidv4 } from 'uuid'
+import { ref, computed } from 'vue'
+import { useAuth } from './useAuth'
 
-type ExpenseType = 'operativo' | 'fijo' | 'variable'
-type ExpenseStatus = 'pagado' | 'pendiente' | 'cancelado'
-type PaymentMethod = 'efectivo' | 'transferencia' | 'tarjeta'
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Expense {
+export type ExpenseType = 'FIJO' | 'OPERATIVO' | 'EXTRAORDINARIO'
+export type ExpenseStatus = 'PENDIENTE' | 'PAGADO' | 'VENCIDO' | 'CANCELADO'
+export type ExpensePaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CHEQUE'
+
+export interface ExpenseCategoryMin {
+  id: string
+  name: string
+  color: string
+}
+
+export interface Expense {
   id: string
   description: string
   amount: number
-  category: string
-  date: Date
+  date: string
   type: ExpenseType
   status: ExpenseStatus
-  supplier: string
-  receipt: string
-  paymentMethod: PaymentMethod
+  paymentMethod: ExpensePaymentMethod
+  supplier?: string
+  receipt?: string
+  notes?: string
+  categoryId?: string
+  category?: ExpenseCategoryMin
+  restaurantId: string
+  createdAt: string
+  updatedAt: string
 }
 
-interface ExpenseCategory {
-  id: number
+export interface ExpenseCategory {
+  id: string
   name: string
   color: string
   budget: number
+  restaurantId: string
+  _count?: { expenses: number }
+  createdAt: string
+  updatedAt: string
 }
 
-const expenses = ref<Expense[]>([
-  {
-    id: uuidv4(),
-    description: 'Compra de ingredientes',
-    amount: 450.00,
-    category: 'Ingredientes',
-    date: new Date('2024-01-15'),
-    type: 'operativo',
-    status: 'pagado',
-    supplier: 'Distribuidora Central',
-    receipt: 'REC-001',
-    paymentMethod: 'transferencia',
-  },
-  {
-    id: uuidv4(),
-    description: 'Renta del local',
-    amount: 2500.00,
-    category: 'Renta',
-    date: new Date('2024-01-01'),
-    type: 'fijo',
-    status: 'pagado',
-    supplier: 'Inmobiliaria XYZ',
-    receipt: 'REC-002',
-    paymentMethod: 'transferencia',
-  },
-  {
-    id: uuidv4(),
-    description: 'Servicios públicos',
-    amount: 180.50,
-    category: 'Servicios',
-    date: new Date('2024-01-10'),
-    type: 'fijo',
-    status: 'pendiente',
-    supplier: 'CFE',
-    receipt: 'REC-003',
-    paymentMethod: 'efectivo',
-  },
-])
+export interface ExpenseStats {
+  totalMonthly: number
+  totalPrevMonth: number
+  changeVsPrev: number
+  pendingAmount: number
+  paidAmount: number
+  overdueAmount: number
+  totalCount: number
+  budgetTotal: number
+  budgetUsed: number
+  dailyAverage: number
+}
 
-const expenseCategories = ref<ExpenseCategory[]>([
-  { id: 1, name: 'Ingredientes', color: '#ef4444', budget: 2000 },
-  { id: 2, name: 'Renta', color: '#f97316', budget: 2500 },
-  { id: 3, name: 'Servicios', color: '#3b82f6', budget: 500 },
-  { id: 4, name: 'Marketing', color: '#8b5cf6', budget: 800 },
-  { id: 5, name: 'Personal', color: '#10b981', budget: 5000 },
-  { id: 6, name: 'Equipo', color: '#f59e0b', budget: 1000 },
-])
+export interface ExpenseFilters {
+  status?: ExpenseStatus
+  type?: ExpenseType
+  categoryId?: string
+  search?: string
+  dateFrom?: string
+  dateTo?: string
+  page?: number
+  limit?: number
+}
 
-export const useExpenses = () => {
-  const totalExpenses = computed(() =>
-    expenses.value.reduce((sum, e) => sum + e.amount, 0),
-  )
+export interface CreateExpensePayload {
+  description: string
+  amount: number
+  date: string
+  type?: ExpenseType
+  status?: ExpenseStatus
+  paymentMethod?: ExpensePaymentMethod
+  supplier?: string
+  receipt?: string
+  notes?: string
+  categoryId?: string
+}
 
-  const monthlyExpenses = computed(() => {
-    const now = new Date()
-    return expenses.value
-      .filter((e) => {
-        const d = new Date(e.date)
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+// ─── Label / style maps ───────────────────────────────────────────────────────
+
+export const EXPENSE_TYPE_LABELS: Record<ExpenseType, string> = {
+  FIJO:           'Fijo',
+  OPERATIVO:      'Operativo',
+  EXTRAORDINARIO: 'Extraordinario',
+}
+
+export const EXPENSE_TYPE_CLASSES: Record<ExpenseType, string> = {
+  FIJO:           'bg-blue-100 text-blue-800',
+  OPERATIVO:      'bg-indigo-100 text-indigo-800',
+  EXTRAORDINARIO: 'bg-orange-100 text-orange-800',
+}
+
+export const EXPENSE_STATUS_LABELS: Record<ExpenseStatus, string> = {
+  PENDIENTE: 'Pendiente',
+  PAGADO:    'Pagado',
+  VENCIDO:   'Vencido',
+  CANCELADO: 'Cancelado',
+}
+
+export const EXPENSE_STATUS_CLASSES: Record<ExpenseStatus, string> = {
+  PENDIENTE: 'bg-yellow-100 text-yellow-800',
+  PAGADO:    'bg-green-100 text-green-800',
+  VENCIDO:   'bg-red-100 text-red-800',
+  CANCELADO: 'bg-gray-100 text-gray-600',
+}
+
+export const PAYMENT_METHOD_LABELS: Record<ExpensePaymentMethod, string> = {
+  EFECTIVO:      'Efectivo',
+  TRANSFERENCIA: 'Transferencia',
+  TARJETA:       'Tarjeta',
+  CHEQUE:        'Cheque',
+}
+
+// ─── Global reactive state ────────────────────────────────────────────────────
+
+const expenses   = ref<Expense[]>([])
+const categories = ref<ExpenseCategory[]>([])
+const stats      = ref<ExpenseStats>({
+  totalMonthly: 0,
+  totalPrevMonth: 0,
+  changeVsPrev: 0,
+  pendingAmount: 0,
+  paidAmount: 0,
+  overdueAmount: 0,
+  totalCount: 0,
+  budgetTotal: 0,
+  budgetUsed: 0,
+  dailyAverage: 0,
+})
+const loading           = ref(false)
+const loadingCategories = ref(false)
+const loadingStats      = ref(false)
+const error             = ref<string | null>(null)
+const totalCount        = ref(0)
+const currentPage       = ref(1)
+
+// ─── Composable ───────────────────────────────────────────────────────────────
+
+export function useExpenses() {
+  const { token, refreshTokens } = useAuth()
+
+  // ── Computed ───────────────────────────────────────────────────────────────
+  const pendingExpenses = computed(() => expenses.value.filter(e => e.status === 'PENDIENTE'))
+  const overdueExpenses = computed(() => expenses.value.filter(e => e.status === 'VENCIDO'))
+
+  function formatCurrency(value: number) {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)
+  }
+
+  // ── Auth-aware fetch ───────────────────────────────────────────────────────
+  async function apiFetch(path: string, options: RequestInit = {}) {
+    const config = useRuntimeConfig()
+    const base   = config.public.apiUrl
+
+    const doRequest = async (tkn: string) =>
+      fetch(`${base}${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tkn}`,
+          ...(options.headers ?? {}),
+        },
       })
-      .reduce((sum, e) => sum + e.amount, 0)
-  })
 
-  const expensesByCategory = computed(() => {
-    const totals: Record<string, number> = {}
-    expenses.value.forEach((e) => {
-      totals[e.category] = (totals[e.category] ?? 0) + e.amount
+    let res = await doRequest(token.value)
+    if (res.status === 401) {
+      const ok = await refreshTokens()
+      if (!ok) throw new Error('Sesión expirada')
+      res = await doRequest(token.value)
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.message ?? `Error ${res.status}`)
+    }
+    return res.json()
+  }
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  async function loadStats() {
+    loadingStats.value = true
+    try {
+      stats.value = await apiFetch('/api/expenses/stats')
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loadingStats.value = false
+    }
+  }
+
+  // ── Categories ─────────────────────────────────────────────────────────────
+  async function loadCategories() {
+    loadingCategories.value = true
+    try {
+      categories.value = await apiFetch('/api/expenses/categories')
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loadingCategories.value = false
+    }
+  }
+
+  async function createCategory(payload: { name: string; color?: string; budget?: number }) {
+    const cat = await apiFetch('/api/expenses/categories', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     })
-    return totals
-  })
-
-  const pendingExpenses = computed(() =>
-    expenses.value.filter((e) => e.status === 'pendiente'),
-  )
-
-  function addExpense(expense: Omit<Expense, 'id'>): Expense {
-    const newExpense: Expense = { ...expense, id: uuidv4(), date: new Date(expense.date) }
-    expenses.value.push(newExpense)
-    return newExpense
+    categories.value.push(cat)
+    return cat
   }
 
-  function updateExpense(id: string, updates: Partial<Expense>): void {
-    const index = expenses.value.findIndex((e) => e.id === id)
-    if (index !== -1) expenses.value[index] = { ...expenses.value[index], ...updates }
+  async function updateCategory(id: string, payload: { name?: string; color?: string; budget?: number }) {
+    const updated = await apiFetch(`/api/expenses/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+    const idx = categories.value.findIndex(c => c.id === id)
+    if (idx !== -1) categories.value[idx] = updated
+    return updated
   }
 
-  function deleteExpense(id: string): void {
-    const index = expenses.value.findIndex((e) => e.id === id)
-    if (index !== -1) expenses.value.splice(index, 1)
+  async function deleteCategory(id: string) {
+    await apiFetch(`/api/expenses/categories/${id}`, { method: 'DELETE' })
+    categories.value = categories.value.filter(c => c.id !== id)
+  }
+
+  // ── Expenses ───────────────────────────────────────────────────────────────
+  async function loadExpenses(filters: ExpenseFilters = {}) {
+    loading.value = true
+    error.value   = null
+    try {
+      const params = new URLSearchParams()
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+      })
+      const qs  = params.toString()
+      const res = await apiFetch(`/api/expenses${qs ? '?' + qs : ''}`)
+      expenses.value    = res.data
+      totalCount.value  = res.total
+      currentPage.value = res.page
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function createExpense(payload: CreateExpensePayload): Promise<Expense | null> {
+    loading.value = true
+    error.value   = null
+    try {
+      const expense = await apiFetch('/api/expenses', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      expenses.value.unshift(expense)
+      totalCount.value++
+      await loadStats()
+      return expense
+    } catch (e: any) {
+      error.value = e.message
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateExpense(id: string, payload: Partial<CreateExpensePayload>): Promise<Expense | null> {
+    error.value = null
+    try {
+      const updated = await apiFetch(`/api/expenses/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      })
+      const idx = expenses.value.findIndex(e => e.id === id)
+      if (idx !== -1) expenses.value[idx] = updated
+      await loadStats()
+      return updated
+    } catch (e: any) {
+      error.value = e.message
+      return null
+    }
+  }
+
+  async function updateExpenseStatus(id: string, status: ExpenseStatus): Promise<boolean> {
+    error.value = null
+    try {
+      const updated = await apiFetch(`/api/expenses/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      })
+      const idx = expenses.value.findIndex(e => e.id === id)
+      if (idx !== -1) expenses.value[idx] = { ...expenses.value[idx], status: updated.status }
+      await loadStats()
+      return true
+    } catch (e: any) {
+      error.value = e.message
+      return false
+    }
+  }
+
+  async function deleteExpense(id: string): Promise<boolean> {
+    error.value = null
+    try {
+      await apiFetch(`/api/expenses/${id}`, { method: 'DELETE' })
+      expenses.value = expenses.value.filter(e => e.id !== id)
+      totalCount.value--
+      await loadStats()
+      return true
+    } catch (e: any) {
+      error.value = e.message
+      return false
+    }
   }
 
   return {
-    expenses: readonly(expenses),
-    expenseCategories: readonly(expenseCategories),
-    totalExpenses,
-    monthlyExpenses,
-    expensesByCategory,
+    // state
+    expenses,
+    categories,
+    stats,
+    loading,
+    loadingCategories,
+    loadingStats,
+    error,
+    totalCount,
+    currentPage,
+    // computed
     pendingExpenses,
-    addExpense,
+    overdueExpenses,
+    // helpers
+    formatCurrency,
+    // actions
+    loadStats,
+    loadCategories,
+    createCategory,
+    updateCategory,
+    deleteCategory,
+    loadExpenses,
+    createExpense,
     updateExpense,
+    updateExpenseStatus,
     deleteExpense,
   }
 }

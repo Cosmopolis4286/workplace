@@ -41,9 +41,11 @@ model Restaurant {
   customers     Customer[]
   appointments  Appointment[]
   settings      RestaurantSettings?
-  drivers       Driver[]
-  deliveries    Delivery[]
-  orders        Order[]
+  drivers           Driver[]
+  deliveries        Delivery[]
+  orders            Order[]
+  expenseCategories ExpenseCategory[]
+  expenses          Expense[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -349,4 +351,62 @@ model OrderItem {
   createdAt   DateTime @default(now())
 
   @@map("order_items")
+}
+
+// ─── Expenses ────────────────────────────────────────────────────────────────
+
+enum ExpenseType {
+  FIJO
+  OPERATIVO
+  EXTRAORDINARIO
+}
+
+enum ExpenseStatus {
+  PENDIENTE
+  PAGADO
+  VENCIDO
+  CANCELADO
+}
+
+enum ExpensePaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+  CHEQUE
+}
+
+model ExpenseCategory {
+  id           String    @id @default(uuid())
+  name         String
+  color        String    @default("#6b7280")
+  budget       Float     @default(0)
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  expenses     Expense[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([name, restaurantId])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id            String               @id @default(uuid())
+  description   String
+  amount        Float
+  date          DateTime
+  type          ExpenseType          @default(OPERATIVO)
+  status        ExpenseStatus        @default(PENDIENTE)
+  paymentMethod ExpensePaymentMethod @default(EFECTIVO)
+  supplier      String?
+  receipt       String?
+  notes         String?
+  categoryId    String?
+  category      ExpenseCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  restaurantId  String
+  restaurant    Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@map("expenses")
 }
