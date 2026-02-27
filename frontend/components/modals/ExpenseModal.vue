@@ -167,17 +167,6 @@ const form = ref({
   paymentMethod: 'efectivo'
 })
 
-watch(() => props.expense, (expense) => {
-  if (expense) {
-    form.value = {
-      ...expense,
-      date: new Date(expense.date).toISOString().split('T')[0]
-    }
-  } else {
-    resetForm()
-  }
-}, { immediate: true })
-
 const resetForm = () => {
   form.value = {
     description: '',
@@ -191,6 +180,17 @@ const resetForm = () => {
     paymentMethod: 'efectivo'
   }
 }
+
+watch(() => props.expense, (expense) => {
+  if (expense) {
+    form.value = {
+      ...expense,
+      date: new Date(expense.date).toISOString().split('T')[0]
+    }
+  } else {
+    resetForm()
+  }
+}, { immediate: true })
 
 const closeModal = () => {
   emit('close')
