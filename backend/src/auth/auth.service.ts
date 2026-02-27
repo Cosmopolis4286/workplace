@@ -104,6 +104,10 @@ export class AuthService {
     return this.usersService.changePassword(userId, dto)
   }
 
+  async updateAvatar(userId: string, avatarUrl: string) {
+    return this.usersService.updateAvatar(userId, avatarUrl)
+  }
+
   async getDemoCredentials() {
     const email = this.config.get<string>('DEMO_EMAIL', 'demo@ifoodmanager.com')
     const password = this.config.get<string>('DEMO_PASSWORD', 'demo123456')

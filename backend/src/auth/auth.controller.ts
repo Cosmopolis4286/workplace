@@ -9,7 +9,14 @@ import {
   HttpStatus,
   Request,
   ForbiddenException,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
+import { diskStorage } from 'multer'
+import { extname, join } from 'path'
+import { existsSync, mkdirSync } from 'fs'
 import { Throttle } from '@nestjs/throttler'
 import { AuthService } from './auth.service'
 import { RegisterDto } from './dto/register.dto'
@@ -77,6 +84,35 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async changePassword(@CurrentUser() user: any, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(user.id, dto)
+  }
+
+  @Post('me/avatar')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadPath = join(process.cwd(), 'uploads', 'avatars')
+          if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true })
+          cb(null, uploadPath)
+        },
+        filename: (_req, file, cb) => {
+          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9)
+          cb(null, unique + extname(file.originalname))
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/)) {
+          return cb(new BadRequestException('Solo se permiten imágenes (jpeg, png, webp, gif)'), false)
+        }
+        cb(null, true)
+      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    }),
+  )
+  async uploadAvatar(@CurrentUser() user: any, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No se recibió ningún archivo')
+    return this.authService.updateAvatar(user.id, `/uploads/avatars/${file.filename}`)
   }
 
   @Get('demo-credentials')
