@@ -107,7 +107,7 @@ export const EXPENSE_STATUS_CLASSES: Record<ExpenseStatus, string> = {
   CANCELADO: 'bg-gray-100 text-gray-600',
 }
 
-export const PAYMENT_METHOD_LABELS: Record<ExpensePaymentMethod, string> = {
+export const EXPENSE_PAYMENT_METHOD_LABELS: Record<ExpensePaymentMethod, string> = {
   EFECTIVO:      'Efectivo',
   TRANSFERENCIA: 'Transferencia',
   TARJETA:       'Tarjeta',
