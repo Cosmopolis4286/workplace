@@ -1,16 +1,28 @@
 <template>
   <AuthLayout
-    title="Recuperar Contraseña"
-    description="Te enviaremos un enlace para restablecer tu contraseña"
+    title="Recuperar contraseña"
+    description="Te enviaremos un enlace para restablecer tu acceso"
   >
-    <div v-if="!emailSent">
-      <form @submit.prevent="handleRecoverPassword" class="space-y-6">
-        <div class="text-center mb-6">
-          <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-br from-ifood-red/20 to-red-600/20 mb-4">
-            <KeyIcon class="h-8 w-8 text-ifood-red" />
+    <template #header-action>
+      <NuxtLink
+        to="/login"
+        class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors duration-150"
+      >
+        <ArrowLeftIcon class="h-4 w-4" />
+        Volver al login
+      </NuxtLink>
+    </template>
+
+    <!-- Step: form -->
+    <template v-if="!emailSent">
+      <form @submit.prevent="handleRecoverPassword" class="space-y-5" novalidate>
+        <!-- Illustration -->
+        <div class="flex flex-col items-center text-center gap-3 pb-2">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-ifood-red/10 to-red-600/10 flex items-center justify-center border border-red-100">
+            <KeyIcon class="h-7 w-7 text-ifood-red" />
           </div>
-          <p class="text-gray-600">
-            Ingresa tu correo electrónico y te enviaremos las instrucciones para restablecer tu contraseña.
+          <p class="text-sm text-gray-500 max-w-xs leading-relaxed">
+            Ingresa tu correo y te enviaremos las instrucciones para restablecer tu contraseña.
           </p>
         </div>
 
@@ -18,82 +30,75 @@
           id="email"
           v-model="form.email"
           type="email"
-          label="Correo Electrónico"
+          label="Correo electrónico"
           placeholder="tu@email.com"
           :icon="EnvelopeIcon"
           :error="errors.email"
+          :show-valid="touched && !errors.email && !!form.email"
+          autocomplete="email"
           required
+          @blur="touched = true"
         />
 
         <AuthButton
           type="submit"
-          text="Enviar Enlace de Recuperación"
+          text="Enviar enlace de recuperación"
           :loading="isLoading"
           :icon="PaperAirplaneIcon"
+          variant="primary"
         />
       </form>
-    </div>
+    </template>
 
-    <div v-else class="text-center space-y-6">
-      <div class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-br from-green-100 to-green-200 mb-6">
-        <CheckCircleIcon class="h-12 w-12 text-green-600" />
-      </div>
-      
-      <div class="space-y-3">
-        <h3 class="text-xl font-semibold text-gray-900">¡Correo Enviado!</h3>
-        <p class="text-gray-600">
-          Hemos enviado las instrucciones de recuperación a:
-        </p>
-        <p class="font-semibold text-ifood-red">{{ form.email }}</p>
-        <p class="text-sm text-gray-500">
-          Revisa tu bandeja de entrada y sigue las instrucciones. Si no ves el correo, revisa tu carpeta de spam.
-        </p>
-      </div>
+    <!-- Step: success -->
+    <template v-else>
+      <div class="flex flex-col items-center text-center gap-5 py-2">
+        <!-- Success icon -->
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center border border-green-200">
+          <CheckCircleIcon class="h-9 w-9 text-green-500" />
+        </div>
 
-      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
-        <div class="flex items-start space-x-3">
-          <InformationCircleIcon class="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-          <div class="text-sm text-blue-800">
-            <p class="font-medium mb-1">¿No recibiste el correo?</p>
-            <p>El enlace puede tardar unos minutos en llegar. También puedes verificar tu carpeta de spam o correo no deseado.</p>
-          </div>
+        <div class="space-y-2">
+          <h3 class="text-lg font-bold text-gray-900">¡Revisa tu bandeja!</h3>
+          <p class="text-sm text-gray-500 leading-relaxed max-w-xs">
+            Enviamos las instrucciones a
+          </p>
+          <p class="text-sm font-semibold text-ifood-red bg-red-50 px-3 py-1.5 rounded-lg inline-block">
+            {{ form.email }}
+          </p>
+        </div>
+
+        <!-- Info box -->
+        <div class="w-full flex items-start gap-3 px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
+          <InformationCircleIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-500" />
+          <p>
+            El correo puede tardar unos minutos. Si no lo ves, revisa tu carpeta de <strong>spam</strong>.
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 w-full">
+          <AuthButton
+            variant="outline"
+            text="Reenviar correo"
+            :icon="ArrowPathIcon"
+            :loading="isResending"
+            @click="resendEmail"
+          />
+          <AuthButton
+            variant="ghost"
+            text="Usar otro correo"
+            :icon="ArrowLeftIcon"
+            @click="resetForm"
+          />
         </div>
       </div>
-
-      <div class="flex flex-col sm:flex-row gap-3">
-        <AuthButton
-          variant="outline"
-          text="Reenviar Correo"
-          :icon="ArrowPathIcon"
-          @click="resendEmail"
-          :loading="isResending"
-        />
-        <AuthButton
-          variant="secondary"
-          text="Intentar con Otro Correo"
-          :icon="ArrowLeftIcon"
-          @click="resetForm"
-        />
-      </div>
-    </div>
+    </template>
 
     <template #footer>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-gray-500">
         ¿Recordaste tu contraseña?
-        <NuxtLink
-          to="/login"
-          class="font-semibold text-ifood-red hover:text-red-700 transition-colors duration-200 hover:underline ml-1"
-        >
-          Inicia sesión aquí
-        </NuxtLink>
-      </p>
-      <p class="text-sm text-gray-600 mt-2">
-        ¿No tienes una cuenta?
-        <NuxtLink
-          to="/register"
-          class="font-semibold text-ifood-red hover:text-red-700 transition-colors duration-200 hover:underline ml-1"
-        >
-          Regístrate aquí
+        <NuxtLink to="/login" class="font-semibold text-ifood-red hover:underline ml-1">
+          Inicia sesión
         </NuxtLink>
       </p>
     </template>
@@ -102,8 +107,9 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
-import { ref, reactive } from 'vue'
-import { 
+
+import { ref, reactive, watch } from 'vue'
+import {
   EnvelopeIcon,
   KeyIcon,
   PaperAirplaneIcon,
@@ -112,46 +118,32 @@ import {
   ArrowPathIcon,
   ArrowLeftIcon
 } from '@heroicons/vue/24/outline'
-const form = reactive({
-  email: ''
-})
+import { useFormValidation } from '~/composables/useFormValidation'
 
-const errors = reactive({
-  email: ''
-})
+const { required, email: emailRule, validate } = useFormValidation()
 
+const form = reactive({ email: '' })
+const errors = reactive({ email: '' })
+const touched = ref(false)
 const isLoading = ref(false)
 const isResending = ref(false)
 const emailSent = ref(false)
 
-const validateForm = () => {
-  errors.email = ''
-
-  if (!form.email) {
-    errors.email = 'El correo electrónico es requerido'
-    return false
-  }
-
-  if (!/\S+@\S+\.\S+/.test(form.email)) {
-    errors.email = 'El correo electrónico no es válido'
-    return false
-  }
-
-  return true
-}
+watch(() => form.email, () => {
+  if (touched.value) errors.email = validate(form.email, [required('El correo'), emailRule()])
+})
 
 const handleRecoverPassword = async () => {
-  if (!validateForm()) return
+  touched.value = true
+  errors.email = validate(form.email, [required('El correo'), emailRule()])
+  if (errors.email) return
 
   isLoading.value = true
-
   try {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
+    // TODO: call /api/auth/recover-password
+    await new Promise(resolve => setTimeout(resolve, 1400))
     emailSent.value = true
-  } catch (error) {
-    console.error('Recovery error:', error)
+  } catch {
     errors.email = 'Error al enviar el correo. Inténtalo de nuevo.'
   } finally {
     isLoading.value = false
@@ -160,15 +152,9 @@ const handleRecoverPassword = async () => {
 
 const resendEmail = async () => {
   isResending.value = true
-
   try {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Show success message or notification
-    console.log('Email resent successfully')
-  } catch (error) {
-    console.error('Resend error:', error)
+    await new Promise(resolve => setTimeout(resolve, 1200))
+    // Could show a toast here
   } finally {
     isResending.value = false
   }
@@ -178,5 +164,6 @@ const resetForm = () => {
   emailSent.value = false
   form.email = ''
   errors.email = ''
+  touched.value = false
 }
 </script>
