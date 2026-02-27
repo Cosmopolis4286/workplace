@@ -1,178 +1,99 @@
 <template>
-  <div class="card p-6 hover:shadow-lg transition-all duration-300">
-    <div class="flex justify-between items-start mb-4">
-      <div class="flex items-center space-x-3">
-        <div class="flex-shrink-0">
-          <img 
-            :src="order.customerImage" 
-            :alt="order.customerName"
-            class="h-12 w-12 rounded-full object-cover"
-          >
-        </div>
-        <div>
-          <h3 class="text-lg font-semibold text-gray-900">{{ order.customerName }}</h3>
-          <p class="text-sm text-gray-500">Pedido #{{ order.id }}</p>
-        </div>
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 p-4">
+    <!-- Header -->
+    <div class="flex justify-between items-start mb-3">
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900">{{ order.customerName }}</h3>
+        <p class="text-xs text-gray-400 mt-0.5">#{{ order.orderNumber }} · {{ formatTime(order.createdAt) }}</p>
       </div>
-      
-      <div class="text-right">
-        <span 
-          :class="[
-            'inline-flex px-3 py-1 text-xs font-medium rounded-full',
-            getStatusClasses(order.status)
-          ]"
-        >
-          {{ getStatusText(order.status) }}
+      <span
+        class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
+        :class="ORDER_STATUS_CLASSES[order.status]"
+      >
+        {{ ORDER_STATUS_LABELS[order.status] }}
+      </span>
+    </div>
+
+    <!-- Items summary -->
+    <div class="space-y-1 mb-3">
+      <div
+        v-for="item in order.items"
+        :key="item.id"
+        class="flex justify-between items-center text-xs"
+      >
+        <span class="text-gray-600">
+          <span class="font-semibold text-gray-800">{{ item.quantity }}×</span>
+          {{ item.productName }}
         </span>
-        <p class="text-sm text-gray-500 mt-1">{{ formatTime(order.createdAt) }}</p>
+        <span class="text-gray-700 font-medium">{{ formatCurrency(item.subtotal) }}</span>
       </div>
     </div>
 
-    <!-- Order Items -->
-    <div class="space-y-2 mb-4">
-      <div v-for="item in order.items" :key="item.id" class="flex justify-between items-center">
-        <div class="flex items-center space-x-2">
-          <span class="text-sm font-medium text-gray-900">{{ item.quantity }}x</span>
-          <span class="text-sm text-gray-700">{{ item.name }}</span>
-        </div>
-        <span class="text-sm font-medium text-gray-900">${{ item.price * item.quantity }}</span>
-      </div>
+    <!-- Total + type -->
+    <div class="flex items-center justify-between border-t border-gray-100 pt-2 mb-3">
+      <span class="text-xs text-gray-500">{{ ORDER_TYPE_LABELS[order.orderType] }}</span>
+      <span class="text-sm font-bold text-gray-900">{{ formatCurrency(order.total) }}</span>
     </div>
 
-    <!-- Order Summary -->
-    <div class="border-t border-gray-200 pt-4">
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-sm text-gray-600">Subtotal:</span>
-        <span class="text-sm font-medium">${{ order.subtotal }}</span>
-      </div>
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-sm text-gray-600">Delivery:</span>
-        <span class="text-sm font-medium">${{ order.deliveryFee }}</span>
-      </div>
-      <div class="flex justify-between items-center font-semibold text-lg">
-        <span>Total:</span>
-        <span class="text-ifood-red">${{ order.total }}</span>
-      </div>
-    </div>
-
-    <!-- Delivery Info -->
-    <div v-if="order.deliveryAddress" class="mt-4 p-3 bg-gray-50 rounded-lg">
-      <div class="flex items-center space-x-2 mb-2">
-        <MapPinIcon class="h-4 w-4 text-gray-500" />
-        <span class="text-sm font-medium text-gray-700">Dirección de entrega:</span>
-      </div>
-      <p class="text-sm text-gray-600">{{ order.deliveryAddress }}</p>
-      <div class="flex items-center space-x-4 mt-2">
-        <div class="flex items-center space-x-1">
-          <ClockIcon class="h-4 w-4 text-gray-500" />
-          <span class="text-xs text-gray-500">ETA: {{ order.estimatedTime }}min</span>
-        </div>
-        <div v-if="order.driverName" class="flex items-center space-x-1">
-          <TruckIcon class="h-4 w-4 text-gray-500" />
-          <span class="text-xs text-gray-500">{{ order.driverName }}</span>
-        </div>
-      </div>
+    <!-- Delivery address -->
+    <div v-if="order.deliveryAddress" class="flex items-start gap-1.5 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mb-3">
+      <MapPinIcon class="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-gray-400" />
+      <span class="line-clamp-1">{{ order.deliveryAddress }}</span>
     </div>
 
     <!-- Actions -->
-    <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
-      <div class="flex space-x-2">
-        <button 
-          v-if="order.status === 'pendiente'"
-          @click="$emit('accept', order.id)"
-          class="btn-success text-xs py-1 px-3"
+    <div class="flex items-center justify-between">
+      <div class="flex gap-1.5 flex-wrap">
+        <button
+          v-for="next in (NEXT_STATUS[order.status] ?? [])"
+          :key="next"
+          class="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors"
+          :class="next === 'CANCELADO'
+            ? 'bg-red-50 text-red-700 hover:bg-red-100'
+            : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'"
+          @click="handleAction(next)"
         >
-          Aceptar
-        </button>
-        <button 
-          v-if="order.status === 'aceptado'"
-          @click="$emit('start-preparation', order.id)"
-          class="btn-warning text-xs py-1 px-3"
-        >
-          Iniciar Preparación
-        </button>
-        <button 
-          v-if="order.status === 'preparando'"
-          @click="$emit('ready', order.id)"
-          class="btn-primary text-xs py-1 px-3"
-        >
-          Listo
-        </button>
-        <button 
-          v-if="order.status === 'listo' && order.type === 'delivery'"
-          @click="$emit('dispatch', order.id)"
-          class="btn-secondary text-xs py-1 px-3"
-        >
-          Enviar
+          {{ next === 'CANCELADO' ? 'Cancelar' : ORDER_STATUS_LABELS[next] }}
         </button>
       </div>
-      
-      <div class="flex space-x-2">
-        <button 
-          @click="$emit('view-details', order)"
-          class="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
-        >
-          <EyeIcon class="h-4 w-4" />
-        </button>
-        <button 
-          v-if="['pendiente', 'aceptado'].includes(order.status)"
-          @click="$emit('cancel', order.id)"
-          class="p-2 text-red-400 hover:text-red-600 rounded-md hover:bg-red-50"
-        >
-          <XMarkIcon class="h-4 w-4" />
-        </button>
-      </div>
+
+      <button
+        class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        @click="$emit('view-details', order)"
+      >
+        <EyeIcon class="h-4 w-4" />
+      </button>
     </div>
   </div>
 </template>
 
-<script setup>
-import { 
-  MapPinIcon, 
-  ClockIcon, 
-  TruckIcon, 
-  EyeIcon, 
-  XMarkIcon 
-} from '@heroicons/vue/24/outline'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+<script setup lang="ts">
+import { MapPinIcon, EyeIcon } from '@heroicons/vue/24/outline'
+import {
+  ORDER_STATUS_LABELS,
+  ORDER_STATUS_CLASSES,
+  ORDER_TYPE_LABELS,
+  NEXT_STATUS,
+  type Order,
+  type OrderStatus,
+} from '~/composables/useClienteDashboard'
 
-const props = defineProps({
-  order: {
-    type: Object,
-    required: true
-  }
-})
+const props = defineProps<{ order: Order }>()
 
-defineEmits(['accept', 'start-preparation', 'ready', 'dispatch', 'cancel', 'view-details'])
+const emit = defineEmits<{
+  'view-details': [order: Order]
+  'status-change': [id: string, status: OrderStatus]
+}>()
 
-const getStatusText = (status) => {
-  const statusMap = {
-    'pendiente': 'Pendiente',
-    'aceptado': 'Aceptado',
-    'preparando': 'Preparando',
-    'listo': 'Listo',
-    'enviado': 'Enviado',
-    'entregado': 'Entregado',
-    'cancelado': 'Cancelado'
-  }
-  return statusMap[status] || status
+function handleAction(status: OrderStatus) {
+  emit('status-change', props.order.id, status)
 }
 
-const getStatusClasses = (status) => {
-  const classes = {
-    'pendiente': 'bg-yellow-100 text-yellow-800',
-    'aceptado': 'bg-blue-100 text-blue-800',
-    'preparando': 'bg-orange-100 text-orange-800',
-    'listo': 'bg-green-100 text-green-800',
-    'enviado': 'bg-purple-100 text-purple-800',
-    'entregado': 'bg-green-100 text-green-800',
-    'cancelado': 'bg-red-100 text-red-800'
-  }
-  return classes[status] || 'bg-gray-100 text-gray-800'
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)
 }
 
-const formatTime = (date) => {
-  return format(new Date(date), 'HH:mm', { locale: es })
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
 }
 </script>

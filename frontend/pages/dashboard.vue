@@ -41,74 +41,179 @@
       </div>
     </div>
 
-    <!-- Quick Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <StatsCard
-        title="Ventas Hoy"
-        value="$1,247"
-        :icon="CurrencyDollarIcon"
-        change="+12%"
-        changeType="increase"
-        variant="primary"
-        format="currency"
-        :progress="85"
-      />
-      <StatsCard
-        title="Pedidos Activos"
-        value="23"
-        :icon="ShoppingCartIcon"
-        change="+8%"
-        changeType="increase"
-        variant="secondary"
-        :progress="65"
-      />
-      <StatsCard
-        title="Productos Bajo Stock"
-        value="5"
-        :icon="ExclamationTriangleIcon"
-        change="-2"
-        changeType="decrease"
-        variant="warning"
-        :progress="30"
-      />
-      <StatsCard
-        title="Clientes Nuevos"
-        value="12"
-        :icon="UserPlusIcon"
-        change="+15%"
-        changeType="increase"
-        variant="success"
-        :progress="90"
-      />
+    <!-- Error Banner -->
+    <div v-if="error" class="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
+      <ExclamationTriangleIcon class="h-5 w-5 text-red-500 flex-shrink-0" />
+      <span class="text-sm text-red-700">{{ error }}</span>
+      <button class="ml-auto text-red-500 hover:text-red-700" @click="loadDashboard">Reintentar</button>
     </div>
 
-    <!-- Recent Orders -->
+    <!-- Toast -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition ease-out duration-300 transform"
+        enter-from-class="opacity-0 translate-y-4"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition ease-in duration-200 transform"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-4"
+      >
+        <div
+          v-if="toast.visible"
+          class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium"
+          :class="{
+            'bg-green-600': toast.type === 'success',
+            'bg-red-600': toast.type === 'error',
+            'bg-amber-500': toast.type === 'warning',
+            'bg-blue-600': toast.type === 'info',
+          }"
+        >
+          {{ toast.message }}
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <!-- Ventas Hoy -->
+      <div class="card-premium p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-3 bg-gradient-to-br from-ifood-red to-red-600 rounded-xl shadow-lg">
+            <CurrencyDollarIcon class="h-6 w-6 text-white" />
+          </div>
+          <span
+            v-if="kpis.salesTodayChange !== null"
+            class="text-xs font-semibold px-2 py-0.5 rounded-full"
+            :class="kpis.salesTodayChange >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+          >
+            {{ formatChange(kpis.salesTodayChange) }}
+          </span>
+        </div>
+        <div v-if="loading" class="h-8 bg-gray-200 rounded animate-pulse mb-1" />
+        <div v-else class="text-2xl font-black text-gray-900 mb-1">{{ formatCurrency(kpis.salesToday) }}</div>
+        <p class="text-sm text-gray-500 font-medium">Ventas Hoy</p>
+        <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-ifood-red to-red-500 rounded-full transition-all duration-700" style="width: 85%" />
+        </div>
+      </div>
+
+      <!-- Pedidos Activos -->
+      <div class="card-premium p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
+            <ShoppingCartIcon class="h-6 w-6 text-white" />
+          </div>
+        </div>
+        <div v-if="loading" class="h-8 bg-gray-200 rounded animate-pulse mb-1" />
+        <div v-else class="text-2xl font-black text-gray-900 mb-1">{{ kpis.activeOrders }}</div>
+        <p class="text-sm text-gray-500 font-medium">Pedidos Activos</p>
+        <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            class="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-700"
+            :style="{ width: Math.min(100, kpis.activeOrders * 5) + '%' }"
+          />
+        </div>
+      </div>
+
+      <!-- Bajo Stock -->
+      <div class="card-premium p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg">
+            <ExclamationTriangleIcon class="h-6 w-6 text-white" />
+          </div>
+          <span v-if="kpis.lowStockProducts > 0" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+            Atención
+          </span>
+        </div>
+        <div v-if="loading" class="h-8 bg-gray-200 rounded animate-pulse mb-1" />
+        <div v-else class="text-2xl font-black text-gray-900 mb-1">{{ kpis.lowStockProducts }}</div>
+        <p class="text-sm text-gray-500 font-medium">Productos Bajo Stock</p>
+        <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            class="h-full bg-gradient-to-r from-amber-500 to-orange-400 rounded-full transition-all duration-700"
+            :style="{ width: Math.min(100, kpis.lowStockProducts * 10) + '%' }"
+          />
+        </div>
+      </div>
+
+      <!-- Clientes Nuevos -->
+      <div class="card-premium p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg">
+            <UserPlusIcon class="h-6 w-6 text-white" />
+          </div>
+          <span
+            v-if="kpis.newCustomersChange !== null"
+            class="text-xs font-semibold px-2 py-0.5 rounded-full"
+            :class="kpis.newCustomersChange >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+          >
+            {{ formatChange(kpis.newCustomersChange) }}
+          </span>
+        </div>
+        <div v-if="loading" class="h-8 bg-gray-200 rounded animate-pulse mb-1" />
+        <div v-else class="text-2xl font-black text-gray-900 mb-1">{{ kpis.newCustomers }}</div>
+        <p class="text-sm text-gray-500 font-medium">Clientes Nuevos Hoy</p>
+        <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            class="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-700"
+            :style="{ width: Math.min(100, kpis.newCustomers * 8) + '%' }"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Pedidos Activos + Acciones Rápidas -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <!-- Active Orders -->
       <div class="card-premium p-6 flex flex-col h-[600px]">
         <div class="flex items-center justify-between mb-6 flex-shrink-0">
           <div class="flex items-center">
             <div class="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg mr-3">
               <ShoppingCartIcon class="h-6 w-6 text-white" />
             </div>
-            <h3 class="text-xl font-bold text-gray-900">Pedidos Recientes</h3>
+            <h3 class="text-xl font-bold text-gray-900">Pedidos Activos</h3>
           </div>
-          <span class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-            {{ recentOrders.length }} activos
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+              {{ activeOrders.length }}
+            </span>
+            <button
+              class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              :class="{ 'animate-spin': loading }"
+              @click="loadDashboard"
+              title="Actualizar"
+            >
+              <ArrowPathIcon class="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div class="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+
+        <!-- Loading skeleton -->
+        <div v-if="loading && activeOrders.length === 0" class="space-y-3 flex-1">
+          <div v-for="i in 3" :key="i" class="h-32 bg-gray-100 rounded-xl animate-pulse" />
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="!loading && activeOrders.length === 0" class="flex-1 flex flex-col items-center justify-center text-center text-gray-400">
+          <ShoppingCartIcon class="h-12 w-12 mb-3 opacity-30" />
+          <p class="font-medium">No hay pedidos activos</p>
+          <p class="text-sm mt-1">Los pedidos nuevos aparecerán aquí</p>
+        </div>
+
+        <!-- Order cards -->
+        <div v-else class="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
           <OrderCard
-            v-for="order in recentOrders"
+            v-for="order in activeOrders"
             :key="order.id"
             :order="order"
-            @accept="handleAcceptOrder"
-            @start-preparation="handleStartPreparation"
-            @ready="handleOrderReady"
-            @dispatch="handleDispatchOrder"
-            @cancel="handleCancelOrder"
-            @view-details="handleViewDetails"
+            @view-details="openDetail"
+            @status-change="handleStatusChange"
           />
         </div>
+
+        <p v-if="lastUpdated" class="text-xs text-gray-400 text-right mt-2 flex-shrink-0">
+          Actualizado {{ formatLastUpdated() }}
+        </p>
       </div>
 
       <!-- Quick Actions -->
@@ -120,7 +225,7 @@
           <h3 class="text-xl font-bold text-gray-900">Acciones Rápidas</h3>
         </div>
         <div class="grid grid-cols-2 gap-4">
-          <NuxtLink to="/pedidos" class="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-center">
+          <NuxtLink to="/cliente-dashboard" class="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-center">
             <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <ShoppingCartIcon class="relative h-6 w-6 mx-auto mb-2 transform group-hover:scale-110 transition-transform duration-300" />
             <span class="relative text-sm">Ver Pedidos</span>
@@ -145,6 +250,11 @@
             <CurrencyDollarIcon class="relative h-6 w-6 mx-auto mb-2 transform group-hover:scale-110 transition-transform duration-300" />
             <span class="relative text-sm">Control Gastos</span>
           </NuxtLink>
+          <NuxtLink to="/delivery" class="group relative overflow-hidden bg-gradient-to-br from-teal-500 to-teal-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-center">
+            <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <TruckIcon class="relative h-6 w-6 mx-auto mb-2 transform group-hover:scale-110 transition-transform duration-300" />
+            <span class="relative text-sm">Delivery</span>
+          </NuxtLink>
         </div>
       </div>
     </div>
@@ -158,32 +268,48 @@
           </div>
           <h3 class="text-2xl font-bold text-gray-900">Resumen de Rendimiento</h3>
         </div>
-        <div class="text-sm text-gray-500 font-medium">Actualizado hace 5 min</div>
+        <div class="text-sm text-gray-500 font-medium">
+          {{ lastUpdated ? `Actualizado ${formatLastUpdated()}` : 'Cargando…' }}
+        </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Prep time -->
         <div class="text-center group">
           <div class="relative mb-4">
             <div class="absolute inset-0 bg-gradient-to-r from-ifood-red to-red-600 rounded-full blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
             <div class="relative bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-6 transform group-hover:scale-105 transition-transform duration-300">
-              <div class="text-4xl font-black text-ifood-red mb-2">18 min</div>
+              <div v-if="loading" class="h-10 bg-red-200 rounded animate-pulse mx-auto w-24 mb-2" />
+              <div v-else class="text-4xl font-black text-ifood-red mb-2">
+                {{ kpis.avgPrepTime > 0 ? kpis.avgPrepTime + ' min' : '—' }}
+              </div>
               <div class="text-sm font-semibold text-gray-600">Tiempo Promedio Preparación</div>
             </div>
           </div>
         </div>
+
+        <!-- Customer satisfaction -->
         <div class="text-center group">
           <div class="relative mb-4">
             <div class="absolute inset-0 bg-gradient-to-r from-green-500 to-green-600 rounded-full blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
             <div class="relative bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 transform group-hover:scale-105 transition-transform duration-300">
-              <div class="text-4xl font-black text-ifood-green mb-2">94.5%</div>
-              <div class="text-sm font-semibold text-gray-600">Satisfacción Cliente</div>
+              <div v-if="loading" class="h-10 bg-green-200 rounded animate-pulse mx-auto w-24 mb-2" />
+              <div v-else class="text-4xl font-black text-ifood-green mb-2">
+                {{ kpis.customerSatisfaction > 0 ? kpis.customerSatisfaction.toFixed(1) + '%' : '—' }}
+              </div>
+              <div class="text-sm font-semibold text-gray-600">Tasa de Retención</div>
             </div>
           </div>
         </div>
+
+        <!-- Delivery time -->
         <div class="text-center group">
           <div class="relative mb-4">
             <div class="absolute inset-0 bg-gradient-to-r from-ifood-orange to-orange-600 rounded-full blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
             <div class="relative bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6 transform group-hover:scale-105 transition-transform duration-300">
-              <div class="text-4xl font-black text-ifood-orange mb-2">32 min</div>
+              <div v-if="loading" class="h-10 bg-orange-200 rounded animate-pulse mx-auto w-24 mb-2" />
+              <div v-else class="text-4xl font-black text-ifood-orange mb-2">
+                {{ kpis.avgDeliveryTime > 0 ? kpis.avgDeliveryTime + ' min' : '—' }}
+              </div>
               <div class="text-sm font-semibold text-gray-600">Tiempo Promedio Entrega</div>
             </div>
           </div>
@@ -192,72 +318,13 @@
     </div>
 
     <!-- Order Detail Modal -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition ease-out duration-300"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition ease-in duration-200"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="showOrderDetailModal"
-          class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          @click="closeDetailModal"
-        >
-          <div @click.stop class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
-            <div class="bg-gradient-to-r from-ifood-red via-red-500 to-red-600 text-white p-6 relative">
-              <button @click="closeDetailModal" class="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-lg transition-colors duration-200">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <div class="flex items-center space-x-4">
-                <img v-if="selectedOrder" :src="selectedOrder.customerImage" :alt="selectedOrder.customerName" class="w-16 h-16 rounded-2xl object-cover ring-4 ring-white/20">
-                <div>
-                  <h2 class="text-2xl font-bold">{{ selectedOrder?.customerName }}</h2>
-                  <p class="text-red-100">Pedido #{{ selectedOrder?.id }}</p>
-                </div>
-              </div>
-            </div>
-            <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              <div class="mb-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Detalles del Pedido</h3>
-                <div class="space-y-3">
-                  <div v-for="item in selectedOrder?.items" :key="item.id" class="flex justify-between items-center bg-gray-50 rounded-xl p-4">
-                    <div class="flex items-center space-x-3">
-                      <span class="bg-ifood-red text-white font-bold px-3 py-1 rounded-full text-sm">{{ item.quantity }}x</span>
-                      <span class="font-semibold text-gray-800">{{ item.name }}</span>
-                    </div>
-                    <span class="font-bold text-gray-800">${{ (item.price * item.quantity).toFixed(2) }}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 mb-6">
-                <div class="space-y-3">
-                  <div class="flex justify-between items-center text-gray-700">
-                    <span>Subtotal:</span><span class="font-semibold">${{ selectedOrder?.subtotal.toFixed(2) }}</span>
-                  </div>
-                  <div class="flex justify-between items-center text-gray-700">
-                    <span>Costo de entrega:</span><span class="font-semibold">${{ selectedOrder?.deliveryFee.toFixed(2) }}</span>
-                  </div>
-                  <div class="h-px bg-gray-300"></div>
-                  <div class="flex justify-between items-center">
-                    <span class="text-xl font-bold text-gray-800">Total:</span>
-                    <span class="text-2xl font-black text-ifood-red">${{ selectedOrder?.total.toFixed(2) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="bg-gray-50 px-6 py-4 flex space-x-3 border-t border-gray-200">
-              <button @click="closeDetailModal" class="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-xl hover:bg-gray-300 transition-colors duration-200 font-semibold">Cerrar</button>
-              <button v-if="selectedOrder?.status === 'pendiente'" @click="handleAcceptOrder(selectedOrder.id); closeDetailModal()" class="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-200 font-semibold shadow-md">Aceptar Pedido</button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <OrderDetailModal
+      :is-open="showDetailModal"
+      :order="selectedOrder"
+      @close="closeDetail"
+      @status-change="handleStatusChange"
+      @mark-paid="handleMarkPaid"
+    />
   </div>
 </template>
 
@@ -272,119 +339,102 @@ import {
   ChartBarIcon,
   ChartPieIcon,
   CogIcon,
+  TruckIcon,
+  ArrowPathIcon,
 } from '@heroicons/vue/24/outline'
+import { useDashboard } from '~/composables/useDashboard'
+import { type Order, type OrderStatus } from '~/composables/useClienteDashboard'
 
+// ── Clock ────────────────────────────────────────────────────────────────────
 const currentTime = ref('')
-let timer: ReturnType<typeof setInterval>
+let clockTimer: ReturnType<typeof setInterval>
 
 onMounted(() => {
-  const update = () => {
+  const tick = () => {
     currentTime.value = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
   }
-  update()
-  timer = setInterval(update, 1000)
+  tick()
+  clockTimer = setInterval(tick, 1000)
+})
+onUnmounted(() => clearInterval(clockTimer))
+
+// ── Dashboard data ────────────────────────────────────────────────────────────
+const {
+  kpis,
+  activeOrders,
+  loading,
+  error,
+  lastUpdated,
+  loadDashboard,
+  updateOrderStatus,
+  markOrderPaid,
+  formatCurrency,
+  formatChange,
+  formatLastUpdated,
+} = useDashboard()
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+const toast = reactive({ visible: false, type: 'success' as 'success' | 'error' | 'warning' | 'info', message: '' })
+let toastTimer: ReturnType<typeof setTimeout>
+
+function showToast(type: typeof toast.type, message: string, duration = 3000) {
+  clearTimeout(toastTimer)
+  toast.type = type
+  toast.message = message
+  toast.visible = true
+  toastTimer = setTimeout(() => { toast.visible = false }, duration)
+}
+
+// ── Order detail modal ────────────────────────────────────────────────────────
+const showDetailModal = ref(false)
+const selectedOrder   = ref<Order | null>(null)
+
+function openDetail(order: Order) {
+  selectedOrder.value = order
+  showDetailModal.value = true
+}
+
+function closeDetail() {
+  showDetailModal.value = false
+  selectedOrder.value   = null
+}
+
+// ── Status transitions ────────────────────────────────────────────────────────
+async function handleStatusChange(id: string, status: OrderStatus) {
+  const ok = await updateOrderStatus(id, status)
+  if (ok) {
+    const labels: Record<OrderStatus, string> = {
+      PENDIENTE: 'Pendiente',
+      CONFIRMADO: 'Confirmado',
+      PREPARANDO: 'Preparando',
+      LISTO: 'Listo',
+      EN_ENTREGA: 'En entrega',
+      ENTREGADO: 'Entregado',
+      CANCELADO: 'Cancelado',
+    }
+    const type = status === 'CANCELADO' ? 'warning' : 'success'
+    showToast(type, `Pedido actualizado: ${labels[status]}`)
+    if (selectedOrder.value?.id === id) closeDetail()
+  } else {
+    showToast('error', error.value ?? 'Error al actualizar pedido', 4000)
+  }
+}
+
+async function handleMarkPaid(id: string) {
+  const ok = await markOrderPaid(id)
+  if (ok) showToast('success', 'Pago registrado')
+}
+
+// ── Auto-refresh every 60s ────────────────────────────────────────────────────
+let refreshTimer: ReturnType<typeof setInterval>
+
+onMounted(async () => {
+  await loadDashboard()
+  refreshTimer = setInterval(loadDashboard, 60_000)
 })
 
-onUnmounted(() => clearInterval(timer))
-
-const recentOrders = ref([
-  {
-    id: '001247',
-    customerName: 'María García',
-    customerImage: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=50&h=50&fit=crop',
-    items: [
-      { id: 1, name: 'Pizza Margherita', quantity: 1, price: 15.99 },
-      { id: 2, name: 'Coca Cola', quantity: 2, price: 2.50 },
-    ],
-    subtotal: 20.99, deliveryFee: 3.50, total: 24.49,
-    status: 'pendiente', type: 'delivery',
-    deliveryAddress: 'Av. Principal 123, Col. Centro',
-    estimatedTime: 25, createdAt: new Date(),
-  },
-  {
-    id: '001246',
-    customerName: 'Juan López',
-    customerImage: 'https://images.pexels.com/photos/1040881/pexels-photo-1040881.jpeg?auto=compress&cs=tinysrgb&w=50&h=50&fit=crop',
-    items: [{ id: 3, name: 'Hamburguesa Clásica', quantity: 2, price: 12.50 }],
-    subtotal: 25.00, deliveryFee: 0, total: 25.00,
-    status: 'preparando', type: 'pickup', estimatedTime: 15, createdAt: new Date(),
-  },
-  {
-    id: '001245',
-    customerName: 'Ana Martínez',
-    customerImage: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=50&h=50&fit=crop',
-    items: [
-      { id: 4, name: 'Ensalada César', quantity: 1, price: 9.99 },
-      { id: 5, name: 'Jugo Natural', quantity: 1, price: 3.50 },
-    ],
-    subtotal: 13.49, deliveryFee: 2.50, total: 15.99,
-    status: 'aceptado', type: 'delivery',
-    deliveryAddress: 'Calle Reforma 456, Col. Norte',
-    estimatedTime: 20, createdAt: new Date(Date.now() - 300000),
-  },
-  {
-    id: '001244',
-    customerName: 'Carlos Rodríguez',
-    customerImage: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=50&h=50&fit=crop',
-    items: [
-      { id: 6, name: 'Tacos al Pastor', quantity: 3, price: 4.50 },
-      { id: 7, name: 'Agua de Horchata', quantity: 1, price: 2.00 },
-    ],
-    subtotal: 15.50, deliveryFee: 0, total: 15.50,
-    status: 'listo', type: 'pickup', estimatedTime: 5, createdAt: new Date(Date.now() - 600000),
-  },
-])
-
-const showOrderDetailModal = ref(false)
-const selectedOrder = ref<any>(null)
-
-const { addNotification } = useNotifications()
-
-const handleAcceptOrder = (orderId: string) => {
-  const order = recentOrders.value.find(o => o.id === orderId)
-  if (order) {
-    order.status = 'aceptado'
-    addNotification({ type: 'success', message: `Pedido #${orderId} aceptado`, duration: 3000 })
-  }
-}
-const handleStartPreparation = (orderId: string) => {
-  const order = recentOrders.value.find(o => o.id === orderId)
-  if (order) {
-    order.status = 'preparando'
-    addNotification({ type: 'info', message: `Preparando pedido #${orderId}`, duration: 3000 })
-  }
-}
-const handleOrderReady = (orderId: string) => {
-  const order = recentOrders.value.find(o => o.id === orderId)
-  if (order) {
-    order.status = 'listo'
-    addNotification({ type: 'success', message: `Pedido #${orderId} está listo`, duration: 3000 })
-  }
-}
-const handleDispatchOrder = (orderId: string) => {
-  const order = recentOrders.value.find(o => o.id === orderId) as any
-  if (order) {
-    order.status = 'enviado'
-    order.driverName = 'Carlos Ramírez'
-    addNotification({ type: 'success', message: `Pedido #${orderId} despachado`, duration: 3000 })
-  }
-}
-const handleCancelOrder = (orderId: string) => {
-  const order = recentOrders.value.find(o => o.id === orderId)
-  if (order && confirm(`¿Cancelar pedido #${orderId}?`)) {
-    order.status = 'cancelado'
-    addNotification({ type: 'warning', message: `Pedido #${orderId} cancelado`, duration: 3000 })
-    setTimeout(() => {
-      recentOrders.value = recentOrders.value.filter(o => o.id !== orderId)
-    }, 2000)
-  }
-}
-const handleViewDetails = (order: any) => {
-  selectedOrder.value = order
-  showOrderDetailModal.value = true
-}
-const closeDetailModal = () => {
-  showOrderDetailModal.value = false
-  selectedOrder.value = null
-}
+onUnmounted(() => {
+  clearInterval(refreshTimer)
+  clearTimeout(toastTimer)
+})
 </script>
