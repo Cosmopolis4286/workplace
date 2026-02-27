@@ -15,10 +15,7 @@
         class="relative bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 rounded-full p-3 hover:scale-110"
         @click="toggleModal"
       >
-        <SharedIcon
-          :name="isOpen ? 'x-mark' : 'key'"
-          class="w-5 h-5"
-        />
+        <SharedIcon :name="isOpen ? 'x-mark' : 'key'" class="w-5 h-5" />
         <div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse border-2 border-white" />
       </button>
     </div>
@@ -51,7 +48,7 @@
         >
           <div
             v-if="isOpen"
-            class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-sm"
+            class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md"
             @click.stop
           >
             <!-- Header -->
@@ -61,8 +58,8 @@
                   <SharedIcon name="key" class="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 class="font-bold text-gray-900 text-sm">Demo Account</h3>
-                  <p class="text-xs text-gray-500">Solo disponible en desarrollo</p>
+                  <h3 class="font-bold text-gray-900 text-sm">Cuentas Demo</h3>
+                  <p class="text-xs text-gray-500">{{ credentials.length }} roles disponibles · Solo en desarrollo</p>
                 </div>
               </div>
               <button
@@ -74,9 +71,9 @@
             </div>
 
             <!-- Content -->
-            <div class="p-5 space-y-4">
+            <div class="p-4 space-y-2 max-h-[70vh] overflow-y-auto">
               <!-- Loading -->
-              <div v-if="isLoading" class="flex items-center justify-center py-6">
+              <div v-if="isLoading" class="flex items-center justify-center py-8">
                 <div class="w-7 h-7 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
               </div>
 
@@ -84,58 +81,71 @@
               <div v-else-if="error" class="text-center py-4">
                 <SharedIcon name="exclamation-triangle" class="w-6 h-6 text-red-400 mx-auto mb-2" />
                 <p class="text-sm text-red-600 mb-3">{{ error }}</p>
-                <button
-                  class="text-xs text-red-600 underline hover:no-underline"
-                  @click="refresh"
-                >
+                <button class="text-xs text-red-600 underline hover:no-underline" @click="refresh">
                   Reintentar
                 </button>
               </div>
 
-              <!-- Credential card -->
-              <template v-else-if="credential">
+              <!-- Credentials list -->
+              <template v-else-if="credentials.length">
                 <div
-                  class="group relative p-4 border border-orange-200/60 rounded-xl hover:bg-orange-50/50 hover:shadow-md transition-all duration-200 cursor-pointer"
-                  @click="handleFill"
+                  v-for="cred in credentials"
+                  :key="cred.role"
+                  class="group relative p-3.5 border border-gray-200/70 rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-gray-300"
+                  @click="handleFill(cred)"
                 >
                   <div class="flex items-center justify-between gap-3">
+                    <!-- Left: icon + info -->
                     <div class="flex items-center gap-3 min-w-0">
-                      <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-amber-500 rounded-xl flex items-center justify-center shadow flex-shrink-0">
-                        <SharedIcon name="building-office" class="w-5 h-5 text-white" />
+                      <div
+                        class="w-9 h-9 bg-gradient-to-br rounded-xl flex items-center justify-center shadow flex-shrink-0"
+                        :class="ROLE_COLORS[cred.role]"
+                      >
+                        <SharedIcon name="user" class="w-4 h-4 text-white" />
                       </div>
                       <div class="min-w-0">
-                        <div class="font-semibold text-sm text-gray-900">{{ credential.restaurantName }}</div>
-                        <div class="text-xs text-gray-500 truncate">{{ credential.email }}</div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <span class="font-semibold text-sm text-gray-900">{{ cred.label }}</span>
+                          <span
+                            class="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
+                            :class="ROLE_BADGE[cred.role]"
+                          >
+                            {{ cred.role }}
+                          </span>
+                        </div>
+                        <div class="text-xs text-gray-500 truncate">{{ cred.email }}</div>
+                        <div class="text-xs text-gray-400 truncate">{{ cred.description }}</div>
                         <Transition
                           enter-active-class="duration-200 ease-out"
                           enter-from-class="opacity-0 -translate-y-1"
                           enter-to-class="opacity-100 translate-y-0"
                         >
                           <div
-                            v-if="showPassword"
+                            v-if="showPasswordFor === cred.role"
                             class="mt-1 text-xs font-mono text-orange-700 bg-orange-50 border border-orange-200 rounded px-2 py-0.5 inline-flex items-center gap-1"
                           >
-                            🔑 {{ credential.password }}
+                            🔑 {{ cred.password }}
                           </div>
                         </Transition>
                       </div>
                     </div>
 
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <!-- Right: actions -->
+                    <div class="flex items-center gap-1 flex-shrink-0">
                       <button
-                        :title="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-                        class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white transition-all"
-                        @click.stop="showPassword = !showPassword"
+                        :title="showPasswordFor === cred.role ? 'Ocultar' : 'Mostrar contraseña'"
+                        class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+                        @click.stop="togglePassword(cred.role)"
                       >
-                        <SharedIcon :name="showPassword ? 'eye-slash' : 'eye'" class="w-4 h-4" />
+                        <SharedIcon :name="showPasswordFor === cred.role ? 'eye-slash' : 'eye'" class="w-4 h-4" />
                       </button>
                       <button
-                        :disabled="isFilling"
+                        :disabled="fillingRole === cred.role"
                         :title="autoLogin ? 'Iniciar sesión' : 'Rellenar formulario'"
                         class="p-1.5 rounded-lg text-orange-500 hover:text-orange-700 hover:bg-orange-100 transition-all disabled:opacity-50"
-                        @click.stop="handleFill"
+                        @click.stop="handleFill(cred)"
                       >
-                        <svg v-if="isFilling" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <svg v-if="fillingRole === cred.role" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
@@ -145,9 +155,9 @@
                   </div>
                 </div>
 
-                <!-- Keyboard shortcut hint -->
-                <div class="flex items-center justify-between text-xs text-gray-400 pt-1">
-                  <span>Click para rellenar el formulario</span>
+                <!-- Footer hint -->
+                <div class="flex items-center justify-between text-xs text-gray-400 pt-1 px-1">
+                  <span>Click en una cuenta para rellenar el formulario</span>
                   <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded font-mono text-gray-500">Ctrl+D</kbd>
                 </div>
               </template>
@@ -160,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { useDemoCredentials } from '~/composables/auth/useDemoCredentials'
+import { useDemoCredentials, type DemoCredential } from '~/composables/auth/useDemoCredentials'
 
 interface Props {
   autoLogin?: boolean
@@ -175,24 +185,44 @@ const emit = defineEmits<{
   'autoLogin': [{ email: string; password: string }]
 }>()
 
-const { credential, isLoading, error, isAvailable, refresh } = useDemoCredentials()
+const { credentials, isLoading, error, isAvailable, refresh } = useDemoCredentials()
 
 const isOpen = ref(false)
-const showPassword = ref(false)
-const isFilling = ref(false)
+const showPasswordFor = ref<string | null>(null)
+const fillingRole = ref<string | null>(null)
 
 const isDevelopment = computed(() => process.env.NODE_ENV === 'development')
 
 const toggleModal = () => { isOpen.value = !isOpen.value }
 const closeModal = () => { isOpen.value = false }
 
-const handleFill = async () => {
-  if (!credential.value || isFilling.value) return
+const ROLE_COLORS: Record<string, string> = {
+  SUPERADMIN: 'from-purple-500 to-purple-700',
+  ADMIN: 'from-blue-500 to-blue-700',
+  COMMERCE: 'from-orange-400 to-amber-500',
+  FREELANCER: 'from-teal-500 to-cyan-600',
+  NORMAL: 'from-gray-400 to-gray-600',
+}
 
-  isFilling.value = true
+const ROLE_BADGE: Record<string, string> = {
+  SUPERADMIN: 'bg-purple-100 text-purple-700',
+  ADMIN: 'bg-blue-100 text-blue-700',
+  COMMERCE: 'bg-orange-100 text-orange-700',
+  FREELANCER: 'bg-teal-100 text-teal-700',
+  NORMAL: 'bg-gray-100 text-gray-600',
+}
+
+const togglePassword = (role: string) => {
+  showPasswordFor.value = showPasswordFor.value === role ? null : role
+}
+
+const handleFill = async (cred: DemoCredential) => {
+  if (fillingRole.value) return
+
+  fillingRole.value = cred.role
   await new Promise(resolve => setTimeout(resolve, 200))
 
-  const creds = { email: credential.value.email, password: credential.value.password }
+  const creds = { email: cred.email, password: cred.password }
 
   if (props.autoLogin) {
     emit('autoLogin', creds)
@@ -201,7 +231,7 @@ const handleFill = async () => {
     closeModal()
   }
 
-  isFilling.value = false
+  fillingRole.value = null
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
