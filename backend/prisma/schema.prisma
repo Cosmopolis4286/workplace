@@ -41,6 +41,8 @@ model Restaurant {
   customers     Customer[]
   appointments  Appointment[]
   settings      RestaurantSettings?
+  drivers       Driver[]
+  deliveries    Delivery[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -195,4 +197,75 @@ enum ProductStatus {
   AGOTADO
   BAJO_STOCK
   NO_DISPONIBLE
+}
+
+// ─── Delivery ────────────────────────────────────────────────────────────────
+
+enum DriverStatus {
+  DISPONIBLE
+  EN_ENTREGA
+  DESCANSO
+  INACTIVO
+}
+
+enum VehicleType {
+  MOTO
+  BICICLETA
+  BICICLETA_ELECTRICA
+  CARRO
+  SCOOTER
+  A_PIE
+}
+
+enum DeliveryStatus {
+  PENDIENTE
+  ASIGNADO
+  RECOGIENDO
+  EN_CAMINO
+  ENTREGADO
+  CANCELADO
+  FALLIDO
+}
+
+model Driver {
+  id           String       @id @default(uuid())
+  name         String
+  phone        String?
+  vehicleType  VehicleType  @default(MOTO)
+  vehiclePlate String?
+  vehicleModel String?
+  status       DriverStatus @default(DISPONIBLE)
+  isActive     Boolean      @default(true)
+  rating       Float        @default(5.0)
+  totalDeliveries Int       @default(0)
+  restaurantId String
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  deliveries   Delivery[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("drivers")
+}
+
+model Delivery {
+  id              String         @id @default(uuid())
+  orderNumber     String
+  customerName    String
+  customerPhone   String?
+  deliveryAddress String
+  notes           String?
+  total           Float
+  deliveryFee     Float          @default(0)
+  status          DeliveryStatus @default(PENDIENTE)
+  estimatedTime   Int?           // minutes
+  pickedUpAt      DateTime?
+  deliveredAt     DateTime?
+  driverId        String?
+  driver          Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  restaurantId    String
+  restaurant      Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("deliveries")
 }
