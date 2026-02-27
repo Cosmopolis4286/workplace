@@ -39,6 +39,18 @@ interface LoginCredentials {
   password: string
 }
 
+interface UpdateProfilePayload {
+  firstName?: string
+  lastName?: string
+  email?: string
+  phone?: string
+}
+
+interface ChangePasswordPayload {
+  currentPassword: string
+  newPassword: string
+}
+
 // Estado global reactivo compartido entre todas las instancias
 const currentUser = ref<User | null>(null)
 const accessToken = ref<string | null>(null)
@@ -191,12 +203,31 @@ export const useAuth = () => {
     }
   }
 
-  function updateProfile(data: Partial<User>): void {
+  function updateLocalUser(data: Partial<User>): void {
     if (!currentUser.value) return
     currentUser.value = { ...currentUser.value, ...data }
     if (process.client) {
       localStorage.setItem('auth_user', JSON.stringify(currentUser.value))
     }
+  }
+
+  async function saveProfile(payload: UpdateProfilePayload): Promise<User> {
+    const updated = await $fetch<User>(`${apiUrl}/api/auth/me`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: payload,
+    })
+    currentUser.value = updated
+    if (process.client) localStorage.setItem('auth_user', JSON.stringify(updated))
+    return updated
+  }
+
+  async function changePassword(payload: ChangePasswordPayload): Promise<void> {
+    await $fetch(`${apiUrl}/api/auth/change-password`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: payload,
+    })
   }
 
   return {
@@ -207,7 +238,9 @@ export const useAuth = () => {
     login,
     register,
     logout,
-    updateProfile,
+    updateLocalUser,
+    saveProfile,
+    changePassword,
     fetchProfile,
     refreshAccessToken,
     getHeaders,
