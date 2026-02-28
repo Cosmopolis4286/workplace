@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common'
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { CatalogService } from './catalog.service'
 import { QueryCatalogDto } from './dto/query-catalog.dto'
@@ -21,5 +21,10 @@ export class CatalogController {
   @Get('products')
   getProducts(@Query() dto: QueryCatalogDto) {
     return this.catalogService.getProducts(dto)
+  }
+
+  @Get('products/:id')
+  getProduct(@Param('id') id: string) {
+    return this.catalogService.getProduct(id)
   }
 }
