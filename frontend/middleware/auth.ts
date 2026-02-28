@@ -56,7 +56,7 @@ export default defineNuxtRouteMiddleware((to) => {
     }
 
     // Redirect NORMAL/FREELANCER away from /dashboard to /inicio
-    if (to.path === '/dashboard' && NORMAL_ROLES.includes(role)) {
+    if (to.path.startsWith('/dashboard') && NORMAL_ROLES.includes(role)) {
       return navigateTo('/inicio')
     }
   }
