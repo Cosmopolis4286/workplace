@@ -67,7 +67,7 @@
 
       <!-- Dashboard -->
       <NuxtLink
-        v-if="isCommerce"
+        v-if="isCommerce && can('dashboard:view')"
         to="/dashboard"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
@@ -82,7 +82,7 @@
 
       <!-- Menu -->
       <NuxtLink
-        v-if="isCommerce"
+        v-if="isCommerce && can('menu:view')"
         to="/menu"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
@@ -96,7 +96,7 @@
 
       <!-- Inventario -->
       <NuxtLink
-        v-if="isCommerce"
+        v-if="isCommerce && can('inventory:view')"
         to="/inventario"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
@@ -109,7 +109,7 @@
       </NuxtLink>
 
       <!-- Ventas & Analytics Group -->
-      <div v-if="isCommerce" class="space-y-1">
+      <div v-if="isCommerce && canAny('sales:view', 'analytics:view', 'reports:view')" class="space-y-1">
         <div class="px-3 py-2">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ventas & Analytics</span>
         </div>
@@ -139,8 +139,9 @@
             v-show="openDropdowns.ventas"
             class="ml-6 mt-1 space-y-1 transition-all duration-200"
           >
-            <NuxtLink 
-              to="/ventas" 
+            <NuxtLink
+              v-if="can('sales:view')"
+              to="/ventas"
               @click="$emit('navigate')"
               class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
               :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/ventas' }"
@@ -150,9 +151,10 @@
               </svg>
               Ventas
             </NuxtLink>
-            
-            <NuxtLink 
-              to="/analytics" 
+
+            <NuxtLink
+              v-if="can('analytics:view')"
+              to="/analytics"
               @click="$emit('navigate')"
               class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
               :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/analytics' }"
@@ -162,9 +164,10 @@
               </svg>
               Analytics
             </NuxtLink>
-            
-            <NuxtLink 
-              to="/reportes" 
+
+            <NuxtLink
+              v-if="can('reports:view')"
+              to="/reportes"
               @click="$emit('navigate')"
               class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
               :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/reportes' }"
@@ -179,7 +182,7 @@
       </div>
 
       <!-- Operaciones Group -->
-      <div v-if="isCommerce" class="space-y-1">
+      <div v-if="isCommerce && canAny('orders:view', 'appointments:view', 'customers:view', 'delivery:view')" class="space-y-1">
         <div class="px-3 py-2">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Operaciones</span>
         </div>
@@ -210,8 +213,9 @@
             v-show="openDropdowns.operaciones"
             class="ml-6 mt-1 space-y-1 transition-all duration-200"
           >
-            <NuxtLink 
-              to="/pedidos" 
+            <NuxtLink
+              v-if="can('orders:view')"
+              to="/pedidos"
               @click="$emit('navigate')"
               class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
               :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/pedidos' }"
@@ -221,9 +225,10 @@
               </svg>
               Pedidos
             </NuxtLink>
-            
-            <NuxtLink 
-              to="/agendamientos" 
+
+            <NuxtLink
+              v-if="can('appointments:view')"
+              to="/agendamientos"
               @click="$emit('navigate')"
               class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
               :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/agendamientos' }"
@@ -233,9 +238,10 @@
               </svg>
               Agendamientos
             </NuxtLink>
-            
-            <NuxtLink 
-              to="/clientes" 
+
+            <NuxtLink
+              v-if="can('customers:view')"
+              to="/clientes"
               @click="$emit('navigate')"
               class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
               :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/clientes' }"
@@ -245,9 +251,10 @@
               </svg>
               Clientes
             </NuxtLink>
-            
-            <NuxtLink 
-              to="/delivery" 
+
+            <NuxtLink
+              v-if="can('delivery:view')"
+              to="/delivery"
               @click="$emit('navigate')"
               class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
               :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/delivery' }"
@@ -262,7 +269,7 @@
       </div>
 
       <!-- Empresa Group -->
-      <div v-if="isCommerce" class="space-y-1">
+      <div v-if="isCommerce && canAny('employees:view', 'branches:view')" class="space-y-1">
         <div class="px-3 py-2">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Empresa</span>
         </div>
@@ -293,6 +300,7 @@
             class="ml-6 mt-1 space-y-1 transition-all duration-200"
           >
             <NuxtLink
+              v-if="can('employees:view')"
               to="/empleados"
               @click="$emit('navigate')"
               class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
@@ -305,6 +313,7 @@
             </NuxtLink>
 
             <NuxtLink
+              v-if="can('branches:view')"
               to="/sucursales"
               @click="$emit('navigate')"
               class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
@@ -334,6 +343,19 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
           </svg>
           Usuarios
+        </NuxtLink>
+
+        <NuxtLink
+          v-if="isSuperAdmin"
+          to="/permisos"
+          @click="$emit('navigate')"
+          class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
+          :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/permisos' }"
+        >
+          <svg class="mr-3 h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+          Permisos
         </NuxtLink>
       </div>
 
@@ -420,10 +442,12 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const { user } = useAuth()
+const { can, canAny } = usePermissions()
 
 const role = computed(() => user.value?.role ?? 'NORMAL')
 const isCommerce = computed(() => ['SUPERADMIN', 'ADMIN', 'COMMERCE'].includes(role.value))
 const isAdminOrAbove = computed(() => ['SUPERADMIN', 'ADMIN'].includes(role.value))
+const isSuperAdmin = computed(() => role.value === 'SUPERADMIN')
 
 // Define emits
 defineEmits(['navigate'])

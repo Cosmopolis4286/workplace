@@ -130,6 +130,7 @@ export const useAuth = () => {
       },
     })
     setSession(data)
+    usePermissions().fetchPermissions().catch(() => {})
     return data.user
   }
 
@@ -142,6 +143,7 @@ export const useAuth = () => {
       },
     })
     setSession(data)
+    usePermissions().fetchPermissions().catch(() => {})
     return data.user
   }
 
@@ -157,6 +159,7 @@ export const useAuth = () => {
       // Limpiar sesión aunque falle la petición
     } finally {
       clearSession()
+      usePermissions().clearPermissions()
     }
   }
 
