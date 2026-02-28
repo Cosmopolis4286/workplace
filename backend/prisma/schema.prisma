@@ -524,3 +524,34 @@ model Branch {
   @@unique([name, restaurantId])
   @@map("branches")
 }
+
+// ─── Permission Matrix ────────────────────────────────────────────────────────
+
+model Permission {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  module      String
+  action      String
+  label       String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@unique([module, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  role         Role
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  granted      Boolean    @default(true)
+  updatedAt    DateTime   @updatedAt
+  updatedBy    String?
+
+  @@unique([role, permissionId])
+  @@map("role_permissions")
+}

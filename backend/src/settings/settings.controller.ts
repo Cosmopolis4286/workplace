@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common'
 import { SettingsService } from './settings.service'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../common/guards/permissions.guard'
+import { RequirePermission } from '../common/decorators/require-permission.decorator'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 import {
   UpdateRestaurantInfoDto,
@@ -16,16 +18,18 @@ import {
 } from './dto/update-settings.dto'
 
 @Controller('settings')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
   @Get()
+  @RequirePermission('settings:view')
   getSettings(@CurrentUser() user: { id: string }) {
     return this.settingsService.getSettings(user.id)
   }
 
   @Patch('restaurant')
+  @RequirePermission('settings:edit')
   updateRestaurantInfo(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateRestaurantInfoDto,
@@ -34,6 +38,7 @@ export class SettingsController {
   }
 
   @Patch('payment')
+  @RequirePermission('settings:edit')
   updatePaymentSettings(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdatePaymentSettingsDto,
@@ -42,6 +47,7 @@ export class SettingsController {
   }
 
   @Patch('operations')
+  @RequirePermission('settings:edit')
   updateOperationSettings(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateOperationSettingsDto,
@@ -50,6 +56,7 @@ export class SettingsController {
   }
 
   @Patch('notifications')
+  @RequirePermission('settings:edit')
   updateNotificationSettings(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateNotificationSettingsDto,

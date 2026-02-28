@@ -13,37 +13,44 @@ import {
 } from '@nestjs/common'
 import { BranchesService } from './branches.service'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../common/guards/permissions.guard'
+import { RequirePermission } from '../common/decorators/require-permission.decorator'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { CreateBranchDto } from './dto/create-branch.dto'
 import { UpdateBranchDto } from './dto/update-branch.dto'
 import { UpdateBranchStatusDto } from './dto/update-branch-status.dto'
 
 @Controller('branches')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
   @Get('stats')
+  @RequirePermission('branches:view')
   getStats(@CurrentUser() user: { id: string }) {
     return this.branchesService.getStats(user.id)
   }
 
   @Get()
+  @RequirePermission('branches:view')
   findAll(@CurrentUser() user: { id: string }) {
     return this.branchesService.findAll(user.id)
   }
 
   @Get(':id')
+  @RequirePermission('branches:view')
   findOne(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.branchesService.findOne(user.id, id)
   }
 
   @Post()
+  @RequirePermission('branches:create')
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateBranchDto) {
     return this.branchesService.create(user.id, dto)
   }
 
   @Put(':id')
+  @RequirePermission('branches:edit')
   update(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
@@ -54,11 +61,13 @@ export class BranchesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermission('branches:delete')
   remove(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.branchesService.remove(user.id, id)
   }
 
   @Patch(':id/status')
+  @RequirePermission('branches:edit')
   updateStatus(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
