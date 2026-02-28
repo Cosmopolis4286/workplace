@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-full bg-gradient-to-b from-white via-white to-gray-50 overflow-hidden">
-    <!-- Quick Access Section — fijo, no scrollea -->
-    <div class="flex-shrink-0 px-4 py-4 border-b border-gray-100">
+    <!-- Quick Access Section — solo para COMMERCE/ADMIN/SUPERADMIN -->
+    <div v-if="isCommerce" class="flex-shrink-0 px-4 py-4 border-b border-gray-100">
       <div class="mb-3">
         <h3 class="text-xs font-bold text-gray-600 uppercase tracking-widest">Acceso Rápido</h3>
       </div>
@@ -35,6 +35,7 @@
         </NuxtLink>
 
         <NuxtLink
+          v-if="isCommerce"
           to="/cliente-dashboard"
           @click="$emit('navigate')"
           class="group flex flex-col items-center justify-center p-3 bg-gradient-to-br from-green-500 via-green-600 to-emerald-700 text-white rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 relative overflow-hidden"
