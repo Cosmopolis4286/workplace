@@ -50,8 +50,23 @@
 
     <!-- Navigation Menu — ocupa el resto y scrollea -->
     <nav class="flex-1 min-h-0 px-4 py-4 space-y-2 overflow-y-auto">
+      <!-- Inicio (NORMAL / FREELANCER) -->
+      <NuxtLink
+        v-if="!isCommerce"
+        to="/inicio"
+        @click="$emit('navigate')"
+        class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
+        :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/inicio' }"
+      >
+        <svg class="mr-3 h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        Inicio
+      </NuxtLink>
+
       <!-- Dashboard -->
-      <NuxtLink 
+      <NuxtLink
+        v-if="isCommerce"
         to="/dashboard"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
