@@ -83,7 +83,7 @@
                 Activo
               </span>
             </div>
-            <div class="flex items-center justify-between text-sm">
+            <div v-if="isCommerce" class="flex items-center justify-between text-sm">
               <span class="text-gray-500">Restaurante</span>
               <span class="font-semibold text-gray-900 truncate max-w-[120px]" :title="auth.restaurant.value?.name">
                 {{ auth.restaurant.value?.name ?? '—' }}
@@ -336,13 +336,16 @@ const userInitials = computed(() => {
   return `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase()
 })
 
-const ROLE_STYLES = {
+const ROLE_STYLES: Record<string, { label: string; badge: string }> = {
+  SUPERADMIN: { label: 'Super Administrador', badge: 'bg-red-100 text-red-800' },
   ADMIN: { label: 'Administrador', badge: 'bg-purple-100 text-purple-800' },
-  MANAGER: { label: 'Gerente', badge: 'bg-blue-100 text-blue-800' },
-  STAFF: { label: 'Personal', badge: 'bg-gray-100 text-gray-800' },
+  COMMERCE: { label: 'Comercio', badge: 'bg-blue-100 text-blue-800' },
+  FREELANCER: { label: 'Freelancer', badge: 'bg-amber-100 text-amber-800' },
+  NORMAL: { label: 'Usuario', badge: 'bg-gray-100 text-gray-700' },
 }
 
-const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role ?? 'STAFF'] ?? ROLE_STYLES.STAFF)
+const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role ?? 'NORMAL'] ?? ROLE_STYLES.NORMAL)
+const isCommerce = computed(() => ['SUPERADMIN', 'ADMIN', 'COMMERCE'].includes(auth.user.value?.role ?? ''))
 
 const avatarUrl = computed(() => {
   if (avatarPreview.value) return avatarPreview.value
