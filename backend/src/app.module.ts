@@ -19,6 +19,7 @@ import { NotificationsModule } from './notifications/notifications.module'
 import { EmployeesModule } from './employees/employees.module'
 import { BranchesModule } from './branches/branches.module'
 import { CatalogModule } from './catalog/catalog.module'
+import { PermissionsModule } from './permissions/permissions.module'
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { CatalogModule } from './catalog/catalog.module'
     EmployeesModule,
     BranchesModule,
     CatalogModule,
+    PermissionsModule,
   ],
 })
 export class AppModule {}

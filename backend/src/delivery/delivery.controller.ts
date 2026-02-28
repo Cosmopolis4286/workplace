@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common'
 import { DeliveryService } from './delivery.service'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../common/guards/permissions.guard'
+import { RequirePermission } from '../common/decorators/require-permission.decorator'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { CreateDriverDto } from './dto/create-driver.dto'
 import { UpdateDriverDto } from './dto/update-driver.dto'
@@ -39,13 +41,14 @@ class AssignDriverDto {
 }
 
 @Controller('delivery')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DeliveryController {
   constructor(private readonly deliveryService: DeliveryService) {}
 
   // ─── Stats ────────────────────────────────────────────────────────────────
 
   @Get('stats')
+  @RequirePermission('delivery:view')
   getStats(@CurrentUser() user: { id: string }) {
     return this.deliveryService.getStats(user.id)
   }
@@ -53,16 +56,19 @@ export class DeliveryController {
   // ─── Drivers ──────────────────────────────────────────────────────────────
 
   @Get('drivers')
+  @RequirePermission('delivery:view')
   findAllDrivers(@CurrentUser() user: { id: string }) {
     return this.deliveryService.findAllDrivers(user.id)
   }
 
   @Post('drivers')
+  @RequirePermission('delivery:manage_drivers')
   createDriver(@CurrentUser() user: { id: string }, @Body() dto: CreateDriverDto) {
     return this.deliveryService.createDriver(user.id, dto)
   }
 
   @Put('drivers/:id')
+  @RequirePermission('delivery:manage_drivers')
   updateDriver(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
@@ -72,6 +78,7 @@ export class DeliveryController {
   }
 
   @Patch('drivers/:id/status')
+  @RequirePermission('delivery:manage_drivers')
   updateDriverStatus(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
@@ -82,6 +89,7 @@ export class DeliveryController {
 
   @Delete('drivers/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermission('delivery:manage_drivers')
   removeDriver(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.deliveryService.removeDriver(user.id, id)
   }
@@ -89,21 +97,25 @@ export class DeliveryController {
   // ─── Deliveries ───────────────────────────────────────────────────────────
 
   @Get()
+  @RequirePermission('delivery:view')
   findAll(@CurrentUser() user: { id: string }, @Query() query: QueryDeliveriesDto) {
     return this.deliveryService.findAllDeliveries(user.id, query)
   }
 
   @Get(':id')
+  @RequirePermission('delivery:view')
   findOne(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.deliveryService.findOneDelivery(user.id, id)
   }
 
   @Post()
+  @RequirePermission('delivery:create')
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateDeliveryDto) {
     return this.deliveryService.createDelivery(user.id, dto)
   }
 
   @Put(':id')
+  @RequirePermission('delivery:edit')
   update(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
@@ -114,11 +126,13 @@ export class DeliveryController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermission('delivery:edit')
   remove(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.deliveryService.removeDelivery(user.id, id)
   }
 
   @Patch(':id/status')
+  @RequirePermission('delivery:edit')
   updateStatus(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
@@ -128,6 +142,7 @@ export class DeliveryController {
   }
 
   @Patch(':id/assign')
+  @RequirePermission('delivery:manage_drivers')
   assignDriver(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
