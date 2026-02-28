@@ -26,6 +26,12 @@ export interface CatalogProduct {
   restaurant: { id: string; name: string; type: string | null }
 }
 
+export interface CatalogProductDetail extends CatalogProduct {
+  ingredients: string[]
+  allergens: string[]
+  restaurant: { id: string; name: string; type: string | null; address?: string; phone?: string }
+}
+
 export interface CatalogQuery {
   search: string
   categoryName: string
@@ -41,6 +47,8 @@ const categories = ref<CatalogCategory[]>([])
 const restaurants = ref<CatalogRestaurant[]>([])
 const loading = ref(false)
 const loadingCategories = ref(false)
+const loadingDetail = ref(false)
+const productDetail = ref<CatalogProductDetail | null>(null)
 const error = ref<string | null>(null)
 const total = ref(0)
 const totalPages = ref(0)
@@ -52,6 +60,21 @@ const query = ref<CatalogQuery>({
   limit: 20,
   sort: 'relevance',
 })
+
+// ─── Favorites (localStorage) ─────────────────────────────────────────────
+const favorites = ref<string[]>([])
+
+function initFavorites() {
+  if (!process.client) return
+  try {
+    const stored = localStorage.getItem('catalog_favorites')
+    favorites.value = stored ? JSON.parse(stored) : []
+  } catch {
+    favorites.value = []
+  }
+}
+
+if (process.client) initFavorites()
 
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -87,8 +110,8 @@ export const useCatalog = () => {
     try {
       const res = await apiFetch<{ data: CatalogCategory[] }>('/catalog/categories')
       categories.value = res.data
-    } catch (e: unknown) {
-      // non-fatal: categories are optional
+    } catch {
+      // non-fatal
     } finally {
       loadingCategories.value = false
     }
@@ -133,6 +156,20 @@ export const useCatalog = () => {
     }
   }
 
+  async function fetchProduct(id: string): Promise<CatalogProductDetail | null> {
+    loadingDetail.value = true
+    productDetail.value = null
+    try {
+      const res = await apiFetch<{ data: CatalogProductDetail }>(`/catalog/products/${id}`)
+      productDetail.value = res.data
+      return res.data
+    } catch {
+      return null
+    } finally {
+      loadingDetail.value = false
+    }
+  }
+
   function search(term: string) {
     query.value.search = term
     query.value.page = 1
@@ -155,6 +192,7 @@ export const useCatalog = () => {
   function changePage(page: number) {
     query.value.page = page
     loadProducts()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function changeSort(sort: CatalogQuery['sort']) {
@@ -168,6 +206,26 @@ export const useCatalog = () => {
     loadProducts()
   }
 
+  // ─── Favorites ────────────────────────────────────────────────────────────
+  function toggleFavorite(productId: string) {
+    const idx = favorites.value.indexOf(productId)
+    favorites.value = idx === -1
+      ? [...favorites.value, productId]
+      : favorites.value.filter(id => id !== productId)
+    if (process.client) {
+      localStorage.setItem('catalog_favorites', JSON.stringify(favorites.value))
+    }
+  }
+
+  function isFavorite(productId: string): boolean {
+    return favorites.value.includes(productId)
+  }
+
+  function clearAllFavorites() {
+    favorites.value = []
+    if (process.client) localStorage.removeItem('catalog_favorites')
+  }
+
   return {
     // state
     products: readonly(products),
@@ -175,19 +233,26 @@ export const useCatalog = () => {
     restaurants: readonly(restaurants),
     loading: readonly(loading),
     loadingCategories: readonly(loadingCategories),
+    loadingDetail: readonly(loadingDetail),
+    productDetail: readonly(productDetail),
     error: readonly(error),
     total: readonly(total),
     totalPages: readonly(totalPages),
     query: readonly(query),
+    favorites: readonly(favorites),
     // actions
     loadCategories,
     loadRestaurants,
     loadProducts,
+    fetchProduct,
     search,
     filterByCategory,
     filterByRestaurant,
     changePage,
     changeSort,
     resetFilters,
+    toggleFavorite,
+    isFavorite,
+    clearAllFavorites,
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProductStatus } from '@prisma/client'
 import { QueryCatalogDto, CatalogSortBy } from './dto/query-catalog.dto'
@@ -133,5 +133,29 @@ export class CatalogService {
       limit,
       totalPages: Math.ceil(total / limit),
     }
+  }
+
+  async getProduct(id: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, status: ProductStatus.DISPONIBLE },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        price: true,
+        image: true,
+        preparationTime: true,
+        calories: true,
+        unit: true,
+        status: true,
+        ingredients: true,
+        allergens: true,
+        category: { select: { id: true, name: true, color: true } },
+        restaurant: { select: { id: true, name: true, type: true, address: true, phone: true } },
+      },
+    })
+
+    if (!product) throw new NotFoundException('Producto no encontrado')
+    return { data: product }
   }
 }
