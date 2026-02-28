@@ -18,6 +18,7 @@ import { ExpensesModule } from './expenses/expenses.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { EmployeesModule } from './employees/employees.module'
 import { BranchesModule } from './branches/branches.module'
+import { CatalogModule } from './catalog/catalog.module'
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { BranchesModule } from './branches/branches.module'
     NotificationsModule,
     EmployeesModule,
     BranchesModule,
+    CatalogModule,
   ],
 })
 export class AppModule {}

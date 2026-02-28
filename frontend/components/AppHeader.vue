@@ -197,11 +197,18 @@ const userEmail = computed(() => user.value?.email ?? '')
 
 const restaurantName = computed(() => user.value?.restaurant?.name ?? '')
 
-const ROLE_LABELS = { ADMIN: 'Administrador', MANAGER: 'Gerente', STAFF: 'Personal' }
+const ROLE_LABELS = {
+  SUPERADMIN: 'Super Admin',
+  ADMIN: 'Administrador',
+  COMMERCE: 'Comercio',
+  FREELANCER: 'Freelancer',
+  NORMAL: 'Usuario',
+}
 const roleLabel = computed(() => ROLE_LABELS[user.value?.role] ?? user.value?.role ?? '')
 
 // ── Page title / icon ──────────────────────────────────────────────────────
 const PAGE_MAP = {
+  '/inicio':           { title: 'Inicio',           icon: HomeIcon },
   '/dashboard':        { title: 'Dashboard',       icon: HomeIcon },
   '/menu':             { title: 'Menú',             icon: Squares2X2Icon },
   '/clientes':         { title: 'Clientes',         icon: UsersIcon },
