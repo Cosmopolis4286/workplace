@@ -7,13 +7,14 @@ const adminOnlyRoutes: string[] = ['/usuarios', '/permisos']
 const commerceRoutes: string[] = [
   '/menu', '/inventario', '/gastos', '/ventas', '/analytics', '/reportes',
   '/agendamientos', '/clientes', '/delivery', '/pedidos', '/empleados', '/sucursales',
+  '/cliente-dashboard',
 ]
 
 // Routes for NORMAL/FREELANCER users (marketplace)
 const normalRoutes: string[] = ['/inicio']
 
 const protectedRoutes: string[] = [
-  '/dashboard', '/cliente-dashboard', '/perfil', '/configuracion',
+  '/dashboard', '/perfil', '/configuracion',
   ...adminOnlyRoutes,
   ...commerceRoutes,
   ...normalRoutes,
