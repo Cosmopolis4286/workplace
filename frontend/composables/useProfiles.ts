@@ -14,6 +14,7 @@ export interface ProfilePost {
   media: ProfileMedia[]
   likesCount: number
   createdAt: string
+  updatedAt: string
   user: { id: string; username?: string; firstName: string; lastName: string; avatar?: string }
 }
 
