@@ -144,6 +144,10 @@ export class AuthService {
     return this.usersService.updateAvatar(userId, avatarUrl)
   }
 
+  async checkUsername(username: string, currentUserId: string) {
+    return this.usersService.checkUsernameAvailability(username, currentUserId)
+  }
+
   async getDemoCredentials() {
     const demoAccounts = [
       {

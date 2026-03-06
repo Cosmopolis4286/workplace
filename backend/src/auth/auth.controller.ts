@@ -4,6 +4,7 @@ import {
   Get,
   Patch,
   Body,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -104,6 +105,15 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(@CurrentUser() user: any, @Body() dto: UpdateProfileDto) {
     return this.authService.updateProfile(user.id, dto)
+  }
+
+  @Get('check-username')
+  @UseGuards(JwtAuthGuard)
+  async checkUsername(@CurrentUser() user: any, @Query('username') username: string) {
+    if (!username || username.length < 3) {
+      return { available: false }
+    }
+    return this.authService.checkUsername(username.toLowerCase(), user.id)
   }
 
   @Patch('change-password')

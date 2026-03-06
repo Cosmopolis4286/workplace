@@ -174,6 +174,56 @@
               </div>
             </div>
 
+            <!-- Username — solo COMMERCE y FREELANCER -->
+            <div v-if="isCommerce || auth.user.value?.role === 'FREELANCER'">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Nombre de usuario
+                <span class="ml-1 text-xs font-normal text-gray-400">(visible públicamente)</span>
+              </label>
+              <div class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium select-none">@</span>
+                <input
+                  v-model="profileForm.username"
+                  type="text"
+                  maxlength="30"
+                  class="w-full pl-8 pr-10 py-3 border-2 rounded-xl focus:outline-none focus:ring-4 transition-all duration-300"
+                  :class="{
+                    'border-gray-200 focus:ring-ifood-red/20 focus:border-ifood-red': usernameStatus === 'idle' || usernameStatus === 'checking',
+                    'border-green-400 focus:ring-green-100 focus:border-green-500': usernameStatus === 'available',
+                    'border-red-400 focus:ring-red-100 focus:border-red-500': usernameStatus === 'taken' || usernameStatus === 'invalid',
+                  }"
+                  placeholder="mi.usuario"
+                  autocomplete="username"
+                  @input="onUsernameInput(($event.target as HTMLInputElement).value)"
+                >
+                <!-- Status icon -->
+                <span class="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg v-if="usernameStatus === 'checking'" class="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  <svg v-else-if="usernameStatus === 'available'" class="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <svg v-else-if="usernameStatus === 'taken' || usernameStatus === 'invalid'" class="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </span>
+              </div>
+              <!-- Hint / error message -->
+              <p class="mt-1.5 text-xs" :class="{
+                'text-gray-400': usernameStatus === 'idle' || usernameStatus === 'checking',
+                'text-green-600': usernameStatus === 'available',
+                'text-red-500': usernameStatus === 'taken' || usernameStatus === 'invalid',
+              }">
+                <span v-if="usernameStatus === 'idle'">Solo letras minúsculas, números, puntos, guiones y guiones bajos</span>
+                <span v-else-if="usernameStatus === 'checking'">Verificando disponibilidad...</span>
+                <span v-else-if="usernameStatus === 'available'">¡Disponible!</span>
+                <span v-else-if="usernameStatus === 'taken'">Este nombre de usuario ya está en uso</span>
+                <span v-else-if="usernameStatus === 'invalid'">Solo se permiten letras minúsculas, números, puntos, guiones y guiones bajos</span>
+              </p>
+            </div>
+
             <div class="flex justify-end space-x-3">
               <button
                 type="button"
@@ -185,7 +235,7 @@
               </button>
               <button
                 type="submit"
-                :disabled="savingProfile || !profileDirty"
+                :disabled="savingProfile || !profileDirty || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'"
                 class="px-5 py-2.5 bg-gradient-to-r from-ifood-red to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <span v-if="savingProfile" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -305,6 +355,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import { useAuth } from '~/composables/useAuth'
 
 const auth = useAuth()
+const { checkUsername } = auth
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 
@@ -319,9 +370,35 @@ const successMsg = ref('')
 const errorMsg = ref('')
 let successTimer: ReturnType<typeof setTimeout> | null = null
 
-const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '' })
+const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '' })
 const passwordForm = ref({ current: '', new: '', confirm: '' })
 const showPasswords = ref({ current: false, new: false, confirm: false })
+
+// ─── Username availability check ──────────────────────────────────────────────
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
+const usernameStatus = ref<UsernameStatus>('idle')
+let usernameDebounce: ReturnType<typeof setTimeout> | null = null
+
+const USERNAME_REGEX = /^[a-z0-9_.-]+$/
+
+function onUsernameInput(val: string) {
+  usernameStatus.value = 'idle'
+  if (usernameDebounce) clearTimeout(usernameDebounce)
+  if (!val || val.length < 3) return
+  if (!USERNAME_REGEX.test(val)) {
+    usernameStatus.value = 'invalid'
+    return
+  }
+  usernameStatus.value = 'checking'
+  usernameDebounce = setTimeout(async () => {
+    try {
+      const res = await checkUsername(val)
+      usernameStatus.value = res.available ? 'available' : 'taken'
+    } catch {
+      usernameStatus.value = 'idle'
+    }
+  }, 500)
+}
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 const fullName = computed(() => {
@@ -362,7 +439,8 @@ const profileDirty = computed(() => {
     profileForm.value.firstName !== (u.firstName ?? '') ||
     profileForm.value.lastName !== (u.lastName ?? '') ||
     profileForm.value.email !== (u.email ?? '') ||
-    profileForm.value.phone !== (u.phone ?? '')
+    profileForm.value.phone !== (u.phone ?? '') ||
+    profileForm.value.username !== (u.username ?? '')
   )
 })
 
@@ -408,7 +486,9 @@ function syncFormFromUser() {
     lastName: u.lastName ?? '',
     email: u.email ?? '',
     phone: u.phone ?? '',
+    username: u.username ?? '',
   }
+  usernameStatus.value = 'idle'
 }
 
 function resetProfileForm() {
@@ -462,6 +542,8 @@ async function onAvatarFileSelected(event: Event) {
 
 async function saveProfile() {
   if (!profileDirty.value) return
+  if (usernameStatus.value === 'taken') return
+  if (usernameStatus.value === 'invalid') return
   savingProfile.value = true
   errorMsg.value = ''
   try {
@@ -470,7 +552,9 @@ async function saveProfile() {
       lastName: profileForm.value.lastName,
       email: profileForm.value.email,
       phone: profileForm.value.phone || undefined,
+      username: profileForm.value.username || undefined,
     })
+    usernameStatus.value = 'idle'
     showSuccess('Perfil actualizado correctamente')
   } catch (err) {
     showError(err)

@@ -11,6 +11,7 @@ interface Restaurant {
 interface User {
   id: string
   email: string
+  username?: string
   firstName: string
   lastName: string
   phone?: string
@@ -45,6 +46,7 @@ interface UpdateProfilePayload {
   lastName?: string
   email?: string
   phone?: string
+  username?: string
 }
 
 interface ChangePasswordPayload {
@@ -234,6 +236,13 @@ export const useAuth = () => {
     })
   }
 
+  async function checkUsername(username: string): Promise<{ available: boolean }> {
+    return $fetch<{ available: boolean }>(
+      `${apiUrl}/api/auth/check-username?username=${encodeURIComponent(username)}`,
+      { headers: getHeaders() },
+    )
+  }
+
   async function uploadAvatar(file: File): Promise<User> {
     const formData = new FormData()
     formData.append('avatar', file)
@@ -264,5 +273,6 @@ export const useAuth = () => {
     fetchProfile,
     refreshAccessToken,
     getHeaders,
+    checkUsername,
   }
 }
