@@ -98,12 +98,10 @@
                 <h1 class="text-2xl font-bold text-gray-900">{{ profile.firstName }} {{ profile.lastName }}</h1>
                 <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="roleBadge">{{ roleLabel }}</span>
               </div>
-
               <p v-if="profile.username" class="text-gray-400 text-sm mb-1">@{{ profile.username }}</p>
               <p v-if="profile.restaurant" class="text-gray-500 text-sm mb-3">
                 🏪 {{ profile.restaurant.name }}<span v-if="profile.restaurant.type"> · {{ profile.restaurant.type }}</span>
               </p>
-
               <!-- Stats row -->
               <div class="flex flex-wrap gap-6 text-center">
                 <button class="hover:text-ifood-red transition-colors" @click="activeTab = 'posts'">
@@ -128,43 +126,41 @@
               </div>
             </div>
 
-            </div><!-- /info -->
+            <!-- Actions -->
+            <div v-if="isAuthenticated && currentUser?.id !== profile.id" class="flex gap-2 flex-shrink-0 pt-3 sm:pt-2">
+              <button
+                v-if="!profile.isFollowing"
+                class="px-5 py-2 bg-ifood-red text-white font-semibold rounded-xl shadow hover:shadow-lg transition-all"
+                :disabled="followLoading"
+                @click="handleFollow"
+              >
+                <span v-if="followLoading" class="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span v-else>Seguir</span>
+              </button>
+              <button
+                v-else
+                class="px-5 py-2 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:border-red-300 hover:text-ifood-red transition-all"
+                :disabled="followLoading"
+                @click="handleUnfollow"
+              >
+                Siguiendo
+              </button>
+              <button
+                class="px-4 py-2 border-2 border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-all font-semibold"
+                @click="activeTab = 'reviews'; showReviewForm = true"
+              >
+                ★ Reseñar
+              </button>
+            </div>
 
-          <!-- Actions -->
-          <div v-if="isAuthenticated && currentUser?.id !== profile.id" class="flex gap-2 flex-shrink-0 pt-3 sm:pt-2">
-            <button
-              v-if="!profile.isFollowing"
-              class="px-5 py-2 bg-ifood-red text-white font-semibold rounded-xl shadow hover:shadow-lg transition-all"
-              :disabled="followLoading"
-              @click="handleFollow"
-            >
-              <span v-if="followLoading" class="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span v-else>Seguir</span>
-            </button>
-            <button
-              v-else
-              class="px-5 py-2 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:border-red-300 hover:text-ifood-red transition-all"
-              :disabled="followLoading"
-              @click="handleUnfollow"
-            >
-              Siguiendo
-            </button>
-            <button
-              class="px-4 py-2 border-2 border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-all font-semibold"
-              @click="activeTab = 'reviews'; showReviewForm = true"
-            >
-              ★ Reseñar
-            </button>
+            <!-- Own profile badge -->
+            <div v-else-if="isAuthenticated && currentUser?.id === profile.id" class="flex-shrink-0 pt-3 sm:pt-2">
+              <span class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium">Tu perfil</span>
+            </div>
+
           </div>
-
-          <!-- Own profile badge -->
-          <div v-else-if="isAuthenticated && currentUser?.id === profile.id" class="flex-shrink-0 pt-3 sm:pt-2">
-            <span class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium">Tu perfil</span>
-          </div>
-
-          </div><!-- /flex row -->
-        </div><!-- /px-6.pb-6 -->
-      </div><!-- /card -->
+        </div>
+      </div>
 
       <!-- ── Tabs ─────────────────────────────────────────────────────── -->
       <div class="flex border-b border-gray-200 mb-6">
