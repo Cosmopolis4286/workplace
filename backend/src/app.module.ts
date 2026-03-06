@@ -20,6 +20,7 @@ import { EmployeesModule } from './employees/employees.module'
 import { BranchesModule } from './branches/branches.module'
 import { CatalogModule } from './catalog/catalog.module'
 import { PermissionsModule } from './permissions/permissions.module'
+import { ProfilesModule } from './profiles/profiles.module'
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { PermissionsModule } from './permissions/permissions.module'
     BranchesModule,
     CatalogModule,
     PermissionsModule,
+    ProfilesModule,
   ],
 })
 export class AppModule {}
