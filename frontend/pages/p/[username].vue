@@ -442,7 +442,7 @@
               </div>
               <div class="p-4 border-t border-gray-100 flex items-center justify-between gap-2">
                 <div>
-                  <p class="text-xs text-gray-400">{{ formatDate(selectedPost.createdAt) }}</p>
+                  <p class="text-xs text-gray-400">{{ formatDateTime(selectedPost.createdAt) }}</p>
                   <p v-if="selectedPost.updatedAt !== selectedPost.createdAt" class="text-xs text-gray-400 italic">Editado {{ formatDateTime(selectedPost.updatedAt) }}</p>
                 </div>
                 <!-- Own post actions -->
