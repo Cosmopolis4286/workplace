@@ -3,12 +3,14 @@ type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 // Routes only accessible to SUPERADMIN or ADMIN
 const adminOnlyRoutes: string[] = ['/usuarios', '/permisos']
 
-// Routes only accessible by COMMERCE and above (not FREELANCER/NORMAL)
+// Routes accessible by COMMERCE, ADMIN, SUPERADMIN AND FREELANCER (all except empresa)
 const commerceRoutes: string[] = [
   '/menu', '/inventario', '/gastos', '/ventas', '/analytics', '/reportes',
-  '/agendamientos', '/clientes', '/delivery', '/pedidos', '/empleados', '/sucursales',
-  '/cliente-dashboard',
+  '/agendamientos', '/clientes', '/delivery', '/pedidos', '/cliente-dashboard',
 ]
+
+// Routes only for COMMERCE and above (not FREELANCER)
+const empresaRoutes: string[] = ['/empleados', '/sucursales']
 
 // Routes for NORMAL/FREELANCER users (marketplace)
 const normalRoutes: string[] = ['/inicio']
@@ -17,12 +19,14 @@ const protectedRoutes: string[] = [
   '/dashboard', '/perfil', '/configuracion',
   ...adminOnlyRoutes,
   ...commerceRoutes,
+  ...empresaRoutes,
   ...normalRoutes,
 ]
 
 const authRoutes: string[] = ['/login', '/register', '/recover-password', '/verify-email', '/auth/google/callback']
 
 const COMMERCE_ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE']
+const FREELANCER_COMMERCE_ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER']
 const ADMIN_ROLES: Role[] = ['SUPERADMIN', 'ADMIN']
 const NORMAL_ROLES: Role[] = ['NORMAL', 'FREELANCER']
 
@@ -37,7 +41,7 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (authRoutes.includes(to.path) && isAuthenticated.value) {
     const role = user.value?.role as Role
-    return navigateTo(NORMAL_ROLES.includes(role) ? '/inicio' : '/dashboard')
+    return navigateTo(role === 'NORMAL' ? '/inicio' : '/dashboard')
   }
 
   if (isAuthenticated.value && user.value) {
@@ -47,17 +51,21 @@ export default defineNuxtRouteMiddleware((to) => {
       return navigateTo(NORMAL_ROLES.includes(role) ? '/inicio' : '/dashboard')
     }
 
-    if (commerceRoutes.some(r => to.path.startsWith(r)) && !COMMERCE_ROLES.includes(role)) {
+    if (commerceRoutes.some(r => to.path.startsWith(r)) && !FREELANCER_COMMERCE_ROLES.includes(role)) {
       return navigateTo('/inicio')
     }
 
-    // COMMERCE/ADMIN/SUPERADMIN don't need /inicio — redirect to dashboard
-    if (normalRoutes.some(r => to.path.startsWith(r)) && !NORMAL_ROLES.includes(role)) {
+    if (empresaRoutes.some(r => to.path.startsWith(r)) && !COMMERCE_ROLES.includes(role)) {
       return navigateTo('/dashboard')
     }
 
-    // Redirect NORMAL/FREELANCER away from /dashboard to /inicio
-    if (to.path.startsWith('/dashboard') && NORMAL_ROLES.includes(role)) {
+    // COMMERCE/ADMIN/SUPERADMIN/FREELANCER don't need /inicio — redirect to dashboard
+    if (normalRoutes.some(r => to.path.startsWith(r)) && role !== 'NORMAL') {
+      return navigateTo('/dashboard')
+    }
+
+    // Redirect NORMAL away from /dashboard to /inicio
+    if (to.path.startsWith('/dashboard') && role === 'NORMAL') {
       return navigateTo('/inicio')
     }
   }

@@ -166,7 +166,10 @@ const ROLE_DEFAULTS: Record<Role, string[]> = {
   SUPERADMIN: PERMISSIONS.map(p => p.key),
   ADMIN: [...COMMERCE_KEYS, 'users:view', 'users:manage'],
   COMMERCE: COMMERCE_KEYS,
-  FREELANCER: ['catalog:view', 'notifications:view', 'settings:view'],
+  FREELANCER: [
+    ...COMMERCE_KEYS.filter(k => !k.startsWith('employees:') && !k.startsWith('branches:')),
+    'catalog:view',
+  ],
   NORMAL: ['catalog:view', 'notifications:view'],
 }
 
