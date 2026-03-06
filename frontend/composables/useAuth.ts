@@ -12,6 +12,7 @@ interface User {
   id: string
   email: string
   username?: string
+  usernameUpdatedAt?: string
   firstName: string
   lastName: string
   phone?: string
@@ -236,8 +237,8 @@ export const useAuth = () => {
     })
   }
 
-  async function checkUsername(username: string): Promise<{ available: boolean }> {
-    return $fetch<{ available: boolean }>(
+  async function checkUsername(username: string): Promise<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }> {
+    return $fetch<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }>(
       `${apiUrl}/api/auth/check-username?username=${encodeURIComponent(username)}`,
       { headers: getHeaders() },
     )

@@ -194,7 +194,28 @@
                 Nombre de usuario
                 <span class="ml-1 text-xs font-normal text-gray-400">(visible públicamente)</span>
               </label>
-              <div class="relative">
+
+              <!-- Locked: cooldown active -->
+              <div v-if="usernameIsLocked" class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium select-none">@</span>
+                <input
+                  :value="profileForm.username"
+                  type="text"
+                  disabled
+                  class="w-full pl-8 pr-10 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
+                >
+                <span class="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                  </svg>
+                </span>
+              </div>
+              <p v-if="usernameIsLocked" class="mt-1.5 text-xs text-amber-600">
+                Podrás cambiar tu nombre de usuario en {{ usernameDaysLeft }} día{{ usernameDaysLeft !== 1 ? 's' : '' }} (cada 30 días)
+              </p>
+
+              <!-- Unlocked: editable -->
+              <div v-else class="relative">
                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium select-none">@</span>
                 <input
                   v-model="profileForm.username"
@@ -204,7 +225,7 @@
                   :class="{
                     'border-gray-200 focus:ring-ifood-red/20 focus:border-ifood-red': usernameStatus === 'idle' || usernameStatus === 'checking',
                     'border-green-400 focus:ring-green-100 focus:border-green-500': usernameStatus === 'available',
-                    'border-red-400 focus:ring-red-100 focus:border-red-500': usernameStatus === 'taken' || usernameStatus === 'invalid',
+                    'border-red-400 focus:ring-red-100 focus:border-red-500': usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'cooldown',
                   }"
                   placeholder="mi.usuario"
                   autocomplete="username"
@@ -219,22 +240,23 @@
                   <svg v-else-if="usernameStatus === 'available'" class="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                   </svg>
-                  <svg v-else-if="usernameStatus === 'taken' || usernameStatus === 'invalid'" class="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg v-else-if="usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'cooldown'" class="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </span>
               </div>
-              <!-- Hint / error message -->
-              <p class="mt-1.5 text-xs" :class="{
+              <!-- Hint / error message (only when unlocked) -->
+              <p v-if="!usernameIsLocked" class="mt-1.5 text-xs" :class="{
                 'text-gray-400': usernameStatus === 'idle' || usernameStatus === 'checking',
                 'text-green-600': usernameStatus === 'available',
-                'text-red-500': usernameStatus === 'taken' || usernameStatus === 'invalid',
+                'text-red-500': usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'cooldown',
               }">
                 <span v-if="usernameStatus === 'idle'">Solo letras minúsculas, números, puntos, guiones y guiones bajos</span>
                 <span v-else-if="usernameStatus === 'checking'">Verificando disponibilidad...</span>
                 <span v-else-if="usernameStatus === 'available'">¡Disponible!</span>
                 <span v-else-if="usernameStatus === 'taken'">Este nombre de usuario ya está en uso</span>
                 <span v-else-if="usernameStatus === 'invalid'">Solo se permiten letras minúsculas, números, puntos, guiones y guiones bajos</span>
+                <span v-else-if="usernameStatus === 'cooldown'">Solo puedes cambiar el nombre de usuario cada 30 días. Faltan {{ usernameCooldownDaysLeft }} día{{ usernameCooldownDaysLeft !== 1 ? 's' : '' }}</span>
               </p>
             </div>
 
@@ -249,7 +271,7 @@
               </button>
               <button
                 type="submit"
-                :disabled="savingProfile || !profileDirty || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'"
+                :disabled="savingProfile || !profileDirty || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking' || usernameStatus === 'cooldown'"
                 class="px-5 py-2.5 bg-gradient-to-r from-ifood-red to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <span v-if="savingProfile" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -365,6 +387,7 @@ import {
   EyeSlashIcon,
   CameraIcon,
 } from '@heroicons/vue/24/outline'
+import Swal from 'sweetalert2'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useAuth } from '~/composables/useAuth'
 
@@ -389,11 +412,29 @@ const passwordForm = ref({ current: '', new: '', confirm: '' })
 const showPasswords = ref({ current: false, new: false, confirm: false })
 
 // ─── Username availability check ──────────────────────────────────────────────
-type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid' | 'cooldown'
 const usernameStatus = ref<UsernameStatus>('idle')
+const usernameCooldownDaysLeft = ref(0)
+const usernameNextChangeAt = ref<string | null>(null)
 let usernameDebounce: ReturnType<typeof setTimeout> | null = null
 
 const USERNAME_REGEX = /^[a-z0-9_.-]+$/
+const USERNAME_COOLDOWN_DAYS = 30
+
+// Computed: is username field locked due to cooldown?
+const usernameIsLocked = computed(() => {
+  const u = auth.user.value
+  if (!u?.usernameUpdatedAt) return false
+  const daysSince = (Date.now() - new Date(u.usernameUpdatedAt).getTime()) / (1000 * 60 * 60 * 24)
+  return daysSince < USERNAME_COOLDOWN_DAYS
+})
+
+const usernameDaysLeft = computed(() => {
+  const u = auth.user.value
+  if (!u?.usernameUpdatedAt) return 0
+  const daysSince = (Date.now() - new Date(u.usernameUpdatedAt).getTime()) / (1000 * 60 * 60 * 24)
+  return Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince)
+})
 
 function onUsernameInput(val: string) {
   usernameStatus.value = 'idle'
@@ -403,11 +444,22 @@ function onUsernameInput(val: string) {
     usernameStatus.value = 'invalid'
     return
   }
+  // If same as current username, no check needed
+  if (val === (auth.user.value?.username ?? '')) {
+    usernameStatus.value = 'idle'
+    return
+  }
   usernameStatus.value = 'checking'
   usernameDebounce = setTimeout(async () => {
     try {
       const res = await checkUsername(val)
-      usernameStatus.value = res.available ? 'available' : 'taken'
+      if (!res.canChange) {
+        usernameStatus.value = 'cooldown'
+        usernameCooldownDaysLeft.value = res.daysLeft
+        usernameNextChangeAt.value = res.nextChangeAt
+      } else {
+        usernameStatus.value = res.available ? 'available' : 'taken'
+      }
     } catch {
       usernameStatus.value = 'idle'
     }
@@ -558,6 +610,25 @@ async function saveProfile() {
   if (!profileDirty.value) return
   if (usernameStatus.value === 'taken') return
   if (usernameStatus.value === 'invalid') return
+  if (usernameStatus.value === 'cooldown') return
+
+  const usernameChanging = profileForm.value.username !== (auth.user.value?.username ?? '')
+
+  if (usernameChanging && profileForm.value.username) {
+    const result = await Swal.fire({
+      title: '¿Confirmas el cambio?',
+      html: `Estás a punto de establecer <strong>@${profileForm.value.username}</strong> como tu nombre de usuario.<br><br>Podrás volver a cambiarlo en <strong>30 días</strong>.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, cambiar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#e53e3e',
+      cancelButtonColor: '#718096',
+      reverseButtons: true,
+    })
+    if (!result.isConfirmed) return
+  }
+
   savingProfile.value = true
   errorMsg.value = ''
   try {
