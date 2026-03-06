@@ -1,4 +1,5 @@
 <template>
+  <NuxtLayout :name="layout">
   <div class="max-w-4xl mx-auto px-4 py-6">
 
     <!-- Loading skeleton -->
@@ -581,6 +582,7 @@
       </Transition>
     </Teleport>
   </div>
+  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -599,6 +601,8 @@ import Swal from 'sweetalert2'
 import { useProfiles, type ProfilePost } from '~/composables/useProfiles'
 import { useAuth } from '~/composables/useAuth'
 
+definePageMeta({ layout: false })
+
 const route = useRoute()
 const username = computed(() => route.params.username as string)
 
@@ -611,6 +615,10 @@ const {
 } = useProfiles()
 
 const { user: currentUser, isAuthenticated, uploadAvatar } = useAuth()
+
+// Layout dinámico: sin sidebar cuando no está autenticado
+const layout = computed(() => isAuthenticated.value ? 'default' : 'public')
+
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 
