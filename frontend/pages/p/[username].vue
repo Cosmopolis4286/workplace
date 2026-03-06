@@ -443,7 +443,7 @@
               <div class="p-4 border-t border-gray-100 flex items-center justify-between gap-2">
                 <div>
                   <p class="text-xs text-gray-400">{{ formatDate(selectedPost.createdAt) }}</p>
-                  <p v-if="selectedPost.updatedAt !== selectedPost.createdAt" class="text-xs text-gray-400 italic">Editado {{ formatDate(selectedPost.updatedAt) }}</p>
+                  <p v-if="selectedPost.updatedAt !== selectedPost.createdAt" class="text-xs text-gray-400 italic">Editado {{ formatDateTime(selectedPost.updatedAt) }}</p>
                 </div>
                 <!-- Own post actions -->
                 <div v-if="isOwnProfile && !editingCaption" class="flex gap-1">
@@ -624,6 +624,9 @@ function mediaSrc(url: string) {
 }
 function formatDate(iso: string) {
   return new Intl.DateTimeFormat('es', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(iso))
+}
+function formatDateTime(iso: string) {
+  return new Intl.DateTimeFormat('es', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
 }
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
