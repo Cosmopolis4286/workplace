@@ -412,11 +412,60 @@
                 </button>
               </div>
               <div class="flex-1 overflow-y-auto p-4">
-                <p v-if="selectedPost.caption" class="text-sm text-gray-700 whitespace-pre-line">{{ selectedPost.caption }}</p>
-                <p v-else class="text-sm text-gray-400 italic">Sin descripción</p>
+                <!-- Edit mode -->
+                <template v-if="editingCaption">
+                  <textarea
+                    v-model="editCaptionValue"
+                    rows="5"
+                    maxlength="2200"
+                    class="w-full px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red resize-none"
+                    placeholder="Escribe una descripción..."
+                  />
+                  <p class="text-xs text-gray-400 text-right mt-1">{{ editCaptionValue.length }}/2200</p>
+                  <div class="flex gap-2 mt-2 justify-end">
+                    <button class="px-3 py-1.5 text-xs text-gray-500 font-medium hover:text-gray-700" @click="cancelEditCaption">Cancelar</button>
+                    <button
+                      :disabled="savingCaption"
+                      class="px-4 py-1.5 bg-ifood-red text-white text-xs font-semibold rounded-lg disabled:opacity-50 hover:bg-red-600 flex items-center gap-1"
+                      @click="saveCaption"
+                    >
+                      <span v-if="savingCaption" class="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Guardar
+                    </button>
+                  </div>
+                </template>
+                <!-- View mode -->
+                <template v-else>
+                  <p v-if="selectedPost.caption" class="text-sm text-gray-700 whitespace-pre-line">{{ selectedPost.caption }}</p>
+                  <p v-else class="text-sm text-gray-400 italic">Sin descripción</p>
+                </template>
               </div>
-              <div class="p-4 border-t border-gray-100">
-                <p class="text-xs text-gray-400">{{ formatDate(selectedPost.createdAt) }}</p>
+              <div class="p-4 border-t border-gray-100 flex items-center justify-between gap-2">
+                <div>
+                  <p class="text-xs text-gray-400">{{ formatDate(selectedPost.createdAt) }}</p>
+                  <p v-if="selectedPost.updatedAt !== selectedPost.createdAt" class="text-xs text-gray-400 italic">Editado {{ formatDate(selectedPost.updatedAt) }}</p>
+                </div>
+                <!-- Own post actions -->
+                <div v-if="isOwnProfile && !editingCaption" class="flex gap-1">
+                  <button
+                    class="p-1.5 rounded-lg text-gray-400 hover:text-ifood-red hover:bg-red-50 transition-colors"
+                    title="Editar descripción"
+                    @click="startEditCaption"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <button
+                    class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    title="Eliminar publicación"
+                    @click="confirmDeletePost(selectedPost.id)"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -546,6 +595,7 @@ import {
   SquaresPlusIcon,
   CameraIcon,
 } from '@heroicons/vue/24/outline'
+import Swal from 'sweetalert2'
 import { useProfiles, type ProfilePost } from '~/composables/useProfiles'
 import { useAuth } from '~/composables/useAuth'
 
@@ -555,7 +605,7 @@ const username = computed(() => route.params.username as string)
 const {
   profile, posts, postsMeta, reviews, reviewStats,
   loading, loadingPosts, loadingReviews, error,
-  fetchProfile, fetchPosts, uploadMedia, createPost, deletePost,
+  fetchProfile, fetchPosts, uploadMedia, createPost, deletePost, updatePostCaption,
   follow, unfollow, fetchReviews, submitReview, deleteReview,
   getFollowers, getFollowing,
 } = useProfiles()
@@ -650,6 +700,11 @@ const savingReview = ref(false)
 const avatarFileInput = ref<HTMLInputElement | null>(null)
 const uploadingAvatar = ref(false)
 
+// Post editing (in lightbox)
+const editingCaption = ref(false)
+const editCaptionValue = ref('')
+const savingCaption = ref(false)
+
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 async function onAvatarFileSelected(event: Event) {
@@ -686,11 +741,48 @@ async function loadMorePosts() {
 function openPost(post: ProfilePost) {
   selectedPost.value = post
   currentMediaIdx.value = 0
+  editingCaption.value = false
+  editCaptionValue.value = ''
 }
 
 async function confirmDeletePost(id: string) {
-  if (!confirm('¿Eliminar esta publicación?')) return
+  const result = await Swal.fire({
+    title: '¿Eliminar publicación?',
+    text: 'Esta acción no se puede deshacer.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#e53e3e',
+    cancelButtonColor: '#718096',
+    reverseButtons: true,
+  })
+  if (!result.isConfirmed) return
+  if (selectedPost.value?.id === id) selectedPost.value = null
   await deletePost(id)
+}
+
+function startEditCaption() {
+  editCaptionValue.value = selectedPost.value?.caption ?? ''
+  editingCaption.value = true
+}
+
+function cancelEditCaption() {
+  editingCaption.value = false
+  editCaptionValue.value = ''
+}
+
+async function saveCaption() {
+  if (!selectedPost.value) return
+  savingCaption.value = true
+  try {
+    await updatePostCaption(selectedPost.value.id, editCaptionValue.value)
+    // Update the selected post locally
+    selectedPost.value = { ...selectedPost.value, caption: editCaptionValue.value, updatedAt: new Date().toISOString() }
+    editingCaption.value = false
+  } finally {
+    savingCaption.value = false
+  }
 }
 
 // File handling
