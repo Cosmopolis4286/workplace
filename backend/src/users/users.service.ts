@@ -173,10 +173,32 @@ export class UsersService {
       }
     }
 
-    if (dto.username) {
-      const existing = await this.prisma.user.findUnique({ where: { username: dto.username } })
-      if (existing && existing.id !== id) {
-        throw new ConflictException('El nombre de usuario ya está en uso')
+    const USERNAME_COOLDOWN_DAYS = 30
+    let usernameChanged = false
+
+    if (dto.username !== undefined) {
+      const currentUser = await this.prisma.user.findUnique({ where: { id } })
+      const newUsername = dto.username || null
+
+      // Only apply restrictions when the username is actually changing
+      if (newUsername !== currentUser.username) {
+        if (newUsername) {
+          const taken = await this.prisma.user.findUnique({ where: { username: newUsername } })
+          if (taken && taken.id !== id) {
+            throw new ConflictException('El nombre de usuario ya está en uso')
+          }
+
+          if (currentUser.usernameUpdatedAt) {
+            const daysSince = (Date.now() - currentUser.usernameUpdatedAt.getTime()) / (1000 * 60 * 60 * 24)
+            if (daysSince < USERNAME_COOLDOWN_DAYS) {
+              const daysLeft = Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince)
+              throw new BadRequestException(
+                `Solo puedes cambiar el nombre de usuario cada ${USERNAME_COOLDOWN_DAYS} días. Podrás cambiarlo en ${daysLeft} día${daysLeft !== 1 ? 's' : ''}.`,
+              )
+            }
+          }
+        }
+        usernameChanged = true
       }
     }
 
@@ -188,6 +210,7 @@ export class UsersService {
         ...(dto.email && { email: dto.email }),
         ...(dto.phone !== undefined && { phone: dto.phone || null }),
         ...(dto.username !== undefined && { username: dto.username || null }),
+        ...(usernameChanged && { usernameUpdatedAt: new Date() }),
       },
       include: { restaurant: true },
     })
@@ -196,9 +219,33 @@ export class UsersService {
     return result
   }
 
-  async checkUsernameAvailability(username: string, currentUserId: string): Promise<{ available: boolean }> {
-    const existing = await this.prisma.user.findUnique({ where: { username } })
-    return { available: !existing || existing.id === currentUserId }
+  async checkUsernameAvailability(
+    username: string,
+    currentUserId: string,
+  ): Promise<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }> {
+    const [existing, currentUser] = await Promise.all([
+      this.prisma.user.findUnique({ where: { username } }),
+      this.prisma.user.findUnique({ where: { id: currentUserId } }),
+    ])
+
+    const available = !existing || existing.id === currentUserId
+
+    const USERNAME_COOLDOWN_DAYS = 30
+    let canChange = true
+    let daysLeft = 0
+    let nextChangeAt: string | null = null
+
+    if (currentUser?.usernameUpdatedAt && username !== currentUser.username) {
+      const daysSince = (Date.now() - currentUser.usernameUpdatedAt.getTime()) / (1000 * 60 * 60 * 24)
+      if (daysSince < USERNAME_COOLDOWN_DAYS) {
+        canChange = false
+        daysLeft = Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince)
+        const next = new Date(currentUser.usernameUpdatedAt.getTime() + USERNAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
+        nextChangeAt = next.toISOString()
+      }
+    }
+
+    return { available, canChange, daysLeft, nextChangeAt }
   }
 
   async updateAvatar(id: string, avatarUrl: string) {
