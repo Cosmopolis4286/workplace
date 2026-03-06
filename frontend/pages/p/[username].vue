@@ -31,13 +31,32 @@
         <div class="flex flex-col sm:flex-row gap-6 items-start">
 
           <!-- Avatar -->
-          <div class="flex-shrink-0">
+          <div class="flex-shrink-0 relative">
             <div class="h-28 w-28 rounded-full overflow-hidden ring-4 ring-white shadow-xl">
               <img v-if="profile.avatar" :src="avatarSrc(profile.avatar)" :alt="profile.firstName" class="h-full w-full object-cover">
               <div v-else class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
                 <span class="text-3xl font-bold text-white">{{ initials }}</span>
               </div>
             </div>
+            <!-- Cambiar foto — solo perfil propio -->
+            <button
+              v-if="isOwnProfile"
+              type="button"
+              :disabled="uploadingAvatar"
+              class="absolute bottom-1 right-1 h-9 w-9 rounded-full bg-white border-2 border-gray-200 shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-60"
+              title="Cambiar foto"
+              @click="avatarFileInput?.click()"
+            >
+              <span v-if="uploadingAvatar" class="h-4 w-4 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+              <CameraIcon v-else class="h-4 w-4 text-gray-600" />
+            </button>
+            <input
+              ref="avatarFileInput"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              class="hidden"
+              @change="onAvatarFileSelected"
+            >
           </div>
 
           <!-- Info -->
@@ -525,6 +544,7 @@ import {
   PlusCircleIcon,
   PlayCircleIcon,
   SquaresPlusIcon,
+  CameraIcon,
 } from '@heroicons/vue/24/outline'
 import { useProfiles, type ProfilePost } from '~/composables/useProfiles'
 import { useAuth } from '~/composables/useAuth'
@@ -540,7 +560,7 @@ const {
   getFollowers, getFollowing,
 } = useProfiles()
 
-const { user: currentUser, isAuthenticated } = useAuth()
+const { user: currentUser, isAuthenticated, uploadAvatar } = useAuth()
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 
@@ -626,7 +646,25 @@ const showReviewForm = ref(false)
 const reviewForm = ref({ rating: 0, comment: '' })
 const savingReview = ref(false)
 
+// Avatar upload
+const avatarFileInput = ref<HTMLInputElement | null>(null)
+const uploadingAvatar = ref(false)
+
 // ─── Actions ──────────────────────────────────────────────────────────────────
+
+async function onAvatarFileSelected(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  uploadingAvatar.value = true
+  try {
+    await uploadAvatar(file)
+    // Refresh profile to get new avatar url
+    if (profile.value?.username) await fetchProfile(profile.value.username)
+  } finally {
+    uploadingAvatar.value = false
+    if (avatarFileInput.value) avatarFileInput.value.value = ''
+  }
+}
 
 async function handleFollow() {
   if (!profile.value?.username) return

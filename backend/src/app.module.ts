@@ -27,7 +27,7 @@ import { ProfilesModule } from './profiles/profiles.module'
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', '..', 'uploads'),
+      rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
     PrismaModule,

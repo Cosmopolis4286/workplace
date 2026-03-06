@@ -17,6 +17,7 @@ frontend/.data/
 # ================================
 backend/dist/
 backend/*.tsbuildinfo
+backend/uploads/
 
 # ================================
 # Prisma
