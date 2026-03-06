@@ -53,10 +53,50 @@ export class UsersController {
     })
   }
 
+  // ─── Categories endpoints ──────────────────────────────────────────────────
+
   @Get('categories')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   getCategories() {
     return this.usersService.findAllCategories()
+  }
+
+  @Post('categories')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  createCategory(@Body() body: { name: string; icon?: string }) {
+    return this.usersService.createCategory(body)
+  }
+
+  @Put('categories/:id')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  updateCategory(@Param('id') id: string, @Body() body: { name?: string; icon?: string }) {
+    return this.usersService.updateCategory(id, body)
+  }
+
+  @Delete('categories/:id')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  deleteCategory(@Param('id') id: string) {
+    return this.usersService.deleteCategory(id)
+  }
+
+  // ─── Subcategories endpoints ───────────────────────────────────────────────
+
+  @Post('categories/:categoryId/subcategories')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  createSubcategory(@Param('categoryId') categoryId: string, @Body() body: { name: string }) {
+    return this.usersService.createSubcategory(categoryId, body)
+  }
+
+  @Put('subcategories/:id')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  updateSubcategory(@Param('id') id: string, @Body() body: { name: string }) {
+    return this.usersService.updateSubcategory(id, body)
+  }
+
+  @Delete('subcategories/:id')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  deleteSubcategory(@Param('id') id: string) {
+    return this.usersService.deleteSubcategory(id)
   }
 
   @Get(':id')

@@ -154,13 +154,75 @@ export class UsersService {
     return { message: 'Usuario eliminado correctamente' }
   }
 
+  // ─── Categories CRUD ─────────────────────────────────────────────────────────
+
   async findAllCategories() {
     return this.prisma.userCategory.findMany({
       orderBy: { name: 'asc' },
       include: {
         subcategories: { orderBy: { name: 'asc' } },
+        _count: { select: { users: true } },
       },
     })
+  }
+
+  async createCategory(data: { name: string; icon?: string }) {
+    const existing = await this.prisma.userCategory.findUnique({ where: { name: data.name } })
+    if (existing) throw new ConflictException('Ya existe una categoría con ese nombre')
+    return this.prisma.userCategory.create({
+      data: { name: data.name, icon: data.icon },
+      include: { subcategories: true, _count: { select: { users: true } } },
+    })
+  }
+
+  async updateCategory(id: string, data: { name?: string; icon?: string }) {
+    if (data.name) {
+      const existing = await this.prisma.userCategory.findFirst({
+        where: { name: data.name, NOT: { id } },
+      })
+      if (existing) throw new ConflictException('Ya existe una categoría con ese nombre')
+    }
+    return this.prisma.userCategory.update({
+      where: { id },
+      data,
+      include: { subcategories: { orderBy: { name: 'asc' } }, _count: { select: { users: true } } },
+    })
+  }
+
+  async deleteCategory(id: string) {
+    const count = await this.prisma.user.count({ where: { categoryId: id } })
+    if (count > 0) throw new BadRequestException(`No se puede eliminar: ${count} usuario(s) usan esta categoría`)
+    await this.prisma.userCategory.delete({ where: { id } })
+    return { message: 'Categoría eliminada' }
+  }
+
+  // ─── Subcategories CRUD ───────────────────────────────────────────────────────
+
+  async createSubcategory(categoryId: string, data: { name: string }) {
+    const cat = await this.prisma.userCategory.findUnique({ where: { id: categoryId } })
+    if (!cat) throw new NotFoundException('Categoría no encontrada')
+    const existing = await this.prisma.userSubcategory.findUnique({
+      where: { name_categoryId: { name: data.name, categoryId } },
+    })
+    if (existing) throw new ConflictException('Ya existe esa subcategoría en esta categoría')
+    return this.prisma.userSubcategory.create({ data: { name: data.name, categoryId } })
+  }
+
+  async updateSubcategory(id: string, data: { name: string }) {
+    const sub = await this.prisma.userSubcategory.findUnique({ where: { id } })
+    if (!sub) throw new NotFoundException('Subcategoría no encontrada')
+    const existing = await this.prisma.userSubcategory.findFirst({
+      where: { name: data.name, categoryId: sub.categoryId, NOT: { id } },
+    })
+    if (existing) throw new ConflictException('Ya existe esa subcategoría en esta categoría')
+    return this.prisma.userSubcategory.update({ where: { id }, data })
+  }
+
+  async deleteSubcategory(id: string) {
+    const count = await this.prisma.user.count({ where: { subcategoryId: id } })
+    if (count > 0) throw new BadRequestException(`No se puede eliminar: ${count} usuario(s) usan esta subcategoría`)
+    await this.prisma.userSubcategory.delete({ where: { id } })
+    return { message: 'Subcategoría eliminada' }
   }
 
   async findByEmail(email: string) {
