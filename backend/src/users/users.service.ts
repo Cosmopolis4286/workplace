@@ -173,6 +173,13 @@ export class UsersService {
       }
     }
 
+    if (dto.username) {
+      const existing = await this.prisma.user.findUnique({ where: { username: dto.username } })
+      if (existing && existing.id !== id) {
+        throw new ConflictException('El nombre de usuario ya está en uso')
+      }
+    }
+
     const user = await this.prisma.user.update({
       where: { id },
       data: {
@@ -180,12 +187,18 @@ export class UsersService {
         ...(dto.lastName && { lastName: dto.lastName }),
         ...(dto.email && { email: dto.email }),
         ...(dto.phone !== undefined && { phone: dto.phone || null }),
+        ...(dto.username !== undefined && { username: dto.username || null }),
       },
       include: { restaurant: true },
     })
 
     const { password, ...result } = user
     return result
+  }
+
+  async checkUsernameAvailability(username: string, currentUserId: string): Promise<{ available: boolean }> {
+    const existing = await this.prisma.user.findUnique({ where: { username } })
+    return { available: !existing || existing.id === currentUserId }
   }
 
   async updateAvatar(id: string, avatarUrl: string) {

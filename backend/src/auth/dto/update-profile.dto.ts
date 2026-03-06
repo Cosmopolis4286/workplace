@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'
+import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator'
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -21,4 +21,13 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(20)
   phone?: string
+
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(30)
+  @Matches(/^[a-z0-9_.-]+$/, {
+    message: 'El username solo puede contener letras minúsculas, números, puntos, guiones y guiones bajos',
+  })
+  username?: string
 }
