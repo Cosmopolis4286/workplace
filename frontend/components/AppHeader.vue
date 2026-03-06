@@ -72,9 +72,12 @@
               @click="showProfileMenu = !showProfileMenu"
               class="flex items-center gap-2 p-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 hover:bg-red-50 transition-all duration-300"
             >
-              <!-- Avatar con iniciales -->
-              <div class="relative h-9 w-9 rounded-xl bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center shadow-md ring-2 ring-white">
-                <span class="text-white font-bold text-sm">{{ userInitials }}</span>
+              <!-- Avatar -->
+              <div class="relative h-9 w-9 rounded-xl overflow-hidden shadow-md ring-2 ring-white flex-shrink-0">
+                <img v-if="avatarUrl" :src="avatarUrl" alt="" class="h-full w-full object-cover">
+                <div v-else class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
+                  <span class="text-white font-bold text-sm">{{ userInitials }}</span>
+                </div>
               </div>
               <div class="hidden md:block text-left">
                 <p class="text-sm font-semibold text-gray-800 leading-tight">{{ fullName }}</p>
@@ -99,8 +102,11 @@
                 <!-- User info -->
                 <div class="px-4 py-3 border-b border-gray-100">
                   <div class="flex items-center gap-3">
-                    <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center shadow-sm flex-shrink-0">
-                      <span class="text-white font-bold text-sm">{{ userInitials }}</span>
+                    <div class="h-10 w-10 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
+                      <img v-if="avatarUrl" :src="avatarUrl" alt="" class="h-full w-full object-cover">
+                      <div v-else class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
+                        <span class="text-white font-bold text-sm">{{ userInitials }}</span>
+                      </div>
                     </div>
                     <div class="min-w-0">
                       <p class="text-sm font-semibold text-gray-900 truncate">{{ fullName }}</p>
@@ -179,6 +185,8 @@ defineEmits(['toggle-sidebar'])
 
 const route = useRoute()
 const { logout, user } = useAuth()
+const config = useRuntimeConfig()
+const apiUrl = config.public.apiUrl
 
 // ── User data ──────────────────────────────────────────────────────────────
 const fullName = computed(() => {
@@ -191,6 +199,12 @@ const userInitials = computed(() => {
   const f = user.value.firstName?.[0] ?? ''
   const l = user.value.lastName?.[0] ?? ''
   return (f + l).toUpperCase() || 'U'
+})
+
+const avatarUrl = computed(() => {
+  const av = user.value?.avatar
+  if (!av) return null
+  return av.startsWith('http') ? av : `${apiUrl}${av}`
 })
 
 const userEmail = computed(() => user.value?.email ?? '')
