@@ -1,7 +1,7 @@
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 
 // Routes only accessible to SUPERADMIN or ADMIN
-const adminOnlyRoutes: string[] = ['/usuarios', '/permisos']
+const adminOnlyRoutes: string[] = ['/usuarios', '/permisos', '/auditoria', '/logs']
 
 // Routes accessible by COMMERCE, ADMIN, SUPERADMIN AND FREELANCER (all except empresa)
 const commerceRoutes: string[] = [

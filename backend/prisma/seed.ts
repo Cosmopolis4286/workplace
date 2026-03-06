@@ -144,6 +144,10 @@ const PERMISSIONS: PermissionDef[] = [
 
   // Permisos — isSystem
   { key: 'permissions:manage',       module: 'permissions',   action: 'manage',         label: 'Gestionar Matriz de Permisos', isSystem: true },
+
+  // Auditoría — isSystem (solo SUPERADMIN)
+  { key: 'audit:view',               module: 'audit',         action: 'view',           label: 'Ver Auditoría',               isSystem: true },
+  { key: 'logs:view',                module: 'logs',          action: 'view',           label: 'Ver Logs del Sistema',        isSystem: true },
 ]
 
 const COMMERCE_KEYS = [
@@ -172,6 +176,8 @@ const ROLE_DEFAULTS: Record<Role, string[]> = {
   ],
   NORMAL: ['catalog:view', 'notifications:view'],
 }
+
+// SUPERADMIN already gets PERMISSIONS.map(p => p.key) so audit:view + logs:view are included automatically
 
 async function seedPermissions() {
   console.log('\n🔐 Seeding permission matrix...\n')

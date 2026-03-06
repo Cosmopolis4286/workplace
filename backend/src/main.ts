@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
 import { AppModule } from './app.module'
+import { AuditInterceptor } from './audit/audit.interceptor'
+import { AuditService } from './audit/audit.service'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ['log', 'error', 'warn', 'debug'] })
@@ -22,6 +24,10 @@ async function bootstrap() {
   )
 
   app.setGlobalPrefix('api')
+
+  // Global audit interceptor
+  const auditService = app.get(AuditService)
+  app.useGlobalInterceptors(new AuditInterceptor(auditService))
 
   const port = process.env.PORT || 3001
   await app.listen(port, '0.0.0.0')
