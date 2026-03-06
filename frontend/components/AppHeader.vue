@@ -234,6 +234,8 @@ const PAGE_MAP = {
   '/configuracion':    { title: 'Configuración',    icon: CogIcon },
   '/perfil':           { title: 'Mi Perfil',        icon: UserIcon },
   '/notificaciones':   { title: 'Notificaciones',   icon: BellIcon },
+  '/auditoria':        { title: 'Auditoría',        icon: ClipboardDocumentListIcon },
+  '/logs':             { title: 'Logs del Sistema', icon: BellIcon },
 }
 
 const currentPage = computed(() => {

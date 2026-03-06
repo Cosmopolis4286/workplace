@@ -622,3 +622,59 @@ model RolePermission {
   @@unique([role, permissionId])
   @@map("role_permissions")
 }
+
+// ─── Audit & Logs ─────────────────────────────────────────────────────────────
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  UPLOAD
+  EXPORT
+  VIEW
+  OTHER
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String?
+  userEmail  String?
+  userRole   String?
+  action     AuditAction @default(OTHER)
+  module     String
+  entityId   String?
+  summary    String
+  details    Json?
+  ip         String?
+  userAgent  String?
+  statusCode Int?
+  createdAt  DateTime    @default(now())
+
+  @@index([userId])
+  @@index([module])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+enum LogLevel {
+  ERROR
+  WARN
+  INFO
+  DEBUG
+}
+
+model SystemLog {
+  id        String   @id @default(uuid())
+  level     LogLevel @default(INFO)
+  message   String
+  context   String?
+  stack     String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([level])
+  @@index([createdAt(sort: Desc)])
+  @@map("system_logs")
+}
