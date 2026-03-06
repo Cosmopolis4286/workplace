@@ -16,11 +16,17 @@ model User {
   firstName String
   lastName  String
   phone     String?
-  avatar    String?
-  role      Role     @default(NORMAL)
+  avatar      String?
+  coverImage  String?
+  role        Role     @default(NORMAL)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  categoryId    String?
+  subcategoryId String?
+  category      UserCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategory   UserSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
 
   restaurant    Restaurant?
   refreshTokens RefreshToken[]
@@ -31,6 +37,29 @@ model User {
   reviewsReceived Review[] @relation("ReviewsReceived")
 
   @@map("users")
+}
+
+// ─── User Categories ──────────────────────────────────────────────────────────
+
+model UserCategory {
+  id            String            @id @default(uuid())
+  name          String            @unique
+  icon          String?
+  subcategories UserSubcategory[]
+  users         User[]
+
+  @@map("user_categories")
+}
+
+model UserSubcategory {
+  id         String       @id @default(uuid())
+  name       String
+  categoryId String
+  category   UserCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  users      User[]
+
+  @@unique([name, categoryId])
+  @@map("user_subcategories")
 }
 
 model Restaurant {

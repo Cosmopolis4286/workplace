@@ -9,12 +9,13 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
+  UploadedFile,
   UploadedFiles,
   BadRequestException,
   ParseIntPipe,
   DefaultValuePipe,
 } from '@nestjs/common'
-import { FilesInterceptor } from '@nestjs/platform-express'
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express'
 import { diskStorage } from 'multer'
 import { extname, join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
@@ -36,6 +37,37 @@ export class ProfilesController {
   @UseGuards(OptionalJwtAuthGuard)
   getProfile(@Param('username') username: string, @CurrentUser() user: any) {
     return this.profilesService.getPublicProfile(username, user?.id)
+  }
+
+  // ─── Cover image ──────────────────────────────────────────────────────────
+
+  @Patch('cover')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadPath = join(process.cwd(), 'uploads', 'covers')
+          if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true })
+          cb(null, uploadPath)
+        },
+        filename: (_req, file, cb) => {
+          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9)
+          cb(null, unique + extname(file.originalname))
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/)) {
+          return cb(new BadRequestException('Solo se permiten imágenes (jpeg, png, webp, gif)'), false)
+        }
+        cb(null, true)
+      },
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    }),
+  )
+  async uploadCover(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: any) {
+    if (!file) throw new BadRequestException('No se recibió ningún archivo')
+    return this.profilesService.updateCoverImage(user.id, `/uploads/covers/${file.filename}`)
   }
 
   // ─── Posts ────────────────────────────────────────────────────────────────

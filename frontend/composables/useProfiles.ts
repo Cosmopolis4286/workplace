@@ -24,6 +24,7 @@ export interface PublicProfile {
   firstName: string
   lastName: string
   avatar?: string
+  coverImage?: string
   role: string
   restaurant?: { id: string; name: string; type?: string }
   followersCount: number
@@ -105,6 +106,17 @@ export function useProfiles() {
     )
     // Solo pasar url y type al DTO (forbidNonWhitelisted=true en el backend)
     return res.files.map(f => ({ url: f.url, type: f.type as 'IMAGE' | 'VIDEO' }))
+  }
+
+  async function uploadCover(file: File): Promise<{ coverImage: string }> {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await $fetch<{ id: string; coverImage: string }>(
+      `${apiUrl}/api/profiles/cover`,
+      { method: 'PATCH', headers: getHeaders(), body: form },
+    )
+    if (profile.value) profile.value.coverImage = res.coverImage
+    return res
   }
 
   async function createPost(caption: string, mediaItems: { url: string; type: 'IMAGE' | 'VIDEO' }[]) {
@@ -213,6 +225,7 @@ export function useProfiles() {
     fetchProfile,
     fetchPosts,
     uploadMedia,
+    uploadCover,
     createPost,
     deletePost,
     updatePostCaption,

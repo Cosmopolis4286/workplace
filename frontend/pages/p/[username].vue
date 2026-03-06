@@ -28,76 +28,110 @@
 
     <template v-else>
       <!-- ── Header del perfil ─────────────────────────────────────────── -->
-      <div class="card-premium p-6 mb-6">
-        <div class="flex flex-col sm:flex-row gap-6 items-start">
+      <div class="card-premium overflow-hidden mb-6">
 
-          <!-- Avatar -->
-          <div class="flex-shrink-0 relative">
-            <div class="h-28 w-28 rounded-full overflow-hidden ring-4 ring-white shadow-xl">
-              <img v-if="profile.avatar" :src="avatarSrc(profile.avatar)" :alt="profile.firstName" class="h-full w-full object-cover">
-              <div v-else class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
-                <span class="text-3xl font-bold text-white">{{ initials }}</span>
+        <!-- Banner / portada -->
+        <div class="relative h-48 sm:h-56 bg-gradient-to-br from-ifood-red/80 to-red-800 group">
+          <img
+            v-if="coverSrc"
+            :src="coverSrc"
+            alt="Portada"
+            class="h-full w-full object-cover"
+          >
+          <!-- Botón cambiar portada — solo perfil propio -->
+          <button
+            v-if="isOwnProfile"
+            type="button"
+            :disabled="uploadingCover"
+            class="absolute bottom-3 right-3 flex items-center gap-2 px-3 py-1.5 bg-black/50 hover:bg-black/70 text-white text-xs font-semibold rounded-lg backdrop-blur-sm transition-all disabled:opacity-60"
+            @click="coverFileInput?.click()"
+          >
+            <span v-if="uploadingCover" class="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <CameraIcon v-else class="h-3.5 w-3.5" />
+            {{ uploadingCover ? 'Subiendo...' : 'Cambiar portada' }}
+          </button>
+          <input
+            ref="coverFileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            class="hidden"
+            @change="onCoverFileSelected"
+          >
+        </div>
+
+        <!-- Contenido debajo del banner -->
+        <div class="px-6 pb-6">
+          <div class="flex flex-col sm:flex-row gap-4 items-start">
+
+            <!-- Avatar (superpuesto sobre el banner) -->
+            <div class="flex-shrink-0 relative -mt-14">
+              <div class="h-28 w-28 rounded-full overflow-hidden ring-4 ring-white shadow-xl">
+                <img v-if="profile.avatar" :src="avatarSrc(profile.avatar)" :alt="profile.firstName" class="h-full w-full object-cover">
+                <div v-else class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
+                  <span class="text-3xl font-bold text-white">{{ initials }}</span>
+                </div>
+              </div>
+              <!-- Cambiar foto — solo perfil propio -->
+              <button
+                v-if="isOwnProfile"
+                type="button"
+                :disabled="uploadingAvatar"
+                class="absolute bottom-1 right-1 h-9 w-9 rounded-full bg-white border-2 border-gray-200 shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-60"
+                title="Cambiar foto"
+                @click="avatarFileInput?.click()"
+              >
+                <span v-if="uploadingAvatar" class="h-4 w-4 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+                <CameraIcon v-else class="h-4 w-4 text-gray-600" />
+              </button>
+              <input
+                ref="avatarFileInput"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                class="hidden"
+                @change="onAvatarFileSelected"
+              >
+            </div>
+
+            <!-- Info -->
+            <div class="flex-1 min-w-0 pt-3 sm:pt-2">
+              <div class="flex flex-wrap items-start gap-3 mb-1">
+                <h1 class="text-2xl font-bold text-gray-900">{{ profile.firstName }} {{ profile.lastName }}</h1>
+                <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="roleBadge">{{ roleLabel }}</span>
+              </div>
+
+              <p v-if="profile.username" class="text-gray-400 text-sm mb-1">@{{ profile.username }}</p>
+              <p v-if="profile.restaurant" class="text-gray-500 text-sm mb-3">
+                🏪 {{ profile.restaurant.name }}<span v-if="profile.restaurant.type"> · {{ profile.restaurant.type }}</span>
+              </p>
+
+              <!-- Stats row -->
+              <div class="flex flex-wrap gap-6 text-center">
+                <button class="hover:text-ifood-red transition-colors" @click="activeTab = 'posts'">
+                  <div class="text-xl font-bold text-gray-900">{{ profile.postsCount }}</div>
+                  <div class="text-xs text-gray-500">publicaciones</div>
+                </button>
+                <button class="hover:text-ifood-red transition-colors" @click="showFollowersModal = true">
+                  <div class="text-xl font-bold text-gray-900">{{ profile.followersCount }}</div>
+                  <div class="text-xs text-gray-500">seguidores</div>
+                </button>
+                <button class="hover:text-ifood-red transition-colors" @click="showFollowingModal = true">
+                  <div class="text-xl font-bold text-gray-900">{{ profile.followingCount }}</div>
+                  <div class="text-xs text-gray-500">siguiendo</div>
+                </button>
+                <button class="hover:text-ifood-red transition-colors" @click="activeTab = 'reviews'">
+                  <div class="flex items-center gap-1 justify-center">
+                    <span class="text-xl font-bold text-gray-900">{{ profile.rating ?? '—' }}</span>
+                    <StarIcon class="h-4 w-4 text-amber-400" />
+                  </div>
+                  <div class="text-xs text-gray-500">{{ profile.reviewsCount }} reseñas</div>
+                </button>
               </div>
             </div>
-            <!-- Cambiar foto — solo perfil propio -->
-            <button
-              v-if="isOwnProfile"
-              type="button"
-              :disabled="uploadingAvatar"
-              class="absolute bottom-1 right-1 h-9 w-9 rounded-full bg-white border-2 border-gray-200 shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-60"
-              title="Cambiar foto"
-              @click="avatarFileInput?.click()"
-            >
-              <span v-if="uploadingAvatar" class="h-4 w-4 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
-              <CameraIcon v-else class="h-4 w-4 text-gray-600" />
-            </button>
-            <input
-              ref="avatarFileInput"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              class="hidden"
-              @change="onAvatarFileSelected"
-            >
-          </div>
 
-          <!-- Info -->
-          <div class="flex-1 min-w-0">
-            <div class="flex flex-wrap items-start gap-3 mb-1">
-              <h1 class="text-2xl font-bold text-gray-900">{{ profile.firstName }} {{ profile.lastName }}</h1>
-              <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="roleBadge">{{ roleLabel }}</span>
-            </div>
-
-            <p v-if="profile.username" class="text-gray-400 text-sm mb-1">@{{ profile.username }}</p>
-            <p v-if="profile.restaurant" class="text-gray-500 text-sm mb-3">
-              🏪 {{ profile.restaurant.name }}<span v-if="profile.restaurant.type"> · {{ profile.restaurant.type }}</span>
-            </p>
-
-            <!-- Stats row -->
-            <div class="flex flex-wrap gap-6 text-center">
-              <button class="hover:text-ifood-red transition-colors" @click="activeTab = 'posts'">
-                <div class="text-xl font-bold text-gray-900">{{ profile.postsCount }}</div>
-                <div class="text-xs text-gray-500">publicaciones</div>
-              </button>
-              <button class="hover:text-ifood-red transition-colors" @click="showFollowersModal = true">
-                <div class="text-xl font-bold text-gray-900">{{ profile.followersCount }}</div>
-                <div class="text-xs text-gray-500">seguidores</div>
-              </button>
-              <button class="hover:text-ifood-red transition-colors" @click="showFollowingModal = true">
-                <div class="text-xl font-bold text-gray-900">{{ profile.followingCount }}</div>
-                <div class="text-xs text-gray-500">siguiendo</div>
-              </button>
-              <button class="hover:text-ifood-red transition-colors" @click="activeTab = 'reviews'">
-                <div class="flex items-center gap-1 justify-center">
-                  <span class="text-xl font-bold text-gray-900">{{ profile.rating ?? '—' }}</span>
-                  <StarIcon class="h-4 w-4 text-amber-400" />
-                </div>
-                <div class="text-xs text-gray-500">{{ profile.reviewsCount }} reseñas</div>
-              </button>
-            </div>
-          </div>
+            </div><!-- /info -->
 
           <!-- Actions -->
-          <div v-if="isAuthenticated && currentUser?.id !== profile.id" class="flex gap-2 flex-shrink-0">
+          <div v-if="isAuthenticated && currentUser?.id !== profile.id" class="flex gap-2 flex-shrink-0 pt-3 sm:pt-2">
             <button
               v-if="!profile.isFollowing"
               class="px-5 py-2 bg-ifood-red text-white font-semibold rounded-xl shadow hover:shadow-lg transition-all"
@@ -124,11 +158,13 @@
           </div>
 
           <!-- Own profile badge -->
-          <div v-else-if="isAuthenticated && currentUser?.id === profile.id" class="flex-shrink-0">
+          <div v-else-if="isAuthenticated && currentUser?.id === profile.id" class="flex-shrink-0 pt-3 sm:pt-2">
             <span class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium">Tu perfil</span>
           </div>
-        </div>
-      </div>
+
+          </div><!-- /flex row -->
+        </div><!-- /px-6.pb-6 -->
+      </div><!-- /card -->
 
       <!-- ── Tabs ─────────────────────────────────────────────────────── -->
       <div class="flex border-b border-gray-200 mb-6">
@@ -609,12 +645,43 @@ const username = computed(() => route.params.username as string)
 const {
   profile, posts, postsMeta, reviews, reviewStats,
   loading, loadingPosts, loadingReviews, error,
-  fetchProfile, fetchPosts, uploadMedia, createPost, deletePost, updatePostCaption,
+  fetchProfile, fetchPosts, uploadMedia, uploadCover, createPost, deletePost, updatePostCaption,
   follow, unfollow, fetchReviews, submitReview, deleteReview,
   getFollowers, getFollowing,
 } = useProfiles()
 
 const { user: currentUser, isAuthenticated, uploadAvatar } = useAuth()
+
+// ─── Cover image ──────────────────────────────────────────────────────────────
+const coverFileInput = ref<HTMLInputElement | null>(null)
+const uploadingCover = ref(false)
+const coverPreview = ref<string | null>(null)
+
+const coverSrc = computed(() => {
+  if (coverPreview.value) return coverPreview.value
+  const c = profile.value?.coverImage
+  if (!c) return null
+  return c.startsWith('http') ? c : `${apiUrl}${c}`
+})
+
+async function onCoverFileSelected(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (e) => { coverPreview.value = e.target?.result as string }
+  reader.readAsDataURL(file)
+  uploadingCover.value = true
+  try {
+    await uploadCover(file)
+    coverPreview.value = null
+  } catch (err) {
+    coverPreview.value = null
+    console.error(err)
+  } finally {
+    uploadingCover.value = false
+    if (coverFileInput.value) coverFileInput.value.value = ''
+  }
+}
 
 // Layout dinámico: sin sidebar cuando no está autenticado
 const layout = computed(() => isAuthenticated.value ? 'default' : 'public')
