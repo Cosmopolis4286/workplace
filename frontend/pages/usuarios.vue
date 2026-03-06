@@ -73,6 +73,7 @@
                 <th class="text-left px-4 py-3 font-semibold text-gray-600">Usuario</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Correo</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-600">Rol</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden xl:table-cell">Categoría</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Restaurante</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-600">Estado</th>
                 <th class="text-right px-4 py-3 font-semibold text-gray-600">Acciones</th>
@@ -101,6 +102,16 @@
                   <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" :class="ROLE_BADGE_CLASSES[u.role]">
                     {{ ROLE_LABELS[u.role] }}
                   </span>
+                </td>
+                <td class="px-4 py-3 hidden xl:table-cell">
+                  <div v-if="u.category" class="flex items-center gap-1.5">
+                    <span class="text-base leading-none">{{ u.category.icon }}</span>
+                    <div>
+                      <div class="text-xs font-medium text-gray-700">{{ u.category.name }}</div>
+                      <div v-if="u.subcategory" class="text-xs text-gray-400">{{ u.subcategory.name }}</div>
+                    </div>
+                  </div>
+                  <span v-else class="text-xs text-gray-400">—</span>
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">
                   {{ u.restaurant?.name ?? '—' }}
@@ -144,7 +155,7 @@
                 </td>
               </tr>
               <tr v-if="filteredUsers.length === 0">
-                <td colspan="6" class="px-4 py-12 text-center text-gray-400">
+                <td colspan="7" class="px-4 py-12 text-center text-gray-400">
                   <svg class="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
                   </svg>
@@ -224,6 +235,29 @@
               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
           </div>
 
+          <!-- Categoría / Subcategoría -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Categoría</label>
+              <select v-model="form.categoryId" @change="form.subcategoryId = ''"
+                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="">Sin categoría</option>
+                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                  {{ cat.icon ? cat.icon + ' ' : '' }}{{ cat.name }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Subcategoría</label>
+              <select v-model="form.subcategoryId"
+                :disabled="!form.categoryId"
+                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed">
+                <option value="">Sin subcategoría</option>
+                <option v-for="sub in availableSubcategories" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
+              </select>
+            </div>
+          </div>
+
           <div v-if="formError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ formError }}</div>
 
           <div class="flex gap-3 pt-2">
@@ -276,6 +310,9 @@ definePageMeta({ middleware: 'auth' })
 
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 
+interface UserSubcategory { id: string; name: string }
+interface UserCategory    { id: string; name: string; icon?: string; subcategories: UserSubcategory[] }
+
 interface UserItem {
   id: string
   firstName: string
@@ -285,7 +322,9 @@ interface UserItem {
   role: Role
   isActive: boolean
   createdAt: string
-  restaurant?: { id: string; name: string }
+  restaurant?:   { id: string; name: string }
+  category?:     { id: string; name: string; icon?: string } | null
+  subcategory?:  { id: string; name: string } | null
 }
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -344,6 +383,14 @@ function canManage(u: UserItem): boolean {
   return !['SUPERADMIN', 'ADMIN'].includes(u.role)
 }
 
+// Categories state
+const categories = ref<UserCategory[]>([])
+
+const availableSubcategories = computed<UserSubcategory[]>(() => {
+  if (!form.value.categoryId) return []
+  return categories.value.find(c => c.id === form.value.categoryId)?.subcategories ?? []
+})
+
 // State
 const users = ref<UserItem[]>([])
 const loading = ref(false)
@@ -380,6 +427,8 @@ const form = ref({
   phone: '',
   role: 'COMMERCE' as Role,
   restaurantName: '',
+  categoryId: '',
+  subcategoryId: '',
 })
 
 // API helper
@@ -406,6 +455,12 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return res.json() as Promise<T>
 }
 
+async function loadCategories() {
+  try {
+    categories.value = await apiFetch<UserCategory[]>('/api/users/categories')
+  } catch { /* silently ignore */ }
+}
+
 async function load() {
   loading.value = true
   error.value = null
@@ -429,14 +484,24 @@ function onSearch() {
 
 function openCreate() {
   editing.value = null
-  form.value = { firstName: '', lastName: '', email: '', password: '', phone: '', role: 'COMMERCE', restaurantName: '' }
+  form.value = { firstName: '', lastName: '', email: '', password: '', phone: '', role: 'COMMERCE', restaurantName: '', categoryId: '', subcategoryId: '' }
   formError.value = null
   showModal.value = true
 }
 
 function openEdit(u: UserItem) {
   editing.value = u
-  form.value = { firstName: u.firstName, lastName: u.lastName, email: u.email, password: '', phone: u.phone ?? '', role: u.role, restaurantName: '' }
+  form.value = {
+    firstName: u.firstName,
+    lastName: u.lastName,
+    email: u.email,
+    password: '',
+    phone: u.phone ?? '',
+    role: u.role,
+    restaurantName: '',
+    categoryId: u.category?.id ?? '',
+    subcategoryId: u.subcategory?.id ?? '',
+  }
   formError.value = null
   showModal.value = true
 }
@@ -452,6 +517,8 @@ async function save() {
         email: form.value.email,
         phone: form.value.phone || undefined,
         role: form.value.role,
+        categoryId: form.value.categoryId || null,
+        subcategoryId: form.value.subcategoryId || null,
       }
       await apiFetch(`/api/users/${editing.value.id}`, { method: 'PUT', body: JSON.stringify(body) })
     } else {
@@ -463,6 +530,8 @@ async function save() {
         phone: form.value.phone || undefined,
         role: form.value.role,
         restaurantName: form.value.restaurantName || undefined,
+        categoryId: form.value.categoryId || undefined,
+        subcategoryId: form.value.subcategoryId || undefined,
       }
       await apiFetch('/api/users', { method: 'POST', body: JSON.stringify(body) })
     }
@@ -503,5 +572,8 @@ async function doDelete() {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadCategories()
+})
 </script>

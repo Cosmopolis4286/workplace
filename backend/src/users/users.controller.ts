@@ -53,6 +53,12 @@ export class UsersController {
     })
   }
 
+  @Get('categories')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  getCategories() {
+    return this.usersService.findAllCategories()
+  }
+
   @Get(':id')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   async findOne(

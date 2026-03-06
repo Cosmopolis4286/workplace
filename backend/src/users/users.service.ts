@@ -19,6 +19,8 @@ export class UsersService {
     phone?: string
     restaurantName?: string
     role?: Role
+    categoryId?: string
+    subcategoryId?: string
   }) {
     const existing = await this.prisma.user.findUnique({ where: { email: data.email } })
     if (existing) throw new ConflictException('El correo ya está registrado')
@@ -35,11 +37,13 @@ export class UsersService {
         lastName: data.lastName,
         phone: data.phone,
         role,
+        ...(data.categoryId && { categoryId: data.categoryId }),
+        ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
         ...(createRestaurant && data.restaurantName
           ? { restaurant: { create: { name: data.restaurantName } } }
           : {}),
       },
-      include: { restaurant: true },
+      include: { restaurant: true, category: true, subcategory: true },
     })
 
     const { password, ...result } = user
@@ -57,6 +61,8 @@ export class UsersService {
       phone: dto.phone,
       role: dto.role,
       restaurantName: dto.restaurantName,
+      categoryId: dto.categoryId,
+      subcategoryId: dto.subcategoryId,
     })
   }
 
@@ -93,6 +99,8 @@ export class UsersService {
           isActive: true,
           createdAt: true,
           restaurant: { select: { id: true, name: true } },
+          category:    { select: { id: true, name: true, icon: true } },
+          subcategory: { select: { id: true, name: true } },
         },
       }),
       this.prisma.user.count({ where }),
@@ -118,8 +126,10 @@ export class UsersService {
         ...(dto.phone !== undefined && { phone: dto.phone || null }),
         ...(dto.role !== undefined && { role: dto.role }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        ...(dto.categoryId !== undefined && { categoryId: dto.categoryId || null }),
+        ...(dto.subcategoryId !== undefined && { subcategoryId: dto.subcategoryId || null }),
       },
-      include: { restaurant: true },
+      include: { restaurant: true, category: true, subcategory: true },
     })
 
     const { password, ...result } = user
@@ -142,6 +152,15 @@ export class UsersService {
     await this.prisma.user.findUnique({ where: { id } })
     await this.prisma.user.delete({ where: { id } })
     return { message: 'Usuario eliminado correctamente' }
+  }
+
+  async findAllCategories() {
+    return this.prisma.userCategory.findMany({
+      orderBy: { name: 'asc' },
+      include: {
+        subcategories: { orderBy: { name: 'asc' } },
+      },
+    })
   }
 
   async findByEmail(email: string) {

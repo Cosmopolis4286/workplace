@@ -1,11 +1,17 @@
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
+import { PrismaClient } from '@prisma/client'
 import { AppModule } from './app.module'
 import { AuditInterceptor } from './audit/audit.interceptor'
 import { AuditService } from './audit/audit.service'
+import { AuditLogger } from './audit/audit.logger'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { logger: ['log', 'error', 'warn', 'debug'] })
+  // Instantiate a dedicated PrismaClient for the logger (pre-DI)
+  const loggerPrisma = new PrismaClient()
+  const auditLogger = new AuditLogger(loggerPrisma)
+
+  const app = await NestFactory.create(AppModule, { logger: auditLogger })
 
   const isDev = process.env.NODE_ENV !== 'production'
   app.enableCors({

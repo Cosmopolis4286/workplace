@@ -30,4 +30,12 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   restaurantName?: string
+
+  @IsString()
+  @IsOptional()
+  categoryId?: string
+
+  @IsString()
+  @IsOptional()
+  subcategoryId?: string
 }
