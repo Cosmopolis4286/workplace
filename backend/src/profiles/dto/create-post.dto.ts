@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsOptional, IsString, IsUrl, MaxLength, ValidateNested } from 'class-validator'
+import { IsArray, IsEnum, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
 
 export enum PostMediaTypeDto {
@@ -7,7 +7,7 @@ export enum PostMediaTypeDto {
 }
 
 export class PostMediaItemDto {
-  @IsUrl({}, { message: 'URL de media inválida' })
+  @IsString()
   url: string
 
   @IsEnum(PostMediaTypeDto)
