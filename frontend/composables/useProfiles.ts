@@ -98,11 +98,12 @@ export function useProfiles() {
   async function uploadMedia(files: File[]): Promise<{ url: string; type: 'IMAGE' | 'VIDEO' }[]> {
     const form = new FormData()
     files.forEach(f => form.append('files', f))
-    const res = await $fetch<{ files: { url: string; type: string }[] }>(
+    const res = await $fetch<{ files: { url: string; type: string; originalName?: string; size?: number }[] }>(
       `${apiUrl}/api/profiles/posts/upload`,
       { method: 'POST', headers: getHeaders(), body: form },
     )
-    return res.files as { url: string; type: 'IMAGE' | 'VIDEO' }[]
+    // Solo pasar url y type al DTO (forbidNonWhitelisted=true en el backend)
+    return res.files.map(f => ({ url: f.url, type: f.type as 'IMAGE' | 'VIDEO' }))
   }
 
   async function createPost(caption: string, mediaItems: { url: string; type: 'IMAGE' | 'VIDEO' }[]) {
