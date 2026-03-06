@@ -187,92 +187,121 @@
     </div>
 
     <!-- Modal crear/editar usuario -->
-    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div class="p-6 border-b border-gray-100">
-          <h2 class="text-lg font-bold text-gray-800">{{ editing ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" @click.self="showModal = false">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+            <!-- Header fijo -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+              <div>
+                <h2 class="text-base font-bold text-gray-800">{{ editing ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
+                <p class="text-xs text-gray-400 mt-0.5">{{ editing ? 'Modifica los datos del usuario' : 'Completa los datos para crear la cuenta' }}</p>
+              </div>
+              <button @click="showModal = false" class="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Body con scroll -->
+            <form id="user-form" @submit.prevent="save" class="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
+                  <input v-model="form.firstName" required type="text"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"/>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Apellido <span class="text-red-500">*</span></label>
+                  <input v-model="form.lastName" required type="text"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"/>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Correo electrónico <span class="text-red-500">*</span></label>
+                <input v-model="form.email" required type="email"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"/>
+              </div>
+
+              <div v-if="!editing">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Contraseña <span class="text-red-500">*</span></label>
+                <input v-model="form.password" required type="password" minlength="8"
+                  placeholder="Mínimo 8 caracteres"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"/>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Teléfono <span class="text-gray-300">(opcional)</span></label>
+                <input v-model="form.phone" type="tel"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"/>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Rol <span class="text-red-500">*</span></label>
+                <select v-model="form.role" required
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white">
+                  <option v-for="r in creatableRoles" :key="r.value" :value="r.value">{{ r.label }}</option>
+                </select>
+              </div>
+
+              <div v-if="form.role === 'COMMERCE' && !editing">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Nombre del restaurante <span class="text-gray-300">(opcional)</span></label>
+                <input v-model="form.restaurantName" type="text"
+                  placeholder="Se puede configurar después"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"/>
+              </div>
+
+              <!-- Categoría / Subcategoría -->
+              <div class="p-4 bg-gray-50 rounded-xl space-y-3">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clasificación del perfil</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Categoría</label>
+                    <select v-model="form.categoryId" @change="form.subcategoryId = ''"
+                      class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white">
+                      <option value="">Sin categoría</option>
+                      <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                        {{ cat.icon ? cat.icon + ' ' : '' }}{{ cat.name }}
+                      </option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Subcategoría</label>
+                    <select v-model="form.subcategoryId"
+                      :disabled="!form.categoryId"
+                      class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed">
+                      <option value="">Sin subcategoría</option>
+                      <option v-for="sub in availableSubcategories" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="formError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs flex items-start gap-2">
+                <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                {{ formError }}
+              </div>
+            </form>
+
+            <!-- Footer fijo -->
+            <div class="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+              <button type="button" @click="showModal = false"
+                class="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancelar
+              </button>
+              <button type="submit" form="user-form" :disabled="saving"
+                class="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                {{ saving ? 'Guardando...' : (editing ? 'Guardar cambios' : 'Crear usuario') }}
+              </button>
+            </div>
+          </div>
         </div>
-        <form @submit.prevent="save" class="p-6 space-y-4">
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
-              <input v-model="form.firstName" required type="text"
-                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Apellido</label>
-              <input v-model="form.lastName" required type="text"
-                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Correo electrónico</label>
-            <input v-model="form.email" required type="email"
-              class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-          </div>
-          <div v-if="!editing">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Contraseña</label>
-            <input v-model="form.password" required type="password" minlength="8"
-              placeholder="Mínimo 8 caracteres"
-              class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Teléfono (opcional)</label>
-            <input v-model="form.phone" type="tel"
-              class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Rol</label>
-            <select v-model="form.role" required
-              class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option v-for="r in creatableRoles" :key="r.value" :value="r.value">{{ r.label }}</option>
-            </select>
-          </div>
-          <div v-if="form.role === 'COMMERCE' && !editing">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Nombre del restaurante</label>
-            <input v-model="form.restaurantName" type="text"
-              placeholder="Opcional — se puede configurar después"
-              class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-          </div>
-
-          <!-- Categoría / Subcategoría -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Categoría</label>
-              <select v-model="form.categoryId" @change="form.subcategoryId = ''"
-                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="">Sin categoría</option>
-                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                  {{ cat.icon ? cat.icon + ' ' : '' }}{{ cat.name }}
-                </option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Subcategoría</label>
-              <select v-model="form.subcategoryId"
-                :disabled="!form.categoryId"
-                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed">
-                <option value="">Sin subcategoría</option>
-                <option v-for="sub in availableSubcategories" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
-              </select>
-            </div>
-          </div>
-
-          <div v-if="formError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ formError }}</div>
-
-          <div class="flex gap-3 pt-2">
-            <button type="button" @click="showModal = false"
-              class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-              Cancelar
-            </button>
-            <button type="submit" :disabled="saving"
-              class="flex-1 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
-              {{ saving ? 'Guardando...' : (editing ? 'Guardar cambios' : 'Crear usuario') }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </Transition>
+    </Teleport>
 
     <!-- Modal confirmar eliminación -->
     <div v-if="deleteTarget" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -577,3 +606,10 @@ onMounted(() => {
   loadCategories()
 })
 </script>
+
+<style scoped>
+.modal-fade-enter-active,
+.modal-fade-leave-active { transition: opacity 0.2s ease; }
+.modal-fade-enter-from,
+.modal-fade-leave-to { opacity: 0; }
+</style>
