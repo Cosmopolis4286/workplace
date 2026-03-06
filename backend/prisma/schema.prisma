@@ -21,8 +21,13 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  restaurant Restaurant?
+  restaurant    Restaurant?
   refreshTokens RefreshToken[]
+  posts         Post[]
+  following     Follow[]   @relation("UserFollowing")
+  followers     Follow[]   @relation("UserFollowers")
+  reviewsGiven  Review[]   @relation("ReviewsGiven")
+  reviewsReceived Review[] @relation("ReviewsReceived")
 
   @@map("users")
 }
@@ -524,6 +529,66 @@ model Branch {
 
   @@unique([name, restaurantId])
   @@map("branches")
+}
+
+// ─── Social / Profiles ────────────────────────────────────────────────────────
+
+enum PostMediaType {
+  IMAGE
+  VIDEO
+}
+
+model Post {
+  id         String      @id @default(uuid())
+  caption    String?
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media      PostMedia[]
+  likesCount Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("posts")
+}
+
+model PostMedia {
+  id     String        @id @default(uuid())
+  postId String
+  post   Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url    String
+  type   PostMediaType @default(IMAGE)
+  order  Int           @default(0)
+
+  @@map("post_media")
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int
+  comment   String?
+  authorId  String
+  author    User     @relation("ReviewsGiven", fields: [authorId], references: [id], onDelete: Cascade)
+  targetId  String
+  target    User     @relation("ReviewsReceived", fields: [targetId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([authorId, targetId])
+  @@index([targetId])
+  @@map("reviews")
 }
 
 // ─── Permission Matrix ────────────────────────────────────────────────────────

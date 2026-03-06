@@ -422,14 +422,18 @@
     <!-- Footer — fijo abajo -->
     <div class="flex-shrink-0 px-4 py-3 border-t border-gray-200/20">
       <div class="flex items-center space-x-3">
-        <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-          <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+        <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+          <img v-if="user?.avatar" :src="user.avatar.startsWith('http') ? user.avatar : `${$config?.public?.apiUrl ?? ''}${user.avatar}`" class="w-full h-full object-cover">
+          <svg v-else class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
           </svg>
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-gray-900 truncate">{{ user?.firstName }} {{ user?.lastName }}</p>
-          <p class="text-xs text-gray-500 truncate">{{ user?.role }}</p>
+          <p v-if="user?.username && (isCommerce || role === 'FREELANCER')" class="text-xs text-ifood-red truncate">
+            <NuxtLink :to="`/p/${user.username}`" class="hover:underline">@{{ user.username }}</NuxtLink>
+          </p>
+          <p v-else class="text-xs text-gray-500 truncate">{{ user?.role }}</p>
         </div>
       </div>
     </div>

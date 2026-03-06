@@ -73,6 +73,20 @@
             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold" :class="roleStyle.badge">
               {{ roleStyle.label }}
             </span>
+            <div v-if="auth.user.value?.username && (isCommerce || auth.user.value?.role === 'FREELANCER')" class="mt-3">
+              <NuxtLink
+                :to="`/p/${auth.user.value.username}`"
+                class="inline-flex items-center gap-1.5 text-sm text-ifood-red hover:underline font-medium"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+                Ver perfil público
+              </NuxtLink>
+            </div>
+            <p v-else-if="isCommerce || auth.user.value?.role === 'FREELANCER'" class="mt-2 text-xs text-gray-400">
+              Define un <span class="font-medium">@username</span> para activar tu perfil público
+            </p>
           </div>
 
           <div class="mt-6 pt-6 border-t border-gray-200 space-y-3">
