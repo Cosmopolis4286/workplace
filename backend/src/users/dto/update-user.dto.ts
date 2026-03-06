@@ -25,4 +25,12 @@ export class UpdateUserDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean
+
+  @IsString()
+  @IsOptional()
+  categoryId?: string | null
+
+  @IsString()
+  @IsOptional()
+  subcategoryId?: string | null
 }
