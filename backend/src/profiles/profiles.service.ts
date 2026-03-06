@@ -28,6 +28,7 @@ export class ProfilesService {
         firstName: true,
         lastName: true,
         avatar: true,
+        coverImage: true,
         role: true,
         restaurant: { select: { id: true, name: true, type: true } },
         _count: {
@@ -66,6 +67,7 @@ export class ProfilesService {
       firstName: user.firstName,
       lastName: user.lastName,
       avatar: user.avatar,
+      coverImage: user.coverImage,
       role: user.role,
       restaurant: user.restaurant,
       followersCount: user._count.followers,
@@ -277,6 +279,17 @@ export class ProfilesService {
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  // ─── Cover image ──────────────────────────────────────────────────────────
+
+  async updateCoverImage(userId: string, coverUrl: string) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { coverImage: coverUrl },
+      select: { id: true, coverImage: true },
+    })
+    return user
+  }
 
   private async findSocialUser(username: string) {
     const user = await this.prisma.user.findUnique({ where: { username } })
