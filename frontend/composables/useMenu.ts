@@ -7,7 +7,7 @@ export interface Category {
   id: string
   name: string
   color: string
-  restaurantId: string
+  commerceId: string
   _count?: { products: number }
 }
 
@@ -29,7 +29,7 @@ export interface Product {
   allergens: string[]
   categoryId: string
   category: { id: string; name: string; color: string }
-  restaurantId: string
+  commerceId: string
 }
 
 // Estado global compartido

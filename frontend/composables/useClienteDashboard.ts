@@ -53,7 +53,7 @@ export interface Order {
   customer?: { id: string; name: string; segment: string; totalOrders?: number }
   items: OrderItem[]
   itemCount?: number
-  restaurantId: string
+  commerceId: string
   createdAt: string
   updatedAt: string
 }

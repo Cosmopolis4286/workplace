@@ -28,15 +28,17 @@ model User {
   category      UserCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   subcategory   UserSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
 
-  restaurant    Restaurant?
+  commerce    Restaurant?
   refreshTokens RefreshToken[]
   posts         Post[]
   following     Follow[]   @relation("UserFollowing")
   followers     Follow[]   @relation("UserFollowers")
   reviewsGiven  Review[]   @relation("ReviewsGiven")
   reviewsReceived Review[] @relation("ReviewsReceived")
-  services      Service[]
-  catalogOrders CatalogOrder[]
+  services         Service[]
+  catalogOrders    CatalogOrder[]
+  serviceRequests  ServiceRequest[]
+  notifications    Notification[]
 
   @@map("users")
 }
@@ -97,8 +99,8 @@ model Restaurant {
 
 model RestaurantSettings {
   id           String @id @default(uuid())
-  restaurantId String @unique
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId String @unique
+  commerce   Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
 
   // Payment
   currency     String  @default("MXN")
@@ -135,14 +137,14 @@ model Customer {
   totalOrders  Int             @default(0)
   totalSpent   Float           @default(0)
   isActive     Boolean         @default(true)
-  restaurantId String
-  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId String
+  commerce   Restaurant      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   appointments Appointment[]
   orders       Order[]
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
-  @@unique([email, restaurantId])
+  @@unique([email, commerceId])
   @@map("customers")
 }
 
@@ -157,8 +159,8 @@ model Appointment {
   tableNumber  Int?
   notes        String?
   status       AppointmentStatus @default(PENDIENTE)
-  restaurantId String
-  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId String
+  commerce   Restaurant        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
@@ -196,13 +198,13 @@ model Category {
   id           String    @id @default(uuid())
   name         String
   color        String    @default("#6b7280")
-  restaurantId String
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId String
+  commerce   Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   products     Product[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  @@unique([name, restaurantId])
+  @@unique([name, commerceId])
   @@map("categories")
 }
 
@@ -224,8 +226,8 @@ model Product {
   allergens       String[]
   categoryId      String
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  restaurantId    String
-  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId    String
+  commerce      Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -286,8 +288,8 @@ model Driver {
   isActive     Boolean      @default(true)
   rating       Float        @default(5.0)
   totalDeliveries Int       @default(0)
-  restaurantId String
-  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId String
+  commerce   Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   deliveries   Delivery[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -310,8 +312,8 @@ model Delivery {
   deliveredAt     DateTime?
   driverId        String?
   driver          Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  restaurantId    String
-  restaurant      Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId    String
+  commerce      Restaurant     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -373,8 +375,8 @@ model Order {
   cancelReason    String?
   customerId      String?
   customer        Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  restaurantId    String
-  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId    String
+  commerce      Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   items           OrderItem[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -419,12 +421,16 @@ model Notification {
   color        String           @default("gray")
   link         String?
   metadata     Json?
-  restaurantId String
-  restaurant   Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId String?
+  commerce   Restaurant?      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime         @default(now())
 
-  @@index([restaurantId, createdAt(sort: Desc)])
-  @@index([restaurantId, read])
+  @@index([commerceId, createdAt(sort: Desc)])
+  @@index([commerceId, read])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, read])
   @@map("notifications")
 }
 
@@ -455,13 +461,13 @@ model ExpenseCategory {
   name         String
   color        String    @default("#6b7280")
   budget       Float     @default(0)
-  restaurantId String
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId String
+  commerce   Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   expenses     Expense[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  @@unique([name, restaurantId])
+  @@unique([name, commerceId])
   @@map("expense_categories")
 }
 
@@ -478,8 +484,8 @@ model Expense {
   notes         String?
   categoryId    String?
   category      ExpenseCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  restaurantId  String
-  restaurant    Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId  String
+  commerce    Restaurant           @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
@@ -524,12 +530,12 @@ model Employee {
   emergencyPhone   String?
   notes            String?
   isActive         Boolean        @default(true)
-  restaurantId     String
-  restaurant       Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId     String
+  commerce       Restaurant     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
-  @@unique([email, restaurantId])
+  @@unique([email, commerceId])
   @@map("employees")
 }
 
@@ -554,12 +560,12 @@ model Branch {
   status       BranchStatus @default(ACTIVA)
   color        String       @default("#6b7280")
   notes        String?
-  restaurantId String
-  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  commerceId String
+  commerce   Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  @@unique([name, restaurantId])
+  @@unique([name, commerceId])
   @@map("branches")
 }
 
@@ -715,7 +721,7 @@ model CatalogOrder {
   id               String              @id @default(uuid())
   productId        String
   productName      String
-  restaurantId     String
+  commerceId     String
   restaurantName   String
   quantity         Int                 @default(1)
   deliveryType     CatalogDeliveryType @default(DOMICILIO)
@@ -731,7 +737,7 @@ model CatalogOrder {
   requester        User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   createdAt        DateTime            @default(now())
 
-  @@index([restaurantId])
+  @@index([commerceId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("catalog_orders")
@@ -779,6 +785,49 @@ model Service {
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("services")
+  serviceRequests ServiceRequest[]
+}
+
+enum ServiceRequestStatus {
+  PENDIENTE
+  VISTO
+  CONTACTADO
+  CERRADO
+}
+
+enum ServiceRequestModality {
+  PRESENCIAL
+  REMOTO
+  CUALQUIERA
+}
+
+model ServiceRequest {
+  id           String                 @id @default(uuid())
+  serviceId    String
+  service      Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceName  String
+  providerId   String
+  providerName String
+  modality     ServiceRequestModality @default(CUALQUIERA)
+  preferredDate DateTime
+  address      String?
+  city         String?
+  clientName   String
+  clientPhone  String
+  clientEmail  String?
+  description  String?
+  price        Float?
+  priceUnit    String?
+  status       ServiceRequestStatus   @default(PENDIENTE)
+  requesterId  String?
+  requester    User?                  @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  createdAt    DateTime               @default(now())
+
+  @@index([serviceId])
+  @@index([providerId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("service_requests")
 }
 
 model SystemLog {

@@ -26,7 +26,7 @@ export interface Expense {
   notes?: string
   categoryId?: string
   category?: ExpenseCategoryMin
-  restaurantId: string
+  commerceId: string
   createdAt: string
   updatedAt: string
 }
@@ -36,7 +36,7 @@ export interface ExpenseCategory {
   name: string
   color: string
   budget: number
-  restaurantId: string
+  commerceId: string
   _count?: { expenses: number }
   createdAt: string
   updatedAt: string

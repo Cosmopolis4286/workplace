@@ -8,6 +8,7 @@ import { CreateServiceDto } from './dto/create-service.dto'
 import { UpdateServiceDto } from './dto/update-service.dto'
 import { QueryServicesDto } from './dto/query-services.dto'
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto'
+import { CreateServiceRequestDto } from './dto/create-service-request.dto'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
@@ -74,6 +75,38 @@ export class ServicesController {
   @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.deleteService(id, user.id)
+  }
+
+  // ─── Service Requests ─────────────────────────────────────────────────────
+
+  @Post('requests')
+  @UseGuards(OptionalJwtAuthGuard)
+  createRequest(@Body() dto: CreateServiceRequestDto, @CurrentUser() user: any) {
+    return this.servicesService.createServiceRequest(dto, user?.id)
+  }
+
+  @Get('requests/mine')
+  @UseGuards(JwtAuthGuard)
+  getMyRequests(
+    @CurrentUser() user: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.servicesService.getMyServiceRequests(
+      user.id,
+      parseInt(page ?? '1'),
+      parseInt(limit ?? '20'),
+    )
+  }
+
+  @Patch('requests/:id/status')
+  @UseGuards(JwtAuthGuard)
+  updateRequestStatus(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body('status') status: string,
+  ) {
+    return this.servicesService.updateServiceRequestStatus(id, user.id, status)
   }
 
   // ─── Categories (admin) ───────────────────────────────────────────────────

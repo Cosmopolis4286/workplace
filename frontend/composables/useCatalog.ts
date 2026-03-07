@@ -23,19 +23,19 @@ export interface CatalogProduct {
   unit?: string
   status: string
   category: { id: string; name: string; color: string }
-  restaurant: { id: string; name: string; type: string | null; user?: { username: string | null } }
+  commerce: { id: string; name: string; type: string | null; user?: { username: string | null } }
 }
 
 export interface CatalogProductDetail extends CatalogProduct {
   ingredients: string[]
   allergens: string[]
-  restaurant: { id: string; name: string; type: string | null; address?: string; phone?: string; user?: { username: string | null } }
+  commerce: { id: string; name: string; type: string | null; address?: string; phone?: string; user?: { username: string | null } }
 }
 
 export interface CatalogQuery {
   search: string
   categoryName: string
-  restaurantId: string
+  commerceId: string
   page: number
   limit: number
   sort: 'relevance' | 'price_asc' | 'price_desc' | 'name'
@@ -55,7 +55,7 @@ const totalPages = ref(0)
 const query = ref<CatalogQuery>({
   search: '',
   categoryName: '',
-  restaurantId: '',
+  commerceId: '',
   page: 1,
   limit: 20,
   sort: 'relevance',
@@ -134,7 +134,7 @@ export const useCatalog = () => {
       const params = new URLSearchParams()
       if (q.search) params.set('search', q.search)
       if (q.categoryName) params.set('categoryName', q.categoryName)
-      if (q.restaurantId) params.set('restaurantId', q.restaurantId)
+      if (q.commerceId) params.set('commerceId', q.commerceId)
       params.set('page', String(q.page))
       params.set('limit', String(q.limit))
       params.set('sort', q.sort)
@@ -184,7 +184,7 @@ export const useCatalog = () => {
   }
 
   function filterByRestaurant(id: string) {
-    query.value.restaurantId = query.value.restaurantId === id ? '' : id
+    query.value.commerceId = query.value.commerceId === id ? '' : id
     query.value.page = 1
     loadProducts()
   }
@@ -202,7 +202,7 @@ export const useCatalog = () => {
   }
 
   function resetFilters() {
-    query.value = { search: '', categoryName: '', restaurantId: '', page: 1, limit: 20, sort: 'relevance' }
+    query.value = { search: '', categoryName: '', commerceId: '', page: 1, limit: 20, sort: 'relevance' }
     loadProducts()
   }
 

@@ -209,7 +209,7 @@ const avatarUrl = computed(() => {
 
 const userEmail = computed(() => user.value?.email ?? '')
 
-const commerceName = computed(() => user.value?.restaurant?.name ?? '')
+const commerceName = computed(() => user.value?.commerce?.name ?? '')
 
 const ROLE_LABELS = {
   SUPERADMIN: 'Super Admin',

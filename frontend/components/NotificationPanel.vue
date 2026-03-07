@@ -273,10 +273,10 @@ let stopWatch: (() => void) | null = null
 onMounted(async () => {
   document.addEventListener('click', handleClickOutside)
 
-  const restaurantId = restaurant.value?.id
-  if (restaurantId) {
+  const commerceId = restaurant.value?.id
+  if (commerceId) {
     try {
-      await init(restaurantId)
+      await init(commerceId)
       wsOffline.value = false
     } catch {
       wsOffline.value = true

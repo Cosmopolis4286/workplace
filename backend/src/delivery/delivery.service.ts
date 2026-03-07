@@ -38,24 +38,24 @@ export class DeliveryService {
     return restaurant.id
   }
 
-  private async assertDriverOwnership(driverId: string, restaurantId: string) {
+  private async assertDriverOwnership(driverId: string, commerceId: string) {
     const driver = await this.prisma.driver.findUnique({ where: { id: driverId } })
     if (!driver) throw new NotFoundException('Repartidor no encontrado')
-    if (driver.restaurantId !== restaurantId) throw new ForbiddenException('Acceso denegado')
+    if (driver.commerceId !== commerceId) throw new ForbiddenException('Acceso denegado')
     return driver
   }
 
-  private async assertDeliveryOwnership(deliveryId: string, restaurantId: string) {
+  private async assertDeliveryOwnership(deliveryId: string, commerceId: string) {
     const delivery = await this.prisma.delivery.findUnique({ where: { id: deliveryId } })
     if (!delivery) throw new NotFoundException('Entrega no encontrada')
-    if (delivery.restaurantId !== restaurantId) throw new ForbiddenException('Acceso denegado')
+    if (delivery.commerceId !== commerceId) throw new ForbiddenException('Acceso denegado')
     return delivery
   }
 
   // ─── Stats ────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
     const todayStart = startOfDay(new Date())
     const todayEnd = endOfDay(new Date())
 
@@ -70,32 +70,32 @@ export class DeliveryService {
     ] = await Promise.all([
       this.prisma.delivery.count({
         where: {
-          restaurantId,
+          commerceId,
           status: { in: [DeliveryStatus.ASIGNADO, DeliveryStatus.RECOGIENDO, DeliveryStatus.EN_CAMINO] },
         },
       }),
       this.prisma.delivery.count({
-        where: { restaurantId, createdAt: { gte: todayStart, lte: todayEnd } },
+        where: { commerceId, createdAt: { gte: todayStart, lte: todayEnd } },
       }),
-      this.prisma.driver.count({ where: { restaurantId, isActive: true } }),
+      this.prisma.driver.count({ where: { commerceId, isActive: true } }),
       this.prisma.driver.count({
-        where: { restaurantId, isActive: true, status: DriverStatus.DISPONIBLE },
+        where: { commerceId, isActive: true, status: DriverStatus.DISPONIBLE },
       }),
       this.prisma.delivery.count({
-        where: { restaurantId, status: DeliveryStatus.ENTREGADO, deliveredAt: { gte: todayStart, lte: todayEnd } },
+        where: { commerceId, status: DeliveryStatus.ENTREGADO, deliveredAt: { gte: todayStart, lte: todayEnd } },
       }),
       this.prisma.delivery.count({
-        where: { restaurantId, status: DeliveryStatus.PENDIENTE },
+        where: { commerceId, status: DeliveryStatus.PENDIENTE },
       }),
       this.prisma.delivery.count({
-        where: { restaurantId, status: DeliveryStatus.CANCELADO, updatedAt: { gte: todayStart, lte: todayEnd } },
+        where: { commerceId, status: DeliveryStatus.CANCELADO, updatedAt: { gte: todayStart, lte: todayEnd } },
       }),
     ])
 
     // Average delivery time for today's completed deliveries
     const completedToday = await this.prisma.delivery.findMany({
       where: {
-        restaurantId,
+        commerceId,
         status: DeliveryStatus.ENTREGADO,
         deliveredAt: { gte: todayStart, lte: todayEnd },
         pickedUpAt: { not: null },
@@ -127,9 +127,9 @@ export class DeliveryService {
   // ─── Drivers CRUD ─────────────────────────────────────────────────────────
 
   async findAllDrivers(userId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
     return this.prisma.driver.findMany({
-      where: { restaurantId, isActive: true },
+      where: { commerceId, isActive: true },
       include: {
         _count: {
           select: {
@@ -146,19 +146,19 @@ export class DeliveryService {
   }
 
   async createDriver(userId: string, dto: CreateDriverDto) {
-    const restaurantId = await this.getRestaurantId(userId)
-    return this.prisma.driver.create({ data: { ...dto, restaurantId } })
+    const commerceId = await this.getRestaurantId(userId)
+    return this.prisma.driver.create({ data: { ...dto, commerceId } })
   }
 
   async updateDriver(userId: string, driverId: string, dto: UpdateDriverDto) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertDriverOwnership(driverId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertDriverOwnership(driverId, commerceId)
     return this.prisma.driver.update({ where: { id: driverId }, data: dto })
   }
 
   async removeDriver(userId: string, driverId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    const driver = await this.assertDriverOwnership(driverId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    const driver = await this.assertDriverOwnership(driverId, commerceId)
     // Soft delete: mark as inactive
     return this.prisma.driver.update({
       where: { id: driver.id },
@@ -167,18 +167,18 @@ export class DeliveryService {
   }
 
   async updateDriverStatus(userId: string, driverId: string, status: DriverStatus) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertDriverOwnership(driverId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertDriverOwnership(driverId, commerceId)
     return this.prisma.driver.update({ where: { id: driverId }, data: { status } })
   }
 
   // ─── Deliveries CRUD ──────────────────────────────────────────────────────
 
   async findAllDeliveries(userId: string, query: QueryDeliveriesDto) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
     const { status, driverId, dateFrom, dateTo, page = 1, limit = 50 } = query
 
-    const where: Record<string, unknown> = { restaurantId }
+    const where: Record<string, unknown> = { commerceId }
     if (status) where.status = status
     if (driverId) where.driverId = driverId
     if (dateFrom || dateTo) {
@@ -202,8 +202,8 @@ export class DeliveryService {
   }
 
   async findOneDelivery(userId: string, deliveryId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertDeliveryOwnership(deliveryId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertDeliveryOwnership(deliveryId, commerceId)
     return this.prisma.delivery.findUnique({
       where: { id: deliveryId },
       include: { driver: true },
@@ -211,16 +211,16 @@ export class DeliveryService {
   }
 
   async createDelivery(userId: string, dto: CreateDeliveryDto) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
 
     if (dto.driverId) {
       const driver = await this.prisma.driver.findUnique({ where: { id: dto.driverId } })
-      if (!driver || driver.restaurantId !== restaurantId)
+      if (!driver || driver.commerceId !== commerceId)
         throw new BadRequestException('Repartidor no encontrado en este restaurante')
     }
 
     const delivery = await this.prisma.delivery.create({
-      data: { ...dto, restaurantId, status: dto.status ?? DeliveryStatus.PENDIENTE },
+      data: { ...dto, commerceId, status: dto.status ?? DeliveryStatus.PENDIENTE },
       include: { driver: { select: { id: true, name: true, vehicleType: true, vehicleModel: true, phone: true, status: true } } },
     })
 
@@ -236,12 +236,12 @@ export class DeliveryService {
   }
 
   async updateDelivery(userId: string, deliveryId: string, dto: UpdateDeliveryDto) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertDeliveryOwnership(deliveryId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertDeliveryOwnership(deliveryId, commerceId)
 
     if (dto.driverId) {
       const driver = await this.prisma.driver.findUnique({ where: { id: dto.driverId } })
-      if (!driver || driver.restaurantId !== restaurantId)
+      if (!driver || driver.commerceId !== commerceId)
         throw new BadRequestException('Repartidor no encontrado en este restaurante')
     }
 
@@ -253,14 +253,14 @@ export class DeliveryService {
   }
 
   async removeDelivery(userId: string, deliveryId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertDeliveryOwnership(deliveryId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertDeliveryOwnership(deliveryId, commerceId)
     await this.prisma.delivery.delete({ where: { id: deliveryId } })
   }
 
   async updateDeliveryStatus(userId: string, deliveryId: string, status: DeliveryStatus) {
-    const restaurantId = await this.getRestaurantId(userId)
-    const delivery = await this.assertDeliveryOwnership(deliveryId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    const delivery = await this.assertDeliveryOwnership(deliveryId, commerceId)
 
     const data: Record<string, unknown> = { status }
 
@@ -294,18 +294,18 @@ export class DeliveryService {
     })
 
     this.notifications
-      .notifyDeliveryStatusChange(restaurantId, delivery.orderNumber, status)
+      .notifyDeliveryStatusChange(commerceId, delivery.orderNumber, status)
       .catch(() => null)
 
     return updated
   }
 
   async assignDriver(userId: string, deliveryId: string, driverId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertDeliveryOwnership(deliveryId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertDeliveryOwnership(deliveryId, commerceId)
 
     const driver = await this.prisma.driver.findUnique({ where: { id: driverId } })
-    if (!driver || driver.restaurantId !== restaurantId)
+    if (!driver || driver.commerceId !== commerceId)
       throw new BadRequestException('Repartidor no encontrado en este restaurante')
     if (!driver.isActive)
       throw new BadRequestException('El repartidor no está activo')

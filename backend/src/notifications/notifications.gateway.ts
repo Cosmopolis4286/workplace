@@ -42,20 +42,20 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         secret: this.config.get<string>('JWT_SECRET'),
       })
 
-      // Lookup the restaurant for this user
+      // Always join user room for direct notifications
+      client.data.userId = payload.sub
+      await client.join(`user:${payload.sub}`)
+
+      // Also join restaurant room if the user has one
       const restaurant = await this.prisma.restaurant.findUnique({
         where: { userId: payload.sub },
         select: { id: true },
       })
 
-      if (!restaurant) {
-        client.disconnect()
-        return
+      if (restaurant) {
+        client.data.commerceId = restaurant.id
+        await client.join(`restaurant:${restaurant.id}`)
       }
-
-      client.data.restaurantId = restaurant.id
-      // Join scoped room so we can broadcast per-restaurant
-      await client.join(`restaurant:${restaurant.id}`)
     } catch {
       client.disconnect()
     }
@@ -67,17 +67,21 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
   // ── Events from client ────────────────────────────────────────────────────
   @SubscribeMessage('join')
-  handleJoin(@ConnectedSocket() client: Socket, @MessageBody() data: { restaurantId: string }) {
-    client.join(`restaurant:${data.restaurantId}`)
-    return { event: 'joined', data: { restaurantId: data.restaurantId } }
+  handleJoin(@ConnectedSocket() client: Socket, @MessageBody() data: { commerceId: string }) {
+    client.join(`restaurant:${data.commerceId}`)
+    return { event: 'joined', data: { commerceId: data.commerceId } }
   }
 
   // ── Broadcast helpers ─────────────────────────────────────────────────────
-  broadcast(restaurantId: string, notification: any) {
-    this.server.to(`restaurant:${restaurantId}`).emit('notification', notification)
+  broadcast(commerceId: string, notification: any) {
+    this.server.to(`restaurant:${commerceId}`).emit('notification', notification)
   }
 
-  broadcastUnreadCount(restaurantId: string, count: number) {
-    this.server.to(`restaurant:${restaurantId}`).emit('unread_count', { count })
+  broadcastToUser(userId: string, notification: any) {
+    this.server.to(`user:${userId}`).emit('notification', notification)
+  }
+
+  broadcastUnreadCount(commerceId: string, count: number) {
+    this.server.to(`restaurant:${commerceId}`).emit('unread_count', { count })
   }
 }

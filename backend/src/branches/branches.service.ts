@@ -24,24 +24,24 @@ export class BranchesService {
     return restaurant.id
   }
 
-  private async assertOwnership(branchId: string, restaurantId: string) {
+  private async assertOwnership(branchId: string, commerceId: string) {
     const branch = await this.prisma.branch.findUnique({ where: { id: branchId } })
     if (!branch) throw new NotFoundException('Sucursal no encontrada')
-    if (branch.restaurantId !== restaurantId) throw new ForbiddenException('Acceso denegado')
+    if (branch.commerceId !== commerceId) throw new ForbiddenException('Acceso denegado')
     return branch
   }
 
   // ─── Stats ──────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
 
     const [total, active, byStatusRaw] = await Promise.all([
-      this.prisma.branch.count({ where: { restaurantId } }),
-      this.prisma.branch.count({ where: { restaurantId, status: BranchStatus.ACTIVA } }),
+      this.prisma.branch.count({ where: { commerceId } }),
+      this.prisma.branch.count({ where: { commerceId, status: BranchStatus.ACTIVA } }),
       this.prisma.branch.groupBy({
         by: ['status'],
-        where: { restaurantId },
+        where: { commerceId },
         _count: { status: true },
       }),
     ])
@@ -56,38 +56,38 @@ export class BranchesService {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   async findAll(userId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
     return this.prisma.branch.findMany({
-      where: { restaurantId },
+      where: { commerceId },
       orderBy: { name: 'asc' },
     })
   }
 
   async findOne(userId: string, branchId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    return this.assertOwnership(branchId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    return this.assertOwnership(branchId, commerceId)
   }
 
   async create(userId: string, dto: CreateBranchDto) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
 
     const exists = await this.prisma.branch.findUnique({
-      where: { name_restaurantId: { name: dto.name, restaurantId } },
+      where: { name_commerceId: { name: dto.name, commerceId } },
     })
     if (exists) throw new ConflictException('Ya existe una sucursal con ese nombre')
 
     return this.prisma.branch.create({
-      data: { ...dto, restaurantId },
+      data: { ...dto, commerceId },
     })
   }
 
   async update(userId: string, branchId: string, dto: UpdateBranchDto) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertOwnership(branchId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertOwnership(branchId, commerceId)
 
     if (dto.name) {
       const exists = await this.prisma.branch.findUnique({
-        where: { name_restaurantId: { name: dto.name, restaurantId } },
+        where: { name_commerceId: { name: dto.name, commerceId } },
       })
       if (exists && exists.id !== branchId)
         throw new ConflictException('Ya existe una sucursal con ese nombre')
@@ -100,14 +100,14 @@ export class BranchesService {
   }
 
   async remove(userId: string, branchId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertOwnership(branchId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertOwnership(branchId, commerceId)
     await this.prisma.branch.delete({ where: { id: branchId } })
   }
 
   async updateStatus(userId: string, branchId: string, status: BranchStatus) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertOwnership(branchId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertOwnership(branchId, commerceId)
     return this.prisma.branch.update({
       where: { id: branchId },
       data: { status },

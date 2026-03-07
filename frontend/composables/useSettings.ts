@@ -13,7 +13,7 @@ export interface RestaurantInfo {
 
 export interface RestaurantSettings {
   id: string
-  restaurantId: string
+  commerceId: string
   currency: string
   tax: number
   suggestedTip: number

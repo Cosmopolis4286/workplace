@@ -24,24 +24,24 @@ export class EmployeesService {
     return restaurant.id
   }
 
-  private async assertOwnership(employeeId: string, restaurantId: string) {
+  private async assertOwnership(employeeId: string, commerceId: string) {
     const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } })
     if (!employee) throw new NotFoundException('Empleado no encontrado')
-    if (employee.restaurantId !== restaurantId) throw new ForbiddenException('Acceso denegado')
+    if (employee.commerceId !== commerceId) throw new ForbiddenException('Acceso denegado')
     return employee
   }
 
   // ─── Stats ──────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
 
     const [total, active, byRoleRaw] = await Promise.all([
-      this.prisma.employee.count({ where: { restaurantId } }),
-      this.prisma.employee.count({ where: { restaurantId, isActive: true } }),
+      this.prisma.employee.count({ where: { commerceId } }),
+      this.prisma.employee.count({ where: { commerceId, isActive: true } }),
       this.prisma.employee.groupBy({
         by: ['role'],
-        where: { restaurantId },
+        where: { commerceId },
         _count: { role: true },
       }),
     ])
@@ -56,40 +56,40 @@ export class EmployeesService {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   async findAll(userId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
     return this.prisma.employee.findMany({
-      where: { restaurantId },
+      where: { commerceId },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     })
   }
 
   async findOne(userId: string, employeeId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    return this.assertOwnership(employeeId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    return this.assertOwnership(employeeId, commerceId)
   }
 
   async create(userId: string, dto: CreateEmployeeDto) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
 
     if (dto.email) {
       const exists = await this.prisma.employee.findUnique({
-        where: { email_restaurantId: { email: dto.email, restaurantId } },
+        where: { email_commerceId: { email: dto.email, commerceId } },
       })
       if (exists) throw new ConflictException('Ya existe un empleado con ese correo electrónico')
     }
 
     return this.prisma.employee.create({
-      data: { ...dto, restaurantId },
+      data: { ...dto, commerceId },
     })
   }
 
   async update(userId: string, employeeId: string, dto: UpdateEmployeeDto) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertOwnership(employeeId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertOwnership(employeeId, commerceId)
 
     if (dto.email) {
       const exists = await this.prisma.employee.findUnique({
-        where: { email_restaurantId: { email: dto.email, restaurantId } },
+        where: { email_commerceId: { email: dto.email, commerceId } },
       })
       if (exists && exists.id !== employeeId)
         throw new ConflictException('Ya existe un empleado con ese correo electrónico')
@@ -102,14 +102,14 @@ export class EmployeesService {
   }
 
   async remove(userId: string, employeeId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertOwnership(employeeId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertOwnership(employeeId, commerceId)
     await this.prisma.employee.delete({ where: { id: employeeId } })
   }
 
   async toggleStatus(userId: string, employeeId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    const employee = await this.assertOwnership(employeeId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    const employee = await this.assertOwnership(employeeId, commerceId)
     return this.prisma.employee.update({
       where: { id: employeeId },
       data: { isActive: !employee.isActive },

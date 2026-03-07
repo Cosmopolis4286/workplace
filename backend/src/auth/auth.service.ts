@@ -94,7 +94,7 @@ export class AuthService {
     avatar?: string
   }) {
     // Find existing user by email or create a new COMMERCE account
-    let user = await this.usersService.findByEmail(googleUser.email)
+    let user: any = await this.usersService.findByEmail(googleUser.email)
 
     if (!user) {
       // Auto-register: use email prefix as restaurant name placeholder
@@ -192,7 +192,7 @@ export class AuthService {
         const user = await this.usersService.findByEmail(acc.email)
         return {
           ...acc,
-          commerceName: user?.restaurant?.name ?? null,
+          commerceName: user?.commerce?.name ?? null,
           exists: !!user,
         }
       }),

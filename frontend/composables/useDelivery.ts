@@ -33,7 +33,7 @@ export interface Driver {
   isActive: boolean
   rating: number
   totalDeliveries: number
-  restaurantId: string
+  commerceId: string
   createdAt: string
   updatedAt: string
   _count?: { deliveries: number }
@@ -63,7 +63,7 @@ export interface Delivery {
   deliveredAt?: string
   driverId?: string
   driver?: DeliveryDriver
-  restaurantId: string
+  commerceId: string
   createdAt: string
   updatedAt: string
 }

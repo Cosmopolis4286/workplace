@@ -21,12 +21,12 @@ export class SettingsService {
     return restaurant
   }
 
-  private async getOrCreateSettings(restaurantId: string) {
+  private async getOrCreateSettings(commerceId: string) {
     const existing = await this.prisma.restaurantSettings.findUnique({
-      where: { restaurantId },
+      where: { commerceId },
     })
     if (existing) return existing
-    return this.prisma.restaurantSettings.create({ data: { restaurantId } })
+    return this.prisma.restaurantSettings.create({ data: { commerceId } })
   }
 
   // ─── GET all settings ───────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ export class SettingsService {
     const restaurant = await this.getRestaurant(userId)
     await this.getOrCreateSettings(restaurant.id)
     return this.prisma.restaurantSettings.update({
-      where: { restaurantId: restaurant.id },
+      where: { commerceId: restaurant.id },
       data: dto,
     })
   }
@@ -64,7 +64,7 @@ export class SettingsService {
     const restaurant = await this.getRestaurant(userId)
     await this.getOrCreateSettings(restaurant.id)
     return this.prisma.restaurantSettings.update({
-      where: { restaurantId: restaurant.id },
+      where: { commerceId: restaurant.id },
       data: dto,
     })
   }
@@ -75,7 +75,7 @@ export class SettingsService {
     const restaurant = await this.getRestaurant(userId)
     await this.getOrCreateSettings(restaurant.id)
     return this.prisma.restaurantSettings.update({
-      where: { restaurantId: restaurant.id },
+      where: { commerceId: restaurant.id },
       data: dto,
     })
   }

@@ -18,7 +18,7 @@ export interface Notification {
   color: NotificationColor
   link?: string | null
   metadata?: Record<string, any> | null
-  restaurantId: string
+  commerceId: string
   createdAt: string
 }
 
@@ -132,8 +132,8 @@ export const useNotifications = () => {
   }
 
   // ── WebSocket: connect ────────────────────────────────────────────────────
-  function connectWebSocket(restaurantId: string) {
-    if (socket && socketRestaurantId === restaurantId) return // already connected
+  function connectWebSocket(commerceId: string) {
+    if (socket && socketRestaurantId === commerceId) return // already connected
 
     disconnectWebSocket()
 
@@ -145,10 +145,10 @@ export const useNotifications = () => {
       reconnectionDelay: 2000,
     })
 
-    socketRestaurantId = restaurantId
+    socketRestaurantId = commerceId
 
     socket.on('connect', () => {
-      socket!.emit('join', { restaurantId })
+      socket!.emit('join', { commerceId })
     })
 
     socket.on('notification', (notification: Notification) => {
@@ -182,9 +182,9 @@ export const useNotifications = () => {
   }
 
   // ── Init: fetch + connect ─────────────────────────────────────────────────
-  async function init(restaurantId: string) {
+  async function init(commerceId: string) {
     await fetchNotifications({ limit: 30 })
-    connectWebSocket(restaurantId)
+    connectWebSocket(commerceId)
   }
 
   return {
