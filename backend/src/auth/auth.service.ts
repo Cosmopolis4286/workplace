@@ -98,13 +98,13 @@ export class AuthService {
 
     if (!user) {
       // Auto-register: use email prefix as restaurant name placeholder
-      const restaurantName = `${googleUser.firstName}'s Restaurant`
+      const commerceName = `${googleUser.firstName}'s Commerce`
       user = await this.usersService.create({
         email: googleUser.email,
         password: uuidv4(), // random unusable password — user logs in via Google
         firstName: googleUser.firstName,
         lastName: googleUser.lastName,
-        restaurantName,
+        commerceName,
         role: Role.COMMERCE,
       })
     }
@@ -192,7 +192,7 @@ export class AuthService {
         const user = await this.usersService.findByEmail(acc.email)
         return {
           ...acc,
-          restaurantName: user?.restaurant?.name ?? null,
+          commerceName: user?.restaurant?.name ?? null,
           exists: !!user,
         }
       }),

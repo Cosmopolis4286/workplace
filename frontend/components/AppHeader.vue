@@ -58,9 +58,9 @@
         <!-- Right side -->
         <div class="flex items-center gap-3">
           <!-- Restaurant name badge -->
-          <div v-if="restaurantName" class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-100 rounded-lg">
+          <div v-if="commerceName" class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-100 rounded-lg">
             <BuildingStorefrontIcon class="h-4 w-4 text-ifood-red" />
-            <span class="text-sm font-medium text-ifood-red truncate max-w-32">{{ restaurantName }}</span>
+            <span class="text-sm font-medium text-ifood-red truncate max-w-32">{{ commerceName }}</span>
           </div>
 
           <!-- Notifications -->
@@ -209,7 +209,7 @@ const avatarUrl = computed(() => {
 
 const userEmail = computed(() => user.value?.email ?? '')
 
-const restaurantName = computed(() => user.value?.restaurant?.name ?? '')
+const commerceName = computed(() => user.value?.restaurant?.name ?? '')
 
 const ROLE_LABELS = {
   SUPERADMIN: 'Super Admin',

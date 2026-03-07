@@ -33,7 +33,7 @@ interface RegisterCredentials {
   lastName: string
   email: string
   phone?: string
-  restaurantName: string
+  commerceName: string
   password: string
 }
 
@@ -128,7 +128,7 @@ export const useAuth = () => {
         lastName: credentials.lastName,
         email: credentials.email,
         phone: credentials.phone || undefined,
-        restaurantName: credentials.restaurantName,
+        commerceName: credentials.commerceName,
         password: credentials.password,
       },
     })

@@ -15,7 +15,7 @@ export class RegisterDto {
   phone?: string
 
   @IsString()
-  restaurantName: string
+  commerceName: string
 
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
   @Matches(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {

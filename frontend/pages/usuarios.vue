@@ -280,10 +280,10 @@
 
               <div v-if="(form.role === 'COMMERCE' || form.role === 'FREELANCER') && !editing">
                 <label class="block text-xs font-medium text-gray-600 mb-1">
-                  {{ form.role === 'FREELANCER' ? 'Nombre del negocio / establecimiento' : 'Nombre del restaurante' }}
+                  {{ form.role === 'FREELANCER' ? 'Nombre del negocio / establecimiento' : 'Nombre del comercio' }}
                   <span class="text-gray-300">(opcional)</span>
                 </label>
-                <input v-model="form.restaurantName" type="text"
+                <input v-model="form.commerceName" type="text"
                   :placeholder="form.role === 'FREELANCER' ? 'Mi negocio o establecimiento' : 'Se puede configurar después'"
                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"/>
               </div>
@@ -498,7 +498,7 @@ const form = ref({
   password: '',
   phone: '',
   role: 'COMMERCE' as Role,
-  restaurantName: '',
+  commerceName: '',
   categoryId: '',
   subcategoryId: '',
 })
@@ -567,7 +567,7 @@ function onSearch() {
 
 function openCreate() {
   editing.value = null
-  form.value = { firstName: '', lastName: '', email: '', password: '', phone: '', role: 'COMMERCE', restaurantName: '', categoryId: '', subcategoryId: '' }
+  form.value = { firstName: '', lastName: '', email: '', password: '', phone: '', role: 'COMMERCE', commerceName: '', categoryId: '', subcategoryId: '' }
   formError.value = null
   showModal.value = true
 }
@@ -581,7 +581,7 @@ function openEdit(u: UserItem) {
     password: '',
     phone: u.phone ?? '',
     role: u.role,
-    restaurantName: '',
+    commerceName: '',
     categoryId: u.category?.id ?? '',
     subcategoryId: u.subcategory?.id ?? '',
   }
@@ -612,7 +612,7 @@ async function save() {
         password: form.value.password,
         phone: form.value.phone || undefined,
         role: form.value.role,
-        restaurantName: form.value.restaurantName || undefined,
+        commerceName: form.value.commerceName || undefined,
         categoryId: form.value.categoryId || undefined,
         subcategoryId: form.value.subcategoryId || undefined,
       }

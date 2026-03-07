@@ -4,7 +4,7 @@ export interface DemoCredential {
   password: string
   label: string
   description: string
-  restaurantName: string | null
+  commerceName: string | null
 }
 
 interface DemoCredentialsResponse {

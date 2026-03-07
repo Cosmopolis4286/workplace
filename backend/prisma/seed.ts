@@ -9,7 +9,7 @@ interface DemoUser {
   password: string
   firstName: string
   lastName: string
-  restaurantName?: string
+  commerceName?: string
 }
 
 const DEMO_USERS: DemoUser[] = [
@@ -33,7 +33,7 @@ const DEMO_USERS: DemoUser[] = [
     password: 'Commerce123',
     firstName: 'Comercio',
     lastName: 'Demo',
-    restaurantName: 'Restaurante Demo',
+    commerceName: 'Restaurante Demo',
   },
   {
     role: Role.FREELANCER,
@@ -274,8 +274,8 @@ async function main() {
         firstName: demo.firstName,
         lastName: demo.lastName,
         role: demo.role,
-        ...(demo.restaurantName
-          ? { restaurant: { create: { name: demo.restaurantName } } }
+        ...(demo.commerceName
+          ? { restaurant: { create: { name: demo.commerceName } } }
           : {}),
       },
       include: { restaurant: true },
