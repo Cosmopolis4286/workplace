@@ -40,10 +40,10 @@ export class UsersService {
         ...(data.categoryId && { categoryId: data.categoryId }),
         ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
         ...(createRestaurant && data.commerceName
-          ? { restaurant: { create: { name: data.commerceName } } }
+          ? { commerce: { create: { name: data.commerceName } } }
           : {}),
       },
-      include: { restaurant: true, category: true, subcategory: true },
+      include: { commerce: true, category: true, subcategory: true },
     })
 
     const { password, ...result } = user
@@ -102,7 +102,7 @@ export class UsersService {
           role: true,
           isActive: true,
           createdAt: true,
-          restaurant: { select: { id: true, name: true } },
+          commerce: { select: { id: true, name: true } },
           category:    { select: { id: true, name: true, icon: true } },
           subcategory: { select: { id: true, name: true } },
         },
@@ -133,7 +133,7 @@ export class UsersService {
         ...(dto.categoryId !== undefined && { categoryId: dto.categoryId || null }),
         ...(dto.subcategoryId !== undefined && { subcategoryId: dto.subcategoryId || null }),
       },
-      include: { restaurant: true, category: true, subcategory: true },
+      include: { commerce: true, category: true, subcategory: true },
     })
 
     const { password, ...result } = user
@@ -232,14 +232,14 @@ export class UsersService {
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
-      include: { restaurant: true },
+      include: { commerce: true },
     })
   }
 
   async findById(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { restaurant: true },
+      include: { commerce: true },
     })
     if (!user) throw new NotFoundException('Usuario no encontrado')
     const { password, ...result } = user
@@ -297,7 +297,7 @@ export class UsersService {
         ...(dto.username !== undefined && { username: dto.username || null }),
         ...(usernameChanged && { usernameUpdatedAt: new Date() }),
       },
-      include: { restaurant: true },
+      include: { commerce: true },
     })
 
     const { password, ...result } = user
@@ -337,7 +337,7 @@ export class UsersService {
     const user = await this.prisma.user.update({
       where: { id },
       data: { avatar: avatarUrl },
-      include: { restaurant: true },
+      include: { commerce: true },
     })
     const { password, ...result } = user
     return result

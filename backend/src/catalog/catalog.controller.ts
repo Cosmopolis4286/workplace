@@ -53,7 +53,7 @@ export class CatalogController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    const restaurant = await this.prisma.restaurant.findUnique({ where: { userId: user.sub }, select: { id: true } })
+    const restaurant = await this.prisma.restaurant.findUnique({ where: { userId: user.id }, select: { id: true } })
     if (!restaurant) return { data: [], total: 0, page: 1, limit: 50, totalPages: 0 }
     return this.catalogService.getOrdersForRestaurant(restaurant.id, {
       status,
@@ -69,7 +69,7 @@ export class CatalogController {
     @Body('status') status: CatalogOrderStatus,
     @CurrentUser() user: any,
   ) {
-    const restaurant = await this.prisma.restaurant.findUnique({ where: { userId: user.sub }, select: { id: true } })
+    const restaurant = await this.prisma.restaurant.findUnique({ where: { userId: user.id }, select: { id: true } })
     return this.catalogService.updateOrderStatus(id, restaurant?.id ?? '', status)
   }
 }

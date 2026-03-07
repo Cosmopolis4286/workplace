@@ -30,7 +30,7 @@ export class ExpensesController {
   @Get('stats')
   @RequirePermission('expenses:view')
   getStats(@CurrentUser() user: any) {
-    return this.expensesService.getStats(user.restaurantId)
+    return this.expensesService.getStats(user.commerceId)
   }
 
   // ── Categories ─────────────────────────────────────────────────────────────
@@ -38,13 +38,13 @@ export class ExpensesController {
   @Get('categories')
   @RequirePermission('expenses:view')
   findAllCategories(@CurrentUser() user: any) {
-    return this.expensesService.findAllCategories(user.restaurantId)
+    return this.expensesService.findAllCategories(user.commerceId)
   }
 
   @Post('categories')
   @RequirePermission('expenses:create')
   createCategory(@CurrentUser() user: any, @Body() dto: CreateExpenseCategoryDto) {
-    return this.expensesService.createCategory(user.restaurantId, dto)
+    return this.expensesService.createCategory(user.commerceId, dto)
   }
 
   @Put('categories/:id')
@@ -54,13 +54,13 @@ export class ExpensesController {
     @CurrentUser() user: any,
     @Body() dto: UpdateExpenseCategoryDto,
   ) {
-    return this.expensesService.updateCategory(id, user.restaurantId, dto)
+    return this.expensesService.updateCategory(id, user.commerceId, dto)
   }
 
   @Delete('categories/:id')
   @RequirePermission('expenses:delete')
   removeCategory(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.expensesService.removeCategory(id, user.restaurantId)
+    return this.expensesService.removeCategory(id, user.commerceId)
   }
 
   // ── Expenses ───────────────────────────────────────────────────────────────
@@ -68,19 +68,19 @@ export class ExpensesController {
   @Get()
   @RequirePermission('expenses:view')
   findAll(@CurrentUser() user: any, @Query() query: QueryExpensesDto) {
-    return this.expensesService.findAll(user.restaurantId, query)
+    return this.expensesService.findAll(user.commerceId, query)
   }
 
   @Get(':id')
   @RequirePermission('expenses:view')
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.expensesService.findOne(id, user.restaurantId)
+    return this.expensesService.findOne(id, user.commerceId)
   }
 
   @Post()
   @RequirePermission('expenses:create')
   create(@CurrentUser() user: any, @Body() dto: CreateExpenseDto) {
-    return this.expensesService.create(user.restaurantId, dto)
+    return this.expensesService.create(user.commerceId, dto)
   }
 
   @Put(':id')
@@ -90,7 +90,7 @@ export class ExpensesController {
     @CurrentUser() user: any,
     @Body() dto: UpdateExpenseDto,
   ) {
-    return this.expensesService.update(id, user.restaurantId, dto)
+    return this.expensesService.update(id, user.commerceId, dto)
   }
 
   @Patch(':id/status')
@@ -100,12 +100,12 @@ export class ExpensesController {
     @CurrentUser() user: any,
     @Body() dto: PatchStatusDto,
   ) {
-    return this.expensesService.updateStatus(id, user.restaurantId, dto.status)
+    return this.expensesService.updateStatus(id, user.commerceId, dto.status)
   }
 
   @Delete(':id')
   @RequirePermission('expenses:delete')
   remove(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.expensesService.remove(id, user.restaurantId)
+    return this.expensesService.remove(id, user.commerceId)
   }
 }

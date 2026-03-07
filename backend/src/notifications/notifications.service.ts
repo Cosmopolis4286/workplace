@@ -12,10 +12,10 @@ export class NotificationsService {
   ) {}
 
   // ── Create & broadcast ────────────────────────────────────────────────────
-  async create(restaurantId: string, dto: CreateNotificationDto) {
+  async create(commerceId: string, dto: CreateNotificationDto) {
     const notification = await this.prisma.notification.create({
       data: {
-        restaurantId,
+        commerceId,
         type:     dto.type,
         title:    dto.title,
         message:  dto.message,
@@ -27,14 +27,41 @@ export class NotificationsService {
     })
 
     // Broadcast to all sockets subscribed to this restaurant
-    this.gateway.broadcast(restaurantId, notification)
+    this.gateway.broadcast(commerceId, notification)
 
     return notification
   }
 
+  async createForUser(userId: string, dto: CreateNotificationDto) {
+    const notification = await this.prisma.notification.create({
+      data: {
+        userId,
+        type:     dto.type,
+        title:    dto.title,
+        message:  dto.message,
+        icon:     dto.icon     ?? this.defaultIcon(dto.type),
+        color:    dto.color    ?? this.defaultColor(dto.type),
+        link:     dto.link,
+        metadata: dto.metadata ?? undefined,
+      },
+    })
+    this.gateway.broadcastToUser(userId, notification)
+    return notification
+  }
+
+  async notifyNewServiceRequest(providerId: string, clientName: string, serviceName: string) {
+    return this.createForUser(providerId, {
+      type:    NotificationType.ORDER,
+      title:   '📋 Nueva solicitud de servicio',
+      message: `${clientName} solicitó "${serviceName}"`,
+      link:    '/solicitudes-servicio',
+      metadata: { clientName, serviceName },
+    })
+  }
+
   // ── Convenience factory methods ───────────────────────────────────────────
-  async notifyNewOrder(restaurantId: string, orderNumber: string, total: number) {
-    return this.create(restaurantId, {
+  async notifyNewOrder(commerceId: string, orderNumber: string, total: number) {
+    return this.create(commerceId, {
       type:    NotificationType.ORDER,
       title:   `Nuevo pedido ${orderNumber}`,
       message: `Se recibió un nuevo pedido por $${total.toFixed(2)}`,
@@ -43,7 +70,7 @@ export class NotificationsService {
     })
   }
 
-  async notifyOrderStatusChange(restaurantId: string, orderNumber: string, status: string) {
+  async notifyOrderStatusChange(commerceId: string, orderNumber: string, status: string) {
     const labels: Record<string, string> = {
       CONFIRMADO: 'fue confirmado',
       PREPARANDO: 'está en preparación',
@@ -53,7 +80,7 @@ export class NotificationsService {
       CANCELADO:  'fue cancelado',
     }
     const label = labels[status] ?? status.toLowerCase()
-    return this.create(restaurantId, {
+    return this.create(commerceId, {
       type:    NotificationType.ORDER,
       title:   `Pedido ${orderNumber}`,
       message: `El pedido ${orderNumber} ${label}`,
@@ -63,7 +90,7 @@ export class NotificationsService {
     })
   }
 
-  async notifyDeliveryStatusChange(restaurantId: string, orderNumber: string, status: string) {
+  async notifyDeliveryStatusChange(commerceId: string, orderNumber: string, status: string) {
     const labels: Record<string, string> = {
       ASIGNADO:   'fue asignado a un repartidor',
       RECOGIENDO: 'está siendo recogido',
@@ -73,7 +100,7 @@ export class NotificationsService {
       FALLIDO:    'falló en la entrega',
     }
     const label = labels[status] ?? status.toLowerCase()
-    return this.create(restaurantId, {
+    return this.create(commerceId, {
       type:    NotificationType.DELIVERY,
       title:   `Delivery ${orderNumber}`,
       message: `El delivery ${orderNumber} ${label}`,
@@ -83,9 +110,9 @@ export class NotificationsService {
     })
   }
 
-  async notifyNewCatalogOrder(restaurantId: string, buyerName: string, productName: string, quantity: number, totalEstimate?: number) {
+  async notifyNewCatalogOrder(commerceId: string, buyerName: string, productName: string, quantity: number, totalEstimate?: number) {
     const total = totalEstimate ? ` · $${new Intl.NumberFormat('es-CO').format(totalEstimate)}` : ''
-    return this.create(restaurantId, {
+    return this.create(commerceId, {
       type:    NotificationType.ORDER,
       title:   '🛒 Nuevo pedido del marketplace',
       message: `${buyerName} solicitó ${quantity}x ${productName}${total}`,
@@ -94,8 +121,8 @@ export class NotificationsService {
     })
   }
 
-  async notifyLowStock(restaurantId: string, productName: string, stock: number) {
-    return this.create(restaurantId, {
+  async notifyLowStock(commerceId: string, productName: string, stock: number) {
+    return this.create(commerceId, {
       type:    NotificationType.INVENTORY,
       title:   'Stock bajo',
       message: `El producto "${productName}" tiene stock bajo (${stock} unidades)`,
@@ -106,55 +133,54 @@ export class NotificationsService {
   }
 
   // ── REST handlers ─────────────────────────────────────────────────────────
-  async findAll(restaurantId: string, query: { unread?: string; page?: string; limit?: string }) {
+  private scopeWhere(scope: { commerceId?: string; userId?: string }) {
+    return scope.commerceId ? { commerceId: scope.commerceId } : { userId: scope.userId }
+  }
+
+  async findAll(scope: { commerceId?: string; userId?: string }, query: { unread?: string; page?: string; limit?: string }) {
     const page  = Math.max(1, parseInt(query.page  ?? '1'))
     const limit = Math.min(50, Math.max(1, parseInt(query.limit ?? '30')))
     const skip  = (page - 1) * limit
 
-    const where: any = { restaurantId }
+    const where: any = { ...this.scopeWhere(scope) }
     if (query.unread === 'true') where.read = false
 
     const [data, total, unreadCount] = await Promise.all([
-      this.prisma.notification.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
+      this.prisma.notification.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
       this.prisma.notification.count({ where }),
-      this.prisma.notification.count({ where: { restaurantId, read: false } }),
+      this.prisma.notification.count({ where: { ...this.scopeWhere(scope), read: false } }),
     ])
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit), unreadCount }
   }
 
-  async markAsRead(id: string, restaurantId: string) {
+  async markAsRead(id: string, scope: { commerceId?: string; userId?: string }) {
     return this.prisma.notification.update({
-      where: { id, restaurantId },
+      where: { id, ...this.scopeWhere(scope) } as any,
       data:  { read: true, readAt: new Date() },
     })
   }
 
-  async markAllAsRead(restaurantId: string) {
+  async markAllAsRead(scope: { commerceId?: string; userId?: string }) {
     await this.prisma.notification.updateMany({
-      where: { restaurantId, read: false },
+      where: { ...this.scopeWhere(scope), read: false },
       data:  { read: true, readAt: new Date() },
     })
     return { message: 'Todas las notificaciones marcadas como leídas' }
   }
 
-  async remove(id: string, restaurantId: string) {
-    await this.prisma.notification.delete({ where: { id, restaurantId } })
+  async remove(id: string, scope: { commerceId?: string; userId?: string }) {
+    await this.prisma.notification.delete({ where: { id, ...this.scopeWhere(scope) } as any })
     return { message: 'Notificación eliminada' }
   }
 
-  async clearAll(restaurantId: string) {
-    await this.prisma.notification.deleteMany({ where: { restaurantId } })
+  async clearAll(scope: { commerceId?: string; userId?: string }) {
+    await this.prisma.notification.deleteMany({ where: this.scopeWhere(scope) })
     return { message: 'Todas las notificaciones eliminadas' }
   }
 
-  async getUnreadCount(restaurantId: string) {
-    const count = await this.prisma.notification.count({ where: { restaurantId, read: false } })
+  async getUnreadCount(scope: { commerceId?: string; userId?: string }) {
+    const count = await this.prisma.notification.count({ where: { ...this.scopeWhere(scope), read: false } })
     return { count }
   }
 

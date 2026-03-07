@@ -19,7 +19,7 @@ export class QueryCatalogDto {
 
   @IsOptional()
   @IsString()
-  restaurantId?: string
+  commerceId?: string
 
   @IsOptional()
   @Type(() => Number)

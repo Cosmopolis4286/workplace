@@ -15,7 +15,7 @@ export interface Branch {
   status: BranchStatus
   color: string
   notes?: string
-  restaurantId: string
+  commerceId: string
   createdAt: string
   updatedAt: string
 }

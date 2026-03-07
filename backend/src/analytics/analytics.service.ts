@@ -97,7 +97,7 @@ export class AnalyticsService {
   // ─── Main analytics endpoint ──────────────────────────────────────────────
 
   async getOverview(userId: string, dto: QueryAnalyticsDto) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
     const { period = '30d', compareWith = 'previous', dateFrom, dateTo } = dto
 
     const current = getPeriodRange(period, dateFrom, dateTo)
@@ -105,13 +105,13 @@ export class AnalyticsService {
 
     const [kpis, prevKpis, revenueTrend, ordersByHour, topProducts, customerSegments, performance] =
       await Promise.all([
-        this.getKpis(restaurantId, current.from, current.to),
-        previous ? this.getKpis(restaurantId, previous.from, previous.to) : null,
-        this.getRevenueTrend(restaurantId, current.from, current.to, period),
-        this.getOrdersByHour(restaurantId, current.from, current.to),
-        this.getTopProducts(restaurantId, current.from, current.to),
-        this.getCustomerSegments(restaurantId),
-        this.getPerformanceMetrics(restaurantId, current.from, current.to),
+        this.getKpis(commerceId, current.from, current.to),
+        previous ? this.getKpis(commerceId, previous.from, previous.to) : null,
+        this.getRevenueTrend(commerceId, current.from, current.to, period),
+        this.getOrdersByHour(commerceId, current.from, current.to),
+        this.getTopProducts(commerceId, current.from, current.to),
+        this.getCustomerSegments(commerceId),
+        this.getPerformanceMetrics(commerceId, current.from, current.to),
       ])
 
     return {
@@ -144,12 +144,12 @@ export class AnalyticsService {
 
   // ─── KPIs ────────────────────────────────────────────────────────────────
 
-  private async getKpis(restaurantId: string, from: Date, to: Date) {
+  private async getKpis(commerceId: string, from: Date, to: Date) {
     // Revenue and orders from appointments (completed ones represent served customers)
     const [completedAppointments, totalOrders, newCustomers, customers] = await Promise.all([
       this.prisma.appointment.findMany({
         where: {
-          restaurantId,
+          commerceId,
           status: 'COMPLETADA',
           date: { gte: from, lte: to },
         },
@@ -157,16 +157,16 @@ export class AnalyticsService {
       }),
       this.prisma.appointment.count({
         where: {
-          restaurantId,
+          commerceId,
           date: { gte: from, lte: to },
           status: { notIn: ['CANCELADA', 'NO_SHOW'] },
         },
       }),
       this.prisma.customer.count({
-        where: { restaurantId, createdAt: { gte: from, lte: to } },
+        where: { commerceId, createdAt: { gte: from, lte: to } },
       }),
       this.prisma.customer.aggregate({
-        where: { restaurantId },
+        where: { commerceId },
         _sum: { totalSpent: true, totalOrders: true },
         _count: { id: true },
       }),
@@ -174,7 +174,7 @@ export class AnalyticsService {
 
     // Revenue: sum of totalSpent from customers updated in period
     const revenueData = await this.prisma.customer.aggregate({
-      where: { restaurantId, updatedAt: { gte: from, lte: to } },
+      where: { commerceId, updatedAt: { gte: from, lte: to } },
       _sum: { totalSpent: true },
     })
 
@@ -193,14 +193,14 @@ export class AnalyticsService {
   // ─── Revenue trend (daily buckets) ───────────────────────────────────────
 
   private async getRevenueTrend(
-    restaurantId: string,
+    commerceId: string,
     from: Date,
     to: Date,
     period: string,
   ) {
     // Aggregate customer spending updates by day
     const customers = await this.prisma.customer.findMany({
-      where: { restaurantId, updatedAt: { gte: from, lte: to } },
+      where: { commerceId, updatedAt: { gte: from, lte: to } },
       select: { totalSpent: true, updatedAt: true, createdAt: true },
     })
 
@@ -269,10 +269,10 @@ export class AnalyticsService {
 
   // ─── Orders by hour ──────────────────────────────────────────────────────
 
-  private async getOrdersByHour(restaurantId: string, from: Date, to: Date) {
+  private async getOrdersByHour(commerceId: string, from: Date, to: Date) {
     const appointments = await this.prisma.appointment.findMany({
       where: {
-        restaurantId,
+        commerceId,
         date: { gte: from, lte: to },
         status: { notIn: ['CANCELADA', 'NO_SHOW'] },
       },
@@ -298,10 +298,10 @@ export class AnalyticsService {
 
   // ─── Top products ─────────────────────────────────────────────────────────
 
-  private async getTopProducts(restaurantId: string, _from: Date, _to: Date) {
+  private async getTopProducts(commerceId: string, _from: Date, _to: Date) {
     // Use stock movement as proxy: low stock / products with most turnover
     const products = await this.prisma.product.findMany({
-      where: { restaurantId, status: { not: 'NO_DISPONIBLE' } },
+      where: { commerceId, status: { not: 'NO_DISPONIBLE' } },
       select: { name: true, stock: true, maxStock: true, price: true },
       orderBy: { stock: 'asc' },
       take: 10,
@@ -326,10 +326,10 @@ export class AnalyticsService {
 
   // ─── Customer segments ───────────────────────────────────────────────────
 
-  private async getCustomerSegments(restaurantId: string) {
+  private async getCustomerSegments(commerceId: string) {
     const segments = await this.prisma.customer.groupBy({
       by: ['segment'],
-      where: { restaurantId },
+      where: { commerceId },
       _count: { id: true },
     })
 
@@ -354,18 +354,18 @@ export class AnalyticsService {
 
   // ─── Performance metrics ─────────────────────────────────────────────────
 
-  private async getPerformanceMetrics(restaurantId: string, from: Date, to: Date) {
+  private async getPerformanceMetrics(commerceId: string, from: Date, to: Date) {
     const [settings, customers, appointments] = await Promise.all([
-      this.prisma.restaurantSettings.findUnique({ where: { restaurantId } }),
+      this.prisma.restaurantSettings.findUnique({ where: { commerceId } }),
       this.prisma.customer.aggregate({
-        where: { restaurantId, isActive: true },
+        where: { commerceId, isActive: true },
         _avg: { totalSpent: true, totalOrders: true },
         _count: { id: true },
         _sum: { totalSpent: true, totalOrders: true },
       }),
       this.prisma.appointment.groupBy({
         by: ['status'],
-        where: { restaurantId, date: { gte: from, lte: to } },
+        where: { commerceId, date: { gte: from, lte: to } },
         _count: { id: true },
       }),
     ])
@@ -389,10 +389,10 @@ export class AnalyticsService {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     const [newInLast30, returning] = await Promise.all([
       this.prisma.customer.count({
-        where: { restaurantId, createdAt: { gte: thirtyDaysAgo } },
+        where: { commerceId, createdAt: { gte: thirtyDaysAgo } },
       }),
       this.prisma.customer.count({
-        where: { restaurantId, totalOrders: { gt: 1 } },
+        where: { commerceId, totalOrders: { gt: 1 } },
       }),
     ])
 
@@ -401,7 +401,7 @@ export class AnalyticsService {
 
     // Financial: use product data for gross margin
     const products = await this.prisma.product.aggregate({
-      where: { restaurantId },
+      where: { commerceId },
       _avg: { price: true, cost: true },
     })
     const avgPrice = Number(products._avg.price ?? 0)

@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { useAuth } from './useAuth'
 
-export interface ServiceCategory {
+export interface MyServiceCategory {
   id: string
   name: string
   color: string
@@ -19,7 +19,7 @@ export interface Service {
   status: 'ACTIVO' | 'INACTIVO' | 'PAUSADO'
   tags: string[]
   categoryId?: string
-  category?: ServiceCategory
+  category?: MyServiceCategory
   createdAt: string
 }
 
@@ -36,7 +36,7 @@ export const SERVICE_STATUS_CLASSES: Record<Service['status'], string> = {
 }
 
 const services = ref<Service[]>([])
-const catalogCategories = ref<ServiceCategory[]>([])
+const catalogCategories = ref<MyServiceCategory[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 const totalCount = ref(0)
@@ -102,7 +102,7 @@ export function useServicios() {
 
   async function fetchCatalogCategories() {
     try {
-      const res = await $fetch<{ data: ServiceCategory[] }>(`${apiUrl}/api/services/catalog/categories`)
+      const res = await $fetch<{ data: MyServiceCategory[] }>(`${apiUrl}/api/services/catalog/categories`)
       catalogCategories.value = res.data
     } catch {
       // non-blocking

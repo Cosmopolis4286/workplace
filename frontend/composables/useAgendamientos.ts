@@ -27,7 +27,7 @@ export interface Appointment {
   tableNumber?: number
   notes?: string
   status: AppointmentStatus
-  restaurantId: string
+  commerceId: string
   createdAt: string
   updatedAt: string
 }

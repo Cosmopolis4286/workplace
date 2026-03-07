@@ -146,7 +146,7 @@
                   <span v-else class="text-xs text-gray-400">—</span>
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">
-                  {{ u.restaurant?.name ?? '—' }}
+                  {{ u.commerce?.name ?? '—' }}
                 </td>
                 <td class="px-4 py-3">
                   <button

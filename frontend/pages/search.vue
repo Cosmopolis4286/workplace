@@ -431,7 +431,7 @@
               >
                 <!-- Imagen -->
                 <div class="relative aspect-video bg-blue-50 overflow-hidden">
-                  <img v-if="srv.image" :src="srv.image" :alt="srv.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img v-if="srv.image" :src="imageSrc(srv.image)" :alt="srv.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   <div v-else class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
                     <svg class="w-12 h-12 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -548,16 +548,16 @@
                 </div>
                 <p v-if="selectedProduct.description" class="text-sm text-gray-500 mb-4 leading-relaxed">{{ selectedProduct.description }}</p>
                 <div class="flex flex-wrap gap-2 mb-4">
-                  <NuxtLink v-if="selectedProduct.restaurant.user?.username"
-                    :to="`/p/${selectedProduct.restaurant.user.username}`"
+                  <NuxtLink v-if="selectedProduct.commerce.user?.username"
+                    :to="`/p/${selectedProduct.commerce.user.username}`"
                     class="flex items-center gap-1.5 text-xs font-medium bg-red-50 text-red-600 px-3 py-1.5 rounded-xl hover:bg-red-100 transition-colors"
                     @click="selectedProduct = null">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/></svg>
-                    {{ selectedProduct.restaurant.name }}
+                    {{ selectedProduct.commerce.name }}
                   </NuxtLink>
                   <span v-else class="flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-700 px-3 py-1.5 rounded-xl">
                     <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/></svg>
-                    {{ selectedProduct.restaurant.name }}
+                    {{ selectedProduct.commerce.name }}
                   </span>
                   <span v-if="selectedProduct.preparationTime" class="flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-700 px-3 py-1.5 rounded-xl">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -589,7 +589,7 @@
           <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0">
             <div v-if="selectedService" class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
               <div class="relative aspect-video bg-blue-50 rounded-t-3xl overflow-hidden">
-                <img v-if="selectedService.image" :src="selectedService.image" :alt="selectedService.name" class="w-full h-full object-cover" />
+                <img v-if="selectedService.image" :src="imageSrc(selectedService.image)" :alt="selectedService.name" class="w-full h-full object-cover" />
                 <div v-else class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
                   <svg class="w-16 h-16 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
@@ -643,8 +643,8 @@
                   <button
                     v-if="!isOwnService(selectedService!)"
                     class="flex-1 py-2.5 bg-blue-600 text-white text-sm font-black rounded-xl hover:bg-blue-700 active:scale-95 transition-all duration-200 shadow-sm shadow-blue-200"
-                    @click="selectedService = null">
-                    Contactar
+                    @click="openServiceRequestModal(selectedService!)">
+                    Solicitar Servicio
                   </button>
                   <span v-else class="flex-1 text-center text-sm font-semibold text-gray-400 py-2.5 bg-gray-100 rounded-xl">
                     Este es tu servicio
@@ -658,12 +658,24 @@
       <!-- Modal pedido -->
       <ModalsCatalogOrderModal v-model="showOrderModal" :product="orderProduct" @success="onOrderSuccess" />
 
+      <!-- Modal solicitud de servicio -->
+      <ModalsCatalogServiceRequestModal v-model="showServiceRequestModal" :service="serviceRequestTarget" @success="onServiceRequestSuccess" />
+
       <!-- Toast éxito pedido -->
       <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
         leave-active-class="duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
         <div v-if="orderToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] bg-green-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
           ¡Pedido enviado! El comercio se pondrá en contacto contigo.
+        </div>
+      </Transition>
+
+      <!-- Toast éxito solicitud de servicio -->
+      <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="serviceToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          ¡Solicitud enviada! El proveedor se pondrá en contacto contigo.
         </div>
       </Transition>
     </Teleport>
@@ -712,6 +724,9 @@ const showScrollTop = ref(false)
 const showOrderModal = ref(false)
 const orderProduct = ref<CatalogProduct | null>(null)
 const orderToast = ref(false)
+const showServiceRequestModal = ref(false)
+const serviceRequestTarget = ref<CatalogService | null>(null)
+const serviceToast = ref(false)
 
 const pSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name'>('relevance')
 const sSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name' | 'newest'>('relevance')
@@ -734,7 +749,7 @@ const serviceSortOptions = [
 const firstName = computed(() => user.value?.firstName || 'Usuario')
 const pCurrentPage = computed(() => pQuery.value.page)
 const pActiveCategory = computed(() => pQuery.value.categoryName)
-const pActiveRestaurantId = computed(() => pQuery.value.restaurantId)
+const pActiveRestaurantId = computed(() => pQuery.value.commerceId)
 const sCurrentPage = computed(() => sQuery.value.page)
 const sActiveCategoryId = computed(() => sQuery.value.categoryId)
 const sActiveProviderId = computed(() => sQuery.value.userId)
@@ -796,6 +811,11 @@ function avatarSrc(avatar: string) {
   return `${apiUrl}${avatar}`
 }
 
+function imageSrc(image: string) {
+  if (image.startsWith('http')) return image
+  return `${apiUrl}${image}`
+}
+
 function formatPrice(price: number): string {
   return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
 }
@@ -828,8 +848,8 @@ function sApplySort(val: typeof sSelectedSort.value) { sSelectedSort.value = val
 // Un COMMERCE no puede pedir sus propios productos; un FREELANCER/COMMERCE no puede contratar sus propios servicios
 function isOwnProduct(product: CatalogProduct): boolean {
   const u = user.value
-  if (!u || !u.restaurant) return false
-  return u.restaurant.id === product.restaurant.id
+  if (!u || !u.commerce) return false
+  return u.commerce.id === product.commerce.id
 }
 
 function isOwnService(srv: CatalogService): boolean {
@@ -844,6 +864,15 @@ function openOrderModal(product: CatalogProduct) { orderProduct.value = product;
 function onOrderSuccess() {
   orderToast.value = true
   setTimeout(() => { orderToast.value = false }, 4000)
+}
+function openServiceRequestModal(srv: CatalogService) {
+  serviceRequestTarget.value = srv
+  selectedService.value = null
+  showServiceRequestModal.value = true
+}
+function onServiceRequestSuccess() {
+  serviceToast.value = true
+  setTimeout(() => { serviceToast.value = false }, 4000)
 }
 
 function handleScroll() { showScrollTop.value = window.scrollY > 400 }

@@ -30,7 +30,7 @@ export class ProfilesService {
         avatar: true,
         coverImage: true,
         role: true,
-        restaurant: { select: { id: true, name: true, type: true } },
+        commerce: { select: { id: true, name: true, type: true } },
         _count: {
           select: {
             followers: true,
@@ -69,7 +69,7 @@ export class ProfilesService {
       avatar: user.avatar,
       coverImage: user.coverImage,
       role: user.role,
-      restaurant: user.restaurant,
+      restaurant: user.commerce,
       followersCount: user._count.followers,
       followingCount: user._count.following,
       postsCount: user._count.posts,

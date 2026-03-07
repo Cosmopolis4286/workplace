@@ -19,7 +19,7 @@ interface User {
   avatar?: string
   role: 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
   isActive: boolean
-  restaurant?: Restaurant
+  commerce?: Restaurant
 }
 
 interface AuthResponse {
@@ -89,7 +89,7 @@ export const useAuth = () => {
 
   const user = computed(() => currentUser.value)
   const isAuthenticated = computed(() => !!currentUser.value && !!accessToken.value)
-  const restaurant = computed(() => currentUser.value?.restaurant)
+  const restaurant = computed(() => currentUser.value?.commerce)
   const token = computed(() => accessToken.value)
 
   function setSession(data: AuthResponse): void {

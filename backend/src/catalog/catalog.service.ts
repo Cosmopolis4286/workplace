@@ -74,7 +74,7 @@ export class CatalogService {
   }
 
   async getProducts(dto: QueryCatalogDto) {
-    const { search, categoryName, restaurantId, page = 1, limit = 20, sort = CatalogSortBy.RELEVANCE } = dto
+    const { search, categoryName, commerceId, page = 1, limit = 20, sort = CatalogSortBy.RELEVANCE } = dto
     const skip = (page - 1) * limit
 
     const where: Record<string, unknown> = {
@@ -94,8 +94,8 @@ export class CatalogService {
       where.category = { name: { equals: categoryName, mode: 'insensitive' } }
     }
 
-    if (restaurantId) {
-      where.restaurantId = restaurantId
+    if (commerceId) {
+      where.commerceId = commerceId
     }
 
     let orderBy: Record<string, unknown> = { name: 'asc' }
@@ -123,7 +123,7 @@ export class CatalogService {
           category: {
             select: { id: true, name: true, color: true },
           },
-          restaurant: {
+          commerce: {
             select: { id: true, name: true, type: true, user: { select: { username: true } } },
           },
         },
@@ -156,7 +156,7 @@ export class CatalogService {
         ingredients: true,
         allergens: true,
         category: { select: { id: true, name: true, color: true } },
-        restaurant: { select: { id: true, name: true, type: true, address: true, phone: true, user: { select: { username: true } } } },
+        commerce: { select: { id: true, name: true, type: true, address: true, phone: true, user: { select: { username: true } } } },
       },
     })
 
@@ -171,17 +171,17 @@ export class CatalogService {
     })
     // Notificar al comercio (fire-and-forget)
     this.notifications
-      .notifyNewCatalogOrder(dto.restaurantId, dto.buyerName, dto.productName, dto.quantity, dto.totalEstimate)
+      .notifyNewCatalogOrder(dto.commerceId, dto.buyerName, dto.productName, dto.quantity, dto.totalEstimate)
       .catch(() => {})
     return { data: order }
   }
 
-  async getOrdersForRestaurant(restaurantId: string, query?: { status?: string; page?: number; limit?: number }) {
+  async getOrdersForRestaurant(commerceId: string, query?: { status?: string; page?: number; limit?: number }) {
     const page = Math.max(1, query?.page ?? 1)
     const limit = Math.min(100, query?.limit ?? 50)
     const skip = (page - 1) * limit
 
-    const where: any = { restaurantId }
+    const where: any = { commerceId }
     if (query?.status) where.status = query.status
 
     const [orders, total] = await Promise.all([
@@ -196,10 +196,10 @@ export class CatalogService {
     return { data: orders, total, page, limit, totalPages: Math.ceil(total / limit) }
   }
 
-  async updateOrderStatus(id: string, restaurantId: string, status: CatalogOrderStatus) {
+  async updateOrderStatus(id: string, commerceId: string, status: CatalogOrderStatus) {
     const order = await this.prisma.catalogOrder.findUnique({ where: { id } })
     if (!order) throw new NotFoundException('Pedido no encontrado')
-    if (order.restaurantId !== restaurantId) throw new ForbiddenException()
+    if (order.commerceId !== commerceId) throw new ForbiddenException()
     const updated = await this.prisma.catalogOrder.update({
       where: { id },
       data: { status },

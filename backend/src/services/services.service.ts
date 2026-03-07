@@ -5,6 +5,8 @@ import { CreateServiceDto } from './dto/create-service.dto'
 import { UpdateServiceDto } from './dto/update-service.dto'
 import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto'
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto'
+import { CreateServiceRequestDto } from './dto/create-service-request.dto'
+import { NotificationsService } from '../notifications/notifications.service'
 
 const SERVICE_SELECT = {
   id: true,
@@ -33,7 +35,10 @@ const SERVICE_SELECT = {
 
 @Injectable()
 export class ServicesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   // ─── Catalog (public) ─────────────────────────────────────────────────────
 
@@ -172,6 +177,55 @@ export class ServicesService {
 
   async deleteCategory(id: string) {
     await this.prisma.serviceCategory.delete({ where: { id } })
+  }
+
+  // ─── Service Requests ─────────────────────────────────────────────────────
+
+  async createServiceRequest(dto: CreateServiceRequestDto, requesterId?: string) {
+    const request = await this.prisma.serviceRequest.create({
+      data: {
+        serviceId: dto.serviceId,
+        serviceName: dto.serviceName,
+        providerId: dto.providerId,
+        providerName: dto.providerName,
+        modality: dto.modality ?? 'CUALQUIERA',
+        preferredDate: new Date(dto.preferredDate),
+        address: dto.address,
+        city: dto.city,
+        clientName: dto.clientName,
+        clientPhone: dto.clientPhone,
+        clientEmail: dto.clientEmail,
+        description: dto.description,
+        price: dto.price,
+        priceUnit: dto.priceUnit,
+        requesterId: requesterId ?? null,
+      },
+    })
+    // Fire-and-forget notification to the provider
+    this.notifications.notifyNewServiceRequest(dto.providerId, dto.clientName, dto.serviceName).catch(() => {})
+    return request
+  }
+
+  async getMyServiceRequests(userId: string, page = 1, limit = 20) {
+    const skip = (page - 1) * limit
+    const where = { providerId: userId }
+    const [data, total] = await Promise.all([
+      this.prisma.serviceRequest.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.serviceRequest.count({ where }),
+    ])
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+  }
+
+  async updateServiceRequestStatus(id: string, userId: string, status: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } })
+    if (!req) throw new NotFoundException('Solicitud no encontrada')
+    if (req.providerId !== userId) throw new ForbiddenException('No tienes permiso')
+    return this.prisma.serviceRequest.update({ where: { id }, data: { status: status as any } })
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

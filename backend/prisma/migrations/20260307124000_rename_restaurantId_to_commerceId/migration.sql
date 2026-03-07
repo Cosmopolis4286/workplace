@@ -1,0 +1,15 @@
+-- Rename restaurantId → commerceId in all tables
+ALTER TABLE "restaurant_settings" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "customers" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "appointments" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "categories" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "products" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "drivers" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "deliveries" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "orders" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "notifications" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "expense_categories" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "expenses" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "employees" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "branches" RENAME COLUMN "restaurantId" TO "commerceId";
+ALTER TABLE "catalog_orders" RENAME COLUMN "restaurantId" TO "commerceId";

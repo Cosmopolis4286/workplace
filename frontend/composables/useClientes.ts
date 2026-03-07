@@ -14,7 +14,7 @@ export interface Customer {
   totalOrders: number
   totalSpent: number
   isActive: boolean
-  restaurantId: string
+  commerceId: string
   createdAt: string
   updatedAt: string
 }

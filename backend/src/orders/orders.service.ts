@@ -27,27 +27,27 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   // Stats
   // ──────────────────────────────────────────────────────────────────────────
-  async getStats(restaurantId: string) {
+  async getStats(commerceId: string) {
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
     const [total, byStatus, monthlyRevenue, avgTicket] = await Promise.all([
-      this.prisma.order.count({ where: { restaurantId } }),
+      this.prisma.order.count({ where: { commerceId } }),
       this.prisma.order.groupBy({
         by: ['status'],
-        where: { restaurantId },
+        where: { commerceId },
         _count: true,
       }),
       this.prisma.order.aggregate({
         where: {
-          restaurantId,
+          commerceId,
           status: 'ENTREGADO',
           completedAt: { gte: startOfMonth },
         },
         _sum: { total: true },
       }),
       this.prisma.order.aggregate({
-        where: { restaurantId, status: 'ENTREGADO' },
+        where: { commerceId, status: 'ENTREGADO' },
         _avg: { total: true },
       }),
     ])
@@ -70,12 +70,12 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   // List
   // ──────────────────────────────────────────────────────────────────────────
-  async findAll(restaurantId: string, query: QueryOrdersDto) {
+  async findAll(commerceId: string, query: QueryOrdersDto) {
     const page  = Math.max(1, parseInt(query.page  ?? '1'))
     const limit = Math.min(50, Math.max(1, parseInt(query.limit ?? '20')))
     const skip  = (page - 1) * limit
 
-    const where: any = { restaurantId }
+    const where: any = { commerceId }
 
     if (query.status)    where.status    = query.status
     if (query.orderType) where.orderType = query.orderType
@@ -119,9 +119,9 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   // Find one
   // ──────────────────────────────────────────────────────────────────────────
-  async findOne(id: string, restaurantId: string) {
+  async findOne(id: string, commerceId: string) {
     const order = await this.prisma.order.findFirst({
-      where: { id, restaurantId },
+      where: { id, commerceId },
       include: {
         items: true,
         customer: { select: { id: true, name: true, segment: true, totalOrders: true } },
@@ -134,12 +134,12 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   // Create
   // ──────────────────────────────────────────────────────────────────────────
-  async create(restaurantId: string, dto: CreateOrderDto) {
+  async create(commerceId: string, dto: CreateOrderDto) {
     if (!dto.items?.length) throw new BadRequestException('El pedido debe tener al menos un ítem')
 
     // Calculate totals
     const subtotal = dto.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
-    const settings = await this.prisma.restaurantSettings.findUnique({ where: { restaurantId } })
+    const settings = await this.prisma.restaurantSettings.findUnique({ where: { commerceId } })
     const taxRate   = settings?.tax ?? 0
     const tax       = Math.round(subtotal * (taxRate / 100) * 100) / 100
     const deliveryFee = dto.deliveryFee ?? 0
@@ -147,13 +147,13 @@ export class OrdersService {
     const total       = Math.round((subtotal + tax + deliveryFee - discount) * 100) / 100
 
     // Generate order number
-    const count = await this.prisma.order.count({ where: { restaurantId } })
+    const count = await this.prisma.order.count({ where: { commerceId } })
     const orderNumber = `ORD-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`
 
     const order = await this.prisma.order.create({
       data: {
         orderNumber,
-        restaurantId,
+        commerceId,
         customerName:    dto.customerName,
         customerPhone:   dto.customerPhone,
         customerEmail:   dto.customerEmail,
@@ -194,7 +194,7 @@ export class OrdersService {
     }
 
     // Fire-and-forget notification
-    this.notifications.notifyNewOrder(restaurantId, orderNumber, total).catch(() => null)
+    this.notifications.notifyNewOrder(commerceId, orderNumber, total).catch(() => null)
 
     return order
   }
@@ -202,8 +202,8 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   // Update (status transition with business rules)
   // ──────────────────────────────────────────────────────────────────────────
-  async update(id: string, restaurantId: string, dto: UpdateOrderDto) {
-    const existing = await this.findOne(id, restaurantId)
+  async update(id: string, commerceId: string, dto: UpdateOrderDto) {
+    const existing = await this.findOne(id, commerceId)
 
     if (dto.status && dto.status !== existing.status) {
       const allowed = STATUS_TRANSITIONS[existing.status]
@@ -248,7 +248,7 @@ export class OrdersService {
 
     if (dto.status && dto.status !== existing.status) {
       this.notifications
-        .notifyOrderStatusChange(restaurantId, existing.orderNumber, dto.status)
+        .notifyOrderStatusChange(commerceId, existing.orderNumber, dto.status)
         .catch(() => null)
     }
 
@@ -258,8 +258,8 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   // Delete
   // ──────────────────────────────────────────────────────────────────────────
-  async remove(id: string, restaurantId: string) {
-    await this.findOne(id, restaurantId)
+  async remove(id: string, commerceId: string) {
+    await this.findOne(id, commerceId)
     await this.prisma.order.delete({ where: { id } })
     return { message: 'Pedido eliminado' }
   }
@@ -267,7 +267,7 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   // Quick status patch
   // ──────────────────────────────────────────────────────────────────────────
-  async updateStatus(id: string, restaurantId: string, status: OrderStatus, cancelReason?: string) {
-    return this.update(id, restaurantId, { status, cancelReason })
+  async updateStatus(id: string, commerceId: string, status: OrderStatus, cancelReason?: string) {
+    return this.update(id, commerceId, { status, cancelReason })
   }
 }

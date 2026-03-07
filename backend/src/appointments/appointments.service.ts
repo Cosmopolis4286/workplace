@@ -32,38 +32,38 @@ export class AppointmentsService {
     return restaurant.id
   }
 
-  private async assertOwnership(appointmentId: string, restaurantId: string) {
+  private async assertOwnership(appointmentId: string, commerceId: string) {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id: appointmentId },
     })
     if (!appointment) throw new NotFoundException('Agendamiento no encontrado')
-    if (appointment.restaurantId !== restaurantId) throw new ForbiddenException('Acceso denegado')
+    if (appointment.commerceId !== commerceId) throw new ForbiddenException('Acceso denegado')
     return appointment
   }
 
   // ─── Stats ──────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
     const todayStart = startOfDay(new Date())
     const todayEnd = endOfDay(new Date())
 
     const [total, todayTotal, confirmed, pending, cancelled, noShow] = await Promise.all([
-      this.prisma.appointment.count({ where: { restaurantId } }),
+      this.prisma.appointment.count({ where: { commerceId } }),
       this.prisma.appointment.count({
-        where: { restaurantId, date: { gte: todayStart, lte: todayEnd } },
+        where: { commerceId, date: { gte: todayStart, lte: todayEnd } },
       }),
       this.prisma.appointment.count({
-        where: { restaurantId, status: AppointmentStatus.CONFIRMADA },
+        where: { commerceId, status: AppointmentStatus.CONFIRMADA },
       }),
       this.prisma.appointment.count({
-        where: { restaurantId, status: AppointmentStatus.PENDIENTE },
+        where: { commerceId, status: AppointmentStatus.PENDIENTE },
       }),
       this.prisma.appointment.count({
-        where: { restaurantId, status: AppointmentStatus.CANCELADA },
+        where: { commerceId, status: AppointmentStatus.CANCELADA },
       }),
       this.prisma.appointment.count({
-        where: { restaurantId, status: AppointmentStatus.NO_SHOW },
+        where: { commerceId, status: AppointmentStatus.NO_SHOW },
       }),
     ])
 
@@ -73,10 +73,10 @@ export class AppointmentsService {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   async findAll(userId: string, query: QueryAppointmentsDto) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
     const { status, dateFrom, dateTo, page = 1, limit = 50 } = query
 
-    const where: Record<string, unknown> = { restaurantId }
+    const where: Record<string, unknown> = { commerceId }
 
     if (status) where.status = status
 
@@ -101,8 +101,8 @@ export class AppointmentsService {
   }
 
   async findOne(userId: string, appointmentId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    const appointment = await this.assertOwnership(appointmentId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    const appointment = await this.assertOwnership(appointmentId, commerceId)
     return this.prisma.appointment.findUnique({
       where: { id: appointment.id },
       include: { customer: { select: { id: true, name: true, phone: true, segment: true } } },
@@ -110,12 +110,12 @@ export class AppointmentsService {
   }
 
   async create(userId: string, dto: CreateAppointmentDto) {
-    const restaurantId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId)
 
     // Validate customer belongs to restaurant if provided
     if (dto.customerId) {
       const customer = await this.prisma.customer.findUnique({ where: { id: dto.customerId } })
-      if (!customer || customer.restaurantId !== restaurantId)
+      if (!customer || customer.commerceId !== commerceId)
         throw new BadRequestException('Cliente no encontrado en este restaurante')
     }
 
@@ -123,19 +123,19 @@ export class AppointmentsService {
       data: {
         ...dto,
         date: new Date(dto.date),
-        restaurantId,
+        commerceId,
       },
       include: { customer: { select: { id: true, name: true, phone: true, segment: true } } },
     })
   }
 
   async update(userId: string, appointmentId: string, dto: UpdateAppointmentDto) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertOwnership(appointmentId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertOwnership(appointmentId, commerceId)
 
     if (dto.customerId) {
       const customer = await this.prisma.customer.findUnique({ where: { id: dto.customerId } })
-      if (!customer || customer.restaurantId !== restaurantId)
+      if (!customer || customer.commerceId !== commerceId)
         throw new BadRequestException('Cliente no encontrado en este restaurante')
     }
 
@@ -150,14 +150,14 @@ export class AppointmentsService {
   }
 
   async remove(userId: string, appointmentId: string) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertOwnership(appointmentId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertOwnership(appointmentId, commerceId)
     await this.prisma.appointment.delete({ where: { id: appointmentId } })
   }
 
   async updateStatus(userId: string, appointmentId: string, status: AppointmentStatus) {
-    const restaurantId = await this.getRestaurantId(userId)
-    await this.assertOwnership(appointmentId, restaurantId)
+    const commerceId = await this.getRestaurantId(userId)
+    await this.assertOwnership(appointmentId, commerceId)
     return this.prisma.appointment.update({
       where: { id: appointmentId },
       data: { status },

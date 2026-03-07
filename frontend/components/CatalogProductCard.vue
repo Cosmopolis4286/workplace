@@ -72,12 +72,12 @@
             d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
         </svg>
         <NuxtLink
-          v-if="product.restaurant?.user?.username"
-          :to="`/p/${product.restaurant.user.username}`"
+          v-if="product.commerce?.user?.username"
+          :to="`/p/${product.commerce.user.username}`"
           class="text-[11px] text-red-500 hover:underline font-medium truncate"
           @click.stop
-        >{{ product.restaurant?.name }}</NuxtLink>
-        <span v-else class="text-[11px] text-gray-400 truncate">{{ product.restaurant?.name }}</span>
+        >{{ product.commerce?.name }}</NuxtLink>
+        <span v-else class="text-[11px] text-gray-400 truncate">{{ product.commerce?.name }}</span>
       </div>
 
       <!-- Rating + calorías -->

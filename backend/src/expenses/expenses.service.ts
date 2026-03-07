@@ -13,7 +13,7 @@ export class ExpensesService {
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
-  async getStats(restaurantId: string) {
+  async getStats(commerceId: string) {
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -27,27 +27,27 @@ export class ExpensesService {
       totalBudget,
     ] = await Promise.all([
       this.prisma.expense.aggregate({
-        where: { restaurantId, date: { gte: startOfMonth } },
+        where: { commerceId, date: { gte: startOfMonth } },
         _sum: { amount: true },
         _count: true,
       }),
       this.prisma.expense.aggregate({
-        where: { restaurantId, date: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
+        where: { commerceId, date: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
         _sum: { amount: true },
       }),
       this.prisma.expense.groupBy({
         by: ['status'],
-        where: { restaurantId },
+        where: { commerceId },
         _sum: { amount: true },
         _count: true,
       }),
       this.prisma.expense.groupBy({
         by: ['categoryId'],
-        where: { restaurantId, date: { gte: startOfMonth } },
+        where: { commerceId, date: { gte: startOfMonth } },
         _sum: { amount: true },
       }),
       this.prisma.expenseCategory.aggregate({
-        where: { restaurantId },
+        where: { commerceId },
         _sum: { budget: true },
       }),
     ])
@@ -85,14 +85,14 @@ export class ExpensesService {
 
   // ── Expenses CRUD ──────────────────────────────────────────────────────────
 
-  async findAll(restaurantId: string, query: QueryExpensesDto) {
+  async findAll(commerceId: string, query: QueryExpensesDto) {
     const {
       status, type, categoryId, search,
       dateFrom, dateTo,
       page = 1, limit = 20,
     } = query
 
-    const where: any = { restaurantId }
+    const where: any = { commerceId }
     if (status) where.status = status
     if (type) where.type = type
     if (categoryId) where.categoryId = categoryId
@@ -117,19 +117,19 @@ export class ExpensesService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
   }
 
-  async findOne(id: string, restaurantId: string) {
+  async findOne(id: string, commerceId: string) {
     const expense = await this.prisma.expense.findFirst({
-      where: { id, restaurantId },
+      where: { id, commerceId },
       include: { category: true },
     })
     if (!expense) throw new NotFoundException('Gasto no encontrado')
     return expense
   }
 
-  async create(restaurantId: string, dto: CreateExpenseDto) {
+  async create(commerceId: string, dto: CreateExpenseDto) {
     if (dto.categoryId) {
       const cat = await this.prisma.expenseCategory.findFirst({
-        where: { id: dto.categoryId, restaurantId },
+        where: { id: dto.categoryId, commerceId },
       })
       if (!cat) throw new NotFoundException('Categoría no encontrada')
     }
@@ -138,18 +138,18 @@ export class ExpensesService {
       data: {
         ...dto,
         date: new Date(dto.date),
-        restaurantId,
+        commerceId,
       },
       include: { category: { select: { id: true, name: true, color: true } } },
     })
   }
 
-  async update(id: string, restaurantId: string, dto: UpdateExpenseDto) {
-    await this.findOne(id, restaurantId)
+  async update(id: string, commerceId: string, dto: UpdateExpenseDto) {
+    await this.findOne(id, commerceId)
 
     if (dto.categoryId) {
       const cat = await this.prisma.expenseCategory.findFirst({
-        where: { id: dto.categoryId, restaurantId },
+        where: { id: dto.categoryId, commerceId },
       })
       if (!cat) throw new NotFoundException('Categoría no encontrada')
     }
@@ -164,22 +164,22 @@ export class ExpensesService {
     })
   }
 
-  async updateStatus(id: string, restaurantId: string, status: ExpenseStatus) {
-    await this.findOne(id, restaurantId)
+  async updateStatus(id: string, commerceId: string, status: ExpenseStatus) {
+    await this.findOne(id, commerceId)
     return this.prisma.expense.update({ where: { id }, data: { status } })
   }
 
-  async remove(id: string, restaurantId: string) {
-    await this.findOne(id, restaurantId)
+  async remove(id: string, commerceId: string) {
+    await this.findOne(id, commerceId)
     await this.prisma.expense.delete({ where: { id } })
     return { message: 'Gasto eliminado correctamente' }
   }
 
   // ── Categories CRUD ────────────────────────────────────────────────────────
 
-  async findAllCategories(restaurantId: string) {
+  async findAllCategories(commerceId: string) {
     return this.prisma.expenseCategory.findMany({
-      where: { restaurantId },
+      where: { commerceId },
       include: {
         _count: { select: { expenses: true } },
       },
@@ -187,24 +187,24 @@ export class ExpensesService {
     })
   }
 
-  async createCategory(restaurantId: string, dto: CreateExpenseCategoryDto) {
+  async createCategory(commerceId: string, dto: CreateExpenseCategoryDto) {
     const existing = await this.prisma.expenseCategory.findFirst({
-      where: { name: dto.name, restaurantId },
+      where: { name: dto.name, commerceId },
     })
     if (existing) throw new ConflictException('Ya existe una categoría con ese nombre')
 
     return this.prisma.expenseCategory.create({
-      data: { ...dto, restaurantId },
+      data: { ...dto, commerceId },
     })
   }
 
-  async updateCategory(id: string, restaurantId: string, dto: UpdateExpenseCategoryDto) {
-    const cat = await this.prisma.expenseCategory.findFirst({ where: { id, restaurantId } })
+  async updateCategory(id: string, commerceId: string, dto: UpdateExpenseCategoryDto) {
+    const cat = await this.prisma.expenseCategory.findFirst({ where: { id, commerceId } })
     if (!cat) throw new NotFoundException('Categoría no encontrada')
 
     if (dto.name && dto.name !== cat.name) {
       const existing = await this.prisma.expenseCategory.findFirst({
-        where: { name: dto.name, restaurantId },
+        where: { name: dto.name, commerceId },
       })
       if (existing) throw new ConflictException('Ya existe una categoría con ese nombre')
     }
@@ -212,9 +212,9 @@ export class ExpensesService {
     return this.prisma.expenseCategory.update({ where: { id }, data: dto })
   }
 
-  async removeCategory(id: string, restaurantId: string) {
+  async removeCategory(id: string, commerceId: string) {
     const cat = await this.prisma.expenseCategory.findFirst({
-      where: { id, restaurantId },
+      where: { id, commerceId },
       include: { _count: { select: { expenses: true } } },
     })
     if (!cat) throw new NotFoundException('Categoría no encontrada')

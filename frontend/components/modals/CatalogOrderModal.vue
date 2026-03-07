@@ -41,7 +41,7 @@
                   </div>
                   <div>
                     <h2 class="text-base font-black text-gray-900 leading-tight">{{ product?.name }}</h2>
-                    <p class="text-xs text-gray-400 mt-0.5">{{ product?.restaurant?.name }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">{{ product?.commerce?.name }}</p>
                   </div>
                 </div>
                 <button class="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors flex-shrink-0" @click="$emit('update:modelValue', false)">
@@ -269,8 +269,8 @@ async function submit() {
       body: {
         productId: props.product.id,
         productName: props.product.name,
-        restaurantId: props.product.restaurant.id,
-        commerceName: props.product.restaurant.name,
+        commerceId: props.product.commerce.id,
+        commerceName: props.product.commerce.name,
         quantity: form.value.quantity,
         deliveryType: form.value.deliveryType,
         address: form.value.address || undefined,

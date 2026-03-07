@@ -44,7 +44,7 @@ export class UsersController {
         : [Role.COMMERCE, Role.FREELANCER, Role.NORMAL]
 
     return this.usersService.findAllUsers({
-      roleFilter: allowedRoles && roleFilter && allowedRoles.includes(roleFilter)
+      roleFilter: allowedRoles && roleFilter && (allowedRoles as Role[]).includes(roleFilter)
         ? roleFilter
         : allowedRoles
           ? undefined // will be filtered by allowedRoles below

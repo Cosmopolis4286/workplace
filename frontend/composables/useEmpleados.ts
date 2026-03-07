@@ -20,7 +20,7 @@ export interface Employee {
   emergencyPhone?: string
   notes?: string
   isActive: boolean
-  restaurantId: string
+  commerceId: string
   createdAt: string
   updatedAt: string
 }

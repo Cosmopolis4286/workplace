@@ -29,31 +29,31 @@ export class OrdersController {
   @Get('stats')
   @RequirePermission('orders:view')
   getStats(@CurrentUser() user: any) {
-    return this.ordersService.getStats(user.restaurantId)
+    return this.ordersService.getStats(user.commerceId)
   }
 
   @Get()
   @RequirePermission('orders:view')
   findAll(@CurrentUser() user: any, @Query() query: QueryOrdersDto) {
-    return this.ordersService.findAll(user.restaurantId, query)
+    return this.ordersService.findAll(user.commerceId, query)
   }
 
   @Get(':id')
   @RequirePermission('orders:view')
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.ordersService.findOne(id, user.restaurantId)
+    return this.ordersService.findOne(id, user.commerceId)
   }
 
   @Post()
   @RequirePermission('orders:create')
   create(@CurrentUser() user: any, @Body() dto: CreateOrderDto) {
-    return this.ordersService.create(user.restaurantId, dto)
+    return this.ordersService.create(user.commerceId, dto)
   }
 
   @Put(':id')
   @RequirePermission('orders:edit')
   update(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: UpdateOrderDto) {
-    return this.ordersService.update(id, user.restaurantId, dto)
+    return this.ordersService.update(id, user.commerceId, dto)
   }
 
   @Patch(':id/status')
@@ -63,12 +63,12 @@ export class OrdersController {
     @CurrentUser() user: any,
     @Body() dto: PatchStatusDto,
   ) {
-    return this.ordersService.updateStatus(id, user.restaurantId, dto.status, dto.cancelReason)
+    return this.ordersService.updateStatus(id, user.commerceId, dto.status, dto.cancelReason)
   }
 
   @Delete(':id')
   @RequirePermission('orders:delete')
   remove(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.ordersService.remove(id, user.restaurantId)
+    return this.ordersService.remove(id, user.commerceId)
   }
 }
