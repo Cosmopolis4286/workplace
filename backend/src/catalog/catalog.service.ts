@@ -1,12 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { ProductStatus } from '@prisma/client'
+import { ProductStatus, CatalogOrderStatus } from '@prisma/client'
 import { QueryCatalogDto, CatalogSortBy } from './dto/query-catalog.dto'
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto'
+import { NotificationsService } from '../notifications/notifications.service'
 
 @Injectable()
 export class CatalogService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async getCategories() {
     // Return distinct category names that have at least 1 DISPONIBLE product
@@ -161,18 +165,45 @@ export class CatalogService {
   }
 
   async createOrder(dto: CreateCatalogOrderDto, requesterId?: string) {
+    const { commerceName, ...rest } = dto
     const order = await this.prisma.catalogOrder.create({
-      data: { ...dto, requesterId: requesterId ?? null },
+      data: { ...rest, restaurantName: commerceName, requesterId: requesterId ?? null },
     })
+    // Notificar al comercio (fire-and-forget)
+    this.notifications
+      .notifyNewCatalogOrder(dto.restaurantId, dto.buyerName, dto.productName, dto.quantity, dto.totalEstimate)
+      .catch(() => {})
     return { data: order }
   }
 
-  async getOrdersForRestaurant(restaurantId: string) {
-    const orders = await this.prisma.catalogOrder.findMany({
-      where: { restaurantId },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+  async getOrdersForRestaurant(restaurantId: string, query?: { status?: string; page?: number; limit?: number }) {
+    const page = Math.max(1, query?.page ?? 1)
+    const limit = Math.min(100, query?.limit ?? 50)
+    const skip = (page - 1) * limit
+
+    const where: any = { restaurantId }
+    if (query?.status) where.status = query.status
+
+    const [orders, total] = await Promise.all([
+      this.prisma.catalogOrder.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.catalogOrder.count({ where }),
+    ])
+    return { data: orders, total, page, limit, totalPages: Math.ceil(total / limit) }
+  }
+
+  async updateOrderStatus(id: string, restaurantId: string, status: CatalogOrderStatus) {
+    const order = await this.prisma.catalogOrder.findUnique({ where: { id } })
+    if (!order) throw new NotFoundException('Pedido no encontrado')
+    if (order.restaurantId !== restaurantId) throw new ForbiddenException()
+    const updated = await this.prisma.catalogOrder.update({
+      where: { id },
+      data: { status },
     })
-    return { data: orders }
+    return { data: updated }
   }
 }

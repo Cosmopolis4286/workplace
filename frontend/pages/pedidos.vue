@@ -328,6 +328,101 @@
         </div>
       </div>
 
+      <!-- ── Pedidos del Marketplace ─────────────────────────────────────── -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20 mb-8">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <span class="text-2xl">🛒</span>
+            Pedidos del Marketplace
+            <span v-if="mktPending > 0" class="ml-1 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">{{ mktPending }} nuevos</span>
+          </h2>
+          <div class="flex items-center gap-2">
+            <select v-model="mktStatusFilter" class="text-xs border border-gray-200 rounded-xl px-3 py-1.5 bg-white text-gray-700 outline-none" @change="loadMktOrders">
+              <option value="">Todos</option>
+              <option value="PENDIENTE">Pendiente</option>
+              <option value="VISTO">Visto</option>
+              <option value="CONTACTADO">Contactado</option>
+              <option value="CERRADO">Cerrado</option>
+            </select>
+            <button @click="loadMktOrders" class="p-1.5 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+              <RefreshCw class="w-4 h-4 text-gray-500" :class="{ 'animate-spin': mktLoading }" />
+            </button>
+          </div>
+        </div>
+
+        <!-- Skeleton -->
+        <div v-if="mktLoading" class="space-y-3">
+          <div v-for="i in 3" :key="i" class="h-16 bg-gray-100 rounded-xl animate-pulse" />
+        </div>
+
+        <!-- Vacío -->
+        <div v-else-if="!mktOrders.length" class="text-center py-10 text-gray-400">
+          <span class="text-4xl block mb-3">🛍️</span>
+          <p class="text-sm">No hay pedidos del marketplace{{ mktStatusFilter ? ' con este filtro' : '' }}</p>
+        </div>
+
+        <!-- Lista -->
+        <div v-else class="space-y-3">
+          <div
+            v-for="mo in mktOrders"
+            :key="mo.id"
+            class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-gradient-to-br from-orange-50 to-red-50 rounded-xl border border-orange-100"
+          >
+            <!-- Avatar + info -->
+            <div class="flex items-center gap-3 flex-1 min-w-0">
+              <div class="w-10 h-10 bg-gradient-to-br from-red-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+                {{ mo.buyerName.charAt(0).toUpperCase() }}
+              </div>
+              <div class="min-w-0">
+                <p class="font-semibold text-gray-800 text-sm truncate">{{ mo.buyerName }}</p>
+                <p class="text-xs text-gray-500 truncate">{{ mo.productName }} × {{ mo.quantity }}</p>
+                <p class="text-xs text-gray-400">{{ mo.buyerPhone }}<span v-if="mo.buyerEmail"> · {{ mo.buyerEmail }}</span></p>
+              </div>
+            </div>
+            <!-- Meta -->
+            <div class="flex items-center gap-3 shrink-0 flex-wrap">
+              <div class="text-right">
+                <p v-if="mo.totalEstimate" class="text-sm font-black text-red-600">${{ formatMktPrice(mo.totalEstimate) }}</p>
+                <p class="text-xs text-gray-400">{{ MKT_DELIVERY_LABELS[mo.deliveryType] }}</p>
+                <p class="text-[11px] text-gray-400">{{ formatMktDate(mo.createdAt) }}</p>
+              </div>
+              <span :class="MKT_STATUS_CLASSES[mo.status]" class="px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap">
+                {{ MKT_STATUS_LABELS[mo.status] }}
+              </span>
+              <!-- Acciones -->
+              <div class="flex gap-1">
+                <button
+                  v-for="ns in MKT_NEXT_STATUS[mo.status]"
+                  :key="ns"
+                  @click="updateMktStatus(mo.id, ns)"
+                  class="text-xs px-2.5 py-1 rounded-lg font-semibold transition-colors"
+                  :class="ns === 'CERRADO' ? 'bg-gray-200 hover:bg-gray-300 text-gray-700' : 'bg-red-100 hover:bg-red-200 text-red-700'"
+                >
+                  {{ MKT_STATUS_LABELS[ns] }}
+                </button>
+                <a v-if="mo.buyerPhone" :href="`https://wa.me/${mo.buyerPhone.replace(/\D/g,'')}`" target="_blank"
+                  class="text-xs px-2.5 py-1 rounded-lg font-semibold bg-green-100 hover:bg-green-200 text-green-700 transition-colors">
+                  WhatsApp
+                </a>
+              </div>
+            </div>
+            <!-- Dirección / notas -->
+            <div v-if="mo.address || mo.notes" class="w-full text-xs text-gray-500 border-t border-orange-100 pt-2 mt-1">
+              <span v-if="mo.address">📍 {{ mo.address }}{{ mo.city ? `, ${mo.city}` : '' }}</span>
+              <span v-if="mo.address && mo.notes"> · </span>
+              <span v-if="mo.notes">📝 {{ mo.notes }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paginación -->
+        <div v-if="mktTotalPages > 1" class="flex items-center justify-center gap-2 mt-4 text-sm text-gray-500">
+          <button @click="mktChangePage(mktPage - 1)" :disabled="mktPage <= 1" class="px-2 py-1 rounded-lg bg-gray-100 disabled:opacity-40 hover:bg-gray-200">‹</button>
+          <span>{{ mktPage }} / {{ mktTotalPages }}</span>
+          <button @click="mktChangePage(mktPage + 1)" :disabled="mktPage >= mktTotalPages" class="px-2 py-1 rounded-lg bg-gray-100 disabled:opacity-40 hover:bg-gray-200">›</button>
+        </div>
+      </div>
+
       <!-- Recent (terminal) orders table -->
       <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20 mb-8">
         <div class="flex items-center justify-between mb-5">
@@ -897,10 +992,112 @@ async function submitSchedule() {
   if (created) showScheduleModal.value = false
 }
 
+// ── Marketplace orders ─────────────────────────────────────────────────────────
+type MktOrderStatus = 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
+type MktDeliveryType = 'DOMICILIO' | 'RECOGER' | 'DIGITAL'
+
+interface MktOrder {
+  id: string
+  productId: string
+  productName: string
+  quantity: number
+  deliveryType: MktDeliveryType
+  address?: string
+  city?: string
+  buyerName: string
+  buyerPhone: string
+  buyerEmail?: string
+  notes?: string
+  totalEstimate?: number
+  status: MktOrderStatus
+  createdAt: string
+}
+
+const MKT_STATUS_LABELS: Record<MktOrderStatus, string> = {
+  PENDIENTE: 'Pendiente',
+  VISTO: 'Visto',
+  CONTACTADO: 'Contactado',
+  CERRADO: 'Cerrado',
+}
+const MKT_STATUS_CLASSES: Record<MktOrderStatus, string> = {
+  PENDIENTE: 'bg-orange-100 text-orange-700',
+  VISTO: 'bg-blue-100 text-blue-700',
+  CONTACTADO: 'bg-green-100 text-green-700',
+  CERRADO: 'bg-gray-100 text-gray-500',
+}
+const MKT_NEXT_STATUS: Record<MktOrderStatus, MktOrderStatus[]> = {
+  PENDIENTE: ['VISTO', 'CONTACTADO'],
+  VISTO: ['CONTACTADO'],
+  CONTACTADO: ['CERRADO'],
+  CERRADO: [],
+}
+const MKT_DELIVERY_LABELS: Record<MktDeliveryType, string> = {
+  DOMICILIO: '🛵 Domicilio',
+  RECOGER: '🏪 Recoger',
+  DIGITAL: '💻 Digital',
+}
+
+const mktOrders = ref<MktOrder[]>([])
+const mktLoading = ref(false)
+const mktPage = ref(1)
+const mktTotalPages = ref(1)
+const mktStatusFilter = ref('')
+
+const mktPending = computed(() => mktOrders.value.filter(o => o.status === 'PENDIENTE').length)
+
+const config = useRuntimeConfig()
+const apiUrl = config.public.apiUrl as string
+const { getHeaders } = useAuth()
+
+async function loadMktOrders() {
+  mktLoading.value = true
+  try {
+    const params = new URLSearchParams({ page: String(mktPage.value), limit: '50' })
+    if (mktStatusFilter.value) params.set('status', mktStatusFilter.value)
+    const res = await $fetch<{ data: MktOrder[]; totalPages: number }>(`${apiUrl}/api/catalog/orders/mine?${params}`, {
+      headers: getHeaders(),
+    })
+    mktOrders.value = res.data
+    mktTotalPages.value = res.totalPages
+  } catch {
+    // non-fatal
+  } finally {
+    mktLoading.value = false
+  }
+}
+
+async function updateMktStatus(id: string, status: MktOrderStatus) {
+  try {
+    await $fetch(`${apiUrl}/api/catalog/orders/${id}/status`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: { status },
+    })
+    const order = mktOrders.value.find(o => o.id === id)
+    if (order) order.status = status
+  } catch {
+    // non-fatal
+  }
+}
+
+function mktChangePage(page: number) {
+  mktPage.value = page
+  loadMktOrders()
+}
+
+function formatMktPrice(price: number) {
+  return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
+}
+
+function formatMktDate(date: string) {
+  return new Date(date).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 onMounted(() => {
   loadOrders({ page: 1, limit: 20 })
   loadStats()
+  loadMktOrders()
 })
 </script>
 

@@ -83,6 +83,17 @@ export class NotificationsService {
     })
   }
 
+  async notifyNewCatalogOrder(restaurantId: string, buyerName: string, productName: string, quantity: number, totalEstimate?: number) {
+    const total = totalEstimate ? ` · $${new Intl.NumberFormat('es-CO').format(totalEstimate)}` : ''
+    return this.create(restaurantId, {
+      type:    NotificationType.ORDER,
+      title:   '🛒 Nuevo pedido del marketplace',
+      message: `${buyerName} solicitó ${quantity}x ${productName}${total}`,
+      link:    '/pedidos',
+      metadata: { buyerName, productName, quantity, totalEstimate },
+    })
+  }
+
   async notifyLowStock(restaurantId: string, productName: string, stock: number) {
     return this.create(restaurantId, {
       type:    NotificationType.INVENTORY,

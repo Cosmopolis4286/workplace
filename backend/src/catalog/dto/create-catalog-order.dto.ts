@@ -12,7 +12,7 @@ export class CreateCatalogOrderDto {
   restaurantId: string
 
   @IsString()
-  restaurantName: string
+  commerceName: string
 
   @IsInt()
   @Min(1)
