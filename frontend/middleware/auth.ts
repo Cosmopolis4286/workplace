@@ -12,15 +12,15 @@ const commerceRoutes: string[] = [
 // Routes only for COMMERCE and above (not FREELANCER)
 const empresaRoutes: string[] = ['/empleados', '/sucursales']
 
-// Routes for NORMAL/FREELANCER users (marketplace)
-const normalRoutes: string[] = ['/inicio']
+// Routes for NORMAL/FREELANCER/COMMERCE users (marketplace/search)
+const searchRoutes: string[] = ['/search']
 
 const protectedRoutes: string[] = [
   '/dashboard', '/perfil', '/configuracion',
   ...adminOnlyRoutes,
   ...commerceRoutes,
   ...empresaRoutes,
-  ...normalRoutes,
+  ...searchRoutes,
 ]
 
 const authRoutes: string[] = ['/login', '/register', '/recover-password', '/verify-email', '/auth/google/callback']
@@ -41,32 +41,27 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (authRoutes.includes(to.path) && isAuthenticated.value) {
     const role = user.value?.role as Role
-    return navigateTo(role === 'NORMAL' ? '/inicio' : '/dashboard')
+    return navigateTo(role === 'NORMAL' ? '/search' : '/dashboard')
   }
 
   if (isAuthenticated.value && user.value) {
     const role = user.value.role as Role
 
     if (adminOnlyRoutes.some(r => to.path.startsWith(r)) && !ADMIN_ROLES.includes(role)) {
-      return navigateTo(NORMAL_ROLES.includes(role) ? '/inicio' : '/dashboard')
+      return navigateTo(NORMAL_ROLES.includes(role) ? '/search' : '/dashboard')
     }
 
     if (commerceRoutes.some(r => to.path.startsWith(r)) && !FREELANCER_COMMERCE_ROLES.includes(role)) {
-      return navigateTo('/inicio')
+      return navigateTo('/search')
     }
 
     if (empresaRoutes.some(r => to.path.startsWith(r)) && !COMMERCE_ROLES.includes(role)) {
       return navigateTo('/dashboard')
     }
 
-    // COMMERCE/ADMIN/SUPERADMIN/FREELANCER don't need /inicio — redirect to dashboard
-    if (normalRoutes.some(r => to.path.startsWith(r)) && role !== 'NORMAL') {
-      return navigateTo('/dashboard')
-    }
-
-    // Redirect NORMAL away from /dashboard to /inicio
+    // Redirect NORMAL away from /dashboard to /search
     if (to.path.startsWith('/dashboard') && role === 'NORMAL') {
-      return navigateTo('/inicio')
+      return navigateTo('/search')
     }
   }
 })

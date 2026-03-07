@@ -51,23 +51,22 @@
 
     <!-- Navigation Menu — ocupa el resto y scrollea -->
     <nav class="flex-1 min-h-0 px-4 py-4 space-y-2 overflow-y-auto">
-      <!-- Inicio (NORMAL / FREELANCER) -->
+      <!-- Búsqueda / Marketplace (todos los roles) -->
       <NuxtLink
-        v-if="!isCommerce"
-        to="/inicio"
+        to="/search"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
-        :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/inicio' }"
+        :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/search' }"
       >
         <svg class="mr-3 h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
-        Inicio
+        Búsqueda
       </NuxtLink>
 
       <!-- Dashboard -->
       <NuxtLink
-        v-if="isCommerce && can('dashboard:view')"
+        v-if="isCommerceOrFreelancer && can('dashboard:view')"
         to="/dashboard"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
@@ -82,7 +81,7 @@
 
       <!-- Menu -->
       <NuxtLink
-        v-if="isCommerce && can('menu:view')"
+        v-if="isCommerceOrFreelancer && can('menu:view')"
         to="/menu"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
@@ -96,7 +95,7 @@
 
       <!-- Inventario -->
       <NuxtLink
-        v-if="isCommerce && can('inventory:view')"
+        v-if="isCommerceOrFreelancer && can('inventory:view')"
         to="/inventario"
         @click="$emit('navigate')"
         class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
@@ -109,7 +108,7 @@
       </NuxtLink>
 
       <!-- Ventas & Analytics Group -->
-      <div v-if="isCommerce && canAny('sales:view', 'analytics:view', 'reports:view')" class="space-y-1">
+      <div v-if="isCommerceOrFreelancer && canAny('sales:view', 'analytics:view', 'reports:view')" class="space-y-1">
         <div class="px-3 py-2">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ventas & Analytics</span>
         </div>
@@ -182,7 +181,7 @@
       </div>
 
       <!-- Operaciones Group -->
-      <div v-if="isCommerce && canAny('orders:view', 'appointments:view', 'customers:view', 'delivery:view')" class="space-y-1">
+      <div v-if="isCommerceOrFreelancer && canAny('orders:view', 'appointments:view', 'customers:view', 'delivery:view')" class="space-y-1">
         <div class="px-3 py-2">
           <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Operaciones</span>
         </div>
@@ -488,6 +487,8 @@ const { can, canAny } = usePermissions()
 
 const role = computed(() => user.value?.role ?? 'NORMAL')
 const isCommerce = computed(() => ['SUPERADMIN', 'ADMIN', 'COMMERCE'].includes(role.value))
+const isFreelancer = computed(() => role.value === 'FREELANCER')
+const isCommerceOrFreelancer = computed(() => ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER'].includes(role.value))
 const isAdminOrAbove = computed(() => ['SUPERADMIN', 'ADMIN'].includes(role.value))
 const isSuperAdmin = computed(() => role.value === 'SUPERADMIN')
 

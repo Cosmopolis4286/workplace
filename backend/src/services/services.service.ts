@@ -1,0 +1,185 @@
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+import { ServiceStatus, Prisma } from '@prisma/client'
+import { CreateServiceDto } from './dto/create-service.dto'
+import { UpdateServiceDto } from './dto/update-service.dto'
+import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto'
+import { CreateServiceCategoryDto } from './dto/create-service-category.dto'
+
+const SERVICE_SELECT = {
+  id: true,
+  name: true,
+  description: true,
+  price: true,
+  priceUnit: true,
+  duration: true,
+  image: true,
+  status: true,
+  tags: true,
+  createdAt: true,
+  category: { select: { id: true, name: true, color: true, icon: true } },
+  user: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+      avatar: true,
+      category: { select: { name: true } },
+      subcategory: { select: { name: true } },
+    },
+  },
+}
+
+@Injectable()
+export class ServicesService {
+  constructor(private prisma: PrismaService) {}
+
+  // ─── Catalog (public) ─────────────────────────────────────────────────────
+
+  async getCatalogCategories() {
+    const cats = await this.prisma.serviceCategory.findMany({
+      where: { services: { some: { status: ServiceStatus.ACTIVO } } },
+      select: {
+        id: true, name: true, color: true, icon: true,
+        _count: { select: { services: { where: { status: ServiceStatus.ACTIVO } } } },
+      },
+      orderBy: { name: 'asc' },
+    })
+    return { data: cats.map(c => ({ ...c, serviceCount: c._count.services, _count: undefined })) }
+  }
+
+  async getCatalogProviders() {
+    const users = await this.prisma.user.findMany({
+      where: { services: { some: { status: ServiceStatus.ACTIVO } } },
+      select: {
+        id: true, firstName: true, lastName: true, username: true, avatar: true,
+        category: { select: { name: true } },
+        subcategory: { select: { name: true } },
+        _count: { select: { services: { where: { status: ServiceStatus.ACTIVO } } } },
+      },
+    })
+    return {
+      data: users.map(u => ({
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`.trim(),
+        username: u.username,
+        avatar: u.avatar,
+        category: u.category?.name ?? null,
+        subcategory: u.subcategory?.name ?? null,
+        serviceCount: u._count.services,
+      })),
+    }
+  }
+
+  async getCatalogServices(dto: QueryServicesDto) {
+    const page = Math.max(1, parseInt(dto.page ?? '1'))
+    const limit = Math.min(48, Math.max(1, parseInt(dto.limit ?? '16')))
+    const skip = (page - 1) * limit
+
+    const where: Prisma.ServiceWhereInput = { status: ServiceStatus.ACTIVO }
+
+    if (dto.search) {
+      where.OR = [
+        { name: { contains: dto.search, mode: 'insensitive' } },
+        { description: { contains: dto.search, mode: 'insensitive' } },
+        { tags: { has: dto.search.toLowerCase() } },
+      ]
+    }
+    if (dto.categoryId) where.categoryId = dto.categoryId
+    if (dto.userId) where.userId = dto.userId
+
+    let orderBy: Prisma.ServiceOrderByWithRelationInput = { createdAt: 'desc' }
+    if (dto.sort === ServiceSortBy.PRICE_ASC) orderBy = { price: 'asc' }
+    else if (dto.sort === ServiceSortBy.PRICE_DESC) orderBy = { price: 'desc' }
+    else if (dto.sort === ServiceSortBy.NAME) orderBy = { name: 'asc' }
+
+    const [data, total] = await Promise.all([
+      this.prisma.service.findMany({ where, select: SERVICE_SELECT, skip, take: limit, orderBy }),
+      this.prisma.service.count({ where }),
+    ])
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+  }
+
+  async getCatalogServiceById(id: string) {
+    const s = await this.prisma.service.findFirst({
+      where: { id, status: ServiceStatus.ACTIVO },
+      select: SERVICE_SELECT,
+    })
+    if (!s) throw new NotFoundException('Servicio no encontrado')
+    return s
+  }
+
+  // ─── My Services (authenticated) ─────────────────────────────────────────
+
+  async getMyServices(userId: string, dto: QueryServicesDto) {
+    const page = Math.max(1, parseInt(dto.page ?? '1'))
+    const limit = Math.min(48, Math.max(1, parseInt(dto.limit ?? '16')))
+    const skip = (page - 1) * limit
+
+    const where: Prisma.ServiceWhereInput = { userId }
+    if (dto.search) {
+      where.OR = [
+        { name: { contains: dto.search, mode: 'insensitive' } },
+        { description: { contains: dto.search, mode: 'insensitive' } },
+      ]
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.service.findMany({ where, select: SERVICE_SELECT, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      this.prisma.service.count({ where }),
+    ])
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+  }
+
+  async createService(userId: string, dto: CreateServiceDto) {
+    return this.prisma.service.create({
+      data: { ...dto, userId },
+      select: SERVICE_SELECT,
+    })
+  }
+
+  async updateService(id: string, userId: string, dto: UpdateServiceDto) {
+    await this.assertOwner(id, userId)
+    return this.prisma.service.update({ where: { id }, data: dto, select: SERVICE_SELECT })
+  }
+
+  async deleteService(id: string, userId: string) {
+    await this.assertOwner(id, userId)
+    await this.prisma.service.delete({ where: { id } })
+  }
+
+  async toggleStatus(id: string, userId: string) {
+    const s = await this.assertOwner(id, userId)
+    const next = s.status === ServiceStatus.ACTIVO ? ServiceStatus.PAUSADO : ServiceStatus.ACTIVO
+    return this.prisma.service.update({ where: { id }, data: { status: next }, select: SERVICE_SELECT })
+  }
+
+  // ─── Categories (admin) ───────────────────────────────────────────────────
+
+  async getCategories() {
+    return this.prisma.serviceCategory.findMany({ orderBy: { name: 'asc' } })
+  }
+
+  async createCategory(dto: CreateServiceCategoryDto) {
+    return this.prisma.serviceCategory.create({ data: dto })
+  }
+
+  async updateCategory(id: string, dto: Partial<CreateServiceCategoryDto>) {
+    return this.prisma.serviceCategory.update({ where: { id }, data: dto })
+  }
+
+  async deleteCategory(id: string) {
+    await this.prisma.serviceCategory.delete({ where: { id } })
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private async assertOwner(id: string, userId: string) {
+    const s = await this.prisma.service.findUnique({ where: { id }, select: { userId: true, status: true } })
+    if (!s) throw new NotFoundException('Servicio no encontrado')
+    if (s.userId !== userId) throw new ForbiddenException('No tienes permiso para modificar este servicio')
+    return s
+  }
+}
