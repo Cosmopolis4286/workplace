@@ -36,6 +36,7 @@ model User {
   reviewsGiven  Review[]   @relation("ReviewsGiven")
   reviewsReceived Review[] @relation("ReviewsReceived")
   services      Service[]
+  catalogOrders CatalogOrder[]
 
   @@map("users")
 }
@@ -693,6 +694,47 @@ enum LogLevel {
   WARN
   INFO
   DEBUG
+}
+
+// ─── Catalog Order Request (marketplace) ─────────────────────────────────────
+
+enum CatalogDeliveryType {
+  DOMICILIO
+  RECOGER
+  DIGITAL
+}
+
+enum CatalogOrderStatus {
+  PENDIENTE
+  VISTO
+  CONTACTADO
+  CERRADO
+}
+
+model CatalogOrder {
+  id               String              @id @default(uuid())
+  productId        String
+  productName      String
+  restaurantId     String
+  restaurantName   String
+  quantity         Int                 @default(1)
+  deliveryType     CatalogDeliveryType @default(DOMICILIO)
+  address          String?
+  city             String?
+  buyerName        String
+  buyerPhone       String
+  buyerEmail       String?
+  notes            String?
+  totalEstimate    Float?
+  status           CatalogOrderStatus  @default(PENDIENTE)
+  requesterId      String?
+  requester        User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  createdAt        DateTime            @default(now())
+
+  @@index([restaurantId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("catalog_orders")
 }
 
 // ─── Services (marketplace) ───────────────────────────────────────────────────

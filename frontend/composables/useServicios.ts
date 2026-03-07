@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { useAuth } from './useAuth'
 
 export interface ServiceCategory {
   id: string
@@ -22,13 +23,6 @@ export interface Service {
   createdAt: string
 }
 
-export interface ServiceStats {
-  total: number
-  activos: number
-  pausados: number
-  inactivos: number
-}
-
 export const SERVICE_STATUS_LABELS: Record<Service['status'], string> = {
   ACTIVO: 'Activo',
   PAUSADO: 'Pausado',
@@ -49,19 +43,35 @@ const totalCount = ref(0)
 const currentPage = ref(1)
 
 export function useServicios() {
-  const { $fetch } = useNuxtApp()
+  const { getHeaders, refreshAccessToken } = useAuth()
   const config = useRuntimeConfig()
-  const base = config.public.apiUrl
+  const apiUrl = config.public.apiUrl as string
+  const router = useRouter()
 
-  async function apiFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
-    const token = localStorage.getItem('access_token')
-    return $fetch<T>(`${base}/api${path}`, {
-      ...opts,
-      headers: { ...(opts.headers ?? {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    })
+  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const headers = { 'Content-Type': 'application/json', ...getHeaders(), ...(options.headers as Record<string, string> || {}) }
+    return $fetch<T>(`${apiUrl}/api/services${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
   }
 
-  const stats = computed<ServiceStats>(() => ({
+  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn()
+    } catch (err: unknown) {
+      const status = (err as { status?: number; statusCode?: number })?.status
+        ?? (err as { status?: number; statusCode?: number })?.statusCode
+      if (status === 401) {
+        const refreshed = await refreshAccessToken()
+        if (!refreshed) {
+          router.push('/login')
+          throw err
+        }
+        return await fn()
+      }
+      throw err
+    }
+  }
+
+  const stats = computed(() => ({
     total: services.value.length,
     activos: services.value.filter(s => s.status === 'ACTIVO').length,
     pausados: services.value.filter(s => s.status === 'PAUSADO').length,
@@ -77,12 +87,14 @@ export function useServicios() {
       query.set('page', String(params.page ?? 1))
       query.set('limit', '50')
 
-      const res = await apiFetch<{ data: Service[]; total: number; page: number }>(`/services/mine?${query}`)
+      const res = await withAuthRetry(() =>
+        apiFetch<{ data: Service[]; total: number; page: number }>(`/mine?${query}`)
+      )
       services.value = res.data
       totalCount.value = res.total
       currentPage.value = res.page
-    } catch (e: any) {
-      error.value = e?.data?.message ?? 'Error al cargar servicios'
+    } catch (e: unknown) {
+      error.value = (e as { data?: { message?: string } })?.data?.message ?? 'Error al cargar servicios'
     } finally {
       loading.value = false
     }
@@ -90,7 +102,7 @@ export function useServicios() {
 
   async function fetchCatalogCategories() {
     try {
-      const res = await apiFetch<{ data: ServiceCategory[] }>('/services/catalog/categories')
+      const res = await $fetch<{ data: ServiceCategory[] }>(`${apiUrl}/api/services/catalog/categories`)
       catalogCategories.value = res.data
     } catch {
       // non-blocking
@@ -98,28 +110,28 @@ export function useServicios() {
   }
 
   async function createService(data: Partial<Service>) {
-    const res = await apiFetch<Service>('/services', { method: 'POST', body: data })
+    const res = await withAuthRetry(() => apiFetch<Service>('', { method: 'POST', body: JSON.stringify(data) }))
     services.value.unshift(res)
     totalCount.value++
     return res
   }
 
   async function updateService(id: string, data: Partial<Service>) {
-    const res = await apiFetch<Service>(`/services/${id}`, { method: 'PUT', body: data })
+    const res = await withAuthRetry(() => apiFetch<Service>(`/${id}`, { method: 'PUT', body: JSON.stringify(data) }))
     const idx = services.value.findIndex(s => s.id === id)
     if (idx !== -1) services.value[idx] = res
     return res
   }
 
   async function toggleStatus(id: string) {
-    const res = await apiFetch<Service>(`/services/${id}/toggle`, { method: 'PATCH' })
+    const res = await withAuthRetry(() => apiFetch<Service>(`/${id}/toggle`, { method: 'PATCH' }))
     const idx = services.value.findIndex(s => s.id === id)
     if (idx !== -1) services.value[idx] = res
     return res
   }
 
   async function deleteService(id: string) {
-    await apiFetch(`/services/${id}`, { method: 'DELETE' })
+    await withAuthRetry(() => apiFetch(`/${id}`, { method: 'DELETE' }))
     services.value = services.value.filter(s => s.id !== id)
     totalCount.value--
   }

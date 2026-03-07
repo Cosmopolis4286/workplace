@@ -341,7 +341,7 @@
 
             <!-- Grid -->
             <div v-else class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-              <CatalogProductCard v-for="product in pProducts" :key="product.id" :product="product" @view="openProduct" />
+              <CatalogProductCard v-for="product in pProducts" :key="product.id" :product="product" @view="openProduct" @order="openOrderModal" />
             </div>
 
             <!-- Paginación -->
@@ -548,7 +548,14 @@
                 </div>
                 <p v-if="selectedProduct.description" class="text-sm text-gray-500 mb-4 leading-relaxed">{{ selectedProduct.description }}</p>
                 <div class="flex flex-wrap gap-2 mb-4">
-                  <span class="flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-700 px-3 py-1.5 rounded-xl">
+                  <NuxtLink v-if="selectedProduct.restaurant.user?.username"
+                    :to="`/p/${selectedProduct.restaurant.user.username}`"
+                    class="flex items-center gap-1.5 text-xs font-medium bg-red-50 text-red-600 px-3 py-1.5 rounded-xl hover:bg-red-100 transition-colors"
+                    @click="selectedProduct = null">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/></svg>
+                    {{ selectedProduct.restaurant.name }}
+                  </NuxtLink>
+                  <span v-else class="flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-700 px-3 py-1.5 rounded-xl">
                     <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/></svg>
                     {{ selectedProduct.restaurant.name }}
                   </span>
@@ -558,7 +565,8 @@
                   </span>
                 </div>
                 <div class="flex items-center gap-2 pt-3 border-t border-gray-100">
-                  <button class="flex-1 py-2.5 bg-red-600 text-white text-sm font-black rounded-xl hover:bg-red-700 active:scale-95 transition-all duration-200 shadow-sm shadow-red-200" @click="selectedProduct = null">
+                  <button class="flex-1 py-2.5 bg-red-600 text-white text-sm font-black rounded-xl hover:bg-red-700 active:scale-95 transition-all duration-200 shadow-sm shadow-red-200"
+                    @click="openOrderModal(selectedProduct!); selectedProduct = null">
                     ¡Lo quiero!
                   </button>
                 </div>
@@ -636,6 +644,17 @@
           </Transition>
         </div>
       </Transition>
+      <!-- Modal pedido -->
+      <CatalogOrderModal v-model="showOrderModal" :product="orderProduct" @success="onOrderSuccess" />
+
+      <!-- Toast éxito pedido -->
+      <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="orderToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] bg-green-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          ¡Pedido enviado! El comercio se pondrá en contacto contigo.
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -679,6 +698,9 @@ const searchInput = ref('')
 const selectedProduct = ref<CatalogProduct | null>(null)
 const selectedService = ref<CatalogService | null>(null)
 const showScrollTop = ref(false)
+const showOrderModal = ref(false)
+const orderProduct = ref<CatalogProduct | null>(null)
+const orderToast = ref(false)
 
 const pSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name'>('relevance')
 const sSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name' | 'newest'>('relevance')
@@ -794,6 +816,11 @@ function sApplySort(val: typeof sSelectedSort.value) { sSelectedSort.value = val
 
 function openProduct(product: CatalogProduct) { selectedProduct.value = product }
 function openService(srv: CatalogService) { selectedService.value = srv }
+function openOrderModal(product: CatalogProduct) { orderProduct.value = product; showOrderModal.value = true }
+function onOrderSuccess() {
+  orderToast.value = true
+  setTimeout(() => { orderToast.value = false }, 4000)
+}
 
 function handleScroll() { showScrollTop.value = window.scrollY > 400 }
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProductStatus } from '@prisma/client'
 import { QueryCatalogDto, CatalogSortBy } from './dto/query-catalog.dto'
+import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto'
 
 @Injectable()
 export class CatalogService {
@@ -119,7 +120,7 @@ export class CatalogService {
             select: { id: true, name: true, color: true },
           },
           restaurant: {
-            select: { id: true, name: true, type: true },
+            select: { id: true, name: true, type: true, user: { select: { username: true } } },
           },
         },
       }),
@@ -151,11 +152,27 @@ export class CatalogService {
         ingredients: true,
         allergens: true,
         category: { select: { id: true, name: true, color: true } },
-        restaurant: { select: { id: true, name: true, type: true, address: true, phone: true } },
+        restaurant: { select: { id: true, name: true, type: true, address: true, phone: true, user: { select: { username: true } } } },
       },
     })
 
     if (!product) throw new NotFoundException('Producto no encontrado')
     return { data: product }
+  }
+
+  async createOrder(dto: CreateCatalogOrderDto, requesterId?: string) {
+    const order = await this.prisma.catalogOrder.create({
+      data: { ...dto, requesterId: requesterId ?? null },
+    })
+    return { data: order }
+  }
+
+  async getOrdersForRestaurant(restaurantId: string) {
+    const orders = await this.prisma.catalogOrder.findMany({
+      where: { restaurantId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    })
+    return { data: orders }
   }
 }

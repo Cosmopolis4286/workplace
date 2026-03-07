@@ -71,7 +71,13 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
         </svg>
-        <span class="text-[11px] text-gray-400 truncate">{{ product.restaurant?.name }}</span>
+        <NuxtLink
+          v-if="product.restaurant?.user?.username"
+          :to="`/p/${product.restaurant.user.username}`"
+          class="text-[11px] text-red-500 hover:underline font-medium truncate"
+          @click.stop
+        >{{ product.restaurant?.name }}</NuxtLink>
+        <span v-else class="text-[11px] text-gray-400 truncate">{{ product.restaurant?.name }}</span>
       </div>
 
       <!-- Rating + calorías -->
@@ -95,22 +101,36 @@
         </span>
       </div>
 
-      <!-- Footer: precio + botón -->
-      <div class="mt-auto flex items-center justify-between">
+      <!-- Footer: precio + botones -->
+      <div class="mt-auto flex items-center justify-between gap-2">
         <div>
           <span class="text-base font-black text-red-600">${{ formatPrice(product.price) }}</span>
           <span v-if="product.unit && product.unit !== 'unidad'" class="text-xs text-gray-400 ml-1">/ {{ product.unit }}</span>
         </div>
-        <button
-          class="flex items-center gap-1 text-xs font-bold text-red-600 border border-red-200 rounded-xl px-2.5 py-1.5
-                 hover:bg-red-600 hover:text-white hover:border-red-600 transition-all duration-200 active:scale-95"
-          @click.stop="$emit('view', product)"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-          </svg>
-          Ver
-        </button>
+        <div class="flex items-center gap-1.5">
+          <!-- Ver detalle -->
+          <button
+            class="flex items-center justify-center w-8 h-8 text-gray-400 border border-gray-200 rounded-xl hover:bg-gray-50 hover:text-gray-600 transition-all duration-200 active:scale-95"
+            title="Ver detalle"
+            @click.stop="$emit('view', product)"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </button>
+          <!-- Pedir -->
+          <button
+            class="flex items-center gap-1 text-xs font-bold text-white bg-red-600 rounded-xl px-2.5 py-1.5
+                   hover:bg-red-700 transition-all duration-200 active:scale-95 shadow-sm shadow-red-200"
+            @click.stop="$emit('order', product)"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+            </svg>
+            Pedir
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -121,7 +141,7 @@ import { ref, computed } from 'vue'
 import type { CatalogProduct } from '~/composables/useCatalog'
 
 const props = defineProps<{ product: CatalogProduct }>()
-defineEmits<{ view: [product: CatalogProduct] }>()
+defineEmits<{ view: [product: CatalogProduct]; order: [product: CatalogProduct] }>()
 
 const imgError = ref(false)
 

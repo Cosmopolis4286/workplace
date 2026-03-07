@@ -23,13 +23,13 @@ export interface CatalogProduct {
   unit?: string
   status: string
   category: { id: string; name: string; color: string }
-  restaurant: { id: string; name: string; type: string | null }
+  restaurant: { id: string; name: string; type: string | null; user?: { username: string | null } }
 }
 
 export interface CatalogProductDetail extends CatalogProduct {
   ingredients: string[]
   allergens: string[]
-  restaurant: { id: string; name: string; type: string | null; address?: string; phone?: string }
+  restaurant: { id: string; name: string; type: string | null; address?: string; phone?: string; user?: { username: string | null } }
 }
 
 export interface CatalogQuery {
