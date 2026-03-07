@@ -31,6 +31,7 @@ export class ProfilesService {
         coverImage: true,
         role: true,
         commerce: { select: { id: true, name: true, type: true } },
+        profileSettings: { select: { showCatalog: true, showServices: true } },
         _count: {
           select: {
             followers: true,
@@ -70,6 +71,7 @@ export class ProfilesService {
       coverImage: user.coverImage,
       role: user.role,
       restaurant: user.commerce,
+      profileSettings: user.profileSettings ?? { showCatalog: true, showServices: true },
       followersCount: user._count.followers,
       followingCount: user._count.following,
       postsCount: user._count.posts,
@@ -281,6 +283,15 @@ export class ProfilesService {
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   // ─── Cover image ──────────────────────────────────────────────────────────
+
+  async updateProfileSettings(userId: string, dto: { showCatalog?: boolean; showServices?: boolean }) {
+    return this.prisma.profileSettings.upsert({
+      where: { userId },
+      create: { userId, ...dto },
+      update: dto,
+      select: { showCatalog: true, showServices: true },
+    })
+  }
 
   async updateCoverImage(userId: string, coverUrl: string) {
     const user = await this.prisma.user.update({
