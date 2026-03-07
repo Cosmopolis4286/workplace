@@ -12,8 +12,8 @@ import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { NotificationsService } from './notifications.service'
 
 function notifScope(user: any) {
-  return user?.restaurant?.id
-    ? { commerceId: user.restaurant.id }
+  return user?.commerce?.id
+    ? { commerceId: user.commerce.id }
     : { userId: user?.sub ?? user?.id }
 }
 

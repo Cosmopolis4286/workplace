@@ -86,7 +86,7 @@ export class CatalogService {
         { name: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
         { category: { name: { contains: search, mode: 'insensitive' } } },
-        { restaurant: { name: { contains: search, mode: 'insensitive' } } },
+        { commerce: { name: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
