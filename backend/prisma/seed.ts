@@ -135,6 +135,12 @@ const PERMISSIONS: PermissionDef[] = [
   // Notificaciones
   { key: 'notifications:view',       module: 'notifications', action: 'view',           label: 'Ver Notificaciones' },
 
+  // Servicios
+  { key: 'services:view',            module: 'services',      action: 'view',           label: 'Ver Servicios' },
+  { key: 'services:create',          module: 'services',      action: 'create',         label: 'Crear Servicios' },
+  { key: 'services:edit',            module: 'services',      action: 'edit',           label: 'Editar Servicios' },
+  { key: 'services:delete',          module: 'services',      action: 'delete',         label: 'Eliminar Servicios' },
+
   // Catálogo / Marketplace
   { key: 'catalog:view',             module: 'catalog',       action: 'view',           label: 'Ver Catálogo (marketplace)' },
 
@@ -164,6 +170,7 @@ const COMMERCE_KEYS = [
   'branches:view', 'branches:create', 'branches:edit', 'branches:delete',
   'settings:view', 'settings:edit',
   'notifications:view',
+  'services:view', 'services:create', 'services:edit', 'services:delete',
 ]
 
 const ROLE_DEFAULTS: Record<Role, string[]> = {
@@ -221,6 +228,28 @@ async function seedPermissions() {
   console.log('\n✨ Permission matrix seeded.')
 }
 
+async function fixFreelancersWithoutBusiness() {
+  console.log('\n🔧 Fixing FREELANCER users without a business...\n')
+
+  const freelancers = await prisma.user.findMany({
+    where: { role: 'FREELANCER', restaurant: null },
+    select: { id: true, firstName: true, lastName: true, email: true },
+  })
+
+  if (freelancers.length === 0) {
+    console.log('  ✅ All FREELANCER users already have a business.')
+    return
+  }
+
+  for (const user of freelancers) {
+    const name = `Negocio de ${user.firstName} ${user.lastName}`
+    await prisma.restaurant.create({ data: { name, userId: user.id } })
+    console.log(`  ✅ Created business "${name}" for ${user.email}`)
+  }
+
+  console.log(`\n  ✨ Fixed ${freelancers.length} FREELANCER(s).`)
+}
+
 async function main() {
   console.log('🌱 Seeding demo users...\n')
 
@@ -258,6 +287,7 @@ async function main() {
 
   console.log('\n✨ Seed complete.')
 
+  await fixFreelancersWithoutBusiness()
   await seedPermissions()
 }
 
