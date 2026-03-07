@@ -341,7 +341,7 @@
 
             <!-- Grid -->
             <div v-else class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-              <CatalogProductCard v-for="product in pProducts" :key="product.id" :product="product" @view="openProduct" @order="openOrderModal" />
+              <CatalogProductCard v-for="product in pProducts" :key="product.id" :product="product" :isOwner="isOwnProduct(product)" @view="openProduct" @order="openOrderModal" />
             </div>
 
             <!-- Paginación -->
@@ -565,10 +565,15 @@
                   </span>
                 </div>
                 <div class="flex items-center gap-2 pt-3 border-t border-gray-100">
-                  <button class="flex-1 py-2.5 bg-red-600 text-white text-sm font-black rounded-xl hover:bg-red-700 active:scale-95 transition-all duration-200 shadow-sm shadow-red-200"
+                  <button
+                    v-if="!isOwnProduct(selectedProduct!)"
+                    class="flex-1 py-2.5 bg-red-600 text-white text-sm font-black rounded-xl hover:bg-red-700 active:scale-95 transition-all duration-200 shadow-sm shadow-red-200"
                     @click="openOrderModal(selectedProduct!); selectedProduct = null">
                     ¡Lo quiero!
                   </button>
+                  <span v-else class="flex-1 text-center text-sm font-semibold text-gray-400 py-2.5 bg-gray-100 rounded-xl">
+                    Este es tu producto
+                  </span>
                 </div>
               </div>
             </div>
@@ -635,9 +640,15 @@
                     class="flex-shrink-0 text-xs font-semibold text-blue-600 py-2.5 px-4 rounded-xl border border-blue-200 hover:bg-blue-50 transition-colors">
                     Ver perfil
                   </NuxtLink>
-                  <button class="flex-1 py-2.5 bg-blue-600 text-white text-sm font-black rounded-xl hover:bg-blue-700 active:scale-95 transition-all duration-200 shadow-sm shadow-blue-200" @click="selectedService = null">
+                  <button
+                    v-if="!isOwnService(selectedService!)"
+                    class="flex-1 py-2.5 bg-blue-600 text-white text-sm font-black rounded-xl hover:bg-blue-700 active:scale-95 transition-all duration-200 shadow-sm shadow-blue-200"
+                    @click="selectedService = null">
                     Contactar
                   </button>
+                  <span v-else class="flex-1 text-center text-sm font-semibold text-gray-400 py-2.5 bg-gray-100 rounded-xl">
+                    Este es tu servicio
+                  </span>
                 </div>
               </div>
             </div>
@@ -645,7 +656,7 @@
         </div>
       </Transition>
       <!-- Modal pedido -->
-      <CatalogOrderModal v-model="showOrderModal" :product="orderProduct" @success="onOrderSuccess" />
+      <ModalsCatalogOrderModal v-model="showOrderModal" :product="orderProduct" @success="onOrderSuccess" />
 
       <!-- Toast éxito pedido -->
       <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
@@ -813,6 +824,19 @@ function pApplySort(val: typeof pSelectedSort.value) { pSelectedSort.value = val
 function sClearCategory() { sFilterByCategory(null) }
 function sClearProvider() { sFilterByProvider(null) }
 function sApplySort(val: typeof sSelectedSort.value) { sSelectedSort.value = val; sChangeSort(val) }
+
+// Un COMMERCE no puede pedir sus propios productos; un FREELANCER/COMMERCE no puede contratar sus propios servicios
+function isOwnProduct(product: CatalogProduct): boolean {
+  const u = user.value
+  if (!u || !u.restaurant) return false
+  return u.restaurant.id === product.restaurant.id
+}
+
+function isOwnService(srv: CatalogService): boolean {
+  const u = user.value
+  if (!u) return false
+  return u.id === srv.user.id
+}
 
 function openProduct(product: CatalogProduct) { selectedProduct.value = product }
 function openService(srv: CatalogService) { selectedService.value = srv }

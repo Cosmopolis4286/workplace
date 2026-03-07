@@ -270,7 +270,7 @@ async function submit() {
         productId: props.product.id,
         productName: props.product.name,
         restaurantId: props.product.restaurant.id,
-        restaurantName: props.product.restaurant.name,
+        commerceName: props.product.restaurant.name,
         quantity: form.value.quantity,
         deliveryType: form.value.deliveryType,
         address: form.value.address || undefined,

@@ -121,6 +121,7 @@
           </button>
           <!-- Pedir -->
           <button
+            v-if="!isOwner"
             class="flex items-center gap-1 text-xs font-bold text-white bg-red-600 rounded-xl px-2.5 py-1.5
                    hover:bg-red-700 transition-all duration-200 active:scale-95 shadow-sm shadow-red-200"
             @click.stop="$emit('order', product)"
@@ -130,6 +131,11 @@
             </svg>
             Pedir
           </button>
+          <span
+            v-else
+            class="text-[11px] font-semibold text-gray-400 bg-gray-100 rounded-xl px-2.5 py-1.5"
+            title="Este es tu producto"
+          >Tu producto</span>
         </div>
       </div>
     </div>
@@ -140,7 +146,7 @@
 import { ref, computed } from 'vue'
 import type { CatalogProduct } from '~/composables/useCatalog'
 
-const props = defineProps<{ product: CatalogProduct }>()
+const props = defineProps<{ product: CatalogProduct; isOwner?: boolean }>()
 defineEmits<{ view: [product: CatalogProduct]; order: [product: CatalogProduct] }>()
 
 const imgError = ref(false)
