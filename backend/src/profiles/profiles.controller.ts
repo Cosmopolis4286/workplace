@@ -39,6 +39,17 @@ export class ProfilesController {
     return this.profilesService.getPublicProfile(username, user?.id)
   }
 
+  // ─── Profile settings ─────────────────────────────────────────────────────
+
+  @Patch('settings')
+  @UseGuards(JwtAuthGuard)
+  updateSettings(
+    @CurrentUser() user: any,
+    @Body() dto: { showCatalog?: boolean; showServices?: boolean },
+  ) {
+    return this.profilesService.updateProfileSettings(user.id, dto)
+  }
+
   // ─── Cover image ──────────────────────────────────────────────────────────
 
   @Patch('cover')

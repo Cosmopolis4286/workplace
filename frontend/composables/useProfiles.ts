@@ -27,6 +27,7 @@ export interface PublicProfile {
   coverImage?: string
   role: string
   restaurant?: { id: string; name: string; type?: string }
+  profileSettings: { showCatalog: boolean; showServices: boolean }
   followersCount: number
   followingCount: number
   postsCount: number
@@ -212,6 +213,17 @@ export function useProfiles() {
     reviews.value = reviews.value.filter(r => r.id !== reviewId)
   }
 
+  async function updateProfileSettings(dto: { showCatalog?: boolean; showServices?: boolean }) {
+    const res = await $fetch<{ showCatalog: boolean; showServices: boolean }>(
+      `${apiUrl}/api/profiles/settings`,
+      { method: 'PATCH', headers: getHeaders(), body: dto },
+    )
+    if (profile.value) {
+      profile.value.profileSettings = res
+    }
+    return res
+  }
+
   return {
     profile,
     posts,
@@ -234,5 +246,6 @@ export function useProfiles() {
     fetchReviews,
     submitReview,
     deleteReview,
+    updateProfileSettings,
   }
 }

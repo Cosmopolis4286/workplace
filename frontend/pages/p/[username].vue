@@ -153,9 +153,19 @@
               </button>
             </div>
 
-            <!-- Own profile badge -->
-            <div v-else-if="isAuthenticated && currentUser?.id === profile.id" class="flex-shrink-0 pt-3 sm:pt-2">
+            <!-- Own profile badge + settings -->
+            <div v-else-if="isAuthenticated && currentUser?.id === profile.id" class="flex-shrink-0 pt-3 sm:pt-2 flex items-center gap-2">
               <span class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium">Tu perfil</span>
+              <button
+                class="h-9 w-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                title="Configurar perfil público"
+                @click="openSettingsPanel"
+              >
+                <svg class="h-4 w-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </button>
             </div>
 
           </div>
@@ -259,6 +269,133 @@
             Cargar más
           </button>
         </div>
+      </div>
+
+      <!-- ── TAB: Catálogo ──────────────────────────────────────────── -->
+      <div v-if="activeTab === 'catalog'">
+        <div v-if="catalogLoading && catalogProducts.length === 0" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div v-for="i in 6" :key="i" class="card-premium p-3 animate-pulse">
+            <div class="aspect-square bg-gray-200 rounded-xl mb-2" />
+            <div class="h-4 bg-gray-200 rounded w-3/4 mb-1" />
+            <div class="h-3 bg-gray-200 rounded w-1/2" />
+          </div>
+        </div>
+        <div v-else-if="catalogProducts.length === 0" class="text-center py-16 text-gray-400">
+          <div class="text-5xl mb-3">🛍️</div>
+          <p class="font-medium">Sin productos disponibles</p>
+        </div>
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div
+            v-for="product in catalogProducts"
+            :key="product.id"
+            class="card-premium overflow-hidden cursor-pointer hover:shadow-lg transition-all group"
+            @click="openOrderModal(product)"
+          >
+            <div class="aspect-square bg-gray-100 relative overflow-hidden">
+              <img
+                v-if="product.image"
+                :src="product.image.startsWith('http') ? product.image : `${apiUrl}${product.image}`"
+                :alt="product.name"
+                class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+              >
+              <div v-else class="h-full w-full flex items-center justify-center">
+                <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span class="bg-white text-red-600 font-bold text-xs px-3 py-1.5 rounded-full shadow">Pedir</span>
+              </div>
+            </div>
+            <div class="p-3">
+              <p class="font-semibold text-gray-900 text-sm line-clamp-1">{{ product.name }}</p>
+              <p class="text-red-600 font-black text-sm mt-0.5">${{ new Intl.NumberFormat('es-CO').format(product.price) }}</p>
+              <p v-if="product.category?.name" class="text-xs text-gray-400 mt-0.5">{{ product.category.name }}</p>
+            </div>
+          </div>
+        </div>
+        <div v-if="catalogProducts.length < catalogTotal" class="mt-6 text-center">
+          <button
+            class="px-6 py-2.5 border-2 border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+            :disabled="catalogLoading"
+            @click="fetchCatalogProducts(catalogPage + 1)"
+          >
+            <span v-if="catalogLoading" class="inline-block h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
+            Cargar más
+          </button>
+        </div>
+        <!-- Toast pedido -->
+        <Teleport to="body">
+          <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0" leave-active-class="duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+            <div v-if="catalogToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] bg-green-600 text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold">
+              {{ catalogToast }}
+            </div>
+          </Transition>
+        </Teleport>
+      </div>
+
+      <!-- ── TAB: Servicios ──────────────────────────────────────────── -->
+      <div v-if="activeTab === 'services'">
+        <div v-if="servicesLoading && profileServices.length === 0" class="space-y-3">
+          <div v-for="i in 3" :key="i" class="card-premium p-4 animate-pulse flex gap-4">
+            <div class="h-16 w-16 bg-gray-200 rounded-xl flex-shrink-0" />
+            <div class="flex-1 space-y-2 pt-1">
+              <div class="h-4 bg-gray-200 rounded w-2/3" />
+              <div class="h-3 bg-gray-200 rounded w-full" />
+              <div class="h-3 bg-gray-200 rounded w-1/2" />
+            </div>
+          </div>
+        </div>
+        <div v-else-if="profileServices.length === 0" class="text-center py-16 text-gray-400">
+          <div class="text-5xl mb-3">🛠️</div>
+          <p class="font-medium">Sin servicios publicados</p>
+        </div>
+        <div v-else class="space-y-3">
+          <div
+            v-for="srv in profileServices"
+            :key="srv.id"
+            class="card-premium p-4 flex gap-4 hover:shadow-lg transition-all"
+          >
+            <div class="h-16 w-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+              <img
+                v-if="srv.image"
+                :src="srv.image.startsWith('http') ? srv.image : `${apiUrl}${srv.image}`"
+                :alt="srv.name"
+                class="h-full w-full object-cover"
+              >
+              <div v-else class="h-full w-full flex items-center justify-center text-gray-300">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-gray-900 text-sm">{{ srv.name }}</p>
+              <p v-if="srv.description" class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ srv.description }}</p>
+              <div class="flex items-center gap-3 mt-2 flex-wrap">
+                <span class="text-red-600 font-black text-sm">${{ new Intl.NumberFormat('es-CO').format(srv.price) }}<span class="text-gray-400 font-normal text-xs"> / {{ srv.priceUnit ?? 'servicio' }}</span></span>
+                <span v-if="srv.category?.name" class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ srv.category.name }}</span>
+              </div>
+            </div>
+            <div class="flex-shrink-0 flex items-center">
+              <button
+                v-if="!isOwnProfile"
+                class="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition-colors"
+                @click="openServiceReqModal(srv)"
+              >
+                Solicitar
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Toast servicio -->
+        <Teleport to="body">
+          <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0" leave-active-class="duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+            <div v-if="serviceToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold">
+              {{ serviceToast }}
+            </div>
+          </Transition>
+        </Teleport>
       </div>
 
       <!-- ── TAB: Reseñas ────────────────────────────────────────────── -->
@@ -577,6 +714,115 @@
       </Transition>
     </Teleport>
 
+    <!-- ── Modal: Order (catálogo) ──────────────────────────────────────── -->
+    <ModalsCatalogOrderModal
+      v-model="showOrderModal"
+      :product="orderTarget"
+      @success="onOrderSuccess"
+    />
+
+    <!-- ── Modal: Solicitud de servicio ──────────────────────────────────── -->
+    <ModalsCatalogServiceRequestModal
+      v-model="showServiceReqModal"
+      :service="serviceReqTarget"
+      @success="onServiceReqSuccess"
+    />
+
+    <!-- ── Panel: Configuración del perfil ───────────────────────────────── -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="duration-300 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="duration-200 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="showSettingsPanel" class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4" @click.self="showSettingsPanel = false">
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showSettingsPanel = false" />
+          <Transition
+            enter-active-class="duration-300 ease-out"
+            enter-from-class="opacity-0 translate-y-full sm:translate-y-4 sm:scale-95"
+            enter-to-class="opacity-100 translate-y-0 sm:scale-100"
+            leave-active-class="duration-200 ease-in"
+            leave-from-class="opacity-100 translate-y-0 sm:scale-100"
+            leave-to-class="opacity-0 translate-y-full sm:translate-y-4 sm:scale-95"
+          >
+            <div v-if="showSettingsPanel" class="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
+              <!-- Handle mobile -->
+              <div class="flex justify-center pt-3 pb-1 sm:hidden">
+                <div class="w-10 h-1 rounded-full bg-gray-200" />
+              </div>
+              <!-- Header -->
+              <div class="px-5 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <svg class="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <h2 class="text-base font-black text-gray-900">Configuración del perfil</h2>
+                </div>
+                <button class="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors" @click="showSettingsPanel = false">
+                  <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+              <!-- Body -->
+              <div class="px-5 py-5 space-y-4">
+                <p class="text-xs text-gray-400">Controla qué secciones son visibles en tu perfil público.</p>
+
+                <!-- Toggle: Catálogo -->
+                <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                  <div>
+                    <p class="font-semibold text-gray-800 text-sm">Catálogo de productos</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Muestra tus productos disponibles a la venta</p>
+                  </div>
+                  <button
+                    class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                    :class="settingsForm.showCatalog ? 'bg-red-500' : 'bg-gray-200'"
+                    @click="settingsForm.showCatalog = !settingsForm.showCatalog"
+                  >
+                    <span
+                      class="absolute top-0.5 left-0.5 h-5 w-5 bg-white rounded-full shadow transition-transform duration-200"
+                      :class="settingsForm.showCatalog ? 'translate-x-5' : 'translate-x-0'"
+                    />
+                  </button>
+                </div>
+
+                <!-- Toggle: Servicios -->
+                <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                  <div>
+                    <p class="font-semibold text-gray-800 text-sm">Servicios</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Muestra los servicios que ofreces</p>
+                  </div>
+                  <button
+                    class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                    :class="settingsForm.showServices ? 'bg-red-500' : 'bg-gray-200'"
+                    @click="settingsForm.showServices = !settingsForm.showServices"
+                  >
+                    <span
+                      class="absolute top-0.5 left-0.5 h-5 w-5 bg-white rounded-full shadow transition-transform duration-200"
+                      :class="settingsForm.showServices ? 'translate-x-5' : 'translate-x-0'"
+                    />
+                  </button>
+                </div>
+
+                <!-- Guardar -->
+                <button
+                  :disabled="savingSettings"
+                  class="w-full py-3 bg-red-600 text-white font-black text-sm rounded-2xl hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  @click="saveSettings"
+                >
+                  <span v-if="savingSettings" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Guardar cambios
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- ── Modal: seguidores / siguiendo ────────────────────────────────── -->
     <Teleport to="body">
       <Transition name="fade">
@@ -618,7 +864,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   StarIcon,
@@ -642,7 +888,7 @@ const {
   profile, posts, postsMeta, reviews, reviewStats,
   loading, loadingPosts, loadingReviews, error,
   fetchProfile, fetchPosts, uploadMedia, uploadCover, createPost, deletePost, updatePostCaption,
-  follow, unfollow, fetchReviews, submitReview, deleteReview,
+  follow, unfollow, fetchReviews, submitReview, deleteReview, updateProfileSettings,
   getFollowers, getFollowing,
 } = useProfiles()
 
@@ -727,10 +973,23 @@ const roleLabel = computed(() => {
 const isOwnProfile = computed(() => currentUser.value?.id === profile.value?.id)
 const canPost = computed(() => ['COMMERCE', 'FREELANCER', 'SUPERADMIN', 'ADMIN'].includes(currentUser.value?.role ?? ''))
 
-const tabs = [
-  { key: 'posts', label: 'Publicaciones' },
-  { key: 'reviews', label: 'Reseñas' },
-]
+const tabs = computed(() => {
+  const t: { key: string; label: string }[] = [
+    { key: 'posts', label: 'Publicaciones' },
+  ]
+  const ps = profile.value?.profileSettings ?? { showCatalog: true, showServices: true }
+  const role = profile.value?.role ?? ''
+  // Catálogo: solo COMMERCE/ADMIN/SUPERADMIN con commerce
+  if (ps.showCatalog && profile.value?.restaurant && ['COMMERCE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
+    t.push({ key: 'catalog', label: 'Catálogo' })
+  }
+  // Servicios: FREELANCER o COMMERCE
+  if (ps.showServices && ['FREELANCER', 'COMMERCE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
+    t.push({ key: 'services', label: 'Servicios' })
+  }
+  t.push({ key: 'reviews', label: 'Reseñas' })
+  return t
+})
 
 // Star breakdown
 function starCount(star: number) {
@@ -743,7 +1002,7 @@ function starPercent(star: number) {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-const activeTab = ref<'posts' | 'reviews'>('posts')
+const activeTab = ref<'posts' | 'catalog' | 'services' | 'reviews'>('posts')
 const followLoading = ref(false)
 
 // Post modal
@@ -778,6 +1037,92 @@ const uploadingAvatar = ref(false)
 const editingCaption = ref(false)
 const editCaptionValue = ref('')
 const savingCaption = ref(false)
+
+// ─── Panel de configuración del perfil ─────────────────────────────────────
+const showSettingsPanel = ref(false)
+const settingsForm = reactive({ showCatalog: true, showServices: true })
+const savingSettings = ref(false)
+
+function openSettingsPanel() {
+  settingsForm.showCatalog = profile.value?.profileSettings?.showCatalog ?? true
+  settingsForm.showServices = profile.value?.profileSettings?.showServices ?? true
+  showSettingsPanel.value = true
+}
+
+async function saveSettings() {
+  savingSettings.value = true
+  try {
+    await updateProfileSettings({ showCatalog: settingsForm.showCatalog, showServices: settingsForm.showServices })
+    showSettingsPanel.value = false
+  } finally {
+    savingSettings.value = false
+  }
+}
+
+// ─── Catálogo del perfil ──────────────────────────────────────────────────
+const catalogProducts = ref<any[]>([])
+const catalogLoading = ref(false)
+const catalogTotal = ref(0)
+const catalogPage = ref(1)
+const showOrderModal = ref(false)
+const orderTarget = ref<any>(null)
+const catalogToast = ref('')
+
+async function fetchCatalogProducts(page = 1) {
+  if (!profile.value?.restaurant?.id) return
+  catalogLoading.value = true
+  try {
+    const res = await $fetch<{ data: any[]; total: number; totalPages: number }>(
+      `${apiUrl}/api/catalog/products?commerceId=${profile.value.restaurant.id}&limit=12&page=${page}`,
+    )
+    if (page === 1) catalogProducts.value = res.data
+    else catalogProducts.value.push(...res.data)
+    catalogTotal.value = res.total
+    catalogPage.value = page
+  } finally {
+    catalogLoading.value = false
+  }
+}
+
+function openOrderModal(p: any) {
+  orderTarget.value = p
+  showOrderModal.value = true
+}
+
+function onOrderSuccess() {
+  catalogToast.value = '¡Pedido enviado! El comercio te contactará pronto.'
+  setTimeout(() => { catalogToast.value = '' }, 4000)
+}
+
+// ─── Servicios del perfil ─────────────────────────────────────────────────
+const profileServices = ref<any[]>([])
+const servicesLoading = ref(false)
+const showServiceReqModal = ref(false)
+const serviceReqTarget = ref<any>(null)
+const serviceToast = ref('')
+
+async function fetchProfileServices() {
+  if (!profile.value?.id) return
+  servicesLoading.value = true
+  try {
+    const res = await $fetch<{ data: any[] }>(
+      `${apiUrl}/api/services?userId=${profile.value.id}&limit=20`,
+    )
+    profileServices.value = res.data
+  } finally {
+    servicesLoading.value = false
+  }
+}
+
+function openServiceReqModal(srv: any) {
+  serviceReqTarget.value = srv
+  showServiceReqModal.value = true
+}
+
+function onServiceReqSuccess() {
+  serviceToast.value = '¡Solicitud enviada! El proveedor te contactará pronto.'
+  setTimeout(() => { serviceToast.value = '' }, 4000)
+}
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
@@ -956,6 +1301,12 @@ watch(showFollowingModal, async (val) => {
 watch(activeTab, (tab) => {
   if (tab === 'reviews' && reviews.value.length === 0 && profile.value?.username) {
     fetchReviews(profile.value.username)
+  }
+  if (tab === 'catalog' && catalogProducts.value.length === 0) {
+    fetchCatalogProducts(1)
+  }
+  if (tab === 'services' && profileServices.value.length === 0) {
+    fetchProfileServices()
   }
 })
 
