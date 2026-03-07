@@ -36,27 +36,57 @@
       </div>
 
       <!-- Filters -->
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 flex flex-col sm:flex-row gap-3">
-        <div class="flex-1 relative">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-          <input
-            v-model="search"
-            @input="onSearch"
-            type="text"
-            placeholder="Buscar por nombre o correo..."
-            class="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 space-y-3">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="flex-1 relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input
+              v-model="search"
+              @input="onSearch"
+              type="text"
+              placeholder="Buscar por nombre o correo..."
+              class="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <select
+            v-model="roleFilter"
+            @change="page = 1; load()"
+            class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Todos los roles</option>
+            <option v-for="r in availableRoles" :key="r.value" :value="r.value">{{ r.label }}</option>
+          </select>
         </div>
-        <select
-          v-model="roleFilter"
-          @change="load()"
-          class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-        >
-          <option value="">Todos los roles</option>
-          <option v-for="r in availableRoles" :key="r.value" :value="r.value">{{ r.label }}</option>
-        </select>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <select
+            v-model="categoryFilter"
+            @change="subcategoryFilter = ''; page = 1; load()"
+            class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Todas las categorías</option>
+            <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+              {{ cat.icon ? cat.icon + ' ' : '' }}{{ cat.name }}
+            </option>
+          </select>
+          <select
+            v-model="subcategoryFilter"
+            :disabled="!categoryFilter"
+            @change="page = 1; load()"
+            class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <option value="">Todas las subcategorías</option>
+            <option v-for="sub in filterSubcategories" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
+          </select>
+          <button
+            v-if="roleFilter || categoryFilter || subcategoryFilter || search"
+            @click="resetFilters"
+            class="px-3 py-2 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap"
+          >
+            Limpiar filtros
+          </button>
+        </div>
       </div>
 
       <!-- Loading skeleton -->
@@ -73,8 +103,9 @@
                 <th class="text-left px-4 py-3 font-semibold text-gray-600">Usuario</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Correo</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-600">Rol</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden xl:table-cell">Categoría</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Restaurante</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Categoría</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden xl:table-cell">Subcategoría</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Establecimiento</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-600">Estado</th>
                 <th class="text-right px-4 py-3 font-semibold text-gray-600">Acciones</th>
               </tr>
@@ -103,14 +134,15 @@
                     {{ ROLE_LABELS[u.role] }}
                   </span>
                 </td>
-                <td class="px-4 py-3 hidden xl:table-cell">
+                <td class="px-4 py-3 hidden lg:table-cell">
                   <div v-if="u.category" class="flex items-center gap-1.5">
                     <span class="text-base leading-none">{{ u.category.icon }}</span>
-                    <div>
-                      <div class="text-xs font-medium text-gray-700">{{ u.category.name }}</div>
-                      <div v-if="u.subcategory" class="text-xs text-gray-400">{{ u.subcategory.name }}</div>
-                    </div>
+                    <span class="text-xs font-medium text-gray-700">{{ u.category.name }}</span>
                   </div>
+                  <span v-else class="text-xs text-gray-400">—</span>
+                </td>
+                <td class="px-4 py-3 hidden xl:table-cell">
+                  <span v-if="u.subcategory" class="text-xs text-gray-600">{{ u.subcategory.name }}</span>
                   <span v-else class="text-xs text-gray-400">—</span>
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">
@@ -155,7 +187,7 @@
                 </td>
               </tr>
               <tr v-if="filteredUsers.length === 0">
-                <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                <td colspan="8" class="px-4 py-12 text-center text-gray-400">
                   <svg class="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
                   </svg>
@@ -246,10 +278,13 @@
                 </select>
               </div>
 
-              <div v-if="form.role === 'COMMERCE' && !editing">
-                <label class="block text-xs font-medium text-gray-600 mb-1">Nombre del restaurante <span class="text-gray-300">(opcional)</span></label>
+              <div v-if="(form.role === 'COMMERCE' || form.role === 'FREELANCER') && !editing">
+                <label class="block text-xs font-medium text-gray-600 mb-1">
+                  {{ form.role === 'FREELANCER' ? 'Nombre del negocio / establecimiento' : 'Nombre del restaurante' }}
+                  <span class="text-gray-300">(opcional)</span>
+                </label>
                 <input v-model="form.restaurantName" type="text"
-                  placeholder="Se puede configurar después"
+                  :placeholder="form.role === 'FREELANCER' ? 'Mi negocio o establecimiento' : 'Se puede configurar después'"
                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"/>
               </div>
 
@@ -420,6 +455,12 @@ const availableSubcategories = computed<UserSubcategory[]>(() => {
   return categories.value.find(c => c.id === form.value.categoryId)?.subcategories ?? []
 })
 
+// Filter subcategories (for the filter bar, not the form)
+const filterSubcategories = computed<UserSubcategory[]>(() => {
+  if (!categoryFilter.value) return []
+  return categories.value.find(c => c.id === categoryFilter.value)?.subcategories ?? []
+})
+
 // State
 const users = ref<UserItem[]>([])
 const loading = ref(false)
@@ -428,6 +469,8 @@ const total = ref(0)
 const page = ref(1)
 const limit = 20
 const roleFilter = ref<string>('')
+const categoryFilter = ref<string>('')
+const subcategoryFilter = ref<string>('')
 const search = ref('')
 let searchTimer: ReturnType<typeof setTimeout>
 
@@ -496,6 +539,8 @@ async function load() {
   try {
     const params = new URLSearchParams({ page: String(page.value), limit: String(limit) })
     if (roleFilter.value) params.set('role', roleFilter.value)
+    if (categoryFilter.value) params.set('categoryId', categoryFilter.value)
+    if (subcategoryFilter.value) params.set('subcategoryId', subcategoryFilter.value)
     const res = await apiFetch<{ data: UserItem[]; total: number }>(`/api/users?${params}`)
     users.value = res.data
     total.value = res.total
@@ -504,6 +549,15 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+function resetFilters() {
+  search.value = ''
+  roleFilter.value = ''
+  categoryFilter.value = ''
+  subcategoryFilter.value = ''
+  page.value = 1
+  load()
 }
 
 function onSearch() {

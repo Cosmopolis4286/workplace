@@ -27,7 +27,7 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(data.password, 12)
     const role = data.role ?? Role.COMMERCE
-    const createRestaurant = role === Role.COMMERCE || role === Role.ADMIN
+    const createRestaurant = role === Role.COMMERCE || role === Role.ADMIN || role === Role.FREELANCER
 
     const user = await this.prisma.user.create({
       data: {
@@ -69,10 +69,12 @@ export class UsersService {
   async findAllUsers(options: {
     roleFilter?: Role
     allowedRoles?: Role[]
+    categoryId?: string
+    subcategoryId?: string
     page: number
     limit: number
   }) {
-    const { roleFilter, allowedRoles, page, limit } = options
+    const { roleFilter, allowedRoles, categoryId, subcategoryId, page, limit } = options
     const skip = (page - 1) * limit
 
     const where: Record<string, unknown> = {}
@@ -81,6 +83,8 @@ export class UsersService {
     } else if (roleFilter) {
       where.role = roleFilter
     }
+    if (categoryId) where.categoryId = categoryId
+    if (subcategoryId) where.subcategoryId = subcategoryId
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({

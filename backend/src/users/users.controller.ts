@@ -33,6 +33,8 @@ export class UsersController {
   async findAll(
     @CurrentUser() caller: { id: string; role: Role },
     @Query('role') roleFilter?: Role,
+    @Query('categoryId') categoryId?: string,
+    @Query('subcategoryId') subcategoryId?: string,
     @Query('page') page = '1',
     @Query('limit') limit = '20',
   ) {
@@ -48,6 +50,8 @@ export class UsersController {
           ? undefined // will be filtered by allowedRoles below
           : roleFilter,
       allowedRoles,
+      categoryId,
+      subcategoryId,
       page: parseInt(page),
       limit: parseInt(limit),
     })

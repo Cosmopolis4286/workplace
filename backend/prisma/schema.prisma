@@ -35,6 +35,7 @@ model User {
   followers     Follow[]   @relation("UserFollowers")
   reviewsGiven  Review[]   @relation("ReviewsGiven")
   reviewsReceived Review[] @relation("ReviewsReceived")
+  services      Service[]
 
   @@map("users")
 }
@@ -692,6 +693,50 @@ enum LogLevel {
   WARN
   INFO
   DEBUG
+}
+
+// ─── Services (marketplace) ───────────────────────────────────────────────────
+
+enum ServiceStatus {
+  ACTIVO
+  INACTIVO
+  PAUSADO
+}
+
+model ServiceCategory {
+  id           String    @id @default(uuid())
+  name         String
+  color        String    @default("#3B82F6")
+  icon         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  services     Service[]
+
+  @@map("service_categories")
+}
+
+model Service {
+  id           String          @id @default(uuid())
+  name         String
+  description  String?
+  price        Float
+  priceUnit    String?
+  duration     Int?            // minutos estimados
+  image        String?
+  status       ServiceStatus   @default(ACTIVO)
+  tags         String[]
+  categoryId   String?
+  category     ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("services")
 }
 
 model SystemLog {

@@ -222,7 +222,7 @@ const roleLabel = computed(() => ROLE_LABELS[user.value?.role] ?? user.value?.ro
 
 // ── Page title / icon ──────────────────────────────────────────────────────
 const PAGE_MAP = {
-  '/inicio':           { title: 'Inicio',           icon: HomeIcon },
+  '/search':           { title: 'Búsqueda',         icon: HomeIcon },
   '/dashboard':        { title: 'Dashboard',       icon: HomeIcon },
   '/menu':             { title: 'Menú',             icon: Squares2X2Icon },
   '/clientes':         { title: 'Clientes',         icon: UsersIcon },
