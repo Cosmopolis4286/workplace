@@ -107,6 +107,20 @@
         Inventario
       </NuxtLink>
 
+      <!-- Servicios -->
+      <NuxtLink
+        v-if="isCommerceOrFreelancer && can('services:view')"
+        to="/servicios"
+        @click="$emit('navigate')"
+        class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
+        :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/servicios' }"
+      >
+        <svg class="mr-3 h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        Servicios
+      </NuxtLink>
+
       <!-- Ventas & Analytics Group -->
       <div v-if="isCommerceOrFreelancer && canAny('sales:view', 'analytics:view', 'reports:view')" class="space-y-1">
         <div class="px-3 py-2">

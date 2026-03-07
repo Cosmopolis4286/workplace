@@ -7,6 +7,7 @@ const adminOnlyRoutes: string[] = ['/usuarios', '/permisos', '/auditoria', '/log
 const commerceRoutes: string[] = [
   '/menu', '/inventario', '/gastos', '/ventas', '/analytics', '/reportes',
   '/agendamientos', '/clientes', '/delivery', '/pedidos', '/cliente-dashboard',
+  '/servicios',
 ]
 
 // Routes only for COMMERCE and above (not FREELANCER)
