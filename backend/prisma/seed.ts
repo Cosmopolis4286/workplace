@@ -141,6 +141,9 @@ const PERMISSIONS: PermissionDef[] = [
   { key: 'services:edit',            module: 'services',      action: 'edit',           label: 'Editar Servicios' },
   { key: 'services:delete',          module: 'services',      action: 'delete',         label: 'Eliminar Servicios' },
 
+  // Solicitudes de Servicio (recibidas por freelancers)
+  { key: 'service_requests:view',    module: 'service_requests', action: 'view',        label: 'Ver Solicitudes de Servicio' },
+
   // Catálogo / Marketplace
   { key: 'catalog:view',             module: 'catalog',       action: 'view',           label: 'Ver Catálogo (marketplace)' },
 
@@ -180,6 +183,7 @@ const ROLE_DEFAULTS: Record<Role, string[]> = {
   FREELANCER: [
     ...COMMERCE_KEYS.filter(k => !k.startsWith('employees:') && !k.startsWith('branches:')),
     'catalog:view',
+    'service_requests:view',
   ],
   NORMAL: ['catalog:view', 'notifications:view'],
 }
