@@ -98,6 +98,16 @@
         :key="service.id"
         class="card p-5 flex flex-col gap-3 hover:shadow-md transition-shadow"
       >
+        <!-- Image -->
+        <div v-if="service.image" class="-mx-5 -mt-5 mb-1 h-40 bg-gray-100 rounded-t-2xl overflow-hidden">
+          <img
+            :src="service.image"
+            :alt="service.name"
+            class="w-full h-full object-cover"
+            @error="($event.target as HTMLImageElement).closest('div')!.classList.add('hidden')"
+          />
+        </div>
+
         <!-- Header -->
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
@@ -330,10 +340,18 @@
                 <label class="block text-xs font-medium text-gray-700 mb-1">URL de imagen</label>
                 <input
                   v-model="form.image"
-                  type="url"
-                  placeholder="https://..."
+                  type="text"
+                  placeholder="https://ejemplo.com/imagen.jpg"
                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
                 />
+                <div v-if="form.image" class="mt-2 rounded-xl overflow-hidden border border-gray-200 h-32 bg-gray-50 flex items-center justify-center">
+                  <img
+                    :src="form.image"
+                    alt="Preview"
+                    class="h-full w-full object-cover"
+                    @error="($event.target as HTMLImageElement).parentElement!.innerHTML = '<span class=\'text-xs text-gray-400\'>No se puede cargar la imagen</span>'"
+                  />
+                </div>
               </div>
 
               <!-- Buttons -->
@@ -397,6 +415,7 @@ import {
   TrashIcon,
   ClockIcon,
 } from '@heroicons/vue/24/outline'
+import PageHeader from '~/components/ui/PageHeader.vue'
 import { useServicios, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service } from '~/composables/useServicios'
 
 definePageMeta({ middleware: 'auth' })
