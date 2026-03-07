@@ -277,23 +277,23 @@
       </Transition>
 
       <div v-if="!loading" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- ── Información del Restaurante ──────────────────────────── -->
+        <!-- ── Información del Comercio ──────────────────────────── -->
         <div class="card-premium p-6">
           <div class="flex items-center mb-6">
             <div class="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg mr-3">
               <BuildingStorefrontIcon class="h-6 w-6 text-white" />
             </div>
-            <h3 class="text-xl font-bold text-gray-900">Información del Restaurante</h3>
+            <h3 class="text-xl font-bold text-gray-900">Información del Comercio</h3>
           </div>
 
           <div class="space-y-5">
             <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre del Restaurante</label>
-              <input v-model="restaurantForm.name" type="text" class="input-field" placeholder="Mi Restaurante">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre del Comercio</label>
+              <input v-model="restaurantForm.name" type="text" class="input-field" placeholder="Mi Comercio">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Establecimiento</label>
-              <input v-model="restaurantForm.type" type="text" class="input-field" placeholder="Restaurante, Cafetería, Fast Food...">
+              <input v-model="restaurantForm.type" type="text" class="input-field" placeholder="Restaurante, Tienda, Servicio...">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Dirección</label>
@@ -306,7 +306,7 @@
               </div>
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-                <input v-model="restaurantForm.email" type="email" class="input-field" placeholder="contacto@mirestaurante.com">
+                <input v-model="restaurantForm.email" type="email" class="input-field" placeholder="contacto@micomercio.com">
               </div>
             </div>
             <div>

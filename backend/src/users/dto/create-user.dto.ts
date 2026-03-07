@@ -29,7 +29,7 @@ export class CreateUserDto {
 
   @IsString()
   @IsOptional()
-  restaurantName?: string
+  commerceName?: string
 
   @IsString()
   @IsOptional()

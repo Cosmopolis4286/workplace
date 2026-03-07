@@ -110,19 +110,19 @@
         />
       </template>
 
-      <!-- Step 1: Restaurant -->
+      <!-- Step 1: Commerce -->
       <template v-if="currentStep === 1">
         <AuthInput
-          id="restaurantName"
-          v-model="form.restaurantName"
-          label="Nombre del restaurante"
-          placeholder="Mi Restaurante"
+          id="commerceName"
+          v-model="form.commerceName"
+          label="Nombre del comercio"
+          placeholder="Mi Comercio"
           :icon="BuildingStorefrontIcon"
-          :error="errors.restaurantName"
-          :show-valid="touched.restaurantName"
+          :error="errors.commerceName"
+          :show-valid="touched.commerceName"
           autocomplete="organization"
           required
-          @blur="touch('restaurantName')"
+          @blur="touch('commerceName')"
         />
 
         <AuthInput
@@ -285,24 +285,24 @@ const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha()
 const config = useRuntimeConfig()
 const { required, email, minLength, maxLength, passwordStrength, matches, phone, validateAll, passwordScore, strengthLabel: slabel, strengthColor: scolor } = useFormValidation()
 
-const steps = ['Tus datos', 'Tu restaurante']
+const steps = ['Tus datos', 'Tu comercio']
 const currentStep = ref(0)
 
 const form = reactive({
   firstName: '', lastName: '', email: '', phone: '',
-  restaurantName: '', password: '', confirmPassword: '',
+  commerceName: '', password: '', confirmPassword: '',
   acceptTerms: false
 })
 
 const errors = reactive({
   firstName: '', lastName: '', email: '', phone: '',
-  restaurantName: '', password: '', confirmPassword: ''
+  commerceName: '', password: '', confirmPassword: ''
 })
 
 type FormKey = keyof typeof errors
 const touched = reactive<Record<FormKey, boolean>>({
   firstName: false, lastName: false, email: false, phone: false,
-  restaurantName: false, password: false, confirmPassword: false
+  commerceName: false, password: false, confirmPassword: false
 })
 
 const isLoading = ref(false)
@@ -325,7 +325,7 @@ const step0Schema = {
 }
 
 const step1Schema = {
-  restaurantName: [required('El nombre del restaurante'), maxLength(80)],
+  commerceName: [required('El nombre del comercio'), maxLength(80)],
   password: [required('La contraseña'), minLength(8), passwordStrength()],
   confirmPassword: [required('Confirma la contraseña'), matches(() => form.password, 'Las contraseñas')]
 }

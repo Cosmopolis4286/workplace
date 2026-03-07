@@ -17,7 +17,7 @@ export class UsersService {
     firstName: string
     lastName: string
     phone?: string
-    restaurantName?: string
+    commerceName?: string
     role?: Role
     categoryId?: string
     subcategoryId?: string
@@ -39,8 +39,8 @@ export class UsersService {
         role,
         ...(data.categoryId && { categoryId: data.categoryId }),
         ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
-        ...(createRestaurant && data.restaurantName
-          ? { restaurant: { create: { name: data.restaurantName } } }
+        ...(createRestaurant && data.commerceName
+          ? { restaurant: { create: { name: data.commerceName } } }
           : {}),
       },
       include: { restaurant: true, category: true, subcategory: true },
@@ -60,7 +60,7 @@ export class UsersService {
       lastName: dto.lastName,
       phone: dto.phone,
       role: dto.role,
-      restaurantName: dto.restaurantName,
+      commerceName: dto.commerceName,
       categoryId: dto.categoryId,
       subcategoryId: dto.subcategoryId,
     })
