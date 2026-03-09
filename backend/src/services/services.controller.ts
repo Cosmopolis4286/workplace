@@ -1,8 +1,8 @@
 import {
   Controller, Get, Post, Put, Patch, Delete,
-  Param, Body, Query, UseGuards,
+  Param, Body, Query, UseGuards, HttpCode,
 } from '@nestjs/common'
-import { Role } from '@prisma/client'
+import { Role, ServiceEventType } from '@prisma/client'
 import { ServicesService } from './services.service'
 import { CreateServiceDto } from './dto/create-service.dto'
 import { UpdateServiceDto } from './dto/update-service.dto'
@@ -75,6 +75,27 @@ export class ServicesController {
   @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.deleteService(id, user.id)
+  }
+
+  // ─── Tracking & Metrics ───────────────────────────────────────────────────
+
+  @Post('track')
+  @HttpCode(204)
+  @UseGuards(OptionalJwtAuthGuard)
+  track(
+    @Body('serviceId') serviceId: string,
+    @Body('type') type: ServiceEventType,
+    @Body('sessionId') sessionId: string | undefined,
+    @CurrentUser() user: any,
+  ) {
+    // fire-and-forget: no esperamos, 204 inmediato
+    this.servicesService.trackEvent(serviceId, type, user?.id, sessionId).catch(() => {})
+  }
+
+  @Get(':id/metrics')
+  @UseGuards(JwtAuthGuard)
+  getMetrics(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.servicesService.getServiceMetrics(id, user.id)
   }
 
   // ─── Service Requests ─────────────────────────────────────────────────────

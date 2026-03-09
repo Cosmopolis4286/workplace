@@ -805,6 +805,7 @@ model Service {
   @@index([createdAt(sort: Desc)])
   @@map("services")
   serviceRequests ServiceRequest[]
+  serviceEvents   ServiceEvent[]
 }
 
 enum ServiceRequestStatus {
@@ -847,6 +848,26 @@ model ServiceRequest {
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("service_requests")
+}
+
+enum ServiceEventType {
+  VIEW           // alguien abrió el anuncio del servicio
+  PROFILE_VISIT  // alguien hizo click en "Ver perfil" del proveedor
+  REQUEST        // alguien envió una solicitud de servicio
+}
+
+model ServiceEvent {
+  id        String           @id @default(uuid())
+  serviceId String
+  service   Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  type      ServiceEventType
+  viewerId  String?          // usuario autenticado que generó el evento (opcional)
+  createdAt DateTime         @default(now())
+
+  @@index([serviceId])
+  @@index([serviceId, type])
+  @@index([createdAt(sort: Desc)])
+  @@map("service_events")
 }
 
 model SystemLog {

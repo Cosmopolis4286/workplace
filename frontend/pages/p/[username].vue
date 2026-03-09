@@ -1106,7 +1106,7 @@ async function fetchProfileServices() {
   servicesLoading.value = true
   try {
     const res = await $fetch<{ data: any[] }>(
-      `${apiUrl}/api/services?userId=${profile.value.id}&limit=20`,
+      `${apiUrl}/api/services/catalog?userId=${profile.value.id}&limit=20`,
     )
     profileServices.value = res.data
   } finally {
@@ -1114,14 +1114,37 @@ async function fetchProfileServices() {
   }
 }
 
+function trackSvcEvent(serviceId: string, type: 'VIEW' | 'PROFILE_VISIT' | 'REQUEST') {
+  const config = useRuntimeConfig()
+  const base = `${(config.public.apiUrl as string)}/api/services`
+  let sid = ''
+  if (typeof sessionStorage !== 'undefined') {
+    sid = sessionStorage.getItem('_svcSid') ?? ''
+    if (!sid) {
+      sid = Math.random().toString(36).slice(2) + Date.now().toString(36)
+      sessionStorage.setItem('_svcSid', sid)
+    }
+  }
+  $fetch(`${base}/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...useAuth().getHeaders() },
+    body: { serviceId, type, sessionId: sid },
+  }).catch(() => {})
+}
+
 function openServiceReqModal(srv: any) {
   serviceReqTarget.value = srv
   showServiceReqModal.value = true
+  // Trackear VIEW: el usuario abrió el formulario del servicio desde el perfil
+  trackSvcEvent(srv.id, 'VIEW')
 }
 
 function onServiceReqSuccess() {
   serviceToast.value = '¡Solicitud enviada! El proveedor te contactará pronto.'
   setTimeout(() => { serviceToast.value = '' }, 4000)
+  if (serviceReqTarget.value) {
+    trackSvcEvent(serviceReqTarget.value.id, 'REQUEST')
+  }
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
