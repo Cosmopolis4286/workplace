@@ -201,7 +201,27 @@ export function useProfiles() {
       headers: getHeaders(),
       body: { targetId, rating, comment: comment || undefined },
     })
-    // Recargar reviews para obtener media actualizado
+    // Actualizar localmente sin sobreescribir las reseñas existentes de otros usuarios
+    const idx = reviews.value.findIndex(r => r.author.id === review.author.id)
+    if (idx !== -1) {
+      // Actualizar reseña existente del mismo autor (mantiene las de otros intactas)
+      const oldRating = reviews.value[idx].rating
+      reviews.value[idx] = review
+      // Recalcular promedio localmente
+      const total = reviews.value.reduce((sum, r) => sum + r.rating, 0)
+      reviewStats.value = {
+        reviewsCount: reviewStats.value.reviewsCount,
+        averageRating: Number((total / reviews.value.length).toFixed(2)),
+      }
+    } else {
+      // Nueva reseña: agregar al inicio y actualizar conteo
+      reviews.value.unshift(review)
+      const total = reviews.value.reduce((sum, r) => sum + r.rating, 0)
+      reviewStats.value = {
+        reviewsCount: reviewStats.value.reviewsCount + 1,
+        averageRating: Number((total / reviews.value.length).toFixed(2)),
+      }
+    }
     return review
   }
 
@@ -211,6 +231,12 @@ export function useProfiles() {
       headers: getHeaders(),
     })
     reviews.value = reviews.value.filter(r => r.id !== reviewId)
+    const newCount = reviewStats.value.reviewsCount - 1
+    const total = reviews.value.reduce((sum, r) => sum + r.rating, 0)
+    reviewStats.value = {
+      reviewsCount: newCount,
+      averageRating: newCount > 0 ? Number((total / reviews.value.length).toFixed(2)) : null,
+    }
   }
 
   async function updateProfileSettings(dto: { showCatalog?: boolean; showServices?: boolean }) {

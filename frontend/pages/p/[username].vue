@@ -1259,8 +1259,8 @@ async function handleSubmitReview() {
     await submitReview(profile.value.id, reviewForm.value.rating, reviewForm.value.comment)
     showReviewForm.value = false
     reviewForm.value = { rating: 0, comment: '' }
-    await fetchReviews(username.value)
-    if (profile.value?.username) await fetchProfile(profile.value.username)
+    // Recargar stats del perfil (rating promedio y conteo) sin reemplazar la lista de reseñas
+    if (profile.value?.username) fetchProfile(profile.value.username)
   } finally {
     savingReview.value = false
   }
