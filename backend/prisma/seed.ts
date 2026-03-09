@@ -161,6 +161,10 @@ const PERMISSIONS: PermissionDef[] = [
   // Planes — isSystem
   { key: 'plans:view',               module: 'plans',         action: 'view',           label: 'Ver Planes y Suscripciones',  isSystem: true },
   { key: 'plans:manage',             module: 'plans',         action: 'manage',         label: 'Gestionar Planes',            isSystem: true },
+
+  // Tasas de Cambio — isSystem
+  { key: 'exchange_rates:view',      module: 'exchange_rates', action: 'view',          label: 'Ver Tasas de Cambio',         isSystem: true },
+  { key: 'exchange_rates:manage',    module: 'exchange_rates', action: 'manage',        label: 'Gestionar Tasas de Cambio',   isSystem: true },
 ]
 
 const COMMERCE_KEYS = [
@@ -182,7 +186,7 @@ const COMMERCE_KEYS = [
 
 const ROLE_DEFAULTS: Record<Role, string[]> = {
   SUPERADMIN: PERMISSIONS.map(p => p.key),
-  ADMIN: [...COMMERCE_KEYS, 'users:view', 'users:manage', 'plans:view'],
+  ADMIN: [...COMMERCE_KEYS, 'users:view', 'users:manage', 'plans:view', 'exchange_rates:view'],
   COMMERCE: COMMERCE_KEYS,
   FREELANCER: [
     ...COMMERCE_KEYS.filter(k => !k.startsWith('employees:') && !k.startsWith('branches:')),
@@ -415,6 +419,94 @@ async function seedPlans() {
   console.log('\n✨ Plans seeded.')
 }
 
+async function seedExchangeRates() {
+  console.log('\n💱 Seeding default exchange rates...\n')
+
+  const DEFAULT_RATES = [
+    {
+      code: 'VES',
+      name: 'Bolívar Venezolano',
+      symbol: 'Bs.',
+      rateToUsd: 36.5,
+      isActive: true,
+      isDefault: true,
+      source: 'BCV',
+      notes: 'Tasa oficial BCV',
+    },
+    {
+      code: 'COP',
+      name: 'Peso Colombiano',
+      symbol: 'COP',
+      rateToUsd: 4100,
+      isActive: true,
+      isDefault: false,
+      source: 'Manual',
+      notes: null,
+    },
+    {
+      code: 'EUR',
+      name: 'Euro',
+      symbol: '€',
+      rateToUsd: 0.92,
+      isActive: true,
+      isDefault: false,
+      source: 'Manual',
+      notes: null,
+    },
+  ]
+
+  for (const rate of DEFAULT_RATES) {
+    const existing = await prisma.exchangeRate.findUnique({ where: { code: rate.code } })
+    if (!existing) {
+      await prisma.exchangeRate.create({ data: rate })
+      console.log(`  ✅ Tasa creada: ${rate.code} (${rate.name})`)
+    } else {
+      console.log(`  ⏭️  Tasa ya existe: ${rate.code}`)
+    }
+  }
+
+  console.log('\n✨ Exchange rates seeded.')
+}
+
+async function assignFreePlanToAll() {
+  console.log('\n🎁 Assigning free plan to users without subscription...\n')
+
+  const freePlan = await prisma.plan.findFirst({ where: { name: 'Gratuito' } })
+  if (!freePlan) {
+    console.log('  ⚠️  Plan Gratuito not found, skipping.')
+    return
+  }
+
+  const usersWithoutSub = await prisma.user.findMany({
+    where: {
+      role: { in: ['COMMERCE', 'FREELANCER', 'ADMIN'] },
+      subscriptions: { none: { status: { in: ['ACTIVE', 'TRIAL'] } } },
+    },
+    select: { id: true, email: true, role: true },
+  })
+
+  if (usersWithoutSub.length === 0) {
+    console.log('  ✅ All users already have an active subscription.')
+    return
+  }
+
+  for (const user of usersWithoutSub) {
+    await prisma.subscription.create({
+      data: {
+        userId: user.id,
+        planId: freePlan.id,
+        status: 'ACTIVE',
+        interval: 'MONTHLY',
+        pricePaid: 0,
+        startAt: new Date(),
+      },
+    })
+    console.log(`  ✅ [${user.role}] Free plan assigned: ${user.email}`)
+  }
+
+  console.log(`\n  ✨ ${usersWithoutSub.length} user(s) assigned to free plan.`)
+}
+
 async function main() {
   console.log('🌱 Seeding demo users...\n')
 
@@ -455,6 +547,8 @@ async function main() {
   await fixFreelancersWithoutBusiness()
   await seedPermissions()
   await seedPlans()
+  await seedExchangeRates()
+  await assignFreePlanToAll()
 }
 
 main()

@@ -973,3 +973,23 @@ model Subscription {
   @@index([status])
   @@map("subscriptions")
 }
+
+// ─── Exchange Rates ───────────────────────────────────────────────────────────
+
+model ExchangeRate {
+  id           String   @id @default(uuid())
+  code         String   @unique // e.g. "VES", "COP", "EUR"
+  name         String   // e.g. "Bolívar Venezolano"
+  symbol       String   // e.g. "Bs.", "COP", "€"
+  rateToUsd    Float    // how many units of this currency equal 1 USD
+  isActive     Boolean  @default(true)
+  isDefault    Boolean  @default(false) // only one can be default
+  source       String?  // e.g. "BCV", "Paralelo", "Manual"
+  notes        String?
+  updatedBy    String?  // userId of last editor
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("exchange_rates")
+}
