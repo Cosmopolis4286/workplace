@@ -157,6 +157,10 @@ const PERMISSIONS: PermissionDef[] = [
   // Auditoría — isSystem (solo SUPERADMIN)
   { key: 'audit:view',               module: 'audit',         action: 'view',           label: 'Ver Auditoría',               isSystem: true },
   { key: 'logs:view',                module: 'logs',          action: 'view',           label: 'Ver Logs del Sistema',        isSystem: true },
+
+  // Planes — isSystem
+  { key: 'plans:view',               module: 'plans',         action: 'view',           label: 'Ver Planes y Suscripciones',  isSystem: true },
+  { key: 'plans:manage',             module: 'plans',         action: 'manage',         label: 'Gestionar Planes',            isSystem: true },
 ]
 
 const COMMERCE_KEYS = [
@@ -178,7 +182,7 @@ const COMMERCE_KEYS = [
 
 const ROLE_DEFAULTS: Record<Role, string[]> = {
   SUPERADMIN: PERMISSIONS.map(p => p.key),
-  ADMIN: [...COMMERCE_KEYS, 'users:view', 'users:manage'],
+  ADMIN: [...COMMERCE_KEYS, 'users:view', 'users:manage', 'plans:view'],
   COMMERCE: COMMERCE_KEYS,
   FREELANCER: [
     ...COMMERCE_KEYS.filter(k => !k.startsWith('employees:') && !k.startsWith('branches:')),
@@ -236,7 +240,7 @@ async function fixFreelancersWithoutBusiness() {
   console.log('\n🔧 Fixing FREELANCER users without a business...\n')
 
   const freelancers = await prisma.user.findMany({
-    where: { role: 'FREELANCER', restaurant: null },
+    where: { role: 'FREELANCER', commerce: null },
     select: { id: true, firstName: true, lastName: true, email: true },
   })
 
@@ -247,11 +251,168 @@ async function fixFreelancersWithoutBusiness() {
 
   for (const user of freelancers) {
     const name = `Negocio de ${user.firstName} ${user.lastName}`
-    await prisma.restaurant.create({ data: { name, userId: user.id } })
+    await prisma.restaurant.create({ data: { name, userId: user.id } } as any)
     console.log(`  ✅ Created business "${name}" for ${user.email}`)
   }
 
   console.log(`\n  ✨ Fixed ${freelancers.length} FREELANCER(s).`)
+}
+
+async function seedPlans() {
+  console.log('\n💳 Seeding default plans...\n')
+
+  const PLANS = [
+    {
+      name: 'Gratuito',
+      description: 'Para empezar sin costo. Funciones básicas.',
+      price: 0,
+      priceAnnual: 0,
+      status: 'ACTIVE' as const,
+      isPopular: false,
+      color: '#6b7280',
+      sortOrder: 0,
+      forCommerce: true,
+      forFreelancer: true,
+      maxProducts: 10,
+      maxEmployees: 1,
+      maxBranches: 1,
+      maxOrders: 30,
+      maxStorage: 0,
+      features: ['Dashboard básico', 'Hasta 10 productos', 'Hasta 30 pedidos/mes'],
+      hasAnalytics: false,
+      hasDelivery: false,
+      hasReports: false,
+      hasApiAccess: false,
+      hasPrioritySupport: false,
+    },
+    {
+      name: 'Básico',
+      description: 'Ideal para negocios pequeños que quieren crecer.',
+      price: 199,
+      priceAnnual: 1990,
+      status: 'ACTIVE' as const,
+      isPopular: false,
+      color: '#3B82F6',
+      sortOrder: 1,
+      forCommerce: true,
+      forFreelancer: false,
+      maxProducts: 50,
+      maxEmployees: 5,
+      maxBranches: 1,
+      maxOrders: -1,
+      maxStorage: 1,
+      features: ['Todo el plan Gratuito', 'Hasta 50 productos', '5 empleados', 'Gestión de clientes', 'Agendamientos'],
+      hasAnalytics: false,
+      hasDelivery: false,
+      hasReports: false,
+      hasApiAccess: false,
+      hasPrioritySupport: false,
+    },
+    {
+      name: 'Profesional',
+      description: 'Para negocios en crecimiento. Analíticas y delivery.',
+      price: 499,
+      priceAnnual: 4990,
+      status: 'ACTIVE' as const,
+      isPopular: true,
+      color: '#8B5CF6',
+      sortOrder: 2,
+      forCommerce: true,
+      forFreelancer: false,
+      maxProducts: 200,
+      maxEmployees: 20,
+      maxBranches: 3,
+      maxOrders: -1,
+      maxStorage: 5,
+      features: ['Todo el plan Básico', 'Hasta 200 productos', '20 empleados', '3 sucursales', 'Delivery', 'Analytics avanzado', 'Reportes'],
+      hasAnalytics: true,
+      hasDelivery: true,
+      hasReports: true,
+      hasApiAccess: false,
+      hasPrioritySupport: false,
+    },
+    {
+      name: 'Empresarial',
+      description: 'Sin límites. Para cadenas y franquicias.',
+      price: 999,
+      priceAnnual: 9990,
+      status: 'ACTIVE' as const,
+      isPopular: false,
+      color: '#F59E0B',
+      sortOrder: 3,
+      forCommerce: true,
+      forFreelancer: false,
+      maxProducts: -1,
+      maxEmployees: -1,
+      maxBranches: -1,
+      maxOrders: -1,
+      maxStorage: 20,
+      features: ['Todo el plan Profesional', 'Productos ilimitados', 'Empleados ilimitados', 'Sucursales ilimitadas', 'Acceso API', 'Soporte prioritario', 'Onboarding personalizado'],
+      hasAnalytics: true,
+      hasDelivery: true,
+      hasReports: true,
+      hasApiAccess: true,
+      hasPrioritySupport: true,
+    },
+    {
+      name: 'Freelancer Básico',
+      description: 'Para freelancers que ofrecen servicios.',
+      price: 149,
+      priceAnnual: 1490,
+      status: 'ACTIVE' as const,
+      isPopular: false,
+      color: '#10B981',
+      sortOrder: 4,
+      forCommerce: false,
+      forFreelancer: true,
+      maxProducts: 20,
+      maxEmployees: 0,
+      maxBranches: 0,
+      maxOrders: 50,
+      maxStorage: 1,
+      features: ['Perfil público', 'Hasta 20 servicios', '50 solicitudes/mes', 'Catálogo en marketplace'],
+      hasAnalytics: false,
+      hasDelivery: false,
+      hasReports: false,
+      hasApiAccess: false,
+      hasPrioritySupport: false,
+    },
+    {
+      name: 'Freelancer Pro',
+      description: 'Para freelancers con mayor demanda.',
+      price: 349,
+      priceAnnual: 3490,
+      status: 'ACTIVE' as const,
+      isPopular: true,
+      color: '#06B6D4',
+      sortOrder: 5,
+      forCommerce: false,
+      forFreelancer: true,
+      maxProducts: -1,
+      maxEmployees: 0,
+      maxBranches: 0,
+      maxOrders: -1,
+      maxStorage: 5,
+      features: ['Todo el plan Freelancer Básico', 'Servicios ilimitados', 'Solicitudes ilimitadas', 'Analytics', 'Reportes', 'Soporte prioritario'],
+      hasAnalytics: true,
+      hasDelivery: false,
+      hasReports: true,
+      hasApiAccess: false,
+      hasPrioritySupport: true,
+    },
+  ]
+
+  for (const plan of PLANS) {
+    const existing = await prisma.plan.findFirst({ where: { name: plan.name } })
+    if (!existing) {
+      await prisma.plan.create({ data: { ...plan, features: plan.features } })
+      console.log(`  ✅ Plan creado: ${plan.name}`)
+    } else {
+      console.log(`  ⏭️  Plan ya existe: ${plan.name}`)
+    }
+  }
+
+  console.log('\n✨ Plans seeded.')
 }
 
 async function main() {
@@ -293,6 +454,7 @@ async function main() {
 
   await fixFreelancersWithoutBusiness()
   await seedPermissions()
+  await seedPlans()
 }
 
 main()
