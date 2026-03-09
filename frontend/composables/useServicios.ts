@@ -20,6 +20,7 @@ export interface Service {
   tags: string[]
   categoryId?: string
   category?: MyServiceCategory
+  requestCount?: number
   createdAt: string
 }
 

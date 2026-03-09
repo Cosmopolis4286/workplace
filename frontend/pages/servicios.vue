@@ -160,7 +160,7 @@
         <!-- Actions -->
         <div class="flex items-center justify-between pt-2 border-t border-gray-100">
           <button
-            @click="toggleStatus(service.id)"
+            @click="confirmToggleStatus(service)"
             class="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
             :class="service.status === 'ACTIVO'
               ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
@@ -169,6 +169,13 @@
             {{ service.status === 'ACTIVO' ? 'Pausar' : 'Activar' }}
           </button>
           <div class="flex gap-1">
+            <button
+              @click="openMetrics(service)"
+              class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+              title="Ver métricas"
+            >
+              <ChartBarIcon class="h-4 w-4" />
+            </button>
             <button
               @click="openEdit(service)"
               class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -377,6 +384,161 @@
       </div>
     </Teleport>
 
+    <!-- Confirm toggle status modal -->
+    <Teleport to="body">
+      <div
+        v-if="toggleTarget"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        @click.self="toggleTarget = null"
+      >
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <div
+              class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+              :class="toggleTarget.status === 'ACTIVO' ? 'bg-yellow-100' : 'bg-green-100'"
+            >
+              <PauseCircleIcon v-if="toggleTarget.status === 'ACTIVO'" class="h-5 w-5 text-yellow-600" />
+              <PlayCircleIcon v-else class="h-5 w-5 text-green-600" />
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900">
+              {{ toggleTarget.status === 'ACTIVO' ? 'Pausar servicio' : 'Activar servicio' }}
+            </h3>
+          </div>
+          <p class="text-sm text-gray-600 mb-6">
+            ¿Estás seguro de que deseas
+            <strong>{{ toggleTarget.status === 'ACTIVO' ? 'pausar' : 'activar' }}</strong>
+            el servicio <strong>{{ toggleTarget.name }}</strong>?
+            <span v-if="toggleTarget.status === 'ACTIVO'" class="block mt-1 text-yellow-700">
+              El servicio dejará de ser visible para los clientes.
+            </span>
+            <span v-else class="block mt-1 text-green-700">
+              El servicio volverá a ser visible para los clientes.
+            </span>
+          </p>
+          <div class="flex gap-3">
+            <button
+              @click="toggleTarget = null"
+              class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              @click="doToggleStatus"
+              :disabled="saving"
+              class="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
+              :class="toggleTarget.status === 'ACTIVO' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'"
+            >
+              {{ saving ? 'Guardando...' : (toggleTarget.status === 'ACTIVO' ? 'Pausar' : 'Activar') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Metrics modal -->
+    <Teleport to="body">
+      <div
+        v-if="metricsTarget"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        @click.self="closeMetrics"
+      >
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <ChartBarIcon class="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <h3 class="text-base font-semibold text-gray-900 truncate max-w-[220px]">{{ metricsTarget.name }}</h3>
+                <p class="text-xs text-gray-400">Receptividad del anuncio</p>
+              </div>
+            </div>
+            <button @click="closeMetrics" class="p-1 text-gray-400 hover:text-gray-600">
+              <XMarkIcon class="h-5 w-5" />
+            </button>
+          </div>
+
+          <!-- Status badge -->
+          <div class="flex items-center gap-2 mb-5">
+            <span class="text-xs font-medium px-2 py-1 rounded-full" :class="SERVICE_STATUS_CLASSES[metricsTarget.status]">
+              {{ SERVICE_STATUS_LABELS[metricsTarget.status] }}
+            </span>
+            <span v-if="metricsTarget.category" class="text-xs text-gray-500 flex items-center gap-1">
+              <span class="inline-block w-2 h-2 rounded-full" :style="{ backgroundColor: metricsTarget.category.color }"></span>
+              {{ metricsTarget.category.name }}
+            </span>
+          </div>
+
+          <!-- Loading -->
+          <div v-if="metricsLoading" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div v-for="n in 4" :key="n" class="h-20 bg-gray-100 rounded-xl animate-pulse"></div>
+            </div>
+            <div class="h-24 bg-gray-100 rounded-xl animate-pulse"></div>
+          </div>
+
+          <!-- Error -->
+          <div v-else-if="metricsError" class="p-4 bg-red-50 rounded-xl text-sm text-red-700">
+            {{ metricsError }}
+          </div>
+
+          <!-- Datos reales -->
+          <template v-else-if="metricsData">
+            <!-- KPI grid -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <div class="bg-blue-50 rounded-xl p-4">
+                <p class="text-xs text-blue-600 font-medium mb-1 flex items-center gap-1">
+                  <EyeIcon class="h-3.5 w-3.5" /> Visualizaciones
+                </p>
+                <p class="text-2xl font-bold text-blue-900">{{ metricsData.views }}</p>
+                <p class="text-[11px] text-blue-500 mt-0.5">usuarios únicos (1h)</p>
+              </div>
+              <div class="bg-indigo-50 rounded-xl p-4">
+                <p class="text-xs text-indigo-600 font-medium mb-1 flex items-center gap-1">
+                  <UserIcon class="h-3.5 w-3.5" /> Visitas al perfil
+                </p>
+                <p class="text-2xl font-bold text-indigo-900">{{ metricsData.profileVisits }}</p>
+                <p class="text-[11px] text-indigo-500 mt-0.5">desde este anuncio</p>
+              </div>
+              <div class="bg-green-50 rounded-xl p-4">
+                <p class="text-xs text-green-600 font-medium mb-1 flex items-center gap-1">
+                  <ClipboardDocumentListIcon class="h-3.5 w-3.5" /> Solicitudes
+                </p>
+                <p class="text-2xl font-bold text-green-900">{{ metricsData.requests }}</p>
+                <p class="text-[11px] text-green-500 mt-0.5">totales recibidas</p>
+              </div>
+              <div class="bg-orange-50 rounded-xl p-4">
+                <p class="text-xs text-orange-600 font-medium mb-1 flex items-center gap-1">
+                  <ArrowTrendingUpIcon class="h-3.5 w-3.5" /> Conversión
+                </p>
+                <p class="text-2xl font-bold text-orange-900">{{ metricsData.conversionRate }}%</p>
+                <p class="text-[11px] text-orange-500 mt-0.5">vistas → solicitudes</p>
+              </div>
+            </div>
+
+            <!-- Mini gráfico de vistas últimos 7 días -->
+            <div class="bg-gray-50 rounded-xl p-4">
+              <p class="text-xs font-semibold text-gray-600 mb-3">Vistas — últimos 7 días</p>
+              <div class="flex items-end gap-1.5 h-14">
+                <template v-for="day in metricsData.viewsByDay" :key="day.date">
+                  <div class="flex-1 flex flex-col items-center gap-1">
+                    <div
+                      class="w-full rounded-t-md bg-blue-400 transition-all duration-300"
+                      :style="{ height: maxDayViews > 0 ? `${Math.max(4, (day.count / maxDayViews) * 48)}px` : '4px' }"
+                      :title="`${day.date}: ${day.count} vista(s)`"
+                    ></div>
+                    <span class="text-[9px] text-gray-400">{{ day.date.slice(5) }}</span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Confirm delete modal -->
     <Teleport to="body">
       <div
@@ -414,6 +576,13 @@ import {
   PencilIcon,
   TrashIcon,
   ClockIcon,
+  ChartBarIcon,
+  PauseCircleIcon,
+  PlayCircleIcon,
+  EyeIcon,
+  UserIcon,
+  ArrowTrendingUpIcon,
+  ClipboardDocumentListIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useServicios, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service } from '~/composables/useServicios'
@@ -439,6 +608,17 @@ const filterStatus = ref('')
 const showModal = ref(false)
 const editing = ref<Service | null>(null)
 const deleteTarget = ref<Service | null>(null)
+const toggleTarget = ref<Service | null>(null)
+const metricsTarget = ref<Service | null>(null)
+const metricsData = ref<{
+  views: number
+  profileVisits: number
+  requests: number
+  conversionRate: number
+  viewsByDay: { date: string; count: number }[]
+} | null>(null)
+const metricsLoading = ref(false)
+const metricsError = ref<string | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
 const tagInput = ref('')
@@ -461,6 +641,11 @@ const headerStats = computed(() => [
   { label: 'Servicios activos', value: String(stats.value.activos) },
   { label: 'Total servicios', value: String(stats.value.total) },
 ])
+
+const maxDayViews = computed(() => {
+  if (!metricsData.value?.viewsByDay.length) return 1
+  return Math.max(1, ...metricsData.value.viewsByDay.map(d => d.count))
+})
 
 const filteredServices = computed(() => {
   let list = services.value
@@ -565,12 +750,62 @@ async function doDelete() {
   }
 }
 
-async function toggleStatus(id: string) {
+function confirmToggleStatus(service: Service) {
+  toggleTarget.value = service
+}
+
+async function doToggleStatus() {
+  if (!toggleTarget.value) return
+  saving.value = true
   try {
-    await toggleServiceStatus(id)
+    await toggleServiceStatus(toggleTarget.value.id)
+    toggleTarget.value = null
   } catch (e: any) {
     error.value = e?.data?.message ?? 'Error al cambiar estado'
+  } finally {
+    saving.value = false
   }
+}
+
+async function openMetrics(service: Service) {
+  metricsTarget.value = service
+  metricsData.value = null
+  metricsError.value = null
+  metricsLoading.value = true
+  const { getHeaders, refreshAccessToken } = useAuth()
+  const config = useRuntimeConfig()
+  const apiUrl = config.public.apiUrl as string
+  const fetchMetrics = () => $fetch<{
+    views: number
+    profileVisits: number
+    requests: number
+    conversionRate: number
+    viewsByDay: { date: string; count: number }[]
+  }>(`${apiUrl}/api/services/${service.id}/metrics`, {
+    headers: { 'Content-Type': 'application/json', ...getHeaders() },
+  })
+  try {
+    let res = await fetchMetrics().catch(async (err: any) => {
+      const status = err?.status ?? err?.statusCode
+      if (status === 401) {
+        const ok = await refreshAccessToken()
+        if (!ok) throw err
+        return fetchMetrics()
+      }
+      throw err
+    })
+    metricsData.value = res
+  } catch (e: any) {
+    metricsError.value = e?.data?.message ?? 'No se pudieron cargar las métricas'
+  } finally {
+    metricsLoading.value = false
+  }
+}
+
+function closeMetrics() {
+  metricsTarget.value = null
+  metricsData.value = null
+  metricsError.value = null
 }
 
 onMounted(async () => {

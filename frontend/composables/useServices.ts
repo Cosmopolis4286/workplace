@@ -170,6 +170,31 @@ export const useServices = () => {
     loadServices()
   }
 
+  // ─── Tracking ───────────────────────────────────────────────────────────
+
+  function getOrCreateSessionId(): string {
+    if (typeof sessionStorage === 'undefined') return ''
+    let sid = sessionStorage.getItem('_svcSid')
+    if (!sid) {
+      sid = Math.random().toString(36).slice(2) + Date.now().toString(36)
+      sessionStorage.setItem('_svcSid', sid)
+    }
+    return sid
+  }
+
+  function trackServiceEvent(
+    serviceId: string,
+    type: 'VIEW' | 'PROFILE_VISIT' | 'REQUEST',
+    headers?: Record<string, string>,
+  ) {
+    const sessionId = getOrCreateSessionId()
+    $fetch(`${base}/track`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(headers ?? {}) },
+      body: { serviceId, type, sessionId },
+    }).catch(() => {})
+  }
+
   // ─── Expose ─────────────────────────────────────────────────────────────
 
   return {
@@ -191,5 +216,6 @@ export const useServices = () => {
     changeSort,
     changePage,
     resetFilters,
+    trackServiceEvent,
   }
 }

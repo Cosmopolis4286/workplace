@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { ServiceStatus, Prisma } from '@prisma/client'
+import { ServiceStatus, ServiceEventType, Prisma } from '@prisma/client'
 import { CreateServiceDto } from './dto/create-service.dto'
 import { UpdateServiceDto } from './dto/update-service.dto'
 import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto'
@@ -226,6 +226,79 @@ export class ServicesService {
     if (!req) throw new NotFoundException('Solicitud no encontrada')
     if (req.providerId !== userId) throw new ForbiddenException('No tienes permiso')
     return this.prisma.serviceRequest.update({ where: { id }, data: { status: status as any } })
+  }
+
+  // ─── Tracking & Metrics ───────────────────────────────────────────────────
+
+  async trackEvent(serviceId: string, type: ServiceEventType, viewerId?: string, sessionId?: string) {
+    // Verify service exists (silently skip if not)
+    const exists = await this.prisma.service.findUnique({ where: { id: serviceId }, select: { id: true, userId: true } })
+    if (!exists) return
+    // No trackear eventos del propio dueño
+    if (viewerId && exists.userId === viewerId) return
+
+    // Deduplicación: solo 1 evento del mismo tipo por ventana de 1h
+    // Para usuarios autenticados: deduplicar por viewerId
+    // Para anónimos: deduplicar por sessionId (guardado en campo viewerId con prefijo "s:")
+    const dedupeKey = viewerId ?? (sessionId ? `s:${sessionId}` : null)
+    if (dedupeKey) {
+      const windowStart = new Date(Date.now() - 60 * 60 * 1000) // 1 hora
+      const recent = await this.prisma.serviceEvent.findFirst({
+        where: {
+          serviceId,
+          type,
+          viewerId: dedupeKey,
+          createdAt: { gte: windowStart },
+        },
+        select: { id: true },
+      })
+      if (recent) return // ya registrado en esta ventana
+    }
+
+    await this.prisma.serviceEvent.create({
+      data: { serviceId, type, viewerId: dedupeKey ?? null },
+    })
+  }
+
+  async getServiceMetrics(id: string, userId: string) {
+    await this.assertOwner(id, userId)
+
+    const [views, profileVisits, requests, recentViews] = await Promise.all([
+      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.VIEW } }),
+      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.PROFILE_VISIT } }),
+      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.REQUEST } }),
+      // Vistas de los últimos 7 días agrupadas por día
+      this.prisma.serviceEvent.findMany({
+        where: {
+          serviceId: id,
+          type: ServiceEventType.VIEW,
+          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        },
+        select: { createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ])
+
+    // Agrupa vistas por día (YYYY-MM-DD)
+    const viewsByDay: Record<string, number> = {}
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+      viewsByDay[d.toISOString().slice(0, 10)] = 0
+    }
+    for (const ev of recentViews) {
+      const day = ev.createdAt.toISOString().slice(0, 10)
+      if (day in viewsByDay) viewsByDay[day]++
+    }
+
+    const conversionRate = views > 0 ? Math.round((requests / views) * 100) : 0
+
+    return {
+      views,
+      profileVisits,
+      requests,
+      conversionRate,
+      viewsByDay: Object.entries(viewsByDay).map(([date, count]) => ({ date, count })),
+    }
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

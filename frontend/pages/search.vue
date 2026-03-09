@@ -637,7 +637,8 @@
                 </div>
                 <div class="flex items-center gap-2 pt-3 border-t border-gray-100">
                   <NuxtLink v-if="selectedService.user.username" :to="`/p/${selectedService.user.username}`"
-                    class="flex-shrink-0 text-xs font-semibold text-blue-600 py-2.5 px-4 rounded-xl border border-blue-200 hover:bg-blue-50 transition-colors">
+                    class="flex-shrink-0 text-xs font-semibold text-blue-600 py-2.5 px-4 rounded-xl border border-blue-200 hover:bg-blue-50 transition-colors"
+                    @click="trackProfileVisit(selectedService!)">
                     Ver perfil
                   </NuxtLink>
                   <button
@@ -711,7 +712,10 @@ const {
   loadCategories: sLoadCategories, loadProviders: sLoadProviders, loadServices: sLoadServices,
   search: sSearch, filterByCategory: sFilterByCategory, filterByProvider: sFilterByProvider,
   changePage: sChangePage, changeSort: sChangeSort, resetFilters: sResetFilters,
+  trackServiceEvent,
 } = useServices()
+
+const { getHeaders } = useAuth()
 
 const { user } = useAuth()
 
@@ -859,7 +863,12 @@ function isOwnService(srv: CatalogService): boolean {
 }
 
 function openProduct(product: CatalogProduct) { selectedProduct.value = product }
-function openService(srv: CatalogService) { selectedService.value = srv }
+function openService(srv: CatalogService) {
+  selectedService.value = srv
+  if (!isOwnService(srv)) {
+    trackServiceEvent(srv.id, 'VIEW', getHeaders())
+  }
+}
 function openOrderModal(product: CatalogProduct) { orderProduct.value = product; showOrderModal.value = true }
 function onOrderSuccess() {
   orderToast.value = true
@@ -873,6 +882,15 @@ function openServiceRequestModal(srv: CatalogService) {
 function onServiceRequestSuccess() {
   serviceToast.value = true
   setTimeout(() => { serviceToast.value = false }, 4000)
+  // Trackear REQUEST (evento ya guardado como ServiceRequest en BD, pero registramos el evento también)
+  if (serviceRequestTarget.value && !isOwnService(serviceRequestTarget.value)) {
+    trackServiceEvent(serviceRequestTarget.value.id, 'REQUEST', getHeaders())
+  }
+}
+function trackProfileVisit(srv: CatalogService) {
+  if (!isOwnService(srv)) {
+    trackServiceEvent(srv.id, 'PROFILE_VISIT', getHeaders())
+  }
 }
 
 function handleScroll() { showScrollTop.value = window.scrollY > 400 }
