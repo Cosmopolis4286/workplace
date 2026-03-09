@@ -23,6 +23,7 @@ import { PermissionsModule } from './permissions/permissions.module'
 import { ProfilesModule } from './profiles/profiles.module'
 import { AuditModule } from './audit/audit.module'
 import { ServicesModule } from './services/services.module'
+import { PlansModule } from './plans/plans.module'
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { ServicesModule } from './services/services.module'
     ProfilesModule,
     AuditModule,
     ServicesModule,
+    PlansModule,
   ],
 })
 export class AppModule {}

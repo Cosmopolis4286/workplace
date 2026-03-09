@@ -31,6 +31,7 @@ model User {
   commerce        Restaurant?
   profileSettings ProfileSettings?
   refreshTokens   RefreshToken[]
+  subscriptions   Subscription[]
   posts         Post[]
   following     Follow[]   @relation("UserFollowing")
   followers     Follow[]   @relation("UserFollowers")
@@ -860,4 +861,94 @@ model SystemLog {
   @@index([level])
   @@index([createdAt(sort: Desc)])
   @@map("system_logs")
+}
+
+// ─── Plans & Subscriptions ────────────────────────────────────────────────────
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  TRIAL
+  PENDING
+}
+
+enum BillingInterval {
+  MONTHLY
+  ANNUAL
+}
+
+model Plan {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  priceAnnual Float?     // descuento anual (opcional)
+  status      PlanStatus @default(ACTIVE)
+  isPopular   Boolean    @default(false)
+  color       String     @default("#3B82F6")
+  sortOrder   Int        @default(0)
+
+  // Targets
+  forCommerce   Boolean @default(true)
+  forFreelancer Boolean @default(false)
+
+  // Límites (-1 = ilimitado)
+  maxProducts   Int @default(50)
+  maxEmployees  Int @default(5)
+  maxBranches   Int @default(1)
+  maxOrders     Int @default(-1) // por mes
+  maxStorage    Int @default(1)  // GB
+
+  // Features habilitadas
+  features Json @default("[]") // string[]
+
+  // Módulos habilitados
+  hasAnalytics     Boolean @default(false)
+  hasDelivery      Boolean @default(false)
+  hasReports       Boolean @default(false)
+  hasApiAccess     Boolean @default(false)
+  hasPrioritySupport Boolean @default(false)
+
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("plans")
+}
+
+model Subscription {
+  id       String             @id @default(uuid())
+  userId   String
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId   String
+  plan     Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+  status   SubscriptionStatus @default(ACTIVE)
+  interval BillingInterval    @default(MONTHLY)
+
+  startAt   DateTime  @default(now())
+  endAt     DateTime?
+  trialEnds DateTime?
+
+  // Snapshot del precio al momento de suscribirse
+  pricePaid Float @default(0)
+
+  // Quién asignó (superadmin o auto)
+  assignedBy String? // userId del admin
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@map("subscriptions")
 }

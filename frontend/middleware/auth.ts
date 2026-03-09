@@ -1,7 +1,7 @@
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 
 // Routes only accessible to SUPERADMIN or ADMIN
-const adminOnlyRoutes: string[] = ['/usuarios', '/permisos', '/auditoria', '/logs']
+const adminOnlyRoutes: string[] = ['/usuarios', '/permisos', '/auditoria', '/logs', '/planes']
 
 // Routes accessible by COMMERCE, ADMIN, SUPERADMIN AND FREELANCER (all except empresa)
 const commerceRoutes: string[] = [
@@ -17,7 +17,7 @@ const empresaRoutes: string[] = ['/empleados', '/sucursales']
 const searchRoutes: string[] = ['/search']
 
 const protectedRoutes: string[] = [
-  '/dashboard', '/perfil', '/configuracion',
+  '/dashboard', '/perfil', '/configuracion', '/mi-plan',
   ...adminOnlyRoutes,
   ...commerceRoutes,
   ...empresaRoutes,
