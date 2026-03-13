@@ -32,11 +32,13 @@ model User {
   profileSettings ProfileSettings?
   refreshTokens   RefreshToken[]
   subscriptions   Subscription[]
-  posts         Post[]
-  following     Follow[]   @relation("UserFollowing")
-  followers     Follow[]   @relation("UserFollowers")
-  reviewsGiven  Review[]   @relation("ReviewsGiven")
-  reviewsReceived Review[] @relation("ReviewsReceived")
+  posts           Post[]
+  postLikes       PostLike[]    @relation("PostLikes")
+  postComments    PostComment[] @relation("PostComments")
+  following       Follow[]      @relation("UserFollowing")
+  followers       Follow[]      @relation("UserFollowers")
+  reviewsGiven    Review[]      @relation("ReviewsGiven")
+  reviewsReceived Review[]      @relation("ReviewsReceived")
   services         Service[]
   catalogOrders    CatalogOrder[]
   serviceRequests  ServiceRequest[]
@@ -596,17 +598,47 @@ enum PostMediaType {
 }
 
 model Post {
-  id         String      @id @default(uuid())
-  caption    String?
-  userId     String
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  media      PostMedia[]
-  likesCount Int         @default(0)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id            String        @id @default(uuid())
+  caption       String?
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media         PostMedia[]
+  likes         PostLike[]
+  comments      PostComment[]
+  likesCount    Int           @default(0)
+  commentsCount Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([userId, createdAt(sort: Desc)])
   @@map("posts")
+}
+
+model PostLike {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("PostLikes", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@map("post_likes")
+}
+
+model PostComment {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("PostComments", fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId, createdAt(sort: Asc)])
+  @@map("post_comments")
 }
 
 model PostMedia {

@@ -13,6 +13,17 @@ export interface ProfilePost {
   caption?: string
   media: ProfileMedia[]
   likesCount: number
+  commentsCount: number
+  isLiked: boolean
+  createdAt: string
+  updatedAt: string
+  user: { id: string; username?: string; firstName: string; lastName: string; avatar?: string }
+}
+
+export interface PostComment {
+  id: string
+  postId: string
+  content: string
   createdAt: string
   updatedAt: string
   user: { id: string; username?: string; firstName: string; lastName: string; avatar?: string }
@@ -239,6 +250,73 @@ export function useProfiles() {
     }
   }
 
+  // ─── Likes ───────────────────────────────────────────────────────────────
+
+  async function likePost(postId: string): Promise<{ liked: boolean; likesCount: number }> {
+    const res = await $fetch<{ liked: boolean; likesCount: number }>(
+      `${apiUrl}/api/profiles/posts/${postId}/like`,
+      { method: 'POST', headers: getHeaders() },
+    )
+    const idx = posts.value.findIndex(p => p.id === postId)
+    if (idx !== -1) {
+      posts.value[idx] = { ...posts.value[idx], isLiked: true, likesCount: res.likesCount }
+    }
+    return res
+  }
+
+  async function unlikePost(postId: string): Promise<{ liked: boolean; likesCount: number }> {
+    const res = await $fetch<{ liked: boolean; likesCount: number }>(
+      `${apiUrl}/api/profiles/posts/${postId}/like`,
+      { method: 'DELETE', headers: getHeaders() },
+    )
+    const idx = posts.value.findIndex(p => p.id === postId)
+    if (idx !== -1) {
+      posts.value[idx] = { ...posts.value[idx], isLiked: false, likesCount: res.likesCount }
+    }
+    return res
+  }
+
+  // ─── Comments ─────────────────────────────────────────────────────────────
+
+  async function fetchComments(postId: string): Promise<PostComment[]> {
+    const res = await $fetch<{ data: PostComment[] }>(
+      `${apiUrl}/api/profiles/posts/${postId}/comments`,
+      { headers: getHeaders() },
+    )
+    return res.data
+  }
+
+  async function createComment(postId: string, content: string): Promise<PostComment> {
+    const comment = await $fetch<PostComment>(
+      `${apiUrl}/api/profiles/posts/${postId}/comments`,
+      { method: 'POST', headers: getHeaders(), body: { content } },
+    )
+    const idx = posts.value.findIndex(p => p.id === postId)
+    if (idx !== -1) {
+      posts.value[idx] = { ...posts.value[idx], commentsCount: posts.value[idx].commentsCount + 1 }
+    }
+    return comment
+  }
+
+  async function deleteComment(postId: string, commentId: string): Promise<void> {
+    await $fetch(`${apiUrl}/api/profiles/posts/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    })
+    const idx = posts.value.findIndex(p => p.id === postId)
+    if (idx !== -1) {
+      posts.value[idx] = { ...posts.value[idx], commentsCount: Math.max(0, posts.value[idx].commentsCount - 1) }
+    }
+  }
+
+  async function updateComment(commentId: string, content: string): Promise<PostComment> {
+    return $fetch<PostComment>(`${apiUrl}/api/profiles/posts/comments/${commentId}`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: { content },
+    })
+  }
+
   async function updateProfileSettings(dto: { showCatalog?: boolean; showServices?: boolean }) {
     const res = await $fetch<{ showCatalog: boolean; showServices: boolean }>(
       `${apiUrl}/api/profiles/settings`,
@@ -267,6 +345,12 @@ export function useProfiles() {
     createPost,
     deletePost,
     updatePostCaption,
+    likePost,
+    unlikePost,
+    fetchComments,
+    createComment,
+    deleteComment,
+    updateComment,
     follow,
     unfollow,
     fetchReviews,
