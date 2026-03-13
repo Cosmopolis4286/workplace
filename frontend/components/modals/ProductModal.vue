@@ -53,7 +53,7 @@
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Precio de Venta</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Precio de Venta (USD)</label>
                     <input
                       v-model.number="form.price"
                       type="number"
@@ -62,10 +62,14 @@
                       class="input-field"
                       placeholder="0.00"
                     >
+                    <p v-if="defaultRate && form.price > 0" class="text-xs text-indigo-500 mt-1">
+                      ≈ {{ convertLabel(form.price) }} {{ defaultRate.code }}
+                      <span class="text-gray-400">({{ rateLabel }})</span>
+                    </p>
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Costo</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Costo (USD)</label>
                     <input
                       v-model.number="form.cost"
                       type="number"
@@ -74,6 +78,9 @@
                       class="input-field"
                       placeholder="0.00"
                     >
+                    <p v-if="defaultRate && form.cost > 0" class="text-xs text-indigo-500 mt-1">
+                      ≈ {{ convertLabel(form.cost) }} {{ defaultRate.code }}
+                    </p>
                   </div>
 
                   <div>
@@ -164,8 +171,12 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
+import { useDefaultRate } from '~/composables/useDefaultRate'
+
+const { defaultRate, convertLabel, rateLabel, load } = useDefaultRate()
+onMounted(load)
 
 const props = defineProps({
   isOpen: Boolean,
