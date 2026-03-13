@@ -30,6 +30,9 @@
         <div>
           <span class="text-lg font-bold text-ifood-red">${{ product.price }}</span>
           <span class="text-xs text-gray-500 ml-1">/ {{ product.unit }}</span>
+          <div v-if="defaultRate && convertLabel(product.price)" class="text-xs text-indigo-500 font-medium mt-0.5">
+            ≈ {{ convertLabel(product.price) }} {{ defaultRate.code }}
+          </div>
         </div>
         <div class="text-right">
           <div class="text-xs text-gray-500">Stock: {{ product.stock }}</div>
@@ -89,8 +92,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { useDefaultRate } from '~/composables/useDefaultRate'
 
 const props = defineProps({
   product: {
@@ -98,6 +102,9 @@ const props = defineProps({
     required: true
   }
 })
+
+const { defaultRate, convertLabel, load } = useDefaultRate()
+onMounted(load)
 
 defineEmits(['edit', 'delete', 'toggle-status'])
 
