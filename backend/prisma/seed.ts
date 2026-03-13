@@ -479,7 +479,7 @@ async function assignFreePlanToAll() {
 
   const usersWithoutSub = await prisma.user.findMany({
     where: {
-      role: { in: ['COMMERCE', 'FREELANCER', 'ADMIN'] },
+      role: { in: ['COMMERCE', 'FREELANCER'] },
       subscriptions: { none: { status: { in: ['ACTIVE', 'TRIAL'] } } },
     },
     select: { id: true, email: true, role: true },

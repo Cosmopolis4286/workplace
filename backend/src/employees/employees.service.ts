@@ -8,10 +8,14 @@ import { PrismaService } from '../prisma/prisma.service'
 import { CreateEmployeeDto } from './dto/create-employee.dto'
 import { UpdateEmployeeDto } from './dto/update-employee.dto'
 import { EmployeeRole } from '@prisma/client'
+import { PlanLimitsService } from '../plans/plan-limits.service'
 
 @Injectable()
 export class EmployeesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly planLimits: PlanLimitsService,
+  ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -70,6 +74,7 @@ export class EmployeesService {
 
   async create(userId: string, dto: CreateEmployeeDto) {
     const commerceId = await this.getRestaurantId(userId)
+    await this.planLimits.assertEmployeeLimit(userId, commerceId)
 
     if (dto.email) {
       const exists = await this.prisma.employee.findUnique({

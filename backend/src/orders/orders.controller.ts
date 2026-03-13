@@ -47,7 +47,7 @@ export class OrdersController {
   @Post()
   @RequirePermission('orders:create')
   create(@CurrentUser() user: any, @Body() dto: CreateOrderDto) {
-    return this.ordersService.create(user.commerceId, dto)
+    return this.ordersService.create(user.commerceId, dto, user.sub)
   }
 
   @Put(':id')

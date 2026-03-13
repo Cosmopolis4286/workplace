@@ -40,6 +40,9 @@
         <button @click="error = null" class="text-red-500 hover:text-red-700 text-lg leading-none">×</button>
       </div>
 
+      <!-- Plan usage banner -->
+      <PlanUsageBanner :usage="usage" :show="['orders']" />
+
       <!-- Stats Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Total active -->
@@ -837,6 +840,8 @@ import {
   type OrderType,
   type PaymentMethod,
 } from '~/composables/useClienteDashboard'
+import { usePlans } from '~/composables/usePlans'
+import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 
 // ── Composable ────────────────────────────────────────────────────────────────
 const {
@@ -1094,10 +1099,12 @@ function formatMktDate(date: string) {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
+const { usage, fetchUsage } = usePlans()
 onMounted(() => {
   loadOrders({ page: 1, limit: 20 })
   loadStats()
   loadMktOrders()
+  fetchUsage()
 })
 </script>
 

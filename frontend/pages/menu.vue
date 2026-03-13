@@ -19,6 +19,9 @@
       </template>
     </PageHeader>
 
+    <!-- Plan usage banner -->
+    <PlanUsageBanner :usage="usage" :show="['products']" />
+
     <!-- Error banner -->
     <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
       <p class="text-sm text-red-700">{{ error }}</p>
@@ -133,10 +136,12 @@ import {
 } from '@heroicons/vue/24/outline'
 import { useMenu } from '~/composables/useMenu'
 import type { Category, Product } from '~/composables/useMenu'
+import { usePlans } from '~/composables/usePlans'
 import ProductCard from '~/components/ProductCard.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 
 const {
   categories,
@@ -257,7 +262,10 @@ const handleToggleStatus = async (productId: string) => {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
+const { usage, fetchUsage } = usePlans()
+
 onMounted(() => {
   loadMenu()
+  fetchUsage()
 })
 </script>

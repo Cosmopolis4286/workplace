@@ -8,10 +8,14 @@ import { PrismaService } from '../prisma/prisma.service'
 import { CreateBranchDto } from './dto/create-branch.dto'
 import { UpdateBranchDto } from './dto/update-branch.dto'
 import { BranchStatus } from '@prisma/client'
+import { PlanLimitsService } from '../plans/plan-limits.service'
 
 @Injectable()
 export class BranchesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly planLimits: PlanLimitsService,
+  ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -70,6 +74,7 @@ export class BranchesService {
 
   async create(userId: string, dto: CreateBranchDto) {
     const commerceId = await this.getRestaurantId(userId)
+    await this.planLimits.assertBranchLimit(userId, commerceId)
 
     const exists = await this.prisma.branch.findUnique({
       where: { name_commerceId: { name: dto.name, commerceId } },
