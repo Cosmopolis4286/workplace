@@ -184,9 +184,16 @@ const COMMERCE_KEYS = [
   'services:view', 'services:create', 'services:edit', 'services:delete',
 ]
 
+// Permisos ADMIN: igual que COMMERCE pero sin menu/inventory (no son módulos de su rol)
+const ADMIN_KEYS = COMMERCE_KEYS.filter(
+  k => !k.startsWith('menu:') && !k.startsWith('inventory:')
+)
+
 const ROLE_DEFAULTS: Record<Role, string[]> = {
-  SUPERADMIN: PERMISSIONS.map(p => p.key),
-  ADMIN: [...COMMERCE_KEYS, 'users:view', 'users:manage', 'plans:view', 'exchange_rates:view'],
+  SUPERADMIN: PERMISSIONS.map(p => p.key).filter(
+    k => !k.startsWith('menu:') && !k.startsWith('inventory:')
+  ),
+  ADMIN: [...ADMIN_KEYS, 'users:view', 'users:manage', 'plans:view', 'exchange_rates:view'],
   COMMERCE: COMMERCE_KEYS,
   FREELANCER: [
     ...COMMERCE_KEYS.filter(k => !k.startsWith('employees:') && !k.startsWith('branches:')),

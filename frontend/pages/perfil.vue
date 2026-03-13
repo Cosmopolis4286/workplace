@@ -488,7 +488,8 @@ const ROLE_STYLES: Record<string, { label: string; badge: string }> = {
 }
 
 const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role ?? 'NORMAL'] ?? ROLE_STYLES.NORMAL)
-const isCommerce = computed(() => ['SUPERADMIN', 'ADMIN', 'COMMERCE'].includes(auth.user.value?.role ?? ''))
+// Solo COMMERCE tiene restaurante asociado y perfil público
+const isCommerce = computed(() => auth.user.value?.role === 'COMMERCE')
 
 const avatarUrl = computed(() => {
   if (avatarPreview.value) return avatarPreview.value

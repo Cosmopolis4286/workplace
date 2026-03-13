@@ -7,7 +7,7 @@
     />
 
     <!-- ════════════════════════════════════════════════════════════════════
-         VISTA NORMAL / FREELANCER — configuración local (sin backend)
+         VISTA SUPERADMIN / ADMIN / NORMAL — preferencias de usuario (sin backend)
          ════════════════════════════════════════════════════════════════════ -->
     <template v-if="!isCommerce">
       <!-- Toast -->
@@ -238,7 +238,7 @@
     </template>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         VISTA COMMERCE / ADMIN / SUPERADMIN — configuración del negocio
+         VISTA COMMERCE / FREELANCER — configuración del negocio (backend)
          ════════════════════════════════════════════════════════════════════ -->
     <template v-else>
       <!-- Loading skeleton -->
@@ -507,7 +507,8 @@ import { useAuth } from '~/composables/useAuth'
 
 const { user } = useAuth()
 const role = computed(() => user.value?.role ?? 'NORMAL')
-const isCommerce = computed(() => ['SUPERADMIN', 'ADMIN', 'COMMERCE'].includes(role.value))
+// Solo COMMERCE y FREELANCER tienen un negocio propio con configuración de backend
+const isCommerce = computed(() => ['COMMERCE', 'FREELANCER'].includes(role.value))
 const roleLabel = computed(() => {
   const labels: Record<string, string> = {
     SUPERADMIN: 'Super Administrador',
