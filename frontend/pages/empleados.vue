@@ -42,6 +42,9 @@
         </button>
       </div>
 
+      <!-- Plan usage banner -->
+      <PlanUsageBanner :usage="usage" :show="['employees']" />
+
       <!-- Stats Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-white/20">
@@ -503,6 +506,8 @@ import {
   type EmployeeRole,
   type EmployeeStatus,
 } from '~/composables/useEmpleados'
+import { usePlans } from '~/composables/usePlans'
+import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -660,5 +665,6 @@ function formatDate(dateStr: string) {
 
 // ─── Init ───────────────────────────────────────────────────────────────────
 
-onMounted(() => loadEmpleados())
+const { usage, fetchUsage } = usePlans()
+onMounted(() => { loadEmpleados(); fetchUsage() })
 </script>

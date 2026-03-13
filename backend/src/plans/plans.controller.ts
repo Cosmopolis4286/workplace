@@ -11,6 +11,7 @@ import {
   ParseBoolPipe,
 } from '@nestjs/common'
 import { PlansService } from './plans.service'
+import { PlanLimitsService } from './plan-limits.service'
 import { CreatePlanDto } from './dto/create-plan.dto'
 import { UpdatePlanDto } from './dto/update-plan.dto'
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto'
@@ -23,7 +24,10 @@ import { Role, SubscriptionStatus } from '@prisma/client'
 @Controller('plans')
 @UseGuards(JwtAuthGuard)
 export class PlansController {
-  constructor(private readonly plansService: PlansService) {}
+  constructor(
+    private readonly plansService: PlansService,
+    private readonly planLimitsService: PlanLimitsService,
+  ) {}
 
   // ─── Public (authenticated) endpoints ────────────────────────────────────────
 
@@ -35,6 +39,16 @@ export class PlansController {
   @Get('my-subscription')
   getMySubscription(@CurrentUser() user: any) {
     return this.plansService.getMySubscription(user.id)
+  }
+
+  @Get('usage')
+  async getUsage(@CurrentUser() user: any) {
+    const commerce = await this.planLimitsService['prisma'].restaurant.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    })
+    if (!commerce) return { limits: null, usage: null }
+    return this.planLimitsService.getUsage(user.id, commerce.id)
   }
 
   // ─── Admin endpoints ──────────────────────────────────────────────────────────

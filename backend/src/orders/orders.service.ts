@@ -5,6 +5,7 @@ import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
 import { QueryOrdersDto } from './dto/query-orders.dto'
 import { OrderStatus } from '@prisma/client'
+import { PlanLimitsService } from '../plans/plan-limits.service'
 
 // Valid status transitions for business logic enforcement
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -22,6 +23,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -134,8 +136,9 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   // Create
   // ──────────────────────────────────────────────────────────────────────────
-  async create(commerceId: string, dto: CreateOrderDto) {
+  async create(commerceId: string, dto: CreateOrderDto, userId?: string) {
     if (!dto.items?.length) throw new BadRequestException('El pedido debe tener al menos un ítem')
+    if (userId) await this.planLimits.assertOrderLimit(userId, commerceId)
 
     // Calculate totals
     const subtotal = dto.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)

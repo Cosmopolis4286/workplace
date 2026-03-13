@@ -12,12 +12,14 @@ import { UpdateCategoryDto } from './dto/update-category.dto'
 import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
 import { UpdateStockDto, StockUpdateType } from './dto/update-stock.dto'
+import { PlanLimitsService } from '../plans/plan-limits.service'
 
 @Injectable()
 export class MenuService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -117,6 +119,7 @@ export class MenuService {
 
   async createProduct(userId: string, dto: CreateProductDto) {
     const commerceId = await this.getRestaurantId(userId)
+    await this.planLimits.assertProductLimit(userId, commerceId)
     await this.assertCategoryOwnership(dto.categoryId, commerceId)
 
     const { categoryId, ...rest } = dto
