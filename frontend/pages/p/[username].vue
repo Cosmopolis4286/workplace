@@ -145,12 +145,6 @@
               >
                 Siguiendo
               </button>
-              <button
-                class="px-4 py-2 border-2 border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-all font-semibold"
-                @click="activeTab = 'reviews'; showReviewForm = true"
-              >
-                ★ Reseñar
-              </button>
             </div>
 
             <!-- Own profile badge + settings -->
@@ -208,11 +202,11 @@
         </div>
 
         <!-- Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <div
             v-for="post in posts"
             :key="post.id"
-            class="relative aspect-square rounded-xl overflow-hidden cursor-pointer group bg-gray-100"
+            class="relative aspect-square rounded-2xl overflow-hidden cursor-pointer group bg-gray-100 shadow-sm hover:shadow-lg transition-shadow duration-300"
             @click="openPost(post)"
           >
             <!-- Thumbnail -->
@@ -220,7 +214,7 @@
               v-if="post.media[0]?.type === 'IMAGE'"
               :src="mediaSrc(post.media[0].url)"
               :alt="post.caption ?? ''"
-              class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+              class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
             >
             <video
               v-else-if="post.media[0]?.type === 'VIDEO'"
@@ -233,27 +227,45 @@
               <PhotoIcon class="h-12 w-12" />
             </div>
 
-            <!-- Multi-media badge -->
-            <div v-if="post.media.length > 1" class="absolute top-2 right-2">
-              <SquaresPlusIcon class="h-5 w-5 text-white drop-shadow" />
+            <!-- Top badges -->
+            <div class="absolute top-2.5 left-2.5 flex gap-1.5">
+              <!-- Video -->
+              <span v-if="post.media[0]?.type === 'VIDEO'" class="h-6 w-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                <PlayCircleIcon class="h-3.5 w-3.5 text-white" />
+              </span>
+              <!-- Foto individual -->
+              <span v-else-if="post.media.length === 1 && post.media[0]?.type === 'IMAGE'" class="h-6 w-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                <PhotoIcon class="h-3.5 w-3.5 text-white" />
+              </span>
             </div>
-            <!-- Video badge -->
-            <div v-if="post.media[0]?.type === 'VIDEO'" class="absolute top-2 left-2">
-              <PlayCircleIcon class="h-5 w-5 text-white drop-shadow" />
+            <div class="absolute top-2.5 right-2.5 flex gap-1.5">
+              <!-- Multi-media -->
+              <span v-if="post.media.length > 1" class="h-6 w-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                <SquaresPlusIcon class="h-3.5 w-3.5 text-white" />
+              </span>
             </div>
 
-            <!-- Hover overlay -->
-            <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <p v-if="post.caption" class="text-white text-xs text-center px-3 line-clamp-3">{{ post.caption }}</p>
+            <!-- Hover overlay with stats -->
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3">
+              <div class="flex items-center gap-3">
+                <span class="flex items-center gap-1.5 text-white text-sm font-bold drop-shadow-sm">
+                  <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  {{ post.likesCount }}
+                </span>
+                <span class="flex items-center gap-1.5 text-white text-sm font-bold drop-shadow-sm">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                  {{ post.commentsCount }}
+                </span>
+              </div>
             </div>
 
             <!-- Own: delete button -->
             <button
               v-if="isOwnProfile"
-              class="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+              class="absolute top-2.5 right-2.5 h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
               @click.stop="confirmDeletePost(post.id)"
             >
-              <XMarkIcon class="h-4 w-4" />
+              <XMarkIcon class="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -405,13 +417,19 @@
         <div class="card-premium p-6 mb-6 flex flex-col sm:flex-row items-center gap-6">
           <div class="text-center">
             <div class="text-6xl font-bold text-gray-900">{{ reviewStats.averageRating?.toFixed(1) ?? '—' }}</div>
+            <!-- Estrellas con relleno parcial según puntuación exacta -->
             <div class="flex justify-center gap-0.5 mt-2">
-              <StarIcon
-                v-for="i in 5"
-                :key="i"
-                class="h-5 w-5"
-                :class="i <= Math.round(reviewStats.averageRating ?? 0) ? 'text-amber-400' : 'text-gray-200'"
-              />
+              <span v-for="i in 5" :key="i" class="relative h-5 w-5 inline-block">
+                <!-- Estrella vacía (fondo) -->
+                <StarIcon class="h-5 w-5 text-gray-200 absolute inset-0" />
+                <!-- Estrella llena recortada al % de relleno -->
+                <span
+                  class="absolute inset-0 overflow-hidden"
+                  :style="{ width: starFill(i, reviewStats.averageRating ?? 0) + '%' }"
+                >
+                  <StarIcon class="h-5 w-5 text-amber-400" />
+                </span>
+              </span>
             </div>
             <p class="text-xs text-gray-400 mt-1">{{ reviewStats.reviewsCount }} reseñas</p>
           </div>
@@ -431,49 +449,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Review form -->
-        <div v-if="isAuthenticated && !isOwnProfile && showReviewForm" class="card-premium p-6 mb-6">
-          <h3 class="font-bold text-gray-800 mb-4">Tu reseña</h3>
-          <div class="flex gap-1 mb-3">
-            <button
-              v-for="i in 5"
-              :key="i"
-              @click="reviewForm.rating = i"
-            >
-              <StarIcon
-                class="h-8 w-8 transition-colors"
-                :class="i <= reviewForm.rating ? 'text-amber-400' : 'text-gray-200 hover:text-amber-200'"
-              />
-            </button>
-          </div>
-          <textarea
-            v-model="reviewForm.comment"
-            rows="3"
-            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red resize-none text-sm"
-            placeholder="Comparte tu experiencia (opcional)..."
-          />
-          <div class="flex gap-2 mt-3 justify-end">
-            <button class="px-4 py-2 text-gray-500 text-sm font-medium hover:text-gray-700" @click="showReviewForm = false">Cancelar</button>
-            <button
-              :disabled="reviewForm.rating === 0 || savingReview"
-              class="px-5 py-2 bg-ifood-red text-white text-sm font-semibold rounded-xl disabled:opacity-50 hover:bg-red-600 transition-colors"
-              @click="handleSubmitReview"
-            >
-              <span v-if="savingReview" class="inline-block h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
-              Publicar reseña
-            </button>
-          </div>
-        </div>
-
-        <button
-          v-else-if="isAuthenticated && !isOwnProfile && !showReviewForm"
-          class="mb-6 flex items-center gap-2 px-5 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-amber-300 hover:text-amber-500 transition-all w-full"
-          @click="showReviewForm = true"
-        >
-          <StarIcon class="h-5 w-5" />
-          <span class="font-medium text-sm">Escribir una reseña</span>
-        </button>
 
         <!-- Reviews list -->
         <div v-if="loadingReviews" class="space-y-3">
@@ -511,9 +486,14 @@
                   </NuxtLink>
                   <span v-else class="font-semibold text-gray-900 text-sm">{{ review.author.firstName }} {{ review.author.lastName }}</span>
                   <div class="flex gap-0.5">
-                    <StarIcon v-for="i in 5" :key="i" class="h-3.5 w-3.5" :class="i <= review.rating ? 'text-amber-400' : 'text-gray-200'" />
+                    <span v-for="i in 5" :key="i" class="relative h-3.5 w-3.5 inline-block">
+                      <StarIcon class="h-3.5 w-3.5 text-gray-200 absolute inset-0" />
+                      <span class="absolute inset-0 overflow-hidden" :style="{ width: starFill(i, review.rating) + '%' }">
+                        <StarIcon class="h-3.5 w-3.5 text-amber-400" />
+                      </span>
+                    </span>
                   </div>
-                  <span class="text-xs text-gray-400 ml-auto">{{ formatDate(review.createdAt) }}</span>
+                  <span class="text-xs text-gray-400 ml-auto">{{ formatDateTime(review.createdAt) }}</span>
                 </div>
                 <p v-if="review.comment" class="text-sm text-gray-600">{{ review.comment }}</p>
               </div>
@@ -533,92 +513,91 @@
     <!-- ── Modal: ver post ──────────────────────────────────────────────── -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="selectedPost" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" @click.self="selectedPost = null">
-          <div class="bg-white rounded-2xl overflow-hidden max-w-3xl w-full max-h-[90vh] flex flex-col sm:flex-row shadow-2xl">
+        <div
+          v-if="selectedPost"
+          class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md"
+          @click.self="selectedPost = null"
+        >
+          <div class="bg-white rounded-3xl overflow-hidden w-full max-w-5xl max-h-[92vh] flex flex-col sm:flex-row shadow-2xl ring-1 ring-black/10">
 
-            <!-- Media side -->
-            <div class="sm:w-1/2 bg-black flex items-center justify-center min-h-[260px]">
+            <!-- ── Media side ──────────────────────────────────────────── -->
+            <div class="relative sm:w-[55%] bg-black flex items-center justify-center min-h-[240px] sm:min-h-0 flex-shrink-0">
               <img
                 v-if="selectedPost.media[currentMediaIdx]?.type === 'IMAGE'"
                 :src="mediaSrc(selectedPost.media[currentMediaIdx].url)"
-                class="max-h-[70vh] max-w-full object-contain"
+                class="w-full h-full object-contain max-h-[50vh] sm:max-h-[92vh]"
               >
               <video
                 v-else-if="selectedPost.media[currentMediaIdx]?.type === 'VIDEO'"
                 :src="mediaSrc(selectedPost.media[currentMediaIdx].url)"
-                class="max-h-[70vh] max-w-full"
+                class="w-full h-full max-h-[50vh] sm:max-h-[92vh]"
                 controls
                 autoplay
               />
-              <!-- Prev/next for multi-media -->
+              <div v-else class="flex items-center justify-center h-full w-full text-gray-600">
+                <PhotoIcon class="h-16 w-16 opacity-30" />
+              </div>
+
+              <!-- Prev/Next buttons -->
               <template v-if="selectedPost.media.length > 1">
                 <button
-                  class="absolute left-4 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/70"
-                  @click="currentMediaIdx = Math.max(0, currentMediaIdx - 1)"
+                  class="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center text-lg font-light backdrop-blur-sm transition-all"
+                  @click.stop="currentMediaIdx = Math.max(0, currentMediaIdx - 1)"
                 >‹</button>
                 <button
-                  class="absolute right-4 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/70"
-                  @click="currentMediaIdx = Math.min(selectedPost.media.length - 1, currentMediaIdx + 1)"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center text-lg font-light backdrop-blur-sm transition-all"
+                  @click.stop="currentMediaIdx = Math.min(selectedPost.media.length - 1, currentMediaIdx + 1)"
                 >›</button>
-                <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
-                  <span v-for="(_, i) in selectedPost.media" :key="i" class="h-1.5 w-1.5 rounded-full" :class="i === currentMediaIdx ? 'bg-white' : 'bg-white/40'" />
+                <!-- Dot indicators -->
+                <div class="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
+                  <button
+                    v-for="(_, i) in selectedPost.media"
+                    :key="i"
+                    class="rounded-full transition-all"
+                    :class="i === currentMediaIdx ? 'h-2 w-4 bg-white' : 'h-2 w-2 bg-white/40 hover:bg-white/60'"
+                    @click.stop="currentMediaIdx = i"
+                  />
                 </div>
               </template>
+
+              <!-- Media count badge -->
+              <div v-if="selectedPost.media.length > 1" class="absolute top-3 right-3 bg-black/60 text-white text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
+                {{ currentMediaIdx + 1 }} / {{ selectedPost.media.length }}
+              </div>
             </div>
 
-            <!-- Info side -->
-            <div class="sm:w-1/2 flex flex-col">
-              <div class="flex items-center gap-3 p-4 border-b border-gray-100">
-                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center overflow-hidden">
-                  <img v-if="selectedPost.user.avatar" :src="avatarSrc(selectedPost.user.avatar)" class="h-full w-full object-cover">
-                  <span v-else class="text-white text-sm font-bold">{{ selectedPost.user.firstName[0] }}</span>
-                </div>
-                <div>
-                  <p class="font-semibold text-gray-900 text-sm">{{ selectedPost.user.firstName }} {{ selectedPost.user.lastName }}</p>
-                  <p v-if="selectedPost.user.username" class="text-xs text-gray-400">@{{ selectedPost.user.username }}</p>
-                </div>
-                <button class="ml-auto text-gray-400 hover:text-gray-600" @click="selectedPost = null">
-                  <XMarkIcon class="h-5 w-5" />
-                </button>
-              </div>
-              <div class="flex-1 overflow-y-auto p-4">
-                <!-- Edit mode -->
-                <template v-if="editingCaption">
-                  <textarea
-                    v-model="editCaptionValue"
-                    rows="5"
-                    maxlength="2200"
-                    class="w-full px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red resize-none"
-                    placeholder="Escribe una descripción..."
-                  />
-                  <p class="text-xs text-gray-400 text-right mt-1">{{ editCaptionValue.length }}/2200</p>
-                  <div class="flex gap-2 mt-2 justify-end">
-                    <button class="px-3 py-1.5 text-xs text-gray-500 font-medium hover:text-gray-700" @click="cancelEditCaption">Cancelar</button>
-                    <button
-                      :disabled="savingCaption"
-                      class="px-4 py-1.5 bg-ifood-red text-white text-xs font-semibold rounded-lg disabled:opacity-50 hover:bg-red-600 flex items-center gap-1"
-                      @click="saveCaption"
-                    >
-                      <span v-if="savingCaption" class="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Guardar
-                    </button>
+            <!-- ── Info side ───────────────────────────────────────────── -->
+            <div class="flex flex-col flex-1 min-w-0 min-h-0">
+
+              <!-- Header -->
+              <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-100 flex-shrink-0">
+                <NuxtLink
+                  v-if="selectedPost.user.username"
+                  :to="`/p/${selectedPost.user.username}`"
+                  class="flex items-center gap-3 group min-w-0"
+                  @click="selectedPost = null"
+                >
+                  <div class="h-10 w-10 rounded-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-transparent group-hover:ring-ifood-red/30 transition-all">
+                    <img v-if="selectedPost.user.avatar" :src="avatarSrc(selectedPost.user.avatar)" class="h-full w-full object-cover">
+                    <span v-else class="text-white text-sm font-bold">{{ selectedPost.user.firstName[0] }}</span>
                   </div>
-                </template>
-                <!-- View mode -->
-                <template v-else>
-                  <p v-if="selectedPost.caption" class="text-sm text-gray-700 whitespace-pre-line">{{ selectedPost.caption }}</p>
-                  <p v-else class="text-sm text-gray-400 italic">Sin descripción</p>
-                </template>
-              </div>
-              <div class="p-4 border-t border-gray-100 flex items-center justify-between gap-2">
-                <div>
-                  <p class="text-xs text-gray-400">{{ formatDateTime(selectedPost.createdAt) }}</p>
-                  <p v-if="selectedPost.updatedAt !== selectedPost.createdAt" class="text-xs text-gray-400 italic">Editado {{ formatDateTime(selectedPost.updatedAt) }}</p>
+                  <div class="min-w-0">
+                    <p class="font-bold text-gray-900 text-sm leading-tight group-hover:text-ifood-red transition-colors">{{ selectedPost.user.firstName }} {{ selectedPost.user.lastName }}</p>
+                    <p class="text-xs text-gray-400">@{{ selectedPost.user.username }}</p>
+                  </div>
+                </NuxtLink>
+                <div v-else class="flex items-center gap-3 min-w-0">
+                  <div class="h-10 w-10 rounded-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <img v-if="selectedPost.user.avatar" :src="avatarSrc(selectedPost.user.avatar)" class="h-full w-full object-cover">
+                    <span v-else class="text-white text-sm font-bold">{{ selectedPost.user.firstName[0] }}</span>
+                  </div>
+                  <p class="font-bold text-gray-900 text-sm">{{ selectedPost.user.firstName }} {{ selectedPost.user.lastName }}</p>
                 </div>
-                <!-- Own post actions -->
-                <div v-if="isOwnProfile && !editingCaption" class="flex gap-1">
+
+                <!-- Own actions -->
+                <div v-if="isOwnProfile && !editingCaption" class="ml-auto flex items-center gap-1 flex-shrink-0">
                   <button
-                    class="p-1.5 rounded-lg text-gray-400 hover:text-ifood-red hover:bg-red-50 transition-colors"
+                    class="h-8 w-8 rounded-xl text-gray-400 hover:text-ifood-red hover:bg-red-50 flex items-center justify-center transition-colors"
                     title="Editar descripción"
                     @click="startEditCaption"
                   >
@@ -627,7 +606,7 @@
                     </svg>
                   </button>
                   <button
-                    class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    class="h-8 w-8 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
                     title="Eliminar publicación"
                     @click="confirmDeletePost(selectedPost.id)"
                   >
@@ -635,8 +614,218 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
                   </button>
+                  <div class="w-px h-5 bg-gray-200 mx-1" />
+                </div>
+                <button
+                  class="ml-auto h-8 w-8 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition-colors flex-shrink-0"
+                  :class="{ 'ml-0': isOwnProfile && !editingCaption }"
+                  @click="selectedPost = null"
+                >
+                  <XMarkIcon class="h-5 w-5" />
+                </button>
+              </div>
+
+              <!-- Caption / Edit caption -->
+              <div class="px-5 py-4 flex-shrink-0 border-b border-gray-50">
+                <template v-if="editingCaption">
+                  <textarea
+                    v-model="editCaptionValue"
+                    rows="3"
+                    maxlength="2200"
+                    class="w-full px-3.5 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-ifood-red/15 focus:border-ifood-red resize-none transition-all"
+                    placeholder="Escribe una descripción..."
+                    autofocus
+                  />
+                  <div class="flex items-center justify-between mt-2">
+                    <span class="text-xs text-gray-400">{{ editCaptionValue.length }}/2200</span>
+                    <div class="flex gap-2">
+                      <button class="px-3.5 py-1.5 text-sm text-gray-500 font-medium hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors" @click="cancelEditCaption">Cancelar</button>
+                      <button
+                        :disabled="savingCaption"
+                        class="px-4 py-1.5 bg-ifood-red text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-red-600 transition-colors flex items-center gap-1.5"
+                        @click="saveCaption"
+                      >
+                        <span v-if="savingCaption" class="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Guardar
+                      </button>
+                    </div>
+                  </div>
+                </template>
+                <template v-else>
+                  <p v-if="selectedPost.caption" class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ selectedPost.caption }}</p>
+                  <p v-else class="text-sm text-gray-400 italic">Sin descripción</p>
+                  <p class="text-xs text-gray-400 mt-2">{{ formatDateTime(selectedPost.createdAt) }}</p>
+                </template>
+              </div>
+
+              <!-- Likes & comments action bar -->
+              <div class="flex items-center gap-1 px-4 py-3 border-b border-gray-100 flex-shrink-0">
+                <!-- Like button -->
+                <button
+                  class="flex items-center gap-2 px-3 py-2 rounded-xl font-semibold text-sm transition-all"
+                  :class="selectedPost.isLiked
+                    ? 'text-red-500 bg-red-50 hover:bg-red-100'
+                    : 'text-gray-500 hover:text-red-500 hover:bg-red-50'"
+                  :disabled="!isAuthenticated || likingPostId === selectedPost.id"
+                  @click="handleToggleLike(selectedPost)"
+                >
+                  <svg
+                    class="h-5 w-5 transition-all duration-200"
+                    :class="selectedPost.isLiked ? 'scale-110' : ''"
+                    :fill="selectedPost.isLiked ? 'currentColor' : 'none'"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                  </svg>
+                  <span>{{ selectedPost.likesCount }}</span>
+                  <span class="hidden sm:inline text-xs font-normal opacity-70">me gusta</span>
+                </button>
+
+                <!-- Comments count -->
+                <div class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-500">
+                  <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                  </svg>
+                  <span class="font-semibold">{{ selectedPost.commentsCount }}</span>
+                  <span class="hidden sm:inline text-xs font-normal opacity-70">comentarios</span>
                 </div>
               </div>
+
+              <!-- Comments list -->
+              <div class="flex-1 overflow-y-auto min-h-0 px-5 py-4 space-y-4">
+                <!-- Skeleton -->
+                <div v-if="loadingComments" class="space-y-4">
+                  <div v-for="i in 4" :key="i" class="flex gap-3 animate-pulse">
+                    <div class="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0" />
+                    <div class="flex-1 space-y-2 pt-1">
+                      <div class="h-3 bg-gray-200 rounded-full w-28" />
+                      <div class="h-3 bg-gray-200 rounded-full w-3/4" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Empty -->
+                <div v-else-if="postComments.length === 0" class="flex flex-col items-center justify-center py-10 text-gray-300">
+                  <svg class="h-10 w-10 mb-2 opacity-50" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                  </svg>
+                  <p class="text-sm font-medium">Sin comentarios aún</p>
+                  <p class="text-xs mt-0.5">¡Sé el primero en comentar!</p>
+                </div>
+
+                <!-- Comment items -->
+                <div
+                  v-for="comment in postComments"
+                  :key="comment.id"
+                  class="flex gap-3 group/comment"
+                >
+                  <!-- Avatar -->
+                  <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center ring-2 ring-white shadow-sm">
+                    <img v-if="comment.user.avatar" :src="avatarSrc(comment.user.avatar)" class="h-full w-full object-cover">
+                    <span v-else class="text-white text-xs font-bold">{{ comment.user.firstName[0] }}</span>
+                  </div>
+
+                  <div class="flex-1 min-w-0">
+                    <!-- Edit mode -->
+                    <template v-if="editingCommentId === comment.id">
+                      <div class="bg-gray-50 rounded-2xl p-3 border-2 border-ifood-red/20">
+                        <input
+                          v-model="editingCommentValue"
+                          class="w-full bg-transparent text-sm text-gray-800 focus:outline-none"
+                          autofocus
+                          @keydown.enter.prevent="saveEditComment(comment)"
+                          @keydown.escape="editingCommentId = null"
+                        >
+                      </div>
+                      <div class="flex gap-3 mt-1.5 pl-1">
+                        <button class="text-xs text-gray-400 hover:text-gray-700 font-medium transition-colors" @click="editingCommentId = null">Cancelar</button>
+                        <button
+                          :disabled="savingEditComment || !editingCommentValue.trim()"
+                          class="text-xs text-ifood-red font-bold hover:text-red-700 disabled:opacity-40 transition-colors"
+                          @click="saveEditComment(comment)"
+                        >Guardar</button>
+                      </div>
+                    </template>
+
+                    <!-- View mode -->
+                    <template v-else>
+                      <div class="bg-gray-50 rounded-2xl px-3.5 py-2.5 inline-block max-w-full">
+                        <NuxtLink
+                          v-if="comment.user.username"
+                          :to="`/p/${comment.user.username}`"
+                          class="text-xs font-bold text-gray-900 hover:text-ifood-red transition-colors"
+                          @click="selectedPost = null"
+                        >{{ comment.user.firstName }} {{ comment.user.lastName }}</NuxtLink>
+                        <span v-else class="text-xs font-bold text-gray-900">{{ comment.user.firstName }} {{ comment.user.lastName }}</span>
+                        <p class="text-sm text-gray-700 mt-0.5 leading-relaxed break-words">{{ comment.content }}</p>
+                      </div>
+                      <p class="text-[11px] text-gray-400 mt-1 pl-1">{{ formatDate(comment.createdAt) }}</p>
+                    </template>
+                  </div>
+
+                  <!-- Actions -->
+                  <div
+                    v-if="currentUser?.id === comment.user.id && editingCommentId !== comment.id"
+                    class="flex gap-0.5 opacity-0 group-hover/comment:opacity-100 transition-opacity flex-shrink-0 pt-1"
+                  >
+                    <button
+                      class="h-7 w-7 rounded-lg text-gray-300 hover:text-ifood-red hover:bg-red-50 flex items-center justify-center transition-colors"
+                      title="Editar"
+                      @click="startEditComment(comment)"
+                    >
+                      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <button
+                      class="h-7 w-7 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
+                      title="Eliminar"
+                      @click="handleDeleteComment(comment)"
+                    >
+                      <XMarkIcon class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Comment input -->
+              <div v-if="isAuthenticated" class="px-5 py-4 border-t border-gray-100 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                  <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center ring-2 ring-white shadow-sm">
+                    <img v-if="currentUser?.avatar" :src="avatarSrc(currentUser.avatar)" class="h-full w-full object-cover">
+                    <span v-else class="text-white text-xs font-bold">{{ currentUser?.firstName?.[0] ?? '?' }}</span>
+                  </div>
+                  <div class="flex-1 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 focus-within:border-ifood-red focus-within:ring-4 focus-within:ring-ifood-red/10 transition-all">
+                    <input
+                      v-model="commentInput"
+                      type="text"
+                      class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none min-w-0"
+                      placeholder="Añade un comentario..."
+                      maxlength="1000"
+                      @keydown.enter.prevent="handleSendComment"
+                    >
+                    <button
+                      :disabled="!commentInput.trim() || sendingComment"
+                      class="text-ifood-red font-bold text-sm disabled:opacity-30 hover:text-red-700 transition-colors flex-shrink-0 flex items-center gap-1.5"
+                      @click="handleSendComment"
+                    >
+                      <span v-if="sendingComment" class="inline-block h-4 w-4 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+                      <template v-else>
+                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                      </template>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Not logged in nudge -->
+              <div v-else class="px-5 py-4 border-t border-gray-100 flex-shrink-0">
+                <p class="text-xs text-gray-400 text-center">
+                  <NuxtLink to="/login" class="text-ifood-red font-semibold hover:underline">Inicia sesión</NuxtLink>
+                  para dar like y comentar
+                </p>
+              </div>
+
             </div>
           </div>
         </div>
@@ -876,7 +1065,7 @@ import {
   CameraIcon,
 } from '@heroicons/vue/24/outline'
 import Swal from 'sweetalert2'
-import { useProfiles, type ProfilePost } from '~/composables/useProfiles'
+import { useProfiles, type ProfilePost, type PostComment } from '~/composables/useProfiles'
 import { useAuth } from '~/composables/useAuth'
 
 definePageMeta({ layout: false })
@@ -888,6 +1077,7 @@ const {
   profile, posts, postsMeta, reviews, reviewStats,
   loading, loadingPosts, loadingReviews, error,
   fetchProfile, fetchPosts, uploadMedia, uploadCover, createPost, deletePost, updatePostCaption,
+  likePost, unlikePost, fetchComments, createComment, deleteComment, updateComment,
   follow, unfollow, fetchReviews, submitReview, deleteReview, updateProfileSettings,
   getFollowers, getFollowing,
 } = useProfiles()
@@ -999,6 +1189,11 @@ function starPercent(star: number) {
   if (reviews.value.length === 0) return 0
   return Math.round((starCount(star) / reviewStats.value.reviewsCount) * 100)
 }
+// Devuelve el % de relleno (0–100) de la i-ésima estrella para una puntuación decimal
+function starFill(i: number, rating: number): number {
+  const fill = Math.min(Math.max(rating - (i - 1), 0), 1)
+  return Math.round(fill * 100)
+}
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -1037,6 +1232,90 @@ const uploadingAvatar = ref(false)
 const editingCaption = ref(false)
 const editCaptionValue = ref('')
 const savingCaption = ref(false)
+
+// ─── Likes / Comments ─────────────────────────────────────────────────────
+const likingPostId = ref<string | null>(null)
+const postComments = ref<PostComment[]>([])
+const loadingComments = ref(false)
+const commentInput = ref('')
+const sendingComment = ref(false)
+const editingCommentId = ref<string | null>(null)
+const editingCommentValue = ref('')
+const savingEditComment = ref(false)
+
+// ─── Likes / Comments handlers ────────────────────────────────────────────
+
+async function handleToggleLike(post: ProfilePost) {
+  if (!isAuthenticated.value) return
+  if (likingPostId.value) return
+  likingPostId.value = post.id
+  try {
+    if (post.isLiked) {
+      const res = await unlikePost(post.id)
+      if (selectedPost.value?.id === post.id) {
+        selectedPost.value = { ...selectedPost.value, isLiked: false, likesCount: res.likesCount }
+      }
+    } else {
+      const res = await likePost(post.id)
+      if (selectedPost.value?.id === post.id) {
+        selectedPost.value = { ...selectedPost.value, isLiked: true, likesCount: res.likesCount }
+      }
+    }
+  } finally {
+    likingPostId.value = null
+  }
+}
+
+async function loadComments(postId: string) {
+  loadingComments.value = true
+  try {
+    postComments.value = await fetchComments(postId)
+  } finally {
+    loadingComments.value = false
+  }
+}
+
+async function handleSendComment() {
+  if (!selectedPost.value || !commentInput.value.trim()) return
+  sendingComment.value = true
+  try {
+    const c = await createComment(selectedPost.value.id, commentInput.value.trim())
+    postComments.value.push(c)
+    commentInput.value = ''
+    if (selectedPost.value) {
+      selectedPost.value = { ...selectedPost.value, commentsCount: selectedPost.value.commentsCount + 1 }
+    }
+  } finally {
+    sendingComment.value = false
+  }
+}
+
+async function handleDeleteComment(comment: PostComment) {
+  if (!selectedPost.value) return
+  await deleteComment(selectedPost.value.id, comment.id)
+  postComments.value = postComments.value.filter(c => c.id !== comment.id)
+  if (selectedPost.value) {
+    selectedPost.value = { ...selectedPost.value, commentsCount: Math.max(0, selectedPost.value.commentsCount - 1) }
+  }
+}
+
+function startEditComment(comment: PostComment) {
+  editingCommentId.value = comment.id
+  editingCommentValue.value = comment.content
+}
+
+async function saveEditComment(comment: PostComment) {
+  if (!editingCommentValue.value.trim()) return
+  savingEditComment.value = true
+  try {
+    const updated = await updateComment(comment.id, editingCommentValue.value.trim())
+    const idx = postComments.value.findIndex(c => c.id === comment.id)
+    if (idx !== -1) postComments.value[idx] = updated
+    editingCommentId.value = null
+  } finally {
+    savingEditComment.value = false
+  }
+}
 
 // ─── Panel de configuración del perfil ─────────────────────────────────────
 const showSettingsPanel = ref(false)
@@ -1185,6 +1464,10 @@ function openPost(post: ProfilePost) {
   currentMediaIdx.value = 0
   editingCaption.value = false
   editCaptionValue.value = ''
+  postComments.value = []
+  commentInput.value = ''
+  editingCommentId.value = null
+  loadComments(post.id)
 }
 
 async function confirmDeletePost(id: string) {

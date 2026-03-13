@@ -21,7 +21,7 @@ import { extname, join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { ProfilesService } from './profiles.service'
 import { CreatePostDto } from './dto/create-post.dto'
-import { CreateReviewDto } from './dto/create-review.dto'
+import { CreateCommentDto } from './dto/create-comment.dto'
 import { QueryPostsDto } from './dto/query-profile.dto'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
@@ -151,6 +151,54 @@ export class ProfilesController {
     return this.profilesService.deletePost(id, user.id)
   }
 
+  // ─── Likes ────────────────────────────────────────────────────────────────
+
+  @Post('posts/:id/like')
+  @UseGuards(JwtAuthGuard)
+  likePost(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.profilesService.likePost(id, user.id)
+  }
+
+  @Delete('posts/:id/like')
+  @UseGuards(JwtAuthGuard)
+  unlikePost(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.profilesService.unlikePost(id, user.id)
+  }
+
+  // ─── Comments ─────────────────────────────────────────────────────────────
+
+  @Get('posts/:id/comments')
+  @UseGuards(OptionalJwtAuthGuard)
+  getComments(@Param('id') id: string) {
+    return this.profilesService.getComments(id)
+  }
+
+  @Post('posts/:id/comments')
+  @UseGuards(JwtAuthGuard)
+  createComment(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: CreateCommentDto,
+  ) {
+    return this.profilesService.createComment(id, user.id, dto)
+  }
+
+  @Patch('posts/comments/:commentId')
+  @UseGuards(JwtAuthGuard)
+  updateComment(
+    @Param('commentId') commentId: string,
+    @CurrentUser() user: any,
+    @Body('content') content: string,
+  ) {
+    return this.profilesService.updateComment(commentId, user.id, content)
+  }
+
+  @Delete('posts/comments/:commentId')
+  @UseGuards(JwtAuthGuard)
+  deleteComment(@Param('commentId') commentId: string, @CurrentUser() user: any) {
+    return this.profilesService.deleteComment(commentId, user.id)
+  }
+
   // ─── Follow / Unfollow ────────────────────────────────────────────────────
 
   @Post(':username/follow')
@@ -177,7 +225,7 @@ export class ProfilesController {
     return this.profilesService.getFollowing(username)
   }
 
-  // ─── Reviews ──────────────────────────────────────────────────────────────
+  // ─── Reviews (read-only) ──────────────────────────────────────────────────
 
   @Get(':username/reviews')
   getReviews(
@@ -186,17 +234,5 @@ export class ProfilesController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ) {
     return this.profilesService.getReviews(username, page, limit)
-  }
-
-  @Post('reviews')
-  @UseGuards(JwtAuthGuard)
-  createReview(@CurrentUser() user: any, @Body() dto: CreateReviewDto) {
-    return this.profilesService.createReview(user.id, dto)
-  }
-
-  @Delete('reviews/:id')
-  @UseGuards(JwtAuthGuard)
-  deleteReview(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.profilesService.deleteReview(user.id, id)
   }
 }

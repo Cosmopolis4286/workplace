@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { Role } from '@prisma/client'
 import { CreatePostDto } from './dto/create-post.dto'
 import { CreateReviewDto } from './dto/create-review.dto'
+import { CreateCommentDto } from './dto/create-comment.dto'
 import { QueryPostsDto } from './dto/query-profile.dto'
 
 const SOCIAL_ROLES: Role[] = [Role.COMMERCE, Role.FREELANCER, Role.SUPERADMIN, Role.ADMIN]
@@ -97,12 +98,30 @@ export class ProfilesService {
         include: {
           media: { orderBy: { order: 'asc' } },
           user: { select: { id: true, username: true, firstName: true, lastName: true, avatar: true } },
+          _count: { select: { likes: true, comments: true } },
         },
       }),
       this.prisma.post.count({ where: { userId: user.id } }),
     ])
 
-    return { data: posts, total, page, limit, totalPages: Math.ceil(total / limit) }
+    // Attach isLiked per post for the current user
+    let likedPostIds = new Set<string>()
+    if (currentUserId) {
+      const likes = await this.prisma.postLike.findMany({
+        where: { userId: currentUserId, postId: { in: posts.map(p => p.id) } },
+        select: { postId: true },
+      })
+      likedPostIds = new Set(likes.map(l => l.postId))
+    }
+
+    const data = posts.map(p => ({
+      ...p,
+      likesCount: p._count.likes,
+      commentsCount: p._count.comments,
+      isLiked: likedPostIds.has(p.id),
+    }))
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
   }
 
   async createPost(userId: string, dto: CreatePostDto) {
@@ -272,6 +291,91 @@ export class ProfilesService {
     if (review.authorId !== authorId) throw new ForbiddenException('No puedes eliminar esta reseña')
     await this.prisma.review.delete({ where: { id: reviewId } })
     return { message: 'Reseña eliminada' }
+  }
+
+  // ─── Likes ────────────────────────────────────────────────────────────────
+
+  async likePost(postId: string, userId: string) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId } })
+    if (!post) throw new NotFoundException('Publicación no encontrada')
+
+    try {
+      await this.prisma.postLike.create({ data: { postId, userId } })
+    } catch {
+      throw new ConflictException('Ya diste like a esta publicación')
+    }
+
+    const count = await this.prisma.postLike.count({ where: { postId } })
+    await this.prisma.post.update({ where: { id: postId }, data: { likesCount: count } })
+    return { liked: true, likesCount: count }
+  }
+
+  async unlikePost(postId: string, userId: string) {
+    const like = await this.prisma.postLike.findUnique({
+      where: { postId_userId: { postId, userId } },
+    })
+    if (!like) throw new NotFoundException('No has dado like a esta publicación')
+    await this.prisma.postLike.delete({ where: { id: like.id } })
+
+    const count = await this.prisma.postLike.count({ where: { postId } })
+    await this.prisma.post.update({ where: { id: postId }, data: { likesCount: count } })
+    return { liked: false, likesCount: count }
+  }
+
+  // ─── Comments ─────────────────────────────────────────────────────────────
+
+  async getComments(postId: string) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId } })
+    if (!post) throw new NotFoundException('Publicación no encontrada')
+
+    const comments = await this.prisma.postComment.findMany({
+      where: { postId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        user: { select: { id: true, username: true, firstName: true, lastName: true, avatar: true } },
+      },
+    })
+    return { data: comments }
+  }
+
+  async createComment(postId: string, userId: string, dto: CreateCommentDto) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId } })
+    if (!post) throw new NotFoundException('Publicación no encontrada')
+
+    const comment = await this.prisma.postComment.create({
+      data: { postId, userId, content: dto.content },
+      include: {
+        user: { select: { id: true, username: true, firstName: true, lastName: true, avatar: true } },
+      },
+    })
+
+    const count = await this.prisma.postComment.count({ where: { postId } })
+    await this.prisma.post.update({ where: { id: postId }, data: { commentsCount: count } })
+    return comment
+  }
+
+  async deleteComment(commentId: string, userId: string) {
+    const comment = await this.prisma.postComment.findUnique({ where: { id: commentId } })
+    if (!comment) throw new NotFoundException('Comentario no encontrado')
+    if (comment.userId !== userId) throw new ForbiddenException('No puedes eliminar este comentario')
+    await this.prisma.postComment.delete({ where: { id: commentId } })
+
+    const count = await this.prisma.postComment.count({ where: { postId: comment.postId } })
+    await this.prisma.post.update({ where: { id: comment.postId }, data: { commentsCount: count } })
+    return { message: 'Comentario eliminado' }
+  }
+
+  async updateComment(commentId: string, userId: string, content: string) {
+    const comment = await this.prisma.postComment.findUnique({ where: { id: commentId } })
+    if (!comment) throw new NotFoundException('Comentario no encontrado')
+    if (comment.userId !== userId) throw new ForbiddenException('No puedes editar este comentario')
+    return this.prisma.postComment.update({
+      where: { id: commentId },
+      data: { content },
+      include: {
+        user: { select: { id: true, username: true, firstName: true, lastName: true, avatar: true } },
+      },
+    })
   }
 
   // ─── Upload media (multipart) ─────────────────────────────────────────────
