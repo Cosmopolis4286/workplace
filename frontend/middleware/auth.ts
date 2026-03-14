@@ -25,6 +25,7 @@ const protectedRoutes: string[] = [
 ]
 
 const authRoutes: string[] = ['/login', '/register', '/recover-password', '/verify-email', '/auth/google/callback']
+const onboardingExcluded: string[] = ['/onboarding', '/login', '/register', '/recover-password', '/verify-email', '/precios']
 
 const COMMERCE_ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE']
 const FREELANCER_COMMERCE_ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER']
@@ -63,6 +64,15 @@ export default defineNuxtRouteMiddleware((to) => {
     // Redirect NORMAL away from /dashboard to /search
     if (to.path.startsWith('/dashboard') && role === 'NORMAL') {
       return navigateTo('/search')
+    }
+
+    // Redirect COMMERCE/FREELANCER without category to onboarding
+    if (
+      (role === 'COMMERCE' || role === 'FREELANCER') &&
+      !user.value.categoryId &&
+      !onboardingExcluded.some(p => to.path.startsWith(p))
+    ) {
+      return navigateTo('/onboarding')
     }
   }
 })

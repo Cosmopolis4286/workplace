@@ -387,6 +387,8 @@ import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({ middleware: 'auth' })
 
+const { invalidate: invalidateModules } = useModules()
+
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 
 interface UserSubcategory { id: string; name: string }
@@ -653,6 +655,7 @@ async function save() {
     }
     showModal.value = false
     selectedUsers.value = []
+    invalidateModules() // category or role may have changed → re-fetch effective modules
     await load()
   } catch (e: unknown) {
     formError.value = (e as Error).message

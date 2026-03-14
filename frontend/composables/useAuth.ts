@@ -20,6 +20,7 @@ interface User {
   role: 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
   isActive: boolean
   commerce?: Restaurant
+  categoryId?: string
 }
 
 interface AuthResponse {
