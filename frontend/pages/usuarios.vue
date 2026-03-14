@@ -138,14 +138,13 @@
         :page-size="limit"
         :current-page="page"
         total-label="usuarios en total"
-        :slots-colspan="5"
+        :slots-colspan="4"
         @page-change="page = $event; load()"
       >
         <template #headers>
           <th class="text-left px-4 py-3 font-semibold text-gray-600">Usuario</th>
           <th class="text-left px-4 py-3 font-semibold text-gray-600">Rol</th>
           <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Categoría</th>
-          <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden xl:table-cell">Subcategoría</th>
           <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Establecimiento</th>
           <th class="text-left px-4 py-3 font-semibold text-gray-600">Estado</th>
         </template>
@@ -169,14 +168,13 @@
             </span>
           </td>
           <td class="px-4 py-3 hidden lg:table-cell">
-            <div v-if="u.category" class="flex items-center gap-1.5">
-              <span class="text-base leading-none">{{ u.category.icon }}</span>
-              <span class="text-xs font-medium text-gray-700">{{ u.category.name }}</span>
-            </div>
-            <span v-else class="text-xs text-gray-400">—</span>
-          </td>
-          <td class="px-4 py-3 hidden xl:table-cell">
-            <span v-if="u.subcategory" class="text-xs text-gray-600">{{ u.subcategory.name }}</span>
+            <template v-if="u.category">
+              <div class="flex items-center gap-1.5">
+                <span class="text-base leading-none">{{ u.category.icon }}</span>
+                <span class="text-xs font-medium text-gray-700">{{ u.category.name }}</span>
+              </div>
+              <div v-if="u.subcategory" class="text-xs text-gray-400 mt-0.5 pl-0.5">{{ u.subcategory.name }}</div>
+            </template>
             <span v-else class="text-xs text-gray-400">—</span>
           </td>
           <td class="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">
