@@ -38,7 +38,7 @@
       <!-- Top-level items (dashboard, menu, inventario, servicios, solicitudes) -->
       <template v-for="item in topNavItems" :key="item.to">
         <NuxtLink
-          v-if="item.permission === null || can(item.permission)"
+          v-if="canSee(item.permission)"
           :to="item.to"
           @click="$emit('navigate')"
           class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
@@ -183,12 +183,16 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, computed, watch, nextTick } from 'vue'
+import { h, ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const { user } = useAuth()
 const { can } = usePermissions()
+const { hasModule, loadModules } = useModules()
+
+// Load effective modules on mount (no-op for ADMIN/SUPERADMIN, quick for others)
+onMounted(() => loadModules())
 
 const role = computed(() => user.value?.role ?? 'NORMAL')
 // Solo para secciones estructurales sin permiso en la matriz (Administración)
@@ -294,16 +298,23 @@ const QUICK_ACCESS: QuickItem[] = [
 ]
 
 const quickAccessItems = computed(() =>
-  QUICK_ACCESS.filter(item => item.permission === null || can(item.permission)).slice(0, 3)
+  QUICK_ACCESS.filter(item => canSee(item.permission)).slice(0, 3)
 )
 const hasQuickAccess = computed(() => quickAccessItems.value.length > 0)
 
+// canSee: permission check AND module check (module = first segment of permission key)
+function canSee(permission: string | null): boolean {
+  if (permission === null) return true
+  const module = permission.split(':')[0]
+  return can(permission) && hasModule(module)
+}
+
 function groupVisible(group: typeof NAV_GROUPS[0]): boolean {
-  return group.items.some(item => item.permission === null || can(item.permission))
+  return group.items.some(item => canSee(item.permission))
 }
 
 function visibleItems(group: typeof NAV_GROUPS[0]): NavItem[] {
-  return group.items.filter(item => item.permission === null || can(item.permission))
+  return group.items.filter(item => canSee(item.permission))
 }
 
 // ─── Dropdowns ────────────────────────────────────────────────────────────────

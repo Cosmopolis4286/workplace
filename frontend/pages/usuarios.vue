@@ -14,15 +14,25 @@
             <p class="text-blue-100">Administración de cuentas y roles del sistema</p>
           </div>
         </div>
-        <button
-          @click="openCreate()"
-          class="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-xl transition-all duration-200 hover:scale-105"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-          <span class="font-medium">Nuevo Usuario</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            @click="showCategoryModal = true"
+            class="flex items-center space-x-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl transition-all duration-200"
+            title="Gestionar categorías y módulos"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <span class="font-medium text-sm">Categorías</span>
+          </button>
+          <button
+            @click="openCreate()"
+            class="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-xl transition-all duration-200 hover:scale-105"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span class="font-medium">Nuevo Usuario</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -357,6 +367,18 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal categorías & módulos -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <CategoryModulesModal
+          v-if="showCategoryModal"
+          @close="showCategoryModal = false"
+          @updated="loadCategories"
+        />
+      </Transition>
+    </Teleport>
+
   </div>
 </template>
 
@@ -368,7 +390,7 @@ definePageMeta({ middleware: 'auth' })
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 
 interface UserSubcategory { id: string; name: string }
-interface UserCategory    { id: string; name: string; icon?: string; subcategories: UserSubcategory[] }
+interface UserCategory    { id: string; name: string; icon?: string; allowedModules: string[]; subcategories: UserSubcategory[]; _count?: { users: number } }
 
 interface UserItem {
   id: string
@@ -495,6 +517,7 @@ function confirmDeleteSelected() {
 
 // Modal state
 const showModal = ref(false)
+const showCategoryModal = ref(false)
 const editing = ref<UserItem | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)

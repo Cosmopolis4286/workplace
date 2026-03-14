@@ -67,11 +67,12 @@ model ProfileSettings {
 // ─── User Categories ──────────────────────────────────────────────────────────
 
 model UserCategory {
-  id            String            @id @default(uuid())
-  name          String            @unique
-  icon          String?
-  subcategories UserSubcategory[]
-  users         User[]
+  id             String            @id @default(uuid())
+  name           String            @unique
+  icon           String?
+  allowedModules String[]          @default([]) // módulos habilitados para esta categoría de negocio
+  subcategories  UserSubcategory[]
+  users          User[]
 
   @@map("user_categories")
 }

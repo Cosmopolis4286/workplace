@@ -67,13 +67,13 @@ export class UsersController {
 
   @Post('categories')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  createCategory(@Body() body: { name: string; icon?: string }) {
+  createCategory(@Body() body: { name: string; icon?: string; allowedModules?: string[] }) {
     return this.usersService.createCategory(body)
   }
 
   @Put('categories/:id')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  updateCategory(@Param('id') id: string, @Body() body: { name?: string; icon?: string }) {
+  updateCategory(@Param('id') id: string, @Body() body: { name?: string; icon?: string; allowedModules?: string[] }) {
     return this.usersService.updateCategory(id, body)
   }
 

@@ -170,16 +170,16 @@ export class UsersService {
     })
   }
 
-  async createCategory(data: { name: string; icon?: string }) {
+  async createCategory(data: { name: string; icon?: string; allowedModules?: string[] }) {
     const existing = await this.prisma.userCategory.findUnique({ where: { name: data.name } })
     if (existing) throw new ConflictException('Ya existe una categoría con ese nombre')
     return this.prisma.userCategory.create({
-      data: { name: data.name, icon: data.icon },
+      data: { name: data.name, icon: data.icon, allowedModules: data.allowedModules ?? [] },
       include: { subcategories: true, _count: { select: { users: true } } },
     })
   }
 
-  async updateCategory(id: string, data: { name?: string; icon?: string }) {
+  async updateCategory(id: string, data: { name?: string; icon?: string; allowedModules?: string[] }) {
     if (data.name) {
       const existing = await this.prisma.userCategory.findFirst({
         where: { name: data.name, NOT: { id } },
