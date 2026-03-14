@@ -154,31 +154,16 @@
               </div>
             </div>
 
-            <!-- Features -->
-            <div class="px-5 pb-4 space-y-1.5">
-              <div class="flex items-center gap-1.5 text-xs" :class="plan.hasAnalytics ? 'text-gray-700' : 'text-gray-300'">
-                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="plan.hasAnalytics ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'" />
-                </svg>
-                Analytics avanzado
-              </div>
-              <div class="flex items-center gap-1.5 text-xs" :class="plan.hasDelivery ? 'text-gray-700' : 'text-gray-300'">
-                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="plan.hasDelivery ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'" />
-                </svg>
-                Módulo Delivery
-              </div>
-              <div class="flex items-center gap-1.5 text-xs" :class="plan.hasReports ? 'text-gray-700' : 'text-gray-300'">
-                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="plan.hasReports ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'" />
-                </svg>
-                Reportes
-              </div>
-              <div class="flex items-center gap-1.5 text-xs" :class="plan.hasPrioritySupport ? 'text-gray-700' : 'text-gray-300'">
-                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="plan.hasPrioritySupport ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'" />
-                </svg>
-                Soporte prioritario
+            <!-- Módulos incluidos -->
+            <div class="px-5 pb-4">
+              <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Módulos</div>
+              <div class="flex flex-wrap gap-1">
+                <span
+                  v-for="mod in (plan.enabledModules ?? [])"
+                  :key="mod"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600"
+                >{{ MODULE_LABELS[mod] ?? mod }}</span>
+                <span v-if="!plan.enabledModules?.length" class="text-xs text-gray-300 italic">Sin módulos</span>
               </div>
             </div>
 
@@ -407,26 +392,19 @@
 
             <fieldset class="border border-gray-200 rounded-xl p-4">
               <legend class="text-sm font-semibold text-gray-700 px-1">Módulos incluidos</legend>
-              <div class="grid grid-cols-2 gap-2 mt-2">
-                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input v-model="form.hasAnalytics" type="checkbox" class="w-4 h-4 rounded text-indigo-600" />
-                  Analytics avanzado
-                </label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input v-model="form.hasDelivery" type="checkbox" class="w-4 h-4 rounded text-indigo-600" />
-                  Módulo Delivery
-                </label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input v-model="form.hasReports" type="checkbox" class="w-4 h-4 rounded text-indigo-600" />
-                  Reportes
-                </label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input v-model="form.hasApiAccess" type="checkbox" class="w-4 h-4 rounded text-indigo-600" />
-                  Acceso API
-                </label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input v-model="form.hasPrioritySupport" type="checkbox" class="w-4 h-4 rounded text-indigo-600" />
-                  Soporte prioritario
+              <div class="grid grid-cols-2 gap-1.5 mt-2">
+                <label
+                  v-for="mod in ALL_MODULES"
+                  :key="mod"
+                  class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 rounded px-1.5 py-1"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="(form.enabledModules ?? []).includes(mod)"
+                    @change="toggleModule(mod, ($event.target as HTMLInputElement).checked)"
+                    class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  {{ MODULE_LABELS[mod] ?? mod }}
                 </label>
               </div>
             </fieldset>
@@ -535,6 +513,30 @@
 import { ref, onMounted } from 'vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan } from '~/composables/usePlans'
 
+const ALL_MODULES = [
+  'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
+  'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
+  'branches', 'settings', 'notifications', 'services', 'service_requests', 'catalog',
+] as const
+
+const MODULE_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard', menu: 'Menú', inventory: 'Inventario', orders: 'Pedidos',
+  customers: 'Clientes', appointments: 'Agendamientos', delivery: 'Delivery',
+  expenses: 'Gastos', analytics: 'Analytics', reports: 'Reportes', sales: 'Ventas',
+  employees: 'Empleados', branches: 'Sucursales', settings: 'Configuración',
+  notifications: 'Notificaciones', services: 'Servicios',
+  service_requests: 'Solicitudes', catalog: 'Catálogo',
+}
+
+function toggleModule(mod: string, checked: boolean) {
+  const current = form.value.enabledModules ?? []
+  if (checked) {
+    if (!current.includes(mod)) form.value.enabledModules = [...current, mod]
+  } else {
+    form.value.enabledModules = current.filter(m => m !== mod)
+  }
+}
+
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
 const {
@@ -577,14 +579,11 @@ const defaultForm = () => ({
   maxOrders: -1,
   maxStorage: 1,
   features: [] as string[],
-  hasAnalytics: false,
-  hasDelivery: false,
-  hasReports: false,
-  hasApiAccess: false,
-  hasPrioritySupport: false,
+  enabledModules: [] as string[],
 })
 
-const form = ref(defaultForm())
+type PlanForm = ReturnType<typeof defaultForm>
+const form = ref<PlanForm>(defaultForm())
 
 function openPlanModal(plan?: Plan) {
   editingPlan.value = plan ?? null
@@ -607,11 +606,7 @@ function openPlanModal(plan?: Plan) {
       maxOrders: plan.maxOrders,
       maxStorage: plan.maxStorage,
       features: [...plan.features],
-      hasAnalytics: plan.hasAnalytics,
-      hasDelivery: plan.hasDelivery,
-      hasReports: plan.hasReports,
-      hasApiAccess: plan.hasApiAccess,
-      hasPrioritySupport: plan.hasPrioritySupport,
+      enabledModules: [...(plan.enabledModules ?? [])],
     }
   } else {
     form.value = defaultForm()

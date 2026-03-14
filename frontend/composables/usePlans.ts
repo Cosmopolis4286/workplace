@@ -18,11 +18,7 @@ export interface Plan {
   maxOrders: number
   maxStorage: number
   features: string[]
-  hasAnalytics: boolean
-  hasDelivery: boolean
-  hasReports: boolean
-  hasApiAccess: boolean
-  hasPrioritySupport: boolean
+  enabledModules: string[]
   createdAt: string
   updatedAt: string
   _count?: { subscriptions: number }
@@ -78,8 +74,7 @@ export const INTERVAL_LABELS: Record<string, string> = {
 export interface PlanUsage {
   limits: {
     maxProducts: number; maxEmployees: number; maxBranches: number
-    maxOrders: number; planName: string
-    hasAnalytics: boolean; hasDelivery: boolean; hasReports: boolean
+    maxOrders: number; planName: string; enabledModules: string[]
   }
   usage: { products: number; employees: number; branches: number; ordersThisMonth: number }
 }

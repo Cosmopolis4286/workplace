@@ -958,15 +958,11 @@ model Plan {
   maxOrders     Int @default(-1) // por mes
   maxStorage    Int @default(1)  // GB
 
-  // Features habilitadas
+  // Features habilitadas (bullets de marketing)
   features Json @default("[]") // string[]
 
-  // Módulos habilitados
-  hasAnalytics     Boolean @default(false)
-  hasDelivery      Boolean @default(false)
-  hasReports       Boolean @default(false)
-  hasApiAccess     Boolean @default(false)
-  hasPrioritySupport Boolean @default(false)
+  // Módulos habilitados — valores coinciden con Permission.module del seed
+  enabledModules String[] @default([])
 
   subscriptions Subscription[]
 

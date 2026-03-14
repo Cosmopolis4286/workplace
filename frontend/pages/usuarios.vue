@@ -89,133 +89,121 @@
         </div>
       </div>
 
+      <!-- Action bar (visible cuando hay selección o siempre si no hay selección) -->
+      <div class="flex items-center gap-2 mb-4 min-h-[36px]">
+        <template v-if="selectedUsers.length > 0">
+          <span class="text-sm text-gray-500 mr-1">{{ selectedUsers.length }} seleccionado{{ selectedUsers.length > 1 ? 's' : '' }}</span>
+          <button
+            @click="openEditSelected"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+            :disabled="selectedUsers.length !== 1 || !canManage(selectedUsers[0])"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+            Editar
+          </button>
+          <button
+            @click="confirmDeleteSelected"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50"
+            :disabled="!selectedUsers.every(u => canManage(u))"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Eliminar{{ selectedUsers.length > 1 ? ` (${selectedUsers.length})` : '' }}
+          </button>
+          <button
+            @click="selectedUsers = []"
+            class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            Deseleccionar
+          </button>
+        </template>
+      </div>
+
       <!-- Loading skeleton -->
       <div v-if="loading" class="space-y-3">
         <div v-for="i in 6" :key="i" class="h-20 bg-gray-100 rounded-2xl animate-pulse"/>
       </div>
 
       <!-- Users table -->
-      <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600">Usuario</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Correo</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600">Rol</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Categoría</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden xl:table-cell">Subcategoría</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Establecimiento</th>
-                <th class="text-left px-4 py-3 font-semibold text-gray-600">Estado</th>
-                <th class="text-right px-4 py-3 font-semibold text-gray-600">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-50">
-              <tr
-                v-for="u in filteredUsers"
-                :key="u.id"
-                class="hover:bg-gray-50/80 transition-colors"
-              >
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                         :class="ROLE_AVATAR_COLORS[u.role]">
-                      {{ u.firstName[0] }}{{ u.lastName[0] }}
-                    </div>
-                    <div>
-                      <div class="font-medium text-gray-800">{{ u.firstName }} {{ u.lastName }}</div>
-                      <div class="text-xs text-gray-400 md:hidden">{{ u.email }}</div>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-gray-600 hidden md:table-cell">{{ u.email }}</td>
-                <td class="px-4 py-3">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" :class="ROLE_BADGE_CLASSES[u.role]">
-                    {{ ROLE_LABELS[u.role] }}
-                  </span>
-                </td>
-                <td class="px-4 py-3 hidden lg:table-cell">
-                  <div v-if="u.category" class="flex items-center gap-1.5">
-                    <span class="text-base leading-none">{{ u.category.icon }}</span>
-                    <span class="text-xs font-medium text-gray-700">{{ u.category.name }}</span>
-                  </div>
-                  <span v-else class="text-xs text-gray-400">—</span>
-                </td>
-                <td class="px-4 py-3 hidden xl:table-cell">
-                  <span v-if="u.subcategory" class="text-xs text-gray-600">{{ u.subcategory.name }}</span>
-                  <span v-else class="text-xs text-gray-400">—</span>
-                </td>
-                <td class="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">
-                  {{ u.commerce?.name ?? '—' }}
-                </td>
-                <td class="px-4 py-3">
-                  <button
-                    @click="toggleStatus(u)"
-                    :disabled="!canManage(u)"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
-                    :class="u.isActive
-                      ? 'bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed'
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'"
-                  >
-                    <span class="w-1.5 h-1.5 rounded-full" :class="u.isActive ? 'bg-green-500' : 'bg-gray-400'"/>
-                    {{ u.isActive ? 'Activo' : 'Inactivo' }}
-                  </button>
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <div class="flex items-center justify-end gap-2">
-                    <button
-                      v-if="canManage(u)"
-                      @click="openEdit(u)"
-                      class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Editar"
-                    >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                      </svg>
-                    </button>
-                    <button
-                      v-if="canManage(u)"
-                      @click="confirmDelete(u)"
-                      class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Eliminar"
-                    >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                      </svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="filteredUsers.length === 0">
-                <td colspan="8" class="px-4 py-12 text-center text-gray-400">
-                  <svg class="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-                  </svg>
-                  <p class="font-medium">No se encontraron usuarios</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <UiAppTable
+        v-else
+        :rows="filteredUsers"
+        row-key="id"
+        selectable
+        v-model:selected="selectedUsers"
+        :total="total"
+        :page-size="limit"
+        :current-page="page"
+        total-label="usuarios en total"
+        :slots-colspan="5"
+        @page-change="page = $event; load()"
+      >
+        <template #headers>
+          <th class="text-left px-4 py-3 font-semibold text-gray-600">Usuario</th>
+          <th class="text-left px-4 py-3 font-semibold text-gray-600">Rol</th>
+          <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Categoría</th>
+          <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden xl:table-cell">Subcategoría</th>
+          <th class="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Establecimiento</th>
+          <th class="text-left px-4 py-3 font-semibold text-gray-600">Estado</th>
+        </template>
 
-        <!-- Pagination -->
-        <div v-if="total > limit" class="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm text-gray-600">
-          <span>{{ total }} usuarios en total</span>
-          <div class="flex gap-2">
+        <template #row="{ row: u }">
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                   :class="ROLE_AVATAR_COLORS[u.role]">
+                {{ u.firstName[0] }}{{ u.lastName[0] }}
+              </div>
+              <div>
+                <div class="font-medium text-gray-800">{{ u.firstName }} {{ u.lastName }}</div>
+                <div class="text-xs text-gray-400">{{ u.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" :class="ROLE_BADGE_CLASSES[u.role]">
+              {{ ROLE_LABELS[u.role] }}
+            </span>
+          </td>
+          <td class="px-4 py-3 hidden lg:table-cell">
+            <div v-if="u.category" class="flex items-center gap-1.5">
+              <span class="text-base leading-none">{{ u.category.icon }}</span>
+              <span class="text-xs font-medium text-gray-700">{{ u.category.name }}</span>
+            </div>
+            <span v-else class="text-xs text-gray-400">—</span>
+          </td>
+          <td class="px-4 py-3 hidden xl:table-cell">
+            <span v-if="u.subcategory" class="text-xs text-gray-600">{{ u.subcategory.name }}</span>
+            <span v-else class="text-xs text-gray-400">—</span>
+          </td>
+          <td class="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">
+            {{ u.restaurant?.name ?? '—' }}
+          </td>
+          <td class="px-4 py-3" @click.stop>
             <button
-              @click="page--; load()"
-              :disabled="page <= 1"
-              class="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >Anterior</button>
-            <span class="px-3 py-1 text-gray-500">{{ page }} / {{ totalPages }}</span>
-            <button
-              @click="page++; load()"
-              :disabled="page >= totalPages"
-              class="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >Siguiente</button>
-          </div>
-        </div>
-      </div>
+              @click="toggleStatus(u)"
+              :disabled="!canManage(u)"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+              :class="u.isActive
+                ? 'bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'"
+            >
+              <span class="w-1.5 h-1.5 rounded-full" :class="u.isActive ? 'bg-green-500' : 'bg-gray-400'"/>
+              {{ u.isActive ? 'Activo' : 'Inactivo' }}
+            </button>
+          </td>
+        </template>
+
+        <template #empty>
+          <svg class="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+          <p class="font-medium">No se encontraron usuarios</p>
+        </template>
+      </UiAppTable>
     </div>
 
     <!-- Modal crear/editar usuario -->
@@ -346,14 +334,21 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
         </div>
-        <h3 class="text-lg font-bold text-gray-800 mb-2">¿Eliminar usuario?</h3>
+        <h3 class="text-lg font-bold text-gray-800 mb-2">
+          {{ bulkDeleteTargets.length > 1 ? `¿Eliminar ${bulkDeleteTargets.length} usuarios?` : '¿Eliminar usuario?' }}
+        </h3>
         <p class="text-sm text-gray-500 mb-6">
-          Se eliminará permanentemente la cuenta de
-          <strong>{{ deleteTarget.firstName }} {{ deleteTarget.lastName }}</strong>.
+          <template v-if="bulkDeleteTargets.length > 1">
+            Se eliminarán permanentemente <strong>{{ bulkDeleteTargets.length }} cuentas</strong>.
+          </template>
+          <template v-else>
+            Se eliminará permanentemente la cuenta de
+            <strong>{{ deleteTarget.firstName }} {{ deleteTarget.lastName }}</strong>.
+          </template>
           Esta acción no se puede deshacer.
         </p>
         <div class="flex gap-3">
-          <button @click="deleteTarget = null"
+          <button @click="deleteTarget = null; bulkDeleteTargets = []"
             class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
             Cancelar
           </button>
@@ -484,12 +479,29 @@ const filteredUsers = computed(() =>
     : users.value
 )
 
+// Selection state
+const selectedUsers = ref<UserItem[]>([])
+
+function openEditSelected() {
+  if (selectedUsers.value.length === 1) openEdit(selectedUsers.value[0])
+}
+
+function confirmDeleteSelected() {
+  if (selectedUsers.value.length === 1) {
+    confirmDelete(selectedUsers.value[0])
+  } else if (selectedUsers.value.length > 1) {
+    deleteTarget.value = selectedUsers.value[0] // trigger modal with first; bulk handled below
+    bulkDeleteTargets.value = [...selectedUsers.value]
+  }
+}
+
 // Modal state
 const showModal = ref(false)
 const editing = ref<UserItem | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
 const deleteTarget = ref<UserItem | null>(null)
+const bulkDeleteTargets = ref<UserItem[]>([])
 
 const form = ref({
   firstName: '',
@@ -619,6 +631,7 @@ async function save() {
       await apiFetch('/api/users', { method: 'POST', body: JSON.stringify(body) })
     }
     showModal.value = false
+    selectedUsers.value = []
     await load()
   } catch (e: unknown) {
     formError.value = (e as Error).message
@@ -644,12 +657,16 @@ async function doDelete() {
   if (!deleteTarget.value) return
   saving.value = true
   try {
-    await apiFetch(`/api/users/${deleteTarget.value.id}`, { method: 'DELETE' })
+    const targets = bulkDeleteTargets.value.length > 0 ? bulkDeleteTargets.value : [deleteTarget.value]
+    await Promise.all(targets.map(u => apiFetch(`/api/users/${u.id}`, { method: 'DELETE' })))
     deleteTarget.value = null
+    bulkDeleteTargets.value = []
+    selectedUsers.value = []
     await load()
   } catch (e: unknown) {
     error.value = (e as Error).message
     deleteTarget.value = null
+    bulkDeleteTargets.value = []
   } finally {
     saving.value = false
   }

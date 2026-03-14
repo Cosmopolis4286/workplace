@@ -51,19 +51,16 @@ export class PlansService {
       data: {
         ...dto,
         features: dto.features ?? [],
+        enabledModules: dto.enabledModules ?? [],
       },
     })
   }
 
   async updatePlan(id: string, dto: UpdatePlanDto) {
     await this.findPlanById(id)
-    return this.prisma.plan.update({
-      where: { id },
-      data: {
-        ...dto,
-        features: dto.features as any,
-      },
-    })
+    const data: any = { ...dto, features: dto.features as any }
+    if (dto.enabledModules !== undefined) data.enabledModules = dto.enabledModules
+    return this.prisma.plan.update({ where: { id }, data })
   }
 
   async deletePlan(id: string) {
