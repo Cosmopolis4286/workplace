@@ -17,68 +17,127 @@ export interface PlanLimits {
   maxBranches: number
   maxOrders: number    // per month, -1 = unlimited
   maxStorage: number
-  enabledModules: string[]
+  enabledModules: string[]   // modules included in the plan
+  effectiveModules: string[] // plan ∩ category (what the user actually sees)
   planName: string
+  categoryName: string | null
 }
 
 const UNLIMITED_LIMITS: PlanLimits = {
   maxProducts: -1, maxEmployees: -1, maxBranches: -1, maxOrders: -1,
-  maxStorage: -1, enabledModules: [...ALL_MODULES], planName: 'Sin límite',
+  maxStorage: -1,
+  enabledModules: [...ALL_MODULES],
+  effectiveModules: [...ALL_MODULES],
+  planName: 'Sin límite',
+  categoryName: null,
 }
 
 // Free-tier fallback when no active subscription exists
+const FREE_MODULES = ['dashboard', 'menu', 'orders', 'customers', 'settings', 'notifications']
 const FREE_LIMITS: PlanLimits = {
-  maxProducts: 10,
-  maxEmployees: 1,
-  maxBranches: 1,
-  maxOrders: 30,
-  maxStorage: 0,
-  enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'settings', 'notifications'],
+  maxProducts: 10, maxEmployees: 1, maxBranches: 1, maxOrders: 30, maxStorage: 0,
+  enabledModules: FREE_MODULES,
+  effectiveModules: FREE_MODULES,
   planName: 'Sin plan',
+  categoryName: null,
 }
 
 @Injectable()
 export class PlanLimitsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // ─── Core: plan limits + effective modules ──────────────────────────────────
+
   async getPlanLimits(userId: string): Promise<PlanLimits> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, categoryId: true },
+    })
+
+    // ADMIN/SUPERADMIN/NORMAL: unrestricted
     if (user?.role === Role.SUPERADMIN || user?.role === Role.ADMIN || user?.role === Role.NORMAL) {
       return UNLIMITED_LIMITS
     }
 
+    // Get active subscription
     const sub = await this.prisma.subscription.findFirst({
       where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
       include: { plan: true },
       orderBy: { createdAt: 'desc' },
     })
 
-    if (!sub) return FREE_LIMITS
+    const planModules = sub?.plan.enabledModules ?? FREE_MODULES
+    const planLimitsBase = sub
+      ? {
+          maxProducts:   sub.plan.maxProducts,
+          maxEmployees:  sub.plan.maxEmployees,
+          maxBranches:   sub.plan.maxBranches,
+          maxOrders:     sub.plan.maxOrders,
+          maxStorage:    sub.plan.maxStorage,
+          enabledModules: sub.plan.enabledModules,
+          planName:      sub.plan.name,
+        }
+      : {
+          maxProducts: FREE_LIMITS.maxProducts,
+          maxEmployees: FREE_LIMITS.maxEmployees,
+          maxBranches: FREE_LIMITS.maxBranches,
+          maxOrders: FREE_LIMITS.maxOrders,
+          maxStorage: FREE_LIMITS.maxStorage,
+          enabledModules: FREE_MODULES,
+          planName: FREE_LIMITS.planName,
+        }
 
-    const { plan } = sub
+    // Intersect with category allowed modules
+    const effectiveModules = await this.intersectWithCategory(planModules, user?.categoryId ?? null)
+
     return {
-      maxProducts: plan.maxProducts,
-      maxEmployees: plan.maxEmployees,
-      maxBranches: plan.maxBranches,
-      maxOrders: plan.maxOrders,
-      maxStorage: plan.maxStorage,
-      enabledModules: plan.enabledModules,
-      planName: plan.name,
+      ...planLimitsBase,
+      effectiveModules,
+      categoryName: effectiveModules !== planModules
+        ? (await this.prisma.userCategory.findUnique({ where: { id: user!.categoryId! }, select: { name: true } }))?.name ?? null
+        : null,
     }
   }
 
+  // Returns plan.enabledModules ∩ category.allowedModules
+  // If user has no category, returns plan modules unchanged (no restriction)
+  private async intersectWithCategory(planModules: string[], categoryId: string | null): Promise<string[]> {
+    if (!categoryId) return planModules
+
+    const category = await this.prisma.userCategory.findUnique({
+      where: { id: categoryId },
+      select: { allowedModules: true },
+    })
+
+    // If category has no allowedModules defined, no restriction
+    if (!category || category.allowedModules.length === 0) return planModules
+
+    return planModules.filter(m => category.allowedModules.includes(m))
+  }
+
+  // ─── Module access ──────────────────────────────────────────────────────────
+
   hasModule(limits: PlanLimits, module: string): boolean {
-    return limits.enabledModules.includes(module)
+    return limits.effectiveModules.includes(module)
   }
 
   async assertModuleAccess(userId: string, module: string) {
     const limits = await this.getPlanLimits(userId)
     if (!this.hasModule(limits, module)) {
-      throw new ForbiddenException(
-        `El módulo "${module}" no está incluido en tu plan "${limits.planName}". Actualiza tu plan para acceder.`,
-      )
+      const inPlan = limits.enabledModules.includes(module)
+      if (!inPlan) {
+        throw new ForbiddenException(
+          `El módulo "${module}" no está incluido en tu plan "${limits.planName}". Actualiza tu plan para acceder.`,
+        )
+      } else {
+        throw new ForbiddenException(
+          `El módulo "${module}" no está disponible para tu categoría de negocio "${limits.categoryName}".`,
+        )
+      }
     }
   }
+
+  // ─── Resource limits ────────────────────────────────────────────────────────
 
   async assertProductLimit(userId: string, commerceId: string) {
     const limits = await this.getPlanLimits(userId)
@@ -133,6 +192,8 @@ export class PlanLimitsService {
       )
     }
   }
+
+  // ─── Usage for frontend ─────────────────────────────────────────────────────
 
   async getUsage(userId: string, commerceId: string) {
     const limits = await this.getPlanLimits(userId)

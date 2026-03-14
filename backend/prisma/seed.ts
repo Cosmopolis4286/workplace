@@ -495,6 +495,122 @@ async function assignFreePlanToAll() {
   console.log(`\n  ✨ ${usersWithoutSub.length} user(s) assigned to free plan.`)
 }
 
+// Modules available per business category.
+// Values must match Permission.module strings in the PERMISSIONS array above.
+async function seedUserCategories() {
+  console.log('\n🏷️  Seeding user categories with allowed modules...\n')
+
+  const CATEGORIES = [
+    {
+      name: 'Alimentos y Bebidas',
+      icon: '🍔',
+      allowedModules: [
+        'dashboard', 'menu', 'inventory', 'orders', 'customers',
+        'appointments', 'delivery', 'expenses', 'analytics', 'reports',
+        'sales', 'employees', 'branches', 'settings', 'notifications',
+      ],
+    },
+    {
+      name: 'Tecnología',
+      icon: '💻',
+      allowedModules: [
+        'dashboard', 'services', 'service_requests', 'catalog',
+        'customers', 'orders', 'expenses', 'analytics', 'reports',
+        'employees', 'branches', 'settings', 'notifications',
+      ],
+    },
+    {
+      name: 'Salud y Bienestar',
+      icon: '🏥',
+      allowedModules: [
+        'dashboard', 'services', 'service_requests', 'customers',
+        'appointments', 'expenses', 'analytics', 'reports',
+        'employees', 'branches', 'settings', 'notifications',
+      ],
+    },
+    {
+      name: 'Moda y Belleza',
+      icon: '👗',
+      allowedModules: [
+        'dashboard', 'menu', 'inventory', 'orders', 'customers',
+        'appointments', 'expenses', 'analytics', 'reports',
+        'employees', 'branches', 'settings', 'notifications',
+      ],
+    },
+    {
+      name: 'Educación',
+      icon: '📚',
+      allowedModules: [
+        'dashboard', 'services', 'service_requests', 'customers',
+        'appointments', 'expenses', 'analytics', 'reports',
+        'employees', 'settings', 'notifications',
+      ],
+    },
+    {
+      name: 'Hogar y Construcción',
+      icon: '🏠',
+      allowedModules: [
+        'dashboard', 'services', 'service_requests', 'catalog',
+        'customers', 'orders', 'expenses', 'analytics', 'reports',
+        'employees', 'branches', 'settings', 'notifications',
+      ],
+    },
+    {
+      name: 'Arte y Entretenimiento',
+      icon: '🎨',
+      allowedModules: [
+        'dashboard', 'services', 'service_requests', 'catalog',
+        'customers', 'appointments', 'expenses', 'analytics',
+        'employees', 'settings', 'notifications',
+      ],
+    },
+    {
+      name: 'Transporte y Logística',
+      icon: '🚚',
+      allowedModules: [
+        'dashboard', 'delivery', 'orders', 'customers',
+        'expenses', 'analytics', 'reports', 'employees',
+        'branches', 'settings', 'notifications',
+      ],
+    },
+    {
+      name: 'Finanzas y Consultoría',
+      icon: '💼',
+      allowedModules: [
+        'dashboard', 'services', 'service_requests', 'customers',
+        'expenses', 'analytics', 'reports', 'employees',
+        'settings', 'notifications',
+      ],
+    },
+    {
+      name: 'Otro',
+      icon: '🏢',
+      allowedModules: [
+        'dashboard', 'menu', 'inventory', 'orders', 'customers',
+        'appointments', 'delivery', 'services', 'service_requests',
+        'catalog', 'expenses', 'analytics', 'reports', 'sales',
+        'employees', 'branches', 'settings', 'notifications',
+      ],
+    },
+  ]
+
+  for (const cat of CATEGORIES) {
+    const existing = await prisma.userCategory.findUnique({ where: { name: cat.name } })
+    if (!existing) {
+      await prisma.userCategory.create({ data: cat })
+      console.log(`  ✅ Categoría creada: ${cat.icon} ${cat.name}`)
+    } else {
+      await prisma.userCategory.update({
+        where: { id: existing.id },
+        data: { allowedModules: cat.allowedModules, icon: cat.icon },
+      })
+      console.log(`  🔄 Categoría actualizada: ${cat.icon} ${cat.name}`)
+    }
+  }
+
+  console.log('\n  ✨ User categories seeded.')
+}
+
 async function main() {
   console.log('🌱 Seeding demo users...\n')
 
@@ -537,6 +653,7 @@ async function main() {
   await seedPlans()
   await seedExchangeRates()
   await assignFreePlanToAll()
+  await seedUserCategories()
 }
 
 main()
