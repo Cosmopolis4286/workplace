@@ -290,11 +290,7 @@ async function seedPlans() {
       maxOrders: 30,
       maxStorage: 0,
       features: ['Dashboard básico', 'Hasta 10 productos', 'Hasta 30 pedidos/mes'],
-      hasAnalytics: false,
-      hasDelivery: false,
-      hasReports: false,
-      hasApiAccess: false,
-      hasPrioritySupport: false,
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'settings', 'notifications'],
     },
     {
       name: 'Básico',
@@ -313,11 +309,7 @@ async function seedPlans() {
       maxOrders: -1,
       maxStorage: 1,
       features: ['Todo el plan Gratuito', 'Hasta 50 productos', '5 empleados', 'Gestión de clientes', 'Agendamientos'],
-      hasAnalytics: false,
-      hasDelivery: false,
-      hasReports: false,
-      hasApiAccess: false,
-      hasPrioritySupport: false,
+      enabledModules: ['dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments', 'employees', 'settings', 'notifications'],
     },
     {
       name: 'Profesional',
@@ -336,11 +328,7 @@ async function seedPlans() {
       maxOrders: -1,
       maxStorage: 5,
       features: ['Todo el plan Básico', 'Hasta 200 productos', '20 empleados', '3 sucursales', 'Delivery', 'Analytics avanzado', 'Reportes'],
-      hasAnalytics: true,
-      hasDelivery: true,
-      hasReports: true,
-      hasApiAccess: false,
-      hasPrioritySupport: false,
+      enabledModules: ['dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments', 'delivery', 'expenses', 'analytics', 'reports', 'employees', 'branches', 'settings', 'notifications'],
     },
     {
       name: 'Empresarial',
@@ -359,11 +347,7 @@ async function seedPlans() {
       maxOrders: -1,
       maxStorage: 20,
       features: ['Todo el plan Profesional', 'Productos ilimitados', 'Empleados ilimitados', 'Sucursales ilimitadas', 'Acceso API', 'Soporte prioritario', 'Onboarding personalizado'],
-      hasAnalytics: true,
-      hasDelivery: true,
-      hasReports: true,
-      hasApiAccess: true,
-      hasPrioritySupport: true,
+      enabledModules: ['dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments', 'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees', 'branches', 'settings', 'notifications'],
     },
     {
       name: 'Freelancer Básico',
@@ -382,11 +366,7 @@ async function seedPlans() {
       maxOrders: 50,
       maxStorage: 1,
       features: ['Perfil público', 'Hasta 20 servicios', '50 solicitudes/mes', 'Catálogo en marketplace'],
-      hasAnalytics: false,
-      hasDelivery: false,
-      hasReports: false,
-      hasApiAccess: false,
-      hasPrioritySupport: false,
+      enabledModules: ['dashboard', 'services', 'service_requests', 'catalog', 'settings', 'notifications'],
     },
     {
       name: 'Freelancer Pro',
@@ -405,11 +385,7 @@ async function seedPlans() {
       maxOrders: -1,
       maxStorage: 5,
       features: ['Todo el plan Freelancer Básico', 'Servicios ilimitados', 'Solicitudes ilimitadas', 'Analytics', 'Reportes', 'Soporte prioritario'],
-      hasAnalytics: true,
-      hasDelivery: false,
-      hasReports: true,
-      hasApiAccess: false,
-      hasPrioritySupport: true,
+      enabledModules: ['dashboard', 'services', 'service_requests', 'catalog', 'analytics', 'reports', 'settings', 'notifications'],
     },
   ]
 
@@ -419,7 +395,12 @@ async function seedPlans() {
       await prisma.plan.create({ data: { ...plan, features: plan.features } })
       console.log(`  ✅ Plan creado: ${plan.name}`)
     } else {
-      console.log(`  ⏭️  Plan ya existe: ${plan.name}`)
+      // Update enabledModules on existing plans (migration from booleans)
+      await prisma.plan.update({
+        where: { id: existing.id },
+        data: { enabledModules: plan.enabledModules },
+      })
+      console.log(`  🔄 Plan actualizado (módulos): ${plan.name}`)
     }
   }
 

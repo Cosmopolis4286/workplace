@@ -2,38 +2,38 @@ import { Injectable, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { Role } from '@prisma/client'
 
-const UNLIMITED_LIMITS: PlanLimits = {
-  maxProducts: -1, maxEmployees: -1, maxBranches: -1, maxOrders: -1,
-  maxStorage: -1, hasAnalytics: true, hasDelivery: true, hasReports: true,
-  hasApiAccess: true, hasPrioritySupport: true, planName: 'Sin límite',
-}
+// All modules that exist in the system (match Permission.module values in seed)
+export const ALL_MODULES = [
+  'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
+  'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
+  'branches', 'settings', 'notifications', 'services', 'service_requests', 'catalog',
+] as const
+
+export type AppModule = typeof ALL_MODULES[number]
 
 export interface PlanLimits {
   maxProducts: number
   maxEmployees: number
   maxBranches: number
-  maxOrders: number // per month, -1 = unlimited
+  maxOrders: number    // per month, -1 = unlimited
   maxStorage: number
-  hasAnalytics: boolean
-  hasDelivery: boolean
-  hasReports: boolean
-  hasApiAccess: boolean
-  hasPrioritySupport: boolean
+  enabledModules: string[]
   planName: string
 }
 
-// Free-tier defaults when no subscription exists
+const UNLIMITED_LIMITS: PlanLimits = {
+  maxProducts: -1, maxEmployees: -1, maxBranches: -1, maxOrders: -1,
+  maxStorage: -1, enabledModules: [...ALL_MODULES], planName: 'Sin límite',
+}
+
+// Free-tier fallback when no active subscription exists
 const FREE_LIMITS: PlanLimits = {
   maxProducts: 10,
   maxEmployees: 1,
   maxBranches: 1,
   maxOrders: 30,
   maxStorage: 0,
-  hasAnalytics: false,
-  hasDelivery: false,
-  hasReports: false,
-  hasApiAccess: false,
-  hasPrioritySupport: false,
+  enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'settings', 'notifications'],
   planName: 'Sin plan',
 }
 
@@ -62,12 +62,21 @@ export class PlanLimitsService {
       maxBranches: plan.maxBranches,
       maxOrders: plan.maxOrders,
       maxStorage: plan.maxStorage,
-      hasAnalytics: plan.hasAnalytics,
-      hasDelivery: plan.hasDelivery,
-      hasReports: plan.hasReports,
-      hasApiAccess: plan.hasApiAccess,
-      hasPrioritySupport: plan.hasPrioritySupport,
+      enabledModules: plan.enabledModules,
       planName: plan.name,
+    }
+  }
+
+  hasModule(limits: PlanLimits, module: string): boolean {
+    return limits.enabledModules.includes(module)
+  }
+
+  async assertModuleAccess(userId: string, module: string) {
+    const limits = await this.getPlanLimits(userId)
+    if (!this.hasModule(limits, module)) {
+      throw new ForbiddenException(
+        `El módulo "${module}" no está incluido en tu plan "${limits.planName}". Actualiza tu plan para acceder.`,
+      )
     }
   }
 
@@ -86,9 +95,7 @@ export class PlanLimitsService {
     const limits = await this.getPlanLimits(userId)
     if (limits.maxEmployees === -1) return
     if (limits.maxEmployees === 0) {
-      throw new ForbiddenException(
-        `Tu plan "${limits.planName}" no incluye gestión de empleados.`,
-      )
+      throw new ForbiddenException(`Tu plan "${limits.planName}" no incluye gestión de empleados.`)
     }
     const count = await this.prisma.employee.count({ where: { commerceId } })
     if (count >= limits.maxEmployees) {
@@ -102,9 +109,7 @@ export class PlanLimitsService {
     const limits = await this.getPlanLimits(userId)
     if (limits.maxBranches === -1) return
     if (limits.maxBranches === 0) {
-      throw new ForbiddenException(
-        `Tu plan "${limits.planName}" no incluye gestión de sucursales.`,
-      )
+      throw new ForbiddenException(`Tu plan "${limits.planName}" no incluye gestión de sucursales.`)
     }
     const count = await this.prisma.branch.count({ where: { commerceId } })
     if (count >= limits.maxBranches) {
@@ -129,7 +134,6 @@ export class PlanLimitsService {
     }
   }
 
-  // Returns current usage vs limits for the frontend
   async getUsage(userId: string, commerceId: string) {
     const limits = await this.getPlanLimits(userId)
     const now = new Date()

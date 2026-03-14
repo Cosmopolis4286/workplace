@@ -19,6 +19,15 @@
         </div>
         <div class="flex gap-3 flex-shrink-0">
           <button
+            @click="openNewPermModal"
+            class="px-4 py-2 text-sm font-medium border border-indigo-300 rounded-lg text-indigo-700 bg-white hover:bg-indigo-50 transition-colors flex items-center gap-1.5"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Nuevo permiso
+          </button>
+          <button
             @click="loadMatrix"
             :disabled="loading"
             class="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
@@ -81,6 +90,7 @@
                     {{ ROLE_LABELS[r] }}
                   </span>
                 </th>
+                <th class="w-10"></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -88,12 +98,24 @@
                 <!-- Module header row -->
                 <tr class="bg-gradient-to-r from-gray-50 to-gray-50/50">
                   <td :colspan="2 + ROLES.length" class="px-4 py-2">
-                    <div class="flex items-center gap-2">
-                      <span class="w-2 h-2 rounded-full bg-red-500"/>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="w-2 h-2 rounded-full bg-red-500 shrink-0"/>
                       <span class="text-xs font-bold text-gray-600 uppercase tracking-wider">
                         {{ MODULE_LABELS[module] ?? module }}
                       </span>
                       <span class="text-xs text-gray-400">({{ group.length }})</span>
+                      <!-- Plan badges -->
+                      <div v-if="plansForModule[module]?.length" class="flex items-center gap-1 ml-2">
+                        <span class="text-xs text-gray-400 mr-0.5">Planes:</span>
+                        <span
+                          v-for="plan in plansForModule[module]"
+                          :key="plan.id"
+                          class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-white leading-none"
+                          :style="{ backgroundColor: plan.color }"
+                          :title="`Módulo incluido en plan ${plan.name}`"
+                        >{{ plan.name }}</span>
+                      </div>
+                      <span v-else class="text-[10px] text-gray-300 ml-2 italic">Sin plan</span>
                     </div>
                   </td>
                 </tr>
@@ -135,6 +157,19 @@
                       :title="perm.isSystem ? 'Permiso de sistema — no editable' : r === 'SUPERADMIN' ? 'SUPERADMIN siempre tiene todos los permisos' : ''"
                     />
                   </td>
+                  <!-- Delete action -->
+                  <td class="px-3 py-3 text-center">
+                    <button
+                      v-if="!perm.isSystem"
+                      @click="confirmDelete(perm)"
+                      class="text-gray-300 hover:text-red-500 transition-colors"
+                      title="Eliminar permiso"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  </td>
                 </tr>
               </template>
             </tbody>
@@ -160,6 +195,62 @@
       </div>
 
     </div>
+
+    <!-- New permission modal -->
+    <Teleport to="body">
+      <div v-if="showNewPermModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-900">Nuevo permiso</h3>
+            <button @click="showNewPermModal = false" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <form @submit.prevent="saveNewPerm" class="px-6 py-5 space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Módulo <span class="text-red-500">*</span></label>
+                <select v-model="newPermForm.module" @change="autoFillKey" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                  <option value="">Seleccionar...</option>
+                  <option v-for="mod in ALL_PERM_MODULES" :key="mod" :value="mod">{{ MODULE_LABELS[mod] ?? mod }}</option>
+                  <option value="__custom">Otro (personalizado)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Acción <span class="text-red-500">*</span></label>
+                <input v-model="newPermForm.action" @input="autoFillKey" required placeholder="view, create, export…" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+              </div>
+            </div>
+            <div v-if="newPermForm.module === '__custom'">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Módulo personalizado</label>
+              <input v-model="newPermForm.customModule" @input="autoFillKey" placeholder="mi_modulo" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Clave (key) <span class="text-red-500">*</span></label>
+              <input v-model="newPermForm.key" required placeholder="módulo:acción" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+              <p class="text-xs text-gray-400 mt-1">Se usa en código: <code>can('{{ newPermForm.key || 'modulo:accion' }}')</code></p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Etiqueta <span class="text-red-500">*</span></label>
+              <input v-model="newPermForm.label" required placeholder="Ver reportes exportados" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Descripción (opcional)</label>
+              <input v-model="newPermForm.description" placeholder="Descripción breve del permiso" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            </div>
+            <div v-if="newPermError" class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ newPermError }}</div>
+            <div class="flex justify-end gap-3 pt-1">
+              <button type="button" @click="showNewPermModal = false" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
+              <button type="submit" :disabled="savingPerm" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 font-medium">
+                {{ savingPerm ? 'Creando...' : 'Crear permiso' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -207,7 +298,14 @@ const MODULE_LABELS: Record<string, string> = {
   catalog: 'Catálogo',
   users: 'Usuarios',
   permissions: 'Permisos',
+  audit: 'Auditoría',
+  logs: 'Logs',
+  plans: 'Planes',
+  exchange_rates: 'Tasas de Cambio',
 }
+
+// All modules available for permission grouping
+const ALL_PERM_MODULES = Object.keys(MODULE_LABELS)
 
 interface PermissionRow {
   id: string
@@ -230,14 +328,29 @@ const { getHeaders, refreshAccessToken } = useAuth()
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 
+interface PlanInfo { id: string; name: string; color: string; enabledModules: string[] }
+
 const permissions = ref<PermissionRow[]>([])
 const localMatrix = ref<Record<string, Record<Role, boolean>>>({})
 const pendingChanges = ref<PendingChange[]>([])
+const plans = ref<PlanInfo[]>([])
 
 const loading = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const successMsg = ref<string | null>(null)
+
+// Plans that include a given module
+const plansForModule = computed(() => {
+  const map: Record<string, PlanInfo[]> = {}
+  for (const plan of plans.value) {
+    for (const mod of plan.enabledModules) {
+      if (!map[mod]) map[mod] = []
+      map[mod].push(plan)
+    }
+  }
+  return map
+})
 
 const groupedPermissions = computed(() => {
   const groups: Record<string, PermissionRow[]> = {}
@@ -330,5 +443,84 @@ async function saveAll() {
   }
 }
 
-onMounted(loadMatrix)
+async function loadPlans() {
+  try {
+    const data = await apiFetch<PlanInfo[]>('/api/plans?includeInactive=false')
+    plans.value = data
+  } catch { /* non-critical */ }
+}
+
+// ── New permission modal ───────────────────────────────────────────────────
+
+const showNewPermModal = ref(false)
+const savingPerm = ref(false)
+const newPermError = ref<string | null>(null)
+
+const defaultNewPermForm = () => ({
+  module: '',
+  customModule: '',
+  action: '',
+  key: '',
+  label: '',
+  description: '',
+})
+
+const newPermForm = ref(defaultNewPermForm())
+
+function openNewPermModal() {
+  newPermForm.value = defaultNewPermForm()
+  newPermError.value = null
+  showNewPermModal.value = true
+}
+
+function autoFillKey() {
+  const mod = newPermForm.value.module === '__custom'
+    ? newPermForm.value.customModule.trim()
+    : newPermForm.value.module
+  const action = newPermForm.value.action.trim()
+  if (mod && action) newPermForm.value.key = `${mod}:${action}`
+}
+
+async function saveNewPerm() {
+  savingPerm.value = true
+  newPermError.value = null
+  try {
+    const module = newPermForm.value.module === '__custom'
+      ? newPermForm.value.customModule.trim()
+      : newPermForm.value.module
+
+    await apiFetch('/api/permissions', {
+      method: 'POST',
+      body: JSON.stringify({
+        key: newPermForm.value.key.trim(),
+        module,
+        action: newPermForm.value.action.trim(),
+        label: newPermForm.value.label.trim(),
+        description: newPermForm.value.description.trim() || undefined,
+      }),
+    })
+    showNewPermModal.value = false
+    await loadMatrix()
+    successMsg.value = `Permiso "${newPermForm.value.key}" creado correctamente.`
+    setTimeout(() => { successMsg.value = null }, 4000)
+  } catch (e: any) {
+    newPermError.value = e.message
+  } finally {
+    savingPerm.value = false
+  }
+}
+
+async function confirmDelete(perm: PermissionRow) {
+  if (!confirm(`¿Eliminar el permiso "${perm.label}" (${perm.key})?\nEsta acción no se puede deshacer.`)) return
+  try {
+    await apiFetch(`/api/permissions/${perm.id}`, { method: 'DELETE' })
+    await loadMatrix()
+    successMsg.value = `Permiso "${perm.key}" eliminado.`
+    setTimeout(() => { successMsg.value = null }, 3000)
+  } catch (e: any) {
+    error.value = e.message
+  }
+}
+
+onMounted(() => { loadMatrix(); loadPlans() })
 </script>

@@ -76,22 +76,7 @@ export class CreatePlanDto {
   features?: string[]
 
   @IsOptional()
-  @IsBoolean()
-  hasAnalytics?: boolean
-
-  @IsOptional()
-  @IsBoolean()
-  hasDelivery?: boolean
-
-  @IsOptional()
-  @IsBoolean()
-  hasReports?: boolean
-
-  @IsOptional()
-  @IsBoolean()
-  hasApiAccess?: boolean
-
-  @IsOptional()
-  @IsBoolean()
-  hasPrioritySupport?: boolean
+  @IsArray()
+  @IsString({ each: true })
+  enabledModules?: string[]
 }

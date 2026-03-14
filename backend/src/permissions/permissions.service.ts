@@ -1,5 +1,6 @@
-import { Injectable, ForbiddenException } from '@nestjs/common'
+import { Injectable, ForbiddenException, ConflictException, NotFoundException } from '@nestjs/common'
 import { Role } from '@prisma/client'
+import { CreatePermissionDto } from './dto/create-permission.dto'
 import { PrismaService } from '../prisma/prisma.service'
 import { RedisService } from '../redis/redis.service'
 
@@ -85,6 +86,52 @@ export class PermissionsService {
     })
 
     await this.redis.del(cacheKey(role))
+    return { success: true }
+  }
+
+  // ── Admin panel: create permission ────────────────────────────────────────
+
+  async createPermission(dto: CreatePermissionDto) {
+    const exists = await this.prisma.permission.findUnique({ where: { key: dto.key } })
+    if (exists) throw new ConflictException(`Ya existe un permiso con la clave "${dto.key}"`)
+
+    const permission = await this.prisma.permission.create({
+      data: {
+        key: dto.key,
+        module: dto.module,
+        action: dto.action,
+        label: dto.label,
+        description: dto.description,
+        isSystem: dto.isSystem ?? false,
+      },
+    })
+
+    // Create role_permissions entries for all roles (default: not granted)
+    const roles = Object.values(Role)
+    await this.prisma.rolePermission.createMany({
+      data: roles.map(role => ({
+        role,
+        permissionId: permission.id,
+        granted: false,
+      })),
+      skipDuplicates: true,
+    })
+
+    return permission
+  }
+
+  // ── Admin panel: delete permission ─────────────────────────────────────────
+
+  async deletePermission(id: string) {
+    const perm = await this.prisma.permission.findUnique({ where: { id } })
+    if (!perm) throw new NotFoundException('Permiso no encontrado')
+    if (perm.isSystem) throw new ForbiddenException('No se puede eliminar un permiso de sistema')
+
+    await this.prisma.rolePermission.deleteMany({ where: { permissionId: id } })
+    await this.prisma.permission.delete({ where: { id } })
+
+    // Invalidate all role caches
+    await Promise.all(Object.values(Role).map(r => this.redis.del(cacheKey(r))))
     return { success: true }
   }
 
