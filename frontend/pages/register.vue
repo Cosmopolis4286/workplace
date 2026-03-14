@@ -189,6 +189,33 @@
         </label>
       </template>
 
+      <!-- Step 2: Categoría de negocio -->
+      <template v-if="currentStep === 2">
+        <div class="text-center mb-2">
+          <p class="text-sm text-gray-500">Esto nos ayuda a mostrarte solo los módulos relevantes para tu negocio.</p>
+        </div>
+        <div v-if="loadingCategories" class="flex justify-center py-6">
+          <div class="w-6 h-6 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+        </div>
+        <div v-else class="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+          <button
+            v-for="cat in categories"
+            :key="cat.id"
+            type="button"
+            @click="form.categoryId = cat.id"
+            class="flex items-center gap-2 px-3 py-3 rounded-xl border-2 text-left transition-all duration-150 hover:border-ifood-red/50"
+            :class="form.categoryId === cat.id
+              ? 'border-ifood-red bg-red-50'
+              : 'border-gray-200 bg-white'"
+          >
+            <span class="text-2xl leading-none">{{ cat.icon || '🏢' }}</span>
+            <span class="text-sm font-medium text-gray-700 leading-tight">{{ cat.name }}</span>
+          </button>
+        </div>
+        <p v-if="errors.categoryId" class="text-xs text-red-500 mt-1">{{ errors.categoryId }}</p>
+        <p class="text-xs text-gray-400 text-center mt-1">Puedes cambiarla después en tu perfil.</p>
+      </template>
+
       <!-- Navigation buttons -->
       <div class="flex gap-3 pt-1">
         <AuthButton
@@ -285,24 +312,40 @@ const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha()
 const config = useRuntimeConfig()
 const { required, email, minLength, maxLength, passwordStrength, matches, phone, validateAll, passwordScore, strengthLabel: slabel, strengthColor: scolor } = useFormValidation()
 
-const steps = ['Tus datos', 'Tu comercio']
+const steps = ['Tus datos', 'Tu comercio', 'Tu categoría']
 const currentStep = ref(0)
+
+// Categories for step 2
+const categories = ref<{ id: string; name: string; icon?: string }[]>([])
+const loadingCategories = ref(false)
+
+async function fetchCategories() {
+  if (categories.value.length) return
+  loadingCategories.value = true
+  try {
+    const data = await $fetch<{ id: string; name: string; icon?: string }[]>(
+      `${config.public.apiUrl}/api/users/categories`
+    )
+    categories.value = data
+  } catch { /* non-critical */ }
+  finally { loadingCategories.value = false }
+}
 
 const form = reactive({
   firstName: '', lastName: '', email: '', phone: '',
   commerceName: '', password: '', confirmPassword: '',
-  acceptTerms: false
+  acceptTerms: false, categoryId: ''
 })
 
 const errors = reactive({
   firstName: '', lastName: '', email: '', phone: '',
-  commerceName: '', password: '', confirmPassword: ''
+  commerceName: '', password: '', confirmPassword: '', categoryId: ''
 })
 
 type FormKey = keyof typeof errors
 const touched = reactive<Record<FormKey, boolean>>({
   firstName: false, lastName: false, email: false, phone: false,
-  commerceName: false, password: false, confirmPassword: false
+  commerceName: false, password: false, confirmPassword: false, categoryId: false
 })
 
 const isLoading = ref(false)
@@ -330,8 +373,10 @@ const step1Schema = {
   confirmPassword: [required('Confirma la contraseña'), matches(() => form.password, 'Las contraseñas')]
 }
 
+const stepSchemas = [step0Schema, step1Schema, {}] as const
+
 const runValidation = (): boolean => {
-  const schema = currentStep.value === 0 ? step0Schema : step1Schema
+  const schema = currentStep.value === 0 ? step0Schema : currentStep.value === 1 ? step1Schema : {}
   const fields: Record<string, string> = {}
   for (const k of Object.keys(schema)) fields[k] = (form as Record<string, string>)[k] ?? ''
 
@@ -341,15 +386,26 @@ const runValidation = (): boolean => {
     errors[k] = touched[k] ? e[k] : ''
   }
 
+  // Step 2: category required
+  if (currentStep.value === 2) {
+    errors.categoryId = touched.categoryId && !form.categoryId ? 'Selecciona una categoría' : ''
+    return !!form.categoryId
+  }
+
   return Object.values(e).every(v => !v)
 }
 
 const handleStep = async () => {
-  // Mark all current-step fields as touched
-  const fields = currentStep.value === 0 ? Object.keys(step0Schema) : Object.keys(step1Schema)
+  const fieldsByStep = [Object.keys(step0Schema), Object.keys(step1Schema), ['categoryId']]
+  const fields = fieldsByStep[currentStep.value] ?? []
   fields.forEach(f => { touched[f as FormKey] = true })
 
   if (!runValidation()) return
+
+  if (currentStep.value === 1) {
+    // Going to category step: pre-load categories
+    await fetchCategories()
+  }
 
   if (currentStep.value < steps.length - 1) {
     currentStep.value++
@@ -361,7 +417,7 @@ const handleStep = async () => {
   generalError.value = ''
   try {
     const recaptchaToken = await executeRecaptcha('register')
-    await register({ ...form, recaptchaToken })
+    await register({ ...form, categoryId: form.categoryId || undefined, recaptchaToken })
     await navigateTo('/verify-email')
   } catch (err: unknown) {
     const e = err as { data?: { message?: string | string[] }; message?: string }

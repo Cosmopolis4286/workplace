@@ -182,6 +182,8 @@ import { ClipboardDocumentListIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useAuth } from '~/composables/useAuth'
 
+definePageMeta({ middleware: 'auth' })
+
 const { getHeaders } = useAuth()
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string

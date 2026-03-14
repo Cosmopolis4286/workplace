@@ -512,6 +512,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan } from '~/composables/usePlans'
+const { invalidate: invalidateModules } = useModules()
 
 const ALL_MODULES = [
   'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
@@ -675,6 +676,7 @@ async function saveAssign() {
       endAt: assignForm.value.endAt || undefined,
     })
     showAssignModal.value = false
+    invalidateModules()
     await fetchStats()
     if (activeTab.value === 'subscriptions') await loadSubscriptions()
   } catch (e: any) {
@@ -688,6 +690,7 @@ async function handleCancelSub(id: string) {
   if (!confirm('¿Cancelar esta suscripción?')) return
   try {
     await cancelSubscription(id)
+    invalidateModules()
     await fetchStats()
   } catch (e: any) {
     alert(e.message)

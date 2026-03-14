@@ -17,7 +17,7 @@ export default defineNuxtConfig({
   ],
   ssr: false,
   router: {
-    middleware: ['auth'],
+    middleware: ['auth', 'modules'],
   },
   runtimeConfig: {
     public: {

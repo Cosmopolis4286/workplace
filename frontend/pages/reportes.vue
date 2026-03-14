@@ -1,408 +1,324 @@
 <template>
-  <div>
-    <PageHeader
-      title="Reportes"
-      description="Análisis detallado del rendimiento de tu negocio"
-      :icon="ChartBarIcon"
-      :breadcrumb="breadcrumbItems"
-      :stats="headerStats"
-    >
-      <template #actions>
-        <button class="btn-secondary flex items-center" @click="showFilters = !showFilters">
-          <FunnelIcon class="h-5 w-5 mr-2" />
-          Filtros
-        </button>
-        <button class="btn-primary flex items-center" :disabled="!overview" @click="exportReport">
-          <ArrowDownTrayIcon class="h-5 w-5 mr-2" />
-          Exportar
-        </button>
-      </template>
-    </PageHeader>
-
-    <!-- Filters Panel -->
-    <div v-if="showFilters" class="card p-6 mb-8">
-      <div class="flex flex-wrap items-end gap-4">
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Período</label>
-          <select v-model="selectedPeriod" class="input-field w-auto" @change="onPeriodChange">
-            <option v-for="(label, key) in PERIOD_LABELS" :key="key" :value="key">{{ label }}</option>
-          </select>
+  <div class="min-h-screen bg-gray-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-red-600 via-rose-600 to-pink-600 text-white px-6 py-6 shadow-lg">
+      <div class="flex items-center gap-4">
+        <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
         </div>
-
-        <template v-if="selectedPeriod === 'custom'">
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Desde</label>
-            <input type="date" v-model="customFrom" class="input-field w-auto" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Hasta</label>
-            <input type="date" v-model="customTo" class="input-field w-auto" />
-          </div>
-        </template>
-
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Comparar con</label>
-          <select v-model="selectedCompare" class="input-field w-auto">
-            <option value="previous">Período anterior</option>
-            <option value="year">Mismo período año anterior</option>
-            <option value="none">Sin comparación</option>
-          </select>
-        </div>
-
-        <button
-          class="btn-primary flex items-center self-end"
-          :disabled="loading || (selectedPeriod === 'custom' && (!customFrom || !customTo))"
-          @click="applyFilters"
-        >
-          <ArrowPathIcon v-if="loading" class="h-4 w-4 mr-2 animate-spin" />
-          <MagnifyingGlassIcon v-else class="h-4 w-4 mr-2" />
-          Aplicar
-        </button>
-      </div>
-
-      <p v-if="overview" class="mt-3 text-xs text-gray-500">
-        <CalendarIcon class="h-3.5 w-3.5 inline mr-1 -mt-0.5" />
-        {{ formatDateRange(overview.dateRange.from, overview.dateRange.to) }}
-        <span v-if="overview.previousDateRange" class="ml-2 text-gray-400">
-          vs. {{ formatDateRange(overview.previousDateRange.from, overview.previousDateRange.to) }}
-        </span>
-      </p>
-    </div>
-
-    <!-- Error Banner -->
-    <div v-if="error" class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 mb-8 flex items-center gap-3">
-      <ExclamationTriangleIcon class="h-5 w-5 flex-shrink-0" />
-      <span class="text-sm">{{ error }}</span>
-      <button class="ml-auto text-red-500 hover:text-red-700" @click="applyFilters">
-        <ArrowPathIcon class="h-4 w-4" />
-      </button>
-    </div>
-
-    <!-- Key Metrics -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <template v-if="loading">
-        <div v-for="i in 4" :key="i" class="card p-6 animate-pulse">
-          <div class="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
-          <div class="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
-          <div class="h-3 bg-gray-200 rounded w-1/3"></div>
-        </div>
-      </template>
-      <template v-else-if="overview">
-        <StatsCard
-          title="Ingresos Totales"
-          :value="formatCurrency(overview.kpis.totalRevenue)"
-          :icon="CurrencyDollarIcon"
-          :change="formatChange(overview.kpis.totalRevenueChange)"
-          :changeType="kpiChangeType(overview.kpis.totalRevenueChange)"
-          variant="primary"
-        />
-        <StatsCard
-          title="Pedidos Totales"
-          :value="overview.kpis.totalOrders.toLocaleString('es-MX')"
-          :icon="ShoppingCartIcon"
-          :change="formatChange(overview.kpis.totalOrdersChange)"
-          :changeType="kpiChangeType(overview.kpis.totalOrdersChange)"
-          variant="success"
-        />
-        <StatsCard
-          title="Ticket Promedio"
-          :value="formatCurrency(overview.kpis.avgTicket)"
-          :icon="ReceiptPercentIcon"
-          :change="formatChange(overview.kpis.avgTicketChange)"
-          :changeType="kpiChangeType(overview.kpis.avgTicketChange)"
-          variant="warning"
-        />
-        <StatsCard
-          title="Nuevos Clientes"
-          :value="overview.kpis.newCustomers.toLocaleString('es-MX')"
-          :icon="UserPlusIcon"
-          :change="formatChange(overview.kpis.newCustomersChange)"
-          :changeType="kpiChangeType(overview.kpis.newCustomersChange)"
-          variant="secondary"
-        />
-      </template>
-    </div>
-
-    <!-- Charts Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <!-- Revenue Chart -->
-      <div class="card p-4 sm:p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">
-          {{ selectedPeriod === 'today' ? 'Ingresos por Hora' : 'Ingresos por Día' }}
-        </h3>
-        <div class="h-64 sm:h-80">
-          <div v-if="loading" class="h-full bg-gray-100 rounded-lg animate-pulse"></div>
-          <LineChart v-else-if="revenueChartData" :data="revenueChartData" />
-          <EmptyChart v-else />
-        </div>
-      </div>
-
-      <!-- Orders by Hour Chart -->
-      <div class="card p-4 sm:p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Pedidos por Hora del Día</h3>
-        <div class="h-64 sm:h-80">
-          <div v-if="loading" class="h-full bg-gray-100 rounded-lg animate-pulse"></div>
-          <BarChart v-else-if="ordersHourChartData" :data="ordersHourChartData" />
-          <EmptyChart v-else />
+        <div>
+          <h1 class="text-2xl font-bold">Reportes del Negocio</h1>
+          <p class="text-red-100 text-sm">Resumen ejecutivo de ventas, gastos y equipo</p>
         </div>
       </div>
     </div>
 
-    <!-- Detailed Reports Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-      <!-- Top Products -->
-      <div class="card p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Productos Más Vendidos</h3>
+    <div class="p-6 space-y-6">
+      <!-- Error banner -->
+      <div v-if="globalError" class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3 text-red-700">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span class="text-sm">{{ globalError }}</span>
+        </div>
+        <button @click="globalError = null" class="text-red-400 hover:text-red-600">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
 
-        <template v-if="loading">
-          <div v-for="i in 5" :key="i" class="flex items-center gap-3 mb-4 animate-pulse">
-            <div class="h-10 w-10 bg-gray-200 rounded-lg flex-shrink-0"></div>
-            <div class="flex-1">
-              <div class="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div class="h-2 bg-gray-200 rounded w-full"></div>
-            </div>
-            <div class="h-3 bg-gray-200 rounded w-12"></div>
-          </div>
-        </template>
+      <!-- Reports grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <div v-else-if="topProductsList.length" class="space-y-4">
-          <div
-            v-for="(product, idx) in topProductsList"
-            :key="product.name"
-            class="flex items-center justify-between gap-3"
-          >
-            <div class="flex items-center gap-3 min-w-0">
-              <span
-                class="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
-                :class="rankColor(idx)"
-              >{{ idx + 1 }}</span>
-              <div class="min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate">{{ product.name }}</p>
-                <p class="text-xs text-gray-500">{{ product.sold }} uds. vendidas</p>
+        <!-- Reporte de Ventas -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="bg-gradient-to-br from-green-500 to-emerald-600 p-5 text-white">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-green-100 text-sm font-medium">Reporte de Ventas</p>
+                <h2 class="text-xl font-bold mt-0.5">Órdenes & Ingresos</h2>
               </div>
-            </div>
-            <div class="text-right flex-shrink-0">
-              <p class="text-sm font-semibold text-gray-900">{{ formatCurrency(product.revenue) }}</p>
-              <div class="w-16 bg-gray-200 rounded-full h-1.5 mt-1">
-                <div
-                  class="bg-ifood-red h-1.5 rounded-full transition-all duration-500"
-                  :style="{ width: `${product.percentage}%` }"
-                ></div>
+              <div class="p-2.5 bg-white/20 rounded-xl">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-16H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
               </div>
             </div>
           </div>
-        </div>
 
-        <p v-else class="text-sm text-gray-500 text-center py-8">Sin datos de productos</p>
-      </div>
+          <div class="p-5">
+            <!-- Loading -->
+            <div v-if="loadingOrders" class="space-y-3 animate-pulse">
+              <div class="h-5 bg-gray-200 rounded w-2/3" />
+              <div class="h-5 bg-gray-200 rounded w-1/2" />
+              <div class="h-5 bg-gray-200 rounded w-3/4" />
+              <div class="h-5 bg-gray-200 rounded w-1/3" />
+            </div>
 
-      <!-- Customer Insights -->
-      <div class="card p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Segmentos de Clientes</h3>
+            <div v-else-if="orderStats" class="space-y-3">
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Total pedidos</span>
+                <span class="font-semibold text-gray-900">{{ orderStats.total?.toLocaleString('es-MX') ?? '—' }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Pedidos activos</span>
+                <span class="font-semibold text-blue-600">{{ orderStats.active?.toLocaleString('es-MX') ?? '—' }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Completados hoy</span>
+                <span class="font-semibold text-green-600">{{ orderStats.completedToday?.toLocaleString('es-MX') ?? '—' }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Cancelados</span>
+                <span class="font-semibold text-red-600">{{ orderStats.cancelled?.toLocaleString('es-MX') ?? '—' }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2">
+                <span class="text-sm text-gray-600">Ingresos totales</span>
+                <span class="font-bold text-gray-900">{{ formatCurrency(orderStats.totalRevenue) }}</span>
+              </div>
+            </div>
 
-        <div v-if="loading" class="h-48 bg-gray-100 rounded-lg animate-pulse mb-4"></div>
-        <div v-else-if="customerSegmentsChartData" class="h-48 mb-4">
-          <DoughnutChart :data="customerSegmentsChartData" />
-        </div>
+            <div v-else class="py-6 text-center text-gray-400 text-sm">
+              No se pudo cargar el reporte de ventas
+            </div>
 
-        <template v-if="!loading && overview">
-          <div class="space-y-2 mt-4">
-            <div
-              v-for="(seg, idx) in segmentRows"
-              :key="seg.label"
-              class="flex items-center justify-between"
+            <button
+              :disabled="loadingOrders || !orderStats"
+              class="mt-5 w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              @click="exportJSON('ventas', orderStats)"
             >
-              <div class="flex items-center gap-2">
-                <span class="h-3 w-3 rounded-full" :style="{ backgroundColor: seg.color }"></span>
-                <span class="text-sm text-gray-700">{{ seg.label }}</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Exportar JSON
+            </button>
+          </div>
+        </div>
+
+        <!-- Reporte de Gastos -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="bg-gradient-to-br from-orange-500 to-red-500 p-5 text-white">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-orange-100 text-sm font-medium">Reporte de Gastos</p>
+                <h2 class="text-xl font-bold mt-0.5">Costos & Presupuesto</h2>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-semibold text-gray-900">{{ seg.count }}</span>
-                <span class="text-xs text-gray-400">{{ seg.pct }}%</span>
+              <div class="p-2.5 bg-white/20 rounded-xl">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
             </div>
           </div>
-        </template>
-      </div>
 
-      <!-- Performance Metrics -->
-      <div class="card p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Métricas de Rendimiento</h3>
+          <div class="p-5">
+            <!-- Loading -->
+            <div v-if="loadingExpenses" class="space-y-3 animate-pulse">
+              <div class="h-5 bg-gray-200 rounded w-2/3" />
+              <div class="h-5 bg-gray-200 rounded w-1/2" />
+              <div class="h-5 bg-gray-200 rounded w-3/4" />
+              <div class="h-5 bg-gray-200 rounded w-1/3" />
+            </div>
 
-        <template v-if="loading">
-          <div v-for="i in 6" :key="i" class="flex justify-between py-2 border-b border-gray-100 animate-pulse">
-            <div class="h-3 bg-gray-200 rounded w-1/2"></div>
-            <div class="h-3 bg-gray-200 rounded w-1/5"></div>
+            <div v-else-if="expenseStats" class="space-y-3">
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Total mensual</span>
+                <span class="font-bold text-gray-900">{{ formatCurrency(expenseStats.totalMonthly) }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Pendientes de pago</span>
+                <span class="font-semibold text-yellow-600">{{ formatCurrency(expenseStats.pendingAmount) }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Pagados</span>
+                <span class="font-semibold text-green-600">{{ formatCurrency(expenseStats.paidAmount) }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Presupuesto usado</span>
+                <span class="font-semibold" :class="(expenseStats.budgetUsed ?? 0) > 90 ? 'text-red-600' : (expenseStats.budgetUsed ?? 0) > 70 ? 'text-yellow-600' : 'text-gray-700'">
+                  {{ expenseStats.budgetUsed ?? '—' }}%
+                </span>
+              </div>
+              <div class="flex justify-between items-center py-2">
+                <span class="text-sm text-gray-600">Promedio diario</span>
+                <span class="font-semibold text-gray-900">{{ formatCurrency(expenseStats.dailyAverage) }}</span>
+              </div>
+            </div>
+
+            <div v-else class="py-6 text-center text-gray-400 text-sm">
+              No se pudo cargar el reporte de gastos
+            </div>
+
+            <button
+              :disabled="loadingExpenses || !expenseStats"
+              class="mt-5 w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              @click="exportJSON('gastos', expenseStats)"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Exportar JSON
+            </button>
           </div>
-        </template>
+        </div>
 
-        <template v-else-if="overview">
-          <div class="space-y-0">
-            <!-- Operational -->
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Operacional</p>
-            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-              <span class="text-sm text-gray-600">Tiempo Promedio Preparación</span>
-              <span class="font-medium text-gray-900">{{ overview.performance.operational.avgPrepTime || '—' }} min</span>
-            </div>
-            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-              <span class="text-sm text-gray-600">Tiempo Promedio Entrega</span>
-              <span class="font-medium text-gray-900">{{ overview.performance.operational.avgDeliveryTime || '—' }} min</span>
-            </div>
-            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-              <span class="text-sm text-gray-600">Tasa Cancelación</span>
-              <span
-                class="font-medium"
-                :class="overview.performance.operational.cancellationRate > 5 ? 'text-red-600' : 'text-green-600'"
-              >{{ overview.performance.operational.cancellationRate }}%</span>
-            </div>
-
-            <!-- Growth -->
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-4">Crecimiento</p>
-            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-              <span class="text-sm text-gray-600">Tasa de Retención</span>
-              <span class="font-medium text-ifood-green">{{ overview.performance.growth.retentionRate }}%</span>
-            </div>
-            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-              <span class="text-sm text-gray-600">Valor de Vida Cliente</span>
-              <span class="font-medium text-gray-900">{{ formatCurrency(overview.performance.growth.clv) }}</span>
-            </div>
-            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-              <span class="text-sm text-gray-600">Frecuencia de Pedidos</span>
-              <span class="font-medium text-gray-900">{{ overview.performance.growth.orderFrequency }}x</span>
-            </div>
-
-            <!-- Financial -->
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-4">Financiero</p>
-            <div class="flex justify-between items-center py-2">
-              <span class="text-sm text-gray-600">Margen Bruto Promedio</span>
-              <span
-                class="font-medium"
-                :class="overview.performance.financial.grossMargin >= 50 ? 'text-green-600' : 'text-yellow-600'"
-              >{{ overview.performance.financial.grossMargin }}%</span>
+        <!-- Reporte de Empleados -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="bg-gradient-to-br from-indigo-500 to-purple-600 p-5 text-white">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-indigo-100 text-sm font-medium">Reporte de Empleados</p>
+                <h2 class="text-xl font-bold mt-0.5">Equipo & Recursos</h2>
+              </div>
+              <div class="p-2.5 bg-white/20 rounded-xl">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
             </div>
           </div>
-        </template>
-      </div>
-    </div>
 
-    <!-- Top Products Bar Chart (full width) -->
-    <div v-if="topProductsChartData" class="card p-4 sm:p-6">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">Comparativa de Productos Más Vendidos</h3>
-      <div class="h-64">
-        <div v-if="loading" class="h-full bg-gray-100 rounded-lg animate-pulse"></div>
-        <BarChart v-else :data="topProductsChartData" />
+          <div class="p-5">
+            <!-- Loading -->
+            <div v-if="loadingEmployees" class="space-y-3 animate-pulse">
+              <div class="h-5 bg-gray-200 rounded w-2/3" />
+              <div class="h-5 bg-gray-200 rounded w-1/2" />
+              <div class="h-5 bg-gray-200 rounded w-3/4" />
+              <div class="h-5 bg-gray-200 rounded w-1/3" />
+            </div>
+
+            <div v-else-if="employeeStats" class="space-y-3">
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Total empleados</span>
+                <span class="font-semibold text-gray-900">{{ employeeStats.total?.toLocaleString('es-MX') ?? '—' }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Activos</span>
+                <span class="font-semibold text-green-600">{{ employeeStats.active?.toLocaleString('es-MX') ?? '—' }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Inactivos</span>
+                <span class="font-semibold text-gray-500">{{ employeeStats.inactive?.toLocaleString('es-MX') ?? '—' }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">En vacaciones</span>
+                <span class="font-semibold text-yellow-600">{{ employeeStats.onVacation?.toLocaleString('es-MX') ?? '—' }}</span>
+              </div>
+              <div class="flex justify-between items-center py-2">
+                <span class="text-sm text-gray-600">Nuevos este mes</span>
+                <span class="font-semibold text-indigo-600">{{ employeeStats.newThisMonth?.toLocaleString('es-MX') ?? '—' }}</span>
+              </div>
+            </div>
+
+            <div v-else class="py-6 text-center text-gray-400 text-sm">
+              No se pudo cargar el reporte de empleados
+            </div>
+
+            <button
+              :disabled="loadingEmployees || !employeeStats"
+              class="mt-5 w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              @click="exportJSON('empleados', employeeStats)"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Exportar JSON
+            </button>
+          </div>
+        </div>
+
       </div>
+
+      <!-- Last updated note -->
+      <p class="text-xs text-gray-400 text-center">
+        Datos actualizados al {{ formatDate(new Date().toISOString()) }}
+      </p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import {
-  ChartBarIcon,
-  CalendarIcon,
-  ArrowDownTrayIcon,
-  CurrencyDollarIcon,
-  ShoppingCartIcon,
-  ReceiptPercentIcon,
-  UserPlusIcon,
-  FunnelIcon,
-  ArrowPathIcon,
-  MagnifyingGlassIcon,
-  ExclamationTriangleIcon,
-} from '@heroicons/vue/24/outline'
-import StatsCard from '~/components/StatsCard.vue'
-import LineChart from '~/components/charts/LineChart.vue'
-import BarChart from '~/components/charts/BarChart.vue'
-import DoughnutChart from '~/components/charts/DoughnutChart.vue'
-import PageHeader from '~/components/ui/PageHeader.vue'
-import {
-  useAnalytics,
-  PERIOD_LABELS,
-  type AnalyticsPeriod,
-  type CompareWith,
-} from '~/composables/useAnalytics'
+import { ref, onMounted } from 'vue'
 
-const {
-  overview,
-  loading,
-  error,
-  revenueChartData,
-  ordersHourChartData,
-  topProductsChartData,
-  customerSegmentsChartData,
-  topProductsList,
-  headerStats,
-  formatCurrency,
-  formatChange,
-  formatDateRange,
-  loadOverview,
-  exportReport,
-} = useAnalytics()
+definePageMeta({ middleware: 'auth' })
 
-// ─── Local state ─────────────────────────────────────────────────────────────
-const showFilters = ref(true)
-const selectedPeriod = ref<AnalyticsPeriod>('30d')
-const selectedCompare = ref<CompareWith>('previous')
-const customFrom = ref('')
-const customTo = ref('')
+const config = useRuntimeConfig()
+const { getHeaders } = useAuth()
 
-const breadcrumbItems = ref([
-  { label: 'Dashboard', to: '/' },
-  { label: 'Reportes' },
-])
+const loadingOrders = ref(false)
+const loadingExpenses = ref(false)
+const loadingEmployees = ref(false)
+const globalError = ref<string | null>(null)
 
-// ─── Segment colors matching DoughnutChart ────────────────────────────────────
-const SEGMENT_COLORS = ['#eab308', '#f97316', '#6b7280', '#ef4444']
+const orderStats = ref<any>(null)
+const expenseStats = ref<any>(null)
+const employeeStats = ref<any>(null)
 
-const segmentRows = computed(() => {
-  if (!overview.value) return []
-  const { labels, values } = overview.value.customerSegments
-  const total = values.reduce((a, b) => a + b, 0)
-  return labels.map((label, i) => ({
-    label,
-    count: values[i],
-    color: SEGMENT_COLORS[i] ?? '#94a3b8',
-    pct: total > 0 ? Math.round((values[i] / total) * 100) : 0,
-  }))
-})
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function kpiChangeType(pct: number | null): 'increase' | 'decrease' | 'neutral' {
-  if (pct === null) return 'neutral'
-  return pct >= 0 ? 'increase' : 'decrease'
+async function apiFetch(path: string) {
+  const res = await fetch(`${config.public.apiUrl}${path}`, { headers: getHeaders() })
+  if (!res.ok) throw new Error(`Error ${res.status} en ${path}`)
+  return res.json()
 }
 
-function rankColor(idx: number): string {
-  const colors = ['bg-yellow-500', 'bg-gray-400', 'bg-amber-600', 'bg-blue-500', 'bg-green-500']
-  return colors[idx] ?? 'bg-gray-300'
-}
-
-// ─── EmptyChart inline component ─────────────────────────────────────────────
-const EmptyChart = defineComponent({
-  render() {
-    return h('div', { class: 'h-full flex items-center justify-center text-gray-400 text-sm' }, 'Sin datos')
-  },
-})
-
-// ─── Actions ─────────────────────────────────────────────────────────────────
-function onPeriodChange() {
-  if (selectedPeriod.value !== 'custom') {
-    applyFilters()
+async function loadOrderStats() {
+  loadingOrders.value = true
+  try {
+    orderStats.value = await apiFetch('/api/orders/stats')
+  } catch (e: any) {
+    globalError.value = e.message
+  } finally {
+    loadingOrders.value = false
   }
 }
 
-function applyFilters() {
-  loadOverview(
-    selectedPeriod.value,
-    selectedCompare.value,
-    selectedPeriod.value === 'custom' ? customFrom.value : undefined,
-    selectedPeriod.value === 'custom' ? customTo.value : undefined,
-  )
+async function loadExpenseStats() {
+  loadingExpenses.value = true
+  try {
+    expenseStats.value = await apiFetch('/api/expenses/stats')
+  } catch (e: any) {
+    globalError.value = e.message
+  } finally {
+    loadingExpenses.value = false
+  }
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+async function loadEmployeeStats() {
+  loadingEmployees.value = true
+  try {
+    employeeStats.value = await apiFetch('/api/employees/stats')
+  } catch (e: any) {
+    globalError.value = e.message
+  } finally {
+    loadingEmployees.value = false
+  }
+}
+
+function formatCurrency(value: number | undefined | null) {
+  if (value === undefined || value === null) return '—'
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('es-MX', {
+    day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+function exportJSON(name: string, data: any) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `reporte-${name}-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 onMounted(() => {
-  loadOverview(selectedPeriod.value, selectedCompare.value)
+  Promise.all([loadOrderStats(), loadExpenseStats(), loadEmployeeStats()])
 })
 </script>
