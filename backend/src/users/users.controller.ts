@@ -11,11 +11,11 @@ import {
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common'
-import { Role } from '~/common/enums/role.enum'
-import { JwtAuthGuard } from '~/common/guards/jwt-auth.guard'
-import { RolesGuard } from '~/common/guards/roles.guard'
-import { Roles } from '~/common/decorators/roles.decorator'
-import { CurrentUser } from '~/common/decorators/current-user.decorator'
+import { Role } from '@prisma/client'
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
+import { RolesGuard } from '../common/guards/roles.guard'
+import { Roles } from '../common/decorators/roles.decorator'
+import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { UsersService } from './users.service'
 import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
