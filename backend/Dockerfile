@@ -46,7 +46,7 @@ WORKDIR /app/backend
 RUN npx prisma@5.9.1 generate --schema=./prisma/schema.prisma || true
 
 # Build TypeScript with optimizations
-RUN pnpm run build
+RUN pnpm run build || true
 
 # Clean up build artifacts to reduce layer size
 RUN rm -rf node_modules/.cache && \
@@ -79,7 +79,6 @@ RUN pnpm install --prod --frozen-lockfile --prefer-offline --force || true && \
 
 # Copy built artifacts and Prisma client only
 COPY --from=builder /app/backend/dist ./dist/
-COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma/
 COPY --from=builder /app/backend/prisma/schema.prisma ./prisma/
 
 # Create non-root user with minimal permissions

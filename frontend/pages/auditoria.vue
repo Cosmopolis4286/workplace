@@ -296,7 +296,7 @@ function actionBadge(action: string) {
 
 <style scoped>
 .input-field {
-  @apply w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-workplace-red/20 focus:border-workplace-red;
+  @apply w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500;
 }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
