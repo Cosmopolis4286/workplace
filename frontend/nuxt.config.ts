@@ -25,4 +25,7 @@ export default defineNuxtConfig({
       recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY || '',
     },
   },
+  build: {
+    transpile: ['#app-manifest']
+  }
 })
