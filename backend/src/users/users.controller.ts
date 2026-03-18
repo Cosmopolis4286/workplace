@@ -11,11 +11,11 @@ import {
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common'
-import { Role } from '@prisma/client'
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
-import { RolesGuard } from '../common/guards/roles.guard'
-import { Roles } from '../common/decorators/roles.decorator'
-import { CurrentUser } from '../common/decorators/current-user.decorator'
+import { Role } from '~/common/enums/role.enum'
+import { JwtAuthGuard } from '~/common/guards/jwt-auth.guard'
+import { RolesGuard } from '~/common/guards/roles.guard'
+import { Roles } from '~/common/decorators/roles.decorator'
+import { CurrentUser } from '~/common/decorators/current-user.decorator'
 import { UsersService } from './users.service'
 import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
@@ -110,7 +110,7 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role },
   ) {
     const target = await this.usersService.findById(id)
-    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role)) {
+    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role as Role)) {
       throw new ForbiddenException('No tienes permisos para ver este usuario')
     }
     return target
@@ -136,7 +136,7 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role },
   ) {
     const target = await this.usersService.findById(id)
-    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role)) {
+    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role as Role)) {
       throw new ForbiddenException('No tienes permisos para editar este usuario')
     }
     if (dto.role && caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(dto.role)) {
@@ -152,7 +152,7 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role },
   ) {
     const target = await this.usersService.findById(id)
-    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role)) {
+    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role as Role)) {
       throw new ForbiddenException('No tienes permisos para modificar este usuario')
     }
     return this.usersService.toggleUserStatus(id)
@@ -165,7 +165,7 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role },
   ) {
     const target = await this.usersService.findById(id)
-    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role)) {
+    if (caller.role === Role.ADMIN && ADMIN_RESTRICTED_ROLES.includes(target.role as Role)) {
       throw new ForbiddenException('No tienes permisos para eliminar este usuario')
     }
     return this.usersService.deleteUser(id)
