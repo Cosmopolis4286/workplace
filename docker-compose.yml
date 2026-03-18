@@ -69,8 +69,10 @@ services:
         condition: service_healthy
     command: >
       sh -c "
-      until nc -z postgres 5432; do sleep 1; done;
-      pnpm exec prisma migrate deploy &&
+      until nc -z postgres 5432; do echo 'Waiting for postgres...'; sleep 1; done;
+      echo 'Postgres is ready - running migrations...';
+      npx prisma@5.9.1 migrate deploy &&
+      echo 'Starting application...';
       node dist/main.js
       "
     networks:

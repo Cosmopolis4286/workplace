@@ -10,7 +10,7 @@ COPY frontend/package.json ./frontend/
 RUN pnpm install --frozen-lockfile
 
 # ---------- BUILD ----------
-FROM base AS builder
+FROM deps AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
