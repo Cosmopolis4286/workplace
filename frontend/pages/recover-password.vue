@@ -18,8 +18,8 @@
       <form @submit.prevent="handleRecoverPassword" class="space-y-5" novalidate>
         <!-- Illustration -->
         <div class="flex flex-col items-center text-center gap-3 pb-2">
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-ifood-red/10 to-red-600/10 flex items-center justify-center border border-red-100">
-            <KeyIcon class="h-7 w-7 text-ifood-red" />
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-workplace-red/10 to-red-600/10 flex items-center justify-center border border-red-100">
+            <KeyIcon class="h-7 w-7 text-workplace-red" />
           </div>
           <p class="text-sm text-gray-500 max-w-xs leading-relaxed">
             Ingresa tu correo y te enviaremos las instrucciones para restablecer tu contraseña.
@@ -63,7 +63,7 @@
           <p class="text-sm text-gray-500 leading-relaxed max-w-xs">
             Enviamos las instrucciones a
           </p>
-          <p class="text-sm font-semibold text-ifood-red bg-red-50 px-3 py-1.5 rounded-lg inline-block">
+          <p class="text-sm font-semibold text-workplace-red bg-red-50 px-3 py-1.5 rounded-lg inline-block">
             {{ form.email }}
           </p>
         </div>
@@ -97,7 +97,7 @@
     <template #footer>
       <p class="text-sm text-gray-500">
         ¿Recordaste tu contraseña?
-        <NuxtLink to="/login" class="font-semibold text-ifood-red hover:underline ml-1">
+        <NuxtLink to="/login" class="font-semibold text-workplace-red hover:underline ml-1">
           Inicia sesión
         </NuxtLink>
       </p>

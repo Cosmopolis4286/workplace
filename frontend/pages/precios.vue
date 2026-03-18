@@ -166,7 +166,7 @@
       <h3 class="text-xl font-bold text-gray-900 mb-2">¿Tienes preguntas?</h3>
       <p class="text-gray-500 mb-4">Nuestro equipo está listo para ayudarte a elegir el plan ideal.</p>
       <a
-        href="mailto:soporte@ifoodmanager.com"
+        href="mailto:soporte@workplacemanager.com"
         class="inline-flex items-center gap-2 bg-gradient-to-r from-red-500 to-rose-500 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:from-red-600 hover:to-rose-600 transition-all shadow-sm hover:shadow-md"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

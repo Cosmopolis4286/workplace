@@ -101,7 +101,7 @@
               <button
                 :class="[
                   'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300',
-                  userNotifs[n.key] ? 'bg-ifood-red' : 'bg-gray-300'
+                  userNotifs[n.key] ? 'bg-workplace-red' : 'bg-gray-300'
                 ]"
                 @click="toggleUserNotif(n.key)"
               >
@@ -139,7 +139,7 @@
               <button
                 :class="[
                   'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300',
-                  userPrivacy[p.key] ? 'bg-ifood-red' : 'bg-gray-300'
+                  userPrivacy[p.key] ? 'bg-workplace-red' : 'bg-gray-300'
                 ]"
                 @click="togglePrivacy(p.key)"
               >
@@ -215,7 +215,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div class="p-4 bg-gray-50 rounded-xl text-center">
               <p class="text-xs text-gray-500 mb-1">Versión de la app</p>
-              <p class="font-bold text-gray-900">iFood Manager v1.0</p>
+              <p class="font-bold text-gray-900">WorkPlace Manager v1.0</p>
             </div>
             <div class="p-4 bg-gray-50 rounded-xl text-center">
               <p class="text-xs text-gray-500 mb-1">Tu cuenta</p>
@@ -229,9 +229,9 @@
 
           <div class="mt-4 flex flex-wrap gap-3">
             <span class="text-sm text-gray-500 font-medium self-center">Soporte:</span>
-            <a href="mailto:soporte@ifoodmanager.com" class="text-sm text-ifood-red hover:underline font-medium">soporte@ifoodmanager.com</a>
+            <a href="mailto:soporte@workplacemanager.com" class="text-sm text-workplace-red hover:underline font-medium">soporte@workplacemanager.com</a>
             <span class="text-gray-300">|</span>
-            <span class="text-sm text-gray-500">© 2026 iFood Manager. Todos los derechos reservados.</span>
+            <span class="text-sm text-gray-500">© 2026 WorkPlace Manager. Todos los derechos reservados.</span>
           </div>
         </div>
       </div>
@@ -352,7 +352,7 @@
               <button
                 :class="[
                   'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300',
-                  notifForm[notif.key] ? 'bg-ifood-red' : 'bg-gray-300'
+                  notifForm[notif.key] ? 'bg-workplace-red' : 'bg-gray-300'
                 ]"
                 @click="toggleAndSaveNotification(notif.key)"
               >
@@ -407,7 +407,7 @@
                   <div
                     :class="[
                       'h-5 w-5 rounded border-2 flex items-center justify-center mr-3 flex-shrink-0 transition-colors',
-                      paymentForm.paymentMethods.includes(method.id) ? 'bg-ifood-red border-ifood-red' : 'bg-white border-gray-300'
+                      paymentForm.paymentMethods.includes(method.id) ? 'bg-workplace-red border-workplace-red' : 'bg-white border-gray-300'
                     ]"
                   >
                     <CheckIcon v-if="paymentForm.paymentMethods.includes(method.id)" class="h-3 w-3 text-white" />
@@ -694,7 +694,7 @@ onMounted(async () => {
 
 <style scoped>
 .input-field {
-  @apply w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300 bg-white;
+  @apply w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300 bg-white;
 }
 
 .btn-save {

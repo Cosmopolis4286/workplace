@@ -21,7 +21,7 @@
       <div class="text-5xl mb-4">😕</div>
       <h2 class="text-2xl font-bold text-gray-800 mb-2">Perfil no encontrado</h2>
       <p class="text-gray-500 mb-6">Este usuario no existe o no tiene perfil público.</p>
-      <NuxtLink to="/" class="inline-flex items-center gap-2 px-5 py-2.5 bg-ifood-red text-white rounded-xl font-semibold">
+      <NuxtLink to="/" class="inline-flex items-center gap-2 px-5 py-2.5 bg-workplace-red text-white rounded-xl font-semibold">
         Volver al inicio
       </NuxtLink>
     </div>
@@ -31,7 +31,7 @@
       <div class="card-premium overflow-hidden mb-6">
 
         <!-- Banner / portada -->
-        <div class="relative h-48 sm:h-56 bg-gradient-to-br from-ifood-red/80 to-red-800 group">
+        <div class="relative h-48 sm:h-56 bg-gradient-to-br from-workplace-red/80 to-red-800 group">
           <img
             v-if="coverSrc"
             :src="coverSrc"
@@ -67,7 +67,7 @@
             <div class="flex-shrink-0 relative -mt-14">
               <div class="h-28 w-28 rounded-full overflow-hidden ring-4 ring-white shadow-xl">
                 <img v-if="profile.avatar" :src="avatarSrc(profile.avatar)" :alt="profile.firstName" class="h-full w-full object-cover">
-                <div v-else class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
+                <div v-else class="h-full w-full bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center">
                   <span class="text-3xl font-bold text-white">{{ initials }}</span>
                 </div>
               </div>
@@ -80,7 +80,7 @@
                 title="Cambiar foto"
                 @click="avatarFileInput?.click()"
               >
-                <span v-if="uploadingAvatar" class="h-4 w-4 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+                <span v-if="uploadingAvatar" class="h-4 w-4 border-2 border-workplace-red border-t-transparent rounded-full animate-spin" />
                 <CameraIcon v-else class="h-4 w-4 text-gray-600" />
               </button>
               <input
@@ -104,19 +104,19 @@
               </p>
               <!-- Stats row -->
               <div class="flex flex-wrap gap-6 text-center">
-                <button class="hover:text-ifood-red transition-colors" @click="activeTab = 'posts'">
+                <button class="hover:text-workplace-red transition-colors" @click="activeTab = 'posts'">
                   <div class="text-xl font-bold text-gray-900">{{ profile.postsCount }}</div>
                   <div class="text-xs text-gray-500">publicaciones</div>
                 </button>
-                <button class="hover:text-ifood-red transition-colors" @click="showFollowersModal = true">
+                <button class="hover:text-workplace-red transition-colors" @click="showFollowersModal = true">
                   <div class="text-xl font-bold text-gray-900">{{ profile.followersCount }}</div>
                   <div class="text-xs text-gray-500">seguidores</div>
                 </button>
-                <button class="hover:text-ifood-red transition-colors" @click="showFollowingModal = true">
+                <button class="hover:text-workplace-red transition-colors" @click="showFollowingModal = true">
                   <div class="text-xl font-bold text-gray-900">{{ profile.followingCount }}</div>
                   <div class="text-xs text-gray-500">siguiendo</div>
                 </button>
-                <button class="hover:text-ifood-red transition-colors" @click="activeTab = 'reviews'">
+                <button class="hover:text-workplace-red transition-colors" @click="activeTab = 'reviews'">
                   <div class="flex items-center gap-1 justify-center">
                     <span class="text-xl font-bold text-gray-900">{{ profile.rating ?? '—' }}</span>
                     <StarIcon class="h-4 w-4 text-amber-400" />
@@ -130,7 +130,7 @@
             <div v-if="isAuthenticated && currentUser?.id !== profile.id" class="flex gap-2 flex-shrink-0 pt-3 sm:pt-2">
               <button
                 v-if="!profile.isFollowing"
-                class="px-5 py-2 bg-ifood-red text-white font-semibold rounded-xl shadow hover:shadow-lg transition-all"
+                class="px-5 py-2 bg-workplace-red text-white font-semibold rounded-xl shadow hover:shadow-lg transition-all"
                 :disabled="followLoading"
                 @click="handleFollow"
               >
@@ -139,7 +139,7 @@
               </button>
               <button
                 v-else
-                class="px-5 py-2 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:border-red-300 hover:text-ifood-red transition-all"
+                class="px-5 py-2 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:border-red-300 hover:text-workplace-red transition-all"
                 :disabled="followLoading"
                 @click="handleUnfollow"
               >
@@ -173,7 +173,7 @@
           :key="tab.key"
           class="px-6 py-3 text-sm font-semibold border-b-2 transition-colors"
           :class="activeTab === tab.key
-            ? 'border-ifood-red text-ifood-red'
+            ? 'border-workplace-red text-workplace-red'
             : 'border-transparent text-gray-500 hover:text-gray-700'"
           @click="activeTab = tab.key"
         >
@@ -187,7 +187,7 @@
         <!-- Own post creation button -->
         <div v-if="isOwnProfile && canPost" class="mb-6">
           <button
-            class="w-full flex items-center gap-3 p-4 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:border-ifood-red hover:text-ifood-red transition-all"
+            class="w-full flex items-center gap-3 p-4 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:border-workplace-red hover:text-workplace-red transition-all"
             @click="showPostModal = true"
           >
             <PlusCircleIcon class="h-6 w-6" />
@@ -471,7 +471,7 @@
         <div v-else class="space-y-4">
           <div v-for="review in reviews" :key="review.id" class="card-premium p-5">
             <div class="flex items-start gap-3">
-              <div class="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
+              <div class="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center">
                 <img v-if="review.author.avatar" :src="avatarSrc(review.author.avatar)" class="h-full w-full object-cover">
                 <span v-else class="text-white text-sm font-bold">{{ review.author.firstName[0] }}</span>
               </div>
@@ -480,7 +480,7 @@
                   <NuxtLink
                     v-if="review.author.username"
                     :to="`/p/${review.author.username}`"
-                    class="font-semibold text-gray-900 hover:text-ifood-red transition-colors text-sm"
+                    class="font-semibold text-gray-900 hover:text-workplace-red transition-colors text-sm"
                   >
                     {{ review.author.firstName }} {{ review.author.lastName }}
                   </NuxtLink>
@@ -577,17 +577,17 @@
                   class="flex items-center gap-3 group min-w-0"
                   @click="selectedPost = null"
                 >
-                  <div class="h-10 w-10 rounded-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-transparent group-hover:ring-ifood-red/30 transition-all">
+                  <div class="h-10 w-10 rounded-full bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-transparent group-hover:ring-workplace-red/30 transition-all">
                     <img v-if="selectedPost.user.avatar" :src="avatarSrc(selectedPost.user.avatar)" class="h-full w-full object-cover">
                     <span v-else class="text-white text-sm font-bold">{{ selectedPost.user.firstName[0] }}</span>
                   </div>
                   <div class="min-w-0">
-                    <p class="font-bold text-gray-900 text-sm leading-tight group-hover:text-ifood-red transition-colors">{{ selectedPost.user.firstName }} {{ selectedPost.user.lastName }}</p>
+                    <p class="font-bold text-gray-900 text-sm leading-tight group-hover:text-workplace-red transition-colors">{{ selectedPost.user.firstName }} {{ selectedPost.user.lastName }}</p>
                     <p class="text-xs text-gray-400">@{{ selectedPost.user.username }}</p>
                   </div>
                 </NuxtLink>
                 <div v-else class="flex items-center gap-3 min-w-0">
-                  <div class="h-10 w-10 rounded-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <div class="h-10 w-10 rounded-full bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center overflow-hidden flex-shrink-0">
                     <img v-if="selectedPost.user.avatar" :src="avatarSrc(selectedPost.user.avatar)" class="h-full w-full object-cover">
                     <span v-else class="text-white text-sm font-bold">{{ selectedPost.user.firstName[0] }}</span>
                   </div>
@@ -597,7 +597,7 @@
                 <!-- Own actions -->
                 <div v-if="isOwnProfile && !editingCaption" class="ml-auto flex items-center gap-1 flex-shrink-0">
                   <button
-                    class="h-8 w-8 rounded-xl text-gray-400 hover:text-ifood-red hover:bg-red-50 flex items-center justify-center transition-colors"
+                    class="h-8 w-8 rounded-xl text-gray-400 hover:text-workplace-red hover:bg-red-50 flex items-center justify-center transition-colors"
                     title="Editar descripción"
                     @click="startEditCaption"
                   >
@@ -632,7 +632,7 @@
                     v-model="editCaptionValue"
                     rows="3"
                     maxlength="2200"
-                    class="w-full px-3.5 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-ifood-red/15 focus:border-ifood-red resize-none transition-all"
+                    class="w-full px-3.5 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-workplace-red/15 focus:border-workplace-red resize-none transition-all"
                     placeholder="Escribe una descripción..."
                     autofocus
                   />
@@ -642,7 +642,7 @@
                       <button class="px-3.5 py-1.5 text-sm text-gray-500 font-medium hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors" @click="cancelEditCaption">Cancelar</button>
                       <button
                         :disabled="savingCaption"
-                        class="px-4 py-1.5 bg-ifood-red text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-red-600 transition-colors flex items-center gap-1.5"
+                        class="px-4 py-1.5 bg-workplace-red text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-red-600 transition-colors flex items-center gap-1.5"
                         @click="saveCaption"
                       >
                         <span v-if="savingCaption" class="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -722,7 +722,7 @@
                   class="flex gap-3 group/comment"
                 >
                   <!-- Avatar -->
-                  <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center ring-2 ring-white shadow-sm">
+                  <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center ring-2 ring-white shadow-sm">
                     <img v-if="comment.user.avatar" :src="avatarSrc(comment.user.avatar)" class="h-full w-full object-cover">
                     <span v-else class="text-white text-xs font-bold">{{ comment.user.firstName[0] }}</span>
                   </div>
@@ -730,7 +730,7 @@
                   <div class="flex-1 min-w-0">
                     <!-- Edit mode -->
                     <template v-if="editingCommentId === comment.id">
-                      <div class="bg-gray-50 rounded-2xl p-3 border-2 border-ifood-red/20">
+                      <div class="bg-gray-50 rounded-2xl p-3 border-2 border-workplace-red/20">
                         <input
                           v-model="editingCommentValue"
                           class="w-full bg-transparent text-sm text-gray-800 focus:outline-none"
@@ -743,7 +743,7 @@
                         <button class="text-xs text-gray-400 hover:text-gray-700 font-medium transition-colors" @click="editingCommentId = null">Cancelar</button>
                         <button
                           :disabled="savingEditComment || !editingCommentValue.trim()"
-                          class="text-xs text-ifood-red font-bold hover:text-red-700 disabled:opacity-40 transition-colors"
+                          class="text-xs text-workplace-red font-bold hover:text-red-700 disabled:opacity-40 transition-colors"
                           @click="saveEditComment(comment)"
                         >Guardar</button>
                       </div>
@@ -755,7 +755,7 @@
                         <NuxtLink
                           v-if="comment.user.username"
                           :to="`/p/${comment.user.username}`"
-                          class="text-xs font-bold text-gray-900 hover:text-ifood-red transition-colors"
+                          class="text-xs font-bold text-gray-900 hover:text-workplace-red transition-colors"
                           @click="selectedPost = null"
                         >{{ comment.user.firstName }} {{ comment.user.lastName }}</NuxtLink>
                         <span v-else class="text-xs font-bold text-gray-900">{{ comment.user.firstName }} {{ comment.user.lastName }}</span>
@@ -771,7 +771,7 @@
                     class="flex gap-0.5 opacity-0 group-hover/comment:opacity-100 transition-opacity flex-shrink-0 pt-1"
                   >
                     <button
-                      class="h-7 w-7 rounded-lg text-gray-300 hover:text-ifood-red hover:bg-red-50 flex items-center justify-center transition-colors"
+                      class="h-7 w-7 rounded-lg text-gray-300 hover:text-workplace-red hover:bg-red-50 flex items-center justify-center transition-colors"
                       title="Editar"
                       @click="startEditComment(comment)"
                     >
@@ -791,11 +791,11 @@
               <!-- Comment input -->
               <div v-if="isAuthenticated" class="px-5 py-4 border-t border-gray-100 flex-shrink-0">
                 <div class="flex items-center gap-3">
-                  <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center ring-2 ring-white shadow-sm">
+                  <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center ring-2 ring-white shadow-sm">
                     <img v-if="currentUser?.avatar" :src="avatarSrc(currentUser.avatar)" class="h-full w-full object-cover">
                     <span v-else class="text-white text-xs font-bold">{{ currentUser?.firstName?.[0] ?? '?' }}</span>
                   </div>
-                  <div class="flex-1 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 focus-within:border-ifood-red focus-within:ring-4 focus-within:ring-ifood-red/10 transition-all">
+                  <div class="flex-1 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 focus-within:border-workplace-red focus-within:ring-4 focus-within:ring-workplace-red/10 transition-all">
                     <input
                       v-model="commentInput"
                       type="text"
@@ -806,10 +806,10 @@
                     >
                     <button
                       :disabled="!commentInput.trim() || sendingComment"
-                      class="text-ifood-red font-bold text-sm disabled:opacity-30 hover:text-red-700 transition-colors flex-shrink-0 flex items-center gap-1.5"
+                      class="text-workplace-red font-bold text-sm disabled:opacity-30 hover:text-red-700 transition-colors flex-shrink-0 flex items-center gap-1.5"
                       @click="handleSendComment"
                     >
-                      <span v-if="sendingComment" class="inline-block h-4 w-4 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+                      <span v-if="sendingComment" class="inline-block h-4 w-4 border-2 border-workplace-red border-t-transparent rounded-full animate-spin" />
                       <template v-else>
                         <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                       </template>
@@ -821,7 +821,7 @@
               <!-- Not logged in nudge -->
               <div v-else class="px-5 py-4 border-t border-gray-100 flex-shrink-0">
                 <p class="text-xs text-gray-400 text-center">
-                  <NuxtLink to="/login" class="text-ifood-red font-semibold hover:underline">Inicia sesión</NuxtLink>
+                  <NuxtLink to="/login" class="text-workplace-red font-semibold hover:underline">Inicia sesión</NuxtLink>
                   para dar like y comentar
                 </p>
               </div>
@@ -845,7 +845,7 @@
             <div class="p-5 space-y-4">
               <!-- Dropzone -->
               <div
-                class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-ifood-red transition-colors"
+                class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-workplace-red transition-colors"
                 @click="triggerFileInput"
                 @dragover.prevent
                 @drop.prevent="onDrop"
@@ -867,7 +867,7 @@
                       @click.stop="removeFile(i)"
                     >×</button>
                   </div>
-                  <button class="h-20 w-20 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 hover:border-ifood-red" @click.stop="triggerFileInput">
+                  <button class="h-20 w-20 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 hover:border-workplace-red" @click.stop="triggerFileInput">
                     <PlusCircleIcon class="h-8 w-8" />
                   </button>
                 </div>
@@ -877,7 +877,7 @@
               <textarea
                 v-model="newPostCaption"
                 rows="3"
-                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red resize-none text-sm"
+                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red resize-none text-sm"
                 placeholder="Escribe una descripción..."
                 maxlength="2200"
               />
@@ -891,7 +891,7 @@
               <button class="px-5 py-2 text-gray-500 font-medium hover:text-gray-700" @click="showPostModal = false">Cancelar</button>
               <button
                 :disabled="newPostFiles.length === 0 || creatingPost"
-                class="px-6 py-2.5 bg-ifood-red text-white font-semibold rounded-xl disabled:opacity-50 hover:bg-red-600 transition-colors flex items-center gap-2"
+                class="px-6 py-2.5 bg-workplace-red text-white font-semibold rounded-xl disabled:opacity-50 hover:bg-red-600 transition-colors flex items-center gap-2"
                 @click="handleCreatePost"
               >
                 <span v-if="creatingPost" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1028,7 +1028,7 @@
             <div class="overflow-y-auto flex-1 divide-y divide-gray-50">
               <div v-if="loadingFollowList" class="p-4 text-center text-gray-400 text-sm">Cargando...</div>
               <div v-for="u in followList" :key="u.id" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
-                <div class="h-9 w-9 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
+                <div class="h-9 w-9 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center">
                   <img v-if="u.avatar" :src="avatarSrc(u.avatar)" class="h-full w-full object-cover">
                   <span v-else class="text-white text-sm font-bold">{{ u.firstName[0] }}</span>
                 </div>
@@ -1036,7 +1036,7 @@
                   <p class="font-semibold text-gray-900 text-sm truncate">{{ u.firstName }} {{ u.lastName }}</p>
                   <p v-if="u.username" class="text-xs text-gray-400">@{{ u.username }}</p>
                 </div>
-                <NuxtLink v-if="u.username" :to="`/p/${u.username}`" class="text-xs text-ifood-red font-medium hover:underline" @click="showFollowersModal = showFollowingModal = false">
+                <NuxtLink v-if="u.username" :to="`/p/${u.username}`" class="text-xs text-workplace-red font-medium hover:underline" @click="showFollowersModal = showFollowingModal = false">
                   Ver
                 </NuxtLink>
               </div>

@@ -6,7 +6,7 @@
       class="block text-sm font-semibold text-gray-700"
     >
       {{ label }}
-      <span v-if="required" class="text-ifood-red ml-0.5">*</span>
+      <span v-if="required" class="text-workplace-red ml-0.5">*</span>
     </label>
 
     <div class="relative group">
@@ -40,7 +40,7 @@
           type="button"
           tabindex="-1"
           @click="showPassword = !showPassword"
-          class="text-gray-400 hover:text-gray-600 transition-colors duration-150 focus:outline-none focus:text-ifood-red rounded"
+          class="text-gray-400 hover:text-gray-600 transition-colors duration-150 focus:outline-none focus:text-workplace-red rounded"
           :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
         >
           <EyeSlashIcon v-if="showPassword" class="h-[18px] w-[18px]" />
@@ -110,12 +110,12 @@ const inputStateClass = computed(() => {
   if (isValid.value) {
     return 'border-green-300 bg-green-50/30 text-gray-900 focus:border-green-400 focus:ring-green-500/20'
   }
-  return 'border-gray-200 text-gray-900 hover:border-gray-300 focus:border-ifood-red focus:ring-ifood-red/15'
+  return 'border-gray-200 text-gray-900 hover:border-gray-300 focus:border-workplace-red focus:ring-workplace-red/15'
 })
 
 const iconColorClass = computed(() => {
   if (props.error) return 'text-red-400'
   if (isValid.value) return 'text-green-500'
-  return 'text-gray-400 group-focus-within:text-ifood-red'
+  return 'text-gray-400 group-focus-within:text-workplace-red'
 })
 </script>

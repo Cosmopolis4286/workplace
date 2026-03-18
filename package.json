@@ -1,5 +1,5 @@
 {
-  "name": "ifood-manager",
+  "name": "workplace-manager",
   "private": true,
   "scripts": {
     "dev": "pnpm --parallel --filter frontend --filter backend dev",

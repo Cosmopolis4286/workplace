@@ -50,7 +50,7 @@ const buttonClasses = computed(() => {
   }
   switch (props.variant) {
     case 'primary':
-      return 'bg-ifood-red hover:bg-red-700 active:bg-red-800 text-white border-transparent shadow-sm hover:shadow-md focus:ring-ifood-red/40'
+      return 'bg-workplace-red hover:bg-red-700 active:bg-red-800 text-white border-transparent shadow-sm hover:shadow-md focus:ring-workplace-red/40'
     case 'secondary':
       return 'bg-gray-900 hover:bg-gray-800 active:bg-gray-950 text-white border-transparent shadow-sm hover:shadow-md focus:ring-gray-500/40'
     case 'outline':

@@ -28,9 +28,13 @@ model User {
   category      UserCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   subcategory   UserSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
 
+  emailVerified   Boolean  @default(false)
+
   commerce        Restaurant?
   profileSettings ProfileSettings?
   refreshTokens   RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   subscriptions   Subscription[]
   posts           Post[]
   postLikes       PostLike[]    @relation("PostLikes")
@@ -1001,6 +1005,34 @@ model Subscription {
   @@index([planId])
   @@index([status])
   @@map("subscriptions")
+}
+
+// ─── Auth Tokens ─────────────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("email_verification_tokens")
 }
 
 // ─── Exchange Rates ───────────────────────────────────────────────────────────

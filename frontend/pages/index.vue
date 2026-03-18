@@ -6,12 +6,12 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
         <!-- Logo -->
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 bg-ifood-red rounded-lg flex items-center justify-center shadow-sm">
+          <div class="w-8 h-8 bg-workplace-red rounded-lg flex items-center justify-center shadow-sm">
             <svg class="w-4.5 h-4.5 text-white w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3 3 0 110 6 3 3 0 010-6zm0 14.2a7.2 7.2 0 01-6-3.22c.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08A7.2 7.2 0 0112 19.2z"/>
             </svg>
           </div>
-          <span class="font-black text-gray-900 text-lg tracking-tight">iFood <span class="font-medium text-gray-500">Manager</span></span>
+          <span class="font-black text-gray-900 text-lg tracking-tight">WorkPlace <span class="font-medium text-gray-500">Manager</span></span>
         </div>
 
         <!-- Desktop nav -->
@@ -25,13 +25,13 @@
         <div class="flex items-center gap-2">
           <NuxtLink
             to="/login"
-            class="hidden sm:block text-sm font-semibold text-gray-700 hover:text-ifood-red px-4 py-2 rounded-lg hover:bg-red-50 transition-all duration-150"
+            class="hidden sm:block text-sm font-semibold text-gray-700 hover:text-workplace-red px-4 py-2 rounded-lg hover:bg-red-50 transition-all duration-150"
           >
             Iniciar sesión
           </NuxtLink>
           <NuxtLink
             to="/register"
-            class="text-sm font-semibold text-white bg-ifood-red hover:bg-red-700 px-4 py-2 rounded-lg shadow-sm transition-all duration-150"
+            class="text-sm font-semibold text-white bg-workplace-red hover:bg-red-700 px-4 py-2 rounded-lg shadow-sm transition-all duration-150"
           >
             Empezar gratis
           </NuxtLink>
@@ -52,14 +52,14 @@
           <!-- Text -->
           <div class="space-y-8">
             <div class="space-y-4">
-              <div class="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-ifood-red text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wide">
-                <span class="w-1.5 h-1.5 bg-ifood-red rounded-full animate-pulse"></span>
+              <div class="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-workplace-red text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wide">
+                <span class="w-1.5 h-1.5 bg-workplace-red rounded-full animate-pulse"></span>
                 Plataforma todo-en-uno
               </div>
               <h1 class="text-5xl sm:text-6xl font-black text-gray-900 leading-[1.05] tracking-tight">
                 Gestiona tu<br/>
                 restaurante<br/>
-                <span class="text-ifood-red">sin complicaciones</span>
+                <span class="text-workplace-red">sin complicaciones</span>
               </h1>
               <p class="text-lg text-gray-500 leading-relaxed max-w-lg">
                 Pedidos, inventario, menú, clientes, delivery y reportes — todo desde un solo panel.
@@ -71,7 +71,7 @@
             <div class="flex flex-col sm:flex-row gap-3">
               <NuxtLink
                 to="/register"
-                class="inline-flex items-center justify-center gap-2 bg-ifood-red hover:bg-red-700 text-white font-bold px-7 py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-150 text-base"
+                class="inline-flex items-center justify-center gap-2 bg-workplace-red hover:bg-red-700 text-white font-bold px-7 py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-150 text-base"
               >
                 Crear cuenta gratis
                 <ArrowRightIcon class="w-4 h-4" />
@@ -80,7 +80,7 @@
                 to="/login"
                 class="inline-flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold px-7 py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-150 text-base"
               >
-                <PlayIcon class="w-4 h-4 text-ifood-red" />
+                <PlayIcon class="w-4 h-4 text-workplace-red" />
                 Ver demo
               </NuxtLink>
             </div>
@@ -137,7 +137,7 @@
                     v-for="(bar, i) in chartBars"
                     :key="i"
                     class="flex-1 rounded-t-md transition-all duration-300"
-                    :class="i === chartBars.length - 1 ? 'bg-ifood-red' : 'bg-gray-100'"
+                    :class="i === chartBars.length - 1 ? 'bg-workplace-red' : 'bg-gray-100'"
                     :style="{ height: `${bar}%` }"
                   ></div>
                 </div>
@@ -198,7 +198,7 @@
     <section id="features" class="py-24 px-4 sm:px-6 lg:px-8">
       <div class="max-w-7xl mx-auto">
         <div class="text-center mb-16 space-y-3">
-          <p class="text-xs font-bold text-ifood-red uppercase tracking-widest">Funcionalidades</p>
+          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">Funcionalidades</p>
           <h2 class="text-4xl font-black text-gray-900 tracking-tight">Todo lo que necesita tu restaurante</h2>
           <p class="text-gray-500 text-lg max-w-xl mx-auto">Herramientas profesionales, pensadas para el día a día de tu negocio.</p>
         </div>
@@ -223,7 +223,7 @@
     <section id="how" class="py-24 px-4 sm:px-6 lg:px-8 bg-gray-50">
       <div class="max-w-5xl mx-auto">
         <div class="text-center mb-16 space-y-3">
-          <p class="text-xs font-bold text-ifood-red uppercase tracking-widest">Cómo funciona</p>
+          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">Cómo funciona</p>
           <h2 class="text-4xl font-black text-gray-900 tracking-tight">Empieza en 3 pasos</h2>
           <p class="text-gray-500 text-lg">Sin instalaciones, sin complicaciones.</p>
         </div>
@@ -234,9 +234,9 @@
 
           <div v-for="(step, i) in steps" :key="i" class="flex flex-col items-center text-center space-y-4 relative">
             <div class="w-20 h-20 rounded-2xl bg-white border-2 border-gray-200 flex items-center justify-center shadow-sm relative z-10">
-              <component :is="step.icon" class="w-8 h-8 text-ifood-red" />
+              <component :is="step.icon" class="w-8 h-8 text-workplace-red" />
             </div>
-            <div class="w-7 h-7 bg-ifood-red text-white rounded-full flex items-center justify-center text-xs font-black -mt-2 shadow-sm">
+            <div class="w-7 h-7 bg-workplace-red text-white rounded-full flex items-center justify-center text-xs font-black -mt-2 shadow-sm">
               {{ i + 1 }}
             </div>
             <div class="space-y-1.5">
@@ -249,7 +249,7 @@
         <div class="text-center mt-12">
           <NuxtLink
             to="/register"
-            class="inline-flex items-center gap-2 bg-ifood-red hover:bg-red-700 text-white font-bold px-8 py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-150"
+            class="inline-flex items-center gap-2 bg-workplace-red hover:bg-red-700 text-white font-bold px-8 py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-150"
           >
             Comenzar ahora — es gratis
             <ArrowRightIcon class="w-4 h-4" />
@@ -262,7 +262,7 @@
     <section id="testimonials" class="py-24 px-4 sm:px-6 lg:px-8">
       <div class="max-w-7xl mx-auto">
         <div class="text-center mb-16 space-y-3">
-          <p class="text-xs font-bold text-ifood-red uppercase tracking-widest">Testimonios</p>
+          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">Testimonios</p>
           <h2 class="text-4xl font-black text-gray-900 tracking-tight">Lo que dicen nuestros clientes</h2>
         </div>
 
@@ -293,7 +293,7 @@
 
     <!-- ─── CTA Banner ─────────────────────────────────────────────────────── -->
     <section class="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
-      <div class="max-w-4xl mx-auto bg-gradient-to-br from-ifood-red to-red-700 rounded-3xl p-12 text-center shadow-2xl relative overflow-hidden">
+      <div class="max-w-4xl mx-auto bg-gradient-to-br from-workplace-red to-red-700 rounded-3xl p-12 text-center shadow-2xl relative overflow-hidden">
         <!-- Decorative circles -->
         <div class="absolute -top-16 -right-16 w-56 h-56 bg-white/10 rounded-full"></div>
         <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-black/10 rounded-full"></div>
@@ -302,14 +302,14 @@
           <div class="space-y-3">
             <h2 class="text-3xl sm:text-4xl font-black text-white">¿Listo para transformar tu restaurante?</h2>
             <p class="text-red-100 text-lg max-w-xl mx-auto">
-              Únete a más de 500 restaurantes que ya gestionan su negocio con iFood Manager.
+              Únete a más de 500 restaurantes que ya gestionan su negocio con WorkPlace Manager.
             </p>
           </div>
 
           <div class="flex flex-col sm:flex-row gap-3 justify-center">
             <NuxtLink
               to="/register"
-              class="inline-flex items-center justify-center gap-2 bg-white text-ifood-red font-bold px-8 py-3.5 rounded-xl shadow-sm hover:shadow-md hover:bg-red-50 transition-all duration-150 text-base"
+              class="inline-flex items-center justify-center gap-2 bg-white text-workplace-red font-bold px-8 py-3.5 rounded-xl shadow-sm hover:shadow-md hover:bg-red-50 transition-all duration-150 text-base"
             >
               Crear cuenta gratis
               <ArrowRightIcon class="w-4 h-4" />
@@ -334,12 +334,12 @@
           <!-- Brand -->
           <div class="space-y-3">
             <div class="flex items-center gap-2">
-              <div class="w-7 h-7 bg-ifood-red rounded-lg flex items-center justify-center">
+              <div class="w-7 h-7 bg-workplace-red rounded-lg flex items-center justify-center">
                 <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3 3 0 110 6 3 3 0 010-6zm0 14.2a7.2 7.2 0 01-6-3.22c.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08A7.2 7.2 0 0112 19.2z"/>
                 </svg>
               </div>
-              <span class="font-black text-gray-900">iFood <span class="font-medium text-gray-500">Manager</span></span>
+              <span class="font-black text-gray-900">WorkPlace <span class="font-medium text-gray-500">Manager</span></span>
             </div>
             <p class="text-sm text-gray-400 max-w-xs">
               La plataforma de gestión más completa para restaurantes modernos.
@@ -357,7 +357,7 @@
         </div>
 
         <div class="mt-8 pt-6 border-t border-gray-100 text-center text-xs text-gray-400">
-          © {{ currentYear }} iFood Manager. Todos los derechos reservados.
+          © {{ currentYear }} WorkPlace Manager. Todos los derechos reservados.
         </div>
       </div>
     </footer>
@@ -479,11 +479,11 @@ const steps = [
 
 const testimonials = [
   {
-    quote: 'Desde que usamos iFood Manager nuestros tiempos de servicio mejoraron un 40%. El módulo de pedidos es increíblemente intuitivo.',
+    quote: 'Desde que usamos WorkPlace Manager nuestros tiempos de servicio mejoraron un 40%. El módulo de pedidos es increíblemente intuitivo.',
     name: 'Laura Martínez',
     role: 'Dueña, Restaurante El Sabor',
     initials: 'LM',
-    avatarBg: 'bg-ifood-red',
+    avatarBg: 'bg-workplace-red',
   },
   {
     quote: 'El control de inventario nos ahorró miles al mes. Ahora nunca nos quedamos sin ingredientes clave en hora pico.',

@@ -26,16 +26,16 @@
     >
       <div
         v-if="open"
-        class="relative flex-1 flex flex-col max-w-xs w-full bg-gradient-to-b from-white via-white to-gray-50 shadow-2xl border-r-4 border-ifood-red/20"
+        class="relative flex-1 flex flex-col max-w-xs w-full bg-gradient-to-b from-white via-white to-gray-50 shadow-2xl border-r-4 border-workplace-red/20"
       >
         <!-- Mobile Header -->
-        <div class="px-6 py-4 bg-gradient-to-r from-ifood-red to-red-600 text-white flex items-center justify-between">
+        <div class="px-6 py-4 bg-gradient-to-r from-workplace-red to-red-600 text-white flex items-center justify-between">
           <div class="flex items-center space-x-3">
             <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
               <span class="text-white font-bold text-lg">iF</span>
             </div>
             <div>
-              <h1 class="text-xl font-bold">iFood Manager</h1>
+              <h1 class="text-xl font-bold">WorkPlace Manager</h1>
               <p class="text-xs text-red-100">Panel de Control</p>
             </div>
           </div>
@@ -71,12 +71,12 @@
     >
       <div class="flex flex-col h-full bg-gradient-to-b from-white via-white to-gray-50 border-r-2 border-gray-200 shadow-2xl">
         <!-- Header fijo, fuera del scroll -->
-        <div class="h-16 flex-shrink-0 px-6 border-b border-white/20 bg-gradient-to-r from-ifood-red to-red-700 flex items-center gap-3 shadow-md">
+        <div class="h-16 flex-shrink-0 px-6 border-b border-white/20 bg-gradient-to-r from-workplace-red to-red-700 flex items-center gap-3 shadow-md">
           <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0 ring-1 ring-white/30">
             <span class="text-white font-black text-base">iF</span>
           </div>
           <div class="min-w-0">
-            <h1 class="text-base font-bold text-white leading-tight tracking-tight">iFood Manager</h1>
+            <h1 class="text-base font-bold text-white leading-tight tracking-tight">WorkPlace Manager</h1>
             <p class="text-xs text-red-100/80 leading-tight">Panel de Control</p>
           </div>
         </div>

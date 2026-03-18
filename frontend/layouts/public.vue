@@ -7,13 +7,13 @@
           <!-- Logo -->
           <NuxtLink to="/" class="flex items-center group">
             <div class="relative">
-              <div class="absolute inset-0 bg-gradient-to-r from-ifood-red to-red-600 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-300" />
-              <div class="relative h-10 w-10 rounded-xl bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300">
+              <div class="absolute inset-0 bg-gradient-to-r from-workplace-red to-red-600 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-300" />
+              <div class="relative h-10 w-10 rounded-xl bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300">
                 <span class="text-white font-black text-lg">i</span>
               </div>
             </div>
             <div class="ml-3">
-              <span class="text-2xl font-black bg-gradient-to-r from-ifood-red to-red-600 bg-clip-text text-transparent">iFood</span>
+              <span class="text-2xl font-black bg-gradient-to-r from-workplace-red to-red-600 bg-clip-text text-transparent">WorkPlace</span>
               <span class="text-xl font-bold text-gray-700 ml-1">Manager</span>
             </div>
           </NuxtLink>
@@ -22,13 +22,13 @@
           <div class="flex items-center gap-3">
             <NuxtLink
               to="/login"
-              class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-ifood-red transition-colors duration-200"
+              class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-workplace-red transition-colors duration-200"
             >
               Iniciar sesión
             </NuxtLink>
             <NuxtLink
               to="/register"
-              class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-ifood-red to-red-600 rounded-xl shadow hover:shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-200"
+              class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-workplace-red to-red-600 rounded-xl shadow hover:shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-200"
             >
               Registrarse
             </NuxtLink>

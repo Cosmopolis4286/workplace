@@ -36,7 +36,7 @@ export default {
           800: '#9a3412',
           900: '#7c2d12',
         },
-        ifood: {
+        workplace: {
           red: '#ea1d2c',
           darkRed: '#c41e3a',
           orange: '#ff6900',

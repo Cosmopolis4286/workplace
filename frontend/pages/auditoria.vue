@@ -13,7 +13,7 @@
         <div class="text-xs text-gray-500 mt-1">Total registros</div>
       </div>
       <div v-for="item in topModules" :key="item.module" class="card-premium p-4 text-center">
-        <div class="text-2xl font-bold text-ifood-red">{{ item._count.id }}</div>
+        <div class="text-2xl font-bold text-workplace-red">{{ item._count.id }}</div>
         <div class="text-xs text-gray-500 mt-1 capitalize">{{ item.module }}</div>
       </div>
     </div>
@@ -296,7 +296,7 @@ function actionBadge(action: string) {
 
 <style scoped>
 .input-field {
-  @apply w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ifood-red/20 focus:border-ifood-red;
+  @apply w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-workplace-red/20 focus:border-workplace-red;
 }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

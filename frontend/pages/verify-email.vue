@@ -6,10 +6,10 @@
     <div class="flex flex-col items-center text-center gap-5 py-2">
       <!-- Animated envelope -->
       <div class="relative">
-        <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-ifood-red/10 to-red-600/10 flex items-center justify-center border border-red-100">
-          <EnvelopeIcon class="h-10 w-10 text-ifood-red" />
+        <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-workplace-red/10 to-red-600/10 flex items-center justify-center border border-red-100">
+          <EnvelopeIcon class="h-10 w-10 text-workplace-red" />
         </div>
-        <div class="absolute -top-1 -right-1 w-6 h-6 bg-ifood-red rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+        <div class="absolute -top-1 -right-1 w-6 h-6 bg-workplace-red rounded-full flex items-center justify-center border-2 border-white shadow-sm">
           <span class="text-white text-xs font-bold">1</span>
         </div>
       </div>
@@ -19,11 +19,11 @@
         <p class="text-sm text-gray-500 leading-relaxed">
           Enviamos un correo de verificación a
         </p>
-        <p class="text-sm font-semibold text-ifood-red bg-red-50 px-3 py-1.5 rounded-lg inline-block">
+        <p class="text-sm font-semibold text-workplace-red bg-red-50 px-3 py-1.5 rounded-lg inline-block">
           {{ displayEmail }}
         </p>
         <p class="text-sm text-gray-500 leading-relaxed">
-          Haz clic en el enlace del correo para activar tu cuenta y comenzar a usar iFood Manager.
+          Haz clic en el enlace del correo para activar tu cuenta y comenzar a usar WorkPlace Manager.
         </p>
       </div>
 
@@ -77,7 +77,7 @@
     <template #footer>
       <p class="text-sm text-gray-500">
         ¿Ya verificaste tu cuenta?
-        <NuxtLink to="/login" class="font-semibold text-ifood-red hover:underline ml-1">
+        <NuxtLink to="/login" class="font-semibold text-workplace-red hover:underline ml-1">
           Inicia sesión
         </NuxtLink>
       </p>
