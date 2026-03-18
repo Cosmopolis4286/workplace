@@ -1,27 +1,21 @@
-# ---------- BASE ----------
 FROM node:20-alpine AS base
 WORKDIR /app
 
-# ---------- DEV ----------
-FROM base AS dev
-COPY package*.json ./
-RUN npm install
-COPY . .
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-ENV HOST=0.0.0.0
-ENV PORT=3000
-
-CMD ["npm", "run", "dev"]
+# ---------- DEPS ----------
+FROM base AS deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY frontend/package.json ./frontend/
+RUN pnpm install --frozen-lockfile
 
 # ---------- BUILD ----------
-FROM base AS deps
-COPY package*.json ./
-RUN npm ci
-
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+
+WORKDIR /app/frontend
+RUN pnpm run build
 
 # ---------- PROD ----------
 FROM node:20-alpine AS production
@@ -32,7 +26,7 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
 
-COPY --from=builder /app/.output ./.output
+COPY --from=builder /app/frontend/.output ./.output
 
 RUN addgroup -S app && adduser -S app -G app
 USER app
