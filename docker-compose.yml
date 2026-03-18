@@ -6,38 +6,41 @@ services:
     container_name: ifood_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-ifood}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ifood_secret}
-      POSTGRES_DB: ${POSTGRES_DB:-ifood_db}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ifood}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app_network
 
   redis:
     image: redis:7-alpine
     container_name: ifood_redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret} --appendonly yes
-    ports:
-      - "6379:6379"
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app_network
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      target: production   # 👈 usa tu multi-stage
     container_name: ifood_backend
     restart: unless-stopped
     ports:
@@ -45,36 +48,55 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ifood}:${POSTGRES_PASSWORD:-ifood_secret}@postgres:5432/${POSTGRES_DB:-ifood_db}
+      NODE_OPTIONS: --max-old-space-size=512
+
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secret}
-      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_change_in_production}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-super_secret_refresh_key_change_in_production}
+
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+
+      FRONTEND_URL: ${FRONTEND_URL}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     command: >
-      sh -c "npx prisma migrate deploy && node dist/main"
+      sh -c "
+      until nc -z postgres 5432; do sleep 1; done;
+      npx prisma migrate deploy &&
+      node dist/main.js
+      "
+    networks:
+      - app_network
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      target: production   # 👈 multi-stage
     container_name: ifood_frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL:-http://localhost:3001}
+      NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL}
+      NODE_OPTIONS: --max-old-space-size=256
     depends_on:
       - backend
+    networks:
+      - app_network
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  app_network:
+    driver: bridge
