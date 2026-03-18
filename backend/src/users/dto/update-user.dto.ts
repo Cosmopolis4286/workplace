@@ -1,5 +1,5 @@
 import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString } from 'class-validator'
-import { Role } from '@prisma/client'
+import { Role } from '~/common/enums/role.enum'
 
 export class UpdateUserDto {
   @IsString()

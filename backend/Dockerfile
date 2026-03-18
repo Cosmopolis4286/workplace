@@ -83,10 +83,6 @@ COPY --from=builder /app/backend/dist ./dist/
 COPY --from=builder /app/node_modules ./node_modules/
 COPY --from=builder /app/backend/prisma/schema.prisma ./prisma/
 
-# Generate Prisma client in production with correct path
-RUN cd /app && \
-    /app/node_modules/.pnpm/prisma@5.22.0/node_modules/.bin/prisma generate --schema=./prisma/schema.prisma
-
 # Create non-root user with minimal permissions
 RUN addgroup -S -g 1001 app && \
     adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G app app && \
