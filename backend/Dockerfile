@@ -70,16 +70,22 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV NODE_OPTIONS="--max-old-space-size=512"
+ENV NODE_PATH=/app/node_modules/.pnpm/node_modules
 
-# Copy and install only production dependencies
+# Copy and install ALL dependencies (dev + prod) for runtime
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/package.json ./backend/
-RUN pnpm install --prod --frozen-lockfile --prefer-offline --force || true && \
+RUN pnpm install --frozen-lockfile --prefer-offline --force || true && \
     pnpm store prune && rm -rf /tmp/*
 
-# Copy built artifacts and Prisma client only
+# Copy built artifacts and Prisma client
 COPY --from=builder /app/backend/dist ./dist/
+COPY --from=builder /app/node_modules ./node_modules/
 COPY --from=builder /app/backend/prisma/schema.prisma ./prisma/
+
+# Generate Prisma client in production with correct path
+RUN cd /app && \
+    /app/node_modules/.pnpm/prisma@5.22.0/node_modules/.bin/prisma generate --schema=./prisma/schema.prisma
 
 # Create non-root user with minimal permissions
 RUN addgroup -S -g 1001 app && \
