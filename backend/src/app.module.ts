@@ -26,6 +26,7 @@ import { AuditModule } from './audit/audit.module'
 import { ServicesModule } from './services/services.module'
 import { PlansModule } from './plans/plans.module'
 import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module'
+import { HealthModule } from './health/health.module'
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module'
     ServicesModule,
     PlansModule,
     ExchangeRatesModule,
+    HealthModule,
   ],
 })
 export class AppModule {}

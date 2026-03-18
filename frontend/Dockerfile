@@ -10,7 +10,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NITRO_HOST=0.0.0.0
 ENV NITRO_PORT=3000
-ENV NODE_OPTIONS="--max-old-space-size=256 --max-old-space-size=256"
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 # ---------- DEPENDENCIES ----------
 FROM base AS deps
