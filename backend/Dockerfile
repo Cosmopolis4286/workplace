@@ -2,52 +2,51 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 
-# ---------- DEV ----------
-FROM base AS dev
-COPY package*.json ./
-RUN npm install
-COPY . .
+# utilidades
+RUN apk add --no-cache netcat-openbsd
 
-ENV NODE_ENV=development
+# pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-CMD ["npm", "run", "start:dev"]
-
-# ---------- DEPENDENCIES ----------
+# ---------- DEPENDENCIAS ----------
 FROM base AS deps
-COPY package*.json ./
-RUN npm ci
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY backend/package.json ./backend/
+
+RUN pnpm install --frozen-lockfile
 
 # ---------- BUILD ----------
 FROM base AS builder
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# prisma
-RUN npx prisma generate
+WORKDIR /app/backend
 
-# build nest
-RUN npm run build
+RUN pnpm --filter backend exec prisma generate
+RUN pnpm run build
 
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
-
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# solo deps necesarias
-COPY package*.json ./
-RUN npm ci --omit=dev
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY backend/package.json ./backend/
+
+RUN pnpm install --prod --frozen-lockfile
 
 # copiar build
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/backend/dist ./dist
+COPY --from=builder /app/backend/prisma ./prisma
 
-# prisma engines (IMPORTANTE)
+# prisma engines
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# 🔒 no root
+# usuario no root
 RUN addgroup -S app && adduser -S app -G app
 USER app
 
