@@ -7,7 +7,7 @@
     <template #header-action>
       <p class="text-sm text-gray-500">
         ¿Sin cuenta?
-        <NuxtLink to="/register" class="font-semibold text-ifood-red hover:underline ml-1">
+        <NuxtLink to="/register" class="font-semibold text-workplace-red hover:underline ml-1">
           Regístrate
         </NuxtLink>
       </p>
@@ -55,7 +55,7 @@
         <div class="flex justify-end">
           <NuxtLink
             to="/recover-password"
-            class="text-xs font-semibold text-ifood-red hover:text-red-700 hover:underline transition-colors duration-150"
+            class="text-xs font-semibold text-workplace-red hover:text-red-700 hover:underline transition-colors duration-150"
           >
             ¿Olvidaste tu contraseña?
           </NuxtLink>
@@ -74,7 +74,7 @@
           <div
             class="w-4 h-4 rounded border-2 transition-all duration-150 flex items-center justify-center"
             :class="form.rememberMe
-              ? 'bg-ifood-red border-ifood-red'
+              ? 'bg-workplace-red border-workplace-red'
               : 'border-gray-300 group-hover:border-gray-400'"
           >
             <CheckIcon v-if="form.rememberMe" class="w-2.5 h-2.5 text-white stroke-[3]" />
@@ -126,7 +126,7 @@
     <template #footer>
       <p class="text-sm text-gray-500">
         ¿No tienes una cuenta?
-        <NuxtLink to="/register" class="font-semibold text-ifood-red hover:underline ml-1 transition-colors duration-150">
+        <NuxtLink to="/register" class="font-semibold text-workplace-red hover:underline ml-1 transition-colors duration-150">
           Créala gratis
         </NuxtLink>
       </p>

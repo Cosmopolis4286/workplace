@@ -6,7 +6,7 @@
     <template #header-action>
       <p class="text-sm text-gray-500">
         ¿Ya tienes cuenta?
-        <NuxtLink to="/login" class="font-semibold text-ifood-red hover:underline ml-1">
+        <NuxtLink to="/login" class="font-semibold text-workplace-red hover:underline ml-1">
           Inicia sesión
         </NuxtLink>
       </p>
@@ -19,9 +19,9 @@
           <div
             class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 flex-shrink-0"
             :class="i < currentStep
-              ? 'bg-ifood-red text-white'
+              ? 'bg-workplace-red text-white'
               : i === currentStep
-                ? 'bg-ifood-red text-white ring-4 ring-ifood-red/20'
+                ? 'bg-workplace-red text-white ring-4 ring-workplace-red/20'
                 : 'bg-gray-100 text-gray-400'"
           >
             <CheckIcon v-if="i < currentStep" class="w-3.5 h-3.5 stroke-[3]" />
@@ -35,7 +35,7 @@
         <div
           v-if="i < steps.length - 1"
           class="flex-1 h-px transition-colors duration-300"
-          :class="i < currentStep ? 'bg-ifood-red' : 'bg-gray-200'"
+          :class="i < currentStep ? 'bg-workplace-red' : 'bg-gray-200'"
         ></div>
       </template>
     </div>
@@ -175,16 +175,16 @@
             <input v-model="form.acceptTerms" type="checkbox" class="sr-only" />
             <div
               class="w-4 h-4 rounded border-2 transition-all duration-150 flex items-center justify-center"
-              :class="form.acceptTerms ? 'bg-ifood-red border-ifood-red' : 'border-gray-300 group-hover:border-gray-400'"
+              :class="form.acceptTerms ? 'bg-workplace-red border-workplace-red' : 'border-gray-300 group-hover:border-gray-400'"
             >
               <CheckIcon v-if="form.acceptTerms" class="w-2.5 h-2.5 text-white stroke-[3]" />
             </div>
           </div>
           <span class="text-sm text-gray-600 leading-snug">
             Acepto los
-            <NuxtLink to="/terminos" target="_blank" class="font-semibold text-ifood-red hover:underline">Términos y Condiciones</NuxtLink>
+            <NuxtLink to="/terminos" target="_blank" class="font-semibold text-workplace-red hover:underline">Términos y Condiciones</NuxtLink>
             y la
-            <NuxtLink to="/privacidad" target="_blank" class="font-semibold text-ifood-red hover:underline">Política de Privacidad</NuxtLink>
+            <NuxtLink to="/privacidad" target="_blank" class="font-semibold text-workplace-red hover:underline">Política de Privacidad</NuxtLink>
           </span>
         </label>
       </template>
@@ -195,7 +195,7 @@
           <p class="text-sm text-gray-500">Esto nos ayuda a mostrarte solo los módulos relevantes para tu negocio.</p>
         </div>
         <div v-if="loadingCategories" class="flex justify-center py-6">
-          <div class="w-6 h-6 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+          <div class="w-6 h-6 border-2 border-workplace-red border-t-transparent rounded-full animate-spin" />
         </div>
         <div v-else class="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
           <button
@@ -203,9 +203,9 @@
             :key="cat.id"
             type="button"
             @click="form.categoryId = cat.id"
-            class="flex items-center gap-2 px-3 py-3 rounded-xl border-2 text-left transition-all duration-150 hover:border-ifood-red/50"
+            class="flex items-center gap-2 px-3 py-3 rounded-xl border-2 text-left transition-all duration-150 hover:border-workplace-red/50"
             :class="form.categoryId === cat.id
-              ? 'border-ifood-red bg-red-50'
+              ? 'border-workplace-red bg-red-50'
               : 'border-gray-200 bg-white'"
           >
             <span class="text-2xl leading-none">{{ cat.icon || '🏢' }}</span>
@@ -279,7 +279,7 @@
     <template #footer>
       <p class="text-sm text-gray-500">
         ¿Ya tienes cuenta?
-        <NuxtLink to="/login" class="font-semibold text-ifood-red hover:underline ml-1">
+        <NuxtLink to="/login" class="font-semibold text-workplace-red hover:underline ml-1">
           Inicia sesión aquí
         </NuxtLink>
       </p>

@@ -9,7 +9,7 @@
         <p class="text-sm text-gray-500">{{ error }}</p>
         <NuxtLink
           to="/login"
-          class="inline-flex items-center gap-2 text-sm font-semibold text-ifood-red hover:underline"
+          class="inline-flex items-center gap-2 text-sm font-semibold text-workplace-red hover:underline"
         >
           <ArrowLeftIcon class="h-4 w-4" />
           Volver al login
@@ -17,8 +17,8 @@
       </div>
 
       <div v-else class="space-y-3">
-        <div class="w-14 h-14 rounded-2xl bg-ifood-red/10 border border-red-100 flex items-center justify-center mx-auto">
-          <svg class="animate-spin h-6 w-6 text-ifood-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <div class="w-14 h-14 rounded-2xl bg-workplace-red/10 border border-red-100 flex items-center justify-center mx-auto">
+          <svg class="animate-spin h-6 w-6 text-workplace-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
           </svg>

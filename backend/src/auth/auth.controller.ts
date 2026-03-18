@@ -153,6 +153,37 @@ export class AuthController {
     return this.authService.updateAvatar(user.id, `/uploads/avatars/${file.filename}`)
   }
 
+  // ─── Password Recovery ───────────────────────────────────────────────────────
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async forgotPassword(@Body('email') email: string) {
+    return this.authService.requestPasswordReset(email)
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async resetPassword(@Body('token') token: string, @Body('password') password: string) {
+    return this.authService.resetPassword(token, password)
+  }
+
+  // ─── Email Verification ──────────────────────────────────────────────────────
+
+  @Post('send-verification')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async sendVerification(@CurrentUser() user: any) {
+    return this.authService.sendVerificationEmail(user.id)
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Body('token') token: string) {
+    return this.authService.verifyEmail(token)
+  }
+
   @Get('demo-credentials')
   async getDemoCredentials() {
     if (this.config.get('NODE_ENV') !== 'development') {

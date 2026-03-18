@@ -28,7 +28,7 @@
       
       <div class="flex justify-between items-center">
         <div>
-          <span class="text-lg font-bold text-ifood-red">${{ product.price }}</span>
+          <span class="text-lg font-bold text-workplace-red">${{ product.price }}</span>
           <span class="text-xs text-gray-500 ml-1">/ {{ product.unit }}</span>
           <div v-if="defaultRate && convertLabel(product.price)" class="text-xs text-indigo-500 font-medium mt-0.5">
             ≈ {{ convertLabel(product.price) }} {{ defaultRate.code }}
@@ -68,7 +68,7 @@
         <div class="flex space-x-1">
           <button 
             @click="$emit('edit', product)"
-            class="p-1.5 text-ifood-red hover:text-ifood-darkRed hover:bg-red-50 rounded-md transition-colors"
+            class="p-1.5 text-workplace-red hover:text-workplace-darkRed hover:bg-red-50 rounded-md transition-colors"
           >
             <PencilIcon class="h-4 w-4" />
           </button>

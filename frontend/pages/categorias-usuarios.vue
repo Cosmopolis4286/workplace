@@ -22,7 +22,7 @@
           <h2 class="text-sm font-bold text-gray-800">Categorías</h2>
           <button
             @click="openCatForm()"
-            class="flex items-center gap-1.5 px-3 py-1.5 bg-ifood-red text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+            class="flex items-center gap-1.5 px-3 py-1.5 bg-workplace-red text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
           >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -51,7 +51,7 @@
             v-for="cat in categories"
             :key="cat.id"
             class="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
-            :class="selectedCat?.id === cat.id ? 'bg-red-50 border-l-4 border-l-ifood-red' : 'border-l-4 border-l-transparent'"
+            :class="selectedCat?.id === cat.id ? 'bg-red-50 border-l-4 border-l-workplace-red' : 'border-l-4 border-l-transparent'"
             @click="selectCat(cat)"
           >
             <span class="text-2xl flex-shrink-0 w-9 text-center">{{ cat.icon || '📁' }}</span>
@@ -96,7 +96,7 @@
           <button
             v-if="selectedCat"
             @click="openSubForm()"
-            class="flex items-center gap-1.5 px-3 py-1.5 bg-ifood-red text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+            class="flex items-center gap-1.5 px-3 py-1.5 bg-workplace-red text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
           >
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -166,13 +166,13 @@
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
                 <input v-model="catModal.name" required type="text" autofocus
-                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ifood-red/30 focus:border-ifood-red"/>
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
               </div>
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Ícono (emoji)</label>
                 <div class="flex gap-2">
                   <input v-model="catModal.icon" type="text" placeholder="🍔" maxlength="4"
-                    class="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-xl focus:outline-none focus:ring-2 focus:ring-ifood-red/30 focus:border-ifood-red"/>
+                    class="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-xl focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
                   <div class="flex flex-wrap gap-1.5 items-center">
                     <button
                       v-for="e in EMOJI_SUGGESTIONS"
@@ -180,7 +180,7 @@
                       type="button"
                       @click="catModal.icon = e"
                       class="text-xl hover:scale-125 transition-transform"
-                      :class="catModal.icon === e ? 'ring-2 ring-ifood-red rounded' : ''"
+                      :class="catModal.icon === e ? 'ring-2 ring-workplace-red rounded' : ''"
                     >{{ e }}</button>
                   </div>
                 </div>
@@ -192,7 +192,7 @@
                   Cancelar
                 </button>
                 <button type="submit" :disabled="catModal.saving"
-                  class="flex-1 py-2 bg-ifood-red text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+                  class="flex-1 py-2 bg-workplace-red text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
                   {{ catModal.saving ? 'Guardando...' : (catModal.editing ? 'Guardar' : 'Crear') }}
                 </button>
               </div>
@@ -220,7 +220,7 @@
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
                 <input v-model="subModal.name" required type="text" autofocus
-                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ifood-red/30 focus:border-ifood-red"/>
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
               </div>
               <div v-if="subModal.error" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ subModal.error }}</div>
               <div class="flex gap-3">
@@ -229,7 +229,7 @@
                   Cancelar
                 </button>
                 <button type="submit" :disabled="subModal.saving"
-                  class="flex-1 py-2 bg-ifood-red text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+                  class="flex-1 py-2 bg-workplace-red text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
                   {{ subModal.saving ? 'Guardando...' : (subModal.editing ? 'Guardar' : 'Crear') }}
                 </button>
               </div>

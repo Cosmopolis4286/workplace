@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Hero Section -->
-    <div class="relative overflow-hidden bg-gradient-to-br from-ifood-red via-red-500 to-red-600 rounded-3xl mb-8 shadow-2xl">
+    <div class="relative overflow-hidden bg-gradient-to-br from-workplace-red via-red-500 to-red-600 rounded-3xl mb-8 shadow-2xl">
       <div class="absolute inset-0 bg-black/10"></div>
       <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-white/10"></div>
       <div class="relative px-8 py-12">
@@ -13,7 +13,7 @@
               </div>
               <div>
                 <h1 class="text-4xl sm:text-5xl font-black mb-2">Dashboard</h1>
-                <p class="text-xl text-red-100 font-medium">Bienvenido a tu panel de control iFood Manager</p>
+                <p class="text-xl text-red-100 font-medium">Bienvenido a tu panel de control WorkPlace Manager</p>
                 <div class="flex items-center mt-2 space-x-4">
                   <div class="flex items-center text-red-100">
                     <div class="h-2 w-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
@@ -78,7 +78,7 @@
       <!-- Ventas Hoy -->
       <div class="card-premium p-6">
         <div class="flex items-center justify-between mb-4">
-          <div class="p-3 bg-gradient-to-br from-ifood-red to-red-600 rounded-xl shadow-lg">
+          <div class="p-3 bg-gradient-to-br from-workplace-red to-red-600 rounded-xl shadow-lg">
             <CurrencyDollarIcon class="h-6 w-6 text-white" />
           </div>
           <span
@@ -93,7 +93,7 @@
         <div v-else class="text-2xl font-black text-gray-900 mb-1">{{ formatCurrency(kpis.salesToday) }}</div>
         <p class="text-sm text-gray-500 font-medium">Ventas Hoy</p>
         <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-          <div class="h-full bg-gradient-to-r from-ifood-red to-red-500 rounded-full transition-all duration-700" style="width: 85%" />
+          <div class="h-full bg-gradient-to-r from-workplace-red to-red-500 rounded-full transition-all duration-700" style="width: 85%" />
         </div>
       </div>
 
@@ -276,10 +276,10 @@
         <!-- Prep time -->
         <div class="text-center group">
           <div class="relative mb-4">
-            <div class="absolute inset-0 bg-gradient-to-r from-ifood-red to-red-600 rounded-full blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+            <div class="absolute inset-0 bg-gradient-to-r from-workplace-red to-red-600 rounded-full blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
             <div class="relative bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-6 transform group-hover:scale-105 transition-transform duration-300">
               <div v-if="loading" class="h-10 bg-red-200 rounded animate-pulse mx-auto w-24 mb-2" />
-              <div v-else class="text-4xl font-black text-ifood-red mb-2">
+              <div v-else class="text-4xl font-black text-workplace-red mb-2">
                 {{ kpis.avgPrepTime > 0 ? kpis.avgPrepTime + ' min' : '—' }}
               </div>
               <div class="text-sm font-semibold text-gray-600">Tiempo Promedio Preparación</div>
@@ -293,7 +293,7 @@
             <div class="absolute inset-0 bg-gradient-to-r from-green-500 to-green-600 rounded-full blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
             <div class="relative bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 transform group-hover:scale-105 transition-transform duration-300">
               <div v-if="loading" class="h-10 bg-green-200 rounded animate-pulse mx-auto w-24 mb-2" />
-              <div v-else class="text-4xl font-black text-ifood-green mb-2">
+              <div v-else class="text-4xl font-black text-workplace-green mb-2">
                 {{ kpis.customerSatisfaction > 0 ? kpis.customerSatisfaction.toFixed(1) + '%' : '—' }}
               </div>
               <div class="text-sm font-semibold text-gray-600">Tasa de Retención</div>
@@ -304,10 +304,10 @@
         <!-- Delivery time -->
         <div class="text-center group">
           <div class="relative mb-4">
-            <div class="absolute inset-0 bg-gradient-to-r from-ifood-orange to-orange-600 rounded-full blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+            <div class="absolute inset-0 bg-gradient-to-r from-workplace-orange to-orange-600 rounded-full blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
             <div class="relative bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6 transform group-hover:scale-105 transition-transform duration-300">
               <div v-if="loading" class="h-10 bg-orange-200 rounded animate-pulse mx-auto w-24 mb-2" />
-              <div v-else class="text-4xl font-black text-ifood-orange mb-2">
+              <div v-else class="text-4xl font-black text-workplace-orange mb-2">
                 {{ kpis.avgDeliveryTime > 0 ? kpis.avgDeliveryTime + ' min' : '—' }}
               </div>
               <div class="text-sm font-semibold text-gray-600">Tiempo Promedio Entrega</div>

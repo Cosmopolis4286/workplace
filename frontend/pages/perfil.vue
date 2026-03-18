@@ -41,7 +41,7 @@
                 >
                 <div
                   v-else
-                  class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center"
+                  class="h-full w-full bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center"
                 >
                   <span class="text-4xl font-bold text-white select-none">{{ userInitials }}</span>
                 </div>
@@ -55,7 +55,7 @@
                 class="absolute bottom-0 right-0 h-9 w-9 rounded-full bg-white border-2 border-gray-200 shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-60"
                 title="Cambiar foto"
               >
-                <span v-if="uploadingAvatar" class="h-4 w-4 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+                <span v-if="uploadingAvatar" class="h-4 w-4 border-2 border-workplace-red border-t-transparent rounded-full animate-spin" />
                 <CameraIcon v-else class="h-4 w-4 text-gray-600" />
               </button>
 
@@ -76,7 +76,7 @@
             <div v-if="auth.user.value?.username && (isCommerce || auth.user.value?.role === 'FREELANCER')" class="mt-3">
               <NuxtLink
                 :to="`/p/${auth.user.value.username}`"
-                class="inline-flex items-center gap-1.5 text-sm text-ifood-red hover:underline font-medium"
+                class="inline-flex items-center gap-1.5 text-sm text-workplace-red hover:underline font-medium"
               >
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
@@ -147,7 +147,7 @@
                   required
                   minlength="2"
                   maxlength="50"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
                   placeholder="Tu nombre"
                 >
               </div>
@@ -160,7 +160,7 @@
                   required
                   minlength="2"
                   maxlength="50"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
                   placeholder="Tu apellido"
                 >
               </div>
@@ -171,7 +171,7 @@
                   v-model="profileForm.email"
                   type="email"
                   required
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
                   placeholder="tu@email.com"
                 >
               </div>
@@ -182,7 +182,7 @@
                   v-model="profileForm.phone"
                   type="tel"
                   maxlength="20"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
                   placeholder="+52 123 456 7890"
                 >
               </div>
@@ -223,7 +223,7 @@
                   maxlength="30"
                   class="w-full pl-8 pr-10 py-3 border-2 rounded-xl focus:outline-none focus:ring-4 transition-all duration-300"
                   :class="{
-                    'border-gray-200 focus:ring-ifood-red/20 focus:border-ifood-red': usernameStatus === 'idle' || usernameStatus === 'checking',
+                    'border-gray-200 focus:ring-workplace-red/20 focus:border-workplace-red': usernameStatus === 'idle' || usernameStatus === 'checking',
                     'border-green-400 focus:ring-green-100 focus:border-green-500': usernameStatus === 'available',
                     'border-red-400 focus:ring-red-100 focus:border-red-500': usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'cooldown',
                   }"
@@ -272,7 +272,7 @@
               <button
                 type="submit"
                 :disabled="savingProfile || !profileDirty || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking' || usernameStatus === 'cooldown'"
-                class="px-5 py-2.5 bg-gradient-to-r from-ifood-red to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                class="px-5 py-2.5 bg-gradient-to-r from-workplace-red to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <span v-if="savingProfile" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 {{ savingProfile ? 'Guardando...' : 'Guardar Cambios' }}
@@ -298,7 +298,7 @@
                   v-model="passwordForm.current"
                   :type="showPasswords.current ? 'text' : 'password'"
                   required
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300 pr-12"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300 pr-12"
                   placeholder="••••••••"
                   autocomplete="current-password"
                 >
@@ -317,7 +317,7 @@
                   :type="showPasswords.new ? 'text' : 'password'"
                   required
                   minlength="8"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300 pr-12"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300 pr-12"
                   placeholder="••••••••"
                   autocomplete="new-password"
                 >
@@ -343,7 +343,7 @@
                   v-model="passwordForm.confirm"
                   :type="showPasswords.confirm ? 'text' : 'password'"
                   required
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 focus:border-ifood-red transition-all duration-300 pr-12"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300 pr-12"
                   :class="{ 'border-red-400 focus:border-red-500': passwordForm.confirm && passwordForm.new !== passwordForm.confirm }"
                   placeholder="••••••••"
                   autocomplete="new-password"

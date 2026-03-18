@@ -3,12 +3,12 @@
     <!-- Bell button -->
     <button
       @click="togglePanel"
-      class="relative p-3 text-gray-400 hover:text-ifood-red hover:bg-red-50 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95"
+      class="relative p-3 text-gray-400 hover:text-workplace-red hover:bg-red-50 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95"
     >
       <BellIcon class="h-6 w-6" :class="{ 'animate-bounce': hasNewNotification }" />
       <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 flex h-5 w-5">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-ifood-red opacity-75"></span>
-        <span class="relative inline-flex items-center justify-center rounded-full h-5 w-5 bg-gradient-to-r from-ifood-red to-red-600 shadow-lg text-white text-xs font-bold">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-workplace-red opacity-75"></span>
+        <span class="relative inline-flex items-center justify-center rounded-full h-5 w-5 bg-gradient-to-r from-workplace-red to-red-600 shadow-lg text-white text-xs font-bold">
           {{ unreadCount > 9 ? '9+' : unreadCount }}
         </span>
       </span>
@@ -28,7 +28,7 @@
         class="absolute right-0 mt-3 w-96 max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden"
       >
         <!-- Header -->
-        <div class="px-4 py-3 bg-gradient-to-r from-ifood-red to-red-600 text-white">
+        <div class="px-4 py-3 bg-gradient-to-r from-workplace-red to-red-600 text-white">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2">
               <BellIcon class="h-5 w-5" />
@@ -68,7 +68,7 @@
         <!-- List -->
         <div class="max-h-[28rem] overflow-y-auto">
           <div v-if="loading && notifications.length === 0" class="p-8 text-center">
-            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-ifood-red"></div>
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-workplace-red"></div>
             <p class="mt-2 text-sm text-gray-500">Cargando notificaciones...</p>
           </div>
 
@@ -103,7 +103,7 @@
                       <h4 :class="['text-sm font-semibold truncate', notification.read ? 'text-gray-600' : 'text-gray-900']">
                         {{ notification.title }}
                       </h4>
-                      <span v-if="!notification.read" class="flex-shrink-0 w-2 h-2 mt-1 bg-ifood-red rounded-full"></span>
+                      <span v-if="!notification.read" class="flex-shrink-0 w-2 h-2 mt-1 bg-workplace-red rounded-full"></span>
                     </div>
                     <p :class="['text-sm mt-1 line-clamp-2', notification.read ? 'text-gray-500' : 'text-gray-700']">
                       {{ notification.message }}
@@ -135,7 +135,7 @@
           <button
             v-if="unreadCount > 0"
             @click="handleMarkAllAsRead"
-            class="flex-1 px-3 py-2 text-sm font-medium text-ifood-red hover:bg-red-50 rounded-lg transition-colors duration-200"
+            class="flex-1 px-3 py-2 text-sm font-medium text-workplace-red hover:bg-red-50 rounded-lg transition-colors duration-200"
           >
             Marcar todas como leídas
           </button>

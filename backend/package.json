@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "iFood Manager Backend API",
+  "description": "WorkPlace Manager Backend API",
   "scripts": {
     "dev": "ts-node-dev -r tsconfig-paths/register --respawn --transpile-only src/main.ts",
     "build": "tsc -p tsconfig.json",

@@ -4,7 +4,7 @@
 
       <!-- Header -->
       <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-ifood-red rounded-2xl shadow-lg mb-4">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-workplace-red rounded-2xl shadow-lg mb-4">
           <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
           </svg>
@@ -19,14 +19,14 @@
           <div class="flex items-center gap-1.5">
             <div
               class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all"
-              :class="i < step ? 'bg-ifood-red text-white' : i === step ? 'bg-ifood-red text-white ring-4 ring-ifood-red/20' : 'bg-gray-200 text-gray-400'"
+              :class="i < step ? 'bg-workplace-red text-white' : i === step ? 'bg-workplace-red text-white ring-4 ring-workplace-red/20' : 'bg-gray-200 text-gray-400'"
             >
               <svg v-if="i < step" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
               <span v-else>{{ i + 1 }}</span>
             </div>
             <span class="text-xs font-medium hidden sm:block" :class="i <= step ? 'text-gray-700' : 'text-gray-400'">{{ label }}</span>
           </div>
-          <div v-if="i < steps.length - 1" class="flex-1 h-0.5 max-w-12 rounded-full" :class="i < step ? 'bg-ifood-red' : 'bg-gray-200'" />
+          <div v-if="i < steps.length - 1" class="flex-1 h-0.5 max-w-12 rounded-full" :class="i < step ? 'bg-workplace-red' : 'bg-gray-200'" />
         </template>
       </div>
 
@@ -38,7 +38,7 @@
           <h2 class="text-base font-semibold text-gray-800 mb-1">¿En qué sector está tu negocio?</h2>
           <p class="text-xs text-gray-500 mb-4">Esto define qué módulos estarán disponibles para ti.</p>
           <div v-if="loadingCats" class="flex justify-center py-8">
-            <div class="w-6 h-6 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+            <div class="w-6 h-6 border-2 border-workplace-red border-t-transparent rounded-full animate-spin" />
           </div>
           <div v-else class="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
             <button
@@ -46,8 +46,8 @@
               :key="cat.id"
               type="button"
               @click="selectedCategory = cat.id"
-              class="flex items-center gap-2 px-3 py-3 rounded-xl border-2 text-left transition-all hover:border-ifood-red/40"
-              :class="selectedCategory === cat.id ? 'border-ifood-red bg-red-50' : 'border-gray-200'"
+              class="flex items-center gap-2 px-3 py-3 rounded-xl border-2 text-left transition-all hover:border-workplace-red/40"
+              :class="selectedCategory === cat.id ? 'border-workplace-red bg-red-50' : 'border-gray-200'"
             >
               <span class="text-xl leading-none">{{ cat.icon || '🏢' }}</span>
               <span class="text-sm font-medium text-gray-700 leading-tight">{{ cat.name }}</span>
@@ -61,7 +61,7 @@
           <h2 class="text-base font-semibold text-gray-800 mb-1">Elige tu plan</h2>
           <p class="text-xs text-gray-500 mb-4">Puedes cambiarlo en cualquier momento.</p>
           <div v-if="loadingPlans" class="flex justify-center py-8">
-            <div class="w-6 h-6 border-2 border-ifood-red border-t-transparent rounded-full animate-spin" />
+            <div class="w-6 h-6 border-2 border-workplace-red border-t-transparent rounded-full animate-spin" />
           </div>
           <div v-else class="space-y-3 max-h-72 overflow-y-auto pr-1">
             <button
@@ -115,7 +115,7 @@
             type="button"
             @click="next"
             :disabled="saving"
-            class="flex-1 py-2.5 bg-ifood-red text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
+            class="flex-1 py-2.5 bg-workplace-red text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
           >
             {{ saving ? 'Guardando...' : step === 1 ? 'Finalizar' : 'Continuar' }}
           </button>
@@ -123,7 +123,7 @@
             v-if="step === 2"
             type="button"
             @click="goToDashboard"
-            class="flex-1 py-2.5 bg-ifood-red text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors"
+            class="flex-1 py-2.5 bg-workplace-red text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors"
           >
             Ir al panel
           </button>

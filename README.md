@@ -1,11 +1,11 @@
-# iFood Manager
+# WorkPlace Manager
 
-Panel de gestión para restaurantes integrado con iFood. Monorepo con frontend Nuxt 3 y backend NestJS.
+Panel de gestión para restaurantes integrado con WorkPlace. Monorepo con frontend Nuxt 3 y backend NestJS.
 
 ## Estructura del proyecto
 
 ```
-ifood-manager/
+workplace-manager/
 ├── frontend/          # Nuxt 3 (Vue 3, Tailwind CSS)
 ├── backend/           # NestJS (Prisma, PostgreSQL, Redis)
 ├── docker-compose.yml

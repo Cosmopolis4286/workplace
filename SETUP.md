@@ -3,7 +3,7 @@
 ## Estructura del monorepo
 
 ```
-ifood-manager/
+workplace-manager/
 ├── frontend/                  # Nuxt 3
 │   ├── assets/
 │   ├── components/
@@ -56,9 +56,9 @@ cp .env.example .env
 
 | Variable                  | Valor por defecto                          | Descripción                         |
 |---------------------------|--------------------------------------------|-------------------------------------|
-| `POSTGRES_USER`           | `ifood`                                    | Usuario de PostgreSQL               |
-| `POSTGRES_PASSWORD`       | `ifood_secret`                             | Contraseña de PostgreSQL            |
-| `POSTGRES_DB`             | `ifood_db`                                 | Nombre de la base de datos          |
+| `POSTGRES_USER`           | `workplace`                                    | Usuario de PostgreSQL               |
+| `POSTGRES_PASSWORD`       | `workplace_secret`                             | Contraseña de PostgreSQL            |
+| `POSTGRES_DB`             | `workplace_db`                                 | Nombre de la base de datos          |
 | `REDIS_PASSWORD`          | `redis_secret`                             | Contraseña de Redis                 |
 | `JWT_SECRET`              | `super_secret_jwt_key_change_in_production`| Secreto del access token            |
 | `JWT_EXPIRES_IN`          | `15m`                                      | Duración del access token           |

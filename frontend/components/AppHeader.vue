@@ -10,7 +10,7 @@
             @click="$emit('toggle-sidebar')"
             :class="[
               '-ml-2 p-3 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95',
-              sidebarOpen ? 'text-ifood-red bg-red-50' : 'text-gray-400 hover:text-ifood-red hover:bg-red-50'
+              sidebarOpen ? 'text-workplace-red bg-red-50' : 'text-gray-400 hover:text-workplace-red hover:bg-red-50'
             ]"
             aria-label="Toggle sidebar"
           >
@@ -34,13 +34,13 @@
           <!-- Logo -->
           <NuxtLink to="/dashboard" class="flex items-center group">
             <div class="relative">
-              <div class="absolute inset-0 bg-gradient-to-r from-ifood-red to-red-600 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
-              <div class="relative h-10 w-10 rounded-xl bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300">
+              <div class="absolute inset-0 bg-gradient-to-r from-workplace-red to-red-600 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+              <div class="relative h-10 w-10 rounded-xl bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300">
                 <span class="text-white font-black text-lg">i</span>
               </div>
             </div>
             <div class="ml-3 hidden sm:block">
-              <span class="text-2xl font-black bg-gradient-to-r from-ifood-red to-red-600 bg-clip-text text-transparent">iFood</span>
+              <span class="text-2xl font-black bg-gradient-to-r from-workplace-red to-red-600 bg-clip-text text-transparent">WorkPlace</span>
               <span class="text-xl font-bold text-gray-700 ml-1">Manager</span>
             </div>
           </NuxtLink>
@@ -59,8 +59,8 @@
         <div class="flex items-center gap-3">
           <!-- Restaurant name badge -->
           <div v-if="commerceName" class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-100 rounded-lg">
-            <BuildingStorefrontIcon class="h-4 w-4 text-ifood-red" />
-            <span class="text-sm font-medium text-ifood-red truncate max-w-32">{{ commerceName }}</span>
+            <BuildingStorefrontIcon class="h-4 w-4 text-workplace-red" />
+            <span class="text-sm font-medium text-workplace-red truncate max-w-32">{{ commerceName }}</span>
           </div>
 
           <!-- Notifications -->
@@ -70,12 +70,12 @@
           <div class="relative" ref="profileDropdown">
             <button
               @click="showProfileMenu = !showProfileMenu"
-              class="flex items-center gap-2 p-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-ifood-red/20 hover:bg-red-50 transition-all duration-300"
+              class="flex items-center gap-2 p-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-red-500 hover:bg-red-50 transition-all duration-300"
             >
               <!-- Avatar -->
               <div class="relative h-9 w-9 rounded-xl overflow-hidden shadow-md ring-2 ring-white flex-shrink-0">
                 <img v-if="avatarUrl" :src="avatarUrl" alt="" class="h-full w-full object-cover">
-                <div v-else class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
+                <div v-else class="h-full w-full bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center">
                   <span class="text-white font-bold text-sm">{{ userInitials }}</span>
                 </div>
               </div>
@@ -85,7 +85,7 @@
               </div>
               <ChevronDownIcon
                 class="h-4 w-4 text-gray-400 transition-transform duration-300"
-                :class="showProfileMenu ? 'rotate-180 text-ifood-red' : ''"
+                :class="showProfileMenu ? 'rotate-180 text-workplace-red' : ''"
               />
             </button>
 
@@ -104,14 +104,14 @@
                   <div class="flex items-center gap-3">
                     <div class="h-10 w-10 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
                       <img v-if="avatarUrl" :src="avatarUrl" alt="" class="h-full w-full object-cover">
-                      <div v-else class="h-full w-full bg-gradient-to-br from-ifood-red to-red-700 flex items-center justify-center">
+                      <div v-else class="h-full w-full bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center">
                         <span class="text-white font-bold text-sm">{{ userInitials }}</span>
                       </div>
                     </div>
                     <div class="min-w-0">
                       <p class="text-sm font-semibold text-gray-900 truncate">{{ fullName }}</p>
                       <p class="text-xs text-gray-500 truncate">{{ userEmail }}</p>
-                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-50 text-ifood-red mt-0.5">
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-50 text-workplace-red mt-0.5">
                         {{ roleLabel }}
                       </span>
                     </div>
@@ -122,7 +122,7 @@
                 <NuxtLink
                   to="/perfil"
                   @click="showProfileMenu = false"
-                  class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-ifood-red transition-all duration-200 gap-3"
+                  class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-workplace-red transition-all duration-200 gap-3"
                 >
                   <UserIcon class="h-4 w-4 flex-shrink-0" />
                   Mi Perfil
@@ -130,7 +130,7 @@
                 <NuxtLink
                   to="/configuracion"
                   @click="showProfileMenu = false"
-                  class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-ifood-red transition-all duration-200 gap-3"
+                  class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-workplace-red transition-all duration-200 gap-3"
                 >
                   <CogIcon class="h-4 w-4 flex-shrink-0" />
                   Configuración

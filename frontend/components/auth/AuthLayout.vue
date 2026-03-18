@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen flex">
     <!-- Left Panel: Brand / Marketing -->
-    <div class="hidden lg:flex lg:w-[45%] xl:w-[42%] relative flex-col bg-gradient-to-br from-ifood-red via-red-600 to-ifood-darkRed overflow-hidden">
+    <div class="hidden lg:flex lg:w-[45%] xl:w-[42%] relative flex-col bg-gradient-to-br from-workplace-red via-red-600 to-workplace-darkRed overflow-hidden">
       <!-- Geometric shapes -->
       <div class="absolute inset-0 overflow-hidden pointer-events-none">
         <div class="absolute -top-32 -right-32 w-96 h-96 bg-white/10 rounded-full blur-2xl"></div>
@@ -32,7 +32,7 @@
               <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3 3 0 110 6 3 3 0 010-6zm0 14.2a7.2 7.2 0 01-6-3.22c.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08A7.2 7.2 0 0112 19.2z"/>
             </svg>
           </div>
-          <span class="text-white font-black text-2xl tracking-tight">iFood <span class="font-medium opacity-80">Manager</span></span>
+          <span class="text-white font-black text-2xl tracking-tight">WorkPlace <span class="font-medium opacity-80">Manager</span></span>
         </div>
 
         <!-- Main content -->
@@ -82,12 +82,12 @@
       <div class="flex items-center justify-between px-6 sm:px-10 py-5 border-b border-gray-100 bg-white">
         <!-- Mobile logo -->
         <div class="flex items-center space-x-2 lg:hidden">
-          <div class="w-8 h-8 bg-gradient-to-br from-ifood-red to-red-600 rounded-lg flex items-center justify-center shadow-sm">
+          <div class="w-8 h-8 bg-gradient-to-br from-workplace-red to-red-600 rounded-lg flex items-center justify-center shadow-sm">
             <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3 3 0 110 6 3 3 0 010-6zm0 14.2a7.2 7.2 0 01-6-3.22c.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08A7.2 7.2 0 0112 19.2z"/>
             </svg>
           </div>
-          <span class="font-black text-gray-900 text-lg">iFood <span class="font-medium text-gray-500">Manager</span></span>
+          <span class="font-black text-gray-900 text-lg">WorkPlace <span class="font-medium text-gray-500">Manager</span></span>
         </div>
         <div class="hidden lg:block"></div>
 
@@ -119,7 +119,7 @@
       <!-- Bottom footer -->
       <div class="px-6 py-5 border-t border-gray-100 bg-white">
         <div class="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400 max-w-md mx-auto w-full">
-          <p>&copy; {{ currentYear }} iFood Manager. Todos los derechos reservados.</p>
+          <p>&copy; {{ currentYear }} WorkPlace Manager. Todos los derechos reservados.</p>
           <div class="flex items-center space-x-4">
             <NuxtLink to="/privacidad" class="hover:text-gray-600 transition-colors duration-150">Privacidad</NuxtLink>
             <NuxtLink to="/terminos" class="hover:text-gray-600 transition-colors duration-150">Términos</NuxtLink>

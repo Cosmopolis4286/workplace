@@ -2,8 +2,8 @@
   <div class="relative overflow-hidden bg-gradient-to-br from-white via-gray-50 to-red-50 rounded-3xl mb-8 shadow-xl border border-gray-200/50">
     <!-- Background Pattern -->
     <div class="absolute inset-0 overflow-hidden">
-      <div class="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-ifood-red/10 to-red-600/10 rounded-full blur-2xl"></div>
-      <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-gradient-to-br from-ifood-orange/10 to-orange-600/10 rounded-full blur-xl"></div>
+      <div class="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-workplace-red/10 to-red-600/10 rounded-full blur-2xl"></div>
+      <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-gradient-to-br from-workplace-orange/10 to-orange-600/10 rounded-full blur-xl"></div>
     </div>
 
     <div class="relative px-6 sm:px-8 py-8 sm:py-12">
@@ -11,7 +11,7 @@
         <!-- Left Content -->
         <div class="flex items-center space-x-4">
           <!-- Icon -->
-          <div v-if="icon" class="p-4 bg-gradient-to-br from-ifood-red to-red-600 rounded-2xl shadow-lg transform hover:scale-110 transition-all duration-300 floating-animation">
+          <div v-if="icon" class="p-4 bg-gradient-to-br from-workplace-red to-red-600 rounded-2xl shadow-lg transform hover:scale-110 transition-all duration-300 floating-animation">
             <component :is="icon" class="h-8 w-8 text-white" />
           </div>
           
@@ -30,7 +30,7 @@
                 <NuxtLink 
                   v-if="item.to" 
                   :to="item.to"
-                  class="text-sm text-gray-500 hover:text-ifood-red transition-colors duration-200 font-medium"
+                  class="text-sm text-gray-500 hover:text-workplace-red transition-colors duration-200 font-medium"
                 >
                   {{ item.label }}
                 </NuxtLink>
@@ -52,7 +52,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div v-for="stat in stats" :key="stat.label" class="text-center group">
             <div class="relative">
-              <div class="absolute inset-0 bg-gradient-to-r from-ifood-red/20 to-red-600/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div class="absolute inset-0 bg-gradient-to-r from-workplace-red/20 to-red-600/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div class="relative bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-300 transform group-hover:scale-105">
                 <div class="text-2xl sm:text-3xl font-black text-gray-900 mb-1">{{ stat.value }}</div>
                 <div class="text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider">{{ stat.label }}</div>

@@ -176,7 +176,7 @@
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-gray-900 truncate">{{ user?.firstName }} {{ user?.lastName }}</p>
-          <p v-if="user?.username && can('services:view')" class="text-xs text-ifood-red truncate">
+          <p v-if="user?.username && can('services:view')" class="text-xs text-workplace-red truncate">
             <NuxtLink :to="`/p/${user.username}`" class="hover:underline">@{{ user.username }}</NuxtLink>
           </p>
           <p v-else class="text-xs text-gray-500 truncate">{{ user?.role }}</p>

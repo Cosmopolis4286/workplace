@@ -2,7 +2,7 @@
   # Create notifications table
 
   ## Overview
-  This migration creates a notifications system for the iFood Manager application.
+  This migration creates a notifications system for the WorkPlace Manager application.
   Users will receive real-time notifications for orders, deliveries, inventory alerts, and system updates.
 
   ## New Tables

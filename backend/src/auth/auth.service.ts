@@ -3,14 +3,17 @@ import {
   UnauthorizedException,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { v4 as uuidv4 } from 'uuid'
+import * as bcrypt from 'bcrypt'
 import { UsersService } from '../users/users.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { RedisService } from '../redis/redis.service'
+import { MailService } from '../mail/mail.service'
 import { Role } from '@prisma/client'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
@@ -29,6 +32,7 @@ export class AuthService {
     private config: ConfigService,
     private prisma: PrismaService,
     private redis: RedisService,
+    private mail: MailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -209,6 +213,88 @@ export class AuthService {
       success: true,
       data: results.map(({ exists, ...rest }) => rest),
     }
+  }
+
+  // --- Password Reset ---
+
+  async requestPasswordReset(email: string) {
+    const user = await this.usersService.findByEmail(email)
+    // Always return success to prevent user enumeration
+    if (!user) return { message: 'Si ese correo existe, recibirás un enlace.' }
+
+    // Invalidate old tokens
+    await this.prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    })
+
+    const token = uuidv4()
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+
+    await this.prisma.passwordResetToken.create({
+      data: { token, userId: user.id, expiresAt },
+    })
+
+    await this.mail.sendPasswordReset(user.email, token, user.firstName)
+    return { message: 'Si ese correo existe, recibirás un enlace.' }
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const record = await this.prisma.passwordResetToken.findUnique({ where: { token } })
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      throw new BadRequestException('Token inválido o expirado')
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10)
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: record.userId }, data: { password: hashed } }),
+      this.prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+      // Invalidate all refresh tokens so they must log in again
+      this.prisma.refreshToken.deleteMany({ where: { userId: record.userId } }),
+    ])
+
+    return { message: 'Contraseña actualizada correctamente' }
+  }
+
+  // --- Email Verification ---
+
+  async sendVerificationEmail(userId: string) {
+    const user = await this.usersService.findById(userId)
+    if (!user) throw new NotFoundException('Usuario no encontrado')
+    if ((user as any).emailVerified) return { message: 'El correo ya está verificado' }
+
+    // Invalidate old tokens
+    await this.prisma.emailVerificationToken.updateMany({
+      where: { userId, usedAt: null },
+      data: { usedAt: new Date() },
+    })
+
+    const token = uuidv4()
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+    await this.prisma.emailVerificationToken.create({
+      data: { token, userId, expiresAt },
+    })
+
+    await this.mail.sendEmailVerification(user.email, token, user.firstName)
+    return { message: 'Correo de verificación enviado' }
+  }
+
+  async verifyEmail(token: string) {
+    const record = await this.prisma.emailVerificationToken.findUnique({ where: { token } })
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      throw new BadRequestException('Token inválido o expirado')
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: record.userId }, data: { emailVerified: true } }),
+      this.prisma.emailVerificationToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+    ])
+
+    return { message: 'Correo verificado correctamente' }
   }
 
   // --- Helpers ---
