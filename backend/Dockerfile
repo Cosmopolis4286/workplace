@@ -58,11 +58,7 @@ RUN apt-get update && apt-get install -y \
     && corepack prepare pnpm@latest --activate \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-
-ENV NODE_ENV=production \
-    PORT=3001 \
-    NODE_PATH=/app/node_modules/.pnpm/node_modules
+WORKDIR /app/backend
 ENV HOME=/home/app
 
 # crear usuario primero
@@ -70,9 +66,10 @@ RUN groupadd -g 1001 app && \
     useradd -u 1001 -g app -m -d /home/app -s /usr/sbin/nologin app
 
 # copiar manifests
-# 👇 copiar manifests
+# 👇 copiar manifests y scripts
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY backend/package.json ./backend/
+COPY backend/package.json ./package.json
+COPY backend/scripts ./scripts/
 
 # 👇 instalar SOLO prod y copiar desde builder
 COPY --from=builder /app/node_modules ./node_modules
@@ -80,11 +77,12 @@ COPY --from=builder /app/backend/dist ./dist
 COPY --from=builder /app/backend/prisma ./prisma
 
 # 👇 permisos finales
-RUN chown -R app:app /app
+RUN chown -R app:app /app && \
+    chmod +x /app/backend/scripts/init.sh
 
 USER app
 
 EXPOSE 3001
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/main.js"]
+CMD ["./scripts/init.sh"]

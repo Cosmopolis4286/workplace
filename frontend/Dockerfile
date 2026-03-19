@@ -11,6 +11,7 @@ ENV NODE_ENV=production
 ENV NITRO_HOST=0.0.0.0
 ENV NITRO_PORT=3000
 ENV NODE_OPTIONS="--max-old-space-size=1024"
+ENV TAILWIND_MODE=build
 
 # ---------- DEPENDENCIES ----------
 FROM base AS deps
@@ -40,9 +41,10 @@ COPY frontend/assets ./assets/
 COPY frontend/public ./public/
 
 # Build with optimizations and cleanup
-RUN pnpm run build \
+RUN NODE_ENV=production pnpm run build \
     && rm -rf .nuxt/.cache \
-    && rm -rf node_modules/.cache
+    && rm -rf node_modules/.cache \
+    && ls -la .output/public/_nuxt/ | head -10
 
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production

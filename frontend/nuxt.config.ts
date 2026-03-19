@@ -27,5 +27,16 @@ export default defineNuxtConfig({
   },
   build: {
     transpile: ['#app-manifest']
+  },
+  nitro: {
+    preset: 'node-server',
+    assetsPrefix: '/_nuxt/',
+    minify: true
+  },
+  postcss: {
+    plugins: {
+      tailwindcss: {},
+      autoprefixer: {},
+    },
   }
 })
