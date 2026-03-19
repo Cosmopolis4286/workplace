@@ -99,7 +99,7 @@ services:
       until nc -z postgres 5432; do sleep 1; done;
 
       echo 'Ejecutando migraciones Prisma...';
-      npx prisma migrate deploy;
+      ./node_modules/.pnpm/node_modules/.bin/prisma migrate deploy;
 
       echo 'Iniciando aplicación...';
       node dist/main.js
