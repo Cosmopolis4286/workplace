@@ -61,6 +61,9 @@ services:
 
     container_name: workplace_backend
     restart: unless-stopped
+    
+    env_file:
+      - .env
 
     ports:
       - "3001:3001"
@@ -91,19 +94,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-    # 🔥 Startup robusto (sin race conditions)
-    command: >
-      sh -c "
-      echo 'Esperando a Postgres...';
-      until nc -z postgres 5432; do sleep 1; done;
-
-      echo 'Ejecutando migraciones Prisma...';
-      ./node_modules/.pnpm/node_modules/.bin/prisma migrate deploy;
-
-      echo 'Iniciando aplicación...';
-      node dist/main.js
-      "
 
     # Healthcheck real del backend
     healthcheck:
