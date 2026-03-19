@@ -1,6 +1,5 @@
-import type { Config } from 'tailwindcss'
-
-export default {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   content: [
     './components/**/*.{js,vue,ts}',
     './layouts/**/*.vue',
@@ -10,6 +9,7 @@ export default {
     './app.vue',
   ],
   safelist: [
+    // Patrones para gradientes
     {
       pattern: /bg-gradient/,
     },
@@ -22,11 +22,15 @@ export default {
     {
       pattern: /via-/,
     },
+    // Colores personalizados workplace
     'bg-workplace-red',
     'text-workplace-red',
     'border-workplace-red',
+    'ring-workplace-red',
+    'ring-offset-workplace-red',
     'from-workplace-red',
     'to-workplace-darkRed',
+    // Gradientes específicos
     'from-gray-50',
     'via-white',
     'to-red-50',
@@ -50,6 +54,7 @@ export default {
     'to-green-200',
     'from-yellow-100',
     'to-yellow-200',
+    // Opacidades
     'from-workplace-red/10',
     'to-red-100',
     'from-workplace-red/20',
@@ -65,12 +70,7 @@ export default {
     'to-red-600',
     'from-red-500',
     'to-red-700',
-    'text-workplace-red',
-    'border-workplace-red',
-    'ring-workplace-red',
-    'ring-offset-workplace-red',
-    'shadow-glow',
-    'shadow-glow-lg',
+    // Animaciones personalizadas
     'animate-float',
     'animate-pulse-glow',
     'animate-pulse-slow',
@@ -78,7 +78,6 @@ export default {
     'icon-float',
     'icon-pulse-glow',
     'icon-rotate-hover',
-    'animate-pulse-glow',
     'card-hover-lift',
     'gradient-text',
     'premium-border',
@@ -87,6 +86,31 @@ export default {
     'glass-effect',
     'icon-bounce',
     'icon-pulse',
+    // Sombras personalizadas
+    'shadow-glow',
+    'shadow-glow-lg',
+    // Clases de componentes personalizadas
+    'card',
+    'card-premium',
+    'btn-primary',
+    'btn-secondary',
+    'btn-success',
+    'btn-warning',
+    'input-field',
+    'badge-success',
+    'badge-warning',
+    'badge-danger',
+    'gradient-bg',
+    'nav-link',
+    'nav-link-active',
+    'nav-submenu-link',
+    'nav-submenu-active',
+    'nav-link-highlight',
+    // Responsive utilities
+    'responsive-text',
+    'responsive-padding',
+    'responsive-margin',
+    'custom-scrollbar',
   ],
   theme: {
     extend: {
@@ -144,4 +168,4 @@ export default {
     },
   },
   plugins: [],
-} satisfies Config
+}
