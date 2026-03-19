@@ -10,7 +10,13 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
     '@vueuse/nuxt',
   ],
-  css: ['~/assets/css/main.css'],
+  tailwindcss: {
+    cssPath: '~/assets/css/main.css',
+    configPath: 'tailwind.config.js',
+    exposeConfig: false,
+    viewer: true,
+  },
+  css: ['~/assets/css/main.css', '~/assets/css/gradients.css'],
   plugins: [
     '~/plugins/chart.client.ts',
     '~/plugins/auth.client.ts',

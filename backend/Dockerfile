@@ -36,6 +36,7 @@ COPY --from=deps /app/backend/package.json ./backend/package.json
 COPY --from=deps /app/backend/prisma ./backend/prisma
 
 COPY backend/tsconfig.json ./backend/
+COPY backend/tsconfig.seed.json ./backend/
 COPY backend/src ./backend/src/
 
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \

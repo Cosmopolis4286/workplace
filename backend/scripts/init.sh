@@ -40,8 +40,8 @@ checkUsers();
 
 if [ "$USER_COUNT" = "0" ]; then
     echo "🌱 Base de datos vacía, ejecutando seed..."
-    # Usar pnpm para ejecutar el seed según el package.json
-    cd /app && pnpm --filter backend run seed
+    # Ejecutar el seed.ts exactamente como está en el package.json
+    cd /app/backend && /app/node_modules/.pnpm/node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only prisma/seed.ts
     echo "✅ Seed ejecutado correctamente"
 else
     echo "✅ Base de datos ya contiene datos ($USER_COUNT usuarios), omitiendo seed"
