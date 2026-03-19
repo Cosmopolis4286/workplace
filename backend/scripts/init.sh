@@ -3,13 +3,19 @@
 # Script de inicialización para el backend
 # Ejecuta el seed solo si la base de datos está vacía
 
-set -e
+set -euo pipefail
 
 echo "🔍 Verificando si la base de datos necesita seed..."
 
 # Esperar a que Postgres esté disponible
 echo "⏳ Esperando a Postgres..."
+RETRIES=30
 until nc -z postgres 5432; do
+    ((RETRIES--))
+    if [ "$RETRIES" -le 0 ]; then
+        echo "❌ Postgres no respondió a tiempo"
+        exit 1
+    fi
     echo "Postgres no está listo, esperando..."
     sleep 2
 done
@@ -22,27 +28,40 @@ echo "🔄 Ejecutando migraciones Prisma..."
 
 # Verificar si hay usuarios en la base de datos usando Prisma Client
 echo "🔍 Verificando si existen usuarios..."
-USER_COUNT=$(node -e "
+
+USER_COUNT=$(NODE_PATH=/app/node_modules/.pnpm/node_modules node <<'EOF'
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-async function checkUsers() {
+
+(async () => {
   try {
     const count = await prisma.user.count();
     console.log(count);
-    await prisma.\$disconnect();
   } catch (error) {
-    console.log('0');
-    await prisma.\$disconnect();
+    console.error("Error consultando usuarios:", error.message);
+    console.log(0);
+  } finally {
+    await prisma.$disconnect();
   }
-}
-checkUsers();
-" 2>/dev/null || echo "0")
+})();
+EOF
+)
+
+USER_COUNT=$(echo "$USER_COUNT" | tail -n 1)
+
+echo "👤 Usuarios encontrados: $USER_COUNT"
 
 if [ "$USER_COUNT" = "0" ]; then
     echo "🌱 Base de datos vacía, ejecutando seed..."
-    # Ejecutar el seed.ts exactamente como está en el package.json
-    cd /app/backend && /app/node_modules/.pnpm/node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only prisma/seed.ts
-    echo "✅ Seed ejecutado correctamente"
+
+    # Ejecutar el seed compilado (NO usar ts-node en producción)
+    if [ -f "./dist-seed/prisma/seed.js" ]; then
+        node ./dist-seed/prisma/seed.js
+        echo "✅ Seed ejecutado correctamente"
+    else
+        echo "❌ No se encontró dist-seed/prisma/seed.js"
+        exit 1
+    fi
 else
     echo "✅ Base de datos ya contiene datos ($USER_COUNT usuarios), omitiendo seed"
 fi

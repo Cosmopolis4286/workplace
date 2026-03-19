@@ -21,7 +21,7 @@ export default defineNuxtConfig({
     '~/plugins/chart.client.ts',
     '~/plugins/auth.client.ts',
   ],
-  ssr: false,
+  ssr: true,
   router: {
     middleware: ['auth', 'modules'],
   },
@@ -36,8 +36,8 @@ export default defineNuxtConfig({
   },
   nitro: {
     preset: 'node-server',
-    assetsPrefix: '/_nuxt/',
-    minify: true
+    minify: true,
+    compressPublicAssets: true
   },
   postcss: {
     plugins: {
