@@ -262,7 +262,7 @@ async function fixFreelancersWithoutBusiness() {
 
   for (const user of freelancers) {
     const name = `Negocio de ${user.firstName} ${user.lastName}`
-    await prisma.restaurant.create({ data: { name, userId: user.id } } as any)
+    await prisma.restaurant.create({ data: { name, userId: user.id } })
     console.log(`  ✅ Created business "${name}" for ${user.email}`)
   }
 
@@ -636,13 +636,13 @@ async function main() {
         lastName: demo.lastName,
         role: demo.role,
         ...(demo.commerceName
-          ? { restaurant: { create: { name: demo.commerceName } } }
+          ? { commerce: { create: { name: demo.commerceName } } }
           : {}),
       },
-      include: { restaurant: true },
+      include: { commerce: true },
     })
 
-    console.log(`✅ [${demo.role}] Created: ${user.email}${user.restaurant ? ` | Restaurant: ${user.restaurant.name}` : ''}`)
+    console.log(`✅ [${demo.role}] Created: ${user.email}${user.commerce ? ` | Restaurant: ${user.commerce.name}` : ''}`)
     console.log(`   Password: ${demo.password}`)
   }
 

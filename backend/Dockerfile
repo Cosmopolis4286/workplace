@@ -43,10 +43,10 @@ COPY backend/src ./backend/src/
 WORKDIR /app/backend
 
 # Generate Prisma client (cached if schema doesn't change)
-RUN npx prisma@5.9.1 generate --schema=./prisma/schema.prisma || true
+RUN npx prisma@5.9.1 generate --schema=./prisma/schema.prisma
 
 # Build TypeScript with optimizations
-RUN pnpm run build || true
+RUN pnpm run build
 
 # Clean up build artifacts to reduce layer size
 RUN rm -rf node_modules/.cache && \
