@@ -1,7 +1,6 @@
-# ---------- BASE (para build) ----------
+# ---------- BUILD ----------
 FROM node:20-alpine AS build
 
-# Dependencias necesarias para build
 RUN apk add --no-cache \
     python3 \
     make \
@@ -13,32 +12,28 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Copiar lockfile y package.json raíz
+# Archivos base
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-
-# Copiar solo package.json de backend para instalar deps
 COPY backend/package.json ./backend/
 
-# Instalación con cache de pnpm
+# Instalar TODAS las deps (build necesita dev)
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+    pnpm install --no-frozen-lockfile
 
-# Copiar código fuente
+# Código fuente
 COPY backend/tsconfig.json ./backend/
 COPY backend/src ./backend/src/
 COPY backend/prisma ./backend/prisma/
 
 WORKDIR /app/backend
 
-# Generar Prisma Client y construir NestJS
+# Build + prisma
 RUN pnpm exec prisma generate \
-    && pnpm run build \
-    && CI=true pnpm prune --prod
+    && pnpm run build
 
-# ---------- PRODUCCIÓN ----------
+# ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
 
-# Dependencias necesarias en runtime
 RUN apk add --no-cache \
     openssl \
     ca-certificates \
@@ -51,13 +46,19 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Copiar solo lo estrictamente necesario desde build
+# Archivos necesarios para instalar SOLO producción
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY backend/package.json ./backend/
+
+# Instalar SOLO deps de producción (clave)
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --prod --no-frozen-lockfile
+
+# Copiar build
 COPY --from=build /app/backend/dist ./backend/dist
-COPY --from=build /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/backend/prisma ./backend/prisma
-COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --chown=app:app backend/scripts ./scripts/
-COPY --from=build /root/.local/share/pnpm/store /root/.local/share/pnpm/store
+
 RUN chmod +x /app/scripts/init.sh
 
 USER app
