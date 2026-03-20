@@ -57,6 +57,7 @@ COPY --from=build /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --chown=app:app backend/scripts ./scripts/
+COPY --from=build /root/.local/share/pnpm/store /root/.local/share/pnpm/store
 RUN chmod +x /app/scripts/init.sh
 
 USER app
