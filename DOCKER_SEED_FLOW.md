@@ -89,7 +89,7 @@ docker compose up backend frontend
 
 # 4. Verificar estado
 docker compose ps
-curl http://localhost:3001/health
+curl http://localhost:3001/api/health
 ```
 
 ### Reset de Datos
@@ -148,7 +148,7 @@ docker compose ps
 docker compose logs -f backend
 
 # Health checks
-curl http://localhost:3001/health
+curl http://localhost:3001/api/health
 curl http://localhost:3000
 ```
 
@@ -182,7 +182,7 @@ docker compose restart backend
 ### ❌ Frontend no conecta
 ```bash
 # Verificar backend health
-curl http://localhost:3001/health
+curl http://localhost:3001/api/health
 
 # Verificar variables de entorno
 docker compose exec frontend env | grep API
