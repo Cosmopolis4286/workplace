@@ -122,7 +122,7 @@ export const useAuth = () => {
   }
 
   async function register(credentials: RegisterCredentials): Promise<User> {
-    const data = await $fetch<AuthResponse>(`${apiUrl}/api/auth/register`, {
+    const data = await $fetch<AuthResponse>(`${apiUrl}/auth/register`, {
       method: 'POST',
       body: {
         firstName: credentials.firstName,
@@ -139,7 +139,7 @@ export const useAuth = () => {
   }
 
   async function login(credentials: LoginCredentials): Promise<User> {
-    const data = await $fetch<AuthResponse>(`${apiUrl}/api/auth/login`, {
+    const data = await $fetch<AuthResponse>(`${apiUrl}/auth/login`, {
       method: 'POST',
       body: {
         email: credentials.email,
@@ -154,7 +154,7 @@ export const useAuth = () => {
   async function logout(): Promise<void> {
     try {
       if (accessToken.value) {
-        await $fetch(`${apiUrl}/api/auth/logout`, {
+        await $fetch(`${apiUrl}/auth/logout`, {
           method: 'POST',
           headers: getHeaders(),
         })
@@ -171,7 +171,7 @@ export const useAuth = () => {
     if (!refreshToken.value) return false
     try {
       const data = await $fetch<Pick<AuthResponse, 'accessToken' | 'refreshToken'>>(
-        `${apiUrl}/api/auth/refresh`,
+        `${apiUrl}/auth/refresh`,
         {
           method: 'POST',
           body: { refreshToken: refreshToken.value },
@@ -193,7 +193,7 @@ export const useAuth = () => {
   async function fetchProfile(): Promise<User | null> {
     if (!accessToken.value) return null
     try {
-      const profile = await $fetch<User>(`${apiUrl}/api/auth/me`, {
+      const profile = await $fetch<User>(`${apiUrl}/auth/me`, {
         headers: getHeaders(),
       })
       currentUser.value = profile
@@ -220,7 +220,7 @@ export const useAuth = () => {
   }
 
   async function saveProfile(payload: UpdateProfilePayload): Promise<User> {
-    const updated = await $fetch<User>(`${apiUrl}/api/auth/me`, {
+    const updated = await $fetch<User>(`${apiUrl}/auth/me`, {
       method: 'PATCH',
       headers: getHeaders(),
       body: payload,
@@ -231,7 +231,7 @@ export const useAuth = () => {
   }
 
   async function changePassword(payload: ChangePasswordPayload): Promise<void> {
-    await $fetch(`${apiUrl}/api/auth/change-password`, {
+    await $fetch(`${apiUrl}/auth/change-password`, {
       method: 'PATCH',
       headers: getHeaders(),
       body: payload,
@@ -240,7 +240,7 @@ export const useAuth = () => {
 
   async function checkUsername(username: string): Promise<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }> {
     return $fetch<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }>(
-      `${apiUrl}/api/auth/check-username?username=${encodeURIComponent(username)}`,
+      `${apiUrl}/auth/check-username?username=${encodeURIComponent(username)}`,
       { headers: getHeaders() },
     )
   }
@@ -248,7 +248,7 @@ export const useAuth = () => {
   async function uploadAvatar(file: File): Promise<User> {
     const formData = new FormData()
     formData.append('avatar', file)
-    const updated = await $fetch<User>(`${apiUrl}/api/auth/me/avatar`, {
+    const updated = await $fetch<User>(`${apiUrl}/auth/me/avatar`, {
       method: 'POST',
       headers: getHeaders(),
       body: formData,

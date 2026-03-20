@@ -206,7 +206,7 @@ const handleLogin = async () => {
 }
 
 const loginWithGoogle = () => {
-  window.location.href = `${config.public.apiUrl}/api/auth/google`
+  window.location.href = `${config.public.apiUrl}/auth/google`
 }
 
 const fillDemoCredentials = (creds: { email: string; password: string }) => {

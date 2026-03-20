@@ -781,7 +781,7 @@ async function openMetrics(service: Service) {
     requests: number
     conversionRate: number
     viewsByDay: { date: string; count: number }[]
-  }>(`${apiUrl}/api/services/${service.id}/metrics`, {
+  }>(`${apiUrl}/services/${service.id}/metrics`, {
     headers: { 'Content-Type': 'application/json', ...getHeaders() },
   })
   try {

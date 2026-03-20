@@ -79,7 +79,7 @@ let searchDebounce: ReturnType<typeof setTimeout> | null = null
 export const useServices = () => {
   const config = useRuntimeConfig()
   const apiUrl = config.public.apiUrl as string
-  const base = `${apiUrl}/api/services`
+  const base = `${apiUrl}/services`
 
   // ─── Fetch helpers ──────────────────────────────────────────────────────
 

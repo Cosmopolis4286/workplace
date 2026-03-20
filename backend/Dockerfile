@@ -38,6 +38,39 @@ RUN pnpm run prisma:generate \
     && find node_modules -name ".prisma" -type d | head -1 | xargs ls -la \
     && rm -rf /tmp/* /var/tmp/*
 
+# ---------- MIGRATIONS ----------
+FROM node:20-alpine AS migrations
+
+# Instalar dependencias de build y SSL
+RUN apk add --no-cache --no-interactive \
+    python3 \
+    make \
+    g++ \
+    git \
+    openssl-dev \
+    openssl \
+    libssl3 \
+    && corepack enable \
+    && corepack prepare pnpm@9.15.0 --activate \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Archivos base
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY backend/package.json ./backend/
+
+# Instalar TODAS las deps (incluyendo dev para Prisma CLI)
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --no-frozen-lockfile \
+    && rm -rf /tmp/* /var/tmp/*
+
+# Código fuente
+COPY backend/tsconfig.json ./backend/
+COPY backend/prisma ./backend/prisma/
+
+WORKDIR /app/backend
+
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
 

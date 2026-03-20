@@ -1352,7 +1352,7 @@ async function fetchCatalogProducts(page = 1) {
   catalogLoading.value = true
   try {
     const res = await $fetch<{ data: any[]; total: number; totalPages: number }>(
-      `${apiUrl}/api/catalog/products?commerceId=${profile.value.restaurant.id}&limit=12&page=${page}`,
+      `${apiUrl}/catalog/products?commerceId=${profile.value.restaurant.id}&limit=12&page=${page}`,
     )
     if (page === 1) catalogProducts.value = res.data
     else catalogProducts.value.push(...res.data)
@@ -1385,7 +1385,7 @@ async function fetchProfileServices() {
   servicesLoading.value = true
   try {
     const res = await $fetch<{ data: any[] }>(
-      `${apiUrl}/api/services/catalog?userId=${profile.value.id}&limit=20`,
+      `${apiUrl}/services/catalog?userId=${profile.value.id}&limit=20`,
     )
     profileServices.value = res.data
   } finally {
@@ -1585,7 +1585,7 @@ watch(showFollowersModal, async (val) => {
   loadingFollowList.value = true
   try {
     const res = await $fetch<{ data: typeof followList.value }>(
-      `${apiUrl}/api/profiles/${profile.value.username}/followers`,
+      `${apiUrl}/profiles/${profile.value.username}/followers`,
       { headers: useAuth().getHeaders() },
     )
     followList.value = res.data
@@ -1597,7 +1597,7 @@ watch(showFollowingModal, async (val) => {
   loadingFollowList.value = true
   try {
     const res = await $fetch<{ data: typeof followList.value }>(
-      `${apiUrl}/api/profiles/${profile.value.username}/following`,
+      `${apiUrl}/profiles/${profile.value.username}/following`,
       { headers: useAuth().getHeaders() },
     )
     followList.value = res.data

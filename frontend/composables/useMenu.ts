@@ -61,7 +61,7 @@ export const useMenu = () => {
 
   async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers = { 'Content-Type': 'application/json', ...getHeaders(), ...(options.headers as Record<string, string> || {}) }
-    const res = await $fetch<T>(`${apiUrl}/api/menu${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
+    const res = await $fetch<T>(`${apiUrl}/menu${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
     return res
   }
 

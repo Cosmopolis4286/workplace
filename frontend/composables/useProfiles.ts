@@ -81,7 +81,7 @@ export function useProfiles() {
     loading.value = true
     error.value = null
     try {
-      profile.value = await $fetch<PublicProfile>(`${apiUrl}/api/profiles/${username}`, {
+      profile.value = await $fetch<PublicProfile>(`${apiUrl}/profiles/${username}`, {
         headers: getHeaders(),
       })
     } catch (e: any) {
@@ -98,7 +98,7 @@ export function useProfiles() {
     loadingPosts.value = true
     try {
       const res = await $fetch<{ data: ProfilePost[]; total: number; page: number; totalPages: number }>(
-        `${apiUrl}/api/profiles/${username}/posts?page=${page}&limit=12`,
+        `${apiUrl}/profiles/${username}/posts?page=${page}&limit=12`,
         { headers: getHeaders() },
       )
       if (page === 1) posts.value = res.data
@@ -113,7 +113,7 @@ export function useProfiles() {
     const form = new FormData()
     files.forEach(f => form.append('files', f))
     const res = await $fetch<{ files: { url: string; type: string; originalName?: string; size?: number }[] }>(
-      `${apiUrl}/api/profiles/posts/upload`,
+      `${apiUrl}/profiles/posts/upload`,
       { method: 'POST', headers: getHeaders(), body: form },
     )
     // Solo pasar url y type al DTO (forbidNonWhitelisted=true en el backend)
@@ -124,7 +124,7 @@ export function useProfiles() {
     const form = new FormData()
     form.append('file', file)
     const res = await $fetch<{ id: string; coverImage: string }>(
-      `${apiUrl}/api/profiles/cover`,
+      `${apiUrl}/profiles/cover`,
       { method: 'PATCH', headers: getHeaders(), body: form },
     )
     if (profile.value) profile.value.coverImage = res.coverImage
@@ -132,7 +132,7 @@ export function useProfiles() {
   }
 
   async function createPost(caption: string, mediaItems: { url: string; type: 'IMAGE' | 'VIDEO' }[]) {
-    const post = await $fetch<ProfilePost>(`${apiUrl}/api/profiles/posts`, {
+    const post = await $fetch<ProfilePost>(`${apiUrl}/profiles/posts`, {
       method: 'POST',
       headers: getHeaders(),
       body: { caption: caption || undefined, media: mediaItems },
@@ -143,7 +143,7 @@ export function useProfiles() {
   }
 
   async function deletePost(postId: string) {
-    await $fetch(`${apiUrl}/api/profiles/posts/${postId}`, {
+    await $fetch(`${apiUrl}/profiles/posts/${postId}`, {
       method: 'DELETE',
       headers: getHeaders(),
     })
@@ -152,7 +152,7 @@ export function useProfiles() {
   }
 
   async function updatePostCaption(postId: string, caption: string) {
-    const updated = await $fetch<ProfilePost>(`${apiUrl}/api/profiles/posts/${postId}`, {
+    const updated = await $fetch<ProfilePost>(`${apiUrl}/profiles/posts/${postId}`, {
       method: 'PATCH',
       headers: getHeaders(),
       body: { caption },
@@ -164,7 +164,7 @@ export function useProfiles() {
   // ─── Follow ──────────────────────────────────────────────────────────────
 
   async function follow(username: string) {
-    await $fetch(`${apiUrl}/api/profiles/${username}/follow`, {
+    await $fetch(`${apiUrl}/profiles/${username}/follow`, {
       method: 'POST',
       headers: getHeaders(),
     })
@@ -175,7 +175,7 @@ export function useProfiles() {
   }
 
   async function unfollow(username: string) {
-    await $fetch(`${apiUrl}/api/profiles/${username}/follow`, {
+    await $fetch(`${apiUrl}/profiles/${username}/follow`, {
       method: 'DELETE',
       headers: getHeaders(),
     })
@@ -196,7 +196,7 @@ export function useProfiles() {
         reviewsCount: number
         total: number
         totalPages: number
-      }>(`${apiUrl}/api/profiles/${username}/reviews?page=${page}`, { headers: getHeaders() })
+      }>(`${apiUrl}/profiles/${username}/reviews?page=${page}`, { headers: getHeaders() })
 
       if (page === 1) reviews.value = res.data
       else reviews.value.push(...res.data)
@@ -207,7 +207,7 @@ export function useProfiles() {
   }
 
   async function submitReview(targetId: string, rating: number, comment: string) {
-    const review = await $fetch<ProfileReview>(`${apiUrl}/api/profiles/reviews`, {
+    const review = await $fetch<ProfileReview>(`${apiUrl}/profiles/reviews`, {
       method: 'POST',
       headers: getHeaders(),
       body: { targetId, rating, comment: comment || undefined },
@@ -237,7 +237,7 @@ export function useProfiles() {
   }
 
   async function deleteReview(reviewId: string) {
-    await $fetch(`${apiUrl}/api/profiles/reviews/${reviewId}`, {
+    await $fetch(`${apiUrl}/profiles/reviews/${reviewId}`, {
       method: 'DELETE',
       headers: getHeaders(),
     })
@@ -254,7 +254,7 @@ export function useProfiles() {
 
   async function likePost(postId: string): Promise<{ liked: boolean; likesCount: number }> {
     const res = await $fetch<{ liked: boolean; likesCount: number }>(
-      `${apiUrl}/api/profiles/posts/${postId}/like`,
+      `${apiUrl}/profiles/posts/${postId}/like`,
       { method: 'POST', headers: getHeaders() },
     )
     const idx = posts.value.findIndex(p => p.id === postId)
@@ -266,7 +266,7 @@ export function useProfiles() {
 
   async function unlikePost(postId: string): Promise<{ liked: boolean; likesCount: number }> {
     const res = await $fetch<{ liked: boolean; likesCount: number }>(
-      `${apiUrl}/api/profiles/posts/${postId}/like`,
+      `${apiUrl}/profiles/posts/${postId}/like`,
       { method: 'DELETE', headers: getHeaders() },
     )
     const idx = posts.value.findIndex(p => p.id === postId)
@@ -280,7 +280,7 @@ export function useProfiles() {
 
   async function fetchComments(postId: string): Promise<PostComment[]> {
     const res = await $fetch<{ data: PostComment[] }>(
-      `${apiUrl}/api/profiles/posts/${postId}/comments`,
+      `${apiUrl}/profiles/posts/${postId}/comments`,
       { headers: getHeaders() },
     )
     return res.data
@@ -288,7 +288,7 @@ export function useProfiles() {
 
   async function createComment(postId: string, content: string): Promise<PostComment> {
     const comment = await $fetch<PostComment>(
-      `${apiUrl}/api/profiles/posts/${postId}/comments`,
+      `${apiUrl}/profiles/posts/${postId}/comments`,
       { method: 'POST', headers: getHeaders(), body: { content } },
     )
     const idx = posts.value.findIndex(p => p.id === postId)
@@ -299,7 +299,7 @@ export function useProfiles() {
   }
 
   async function deleteComment(postId: string, commentId: string): Promise<void> {
-    await $fetch(`${apiUrl}/api/profiles/posts/comments/${commentId}`, {
+    await $fetch(`${apiUrl}/profiles/posts/comments/${commentId}`, {
       method: 'DELETE',
       headers: getHeaders(),
     })
@@ -310,7 +310,7 @@ export function useProfiles() {
   }
 
   async function updateComment(commentId: string, content: string): Promise<PostComment> {
-    return $fetch<PostComment>(`${apiUrl}/api/profiles/posts/comments/${commentId}`, {
+    return $fetch<PostComment>(`${apiUrl}/profiles/posts/comments/${commentId}`, {
       method: 'PATCH',
       headers: getHeaders(),
       body: { content },
@@ -319,7 +319,7 @@ export function useProfiles() {
 
   async function updateProfileSettings(dto: { showCatalog?: boolean; showServices?: boolean }) {
     const res = await $fetch<{ showCatalog: boolean; showServices: boolean }>(
-      `${apiUrl}/api/profiles/settings`,
+      `${apiUrl}/profiles/settings`,
       { method: 'PATCH', headers: getHeaders(), body: dto },
     )
     if (profile.value) {

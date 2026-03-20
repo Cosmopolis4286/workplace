@@ -324,7 +324,7 @@ async function fetchCategories() {
   loadingCategories.value = true
   try {
     const data = await $fetch<{ id: string; name: string; icon?: string }[]>(
-      `${config.public.apiUrl}/api/users/categories`
+      `${config.public.apiUrl}/users/categories`
     )
     categories.value = data
   } catch { /* non-critical */ }
@@ -429,6 +429,6 @@ const handleStep = async () => {
 }
 
 const registerWithGoogle = () => {
-  window.location.href = `${config.public.apiUrl}/api/auth/google`
+  window.location.href = `${config.public.apiUrl}/auth/google`
 }
 </script>
