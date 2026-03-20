@@ -31,8 +31,10 @@ COPY backend/prisma ./backend/prisma/
 WORKDIR /app/backend
 
 # Build + prisma
-RUN pnpm exec prisma generate \
+RUN pnpm run prisma:generate \
     && pnpm run build \
+    && mkdir -p dist-seed/prisma \
+    && npx tsc prisma/seed.ts --outDir dist-seed --target ES2021 --module commonjs --esModuleInterop true --skipLibCheck true \
     && rm -rf /tmp/* /var/tmp/*
 
 # ---------- PRODUCTION ----------
@@ -74,6 +76,7 @@ WORKDIR /app/backend
 # Copiar solo archivos esenciales desde build
 COPY --from=build --chown=app:app /app/backend/dist ./dist/
 COPY --from=build --chown=app:app /app/backend/prisma ./prisma/
+COPY --from=build --chown=app:app /app/backend/dist-seed ./dist-seed/
 COPY --chown=app:app scripts ./scripts/
 
 # Generar Prisma client en producción
