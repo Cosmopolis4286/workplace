@@ -6,7 +6,6 @@ DB_HOST="${DB_HOST:-postgres}"
 DB_PORT="${DB_PORT:-5432}"
 REDIS_HOST="${REDIS_HOST:-}"
 REDIS_PORT="${REDIS_PORT:-6379}"
-REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 DB_RETRIES="${DB_RETRIES:-20}"
 REDIS_RETRIES="${REDIS_RETRIES:-20}"
 RETRY_INTERVAL="${DB_RETRY_INTERVAL:-2}"
@@ -58,6 +57,4 @@ printf "✅ Migraciones verificadas\n"
 
 # ---------- INICIAR APP ----------
 printf "🚀 Iniciando aplicación...\n"
-printf "📁 Directorio actual: $(pwd)\n"
-ls -la dist/auth/dto/ || echo "❌ No se encuentra dist/auth/dto/"
 exec node dist/main.js
