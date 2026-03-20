@@ -97,7 +97,7 @@ services:
         condition: service_healthy
 
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/health || exit 1"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:${NODE_PORT}/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
       interval: 15s
       timeout: 3s
       retries: 3
@@ -128,7 +128,7 @@ services:
 
     environment:
       NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL}
-      NITRO_HOST: 0.0.0.0
+      NITRO_HOST: ${NITRO_HOST}
       NITRO_PORT: ${FRONTEND_PORT}
 
     depends_on:

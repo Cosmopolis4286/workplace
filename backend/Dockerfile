@@ -12,7 +12,7 @@ WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/package.json ./backend/
 
-# Instalar todas las deps (dev + prod) con cache
+# Instalar deps dev + prod con cache
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --prod=false
 
@@ -20,6 +20,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 COPY backend/src ./backend/src
 COPY backend/prisma ./backend/prisma
 COPY backend/tsconfig.json ./backend/
+COPY backend/tsconfig.seed.json ./backend/
 COPY scripts/init.sh ./scripts/
 
 WORKDIR /app/backend
@@ -39,13 +40,20 @@ RUN apk add --no-cache dumb-init ca-certificates openssl netcat-openbsd \
 
 WORKDIR /app
 
-# Copiar solo lo necesario desde build
+# Copiar archivos necesarios desde build
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=build /app/backend/dist ./backend/dist
+COPY --from=build /app/backend/dist-seed ./backend/dist-seed
 COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/scripts/init.sh ./scripts/init.sh
+
+# Variables de entorno para logs mínimos
+ENV NODE_ENV=production
+ENV NITRO_LOG_LEVEL=error
+ENV PORT=${NODE_PORT}
+ENV NODE_OPTIONS="--max-old-space-size=512"
 
 # Instalar solo deps de producción
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
@@ -68,8 +76,6 @@ RUN rm -rf node_modules/.cache \
 # Permisos y usuario
 RUN chown -R app:app /app
 USER app
-
-ENV PORT=${NODE_PORT}
 
 EXPOSE ${NODE_PORT}
 
