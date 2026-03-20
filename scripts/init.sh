@@ -1,38 +1,63 @@
 #!/bin/sh
-set -e
+set -eu
 
+# ---------- CONFIG ----------
 DB_HOST="${DB_HOST:-postgres}"
 DB_PORT="${DB_PORT:-5432}"
-DB_USER="${POSTGRES_USER}"
-DB_NAME="${POSTGRES_DB}"
-
+REDIS_HOST="${REDIS_HOST:-}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 DB_RETRIES="${DB_RETRIES:-20}"
-DB_RETRY_INTERVAL="${DB_RETRY_INTERVAL:-2}"
+REDIS_RETRIES="${REDIS_RETRIES:-20}"
+RETRY_INTERVAL="${DB_RETRY_INTERVAL:-2}"
 
-echo "⏳ Esperando a Postgres en $DB_HOST:$DB_PORT..."
+# ---------- FUNCIONES ----------
+wait_for_service() {
+    host=$1
+    port=$2
+    retries=$3
+    name=$4
+    attempt=1
 
-attempt=1
-until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; do
-    if [ "$attempt" -ge "$DB_RETRIES" ]; then
-        echo "❌ Postgres no disponible después de $DB_RETRIES intentos"
-        exit 1
+    printf "⏳ Esperando %s en %s:%s...\n" "$name" "$host" "$port"
+
+    until nc -z "$host" "$port" 2>/dev/null; do
+        if [ "$attempt" -ge "$retries" ]; then
+            printf "❌ %s no disponible después de %s intentos\n" "$name" "$retries"
+            exit 1
+        fi
+        printf "🔁 Intento %s/%s...\n" "$attempt" "$retries"
+        attempt=$((attempt + 1))
+        sleep "$RETRY_INTERVAL"
+    done
+
+    printf "✅ %s listo en %s:%s\n" "$name" "$port"
+}
+
+# ---------- ESPERAR SERVICIOS ----------
+wait_for_service "$DB_HOST" "$DB_PORT" "$DB_RETRIES" "Postgres"
+
+if [ -n "$REDIS_HOST" ]; then
+    if [ -n "$REDIS_PASSWORD" ]; then
+        attempt=1
+        printf "⏳ Esperando Redis en %s:%s...\n" "$REDIS_HOST" "$REDIS_PORT"
+        until redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -a "$REDIS_PASSWORD" ping | grep -q PONG; do
+            if [ "$attempt" -ge "$REDIS_RETRIES" ]; then
+                printf "❌ Redis no disponible después de %s intentos\n" "$REDIS_RETRIES"
+                exit 1
+            fi
+            printf "🔁 Intento %s/%s...\n" "$attempt" "$REDIS_RETRIES"
+            attempt=$((attempt + 1))
+            sleep "$RETRY_INTERVAL"
+        done
+    else
+        wait_for_service "$REDIS_HOST" "$REDIS_PORT" "$REDIS_RETRIES" "Redis"
     fi
+    printf "✅ Redis listo\n"
+else
+    printf "⚠️ Redis no configurado, se omite la comprobación\n"
+fi
 
-    echo "🔁 Intento $attempt/$DB_RETRIES..."
-    attempt=$((attempt + 1))
-    sleep "$DB_RETRY_INTERVAL"
-done
-
-echo "✅ Postgres listo"
-
-# =========================
-# Nota migraciones
-# =========================
-echo "📝 Ejecuta migraciones manualmente si es necesario:"
-echo "   docker compose run --rm backend pnpm prisma migrate deploy"
-
-# =========================
-# Start app
-# =========================
-echo "🚀 Iniciando aplicación..."
+# ---------- INICIAR APP ----------
+printf "🚀 Iniciando aplicación...\n"
 exec node dist/main.js
