@@ -34,7 +34,7 @@ WORKDIR /app/backend
 RUN pnpm run prisma:generate \
     && pnpm run build \
     && mkdir -p dist-seed/prisma \
-    && npx tsc prisma/seed.ts --outDir dist-seed --target ES2021 --module commonjs --esModuleInterop true --skipLibCheck true \
+    && npx tsc prisma/seed.ts --outDir dist-seed/prisma --target ES2021 --module commonjs --esModuleInterop true --skipLibCheck true \
     && rm -rf /tmp/* /var/tmp/*
 
 # ---------- PRODUCTION ----------
