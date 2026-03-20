@@ -133,6 +133,51 @@ services:
     networks:
       - app_network
 
+  # Servicio temporal para seed (se ejecuta y se elimina)
+  backend-seed:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: production
+    
+    env_file:
+      - .env
+    
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=512
+      
+      # DB
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      
+      # Auth
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      
+      FRONTEND_URL: ${FRONTEND_URL}
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    # Importante: no se reinicia, es temporal
+    restart: "no"
+    
+    networks:
+      - app_network
+    
+    profiles:
+      - seed  # Solo se inicia con --profile seed
+
 volumes:
   postgres_data:
   redis_data:
