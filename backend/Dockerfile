@@ -1,18 +1,15 @@
 # ---------- BASE ----------
-FROM node:20-slim AS base
+FROM node:20-alpine AS base
 
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     openssl \
     ca-certificates \
-    netcat-openbsd \
     dumb-init \
+    netcat-openbsd \
     && corepack enable \
-    && corepack prepare pnpm@latest --activate \
-    && rm -rf /var/lib/apt/lists/*
+    && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
-
-ENV NODE_ENV=production
 
 # ---------- DEPS ----------
 FROM base AS deps
@@ -21,79 +18,66 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/package.json ./backend/
 COPY backend/prisma ./backend/prisma/
 
-# cache pnpm store
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
 # ---------- BUILDER ----------
 FROM base AS builder
 
-WORKDIR /app
-
-# copiar manifests
-COPY --from=deps /app/pnpm-lock.yaml ./
-COPY --from=deps /app/pnpm-workspace.yaml ./
-COPY --from=deps /app/package.json ./
-COPY --from=deps /app/backend/package.json ./backend/package.json
-COPY --from=deps /app/backend/prisma ./backend/prisma
-
-# copiar código
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/backend/node_modules ./backend/node_modules
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/tsconfig.json ./backend/
+COPY backend/package.json ./backend/
+COPY backend/prisma ./backend/prisma/
 COPY backend/src ./backend/src/
-
-# reinstalar (fix definitivo pnpm)
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
 
 WORKDIR /app/backend
 
-# prisma + build
 RUN pnpm exec prisma generate && \
     pnpm run build
 
 # ---------- PRODUCCIÓN ----------
-FROM node:20-slim AS production
+FROM node:20-alpine AS production
 
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     openssl \
     ca-certificates \
-    netcat-openbsd \
     dumb-init \
+    netcat-openbsd \
     && corepack enable \
     && corepack prepare pnpm@latest --activate \
-    && rm -rf /var/lib/apt/lists/*
+    && addgroup -g 1001 app && \
+    adduser -D -u 1001 -G app -s /bin/sh app
 
 WORKDIR /app
 
-ENV NODE_ENV=production \
-    PORT=3001 \
-    NODE_PATH=/app/node_modules/.pnpm/node_modules
-ENV HOME=/home/app
+ENV NODE_ENV=production PORT=3001
 
-# crear usuario primero
-RUN groupadd -g 1001 app && \
-    useradd -u 1001 -g app -m -d /home/app -s /usr/sbin/nologin app
+# Copiar solo lo necesario de node_modules
+COPY --from=deps /app/backend/node_modules ./backend/node_modules
+COPY --from=deps /app/node_modules ./node_modules
 
-# copiar manifests
+# Copiar manifests
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/package.json ./backend/
 
-# instalar SOLO prod (mejor que prune)
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --prod --frozen-lockfile
+# Copiar build y prisma
+COPY --from=builder /app/backend/dist ./backend/dist
+COPY --from=builder /app/backend/prisma ./backend/prisma
+COPY --from=builder /app/backend/node_modules/.prisma ./backend/node_modules/.prisma
 
-# instalar SOLO prod y copiar desde builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/backend/dist ./dist
-COPY --from=builder /app/backend/prisma ./prisma
-
-# copiar scripts
+# Copiar scripts
 COPY scripts ./scripts/
 
-# permisos finales
-RUN chown -R app:app /app
+# Permisos optimizados
+RUN chown -R app:app /app && \
+    mkdir -p /home/app/.cache/node/corepack && \
+    chown app:app /home/app/.cache/node/corepack
 
 USER app
+
+WORKDIR /app/backend
 
 EXPOSE 3001
 
