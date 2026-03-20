@@ -113,7 +113,7 @@
   
   /* Submenu styles */
   .nav-submenu-link {
-    @apply flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gradient-to-r hover:from-workplace-red/10 hover:to-red-100 hover:text-workplace-red transition-all duration-300 transform hover:scale-105 hover:translate-x-1 relative overflow-hidden group;
+    @apply flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gradient-to-r hover:from-workplace-red/10 hover:to-red-100 hover:text-workplace-red transition-all duration-300 transform hover:scale-105 hover:translate-x-1 relative overflow-hidden;
   }
   
   .nav-submenu-link::before {
