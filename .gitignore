@@ -2,6 +2,15 @@
 # Dependencies
 # ================================
 node_modules/
+**/node_modules/
+
+# ================================
+# Package managers
+# ================================
+.pnpm-debug.log*
+.yarn-integrity
+.npm
+.npmrc
 
 # ================================
 # Nuxt (frontend)
@@ -11,6 +20,7 @@ frontend/.nitro/
 frontend/.cache/
 frontend/.output/
 frontend/.data/
+frontend/dist/
 
 # ================================
 # NestJS (backend)
@@ -29,7 +39,11 @@ backend/prisma/generated/
 # ================================
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .env.*.local
+!.env.example
 
 # ================================
 # Logs
@@ -37,11 +51,20 @@ backend/prisma/generated/
 *.log
 *.log.*
 logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # ================================
 # OS
 # ================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 desktop.ini
 
@@ -52,6 +75,46 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+*~
+.eslintcache
+
+# ================================
+# Testing
+# ================================
+coverage/
+.nyc_output/
+junit.xml
+test-results/
+
+# ================================
+# Cache & Temp
+# ================================
+.cache/
+.temp/
+tmp/
+.parcel-cache/
+.vite/
+
+# ================================
+# Build outputs
+# ================================
+dist/
+build/
+out/
+
+# ================================
+# Runtime
+# ================================
+uploads/
+storage/
+
+# ================================
+# Docker
+# ================================
+.dockerignore
+!.dockerignore
+!frontend/.dockerignore
+!backend/.dockerignore
 
 # ================================
 # Claude Code
@@ -59,6 +122,9 @@ desktop.ini
 .claude/
 
 # ================================
-# pnpm
+# Misc
 # ================================
-.pnpm-debug.log
+*.tsbuildinfo
+.lock-wscript
+*.tgz
+*.tar.gz
