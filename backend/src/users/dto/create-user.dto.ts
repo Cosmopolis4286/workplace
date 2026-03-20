@@ -24,7 +24,9 @@ export class CreateUserDto {
   @IsOptional()
   phone?: string
 
-  @IsEnum(Role)
+  @IsEnum(['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER', 'NORMAL'], {
+    message: 'El rol debe ser uno de: SUPERADMIN, ADMIN, COMMERCE, FREELANCER, NORMAL'
+  })
   role: Role
 
   @IsString()
