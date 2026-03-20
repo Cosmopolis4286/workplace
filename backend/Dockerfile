@@ -22,7 +22,11 @@ COPY scripts ./scripts
 WORKDIR /app/backend
 
 # Generar Prisma y build de TS
-RUN pnpm prisma generate && pnpm build
+RUN pnpm prisma generate && pnpm build \
+    && echo "📁 Contents of dist/auth/dto after build:" \
+    && ls -la dist/auth/dto/ || echo "❌ dist/auth/dto not found" \
+    && echo "📁 All dist contents:" \
+    && find dist -name "*.js" | head -10 || echo "❌ No .js files found"
 
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
