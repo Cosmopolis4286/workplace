@@ -5,14 +5,16 @@ El script `init.sh` se encarga de inicializar el backend de forma automática y 
 
 ## Funcionalidades
 - ✅ Espera a que PostgreSQL esté disponible
+- ✅ Espera a que Redis esté disponible (verificación de puerto)
 - ✅ Ejecuta las migraciones de Prisma automáticamente
 - ✅ Inicia la aplicación
 - ❌ **NO ejecuta seed** (se maneja externamente)
 
 ## Flujo de ejecución
 1. **Espera PostgreSQL**: Verifica que la base de datos esté accesible
-2. **Migraciones**: Aplica todas las migraciones pendientes automáticamente
-3. **Inicio**: Lanza la aplicación
+2. **Espera Redis**: Verifica que Redis esté accesible (verificación de puerto)
+3. **Migraciones**: Aplica todas las migraciones pendientes automáticamente
+4. **Inicio**: Lanza la aplicación
 
 ## Ventajas
 - **Idempotente**: Puede ejecutarse múltiples veces sin efectos secundarios
