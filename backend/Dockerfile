@@ -49,20 +49,20 @@ RUN apk add --no-cache --no-interactive \
     && rm -rf /var/cache/apk/* /tmp/* /var/tmp/* /usr/share/man/* /usr/share/doc/*
 
 # Archivos necesarios para instalar SOLO producción
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY backend/package.json ./backend/
+COPY package.json ./
+COPY backend/package.json ./backend/package.json
+COPY pnpm-lock.yaml ./
 
 # Instalar SOLO deps de producción con pnpm optimizado
-RUN pnpm install --prod --frozen-lockfile --ignore-scripts \
+RUN pnpm install --prod --no-frozen-lockfile --ignore-scripts \
     && pnpm store prune --force \
     && rm -rf /root/.pnpm-store /tmp/*
 
 WORKDIR /app
 
-# Copiar solo archivos esenciales
+# Copiar solo archivos esenciales desde build
 COPY --from=build --chown=app:app /app/backend/dist ./dist/
 COPY --from=build --chown=app:app /app/backend/prisma ./prisma/
-COPY --from=build --chown=app:app /app/backend/node_modules ./node_modules/
 COPY --chown=app:app backend/scripts ./scripts/
 
 # Limpiar después de copiar
