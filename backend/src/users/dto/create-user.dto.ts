@@ -1,6 +1,9 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator'
 import { Role } from '@prisma/client'
 
+// Definir los valores válidos del enum
+const VALID_ROLES = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER', 'NORMAL'] as const
+
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
@@ -24,7 +27,7 @@ export class CreateUserDto {
   @IsOptional()
   phone?: string
 
-  @IsEnum(['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER', 'NORMAL'], {
+  @IsEnum(VALID_ROLES, {
     message: 'El rol debe ser uno de: SUPERADMIN, ADMIN, COMMERCE, FREELANCER, NORMAL'
   })
   role: Role
