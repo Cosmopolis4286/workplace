@@ -1,0 +1,210 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 9.15.0
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        pnpm install --frozen-lockfile
+
+    - name: Run tests
+      run: |
+        cd backend
+        pnpm test
+      env:
+        DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+
+    - name: Run linting
+      run: |
+        cd backend
+        pnpm lint
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./backend/Dockerfile
+        target: production
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to production
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USER }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        script: |
+          cd /opt/workplace
+          
+          # Backup current deployment
+          docker-compose down
+          docker tag workplace-backend:latest workplace-backend:backup-$(date +%Y%m%d-%H%M%S)
+          
+          # Pull new images
+          docker-compose pull
+          
+          # Run migrations
+          echo "🔄 Running database migrations..."
+          docker-compose run --rm migrate
+          
+          # Start services
+          echo "🚀 Starting services..."
+          docker-compose up -d
+          
+          # Wait for health checks
+          echo "⏳ Waiting for services to be healthy..."
+          sleep 30
+          
+          # Verify deployment
+          if docker-compose ps | grep -q "healthy"; then
+            echo "✅ Deployment successful!"
+            
+            # Clean up old images
+            docker image prune -f
+            
+            # Send notification (optional)
+            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+              -H 'Content-type: application/json' \
+              --data "{\"text\":\"✅ Workplace deployed successfully to production\"}"
+          else
+            echo "❌ Deployment failed - rolling back..."
+            docker-compose down
+            docker tag workplace-backend:backup-$(date +%Y%m%d-%H%M%S) workplace-backend:latest
+            docker-compose up -d
+            
+            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+              -H 'Content-type: application/json' \
+              --data "{\"text\":\"❌ Workplace deployment failed - rolled back\"}"
+            exit 1
+          fi
+
+  rollback:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: failure() && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Rollback deployment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USER }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        script: |
+          cd /opt/workplace
+          
+          echo "🔄 Rolling back to previous version..."
+          docker-compose down
+          
+          # Get latest backup image
+          BACKUP_IMAGE=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup-" | tail -1)
+          
+          if [ ! -z "$BACKUP_IMAGE" ]; then
+            docker tag $BACKUP_IMAGE workplace-backend:latest
+            docker-compose up -d
+            
+            echo "✅ Rollback completed"
+            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+              -H 'Content-type: application/json' \
+              --data "{\"text\":\"🔄 Workplace rolled back to previous version\"}"
+          else
+            echo "❌ No backup image found for rollback"
+            exit 1
+          fi
