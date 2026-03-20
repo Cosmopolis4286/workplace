@@ -38,26 +38,22 @@ wait_for_service() {
 wait_for_service "$DB_HOST" "$DB_PORT" "$DB_RETRIES" "Postgres"
 
 if [ -n "$REDIS_HOST" ]; then
-    if [ -n "$REDIS_PASSWORD" ]; then
-        attempt=1
-        printf "⏳ Esperando Redis en %s:%s...\n" "$REDIS_HOST" "$REDIS_PORT"
-        until redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -a "$REDIS_PASSWORD" ping | grep -q PONG; do
-            if [ "$attempt" -ge "$REDIS_RETRIES" ]; then
-                printf "❌ Redis no disponible después de %s intentos\n" "$REDIS_RETRIES"
-                exit 1
-            fi
-            printf "🔁 Intento %s/%s...\n" "$attempt" "$REDIS_RETRIES"
-            attempt=$((attempt + 1))
-            sleep "$RETRY_INTERVAL"
-        done
-    else
-        wait_for_service "$REDIS_HOST" "$REDIS_PORT" "$REDIS_RETRIES" "Redis"
-    fi
+    wait_for_service "$REDIS_HOST" "$REDIS_PORT" "$REDIS_RETRIES" "Redis"
     printf "✅ Redis listo\n"
 else
     printf "⚠️ Redis no configurado, se omite la comprobación\n"
 fi
 
+# ---------- MIGRACIONES ----------
+printf "🔄 Generando Prisma Client...\n"
+pnpm prisma generate
+
+printf "🔄 Ejecutando migraciones de Prisma...\n"
+pnpm prisma migrate deploy
+printf "✅ Migraciones completadas\n"
+
 # ---------- INICIAR APP ----------
 printf "🚀 Iniciando aplicación...\n"
+printf "📁 Directorio actual: $(pwd)\n"
+ls -la dist/auth/dto/ || echo "❌ No se encuentra dist/auth/dto/"
 exec node dist/main.js
