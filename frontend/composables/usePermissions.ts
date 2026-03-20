@@ -48,7 +48,7 @@ export const usePermissions = () => {
     loading.value = true
     try {
       const doFetch = () =>
-        fetch(`${apiUrl}/api/permissions/me`, {
+        fetch(`${apiUrl}/permissions/me`, {
           headers: { ...getHeaders() },
         })
 

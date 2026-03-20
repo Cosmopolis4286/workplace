@@ -51,7 +51,7 @@ export function useServicios() {
 
   async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers = { 'Content-Type': 'application/json', ...getHeaders(), ...(options.headers as Record<string, string> || {}) }
-    return $fetch<T>(`${apiUrl}/api/services${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
+    return $fetch<T>(`${apiUrl}/services${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
   }
 
   async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -103,7 +103,7 @@ export function useServicios() {
 
   async function fetchCatalogCategories() {
     try {
-      const res = await $fetch<{ data: MyServiceCategory[] }>(`${apiUrl}/api/services/catalog/categories`)
+      const res = await $fetch<{ data: MyServiceCategory[] }>(`${apiUrl}/services/catalog/categories`)
       catalogCategories.value = res.data
     } catch {
       // non-blocking

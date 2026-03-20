@@ -227,7 +227,7 @@ async function load(page = currentPage.value) {
     if (filters.value.dateFrom) params.set('dateFrom', filters.value.dateFrom)
     if (filters.value.dateTo) params.set('dateTo', filters.value.dateTo)
 
-    const res = await $fetch<any>(`${apiUrl}/api/audit?${params}`, { headers: getHeaders() })
+    const res = await $fetch<any>(`${apiUrl}/audit?${params}`, { headers: getHeaders() })
     logs.value = res.data
     total.value = res.total
     totalPages.value = res.totalPages
@@ -238,7 +238,7 @@ async function load(page = currentPage.value) {
 }
 
 async function loadStats() {
-  stats.value = await $fetch<any>(`${apiUrl}/api/audit/stats`, { headers: getHeaders() })
+  stats.value = await $fetch<any>(`${apiUrl}/audit/stats`, { headers: getHeaders() })
 }
 
 function changePage(page: number) {

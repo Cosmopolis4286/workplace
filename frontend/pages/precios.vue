@@ -209,7 +209,7 @@ const annual = ref(false)
 async function loadPlans() {
   loading.value = true
   try {
-    const res = await fetch(`${config.public.apiUrl}/api/plans/public`)
+    const res = await fetch(`${config.public.apiUrl}/plans/public`)
     if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`)
     const data = await res.json()
     plans.value = Array.isArray(data) ? data : (data.data ?? [])

@@ -23,7 +23,7 @@ export function useModules() {
   async function loadModules() {
     if (loaded.value) return
     try {
-      const res = await fetch(`${config.public.apiUrl}/api/plans/usage`, {
+      const res = await fetch(`${config.public.apiUrl}/plans/usage`, {
         headers: { 'Content-Type': 'application/json', ...getHeaders() },
       })
       if (!res.ok) return

@@ -255,7 +255,7 @@ async function fetchRequests() {
   error.value = null
   try {
     const res = await $fetch<{ data: ServiceRequest[]; total: number }>(
-      `${apiUrl}/api/services/requests/mine`,
+      `${apiUrl}/services/requests/mine`,
       { headers: getHeaders() }
     )
     requests.value = res.data
@@ -270,7 +270,7 @@ async function fetchRequests() {
 async function updateStatus(id: string, status: string) {
   updating.value = id
   try {
-    await $fetch(`${apiUrl}/api/services/requests/${id}/status`, {
+    await $fetch(`${apiUrl}/services/requests/${id}/status`, {
       method: 'PATCH',
       headers: { ...getHeaders(), 'Content-Type': 'application/json' },
       body: { status },

@@ -263,7 +263,7 @@ async function submit() {
   sending.value = true
   try {
     const { getHeaders } = useAuth()
-    await $fetch(`${apiUrl}/api/catalog/orders`, {
+    await $fetch(`${apiUrl}/catalog/orders`, {
       method: 'POST',
       headers: getHeaders(),
       body: {

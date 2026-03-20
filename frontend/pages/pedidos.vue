@@ -1059,7 +1059,7 @@ async function loadMktOrders() {
   try {
     const params = new URLSearchParams({ page: String(mktPage.value), limit: '50' })
     if (mktStatusFilter.value) params.set('status', mktStatusFilter.value)
-    const res = await $fetch<{ data: MktOrder[]; totalPages: number }>(`${apiUrl}/api/catalog/orders/mine?${params}`, {
+    const res = await $fetch<{ data: MktOrder[]; totalPages: number }>(`${apiUrl}/catalog/orders/mine?${params}`, {
       headers: getHeaders(),
     })
     mktOrders.value = res.data
@@ -1073,7 +1073,7 @@ async function loadMktOrders() {
 
 async function updateMktStatus(id: string, status: MktOrderStatus) {
   try {
-    await $fetch(`${apiUrl}/api/catalog/orders/${id}/status`, {
+    await $fetch(`${apiUrl}/catalog/orders/${id}/status`, {
       method: 'PATCH',
       headers: getHeaders(),
       body: { status },

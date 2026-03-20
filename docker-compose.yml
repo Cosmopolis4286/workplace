@@ -108,6 +108,32 @@ services:
     networks:
       - app_network
 
+  backend-migrations:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: migrations
+
+    container_name: workplace_backend_migrations
+    profiles:
+      - migrations
+
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - app_network
+
+    command: ["tail", "-f", "/dev/null"]
+
   frontend:
     build:
       context: .

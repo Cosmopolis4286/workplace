@@ -36,7 +36,7 @@ export const useDemoCredentials = () => {
     loadPromise = (async () => {
       try {
         const res = await $fetch<DemoCredentialsResponse>(
-          `${config.public.apiUrl}/api/auth/demo-credentials`,
+          `${config.public.apiUrl}/auth/demo-credentials`,
         )
         if (res?.success && res.data) {
           credentials.value = res.data

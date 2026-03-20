@@ -64,7 +64,7 @@ export const useClientes = () => {
       ...getHeaders(),
       ...(options.headers as Record<string, string> || {}),
     }
-    return $fetch<T>(`${apiUrl}/api/customers${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
+    return $fetch<T>(`${apiUrl}/customers${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
   }
 
   async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {

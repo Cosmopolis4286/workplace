@@ -87,7 +87,7 @@ export const useSucursales = () => {
       ...getHeaders(),
       ...(options.headers as Record<string, string> || {}),
     }
-    return $fetch<T>(`${apiUrl}/api/branches${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
+    return $fetch<T>(`${apiUrl}/branches${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
   }
 
   async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {

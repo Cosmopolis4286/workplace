@@ -39,7 +39,7 @@ export const useInventory = () => {
   const { getHeaders } = useAuth()
   const config = useRuntimeConfig()
   const apiUrl = config.public.apiUrl as string
-  const base = `${apiUrl}/api/menu`
+  const base = `${apiUrl}/menu`
 
   // ─── Computed ───────────────────────────────────────────────────────────────
 
