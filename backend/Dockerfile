@@ -26,7 +26,8 @@ WORKDIR /app/backend
 
 # Generar Prisma Client y build TS
 RUN pnpm prisma generate \
-    && pnpm build
+    && pnpm build \
+    && pnpm exec tsc -p tsconfig.seed.json
 
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
@@ -68,10 +69,9 @@ RUN rm -rf node_modules/.cache \
 RUN chown -R app:app /app
 USER app
 
-ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=${NODE_PORT}
 
-EXPOSE 3001
+EXPOSE ${NODE_PORT}
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["sh", "scripts/init.sh"]
