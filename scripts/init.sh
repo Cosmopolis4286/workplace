@@ -45,10 +45,10 @@ fi
 
 # ---------- MIGRACIONES ----------
 printf "🔄 Generando Prisma Client...\n"
-pnpm prisma generate
+cd /app/backend && pnpm prisma generate
 
-printf "� Verificando estado de migraciones...\n"
-if ! pnpm prisma migrate status > /dev/null 2>&1; then
+printf "🔍 Verificando estado de migraciones...\n"
+if ! cd /app/backend && pnpm prisma migrate status > /dev/null 2>&1; then
     printf "❌ Las migraciones no están aplicadas. Ejecuta:\n"
     printf "   docker-compose run --rm migrate\n"
     exit 1
@@ -57,4 +57,4 @@ printf "✅ Migraciones verificadas\n"
 
 # ---------- INICIAR APP ----------
 printf "🚀 Iniciando aplicación...\n"
-exec node dist/main.js
+cd /app/backend && exec node dist/main.js
