@@ -1,150 +1,41 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [],
-  safelist: [
-    // Patrones para gradientes
-    {
-      pattern: /bg-gradient/,
-    },
-    {
-      pattern: /from-/,
-    },
-    {
-      pattern: /to-/,
-    },
-    {
-      pattern: /via-/,
-    },
-    // Colores personalizados workplace
-    'bg-workplace-red',
-    'text-workplace-red',
-    'border-workplace-red',
-    'ring-workplace-red',
-    'ring-offset-workplace-red',
-    'from-workplace-red',
-    'to-workplace-darkRed',
-    // Gradientes específicos
-    'from-gray-50',
-    'via-white',
-    'to-red-50',
-    'from-red-500',
-    'to-red-600',
-    'from-red-600',
-    'to-red-700',
-    'from-green-500',
-    'to-green-600',
-    'from-green-600',
-    'to-green-700',
-    'from-orange-500',
-    'to-orange-600',
-    'from-orange-600',
-    'to-orange-700',
-    'from-red-50',
-    'to-red-100',
-    'from-red-100',
-    'to-red-200',
-    'from-green-100',
-    'to-green-200',
-    'from-yellow-100',
-    'to-yellow-200',
-    // Opacidades
-    'from-workplace-red/10',
-    'to-red-100',
-    'from-workplace-red/20',
-    'to-red-100',
-    'from-white/20',
-    'to-transparent',
-    'from-white/80',
-    'to-white/20',
-    'from-red-500/20',
-    'via-red-500/20',
-    'to-red-600/20',
-    'from-red-400',
-    'to-red-600',
-    'from-red-500',
-    'to-red-700',
-    // Animaciones personalizadas
-    'animate-float',
-    'animate-pulse-glow',
-    'animate-pulse-slow',
-    'animate-bounce-slow',
-    'icon-float',
-    'icon-pulse-glow',
-    'icon-rotate-hover',
-    'card-hover-lift',
-    'gradient-text',
-    'premium-border',
-    'floating-animation',
-    'glow-effect',
-    'glass-effect',
-    'icon-bounce',
-    'icon-pulse',
-    // Sombras personalizadas
-    'shadow-glow',
-    'shadow-glow-lg',
-    // Clases de componentes personalizadas
-    'card',
-    'card-premium',
-    'btn-primary',
-    'btn-secondary',
-    'btn-success',
-    'btn-warning',
-    'input-field',
-    'badge-success',
-    'badge-warning',
-    'badge-danger',
-    'gradient-bg',
-    'nav-link',
-    'nav-link-active',
-    'nav-submenu-link',
-    'nav-submenu-active',
-    'nav-link-highlight',
-    // Responsive utilities
-    'responsive-text',
-    'responsive-padding',
-    'responsive-margin',
-    'custom-scrollbar',
+  content: [
+    "./frontend/**/*.{vue,js,ts}", // Todas las carpetas dentro de frontend
+    "./frontend/app.vue",
+    "./frontend/error.vue",
   ],
+
+  safelist: [
+    // Gradientes y colores dinámicos
+    { pattern: /(from|to|via)-(workplace-red|red|green|orange|yellow)(\/\d+)?/ },
+    // Animaciones personalizadas
+    { pattern: /animate-(float|pulse|bounce|pulse-glow|bounce-slow)/ },
+    // Sombras, tarjetas, botones, badges, nav
+    { pattern: /(shadow-glow|card|btn|badge|nav)-?.*/ },
+    // Efectos de iconos y textos
+    { pattern: /(icon|gradient|glass|premium|floating|glow)-?.*/ },
+  ],
+
   theme: {
     extend: {
       colors: {
         primary: {
-          50: '#fef2f2',
-          100: '#fee2e2',
-          200: '#fecaca',
-          300: '#fca5a5',
-          400: '#f87171',
-          500: '#ef4444',
-          600: '#dc2626',
-          700: '#b91c1c',
-          800: '#991b1b',
-          900: '#7f1d1d',
+          50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 300: '#fca5a5',
+          400: '#f87171', 500: '#ef4444', 600: '#dc2626', 700: '#b91c1c',
+          800: '#991b1b', 900: '#7f1d1d',
         },
         secondary: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
-          800: '#9a3412',
-          900: '#7c2d12',
+          50: '#fff7ed', 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74',
+          400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700: '#c2410c',
+          800: '#9a3412', 900: '#7c2d12',
         },
         workplace: {
-          red: '#ea1d2c',
-          darkRed: '#c41e3a',
-          orange: '#ff6900',
-          yellow: '#ffb800',
-          green: '#00d27a',
-          gray: '#717171',
-          lightGray: '#f5f5f5',
+          red: '#ea1d2c', darkRed: '#c41e3a', orange: '#ff6900',
+          yellow: '#ffb800', green: '#00d27a', gray: '#717171', lightGray: '#f5f5f5',
         },
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-      },
+      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
       animation: {
         float: 'float 3s ease-in-out infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -155,10 +46,9 @@ module.exports = {
         glow: '0 0 20px rgba(234, 29, 44, 0.3)',
         'glow-lg': '0 0 40px rgba(234, 29, 44, 0.4)',
       },
-      backdropBlur: {
-        xs: '2px',
-      },
+      backdropBlur: { xs: '2px' },
     },
   },
+
   plugins: [],
 }
