@@ -38,32 +38,46 @@ RUN pnpm exec prisma generate \
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
 
-# Instalar dependencias runtime ultra mínimas
+# Instalar dependencias runtime + build temporales
 RUN apk add --no-cache --no-interactive \
     dumb-init \
     ca-certificates \
+    openssl \
+    openssl-dev \
+    python3 \
+    make \
+    g++ \
     && addgroup -g 1001 -S app \
     && adduser -S -u 1001 -G app -s /sbin/nologin app \
     && corepack enable \
     && corepack prepare pnpm@9.15.0 --activate \
     && rm -rf /var/cache/apk/* /tmp/* /var/tmp/* /usr/share/man/* /usr/share/doc/*
 
+WORKDIR /app/backend
+
 # Archivos necesarios para instalar SOLO producción
-COPY package.json ./
-COPY backend/package.json ./backend/package.json
+COPY backend/package.json ./package.json
 COPY pnpm-lock.yaml ./
 
-# Instalar SOLO deps de producción con pnpm optimizado
+# Instalar deps y reconstruir módulos nativos
 RUN pnpm install --prod --no-frozen-lockfile --ignore-scripts \
+    && pnpm add -D prisma \
+    && pnpm rebuild bcrypt \
     && pnpm store prune --force \
     && rm -rf /root/.pnpm-store /tmp/*
 
-WORKDIR /app
+# Eliminar dependencias de build para reducir tamaño (mantener SSL)
+RUN apk del --no-network python3 make g++
+
+WORKDIR /app/backend
 
 # Copiar solo archivos esenciales desde build
 COPY --from=build --chown=app:app /app/backend/dist ./dist/
 COPY --from=build --chown=app:app /app/backend/prisma ./prisma/
-COPY --chown=app:app backend/scripts ./scripts/
+COPY --chown=app:app scripts ./scripts/
+
+# Generar Prisma client en producción
+RUN pnpm exec prisma generate
 
 # Limpiar después de copiar
 RUN rm -rf /tmp/* /var/tmp/*
@@ -76,4 +90,4 @@ ENV PORT=3001
 EXPOSE 3001
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "/app/scripts/init.sh"]
+CMD ["sh", "scripts/init.sh"]
