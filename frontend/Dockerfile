@@ -1,5 +1,5 @@
 # ---------- BASE ----------  
-# Imagen base ligera con Node.js
+# Imagen base ultra-ligera con Node.js
 FROM node:20-alpine AS base
 
 # Habilitar pnpm
@@ -7,65 +7,63 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Variables de entorno generales
+# Variables de entorno optimizadas
 ENV NODE_ENV=production
 ENV NITRO_HOST=0.0.0.0
 ENV NITRO_PORT=3000
-ENV NODE_OPTIONS="--max-old-space-size=1024"
-ENV TAILWIND_MODE=build
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 # ---------- DEPENDENCIAS ----------  
 FROM base AS deps
 
-# Copiar archivos de lock y package para aprovechar cache
+# Copiar archivos de lock para cache eficiente
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./  
 COPY frontend/package.json ./frontend/
 
-# Instalar dependencias sin modificar lockfile y limpiar store
-RUN pnpm install --frozen-lockfile --prefer-offline && pnpm store prune
+# Instalar dependencias con cache y limpiar
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --prefer-offline
 
 # ---------- BUILD ----------  
 FROM deps AS builder
 
 WORKDIR /app/frontend
 
-# Copiar todo el frontend (excluir node_modules, .nuxt, .output con .dockerignore)
+# Copiar solo código fuente (excluido por .dockerignore)
 COPY frontend/ ./  
 
-# Construir la app y limpiar caches
+# Construir app con memoria suficiente y limpiar
 RUN pnpm run build \
-    && rm -rf .nuxt/.cache node_modules/.cache \
-    && ls -la .output/public/_nuxt/ | head -10
+    && rm -rf .nuxt/.cache node_modules/.cache
 
 # ---------- PRODUCCION ----------  
 FROM node:20-alpine AS production
 
-# Instalar dependencias de runtime mínimas
-RUN apk add --no-cache dumb-init ca-certificates wget \
-    && corepack enable && corepack prepare pnpm@latest --activate \
-    && update-ca-certificates
+# Dependencias runtime mínimas
+RUN apk add --no-cache dumb-init ca-certificates \
+    && corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Variables de entorno producción
+# Variables de entorno producción optimizadas
 ENV NODE_ENV=production
 ENV NITRO_HOST=0.0.0.0
 ENV NITRO_PORT=3000
-ENV NODE_OPTIONS="--max-old-space-size=512"
+ENV NODE_OPTIONS="--max-old-space-size=256"
 
-# Copiar solo la app construida
+# Copiar solo build optimizado
 COPY --from=builder /app/frontend/.output ./.output
 
-# Crear usuario no-root y asignar permisos
+# Crear usuario y permisos optimizados
 RUN addgroup -S -g 1001 app && \
     adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G app app && \
-    chown -R app:app /app && chmod -R 755 /app
+    chown -R app:app /app
 
 USER app
 
-# Healthcheck simple para Nuxt 3
+# Healthcheck ultra-ligero (sin wget)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+    CMD node -e "require('http').get('http://localhost:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
 
 EXPOSE 3000
 
