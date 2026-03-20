@@ -19,6 +19,6 @@ until nc -z "$DB_HOST" "$DB_PORT"; do
 done
 echo "✅ Postgres listo"
 
-echo "📝 NOTA: Seed y migraciones deben ejecutarse manualmente fuera del contenedor si es necesario"
+echo "📝 NOTA: Las migraciones deben ejecutarse manualmente con 'docker-compose run --rm backend pnpm prisma migrate deploy'"
 echo "🚀 Iniciando aplicación..."
 exec node dist/main.js

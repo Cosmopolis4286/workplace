@@ -57,6 +57,7 @@ COPY --from=build /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --chown=app:app backend/scripts ./scripts/
+RUN chmod +x /app/scripts/init.sh
 
 USER app
 WORKDIR /app/backend
@@ -67,4 +68,4 @@ ENV PORT=3001
 EXPOSE 3001
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/app/scripts/init.sh"]
+CMD ["sh", "/app/scripts/init.sh"]

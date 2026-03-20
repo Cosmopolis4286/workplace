@@ -2,27 +2,58 @@
 node_modules
 frontend/node_modules
 backend/node_modules
+**/node_modules
 
 # Builds
 frontend/.nuxt
+frontend/.nitro
+frontend/.cache
 frontend/.output
+frontend/.data
 backend/dist
+**/dist
 
 # Logs
 *.log
+*.log.*
+logs/
 
-# Env (CRÍTICO)
+# Environment (CRÍTICO)
 .env
 .env.*
+!.env.example
 
 # Git
 .git
 .gitignore
+.gitattributes
 
 # Docker
-Dockerfile
-docker-compose.yml
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
 .dockerignore
 
 # OS
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cache
+.cache/
+.temp/
+tmp/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.tsbuildinfo
+uploads/

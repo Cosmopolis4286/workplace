@@ -1,7 +1,77 @@
+# Dependencies
 node_modules
+**/node_modules
+
+# Package managers
+.pnpm-debug.log*
+.yarn-integrity
+.npm
+.npmrc
+package-lock.json
+yarn.lock
+
+# Nuxt build outputs
 .nuxt
+.nitro
+.cache
 .output
+.data
+dist
+build
+out
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+*.log.*
+logs/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.eslintcache
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+junit.xml
+
+# Cache & Temp
+.temp/
+tmp/
+.parcel-cache/
+.vite/
+
+# Runtime
+uploads/
+storage/
+
+# Git
 .git
 .gitignore
-.env
-*.log
+.gitattributes
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Misc
+*.tsbuildinfo
