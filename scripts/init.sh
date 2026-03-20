@@ -48,9 +48,10 @@ printf "🔄 Generando Prisma Client...\n"
 cd /app/backend && pnpm prisma generate
 
 printf "🔍 Verificando estado de migraciones...\n"
-if ! cd /app/backend && pnpm prisma migrate status > /dev/null 2>&1; then
-    printf "❌ Las migraciones no están aplicadas. Ejecuta:\n"
-    printf "   docker-compose run --rm migrate\n"
+# Verificar si todas las migraciones están aplicadas
+if ! cd /app/backend && pnpm prisma migrate status | grep -q "Database schema is up to date"; then
+    printf "❌ Las migraciones no están aplicadas o están desactualizadas. Ejecuta:\n"
+    printf "   docker exec workplace_backend sh -c 'cd /app/backend && pnpm prisma migrate deploy'\n"
     exit 1
 fi
 printf "✅ Migraciones verificadas\n"
