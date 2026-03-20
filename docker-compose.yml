@@ -3,28 +3,21 @@ services:
     image: postgres:16-alpine
     container_name: workplace_postgres
     restart: unless-stopped
-
     ports:
       - "5432:5432"
-
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      # Optimización encoding
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-    # Healthcheck real
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 5
       start_period: 20s
-
     networks:
       - app_network
 
@@ -32,24 +25,20 @@ services:
     image: redis:7-alpine
     container_name: workplace_redis
     restart: unless-stopped
-
     command: >
       redis-server
       --requirepass ${REDIS_PASSWORD}
       --appendonly yes
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
-
     volumes:
       - redis_data:/data
-
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
       start_period: 20s
-
     networks:
       - app_network
 
@@ -58,51 +47,34 @@ services:
       context: .
       dockerfile: backend/Dockerfile
       target: production
-
     container_name: workplace_backend
     restart: unless-stopped
-    
     env_file:
       - .env
-
-    ports:
-      - "3001:3001"
-
     environment:
       NODE_ENV: production
       PORT: 3001
       NODE_OPTIONS: --max-old-space-size=512
-
-      # DB
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-
-      # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-
-      # Auth
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
-
       FRONTEND_URL: ${FRONTEND_URL}
-
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-    # Healthcheck real del backend
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 20s
-
     networks:
       - app_network
 
@@ -111,76 +83,55 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       target: production
-
     container_name: workplace_frontend
     restart: unless-stopped
-
-    ports:
-      - "3000:3000"
-
     environment:
       NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL}
       NODE_OPTIONS: --max-old-space-size=256
-
-      # Nuxt 3
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: 3000
-
     depends_on:
       backend:
-        condition: service_healthy
-
+        condition: service_started
     networks:
       - app_network
 
-  # Servicio temporal para seed (se ejecuta y se elimina)
-  backend-seed:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-      target: production
-    
-    env_file:
-      - .env
-    
-    environment:
-      NODE_ENV: production
-      NODE_OPTIONS: --max-old-space-size=512
-      
-      # DB
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      
-      # Redis
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      
-      # Auth
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
-      
-      FRONTEND_URL: ${FRONTEND_URL}
-    
+  nginx:
+    image: nginx:1.23-alpine
+    container_name: workplace_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    
-    # Importante: no se reinicia, es temporal
-    restart: "no"
-    
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_started
     networks:
       - app_network
-    
-    profiles:
-      - seed  # Solo se inicia con --profile seed
+
+  certbot:
+    image: certbot/certbot
+    container_name: workplace_certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    entrypoint: >
+      /bin/sh -c "trap exit TERM; while :; do sleep 12h & wait $${!}; certbot renew --nginx; done;"
+    networks:
+      - app_network
 
 volumes:
   postgres_data:
   redis_data:
+  certbot-etc:
+  certbot-var:
 
 networks:
   app_network:

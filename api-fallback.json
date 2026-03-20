@@ -1,0 +1,23 @@
+{
+  "status": 503,
+  "error": "Service temporarily unavailable",
+  "message": "The backend API is currently down. Displaying fallback data.",
+  "retry_after": 60,
+  "data": {
+    "users": [],
+    "notifications": [],
+    "dashboard": {
+      "totalTasks": 0,
+      "completedTasks": 0,
+      "pendingTasks": 0
+    },
+    "recentActivity": [
+      {
+        "id": null,
+        "type": "info",
+        "message": "No activity available",
+        "timestamp": null
+      }
+    ]
+  }
+}
