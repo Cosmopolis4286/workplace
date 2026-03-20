@@ -30,25 +30,21 @@ COPY backend/prisma ./backend/prisma/
 
 WORKDIR /app/backend
 
-# Build + prisma
+# Build + prisma + seed
 RUN pnpm run prisma:generate \
     && pnpm run build \
     && mkdir -p dist-seed/prisma \
     && npx tsc prisma/seed.ts --outDir dist-seed/prisma --target ES2021 --module commonjs --esModuleInterop true --skipLibCheck true \
+    && find node_modules -name ".prisma" -type d | head -1 | xargs ls -la \
     && rm -rf /tmp/* /var/tmp/*
 
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
 
-# Instalar dependencias runtime + build temporales
+# Instalar dependencias runtime ultra mínimas
 RUN apk add --no-cache --no-interactive \
     dumb-init \
     ca-certificates \
-    openssl \
-    openssl-dev \
-    python3 \
-    make \
-    g++ \
     && addgroup -g 1001 -S app \
     && adduser -S -u 1001 -G app -s /sbin/nologin app \
     && corepack enable \
@@ -57,33 +53,18 @@ RUN apk add --no-cache --no-interactive \
 
 WORKDIR /app/backend
 
-# Archivos necesarios para instalar SOLO producción
-COPY backend/package.json ./package.json
-COPY pnpm-lock.yaml ./
-
-# Instalar deps y reconstruir módulos nativos
-RUN pnpm install --prod --no-frozen-lockfile --ignore-scripts \
-    && pnpm add -D prisma \
-    && pnpm rebuild bcrypt \
-    && pnpm store prune --force \
-    && rm -rf /root/.pnpm-store /tmp/*
-
-# Eliminar dependencias de build para reducir tamaño (mantener SSL)
-RUN apk del --no-network python3 make g++
-
-WORKDIR /app/backend
-
-# Copiar solo archivos esenciales desde build
+# Copiar todo lo necesario desde build (ya optimizado)
+COPY --from=build --chown=app:app /app/backend/package.json ./package.json
+COPY --from=build --chown=app:app /app/backend/node_modules ./node_modules/
 COPY --from=build --chown=app:app /app/backend/dist ./dist/
 COPY --from=build --chown=app:app /app/backend/prisma ./prisma/
 COPY --from=build --chown=app:app /app/backend/dist-seed ./dist-seed/
 COPY --chown=app:app scripts ./scripts/
 
-# Generar Prisma client en producción
-RUN pnpm exec prisma generate
-
-# Limpiar después de copiar
-RUN rm -rf /tmp/* /var/tmp/*
+# Limpiar caches y reducir tamaño
+RUN pnpm store prune --force \
+    && rm -rf /tmp/* /var/tmp/* /root/.local/share/pnpm \
+    && npm cache clean --force 2>/dev/null || true
 
 USER app
 

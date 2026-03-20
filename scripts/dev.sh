@@ -70,7 +70,7 @@ docker compose ps
 
 # Health checks
 echo "🏥 Verificando health checks..."
-if curl -s http://localhost:3001/health > /dev/null; then
+if curl -s http://localhost:3001/api/health > /dev/null; then
     echo "✅ Backend saludable"
 else
     echo "⚠️  Backend no responde (puede estar iniciando)"
