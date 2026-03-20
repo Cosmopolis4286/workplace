@@ -1,103 +1,70 @@
 # ---------- BUILD ----------
 FROM node:20-alpine AS build
 
-# Instalar dependencias de build mínimas
-RUN apk add --no-cache --no-interactive \
+RUN apk add --no-cache \
     python3 \
     make \
     g++ \
-    git \
     openssl-dev \
     && corepack enable \
-    && corepack prepare pnpm@9.15.0 --activate \
-    && rm -rf /var/cache/apk/*
+    && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
-# Archivos base
+# Base
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/package.json ./backend/
 
-# Instalar TODAS las deps (build necesita dev)
+# Instalar deps (cacheable)
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --no-frozen-lockfile \
-    && rm -rf /tmp/* /var/tmp/*
+    pnpm install
 
-# Código fuente
-COPY backend/tsconfig.json ./backend/
-COPY backend/src ./backend/src/
-COPY backend/prisma ./backend/prisma/
+# Código
+COPY backend ./backend
 
 WORKDIR /app/backend
 
-# Build + prisma + seed
-RUN pnpm run prisma:generate \
-    && pnpm run build \
-    && mkdir -p dist-seed/prisma \
-    && npx tsc prisma/seed.ts --outDir dist-seed/prisma --target ES2021 --module commonjs --esModuleInterop true --skipLibCheck true \
-    && find node_modules -name ".prisma" -type d | head -1 | xargs ls -la \
-    && rm -rf /tmp/* /var/tmp/*
-
-# ---------- MIGRATIONS ----------
-FROM node:20-alpine AS migrations
-
-# Instalar dependencias de build y SSL
-RUN apk add --no-cache --no-interactive \
-    python3 \
-    make \
-    g++ \
-    git \
-    openssl-dev \
-    openssl \
-    libssl3 \
-    && corepack enable \
-    && corepack prepare pnpm@9.15.0 --activate \
-    && rm -rf /var/cache/apk/*
-
-WORKDIR /app
-
-# Archivos base
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY backend/package.json ./backend/
-
-# Instalar TODAS las deps (incluyendo dev para Prisma CLI)
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --no-frozen-lockfile \
-    && rm -rf /tmp/* /var/tmp/*
-
-# Código fuente
-COPY backend/tsconfig.json ./backend/
-COPY backend/prisma ./backend/prisma/
-
-WORKDIR /app/backend
+# Build + prisma
+RUN pnpm prisma generate \
+    && pnpm build
 
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
 
-# Instalar dependencias runtime ultra mínimas
-RUN apk add --no-cache --no-interactive \
+RUN apk add --no-cache \
     dumb-init \
     ca-certificates \
-    && addgroup -g 1001 -S app \
-    && adduser -S -u 1001 -G app -s /sbin/nologin app \
+    openssl \
+    postgresql-client \
+    && addgroup -S app -g 1001 \
+    && adduser -S app -u 1001 -G app \
     && corepack enable \
-    && corepack prepare pnpm@9.15.0 --activate \
-    && rm -rf /var/cache/apk/* /tmp/* /var/tmp/* /usr/share/man/* /usr/share/doc/*
+    && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app/backend
 
-# Copiar todo lo necesario desde build (ya optimizado)
-COPY --from=build --chown=app:app /app/backend/package.json ./package.json
-COPY --from=build --chown=app:app /app/backend/node_modules ./node_modules/
-COPY --from=build --chown=app:app /app/backend/dist ./dist/
-COPY --from=build --chown=app:app /app/backend/prisma ./prisma/
-COPY --from=build --chown=app:app /app/backend/dist-seed ./dist-seed/
-COPY --chown=app:app scripts ./scripts/
+# Copiar package files
+COPY --from=build --chown=app:app /app/backend/package.json ./
+COPY --from=build --chown=app:app /app/pnpm-lock.yaml ./
 
-# Limpiar caches y reducir tamaño
-RUN pnpm store prune --force \
-    && rm -rf /tmp/* /var/tmp/* /root/.local/share/pnpm \
-    && npm cache clean --force 2>/dev/null || true
+# Instalar dependencias de producción
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --prod --no-frozen-lockfile \
+    && chown -R app:app node_modules \
+    && rm -rf /tmp/* /var/tmp/*
+
+# Copiar dist y prisma
+COPY --from=build --chown=app:app /app/backend/dist ./dist
+COPY --from=build --chown=app:app /app/backend/prisma ./prisma
+COPY --chown=app:app scripts ./scripts
+
+# 🔥 eliminar basura real
+RUN rm -rf \
+    node_modules/.cache \
+    /root/.npm \
+    /root/.local \
+    /tmp/* \
+    /var/tmp/*
 
 USER app
 
