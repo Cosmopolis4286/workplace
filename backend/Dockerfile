@@ -1,7 +1,7 @@
 # ---------- BUILD ----------
 FROM node:20-alpine AS build
 
-# Dependencias de build para Nest/Prisma
+# Dependencias para compilar Nest/Prisma
 RUN apk add --no-cache python3 make g++ git openssl-dev \
     && corepack enable \
     && corepack prepare pnpm@9.15.0 --activate
@@ -9,53 +9,48 @@ RUN apk add --no-cache python3 make g++ git openssl-dev \
 WORKDIR /app
 
 # Copiar lockfiles y package.json
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./ 
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/package.json ./backend/
 
-# Instalar todas las deps (dev + prod)
+# Instalar deps dev + prod con cache
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --prod=false
 
-# Copiar código backend y scripts
+# Copiar código backend
 COPY backend ./backend
-COPY scripts ./scripts
+COPY scripts/init.sh ./scripts/
+
 WORKDIR /app/backend
 
-# Generar Prisma y build de TS
-RUN pnpm prisma generate && pnpm build \
-    && echo "📁 Contents of dist/auth/dto after build:" \
-    && ls -la dist/auth/dto/ || echo "❌ dist/auth/dto not found" \
-    && echo "📁 All dist contents:" \
-    && find dist -name "*.js" | head -10 || echo "❌ No .js files found"
+# Generar Prisma Client y build de TS
+RUN rm -rf dist/ \
+    && pnpm prisma generate \
+    && pnpm build
 
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
 
-# Dependencias mínimas necesarias en prod
+# Dependencias mínimas
 RUN apk add --no-cache dumb-init ca-certificates openssl netcat-openbsd \
     && addgroup -S app -g 1001 \
     && adduser -S app -u 1001 -G app
 
 WORKDIR /app
 
-# Copiar package.json y lockfiles para instalar solo deps de producción
+# Copiar archivos necesarios desde build
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-
-# Instalar solo dependencias de producción
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    corepack enable && corepack prepare pnpm@9.15.0 --activate \
-    && pnpm install --frozen-lockfile --prod
-
-# Copiar archivos necesarios desde build
 COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/scripts ./scripts
 
-WORKDIR /app/backend
+# Instalar solo deps de producción
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    corepack enable && corepack prepare pnpm@9.15.0 --activate \
+    && pnpm install --frozen-lockfile --prod
 
-# Limpieza agresiva para reducir peso
+# Limpieza ultra-agresiva para reducir peso
 RUN rm -rf node_modules/.cache \
     && find node_modules -name "*.md" -delete \
     && find node_modules -name "*.txt" -delete \
@@ -63,16 +58,15 @@ RUN rm -rf node_modules/.cache \
     && find node_modules -name "CHANGELOG*" -delete \
     && find node_modules -name "README*" -delete \
     && find node_modules -name "*.map" -delete \
+    && find node_modules -name "*.ts" -delete \
     && find node_modules -name "test*" -type d -exec rm -rf {} + 2>/dev/null || true \
     && find node_modules -name "tests*" -type d -exec rm -rf {} + 2>/dev/null || true \
     && find node_modules -name "__tests__*" -type d -exec rm -rf {} + 2>/dev/null || true \
-    && find node_modules -name "*.ts" -delete \
     && find node_modules -name "src" -type d -exec rm -rf {} + 2>/dev/null || true \
     && rm -rf /tmp/* /var/tmp/* /root/.cache
 
-# Cambiar permisos para el usuario app
+# Permisos y usuario
 RUN chown -R app:app /app
-
 USER app
 
 ENV NODE_ENV=production
