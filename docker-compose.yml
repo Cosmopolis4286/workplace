@@ -4,6 +4,9 @@ services:
     container_name: workplace_postgres
     restart: unless-stopped
 
+    ports:
+      - "127.0.0.1:5432:5432"
+
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -18,7 +21,6 @@ services:
       timeout: 5s
       retries: 5
 
-    # 🔒 evita matar DB por falta de memoria
     shm_size: 256mb
 
     logging:
@@ -48,7 +50,7 @@ services:
       - redis_data:/data
 
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -94,16 +96,14 @@ services:
       redis:
         condition: service_healthy
 
-    # 🔥 health real (reinicio automático si muere)
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"]
       interval: 15s
       timeout: 3s
       retries: 3
 
-    # 🔒 límites (muy importante en producción)
     mem_limit: 512m
-    cpus: 0.50
+    cpus: 0.5
 
     logging:
       driver: json-file
@@ -132,11 +132,11 @@ services:
       NITRO_PORT: 3000
 
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
-    # 🔒 más ligero que backend
     mem_limit: 256m
-    cpus: 0.30
+    cpus: 0.3
 
     logging:
       driver: json-file
