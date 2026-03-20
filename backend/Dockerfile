@@ -57,15 +57,18 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts \
     && pnpm store prune --force \
     && rm -rf /root/.pnpm-store /tmp/*
 
+WORKDIR /app
+
 # Copiar solo archivos esenciales
 COPY --from=build --chown=app:app /app/backend/dist ./dist/
 COPY --from=build --chown=app:app /app/backend/prisma ./prisma/
+COPY --from=build --chown=app:app /app/backend/node_modules ./node_modules/
+COPY --chown=app:app backend/scripts ./scripts/
 
 # Limpiar después de copiar
 RUN rm -rf /tmp/* /var/tmp/*
 
 USER app
-WORKDIR /app/backend
 
 ENV NODE_ENV=production
 ENV PORT=3001
@@ -73,4 +76,4 @@ ENV PORT=3001
 EXPOSE 3001
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "/app/backend/scripts/init.sh"]
+CMD ["sh", "/app/scripts/init.sh"]

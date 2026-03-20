@@ -21,4 +21,4 @@ echo "✅ Postgres listo"
 
 echo "📝 NOTA: Las migraciones deben ejecutarse manualmente con 'docker-compose run --rm backend pnpm prisma migrate deploy'"
 echo "🚀 Iniciando aplicación..."
-exec pnpm start
+exec node dist/main.js
