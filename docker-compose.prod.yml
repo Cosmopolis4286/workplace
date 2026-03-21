@@ -108,7 +108,7 @@ services:
         condition: service_completed_successfully
 
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/health || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 5
