@@ -83,6 +83,7 @@ services:
       NODE_ENV: ${NODE_ENV}
       PORT: ${NODE_PORT}
       NODE_OPTIONS: --max-old-space-size=512
+      CI: true
 
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 
@@ -130,6 +131,7 @@ services:
       NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL}
       NITRO_HOST: ${NITRO_HOST}
       NITRO_PORT: ${FRONTEND_PORT}
+      CI: true
 
     depends_on:
       backend:

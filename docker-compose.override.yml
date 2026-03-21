@@ -10,7 +10,8 @@ services:
       - ./.env:/app/backend/.env:cached
     env_file:
       - ./.env
-    command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
+    working_dir: /app/backend
+    command: sh -c "pnpm install --frozen-lockfile && npx prisma generate && pnpm dev"
     ports:
       - "127.0.0.1:${NODE_PORT}:${NODE_PORT}"
     environment:
@@ -23,9 +24,10 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:${NODE_PORT}/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
-      interval: 15s
-      timeout: 3s
-      retries: 3
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
     mem_limit: 512m
     cpus: 0.5
 
@@ -43,7 +45,8 @@ services:
       - ./.env:/app/frontend/.env:cached
     env_file:
       - ./.env
-    command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
+    working_dir: /app/frontend
+    command: sh -c "npx pnpm install --frozen-lockfile && npx pnpm dev"
     ports:
       - "127.0.0.1:${FRONTEND_PORT}:${FRONTEND_PORT}"
     environment:
