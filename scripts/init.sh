@@ -58,4 +58,4 @@ printf "✅ Migraciones verificadas\n"
 
 # ---------- INICIAR APP ----------
 printf "🚀 Iniciando aplicación...\n"
-cd /app/backend && exec node dist/main.js
+cd /app/backend && exec node dist/src/main.js
