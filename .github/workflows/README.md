@@ -75,6 +75,11 @@ BACKEND_API_URL=http://localhost:3001
 NITRO_HOST=localhost
 ```
 
+**Importante:**
+- El archivo `.env` NO se sube al repositorio (está en .gitignore)
+- Copia este archivo manualmente al servidor de producción
+- Usa contraseñas seguras en producción
+
 ### 3. Configuración de Servidores
 
 #### Docker Compose - Diferencia entre entornos
@@ -233,6 +238,46 @@ docker-compose run --rm migrate
 
 # Verificar estado
 docker-compose run --rm backend pnpm prisma migrate status
+```
+
+## Troubleshooting
+
+### Desarrollo Local
+
+#### "dependency failed to start: container workplace_backend_dev is unhealthy"
+```bash
+# Verificar estado de los contenedores
+docker-compose ps
+
+# Revisar logs del backend
+docker-compose logs backend
+
+# Reiniciar servicios
+docker-compose down
+docker-compose up --build
+
+# Si persiste el error:
+# 1. Verificar archivo .env existe
+# 2. Limpiar volúmenes: docker-compose down -v
+# 3. Reconstruir: docker-compose build --no-cache
+```
+
+#### "no such file or directory" en producción
+```bash
+# Causa: Usando docker-compose.yml (desarrollo) en producción
+# Solución: Usar docker-compose.prod.yml
+
+# Verificar qué archivo se está usando
+ssh user@server "cd /opt/workplace && ls -la docker-compose*"
+```
+
+#### Permisos denegados
+```bash
+# Si mkdir falla en /opt/workplace:
+sudo mkdir -p /opt/workplace
+sudo chown $USER:$USER /opt/workplace
+
+# O usar /home/user/workplace (sin sudo)
 ```
 
 ## Best Practices
