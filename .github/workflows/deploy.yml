@@ -93,6 +93,11 @@ jobs:
     timeout-minutes: 25
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
     - name: Validate production deployment
       run: |
         echo "🔍 Validando entorno de producción..."
@@ -118,11 +123,6 @@ jobs:
         fi
         
         echo "✅ Validación exitosa - Desplegando a producción"
-
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
