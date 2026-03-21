@@ -7,6 +7,11 @@ import { AuditService } from './audit/audit.service';
 import { AuditLogger } from './audit/audit.logger';
 
 async function bootstrap() {
+  // ERROR INTENCIONAL PARA PROBAR ROLLBACK
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('ERROR_DE_PRUEBA_ROLLBACK: Este error activará el rollback automático');
+  }
+
   // Instantiate a dedicated PrismaClient for the logger (pre-DI)
   const loggerPrisma = new PrismaClient();
   const auditLogger = new AuditLogger(loggerPrisma);
