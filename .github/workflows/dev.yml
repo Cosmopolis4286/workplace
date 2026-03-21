@@ -168,13 +168,15 @@ jobs:
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
           # Verificar directorio
-          echo "🔍 Verificando directorio: /home/myapp/workplace-dev"
-          if [ ! -d "/home/myapp/workplace-dev" ]; then
-            echo "❌ El directorio no existe: /home/myapp/workplace-dev"
-            exit 1
+          echo "🔍 Verificando directorio: /opt/workplace-dev"
+          if [ ! -d "/opt/workplace-dev" ]; then
+            echo "❌ El directorio no existe: /opt/workplace-dev"
+            echo "🔧 Creando directorio..."
+            mkdir -p /opt/workplace-dev
+            echo "✅ Directorio creado"
           fi
           
-          cd /home/myapp/workplace-dev
+          cd /opt/workplace-dev
           
           # Verificar Docker está corriendo
           if ! docker info > /dev/null 2>&1; then
