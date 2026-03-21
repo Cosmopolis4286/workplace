@@ -58,7 +58,7 @@ jobs:
     - name: Install pnpm
       uses: pnpm/action-setup@v3
       with:
-        version: 9.15.0
+        version: 9.15.4
 
     - name: Install dependencies
       run: |
@@ -106,11 +106,15 @@ jobs:
         fi
         
         # Verificar que no es un push automático desde develop
-        if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_BASE_REF" == "refs/heads/develop" ]; then
-          echo "❌ Error: Los pushes desde develop están bloqueados en producción"
-          echo "📋 Base ref: $GITHUB_BASE_REF"
-          echo "🔄 Por favor, usa workflow_dispatch para despliegues manuales"
-          exit 1
+        if [ "$GITHUB_EVENT_NAME" == "push" ]; then
+          # Obtener información del commit para verificar si viene de develop
+          COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')
+          if echo "$COMMIT_MESSAGE" | grep -q "Merge branch 'develop'"; then
+            echo "❌ Error: Los merges desde develop están bloqueados en producción"
+            echo "📋 Mensaje del commit: $COMMIT_MESSAGE"
+            echo "🔄 Por favor, usa workflow_dispatch para despliegues manuales"
+            exit 1
+          fi
         fi
         
         echo "✅ Validación exitosa - Desplegando a producción"
@@ -152,7 +156,7 @@ jobs:
         cache-to: type=gha,mode=max
 
   deploy:
-    needs: build
+    needs: buildeploy
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true'
     timeout-minutes: 30
@@ -195,6 +199,7 @@ jobs:
           
           echo "💾 Backup de Postgres"
           BACKUP_FILE="backup_$(date +%F_%H-%M-%S).sql"
+          POSTGRES_USER=workplace
           if docker exec -t workplace_postgres pg_dumpall -U $POSTGRES_USER > "$BACKUP_FILE"; then
             echo "✅ Backup completado: $BACKUP_FILE"
           else
@@ -251,7 +256,7 @@ jobs:
       run: |
         sleep 10
         ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          cd /home/myapp/apps/workplace
+          cd /opt/workplace
           
           # Verificar que los contenedores estén corriendo
           if ! docker compose ps | grep -q "Up"; then
@@ -296,13 +301,13 @@ jobs:
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
           # Verificar directorio
-          echo "🔍 Verificando directorio: /home/myapp/apps/workplace"
-          if [ ! -d "/home/myapp/apps/workplace" ]; then
-            echo "❌ El directorio no existe: /home/myapp/apps/workplace"
+          echo "🔍 Verificando directorio: /opt/workplace"
+          if [ ! -d "/opt/workplace" ]; then
+            echo "❌ El directorio no existe: /opt/workplace"
             exit 1
           fi
           
-          cd /home/myapp/apps/workplace
+          cd /opt/workplace
           echo "🔄 Rolling back to previous version..."
           docker-compose down
           
