@@ -1,0 +1,30 @@
+# ---------- BASE ----------
+FROM node:20-alpine AS base
+
+# Instalar dependencias del sistema y pnpm
+RUN apk add --no-cache python3 make g++ git openssl-dev openssl \
+    && corepack enable \
+    && corepack prepare pnpm@9.15.0 --activate
+
+WORKDIR /app
+
+# ---------- BACKEND ----------
+FROM base AS backend
+
+# Copiar archivos de configuración
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY backend/package.json ./backend/
+COPY backend/prisma ./backend/prisma
+
+# Instalar dependencias del backend
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    cd backend && pnpm install --frozen-lockfile
+
+# Generar Prisma Client
+RUN cd backend && pnpm prisma generate
+
+WORKDIR /app/backend
+
+EXPOSE 3001
+
+CMD ["pnpm", "dev"]
