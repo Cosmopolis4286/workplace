@@ -65,7 +65,7 @@ cp .env.example .env
 | `JWT_REFRESH_SECRET`      | `super_secret_refresh_key_change_in_prod`  | Secreto del refresh token           |
 | `JWT_REFRESH_EXPIRES_IN`  | `7d`                                       | Duración del refresh token          |
 | `FRONTEND_URL`            | `http://localhost:3000`                    | Origin permitido en CORS            |
-| `NUXT_PUBLIC_API_URL`     | `http://localhost:3001/api`                    | URL del backend desde el frontend   |
+| `BACKEND_API_URL`     | `http://localhost:3001/api`                    | URL del backend desde el frontend   |
 
 ---
 

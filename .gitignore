@@ -11,6 +11,7 @@ node_modules/
 .yarn-integrity
 .npm
 .npmrc
+.pnpm-store/
 
 # ================================
 # Nuxt (frontend)

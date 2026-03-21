@@ -12,5 +12,8 @@
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
     "install:all": "pnpm install"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0"
   }
 }
