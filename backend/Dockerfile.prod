@@ -2,7 +2,7 @@
 FROM node:20-alpine AS build
 
 # Dependencias para compilar Nest/Prisma
-RUN apk add --no-cache python3 make g++ git openssl-dev \
+RUN apk add --no-cache python3 make g++ git openssl-dev openssl \
     && corepack enable \
     && corepack prepare pnpm@9.15.0 --activate
 
@@ -36,6 +36,9 @@ FROM node:20-alpine AS production
 # Variables opcionales, si no vienen del .env se puede dar un fallback
 ENV NITRO_LOG_LEVEL=error \
     NODE_OPTIONS="--max-old-space-size=512"
+
+# Instalar dependencias runtime mínimas
+RUN apk add --no-cache dumb-init ca-certificates
 
 # Copiar package.json y lockfiles para instalar dependencias
 COPY --from=build /app/backend/package.json ./backend/package.json
