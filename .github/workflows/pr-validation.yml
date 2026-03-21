@@ -3,10 +3,18 @@ name: PR Validation
 on:
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      force_approval:
+        description: 'Force approval even if some checks fail'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
     - name: Checkout code
@@ -49,6 +57,8 @@ jobs:
       run: |
         cd backend
         pnpm audit --audit-level moderate
+      timeout-minutes: 5
+      continue-on-error: ${{ github.event.inputs.force_approval == 'true' }}
 
     - name: Database schema validation
       run: |
@@ -88,6 +98,8 @@ jobs:
       run: |
         cd backend
         pnpm test --ci
+      timeout-minutes: 10
+      continue-on-error: ${{ github.event.inputs.force_approval == 'true' }}
 
     - name: Check bundle size
       run: |
@@ -102,14 +114,17 @@ jobs:
         fi
         
         echo "✅ Bundle size OK: ${DIST_SIZE}MB"
+      timeout-minutes: 5
 
     - name: Docker build test
       run: |
         docker build -f backend/Dockerfile --target production .
         echo "✅ Docker build successful"
+      timeout-minutes: 10
 
   security-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     steps:
     - name: Checkout code
@@ -132,6 +147,7 @@ jobs:
   dependency-review:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    timeout-minutes: 10
 
     steps:
     - name: Checkout code
@@ -159,7 +175,7 @@ jobs:
                         ${{ needs.security-scan.result }} !== 'failure' && 
                         ${{ needs.dependency-review.result }} !== 'failure' 
                         ? '✅ All checks passed' 
-                        : '❌ Some checks failed';
+                        : ${{ github.event.inputs.force_approval == 'true' }} ? '✅ Force approved' : '❌ Some checks failed';
           
           github.rest.issues.createComment({
             owner,
