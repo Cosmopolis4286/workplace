@@ -200,6 +200,16 @@ jobs:
 
           echo "🔍 Health check"
           docker compose ps
+          
+          # Verificar que los contenedores estén Up y saludables
+          echo "🔍 Verificando estado de contenedores..."
+          if ! docker compose ps | grep -q "Up.*Up.*Up"; then
+            echo "❌ Uno o más contenedores no están saludables"
+            docker compose logs --tail=50
+            exit 1
+          fi
+          
+          echo "✅ Todos los contenedores están saludables"
 
           docker logout
         EOF
