@@ -164,6 +164,9 @@ jobs:
           
           echo "🚀 Starting development deployment at $(date)"
           
+          # Login a Docker Hub para repositorio private
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u eiskerhc --password-stdin
+          
           # Verificar directorio
           echo "🔍 Verificando directorio: /opt/workplace-dev"
           if [ ! -d "/opt/workplace-dev" ]; then
@@ -205,8 +208,12 @@ jobs:
           echo "🔍 Verificando health de servicios"
           if docker-compose ps | grep -q "Up"; then
             echo "✅ Development environment updated successfully"
+            
+            # Logout de Docker Hub
+            docker logout
           else
             echo "❌ Services not running properly"
+            docker logout
             exit 1
           fi
         EOF
