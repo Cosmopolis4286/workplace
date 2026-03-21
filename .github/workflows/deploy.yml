@@ -136,18 +136,11 @@ jobs:
           
           # Crear directorio si no existe
           if [ ! -d "/root/apps/myapp/workplace" ]; then
-            echo "📁 Creando directorio del proyecto..."
-            sudo mkdir -p /root/apps/myapp/workplace
-            cd /root/apps/myapp/workplace
-            
-            # Clonar repositorio si es la primera vez
-            if [ ! -f "docker-compose.yml" ]; then
-              echo "📥 Clonando repositorio..."
-              git clone https://github.com/Cosmopolis4286/workplace.git .
-            fi
-          else
-            cd /root/apps/myapp/workplace
+            echo "❌ Directorio del proyecto no existe"
+            exit 1
           fi
+          
+          cd /root/apps/myapp/workplace
           
           echo "💾 Backup de Postgres"
           docker exec -t workplace_postgres pg_dumpall -U $POSTGRES_USER > /root/apps/myapp/workplace/backup_$(date +%F_%H-%M-%S).sql
@@ -178,18 +171,11 @@ jobs:
           
           # Crear directorio si no existe
           if [ ! -d "/root/apps/myapp/workplace" ]; then
-            echo "📁 Creando directorio del proyecto..."
-            mkdir -p /root/apps/myapp/workplace
-            cd /root/apps/myapp/workplace
-            
-            # Clonar repositorio si es la primera vez
-            if [ ! -f "docker-compose.yml" ]; then
-              echo "📥 Clonando repositorio..."
-              git clone https://github.com/Cosmopolis4286/workplace.git .
-            fi
-          else
-            cd /root/apps/myapp/workplace
+            echo "❌ Directorio del proyecto no existe"
+            exit 1
           fi
+          
+          cd /root/apps/myapp/workplace
           echo "🔄 Rolling back to previous version..."
           docker-compose down
           
