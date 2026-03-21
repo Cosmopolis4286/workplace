@@ -134,9 +134,10 @@ jobs:
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -e
           
-          # Crear directorio si no existe
+          # Verificar directorio
+          echo "🔍 Verificando directorio: /root/apps/myapp/workplace"
           if [ ! -d "/root/apps/myapp/workplace" ]; then
-            echo "❌ Directorio del proyecto no existe"
+            echo "❌ El directorio no existe: /root/apps/myapp/workplace"
             exit 1
           fi
           
@@ -169,9 +170,10 @@ jobs:
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -e
           
-          # Crear directorio si no existe
+          # Verificar directorio
+          echo "🔍 Verificando directorio: /root/apps/myapp/workplace"
           if [ ! -d "/root/apps/myapp/workplace" ]; then
-            echo "❌ Directorio del proyecto no existe"
+            echo "❌ El directorio no existe: /root/apps/myapp/workplace"
             exit 1
           fi
           
