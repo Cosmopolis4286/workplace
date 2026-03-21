@@ -97,7 +97,7 @@ jobs:
     - name: Unit tests
       run: |
         cd backend
-        pnpm test --coverage
+        pnpm test:ci
       timeout-minutes: 10
       continue-on-error: ${{ github.event.inputs.force_approval == 'true' }}
 

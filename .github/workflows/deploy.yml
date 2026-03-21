@@ -66,10 +66,10 @@ jobs:
         pnpm install --frozen-lockfile
       timeout-minutes: 5
 
-    - name: Run tests
+    - name: Run unit tests
       run: |
         cd backend
-        pnpm test
+        pnpm test:ci
       env:
         DATABASE_URL: postgresql://test:test@localhost:5432/test_db
         REDIS_HOST: localhost

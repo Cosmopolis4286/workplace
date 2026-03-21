@@ -80,7 +80,7 @@ jobs:
     - name: Run unit tests
       run: |
         cd backend
-        pnpm test --coverage
+        pnpm test:ci
       env:
         DATABASE_URL: postgresql://dev:dev@localhost:5432/workplace_dev
         REDIS_HOST: localhost
