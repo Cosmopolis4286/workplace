@@ -69,8 +69,8 @@ COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/scripts/init.sh ./scripts/init.sh
 
 # Generar cliente Prisma en producción
-WORKDIR /app/backend
-RUN pnpm exec prisma generate
+WORKDIR /app
+RUN pnpm exec prisma generate --schema ./backend/prisma/schema.prisma
 
 # Permisos y usuario
 RUN chown -R app:app /app
