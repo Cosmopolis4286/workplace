@@ -54,4 +54,4 @@ echo "✅ Migraciones aplicadas"
 
 # Iniciar aplicación
 echo "🚀 Iniciando aplicación backend..."
-exec node dist/main.js
+exec node /app/backend/dist/main.js
