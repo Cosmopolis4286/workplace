@@ -67,7 +67,7 @@ services:
     command: >
       sh -c "
         echo '⏳ Running migrations...' &&
-        pnpm prisma migrate deploy --skip-seed || echo 'Migrations already applied or failed' &&
+        npx prisma migrate deploy --skip-seed || echo 'Migrations already applied or failed' &&
         echo '✅ Done'
       "
 
