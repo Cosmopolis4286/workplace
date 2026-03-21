@@ -344,6 +344,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { useDashboard } from '~/composables/useDashboard'
 import { type Order, type OrderStatus } from '~/composables/useClienteDashboard'
+import OrderDetailModal from '~/components/modals/OrderDetailModal.vue'
 
 // ── Clock ────────────────────────────────────────────────────────────────────
 const currentTime = ref('')
