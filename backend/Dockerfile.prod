@@ -29,6 +29,23 @@ RUN pnpm prisma generate \
     && pnpm build \
     && pnpm exec tsc -p tsconfig.seed.json
 
+# Limpieza agresiva pero segura
+RUN rm -rf node_modules/.cache 2>/dev/null || true \
+    && find node_modules -name "*.md" -delete 2>/dev/null || true \
+    && find node_modules -name "*.txt" -delete 2>/dev/null || true \
+    && find node_modules -name "LICENSE*" -delete 2>/dev/null || true \
+    && find node_modules -name "CHANGELOG*" -delete 2>/dev/null || true \
+    && find node_modules -name "README*" -delete 2>/dev/null || true \
+    && find node_modules -name "*.map" -delete 2>/dev/null || true \
+    && find node_modules -name "test*" -type d -exec rm -rf {} + 2>/dev/null || true \
+    && find node_modules -name "tests*" -type d -exec rm -rf {} + 2>/dev/null || true \
+    && find node_modules -name "__tests__*" -type d -exec rm -rf {} + 2>/dev/null || true \
+    && find node_modules -name "*.ts" -delete 2>/dev/null || true \
+    && find node_modules -name "*.js" -not -path "*/node_modules/prisma/*" -not -path "*bcrypt*" -delete 2>/dev/null || true \
+    && find node_modules -name "d.ts" -not -path "*/node_modules/prisma/*" -delete 2>/dev/null || true \
+    && find node_modules -name "*.node" -not -path "*/node_modules/prisma/*" -not -path "*bcrypt*" -delete 2>/dev/null || true \
+    && rm -rf /tmp/* /var/tmp/* /root/.cache 2>/dev/null || true
+
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
 
@@ -55,6 +72,10 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     corepack enable && corepack prepare pnpm@9.15.0 --activate \
     && pnpm install --frozen-lockfile --prod --ignore-scripts
 
+# Generar cliente Prisma
+WORKDIR /app/backend
+RUN npx prisma@5.22.0 generate
+
 # Permisos y usuario no root
 RUN addgroup -S -g 1001 app && \
     adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G app app && \
@@ -64,4 +85,4 @@ USER app
 EXPOSE ${NODE_PORT}
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "/app/scripts/init.sh"]
+CMD ["sh", "/app/scripts/init-prod.sh"]
