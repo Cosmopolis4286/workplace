@@ -301,7 +301,7 @@ export function useClienteDashboard() {
   // ── Delete order ─────────────────────────────────────────────────────────────
   async function deleteOrder(id: string): Promise<boolean> {
     try {
-      await apiFetch(/orders/${id}`, { method: 'DELETE' })
+      await apiFetch(`/orders/${id}`, { method: 'DELETE' })
       orders.value = orders.value.filter(o => o.id !== id)
       await loadStats()
       return true
@@ -314,7 +314,7 @@ export function useClienteDashboard() {
   // ── Get single ───────────────────────────────────────────────────────────────
   async function getOrder(id: string): Promise<Order | null> {
     try {
-      return await apiFetch(/orders/${id}`)
+      return await apiFetch(`/orders/${id}`)
     } catch (e: any) {
       error.value = e.message
       return null
