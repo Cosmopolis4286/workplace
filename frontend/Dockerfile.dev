@@ -1,0 +1,24 @@
+# ---------- BASE ----------
+FROM node:20-alpine AS base
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# ---------- DEPENDENCIES ----------
+FROM base AS deps
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY frontend/package.json ./frontend/
+
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --prefer-offline
+
+# ---------- DEVELOPMENT ----------
+FROM deps AS development
+
+WORKDIR /app/frontend
+
+EXPOSE 3000
+
+CMD ["pnpm", "dev"]
