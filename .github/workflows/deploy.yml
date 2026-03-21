@@ -144,6 +144,19 @@ jobs:
         tags: ${{ steps.meta.outputs.tags }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        
+    - name: Verify built image
+      run: |
+        echo "🔍 Verificando que la imagen construida sea funcional..."
+        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace:main
+        
+        # Probar que la imagen tenga los archivos compilados
+        docker run --rm ${{ secrets.DOCKER_USERNAME }}/workplace:main ls -la /app/backend/dist/ || {
+          echo "❌ La imagen no tiene archivos compilados"
+          exit 1
+        }
+        
+        echo "✅ Imagen verificada correctamente"
 
   deploy:
     needs: buildeploy
