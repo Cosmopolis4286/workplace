@@ -151,16 +151,17 @@ jobs:
     if: failure() && github.ref == 'refs/heads/main'
 
     steps:
-    - name: Rollback deployment
-      uses: appleboy/ssh-action@v1.0.3
+    - name: Setup SSH key
+      uses: webfactory/ssh-agent@v0.9.1
       with:
-        host: ${{ secrets.PRODUCTION_HOST }}
-        username: ${{ secrets.PRODUCTION_USER }}
-        key: ${{ secrets.PRODUCTION_SSH_KEY }}
-        script: |
-          cd /opt/workplace
-          
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Rollback deployment
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -e
           echo "🔄 Rolling back to previous version..."
+          cd /home/${{ secrets.PRODUCTION_USER }}/workplace
           docker-compose down
           
           # Get latest backup image
@@ -171,10 +172,8 @@ jobs:
             docker-compose up -d
             
             echo "✅ Rollback completed"
-            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
-              -H 'Content-type: application/json' \
-              --data "{\"text\":\"🔄 Workplace rolled back to previous version\"}"
           else
             echo "❌ No backup image found for rollback"
             exit 1
           fi
+        EOF
