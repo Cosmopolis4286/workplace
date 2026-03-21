@@ -38,7 +38,7 @@ jobs:
     - name: Linting
       run: |
         cd backend
-        pnpm lint
+        pnpm lint:ci
 
     - name: Format check
       run: |

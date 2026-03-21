@@ -71,7 +71,7 @@ jobs:
     - name: Run linting
       run: |
         cd backend
-        pnpm lint
+        pnpm lint:ci
 
   build:
     needs: test
