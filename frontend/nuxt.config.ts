@@ -33,7 +33,7 @@ export default defineNuxtConfig({
     '~/plugins/auth.client.ts',
   ],
 
-  ssr: true,
+  ssr: false,
 
   runtimeConfig: {
     public: {
@@ -50,8 +50,10 @@ export default defineNuxtConfig({
   },
 
   vite: {
-    optimizeDeps: {
-      exclude: ['#app-manifest']
+    server: {
+      fs: {
+        allow: ['..']
+      }
     }
   }
 })

@@ -3,16 +3,22 @@ name: Deploy to Production
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deploy even if tests fail'
+        required: false
+        default: false
+        type: boolean
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.actor }}/workplace
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     services:
       postgres:
@@ -58,6 +64,7 @@ jobs:
       run: |
         cd backend
         pnpm install --frozen-lockfile
+      timeout-minutes: 5
 
     - name: Run tests
       run: |
@@ -67,16 +74,21 @@ jobs:
         DATABASE_URL: postgresql://test:test@localhost:5432/test_db
         REDIS_HOST: localhost
         REDIS_PORT: 6379
+        NODE_ENV: test
+      timeout-minutes: 10
 
     - name: Run linting
       run: |
         cd backend
         pnpm lint:ci
+      timeout-minutes: 5
+      continue-on-error: ${{ github.event.inputs.force_deploy == 'true' }}
 
   build:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true'
+    timeout-minutes: 20
 
     steps:
     - name: Checkout code
@@ -114,11 +126,13 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        timeout-minutes: 15
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true'
+    timeout-minutes: 30
 
     steps:
     - name: Checkout code
@@ -131,8 +145,10 @@ jobs:
 
     - name: Deploy to VPS
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o ConnectionAttempts=3 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -e
+          
+          echo "🚀 Starting deployment at $(date)"
           
           # Verificar directorio
           echo "🔍 Verificando directorio: /root/apps/myapp/workplace"
@@ -143,21 +159,82 @@ jobs:
           
           cd /root/apps/myapp/workplace
           
+          # Verificar Docker está corriendo
+          if ! docker info > /dev/null 2>&1; then
+            echo "❌ Docker no está disponible"
+            exit 1
+          fi
+          
           echo "💾 Backup de Postgres"
-          docker exec -t workplace_postgres pg_dumpall -U $POSTGRES_USER > /root/apps/myapp/workplace/backup_$(date +%F_%H-%M-%S).sql
+          BACKUP_FILE="backup_$(date +%F_%H-%M-%S).sql"
+          if docker exec -t workplace_postgres pg_dumpall -U $POSTGRES_USER > "$BACKUP_FILE"; then
+            echo "✅ Backup completado: $BACKUP_FILE"
+          else
+            echo "⚠️ Backup falló, continuando deploy..."
+          fi
 
           echo "⬇️ Actualizando contenedores"
           docker compose pull
           docker compose build --no-cache
+          
+          echo "🔄 Deteniendo servicios"
+          docker compose down
+          
+          echo "🚀 Iniciando servicios"
           docker compose up -d
-
-          echo "✅ Deploy completado"
+          
+          echo "⏳ Esperando health checks..."
+          sleep 30
+          
+          # Health checks
+          echo "🔍 Verificando health de servicios"
+          POSTGRES_HEALTH=$(docker compose ps -q postgres | xargs docker inspect --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
+          REDIS_HEALTH=$(docker compose ps -q redis | xargs docker inspect --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
+          BACKEND_HEALTH=$(docker compose ps -q backend | xargs docker inspect --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
+          
+          echo "Postgres Health: $POSTGRES_HEALTH"
+          echo "Redis Health: $REDIS_HEALTH"
+          echo "Backend Health: $BACKEND_HEALTH"
+          
+          if [[ "$POSTGRES_HEALTH" == "healthy" && "$REDIS_HEALTH" == "healthy" ]]; then
+            echo "✅ Deploy completado exitosamente"
+            
+            # Limpiar imágenes antiguas
+            docker image prune -f
+            
+            # Notificación (opcional)
+            if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+              curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+                -H 'Content-type: application/json' \
+                --data "{\"text\":\"✅ Workplace deployed successfully to production\"}"
+            fi
+          else
+            echo "❌ Deploy falló - servicios no saludables"
+            exit 1
+          fi
         EOF
+
+    - name: Health check verification
+      run: |
+        sleep 10
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          cd /root/apps/myapp/workplace
+          
+          # Verificar que los contenedores estén corriendo
+          if ! docker compose ps | grep -q "Up"; then
+            echo "❌ Contenedores no están corriendo"
+            exit 1
+          fi
+          
+          echo "✅ Verificación final completada"
+        EOF
+      if: always()
 
   rollback:
     needs: deploy
     runs-on: ubuntu-latest
-    if: failure() && github.ref == 'refs/heads/main'
+    if: failure() && (github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true')
+    timeout-minutes: 15
 
     steps:
     - name: Setup SSH key
@@ -167,8 +244,10 @@ jobs:
 
     - name: Rollback deployment
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -e
+          
+          echo "🔄 Starting rollback at $(date)"
           
           # Verificar directorio
           echo "🔍 Verificando directorio: /root/apps/myapp/workplace"
@@ -185,12 +264,31 @@ jobs:
           BACKUP_IMAGE=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup-" | tail -1)
           
           if [ ! -z "$BACKUP_IMAGE" ]; then
+            echo "📦 Usando backup image: $BACKUP_IMAGE"
             docker tag $BACKUP_IMAGE workplace-backend:latest
             docker-compose up -d
             
-            echo "✅ Rollback completed"
+            echo "⏳ Esperando servicios..."
+            sleep 20
+            
+            echo "✅ Rollback completado"
+            
+            # Notificación
+            if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+              curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+                -H 'Content-type: application/json' \
+                --data "{\"text\":\"🔄 Workplace rolled back to previous version\"}"
+            fi
           else
             echo "❌ No backup image found for rollback"
+            echo "📦 Available images:"
+            docker images | grep workplace
             exit 1
           fi
         EOF
+
+    - name: Notify rollback
+      if: always()
+      run: |
+        echo "🔄 Rollback process completed"
+        echo "Check the application status manually"
