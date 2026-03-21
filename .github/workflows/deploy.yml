@@ -159,6 +159,9 @@ jobs:
 
     - name: Deploy to VPS
       run: |
+        # Copiar docker-compose de producción
+        scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/docker-compose.yml
+        
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
 
