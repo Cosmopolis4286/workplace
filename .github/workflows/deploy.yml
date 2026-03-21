@@ -215,7 +215,7 @@ jobs:
   rollback:
     needs: deploy
     runs-on: ubuntu-latest
-    if: failure()
+    if: failure() || needs.deploy.result == 'failure'
 
     steps:
     - uses: webfactory/ssh-agent@v0.9.1
