@@ -116,6 +116,8 @@ services:
       - app_network
 
   migrate:
+    profiles:
+      - production
     build:
       context: .
       dockerfile: backend/Dockerfile
