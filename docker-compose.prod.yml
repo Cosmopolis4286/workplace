@@ -51,7 +51,7 @@ services:
       - app_network
 
   migrate:
-    image: ${DOCKER_IMAGE_BACKEND}
+    image: ${DOCKER_USER}/workplace:main
     container_name: workplace_migrate
 
     env_file:
@@ -77,7 +77,7 @@ services:
       - app_network
 
   backend:
-    image: ${DOCKER_IMAGE_BACKEND}
+    image: ${DOCKER_USER}/workplace:main
     container_name: workplace_backend
     restart: unless-stopped
     init: true
@@ -117,7 +117,7 @@ services:
       - app_network
 
   frontend:
-    image: ${DOCKER_IMAGE_FRONTEND}
+    image: ${DOCKER_USER}/workplace:main
     container_name: workplace_frontend
     restart: unless-stopped
     init: true
