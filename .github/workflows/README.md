@@ -80,11 +80,11 @@ NITRO_HOST=localhost
 #### Servidor de Producción
 ```bash
 # Crear directorio
-sudo mkdir -p /opt/workplace
-cd /opt/workplace
+mkdir -p ~/workplace
+cd ~/workplace
 
 # Copiar docker-compose.yml y .env
-scp docker-compose.yml .env production-user@production-server:/opt/workplace/
+scp docker-compose.yml .env production-user@production-server:~/workplace/
 
 # Instalar Docker y Docker Compose
 curl -fsSL https://get.docker.com -o get-docker.sh
@@ -97,9 +97,9 @@ docker-compose up -d
 
 #### Servidor de Desarrollo  
 ```bash
-# Similar setup pero en /opt/workplace-dev
-sudo mkdir -p /opt/workplace-dev
-cd /opt/workplace-dev
+# Similar setup pero en ~/workplace-dev
+mkdir -p ~/workplace-dev
+cd ~/workplace-dev
 ```
 
 ## Flujo de Deploy
@@ -186,7 +186,7 @@ fi
 ### Rollback manual
 ```bash
 # En servidor de producción
-cd /opt/workplace
+cd ~/workplace
 docker-compose down
 
 # Listar backups
@@ -200,6 +200,7 @@ docker-compose up -d
 ### Migraciones manuales
 ```bash
 # Ejecutar migraciones manualmente
+cd ~/workplace
 docker-compose run --rm migrate
 
 # Verificar estado
