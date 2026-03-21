@@ -7,94 +7,94 @@ import {
   IsIn,
   Min,
   Max,
-} from 'class-validator'
+} from 'class-validator';
 
 export class UpdateRestaurantInfoDto {
   @IsOptional()
   @IsString()
-  name?: string
+  name?: string;
 
   @IsOptional()
   @IsString()
-  type?: string
+  type?: string;
 
   @IsOptional()
   @IsString()
-  address?: string
+  address?: string;
 
   @IsOptional()
   @IsString()
-  phone?: string
+  phone?: string;
 
   @IsOptional()
   @IsString()
-  email?: string
+  email?: string;
 
   @IsOptional()
   @IsString()
-  schedule?: string
+  schedule?: string;
 }
 
 export class UpdatePaymentSettingsDto {
   @IsOptional()
   @IsString()
   @IsIn(['MXN', 'USD', 'EUR'])
-  currency?: string
+  currency?: string;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(100)
-  tax?: number
+  tax?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(100)
-  suggestedTip?: number
+  suggestedTip?: number;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  paymentMethods?: string[]
+  paymentMethods?: string[];
 }
 
 export class UpdateOperationSettingsDto {
   @IsOptional()
   @IsNumber()
   @Min(1)
-  avgPrepTime?: number
+  avgPrepTime?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(1)
-  avgDeliveryTime?: number
+  avgDeliveryTime?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  deliveryFee?: number
+  deliveryFee?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  freeDeliveryMinimum?: number
+  freeDeliveryMinimum?: number;
 }
 
 export class UpdateNotificationSettingsDto {
   @IsOptional()
   @IsBoolean()
-  notifyNewOrders?: boolean
+  notifyNewOrders?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  notifyLowStock?: boolean
+  notifyLowStock?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  notifyDailyReports?: boolean
+  notifyDailyReports?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  notifyCustomerReviews?: boolean
+  notifyCustomerReviews?: boolean;
 }

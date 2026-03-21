@@ -8,43 +8,43 @@ import {
   Min,
   Max,
   MaxLength,
-} from 'class-validator'
-import { AppointmentStatus } from '@prisma/client'
+} from 'class-validator';
+import { AppointmentStatus } from '@prisma/client';
 
 export class CreateAppointmentDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  customerName: string
+  customerName: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(30)
-  customerPhone?: string
+  customerPhone?: string;
 
   @IsOptional()
   @IsString()
-  customerId?: string
+  customerId?: string;
 
   @IsDateString()
-  date: string
+  date: string;
 
   @IsInt()
   @Min(1)
   @Max(100)
-  partySize: number
+  partySize: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
-  tableNumber?: number
+  tableNumber?: number;
 
   @IsOptional()
   @IsString()
   @MaxLength(500)
-  notes?: string
+  notes?: string;
 
   @IsOptional()
   @IsEnum(AppointmentStatus)
-  status?: AppointmentStatus
+  status?: AppointmentStatus;
 }

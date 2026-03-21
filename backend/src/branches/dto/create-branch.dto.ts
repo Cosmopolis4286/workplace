@@ -6,55 +6,57 @@ import {
   IsEnum,
   MaxLength,
   Matches,
-} from 'class-validator'
-import { BranchStatus } from '@prisma/client'
+} from 'class-validator';
+import { BranchStatus } from '@prisma/client';
 
 export class CreateBranchDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  name: string
+  name: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(200)
-  address?: string
+  address?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(30)
-  phone?: string
+  phone?: string;
 
   @IsOptional()
   @IsEmail()
-  email?: string
+  email?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(50)
-  type?: string
+  type?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  managerName?: string
+  managerName?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(30)
-  managerPhone?: string
+  managerPhone?: string;
 
   @IsOptional()
   @IsEnum(BranchStatus)
-  status?: BranchStatus
+  status?: BranchStatus;
 
   @IsOptional()
   @IsString()
-  @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'El color debe ser un código hexadecimal válido' })
-  color?: string
+  @Matches(/^#[0-9a-fA-F]{6}$/, {
+    message: 'El color debe ser un código hexadecimal válido',
+  })
+  color?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(500)
-  notes?: string
+  notes?: string;
 }

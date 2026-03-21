@@ -10,14 +10,14 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-} from '@nestjs/common'
-import { EmployeesService } from './employees.service'
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
-import { PermissionsGuard } from '../common/guards/permissions.guard'
-import { RequirePermission } from '../common/decorators/require-permission.decorator'
-import { CurrentUser } from '../common/decorators/current-user.decorator'
-import { CreateEmployeeDto } from './dto/create-employee.dto'
-import { UpdateEmployeeDto } from './dto/update-employee.dto'
+} from '@nestjs/common';
+import { EmployeesService } from './employees.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CreateEmployeeDto } from './dto/create-employee.dto';
+import { UpdateEmployeeDto } from './dto/update-employee.dto';
 
 @Controller('employees')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -27,25 +27,25 @@ export class EmployeesController {
   @Get('stats')
   @RequirePermission('employees:view')
   getStats(@CurrentUser() user: { id: string }) {
-    return this.employeesService.getStats(user.id)
+    return this.employeesService.getStats(user.id);
   }
 
   @Get()
   @RequirePermission('employees:view')
   findAll(@CurrentUser() user: { id: string }) {
-    return this.employeesService.findAll(user.id)
+    return this.employeesService.findAll(user.id);
   }
 
   @Get(':id')
   @RequirePermission('employees:view')
   findOne(@CurrentUser() user: { id: string }, @Param('id') id: string) {
-    return this.employeesService.findOne(user.id, id)
+    return this.employeesService.findOne(user.id, id);
   }
 
   @Post()
   @RequirePermission('employees:create')
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateEmployeeDto) {
-    return this.employeesService.create(user.id, dto)
+    return this.employeesService.create(user.id, dto);
   }
 
   @Put(':id')
@@ -53,21 +53,21 @@ export class EmployeesController {
   update(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
-    @Body() dto: UpdateEmployeeDto,
+    @Body() dto: UpdateEmployeeDto
   ) {
-    return this.employeesService.update(user.id, id, dto)
+    return this.employeesService.update(user.id, id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission('employees:delete')
   remove(@CurrentUser() user: { id: string }, @Param('id') id: string) {
-    return this.employeesService.remove(user.id, id)
+    return this.employeesService.remove(user.id, id);
   }
 
   @Patch(':id/toggle-status')
   @RequirePermission('employees:edit')
   toggleStatus(@CurrentUser() user: { id: string }, @Param('id') id: string) {
-    return this.employeesService.toggleStatus(user.id, id)
+    return this.employeesService.toggleStatus(user.id, id);
   }
 }

@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common'
-import { JwtModule } from '@nestjs/jwt'
-import { ConfigModule, ConfigService } from '@nestjs/config'
-import { PrismaModule } from '../prisma/prisma.module'
-import { NotificationsController } from './notifications.controller'
-import { NotificationsService } from './notifications.service'
-import { NotificationsGateway } from './notifications.gateway'
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PrismaModule } from '../prisma/prisma.module';
+import { NotificationsController } from './notifications.controller';
+import { NotificationsService } from './notifications.service';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Module({
   imports: [
@@ -18,7 +18,7 @@ import { NotificationsGateway } from './notifications.gateway'
     }),
   ],
   controllers: [NotificationsController],
-  providers:   [NotificationsGateway, NotificationsService],
-  exports:     [NotificationsService],
+  providers: [NotificationsGateway, NotificationsService],
+  exports: [NotificationsService],
 })
 export class NotificationsModule {}

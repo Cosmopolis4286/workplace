@@ -9,67 +9,67 @@ import {
   IsDateString,
   MaxLength,
   Min,
-} from 'class-validator'
-import { EmployeeRole, EmployeeStatus } from '@prisma/client'
+} from 'class-validator';
+import { EmployeeRole, EmployeeStatus } from '@prisma/client';
 
 export class CreateEmployeeDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  firstName: string
+  firstName: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  lastName: string
+  lastName: string;
 
   @IsOptional()
   @IsEmail()
-  email?: string
+  email?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(30)
-  phone?: string
+  phone?: string;
 
   @IsOptional()
   @IsEnum(EmployeeRole)
-  role?: EmployeeRole
+  role?: EmployeeRole;
 
   @IsOptional()
   @IsEnum(EmployeeStatus)
-  status?: EmployeeStatus
+  status?: EmployeeStatus;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  salary?: number
+  salary?: number;
 
   @IsOptional()
   @IsDateString()
-  hireDate?: string
+  hireDate?: string;
 
   @IsOptional()
   @IsDateString()
-  birthDate?: string
+  birthDate?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(200)
-  address?: string
+  address?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  emergencyContact?: string
+  emergencyContact?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(30)
-  emergencyPhone?: string
+  emergencyPhone?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(500)
-  notes?: string
+  notes?: string;
 }

@@ -4,35 +4,35 @@ import {
   IsOptional,
   IsEnum,
   MaxLength,
-} from 'class-validator'
-import { DriverStatus, VehicleType } from '@prisma/client'
+} from 'class-validator';
+import { DriverStatus, VehicleType } from '@prisma/client';
 
 export class CreateDriverDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  name: string
+  name: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(30)
-  phone?: string
+  phone?: string;
 
   @IsOptional()
   @IsEnum(VehicleType)
-  vehicleType?: VehicleType
+  vehicleType?: VehicleType;
 
   @IsOptional()
   @IsString()
   @MaxLength(20)
-  vehiclePlate?: string
+  vehiclePlate?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(60)
-  vehicleModel?: string
+  vehicleModel?: string;
 
   @IsOptional()
   @IsEnum(DriverStatus)
-  status?: DriverStatus
+  status?: DriverStatus;
 }

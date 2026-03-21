@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsNumberString, IsEnum } from 'class-validator'
-import { ServiceStatus } from '@prisma/client'
+import { IsOptional, IsString, IsNumberString, IsEnum } from 'class-validator';
+import { ServiceStatus } from '@prisma/client';
 
 export enum ServiceSortBy {
   RELEVANCE = 'relevance',
@@ -12,25 +12,25 @@ export enum ServiceSortBy {
 export class QueryServicesDto {
   @IsOptional()
   @IsString()
-  search?: string
+  search?: string;
 
   @IsOptional()
   @IsString()
-  categoryId?: string
+  categoryId?: string;
 
   @IsOptional()
   @IsString()
-  userId?: string
+  userId?: string;
 
   @IsOptional()
   @IsEnum(ServiceSortBy)
-  sort?: ServiceSortBy = ServiceSortBy.RELEVANCE
+  sort?: ServiceSortBy = ServiceSortBy.RELEVANCE;
 
   @IsOptional()
   @IsNumberString()
-  page?: string
+  page?: string;
 
   @IsOptional()
   @IsNumberString()
-  limit?: string
+  limit?: string;
 }

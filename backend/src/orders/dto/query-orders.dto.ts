@@ -1,32 +1,32 @@
-import { IsOptional, IsEnum, IsNumberString, IsString } from 'class-validator'
-import { OrderStatus, OrderType } from '@prisma/client'
+import { IsOptional, IsEnum, IsNumberString, IsString } from 'class-validator';
+import { OrderStatus, OrderType } from '@prisma/client';
 
 export class QueryOrdersDto {
   @IsOptional()
   @IsEnum(OrderStatus)
-  status?: OrderStatus
+  status?: OrderStatus;
 
   @IsOptional()
   @IsEnum(OrderType)
-  orderType?: OrderType
+  orderType?: OrderType;
 
   @IsOptional()
   @IsString()
-  search?: string
+  search?: string;
 
   @IsOptional()
   @IsString()
-  dateFrom?: string
+  dateFrom?: string;
 
   @IsOptional()
   @IsString()
-  dateTo?: string
+  dateTo?: string;
 
   @IsOptional()
   @IsNumberString()
-  page?: string
+  page?: string;
 
   @IsOptional()
   @IsNumberString()
-  limit?: string
+  limit?: string;
 }

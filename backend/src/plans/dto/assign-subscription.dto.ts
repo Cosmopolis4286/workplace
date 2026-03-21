@@ -5,42 +5,42 @@ import {
   IsDateString,
   IsNumber,
   Min,
-} from 'class-validator'
-import { BillingInterval, SubscriptionStatus } from '@prisma/client'
+} from 'class-validator';
+import { BillingInterval, SubscriptionStatus } from '@prisma/client';
 
 export class AssignSubscriptionDto {
   @IsString()
-  userId: string
+  userId: string;
 
   @IsString()
-  planId: string
+  planId: string;
 
   @IsOptional()
   @IsEnum(BillingInterval)
-  interval?: BillingInterval
+  interval?: BillingInterval;
 
   @IsOptional()
   @IsEnum(SubscriptionStatus)
-  status?: SubscriptionStatus
+  status?: SubscriptionStatus;
 
   @IsOptional()
   @IsDateString()
-  startAt?: string
+  startAt?: string;
 
   @IsOptional()
   @IsDateString()
-  endAt?: string
+  endAt?: string;
 
   @IsOptional()
   @IsDateString()
-  trialEnds?: string
+  trialEnds?: string;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  pricePaid?: number
+  pricePaid?: number;
 
   @IsOptional()
   @IsString()
-  notes?: string
+  notes?: string;
 }

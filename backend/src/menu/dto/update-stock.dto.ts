@@ -1,4 +1,4 @@
-import { IsInt, IsEnum, Min } from 'class-validator'
+import { IsInt, IsEnum, Min } from 'class-validator';
 
 export enum StockUpdateType {
   SET = 'set',
@@ -9,8 +9,8 @@ export enum StockUpdateType {
 export class UpdateStockDto {
   @IsInt()
   @Min(0)
-  quantity: number
+  quantity: number;
 
   @IsEnum(StockUpdateType)
-  type: StockUpdateType
+  type: StockUpdateType;
 }

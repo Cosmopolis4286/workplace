@@ -1,4 +1,12 @@
-import { IsString, IsNumber, IsBoolean, IsOptional, Min, MaxLength, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  Min,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class CreateExchangeRateDto {
   @IsString()

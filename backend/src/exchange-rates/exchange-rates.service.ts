@@ -47,7 +47,9 @@ export class ExchangeRatesService {
       where: { code: dto.code.toUpperCase() },
     });
     if (existing) {
-      throw new ConflictException(`Ya existe una tasa para el código ${dto.code.toUpperCase()}`);
+      throw new ConflictException(
+        `Ya existe una tasa para el código ${dto.code.toUpperCase()}`
+      );
     }
 
     // If setting as default, unset previous default
@@ -78,7 +80,9 @@ export class ExchangeRatesService {
         where: { code: dto.code.toUpperCase(), id: { not: id } },
       });
       if (conflict) {
-        throw new ConflictException(`Ya existe una tasa para el código ${dto.code.toUpperCase()}`);
+        throw new ConflictException(
+          `Ya existe una tasa para el código ${dto.code.toUpperCase()}`
+        );
       }
     }
 
@@ -103,7 +107,9 @@ export class ExchangeRatesService {
   async setDefault(id: string, userId: string) {
     const rate = await this.findOne(id);
     if (!rate.isActive) {
-      throw new BadRequestException('No se puede establecer como predeterminada una tasa inactiva');
+      throw new BadRequestException(
+        'No se puede establecer como predeterminada una tasa inactiva'
+      );
     }
 
     await this.prisma.exchangeRate.updateMany({
@@ -121,7 +127,9 @@ export class ExchangeRatesService {
     const rate = await this.findOne(id);
 
     if (rate.isDefault && rate.isActive) {
-      throw new BadRequestException('No se puede desactivar la tasa predeterminada');
+      throw new BadRequestException(
+        'No se puede desactivar la tasa predeterminada'
+      );
     }
 
     return this.prisma.exchangeRate.update({
@@ -133,7 +141,9 @@ export class ExchangeRatesService {
   async remove(id: string) {
     const rate = await this.findOne(id);
     if (rate.isDefault) {
-      throw new BadRequestException('No se puede eliminar la tasa predeterminada');
+      throw new BadRequestException(
+        'No se puede eliminar la tasa predeterminada'
+      );
     }
     return this.prisma.exchangeRate.delete({ where: { id } });
   }
@@ -166,7 +176,7 @@ export class ExchangeRatesService {
           rate: r.rateToUsd,
           converted: +(amountUsd * r.rateToUsd).toFixed(2),
           isDefault: r.isDefault,
-        })),
+        }))
       );
   }
 }

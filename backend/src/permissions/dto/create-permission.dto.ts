@@ -1,23 +1,23 @@
-import { IsString, IsOptional, IsBoolean } from 'class-validator'
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreatePermissionDto {
   @IsString()
-  key: string // e.g. "reports:export"
+  key: string; // e.g. "reports:export"
 
   @IsString()
-  module: string // e.g. "reports"
+  module: string; // e.g. "reports"
 
   @IsString()
-  action: string // e.g. "export"
+  action: string; // e.g. "export"
 
   @IsString()
-  label: string
+  label: string;
 
   @IsOptional()
   @IsString()
-  description?: string
+  description?: string;
 
   @IsOptional()
   @IsBoolean()
-  isSystem?: boolean
+  isSystem?: boolean;
 }

@@ -1,5 +1,5 @@
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator'
-import { Type } from 'class-transformer'
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum CatalogSortBy {
   RELEVANCE = 'relevance',
@@ -11,30 +11,30 @@ export enum CatalogSortBy {
 export class QueryCatalogDto {
   @IsOptional()
   @IsString()
-  search?: string
+  search?: string;
 
   @IsOptional()
   @IsString()
-  categoryName?: string
+  categoryName?: string;
 
   @IsOptional()
   @IsString()
-  commerceId?: string
+  commerceId?: string;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page?: number = 1
+  page?: number = 1;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(40)
-  limit?: number = 20
+  limit?: number = 20;
 
   @IsOptional()
   @IsEnum(CatalogSortBy)
-  sort?: CatalogSortBy = CatalogSortBy.RELEVANCE
+  sort?: CatalogSortBy = CatalogSortBy.RELEVANCE;
 }

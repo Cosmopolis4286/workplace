@@ -1,79 +1,85 @@
 import {
-  IsString, IsOptional, IsEnum, IsArray, ValidateNested,
-  IsNumber, Min, IsDateString
-} from 'class-validator'
-import { Type } from 'class-transformer'
-import { OrderType, PaymentMethod } from '@prisma/client'
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+  Min,
+  IsDateString,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { OrderType, PaymentMethod } from '@prisma/client';
 
 export class CreateOrderItemDto {
   @IsOptional()
   @IsString()
-  productId?: string
+  productId?: string;
 
   @IsString()
-  productName: string
+  productName: string;
 
   @IsNumber()
   @Min(1)
-  quantity: number
+  quantity: number;
 
   @IsNumber()
   @Min(0)
-  unitPrice: number
+  unitPrice: number;
 
   @IsOptional()
   @IsString()
-  notes?: string
+  notes?: string;
 }
 
 export class CreateOrderDto {
   @IsString()
-  customerName: string
+  customerName: string;
 
   @IsOptional()
   @IsString()
-  customerPhone?: string
+  customerPhone?: string;
 
   @IsOptional()
   @IsString()
-  customerEmail?: string
+  customerEmail?: string;
 
   @IsOptional()
   @IsString()
-  deliveryAddress?: string
+  deliveryAddress?: string;
 
   @IsOptional()
   @IsString()
-  notes?: string
+  notes?: string;
 
   @IsOptional()
   @IsEnum(OrderType)
-  orderType?: OrderType
+  orderType?: OrderType;
 
   @IsOptional()
   @IsEnum(PaymentMethod)
-  paymentMethod?: PaymentMethod
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  deliveryFee?: number
+  deliveryFee?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  discount?: number
+  discount?: number;
 
   @IsOptional()
   @IsDateString()
-  scheduledAt?: string
+  scheduledAt?: string;
 
   @IsOptional()
   @IsString()
-  customerId?: string
+  customerId?: string;
 
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
-  items: CreateOrderItemDto[]
+  items: CreateOrderItemDto[];
 }

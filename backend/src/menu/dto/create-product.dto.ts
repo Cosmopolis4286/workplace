@@ -8,7 +8,7 @@ import {
   IsArray,
   IsEnum,
   Min,
-} from 'class-validator'
+} from 'class-validator';
 
 export enum ProductStatusDto {
   DISPONIBLE = 'DISPONIBLE',
@@ -20,69 +20,69 @@ export enum ProductStatusDto {
 export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
-  name: string
+  name: string;
 
   @IsOptional()
   @IsString()
-  description?: string
+  description?: string;
 
   @IsNumber()
   @Min(0)
-  price: number
+  price: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  cost?: number
+  cost?: number;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  stock?: number
+  stock?: number;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  minStock?: number
+  minStock?: number;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  maxStock?: number
+  maxStock?: number;
 
   @IsOptional()
   @IsString()
-  unit?: string
+  unit?: string;
 
   @IsOptional()
   @IsEnum(ProductStatusDto)
-  status?: ProductStatusDto
+  status?: ProductStatusDto;
 
   @IsOptional()
   @IsUrl()
-  image?: string
+  image?: string;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  preparationTime?: number
+  preparationTime?: number;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  calories?: number
+  calories?: number;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  ingredients?: string[]
+  ingredients?: string[];
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  allergens?: string[]
+  allergens?: string[];
 
   @IsString()
   @IsNotEmpty()
-  categoryId: string
+  categoryId: string;
 }

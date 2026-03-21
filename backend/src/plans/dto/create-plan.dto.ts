@@ -6,77 +6,77 @@ import {
   IsArray,
   IsEnum,
   Min,
-} from 'class-validator'
-import { PlanStatus } from '@prisma/client'
+} from 'class-validator';
+import { PlanStatus } from '@prisma/client';
 
 export class CreatePlanDto {
   @IsString()
-  name: string
+  name: string;
 
   @IsOptional()
   @IsString()
-  description?: string
+  description?: string;
 
   @IsNumber()
   @Min(0)
-  price: number
+  price: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  priceAnnual?: number
+  priceAnnual?: number;
 
   @IsOptional()
   @IsEnum(PlanStatus)
-  status?: PlanStatus
+  status?: PlanStatus;
 
   @IsOptional()
   @IsBoolean()
-  isPopular?: boolean
+  isPopular?: boolean;
 
   @IsOptional()
   @IsString()
-  color?: string
+  color?: string;
 
   @IsOptional()
   @IsNumber()
-  sortOrder?: number
+  sortOrder?: number;
 
   @IsOptional()
   @IsBoolean()
-  forCommerce?: boolean
+  forCommerce?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  forFreelancer?: boolean
+  forFreelancer?: boolean;
 
   @IsOptional()
   @IsNumber()
-  maxProducts?: number
+  maxProducts?: number;
 
   @IsOptional()
   @IsNumber()
-  maxEmployees?: number
+  maxEmployees?: number;
 
   @IsOptional()
   @IsNumber()
-  maxBranches?: number
+  maxBranches?: number;
 
   @IsOptional()
   @IsNumber()
-  maxOrders?: number
+  maxOrders?: number;
 
   @IsOptional()
   @IsNumber()
-  maxStorage?: number
+  maxStorage?: number;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  features?: string[]
+  features?: string[];
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  enabledModules?: string[]
+  enabledModules?: string[];
 }
