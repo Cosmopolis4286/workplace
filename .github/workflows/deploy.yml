@@ -201,11 +201,28 @@ jobs:
           echo "🔍 Health check"
           docker compose ps
           
-          # Verificar que los contenedores estén Up y saludables
+          # Verificación más robusta del estado
           echo "🔍 Verificando estado de contenedores..."
-          if ! docker compose ps | grep -q "Up.*Up.*Up"; then
-            echo "❌ Uno o más contenedores no están saludables"
-            docker compose logs --tail=50
+          
+          # Contar contenedores Up
+          UP_COUNT=$(docker compose ps --services | wc -l)
+          HEALTHY_COUNT=$(docker compose ps | grep -c "Up" || echo "0")
+          
+          echo "Contenedores esperados: $UP_COUNT"
+          echo "Contenedores saludables: $HEALTHY_COUNT"
+          
+          if [ "$HEALTHY_COUNT" -lt "$UP_COUNT" ]; then
+            echo "❌ Contenedores no saludables"
+            echo "📋 Logs de contenedores con problemas:"
+            docker compose ps
+            docker compose logs --tail=20
+            exit 1
+          fi
+          
+          # Verificación específica del backend
+          if ! docker compose ps backend | grep -q "Up"; then
+            echo "❌ Backend no está Up"
+            docker compose logs backend --tail=30
             exit 1
           fi
           
