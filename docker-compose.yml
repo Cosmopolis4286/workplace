@@ -128,7 +128,7 @@ services:
       - "127.0.0.1:${FRONTEND_PORT}:${FRONTEND_PORT}"
 
     environment:
-      NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL}
+      BACKEND_API_URL: ${BACKEND_API_URL}
       NITRO_HOST: ${NITRO_HOST}
       NITRO_PORT: ${FRONTEND_PORT}
       CI: true

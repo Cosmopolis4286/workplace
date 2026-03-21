@@ -41,17 +41,20 @@ services:
         condition: service_healthy
     volumes:
       - ./frontend:/app/frontend:cached
-      - /app/frontend/node_modules
+      - frontend_node_modules:/app/frontend/node_modules
       - ./.env:/app/frontend/.env:cached
     env_file:
       - ./.env
     working_dir: /app/frontend
-    command: sh -c "npx pnpm install --frozen-lockfile && npx pnpm dev"
+    command: sh -c "npx pnpm install --no-frozen-lockfile && npx pnpm dev"
     ports:
       - "127.0.0.1:${FRONTEND_PORT}:${FRONTEND_PORT}"
     environment:
       NITRO_HOST: ${NITRO_HOST}
       NITRO_PORT: ${FRONTEND_PORT}
-      NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL}
+      BACKEND_API_URL: ${BACKEND_API_URL}
     mem_limit: 256m
     cpus: 0.3
+
+volumes:
+  frontend_node_modules:
