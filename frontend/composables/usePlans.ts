@@ -1,4 +1,6 @@
 import { ref, computed } from 'vue'
+import { useRuntimeConfig } from 'nuxt/app'
+import { useAuth } from '~/composables/useAuth'
 
 export interface Plan {
   id: string
@@ -154,14 +156,14 @@ export function usePlans() {
       method: 'PUT',
       body: JSON.stringify(dto),
     })
-    const idx = plans.value.findIndex(p => p.id === id)
+    const idx = plans.value.findIndex((p: Plan) => p.id === id)
     if (idx >= 0) plans.value[idx] = data
     return data
   }
 
   async function deletePlan(id: string) {
     await apiFetch(`/plans/${id}`, { method: 'DELETE' })
-    plans.value = plans.value.filter(p => p.id !== id)
+    plans.value = plans.value.filter((p: Plan) => p.id !== id)
   }
 
   // ─── Subscriptions ────────────────────────────────────────────────────────────
@@ -205,7 +207,7 @@ export function usePlans() {
 
   async function cancelSubscription(id: string) {
     await apiFetch(`/plans/subscriptions/${id}`, { method: 'DELETE' })
-    const idx = subscriptions.value.findIndex(s => s.id === id)
+    const idx = subscriptions.value.findIndex((s: Subscription) => s.id === id)
     if (idx >= 0) subscriptions.value[idx].status = 'CANCELLED'
   }
 
@@ -258,8 +260,8 @@ export function usePlans() {
     }
   }
 
-  const activePlans = computed(() => plans.value.filter(p => p.status === 'ACTIVE'))
-  const inactivePlans = computed(() => plans.value.filter(p => p.status === 'INACTIVE'))
+  const activePlans = computed(() => plans.value.filter((p: Plan) => p.status === 'ACTIVE'))
+  const inactivePlans = computed(() => plans.value.filter((p: Plan) => p.status === 'INACTIVE'))
 
   function formatLimit(val: number) {
     return val === -1 ? 'Ilimitado' : val === 0 ? 'No incluido' : String(val)
