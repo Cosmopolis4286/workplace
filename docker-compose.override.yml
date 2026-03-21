@@ -36,6 +36,8 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      target: deps
+    user: "0:0"
     depends_on:
       backend:
         condition: service_healthy
@@ -46,13 +48,14 @@ services:
     env_file:
       - ./.env
     working_dir: /app/frontend
-    command: sh -c "npx pnpm install --no-frozen-lockfile && npx pnpm dev"
+    command: sh -c "corepack enable && corepack prepare pnpm@latest --activate && pnpm install --no-frozen-lockfile && pnpm dev"
     ports:
       - "127.0.0.1:${FRONTEND_PORT}:${FRONTEND_PORT}"
     environment:
       NITRO_HOST: ${NITRO_HOST}
       NITRO_PORT: ${FRONTEND_PORT}
       BACKEND_API_URL: ${BACKEND_API_URL}
+      NODE_OPTIONS: ${NODE_OPTIONS}
     mem_limit: 256m
     cpus: 0.3
 
