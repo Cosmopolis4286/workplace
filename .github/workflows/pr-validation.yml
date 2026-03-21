@@ -31,7 +31,7 @@ jobs:
     - name: Install pnpm
       uses: pnpm/action-setup@v3
       with:
-        version: 9.15.0
+        version: 9.15.4
 
     - name: Install dependencies
       run: |
@@ -97,7 +97,7 @@ jobs:
     - name: Unit tests
       run: |
         cd backend
-        pnpm test --ci
+        pnpm test --coverage
       timeout-minutes: 10
       continue-on-error: ${{ github.event.inputs.force_approval == 'true' }}
 
@@ -115,6 +115,13 @@ jobs:
         
         echo "✅ Bundle size OK: ${DIST_SIZE}MB"
       timeout-minutes: 5
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage/lcov.info
+        flags: pr-tests
+        name: pr-coverage
 
     - name: Docker build test
       run: |
