@@ -135,10 +135,10 @@ jobs:
           set -e
           
           # Crear directorio si no existe
-          if [ ! -d "/home/${{ secrets.PRODUCTION_USER }}/workplace" ]; then
-            echo "� Creando directorio del proyecto..."
-            mkdir -p /home/${{ secrets.PRODUCTION_USER }}/workplace
-            cd /home/${{ secrets.PRODUCTION_USER }}/workplace
+          if [ ! -d "/root/apps/myapp/workplace" ]; then
+            echo "📁 Creando directorio del proyecto..."
+            sudo mkdir -p /root/apps/myapp/workplace
+            cd /root/apps/myapp/workplace
             
             # Clonar repositorio si es la primera vez
             if [ ! -f "docker-compose.yml" ]; then
@@ -146,11 +146,11 @@ jobs:
               git clone https://github.com/Cosmopolis4286/workplace.git .
             fi
           else
-            cd /home/${{ secrets.PRODUCTION_USER }}/workplace
+            cd /root/apps/myapp/workplace
           fi
           
-          echo "� Backup de Postgres"
-          docker exec -t workplace_postgres pg_dumpall -U $POSTGRES_USER > /home/${{ secrets.PRODUCTION_USER }}/backup_$(date +%F_%H-%M-%S).sql
+          echo "💾 Backup de Postgres"
+          docker exec -t workplace_postgres pg_dumpall -U $POSTGRES_USER > /root/apps/myapp/workplace/backup_$(date +%F_%H-%M-%S).sql
 
           echo "⬇️ Actualizando contenedores"
           docker compose pull
@@ -177,12 +177,12 @@ jobs:
           set -e
           
           # Crear directorio si no existe
-          if [ ! -d "/home/${{ secrets.PRODUCTION_USER }}/workplace" ]; then
+          if [ ! -d "/root/apps/myapp/workplace" ]; then
             echo "❌ Directorio del proyecto no existe"
             exit 1
           fi
           
-          cd /home/${{ secrets.PRODUCTION_USER }}/workplace
+          cd /root/apps/myapp/workplace
           echo "🔄 Rolling back to previous version..."
           docker-compose down
           
