@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
 
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5432:5432"  # Expuesto al host para Nginx o CI/CD si es necesario
 
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -17,13 +17,12 @@ services:
       - postgres_data:/var/lib/postgresql/data/pgdata
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
     shm_size: 256mb
-
     networks:
       - app_network
 
@@ -42,7 +41,7 @@ services:
       - redis_data:/data
 
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping || exit 1"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -53,26 +52,20 @@ services:
   migrate:
     image: ${DOCKER_USER}/workplace-backend:main
     container_name: workplace_migrate
-
     env_file:
       - .env
-
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-
     depends_on:
       postgres:
         condition: service_healthy
-
     command: >
       sh -c "
         echo '⏳ Running migrations...' &&
         npx prisma@5.22.0 migrate deploy --skip-seed || echo 'Migrations already applied or failed' &&
         echo '✅ Done'
       "
-
     restart: "no"
-
     networks:
       - app_network
 
@@ -82,23 +75,17 @@ services:
     restart: unless-stopped
     init: true
     stop_grace_period: 30s
-
     env_file:
       - .env
-
     ports:
-      - "127.0.0.1:${NODE_PORT}:${NODE_PORT}"
-
+      - "${NODE_PORT}:${NODE_PORT}"  # Expuesto a host para Nginx
     environment:
       NODE_ENV: production
       PORT: ${NODE_PORT}
-
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,16 +93,13 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-
     volumes:
       - uploads_data:/app/backend/uploads
-
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/health || exit 1"]
-      interval: 20s
-      timeout: 10s
+      interval: 15s
+      timeout: 5s
       retries: 5
-
     networks:
       - app_network
 
@@ -125,19 +109,15 @@ services:
     restart: unless-stopped
     init: true
     stop_grace_period: 30s
-
     ports:
-      - "127.0.0.1:${FRONTEND_PORT}:${FRONTEND_PORT}"
-
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"  # Expuesto a host para Nginx
     environment:
-      BACKEND_API_URL: ${BACKEND_API_URL}
+      BACKEND_API_URL: ${BACKEND_API_URL}  # Por ejemplo: http://127.0.0.1:${NODE_PORT}/api
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
-
     depends_on:
       backend:
         condition: service_healthy
-
     networks:
       - app_network
 
