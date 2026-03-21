@@ -115,6 +115,36 @@ services:
     networks:
       - app_network
 
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: production
+
+    container_name: workplace_migrate
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    command: >
+      sh -c "
+        echo '🔄 Waiting for database...' &&
+        sleep 10 &&
+        echo '🔄 Running migrations...' &&
+        pnpm prisma migrate deploy &&
+        echo '✅ Migrations completed'
+      "
+
+    networks:
+      - app_network
+
   frontend:
     build:
       context: .

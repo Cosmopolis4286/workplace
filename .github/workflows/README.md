@@ -33,29 +33,73 @@ Este repositorio utiliza GitHub Actions para CI/CD con los siguientes flujos:
   - Tests unitarios
   - Análisis de bundle size
 
-## Secrets Requeridos
+## Setup de Secrets
 
-Configura estos secrets en tu repositorio de GitHub:
+### 1. Secrets de GitHub
+Configura estos secrets en tu repositorio:
 
-### Producción
+#### Producción
 ```
 PRODUCTION_HOST        # Servidor de producción
-PRODUCTION_USER        # Usuario SSH
+PRODUCTION_USER        # Usuario SSH  
 PRODUCTION_SSH_KEY     # Llave SSH privada
 SLACK_WEBHOOK_URL      # Webhook para notificaciones (opcional)
 ```
 
-### Desarrollo
+#### Desarrollo
 ```
 DEV_HOST              # Servidor de desarrollo
 DEV_USER              # Usuario SSH
 DEV_SSH_KEY           # Llave SSH privada
 ```
 
-### Variables de Entorno
+### 2. Variables de Entorno
+Crea un archivo `.env` en el root del proyecto:
+
+```bash
+# Database
+POSTGRES_USER=workplace
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=workplace
+
+# Redis
+REDIS_PASSWORD=your_redis_password
+
+# Backend
+NODE_ENV=production
+NODE_PORT=3001
+
+# Frontend
+FRONTEND_PORT=3000
+BACKEND_API_URL=http://localhost:3001
+NITRO_HOST=localhost
 ```
-REGISTRY              # Container registry (ghcr.io)
-IMAGE_NAME            # Nombre de la imagen
+
+### 3. Configuración de Servidores
+
+#### Servidor de Producción
+```bash
+# Crear directorio
+sudo mkdir -p /opt/workplace
+cd /opt/workplace
+
+# Copiar docker-compose.yml y .env
+scp docker-compose.yml .env production-user@production-server:/opt/workplace/
+
+# Instalar Docker y Docker Compose
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+sudo usermod -aG docker $USER
+
+# Iniciar servicios
+docker-compose up -d
+```
+
+#### Servidor de Desarrollo  
+```bash
+# Similar setup pero en /opt/workplace-dev
+sudo mkdir -p /opt/workplace-dev
+cd /opt/workplace-dev
 ```
 
 ## Flujo de Deploy
