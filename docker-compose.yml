@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
 
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}"
 
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -23,12 +23,10 @@ services:
       retries: 5
 
     shm_size: 256mb
-
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
 
     networks:
       - app_network
@@ -43,35 +41,56 @@ services:
       --requirepass ${REDIS_PASSWORD}
       --appendonly yes
       --appendfsync everysec
-      --maxmemory 256mb
+      --maxmemory ${REDIS_MAXMEMORY:-256mb}
       --maxmemory-policy allkeys-lru
 
     volumes:
       - redis_data:/data
 
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping || exit 1"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5
 
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
 
     networks:
       - app_network
 
-  backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-      target: production
+  migrate:
+    image: ${DOCKER_IMAGE_BACKEND}
+    container_name: workplace_migrate
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
 
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    command: >
+      sh -c "
+        echo '⏳ Waiting DB...' &&
+        sleep 5 &&
+        pnpm prisma migrate deploy &&
+        echo '✅ Migrations done'
+      "
+
+    restart: "no"
+    networks:
+      - app_network
+
+  backend:
+    image: ${DOCKER_IMAGE_BACKEND}
     container_name: workplace_backend
     restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
 
     env_file:
       - .env
@@ -80,15 +99,15 @@ services:
       - "127.0.0.1:${NODE_PORT}:${NODE_PORT}"
 
     environment:
-      NODE_ENV: ${NODE_ENV}
+      NODE_ENV: production
       PORT: ${NODE_PORT}
-      NODE_OPTIONS: --max-old-space-size=512
+      NODE_OPTIONS: --max-old-space-size=${BACKEND_MEM:-512}
       CI: true
 
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
 
       REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
 
     depends_on:
@@ -96,6 +115,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/health || exit 1"]
@@ -103,63 +124,29 @@ services:
       timeout: 3s
       retries: 3
 
-    mem_limit: 512m
-    cpus: 0.5
-
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-    networks:
-      - app_network
-
-  migrate:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-      target: production
-
-    container_name: workplace_migrate
-    env_file:
-      - .env
-
-    environment:
-      NODE_ENV: ${NODE_ENV}
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-    command: >
-      sh -c "
-        echo '🔄 Waiting for database...' &&
-        sleep 10 &&
-        echo '🔄 Running migrations...' &&
-        pnpm prisma migrate deploy &&
-        echo '✅ Migrations completed'
-      "
+    mem_limit: ${BACKEND_MEM:-512m}
+    cpus: ${BACKEND_CPUS:-0.5}
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
 
     networks:
       - app_network
 
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-      target: production
-
+    image: ${DOCKER_IMAGE_FRONTEND}
     container_name: workplace_frontend
     restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
 
     ports:
       - "127.0.0.1:${FRONTEND_PORT}:${FRONTEND_PORT}"
 
     environment:
       BACKEND_API_URL: ${BACKEND_API_URL}
-      NITRO_HOST: ${NITRO_HOST}
+      NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
       CI: true
 
@@ -167,14 +154,8 @@ services:
       backend:
         condition: service_healthy
 
-    mem_limit: 512m
-    cpus: 0.5
-
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
+    mem_limit: ${FRONTEND_MEM:-512m}
+    cpus: ${FRONTEND_CPUS:-0.5}
 
     networks:
       - app_network
