@@ -77,14 +77,39 @@ NITRO_HOST=localhost
 
 ### 3. Configuración de Servidores
 
+#### Docker Compose - Diferencia entre entornos
+
+**docker-compose.yml** (Desarrollo):
+```yaml
+backend:
+  build:                    # ← Construye desde código fuente
+    context: .
+    dockerfile: backend/Dockerfile
+```
+- ✅ Para desarrollo local
+- ✅ Construye imágenes desde Dockerfiles
+- ❌ Requiere todo el código fuente
+- ❌ No funciona en producción
+
+**docker-compose.prod.yml** (Producción):
+```yaml
+backend:
+  image: workplace-backend:latest  # ← Usa imágenes pre-construidas
+```
+- ✅ Para producción y staging
+- ✅ Solo descarga imágenes de Docker Hub
+- ✅ No requiere código fuente
+- ✅ Más rápido y ligero
+
 #### Servidor de Producción
 ```bash
 # Crear directorio
-mkdir -p ~/workplace
-cd ~/workplace
+sudo mkdir -p /opt/workplace
+cd /opt/workplace
 
-# Copiar docker-compose.yml y .env
-scp docker-compose.yml .env production-user@production-server:~/workplace/
+# Copiar docker-compose de producción (NO el de desarrollo)
+scp docker-compose.prod.yml user@server:/opt/workplace/docker-compose.yml
+scp .env.example user@server:/opt/workplace/.env
 
 # Instalar Docker y Docker Compose
 curl -fsSL https://get.docker.com -o get-docker.sh
@@ -97,9 +122,12 @@ docker-compose up -d
 
 #### Servidor de Desarrollo  
 ```bash
-# Similar setup pero en ~/workplace-dev
-mkdir -p ~/workplace-dev
-cd ~/workplace-dev
+# Similar setup pero en /opt/workplace-dev
+sudo mkdir -p /opt/workplace-dev
+cd /opt/workplace-dev
+
+# Usar docker-compose.yml (desarrollo)
+scp docker-compose.yml user@server:/opt/workplace-dev/
 ```
 
 ## Flujo de Deploy
@@ -186,7 +214,7 @@ fi
 ### Rollback manual
 ```bash
 # En servidor de producción
-cd ~/workplace
+cd /opt/workplace
 docker-compose down
 
 # Listar backups
@@ -200,7 +228,7 @@ docker-compose up -d
 ### Migraciones manuales
 ```bash
 # Ejecutar migraciones manualmente
-cd ~/workplace
+cd /opt/workplace
 docker-compose run --rm migrate
 
 # Verificar estado
