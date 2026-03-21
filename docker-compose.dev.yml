@@ -45,7 +45,7 @@ services:
     container_name: workplace_backend_dev
     build:
       context: .
-      dockerfile: backend/Dockerfile.dev
+      dockerfile: backend/Dockerfile.prod
     volumes:
       - ./backend:/app/backend:cached
       - backend_node_modules:/app/backend/node_modules
@@ -72,7 +72,7 @@ services:
     container_name: workplace_frontend_dev
     build:
       context: .
-      dockerfile: frontend/Dockerfile.dev
+      dockerfile: frontend/Dockerfile.prod
     volumes:
       - ./frontend:/app/frontend:cached
       - frontend_node_modules:/app/frontend/node_modules
