@@ -133,11 +133,26 @@ jobs:
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -e
-          echo "💾 Backup de Postgres"
+          
+          # Crear directorio si no existe
+          if [ ! -d "/home/${{ secrets.PRODUCTION_USER }}/workplace" ]; then
+            echo "� Creando directorio del proyecto..."
+            mkdir -p /home/${{ secrets.PRODUCTION_USER }}/workplace
+            cd /home/${{ secrets.PRODUCTION_USER }}/workplace
+            
+            # Clonar repositorio si es la primera vez
+            if [ ! -f "docker-compose.yml" ]; then
+              echo "📥 Clonando repositorio..."
+              git clone https://github.com/Cosmopolis4286/workplace.git .
+            fi
+          else
+            cd /home/${{ secrets.PRODUCTION_USER }}/workplace
+          fi
+          
+          echo "� Backup de Postgres"
           docker exec -t workplace_postgres pg_dumpall -U $POSTGRES_USER > /home/${{ secrets.PRODUCTION_USER }}/backup_$(date +%F_%H-%M-%S).sql
 
           echo "⬇️ Actualizando contenedores"
-          cd /home/${{ secrets.PRODUCTION_USER }}/workplace
           docker compose pull
           docker compose build --no-cache
           docker compose up -d
@@ -160,8 +175,15 @@ jobs:
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -e
-          echo "🔄 Rolling back to previous version..."
+          
+          # Crear directorio si no existe
+          if [ ! -d "/home/${{ secrets.PRODUCTION_USER }}/workplace" ]; then
+            echo "❌ Directorio del proyecto no existe"
+            exit 1
+          fi
+          
           cd /home/${{ secrets.PRODUCTION_USER }}/workplace
+          echo "🔄 Rolling back to previous version..."
           docker-compose down
           
           # Get latest backup image
