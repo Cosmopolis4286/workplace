@@ -6,13 +6,6 @@ WORKDIR /app
 # Habilitar pnpm solo para builds
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Variables de entorno base
-ARG NODE_ENV=production
-ENV NODE_ENV=${NODE_ENV} \
-    NITRO_HOST=0.0.0.0 \
-    NITRO_PORT=3000 \
-    NODE_OPTIONS="--max-old-space-size=512"
-
 # ---------- DEPENDENCIAS ----------
 FROM base AS deps
 
@@ -32,7 +25,7 @@ WORKDIR /app/frontend
 # Copiar código fuente
 COPY frontend/ ./
 
-# Construir Nuxt (SSR o SSG según config)
+# Construir Nuxt con memoria extendida
 RUN NODE_OPTIONS="--max-old-space-size=2048" pnpm run build \
     && rm -rf .nuxt/.cache node_modules/.cache
 
@@ -56,9 +49,10 @@ USER app
 
 # Healthcheck liviano
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
+    CMD node -e "require('http').get('http://localhost:' + (process.env.NITRO_PORT || 3000) + '/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
 
-EXPOSE 3000
+# Exponer puerto desde .env con fallback
+EXPOSE ${NITRO_PORT:-3000}
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", ".output/server/index.mjs"]

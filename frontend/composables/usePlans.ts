@@ -131,7 +131,7 @@ export function usePlans() {
     loading.value = true
     error.value = null
     try {
-      const data = await apiFetch(`/api/plans?includeInactive=${includeInactive}`)
+      const data = await apiFetch(`/plans?includeInactive=${includeInactive}`)
       plans.value = data
     } catch (e: any) {
       error.value = e.message
@@ -141,7 +141,7 @@ export function usePlans() {
   }
 
   async function createPlan(dto: Partial<Plan>) {
-    const data = await apiFetch('/api/plans', {
+    const data = await apiFetch('/plans', {
       method: 'POST',
       body: JSON.stringify(dto),
     })
@@ -150,7 +150,7 @@ export function usePlans() {
   }
 
   async function updatePlan(id: string, dto: Partial<Plan>) {
-    const data = await apiFetch(`/api/plans/${id}`, {
+    const data = await apiFetch(`/plans/${id}`, {
       method: 'PUT',
       body: JSON.stringify(dto),
     })
@@ -160,7 +160,7 @@ export function usePlans() {
   }
 
   async function deletePlan(id: string) {
-    await apiFetch(`/api/plans/${id}`, { method: 'DELETE' })
+    await apiFetch(`/plans/${id}`, { method: 'DELETE' })
     plans.value = plans.value.filter(p => p.id !== id)
   }
 
@@ -174,7 +174,7 @@ export function usePlans() {
       if (options.planId) params.set('planId', options.planId)
       params.set('page', String(options.page ?? 1))
       params.set('limit', '20')
-      const data = await apiFetch(`/api/plans/subscriptions?${params}`)
+      const data = await apiFetch(`/plans/subscriptions?${params}`)
       subscriptions.value = data.subscriptions
       totalSubs.value = data.total
       subPage.value = data.page
@@ -195,7 +195,7 @@ export function usePlans() {
     pricePaid?: number
     notes?: string
   }) {
-    const data = await apiFetch('/api/plans/subscriptions', {
+    const data = await apiFetch('/plans/subscriptions', {
       method: 'POST',
       body: JSON.stringify(dto),
     })
@@ -204,7 +204,7 @@ export function usePlans() {
   }
 
   async function cancelSubscription(id: string) {
-    await apiFetch(`/api/plans/subscriptions/${id}`, { method: 'DELETE' })
+    await apiFetch(`/plans/subscriptions/${id}`, { method: 'DELETE' })
     const idx = subscriptions.value.findIndex(s => s.id === id)
     if (idx >= 0) subscriptions.value[idx].status = 'CANCELLED'
   }
@@ -214,7 +214,7 @@ export function usePlans() {
   async function fetchStats() {
     loadingStats.value = true
     try {
-      stats.value = await apiFetch('/api/plans/stats')
+      stats.value = await apiFetch('/plans/stats')
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -224,7 +224,7 @@ export function usePlans() {
 
   async function fetchUsage() {
     try {
-      const data = await apiFetch('/api/plans/usage')
+      const data = await apiFetch('/plans/usage')
       if (data?.limits) usage.value = data
     } catch {
       // non-critical
@@ -236,7 +236,7 @@ export function usePlans() {
   async function fetchMySubscription() {
     loading.value = true
     try {
-      const data = await apiFetch('/api/plans/my-subscription')
+      const data = await apiFetch('/plans/my-subscription')
       mySubscription.value = data.subscription
       myPlan.value = data.subscription?.plan ?? null
     } catch (e: any) {
@@ -249,7 +249,7 @@ export function usePlans() {
   async function fetchPublicPlans() {
     loading.value = true
     try {
-      const data = await apiFetch('/api/plans/public')
+      const data = await apiFetch('/plans/public')
       plans.value = data
     } catch (e: any) {
       error.value = e.message

@@ -169,7 +169,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 async function loadCategories() {
   loadingCats.value = true
-  try { categories.value = await apiFetch('/api/users/categories') }
+  try { categories.value = await apiFetch('/users/categories') }
   catch { /* silently ignore */ }
   finally { loadingCats.value = false }
 }
@@ -178,7 +178,7 @@ async function loadPlans() {
   loadingPlans.value = true
   try {
     const role = user.value?.role ?? 'COMMERCE'
-    plans.value = await apiFetch(`/api/plans/public?role=${role}`)
+    plans.value = await apiFetch(`/plans/public?role=${role}`)
   } catch { /* silently ignore */ }
   finally { loadingPlans.value = false }
 }
@@ -190,7 +190,7 @@ async function next() {
     catError.value = ''
     saving.value = true
     try {
-      await apiFetch(`/api/users/${user.value!.id}`, {
+      await apiFetch(`/users/${user.value!.id}`, {
         method: 'PUT',
         body: JSON.stringify({ categoryId: selectedCategory.value }),
       })
@@ -203,7 +203,7 @@ async function next() {
     saving.value = true
     try {
       if (selectedPlan.value) {
-        await apiFetch('/api/plans/subscriptions', {
+        await apiFetch('/plans/subscriptions', {
           method: 'POST',
           body: JSON.stringify({ userId: user.value!.id, planId: selectedPlan.value, interval: 'MONTHLY' }),
         })

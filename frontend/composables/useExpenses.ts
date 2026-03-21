@@ -182,7 +182,7 @@ export function useExpenses() {
   async function loadStats() {
     loadingStats.value = true
     try {
-      stats.value = await apiFetch('/api/expenses/stats')
+      stats.value = await apiFetch('/expenses/stats')
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -194,7 +194,7 @@ export function useExpenses() {
   async function loadCategories() {
     loadingCategories.value = true
     try {
-      categories.value = await apiFetch('/api/expenses/categories')
+      categories.value = await apiFetch('/expenses/categories')
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -203,7 +203,7 @@ export function useExpenses() {
   }
 
   async function createCategory(payload: { name: string; color?: string; budget?: number }) {
-    const cat = await apiFetch('/api/expenses/categories', {
+    const cat = await apiFetch('/expenses/categories', {
       method: 'POST',
       body: JSON.stringify(payload),
     })
@@ -212,7 +212,7 @@ export function useExpenses() {
   }
 
   async function updateCategory(id: string, payload: { name?: string; color?: string; budget?: number }) {
-    const updated = await apiFetch(`/api/expenses/categories/${id}`, {
+    const updated = await apiFetch(`/expenses/categories/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     })
@@ -222,7 +222,7 @@ export function useExpenses() {
   }
 
   async function deleteCategory(id: string) {
-    await apiFetch(`/api/expenses/categories/${id}`, { method: 'DELETE' })
+    await apiFetch(`/expenses/categories/${id}`, { method: 'DELETE' })
     categories.value = categories.value.filter(c => c.id !== id)
   }
 
@@ -236,7 +236,7 @@ export function useExpenses() {
         if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
       })
       const qs  = params.toString()
-      const res = await apiFetch(`/api/expenses${qs ? '?' + qs : ''}`)
+      const res = await apiFetch(`/expenses${qs ? '?' + qs : ''}`)
       expenses.value    = res.data
       totalCount.value  = res.total
       currentPage.value = res.page
@@ -251,7 +251,7 @@ export function useExpenses() {
     loading.value = true
     error.value   = null
     try {
-      const expense = await apiFetch('/api/expenses', {
+      const expense = await apiFetch('/expenses', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
@@ -270,7 +270,7 @@ export function useExpenses() {
   async function updateExpense(id: string, payload: Partial<CreateExpensePayload>): Promise<Expense | null> {
     error.value = null
     try {
-      const updated = await apiFetch(`/api/expenses/${id}`, {
+      const updated = await apiFetch(`/expenses/${id}`, {
         method: 'PUT',
         body: JSON.stringify(payload),
       })
@@ -287,7 +287,7 @@ export function useExpenses() {
   async function updateExpenseStatus(id: string, status: ExpenseStatus): Promise<boolean> {
     error.value = null
     try {
-      const updated = await apiFetch(`/api/expenses/${id}/status`, {
+      const updated = await apiFetch(`/expenses/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       })
@@ -304,7 +304,7 @@ export function useExpenses() {
   async function deleteExpense(id: string): Promise<boolean> {
     error.value = null
     try {
-      await apiFetch(`/api/expenses/${id}`, { method: 'DELETE' })
+      await apiFetch(`/expenses/${id}`, { method: 'DELETE' })
       expenses.value = expenses.value.filter(e => e.id !== id)
       totalCount.value--
       await loadStats()
