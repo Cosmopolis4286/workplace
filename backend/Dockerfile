@@ -47,6 +47,7 @@ COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/dist-seed ./backend/dist-seed
 COPY --from=build /app/backend/prisma ./backend/prisma
+COPY --from=build /app/backend/node_modules/.prisma ./backend/node_modules/.prisma
 COPY --from=build /app/scripts/init.sh ./scripts/init.sh
 
 # Variables opcionales, si no vienen del .env se puede dar un fallback
