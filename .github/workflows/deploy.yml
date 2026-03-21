@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Production Deploy
 
 on:
   push:
@@ -84,13 +84,37 @@ jobs:
       timeout-minutes: 5
       continue-on-error: ${{ github.event.inputs.force_deploy == 'true' }}
 
-  build:
+  buildeploy:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true'
-    timeout-minutes: 20
+    if: |
+      github.ref == 'refs/heads/main' && 
+      (github.event_name == 'push' || github.event.inputs.force_deploy == 'true')
+    timeout-minutes: 25
 
     steps:
+    - name: Validate production deployment
+      run: |
+        echo "🔍 Validando entorno de producción..."
+        
+        # Verificar que es la rama correcta
+        if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+          echo "❌ Error: Este workflow solo debe ejecutarse en la rama main"
+          echo "📋 Rama actual: $GITHUB_REF"
+          echo "🚨 Evento: $GITHUB_EVENT_NAME"
+          exit 1
+        fi
+        
+        # Verificar que no es un push automático desde develop
+        if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_BASE_REF" == "refs/heads/develop" ]; then
+          echo "❌ Error: Los pushes desde develop están bloqueados en producción"
+          echo "📋 Base ref: $GITHUB_BASE_REF"
+          echo "🔄 Por favor, usa workflow_dispatch para despliegues manuales"
+          exit 1
+        fi
+        
+        echo "✅ Validación exitosa - Desplegando a producción"
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -153,13 +177,15 @@ jobs:
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
           # Verificar directorio
-          echo "🔍 Verificando directorio: /home/myapp/apps/workplace"
-          if [ ! -d "/home/myapp/apps/workplace" ]; then
-            echo "❌ El directorio no existe: /home/myapp/apps/workplace"
-            exit 1
+          echo "🔍 Verificando directorio: /opt/workplace"
+          if [ ! -d "/opt/workplace" ]; then
+            echo "❌ El directorio no existe: /opt/workplace"
+            echo "🔧 Creando estructura de directorios..."
+            mkdir -p /opt/workplace
+            echo "✅ Estructura creada"
           fi
           
-          cd /home/myapp/apps/workplace
+          cd /opt/workplace
           
           # Verificar Docker está corriendo
           if ! docker info > /dev/null 2>&1; then
