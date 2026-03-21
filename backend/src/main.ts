@@ -7,13 +7,6 @@ import { AuditService } from './audit/audit.service';
 import { AuditLogger } from './audit/audit.logger';
 
 async function bootstrap() {
-  // ERROR FORZADO - Esto debe hacer fallar el container inmediatamente
-  if (process.env.NODE_ENV === 'production') {
-    // Forzar un error que no puede ser manejado
-    const fs = require('fs');
-    fs.readFileSync('/archivo/que/no/existe.txt'); // ← Error síncrono fatal
-  }
-
   // Instantiate a dedicated PrismaClient for the logger (pre-DI)
   const loggerPrisma = new PrismaClient();
   const auditLogger = new AuditLogger(loggerPrisma);
