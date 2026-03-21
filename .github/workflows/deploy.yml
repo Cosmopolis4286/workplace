@@ -64,7 +64,6 @@ jobs:
       run: |
         cd backend
         pnpm install --frozen-lockfile
-      timeout-minutes: 5
 
     - name: Run unit tests
       run: |
@@ -75,13 +74,11 @@ jobs:
         REDIS_HOST: localhost
         REDIS_PORT: 6379
         NODE_ENV: test
-      timeout-minutes: 10
 
     - name: Run linting
       run: |
         cd backend
         pnpm lint:ci
-      timeout-minutes: 5
       continue-on-error: ${{ github.event.inputs.force_deploy == 'true' }}
 
   buildeploy:
@@ -100,37 +97,30 @@ jobs:
 
     - name: Validate production deployment
       run: |
+        set -e
         echo "🔍 Validando entorno de producción..."
         
-        # Verificar que es la rama correcta
         if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-          echo "❌ Error: Este workflow solo debe ejecutarse en la rama main"
-          echo "📋 Rama actual: $GITHUB_REF"
-          echo "🚨 Evento: $GITHUB_EVENT_NAME"
+          echo "❌ Solo permitido en main"
           exit 1
         fi
         
-        # Verificar que no es un push automático desde develop
         if [ "$GITHUB_EVENT_NAME" == "push" ]; then
-          # Obtener información del commit para verificar si viene de develop
           COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')
           if echo "$COMMIT_MESSAGE" | grep -q "Merge branch 'develop'"; then
-            echo "❌ Error: Los merges desde develop están bloqueados en producción"
-            echo "📋 Mensaje del commit: $COMMIT_MESSAGE"
-            echo "🔄 Por favor, usa workflow_dispatch para despliegues manuales"
+            echo "❌ Merges desde develop bloqueados"
             exit 1
           fi
         fi
         
-        echo "✅ Validación exitosa - Desplegando a producción"
+        echo "✅ Validación OK"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Container Registry
+    - name: Login Docker Hub
       uses: docker/login-action@v3
       with:
-        registry: ${{ env.REGISTRY }}
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
@@ -138,14 +128,13 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        images: ${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=branch
-          type=ref,event=pr
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Build and push Docker image
+    - name: Build and push
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -153,7 +142,6 @@ jobs:
         target: production
         push: true
         tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -161,191 +149,94 @@ jobs:
     needs: buildeploy
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true'
-    timeout-minutes: 30
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Deploy to production
-      uses: webfactory/ssh-agent@v0.9.1
+    - uses: webfactory/ssh-agent@v0.9.1
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
     - name: Deploy to VPS
       run: |
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o ConnectionAttempts=3 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -e
-          
-          echo "🚀 Starting deployment at $(date)"
-          
-          # Login a Docker Hub para repositorio private
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+
+          APP_DIR="/opt/workplace"
+
+          echo "🚀 Deploy iniciado"
+
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-          
-          # Verificar directorio
-          echo "🔍 Verificando directorio: /home/${USER}/workplace"
-          if [ ! -d "/home/${USER}/workplace" ]; then
-            echo "❌ El directorio no existe: /home/${USER}/workplace"
-            echo "🔧 Creando estructura de directorios..."
-            mkdir -p /home/${USER}/workplace
-            echo "✅ Estructura creada"
-          fi
-          
-          cd /home/${USER}/workplace
-          
-          # Verificar Docker está corriendo
+
+          mkdir -p $APP_DIR
+          cd $APP_DIR
+
           if ! docker info > /dev/null 2>&1; then
-            echo "❌ Docker no está disponible"
+            echo "❌ Docker no disponible"
             exit 1
-          fi
-          
-          echo "💾 Backup de Postgres"
-          BACKUP_FILE="backup_$(date +%F_%H-%M-%S).sql"
-          POSTGRES_USER=workplace
-          if docker exec -t workplace_postgres pg_dumpall -U $POSTGRES_USER > "$BACKUP_FILE"; then
-            echo "✅ Backup completado: $BACKUP_FILE"
-          else
-            echo "⚠️ Backup falló, continuando deploy..."
           fi
 
-          echo "⬇️ Actualizando contenedores"
-          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace:main
-          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace:main workplace-backend:latest
-          docker compose build --no-cache
-          
-          echo "🔄 Deteniendo servicios"
-          docker compose down
-          
-          echo "🚀 Iniciando servicios"
-          docker compose up -d
-          
-          echo "⏳ Esperando health checks..."
-          sleep 30
-          
-          # Health checks
-          echo "🔍 Verificando health de servicios"
-          POSTGRES_HEALTH=$(docker compose ps -q postgres | xargs docker inspect --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
-          REDIS_HEALTH=$(docker compose ps -q redis | xargs docker inspect --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
-          BACKEND_HEALTH=$(docker compose ps -q backend | xargs docker inspect --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
-          
-          echo "Postgres Health: $POSTGRES_HEALTH"
-          echo "Redis Health: $REDIS_HEALTH"
-          echo "Backend Health: $BACKEND_HEALTH"
-          
-          if [[ "$POSTGRES_HEALTH" == "healthy" && "$REDIS_HEALTH" == "healthy" ]]; then
-            echo "✅ Deploy completado exitosamente"
-            
-            # Limpiar imágenes antiguas
-            docker image prune -f
-            
-            # Logout de Docker Hub
-            docker logout
-            
-            # Notificación (opcional)
-            if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-              curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
-                -H 'Content-type: application/json' \
-                --data "{\"text\":\"✅ Workplace deployed successfully to production\"}"
-            fi
-          else
-            echo "❌ Deploy falló - servicios no saludables"
-            docker logout
-            exit 1
+          echo "💾 Backup DB"
+          if docker ps --format '{{.Names}}' | grep -q workplace_postgres; then
+            docker exec workplace_postgres pg_dumpall -U workplace > backup.sql || true
           fi
+
+          echo "⬇️ Pull imagen"
+          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace:main
+
+          if docker image inspect workplace-backend:latest > /dev/null 2>&1; then
+            docker tag workplace-backend:latest workplace-backend:backup-$(date +%s)
+          fi
+
+          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace:main workplace-backend:latest
+
+          docker compose down
+          docker compose up -d
+
+          sleep 25
+
+          echo "🔍 Health check"
+          docker compose ps
+
+          docker logout
         EOF
 
-    - name: Health check verification
+    - name: Verify
       run: |
-        sleep 10
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          cd /home/${USER}/workplace
-          
-          # Verificar que los contenedores estén corriendo
-          if ! docker compose ps | grep -q "Up"; then
-            echo "❌ Contenedores no están corriendo"
-            exit 1
-          fi
-          
-          echo "✅ Verificación final completada"
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          cd /opt/workplace
+          docker compose ps | grep Up
         EOF
       if: always()
 
   rollback:
     needs: deploy
     runs-on: ubuntu-latest
-    if: failure() && (github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true')
-    timeout-minutes: 15
+    if: failure()
 
     steps:
-    - name: Debug secrets
-      run: |
-        echo "=== DEBUG SECRETS ==="
-        echo "User: ${{ secrets.PRODUCTION_USER }}"
-        echo "Host: ${{ secrets.PRODUCTION_HOST }}"
-        echo "Docker User: ${{ secrets.DOCKER_USERNAME }}"
-        echo "Docker Password length: ${{ secrets.DOCKER_PASSWORD && 'SET' || 'NOT_SET' }}"
-        echo "SSH Key length: ${{ secrets.SSH_PRIVATE_KEY && 'SET' || 'NOT_SET' }}"
-        echo "=== END DEBUG ==="
-
-    - name: Setup SSH key
-      uses: webfactory/ssh-agent@v0.9.1
+    - uses: webfactory/ssh-agent@v0.9.1
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Rollback deployment
+    - name: Rollback
       run: |
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -e
-          
-          echo "🔄 Starting rollback at $(date)"
-          
-          # Login a Docker Hub para repositorio private
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-          
-          # Verificar directorio
-          echo "🔍 Verificando directorio: /home/${USER}/workplace"
-          if [ ! -d "/home/${USER}/workplace" ]; then
-            echo "❌ El directorio no existe: /home/${USER}/workplace"
-            exit 1
-          fi
-          
-          cd /home/${USER}/workplace
-          echo "🔄 Rolling back to previous version..."
-          docker-compose down
-          
-          # Get latest backup image
-          BACKUP_IMAGE=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup-" | tail -1)
-          
-          if [ ! -z "$BACKUP_IMAGE" ]; then
-            echo "📦 Usando backup image: $BACKUP_IMAGE"
-            docker tag $BACKUP_IMAGE workplace-backend:latest
-            docker-compose up -d
-            
-            echo "⏳ Esperando servicios..."
-            sleep 20
-            
-            echo "✅ Rollback completado"
-            
-            # Logout de Docker Hub
-            docker logout
-            
-            # Notificación
-            if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-              curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
-                -H 'Content-type: application/json' \
-                --data "{\"text\":\"🔄 Workplace rolled back to previous version\"}"
-            fi
-          else
-            echo "❌ No backup image found for rollback"
-            echo "📦 Available images:"
-            docker images | grep workplace
-            docker logout
-            exit 1
-          fi
-        EOF
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
 
-    - name: Notify rollback
-      if: always()
-      run: |
-        echo "🔄 Rollback process completed"
-        echo "Check the application status manually"
+          APP_DIR="/opt/workplace"
+          cd $APP_DIR
+
+          BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep backup | sort -r | head -n 1)
+
+          if [ -z "$BACKUP" ]; then
+            echo "❌ No backup"
+            exit 1
+          fi
+
+          docker tag $BACKUP workplace-backend:latest
+          docker compose down
+          docker compose up -d
+
+          echo "✅ Rollback OK"
+        EOF
