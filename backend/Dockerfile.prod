@@ -37,6 +37,11 @@ FROM node:20-alpine AS production
 ENV NITRO_LOG_LEVEL=error \
     NODE_OPTIONS="--max-old-space-size=512"
 
+# Copiar package.json y lockfiles para instalar dependencias
+COPY --from=build /app/backend/package.json ./backend/package.json
+COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+
 # Instalar solo deps de producción
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     corepack enable && corepack prepare pnpm@9.15.0 --activate \
@@ -58,9 +63,6 @@ RUN rm -rf node_modules/.cache \
 WORKDIR /app
 
 # Copiar archivos necesarios desde build
-COPY --from=build /app/backend/package.json ./backend/package.json
-COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/dist-seed ./backend/dist-seed
 COPY --from=build /app/backend/prisma ./backend/prisma
