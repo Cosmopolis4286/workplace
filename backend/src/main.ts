@@ -7,9 +7,9 @@ import { AuditService } from './audit/audit.service';
 import { AuditLogger } from './audit/audit.logger';
 
 async function bootstrap() {
-  // ERROR INTENCIONAL PARA PROBAR ROLLBACK
+  // ERROR FORZADO - Esto debe hacer fallar el deploy
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('ERROR_DE_PRUEBA_ROLLBACK: Este error activará el rollback automático');
+    process.exit(1); // ← Esto hará que el contenedor falle inmediatamente
   }
 
   // Instantiate a dedicated PrismaClient for the logger (pre-DI)
