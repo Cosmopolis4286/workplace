@@ -150,6 +150,9 @@ jobs:
           
           echo "🚀 Starting deployment at $(date)"
           
+          # Login a Docker Hub para repositorio private
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u eiskerhc --password-stdin
+          
           # Verificar directorio
           echo "🔍 Verificando directorio: /root/apps/myapp/workplace"
           if [ ! -d "/root/apps/myapp/workplace" ]; then
@@ -174,7 +177,8 @@ jobs:
           fi
 
           echo "⬇️ Actualizando contenedores"
-          docker compose pull
+          docker pull eiskerhc/workplace:main
+          docker tag eiskerhc/workplace:main workplace-backend:latest
           docker compose build --no-cache
           
           echo "🔄 Deteniendo servicios"
@@ -202,6 +206,9 @@ jobs:
             # Limpiar imágenes antiguas
             docker image prune -f
             
+            # Logout de Docker Hub
+            docker logout
+            
             # Notificación (opcional)
             if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
               curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
@@ -210,6 +217,7 @@ jobs:
             fi
           else
             echo "❌ Deploy falló - servicios no saludables"
+            docker logout
             exit 1
           fi
         EOF
@@ -249,6 +257,9 @@ jobs:
           
           echo "🔄 Starting rollback at $(date)"
           
+          # Login a Docker Hub para repositorio private
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u eiskerhc --password-stdin
+          
           # Verificar directorio
           echo "🔍 Verificando directorio: /root/apps/myapp/workplace"
           if [ ! -d "/root/apps/myapp/workplace" ]; then
@@ -273,6 +284,9 @@ jobs:
             
             echo "✅ Rollback completado"
             
+            # Logout de Docker Hub
+            docker logout
+            
             # Notificación
             if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
               curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
@@ -283,6 +297,7 @@ jobs:
             echo "❌ No backup image found for rollback"
             echo "📦 Available images:"
             docker images | grep workplace
+            docker logout
             exit 1
           fi
         EOF
