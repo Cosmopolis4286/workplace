@@ -9,7 +9,7 @@ export default defineNuxtConfig({
     port: 3000,
   },
 
-  devtools: { enabled: false },
+  devtools: { enabled: true },
 
   modules: [
     '@nuxtjs/tailwindcss',
@@ -35,10 +35,6 @@ export default defineNuxtConfig({
 
   ssr: true,
 
-  // 🚫 Eliminamos `router.middleware`, Nuxt 3 detecta middleware automáticamente
-  // Middleware global:
-  // Crea archivos en `middleware/auth.global.ts` y `middleware/modules.global.ts`
-
   runtimeConfig: {
     public: {
       apiUrl: process.env.BACKEND_API_URL || 'http://localhost:3001/api',
@@ -46,20 +42,16 @@ export default defineNuxtConfig({
     },
   },
 
-  build: {
-    transpile: ['#app-manifest']
-  },
-
-  nitro: {
-    preset: 'node-server',
-    minify: true,
-    compressPublicAssets: true
-  },
-
   postcss: {
     plugins: {
       tailwindcss: {},
       autoprefixer: {},
     },
+  },
+
+  vite: {
+    optimizeDeps: {
+      exclude: ['#app-manifest']
+    }
   }
 })
