@@ -1,44 +1,53 @@
 import {
-  IsString, IsNumber, IsDateString, IsEnum, IsOptional, Min,
-} from 'class-validator'
-import { ExpenseType, ExpenseStatus, ExpensePaymentMethod } from '@prisma/client'
+  IsString,
+  IsNumber,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  Min,
+} from 'class-validator';
+import {
+  ExpenseType,
+  ExpenseStatus,
+  ExpensePaymentMethod,
+} from '@prisma/client';
 
 export class CreateExpenseDto {
   @IsString()
-  description: string
+  description: string;
 
   @IsNumber()
   @Min(0)
-  amount: number
+  amount: number;
 
   @IsDateString()
-  date: string
+  date: string;
 
   @IsOptional()
   @IsEnum(ExpenseType)
-  type?: ExpenseType
+  type?: ExpenseType;
 
   @IsOptional()
   @IsEnum(ExpenseStatus)
-  status?: ExpenseStatus
+  status?: ExpenseStatus;
 
   @IsOptional()
   @IsEnum(ExpensePaymentMethod)
-  paymentMethod?: ExpensePaymentMethod
+  paymentMethod?: ExpensePaymentMethod;
 
   @IsOptional()
   @IsString()
-  supplier?: string
+  supplier?: string;
 
   @IsOptional()
   @IsString()
-  receipt?: string
+  receipt?: string;
 
   @IsOptional()
   @IsString()
-  notes?: string
+  notes?: string;
 
   @IsOptional()
   @IsString()
-  categoryId?: string
+  categoryId?: string;
 }

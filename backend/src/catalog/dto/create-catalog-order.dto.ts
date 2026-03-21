@@ -1,55 +1,65 @@
-import { IsString, IsOptional, IsInt, Min, Max, IsEnum, IsEmail, MaxLength, IsNumber } from 'class-validator'
-import { CatalogDeliveryType } from '@prisma/client'
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  Min,
+  Max,
+  IsEnum,
+  IsEmail,
+  MaxLength,
+  IsNumber,
+} from 'class-validator';
+import { CatalogDeliveryType } from '@prisma/client';
 
 export class CreateCatalogOrderDto {
   @IsString()
-  productId: string
+  productId: string;
 
   @IsString()
-  productName: string
+  productName: string;
 
   @IsString()
-  commerceId: string
+  commerceId: string;
 
   @IsString()
-  commerceName: string
+  commerceName: string;
 
   @IsInt()
   @Min(1)
   @Max(99)
-  quantity: number
+  quantity: number;
 
   @IsEnum(CatalogDeliveryType)
-  deliveryType: CatalogDeliveryType
+  deliveryType: CatalogDeliveryType;
 
   @IsOptional()
   @IsString()
   @MaxLength(300)
-  address?: string
+  address?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(80)
-  city?: string
+  city?: string;
 
   @IsString()
   @MaxLength(100)
-  buyerName: string
+  buyerName: string;
 
   @IsString()
   @MaxLength(30)
-  buyerPhone: string
+  buyerPhone: string;
 
   @IsOptional()
   @IsEmail()
-  buyerEmail?: string
+  buyerEmail?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(500)
-  notes?: string
+  notes?: string;
 
   @IsOptional()
   @IsNumber()
-  totalEstimate?: number
+  totalEstimate?: number;
 }

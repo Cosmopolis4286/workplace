@@ -5,35 +5,35 @@ import {
   IsEmail,
   IsEnum,
   MaxLength,
-} from 'class-validator'
-import { CustomerSegment } from '@prisma/client'
+} from 'class-validator';
+import { CustomerSegment } from '@prisma/client';
 
 export class CreateCustomerDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  name: string
+  name: string;
 
   @IsOptional()
   @IsEmail()
-  email?: string
+  email?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(30)
-  phone?: string
+  phone?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(200)
-  address?: string
+  address?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(500)
-  notes?: string
+  notes?: string;
 
   @IsOptional()
   @IsEnum(CustomerSegment)
-  segment?: CustomerSegment
+  segment?: CustomerSegment;
 }

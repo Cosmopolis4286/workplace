@@ -1,9 +1,16 @@
-import { Controller, Get, Query, UseGuards, DefaultValuePipe, ParseIntPipe } from '@nestjs/common'
-import { Role } from '@prisma/client'
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
-import { RolesGuard } from '../common/guards/roles.guard'
-import { Roles } from '../common/decorators/roles.decorator'
-import { AuditService } from './audit.service'
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  DefaultValuePipe,
+  ParseIntPipe,
+} from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { AuditService } from './audit.service';
 
 @Controller('audit')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -22,14 +29,23 @@ export class AuditController {
     @Query('action') action?: string,
     @Query('search') search?: string,
     @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
+    @Query('dateTo') dateTo?: string
   ) {
-    return this.auditService.getAuditLogs({ page, limit, userId, module, action, search, dateFrom, dateTo })
+    return this.auditService.getAuditLogs({
+      page,
+      limit,
+      userId,
+      module,
+      action,
+      search,
+      dateFrom,
+      dateTo,
+    });
   }
 
   @Get('stats')
   getAuditStats() {
-    return this.auditService.getAuditStats()
+    return this.auditService.getAuditStats();
   }
 
   // ─── System logs ──────────────────────────────────────────────────────────
@@ -41,13 +57,20 @@ export class AuditController {
     @Query('level') level?: string,
     @Query('search') search?: string,
     @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
+    @Query('dateTo') dateTo?: string
   ) {
-    return this.auditService.getSystemLogs({ page, limit, level, search, dateFrom, dateTo })
+    return this.auditService.getSystemLogs({
+      page,
+      limit,
+      level,
+      search,
+      dateFrom,
+      dateTo,
+    });
   }
 
   @Get('logs/stats')
   getLogStats() {
-    return this.auditService.getLogStats()
+    return this.auditService.getLogStats();
   }
 }

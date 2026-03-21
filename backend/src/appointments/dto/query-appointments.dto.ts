@@ -1,29 +1,29 @@
-import { IsOptional, IsEnum, IsDateString, IsInt, Min } from 'class-validator'
-import { Type } from 'class-transformer'
-import { AppointmentStatus } from '@prisma/client'
+import { IsOptional, IsEnum, IsDateString, IsInt, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { AppointmentStatus } from '@prisma/client';
 
 export class QueryAppointmentsDto {
   @IsOptional()
   @IsEnum(AppointmentStatus)
-  status?: AppointmentStatus
+  status?: AppointmentStatus;
 
   @IsOptional()
   @IsDateString()
-  dateFrom?: string
+  dateFrom?: string;
 
   @IsOptional()
   @IsDateString()
-  dateTo?: string
+  dateTo?: string;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page?: number
+  page?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  limit?: number
+  limit?: number;
 }

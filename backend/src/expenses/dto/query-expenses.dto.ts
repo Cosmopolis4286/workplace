@@ -1,41 +1,41 @@
-import { IsOptional, IsEnum, IsString, IsInt, Min } from 'class-validator'
-import { Type } from 'class-transformer'
-import { ExpenseStatus, ExpenseType } from '@prisma/client'
+import { IsOptional, IsEnum, IsString, IsInt, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ExpenseStatus, ExpenseType } from '@prisma/client';
 
 export class QueryExpensesDto {
   @IsOptional()
   @IsEnum(ExpenseStatus)
-  status?: ExpenseStatus
+  status?: ExpenseStatus;
 
   @IsOptional()
   @IsEnum(ExpenseType)
-  type?: ExpenseType
+  type?: ExpenseType;
 
   @IsOptional()
   @IsString()
-  categoryId?: string
+  categoryId?: string;
 
   @IsOptional()
   @IsString()
-  search?: string
+  search?: string;
 
   @IsOptional()
   @IsString()
-  dateFrom?: string
+  dateFrom?: string;
 
   @IsOptional()
   @IsString()
-  dateTo?: string
+  dateTo?: string;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page?: number = 1
+  page?: number = 1;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  limit?: number = 20
+  limit?: number = 20;
 }

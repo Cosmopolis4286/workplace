@@ -3,28 +3,28 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
-import { NotificationsService } from '../notifications/notifications.service'
-import { CreateDriverDto } from './dto/create-driver.dto'
-import { UpdateDriverDto } from './dto/update-driver.dto'
-import { CreateDeliveryDto } from './dto/create-delivery.dto'
-import { UpdateDeliveryDto } from './dto/update-delivery.dto'
-import { QueryDeliveriesDto } from './dto/query-delivery.dto'
-import { DeliveryStatus, DriverStatus } from '@prisma/client'
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { CreateDriverDto } from './dto/create-driver.dto';
+import { UpdateDriverDto } from './dto/update-driver.dto';
+import { CreateDeliveryDto } from './dto/create-delivery.dto';
+import { UpdateDeliveryDto } from './dto/update-delivery.dto';
+import { QueryDeliveriesDto } from './dto/query-delivery.dto';
+import { DeliveryStatus, DriverStatus } from '@prisma/client';
 
 function startOfDay(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 }
 function endOfDay(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 }
 
 @Injectable()
 export class DeliveryService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService,
+    private readonly notifications: NotificationsService
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -33,31 +33,43 @@ export class DeliveryService {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
-    })
-    if (!restaurant) throw new ForbiddenException('El usuario no tiene un restaurante asociado')
-    return restaurant.id
+    });
+    if (!restaurant)
+      throw new ForbiddenException(
+        'El usuario no tiene un restaurante asociado'
+      );
+    return restaurant.id;
   }
 
   private async assertDriverOwnership(driverId: string, commerceId: string) {
-    const driver = await this.prisma.driver.findUnique({ where: { id: driverId } })
-    if (!driver) throw new NotFoundException('Repartidor no encontrado')
-    if (driver.commerceId !== commerceId) throw new ForbiddenException('Acceso denegado')
-    return driver
+    const driver = await this.prisma.driver.findUnique({
+      where: { id: driverId },
+    });
+    if (!driver) throw new NotFoundException('Repartidor no encontrado');
+    if (driver.commerceId !== commerceId)
+      throw new ForbiddenException('Acceso denegado');
+    return driver;
   }
 
-  private async assertDeliveryOwnership(deliveryId: string, commerceId: string) {
-    const delivery = await this.prisma.delivery.findUnique({ where: { id: deliveryId } })
-    if (!delivery) throw new NotFoundException('Entrega no encontrada')
-    if (delivery.commerceId !== commerceId) throw new ForbiddenException('Acceso denegado')
-    return delivery
+  private async assertDeliveryOwnership(
+    deliveryId: string,
+    commerceId: string
+  ) {
+    const delivery = await this.prisma.delivery.findUnique({
+      where: { id: deliveryId },
+    });
+    if (!delivery) throw new NotFoundException('Entrega no encontrada');
+    if (delivery.commerceId !== commerceId)
+      throw new ForbiddenException('Acceso denegado');
+    return delivery;
   }
 
   // ─── Stats ────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const commerceId = await this.getRestaurantId(userId)
-    const todayStart = startOfDay(new Date())
-    const todayEnd = endOfDay(new Date())
+    const commerceId = await this.getRestaurantId(userId);
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
 
     const [
       activeDeliveries,
@@ -71,7 +83,13 @@ export class DeliveryService {
       this.prisma.delivery.count({
         where: {
           commerceId,
-          status: { in: [DeliveryStatus.ASIGNADO, DeliveryStatus.RECOGIENDO, DeliveryStatus.EN_CAMINO] },
+          status: {
+            in: [
+              DeliveryStatus.ASIGNADO,
+              DeliveryStatus.RECOGIENDO,
+              DeliveryStatus.EN_CAMINO,
+            ],
+          },
         },
       }),
       this.prisma.delivery.count({
@@ -82,15 +100,23 @@ export class DeliveryService {
         where: { commerceId, isActive: true, status: DriverStatus.DISPONIBLE },
       }),
       this.prisma.delivery.count({
-        where: { commerceId, status: DeliveryStatus.ENTREGADO, deliveredAt: { gte: todayStart, lte: todayEnd } },
+        where: {
+          commerceId,
+          status: DeliveryStatus.ENTREGADO,
+          deliveredAt: { gte: todayStart, lte: todayEnd },
+        },
       }),
       this.prisma.delivery.count({
         where: { commerceId, status: DeliveryStatus.PENDIENTE },
       }),
       this.prisma.delivery.count({
-        where: { commerceId, status: DeliveryStatus.CANCELADO, updatedAt: { gte: todayStart, lte: todayEnd } },
+        where: {
+          commerceId,
+          status: DeliveryStatus.CANCELADO,
+          updatedAt: { gte: todayStart, lte: todayEnd },
+        },
       }),
-    ])
+    ]);
 
     // Average delivery time for today's completed deliveries
     const completedToday = await this.prisma.delivery.findMany({
@@ -101,15 +127,16 @@ export class DeliveryService {
         pickedUpAt: { not: null },
       },
       select: { pickedUpAt: true, deliveredAt: true },
-    })
+    });
 
-    let avgDeliveryTime = 0
+    let avgDeliveryTime = 0;
     if (completedToday.length > 0) {
       const totalMinutes = completedToday.reduce((sum, d) => {
-        const mins = (d.deliveredAt!.getTime() - d.pickedUpAt!.getTime()) / 60000
-        return sum + mins
-      }, 0)
-      avgDeliveryTime = Math.round(totalMinutes / completedToday.length)
+        const mins =
+          (d.deliveredAt!.getTime() - d.pickedUpAt!.getTime()) / 60000;
+        return sum + mins;
+      }, 0);
+      avgDeliveryTime = Math.round(totalMinutes / completedToday.length);
     }
 
     return {
@@ -121,13 +148,13 @@ export class DeliveryService {
       pendingDeliveries,
       cancelledToday,
       avgDeliveryTime,
-    }
+    };
   }
 
   // ─── Drivers CRUD ─────────────────────────────────────────────────────────
 
   async findAllDrivers(userId: string) {
-    const commerceId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId);
     return this.prisma.driver.findMany({
       where: { commerceId, isActive: true },
       include: {
@@ -135,193 +162,297 @@ export class DeliveryService {
           select: {
             deliveries: {
               where: {
-                createdAt: { gte: startOfDay(new Date()), lte: endOfDay(new Date()) },
+                createdAt: {
+                  gte: startOfDay(new Date()),
+                  lte: endOfDay(new Date()),
+                },
               },
             },
           },
         },
       },
       orderBy: { name: 'asc' },
-    })
+    });
   }
 
   async createDriver(userId: string, dto: CreateDriverDto) {
-    const commerceId = await this.getRestaurantId(userId)
-    return this.prisma.driver.create({ data: { ...dto, commerceId } })
+    const commerceId = await this.getRestaurantId(userId);
+    return this.prisma.driver.create({ data: { ...dto, commerceId } });
   }
 
   async updateDriver(userId: string, driverId: string, dto: UpdateDriverDto) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.assertDriverOwnership(driverId, commerceId)
-    return this.prisma.driver.update({ where: { id: driverId }, data: dto })
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertDriverOwnership(driverId, commerceId);
+    return this.prisma.driver.update({ where: { id: driverId }, data: dto });
   }
 
   async removeDriver(userId: string, driverId: string) {
-    const commerceId = await this.getRestaurantId(userId)
-    const driver = await this.assertDriverOwnership(driverId, commerceId)
+    const commerceId = await this.getRestaurantId(userId);
+    const driver = await this.assertDriverOwnership(driverId, commerceId);
     // Soft delete: mark as inactive
     return this.prisma.driver.update({
       where: { id: driver.id },
       data: { isActive: false, status: DriverStatus.INACTIVO },
-    })
+    });
   }
 
-  async updateDriverStatus(userId: string, driverId: string, status: DriverStatus) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.assertDriverOwnership(driverId, commerceId)
-    return this.prisma.driver.update({ where: { id: driverId }, data: { status } })
+  async updateDriverStatus(
+    userId: string,
+    driverId: string,
+    status: DriverStatus
+  ) {
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertDriverOwnership(driverId, commerceId);
+    return this.prisma.driver.update({
+      where: { id: driverId },
+      data: { status },
+    });
   }
 
   // ─── Deliveries CRUD ──────────────────────────────────────────────────────
 
   async findAllDeliveries(userId: string, query: QueryDeliveriesDto) {
-    const commerceId = await this.getRestaurantId(userId)
-    const { status, driverId, dateFrom, dateTo, page = 1, limit = 50 } = query
+    const commerceId = await this.getRestaurantId(userId);
+    const { status, driverId, dateFrom, dateTo, page = 1, limit = 50 } = query;
 
-    const where: Record<string, unknown> = { commerceId }
-    if (status) where.status = status
-    if (driverId) where.driverId = driverId
+    const where: Record<string, unknown> = { commerceId };
+    if (status) where.status = status;
+    if (driverId) where.driverId = driverId;
     if (dateFrom || dateTo) {
-      where.createdAt = {}
-      if (dateFrom) (where.createdAt as Record<string, unknown>).gte = startOfDay(new Date(dateFrom))
-      if (dateTo) (where.createdAt as Record<string, unknown>).lte = endOfDay(new Date(dateTo))
+      where.createdAt = {};
+      if (dateFrom)
+        (where.createdAt as Record<string, unknown>).gte = startOfDay(
+          new Date(dateFrom)
+        );
+      if (dateTo)
+        (where.createdAt as Record<string, unknown>).lte = endOfDay(
+          new Date(dateTo)
+        );
     }
 
     const [items, total] = await Promise.all([
       this.prisma.delivery.findMany({
         where,
-        include: { driver: { select: { id: true, name: true, vehicleType: true, vehicleModel: true, phone: true, status: true } } },
+        include: {
+          driver: {
+            select: {
+              id: true,
+              name: true,
+              vehicleType: true,
+              vehicleModel: true,
+              phone: true,
+              status: true,
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
       this.prisma.delivery.count({ where }),
-    ])
+    ]);
 
-    return { items, total, page, limit }
+    return { items, total, page, limit };
   }
 
   async findOneDelivery(userId: string, deliveryId: string) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.assertDeliveryOwnership(deliveryId, commerceId)
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertDeliveryOwnership(deliveryId, commerceId);
     return this.prisma.delivery.findUnique({
       where: { id: deliveryId },
       include: { driver: true },
-    })
+    });
   }
 
   async createDelivery(userId: string, dto: CreateDeliveryDto) {
-    const commerceId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId);
 
     if (dto.driverId) {
-      const driver = await this.prisma.driver.findUnique({ where: { id: dto.driverId } })
+      const driver = await this.prisma.driver.findUnique({
+        where: { id: dto.driverId },
+      });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException('Repartidor no encontrado en este restaurante')
+        throw new BadRequestException(
+          'Repartidor no encontrado en este restaurante'
+        );
     }
 
     const delivery = await this.prisma.delivery.create({
-      data: { ...dto, commerceId, status: dto.status ?? DeliveryStatus.PENDIENTE },
-      include: { driver: { select: { id: true, name: true, vehicleType: true, vehicleModel: true, phone: true, status: true } } },
-    })
+      data: {
+        ...dto,
+        commerceId,
+        status: dto.status ?? DeliveryStatus.PENDIENTE,
+      },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            name: true,
+            vehicleType: true,
+            vehicleModel: true,
+            phone: true,
+            status: true,
+          },
+        },
+      },
+    });
 
     // If driver assigned, update driver status to EN_ENTREGA
     if (dto.driverId && delivery.status !== DeliveryStatus.ENTREGADO) {
       await this.prisma.driver.update({
         where: { id: dto.driverId },
         data: { status: DriverStatus.EN_ENTREGA },
-      })
+      });
     }
 
-    return delivery
+    return delivery;
   }
 
-  async updateDelivery(userId: string, deliveryId: string, dto: UpdateDeliveryDto) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.assertDeliveryOwnership(deliveryId, commerceId)
+  async updateDelivery(
+    userId: string,
+    deliveryId: string,
+    dto: UpdateDeliveryDto
+  ) {
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertDeliveryOwnership(deliveryId, commerceId);
 
     if (dto.driverId) {
-      const driver = await this.prisma.driver.findUnique({ where: { id: dto.driverId } })
+      const driver = await this.prisma.driver.findUnique({
+        where: { id: dto.driverId },
+      });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException('Repartidor no encontrado en este restaurante')
+        throw new BadRequestException(
+          'Repartidor no encontrado en este restaurante'
+        );
     }
 
     return this.prisma.delivery.update({
       where: { id: deliveryId },
       data: dto,
-      include: { driver: { select: { id: true, name: true, vehicleType: true, vehicleModel: true, phone: true, status: true } } },
-    })
+      include: {
+        driver: {
+          select: {
+            id: true,
+            name: true,
+            vehicleType: true,
+            vehicleModel: true,
+            phone: true,
+            status: true,
+          },
+        },
+      },
+    });
   }
 
   async removeDelivery(userId: string, deliveryId: string) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.assertDeliveryOwnership(deliveryId, commerceId)
-    await this.prisma.delivery.delete({ where: { id: deliveryId } })
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertDeliveryOwnership(deliveryId, commerceId);
+    await this.prisma.delivery.delete({ where: { id: deliveryId } });
   }
 
-  async updateDeliveryStatus(userId: string, deliveryId: string, status: DeliveryStatus) {
-    const commerceId = await this.getRestaurantId(userId)
-    const delivery = await this.assertDeliveryOwnership(deliveryId, commerceId)
+  async updateDeliveryStatus(
+    userId: string,
+    deliveryId: string,
+    status: DeliveryStatus
+  ) {
+    const commerceId = await this.getRestaurantId(userId);
+    const delivery = await this.assertDeliveryOwnership(deliveryId, commerceId);
 
-    const data: Record<string, unknown> = { status }
+    const data: Record<string, unknown> = { status };
 
-    if (status === DeliveryStatus.RECOGIENDO || status === DeliveryStatus.EN_CAMINO) {
-      data.pickedUpAt = data.pickedUpAt ?? delivery.pickedUpAt ?? new Date()
+    if (
+      status === DeliveryStatus.RECOGIENDO ||
+      status === DeliveryStatus.EN_CAMINO
+    ) {
+      data.pickedUpAt = data.pickedUpAt ?? delivery.pickedUpAt ?? new Date();
     }
     if (status === DeliveryStatus.ENTREGADO) {
-      data.deliveredAt = new Date()
+      data.deliveredAt = new Date();
       // Free the driver
       if (delivery.driverId) {
         await this.prisma.driver.update({
           where: { id: delivery.driverId },
-          data: { status: DriverStatus.DISPONIBLE, totalDeliveries: { increment: 1 } },
-        })
+          data: {
+            status: DriverStatus.DISPONIBLE,
+            totalDeliveries: { increment: 1 },
+          },
+        });
       }
     }
-    if (status === DeliveryStatus.CANCELADO || status === DeliveryStatus.FALLIDO) {
+    if (
+      status === DeliveryStatus.CANCELADO ||
+      status === DeliveryStatus.FALLIDO
+    ) {
       // Free the driver
       if (delivery.driverId) {
         await this.prisma.driver.update({
           where: { id: delivery.driverId },
           data: { status: DriverStatus.DISPONIBLE },
-        })
+        });
       }
     }
 
     const updated = await this.prisma.delivery.update({
       where: { id: deliveryId },
       data,
-      include: { driver: { select: { id: true, name: true, vehicleType: true, vehicleModel: true, phone: true, status: true } } },
-    })
+      include: {
+        driver: {
+          select: {
+            id: true,
+            name: true,
+            vehicleType: true,
+            vehicleModel: true,
+            phone: true,
+            status: true,
+          },
+        },
+      },
+    });
 
     this.notifications
       .notifyDeliveryStatusChange(commerceId, delivery.orderNumber, status)
-      .catch(() => null)
+      .catch(() => null);
 
-    return updated
+    return updated;
   }
 
   async assignDriver(userId: string, deliveryId: string, driverId: string) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.assertDeliveryOwnership(deliveryId, commerceId)
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertDeliveryOwnership(deliveryId, commerceId);
 
-    const driver = await this.prisma.driver.findUnique({ where: { id: driverId } })
+    const driver = await this.prisma.driver.findUnique({
+      where: { id: driverId },
+    });
     if (!driver || driver.commerceId !== commerceId)
-      throw new BadRequestException('Repartidor no encontrado en este restaurante')
+      throw new BadRequestException(
+        'Repartidor no encontrado en este restaurante'
+      );
     if (!driver.isActive)
-      throw new BadRequestException('El repartidor no está activo')
+      throw new BadRequestException('El repartidor no está activo');
 
     const [delivery] = await Promise.all([
       this.prisma.delivery.update({
         where: { id: deliveryId },
         data: { driverId, status: DeliveryStatus.ASIGNADO },
-        include: { driver: { select: { id: true, name: true, vehicleType: true, vehicleModel: true, phone: true, status: true } } },
+        include: {
+          driver: {
+            select: {
+              id: true,
+              name: true,
+              vehicleType: true,
+              vehicleModel: true,
+              phone: true,
+              status: true,
+            },
+          },
+        },
       }),
       this.prisma.driver.update({
         where: { id: driverId },
         data: { status: DriverStatus.EN_ENTREGA },
       }),
-    ])
+    ]);
 
-    return delivery
+    return delivery;
   }
 }

@@ -3,18 +3,18 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
-} from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
-import { CreateBranchDto } from './dto/create-branch.dto'
-import { UpdateBranchDto } from './dto/update-branch.dto'
-import { BranchStatus } from '@prisma/client'
-import { PlanLimitsService } from '../plans/plan-limits.service'
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateBranchDto } from './dto/create-branch.dto';
+import { UpdateBranchDto } from './dto/update-branch.dto';
+import { BranchStatus } from '@prisma/client';
+import { PlanLimitsService } from '../plans/plan-limits.service';
 
 @Injectable()
 export class BranchesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly planLimits: PlanLimitsService,
+    private readonly planLimits: PlanLimitsService
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -23,99 +23,108 @@ export class BranchesService {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
-    })
-    if (!restaurant) throw new ForbiddenException('El usuario no tiene un restaurante asociado')
-    return restaurant.id
+    });
+    if (!restaurant)
+      throw new ForbiddenException(
+        'El usuario no tiene un restaurante asociado'
+      );
+    return restaurant.id;
   }
 
   private async assertOwnership(branchId: string, commerceId: string) {
-    const branch = await this.prisma.branch.findUnique({ where: { id: branchId } })
-    if (!branch) throw new NotFoundException('Sucursal no encontrada')
-    if (branch.commerceId !== commerceId) throw new ForbiddenException('Acceso denegado')
-    return branch
+    const branch = await this.prisma.branch.findUnique({
+      where: { id: branchId },
+    });
+    if (!branch) throw new NotFoundException('Sucursal no encontrada');
+    if (branch.commerceId !== commerceId)
+      throw new ForbiddenException('Acceso denegado');
+    return branch;
   }
 
   // ─── Stats ──────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const commerceId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId);
 
     const [total, active, byStatusRaw] = await Promise.all([
       this.prisma.branch.count({ where: { commerceId } }),
-      this.prisma.branch.count({ where: { commerceId, status: BranchStatus.ACTIVA } }),
+      this.prisma.branch.count({
+        where: { commerceId, status: BranchStatus.ACTIVA },
+      }),
       this.prisma.branch.groupBy({
         by: ['status'],
         where: { commerceId },
         _count: { status: true },
       }),
-    ])
+    ]);
 
     const byStatus = Object.fromEntries(
-      byStatusRaw.map((r) => [r.status, r._count.status]),
-    ) as Record<BranchStatus, number>
+      byStatusRaw.map((r) => [r.status, r._count.status])
+    ) as Record<BranchStatus, number>;
 
-    return { total, active, byStatus }
+    return { total, active, byStatus };
   }
 
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   async findAll(userId: string) {
-    const commerceId = await this.getRestaurantId(userId)
+    const commerceId = await this.getRestaurantId(userId);
     return this.prisma.branch.findMany({
       where: { commerceId },
       orderBy: { name: 'asc' },
-    })
+    });
   }
 
   async findOne(userId: string, branchId: string) {
-    const commerceId = await this.getRestaurantId(userId)
-    return this.assertOwnership(branchId, commerceId)
+    const commerceId = await this.getRestaurantId(userId);
+    return this.assertOwnership(branchId, commerceId);
   }
 
   async create(userId: string, dto: CreateBranchDto) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.planLimits.assertBranchLimit(userId, commerceId)
+    const commerceId = await this.getRestaurantId(userId);
+    await this.planLimits.assertBranchLimit(userId, commerceId);
 
     const exists = await this.prisma.branch.findUnique({
       where: { name_commerceId: { name: dto.name, commerceId } },
-    })
-    if (exists) throw new ConflictException('Ya existe una sucursal con ese nombre')
+    });
+    if (exists)
+      throw new ConflictException('Ya existe una sucursal con ese nombre');
 
     return this.prisma.branch.create({
       data: { ...dto, commerceId },
-    })
+    });
   }
 
   async update(userId: string, branchId: string, dto: UpdateBranchDto) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.assertOwnership(branchId, commerceId)
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertOwnership(branchId, commerceId);
 
     if (dto.name) {
       const exists = await this.prisma.branch.findUnique({
         where: { name_commerceId: { name: dto.name, commerceId } },
-      })
+      });
       if (exists && exists.id !== branchId)
-        throw new ConflictException('Ya existe una sucursal con ese nombre')
+        throw new ConflictException('Ya existe una sucursal con ese nombre');
     }
 
     return this.prisma.branch.update({
       where: { id: branchId },
       data: dto,
-    })
+    });
   }
 
   async remove(userId: string, branchId: string) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.assertOwnership(branchId, commerceId)
-    await this.prisma.branch.delete({ where: { id: branchId } })
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertOwnership(branchId, commerceId);
+    await this.prisma.branch.delete({ where: { id: branchId } });
   }
 
   async updateStatus(userId: string, branchId: string, status: BranchStatus) {
-    const commerceId = await this.getRestaurantId(userId)
-    await this.assertOwnership(branchId, commerceId)
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertOwnership(branchId, commerceId);
     return this.prisma.branch.update({
       where: { id: branchId },
       data: { status },
-    })
+    });
   }
 }

@@ -1,10 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common'
-import { Cron, CronExpression } from '@nestjs/schedule'
-import { PrismaService } from '../prisma/prisma.service'
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class SubscriptionsScheduler {
-  private readonly logger = new Logger(SubscriptionsScheduler.name)
+  private readonly logger = new Logger(SubscriptionsScheduler.name);
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -14,7 +14,7 @@ export class SubscriptionsScheduler {
    */
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
   async expireSubscriptions() {
-    const now = new Date()
+    const now = new Date();
 
     const expired = await this.prisma.subscription.updateMany({
       where: {
@@ -22,10 +22,10 @@ export class SubscriptionsScheduler {
         endAt: { not: null, lt: now },
       },
       data: { status: 'EXPIRED' },
-    })
+    });
 
     if (expired.count > 0) {
-      this.logger.log(`Expiradas ${expired.count} suscripción(es)`)
+      this.logger.log(`Expiradas ${expired.count} suscripción(es)`);
     }
   }
 }

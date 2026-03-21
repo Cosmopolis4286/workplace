@@ -1,5 +1,5 @@
-import { LoggerService, LogLevel } from '@nestjs/common'
-import { PrismaClient } from '@prisma/client'
+import { LoggerService, LogLevel } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
 /**
  * Custom NestJS logger that persists WARN and ERROR entries to the SystemLog
@@ -12,30 +12,30 @@ export class AuditLogger implements LoggerService {
   constructor(private readonly prisma: PrismaClient) {}
 
   log(message: any, context?: string) {
-    this.print('LOG', message, context)
+    this.print('LOG', message, context);
   }
 
   error(message: any, stack?: string, context?: string) {
-    this.print('ERROR', message, context)
-    this.persist('ERROR', message, context, stack).catch(() => {})
+    this.print('ERROR', message, context);
+    this.persist('ERROR', message, context, stack).catch(() => {});
   }
 
   warn(message: any, context?: string) {
-    this.print('WARN', message, context)
-    this.persist('WARN', message, context).catch(() => {})
+    this.print('WARN', message, context);
+    this.persist('WARN', message, context).catch(() => {});
   }
 
   debug(message: any, context?: string) {
-    this.print('DEBUG', message, context)
+    this.print('DEBUG', message, context);
   }
 
   verbose(message: any, context?: string) {
-    this.print('VERBOSE', message, context)
+    this.print('VERBOSE', message, context);
   }
 
   fatal(message: any, context?: string) {
-    this.print('FATAL', message, context)
-    this.persist('ERROR', message, context).catch(() => {})
+    this.print('FATAL', message, context);
+    this.persist('ERROR', message, context).catch(() => {});
   }
 
   setLogLevels?(_levels: LogLevel[]) {}
@@ -43,22 +43,22 @@ export class AuditLogger implements LoggerService {
   // ─── Private ────────────────────────────────────────────────────────────────
 
   private print(level: string, message: any, context?: string) {
-    const ts = new Date().toISOString()
-    const ctx = context ? ` [${context}]` : ''
-    const msg = typeof message === 'string' ? message : JSON.stringify(message)
+    const ts = new Date().toISOString();
+    const ctx = context ? ` [${context}]` : '';
+    const msg = typeof message === 'string' ? message : JSON.stringify(message);
     // eslint-disable-next-line no-console
-    console.log(`[${ts}] ${level}${ctx} ${msg}`)
+    console.log(`[${ts}] ${level}${ctx} ${msg}`);
   }
 
   private async persist(
     level: 'ERROR' | 'WARN' | 'INFO' | 'DEBUG',
     message: any,
     context?: string,
-    stack?: string,
+    stack?: string
   ) {
-    const msg = typeof message === 'string' ? message : JSON.stringify(message)
+    const msg = typeof message === 'string' ? message : JSON.stringify(message);
     await this.prisma.systemLog.create({
       data: { level, message: msg, context, stack },
-    })
+    });
   }
 }

@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsNumber, IsDateString, IsEmail, IsEnum } from 'class-validator'
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsDateString,
+  IsEmail,
+  IsEnum,
+} from 'class-validator';
 
 export enum ServiceRequestModality {
   PRESENCIAL = 'PRESENCIAL',
@@ -8,51 +15,51 @@ export enum ServiceRequestModality {
 
 export class CreateServiceRequestDto {
   @IsString()
-  serviceId: string
+  serviceId: string;
 
   @IsString()
-  serviceName: string
+  serviceName: string;
 
   @IsString()
-  providerId: string
+  providerId: string;
 
   @IsString()
-  providerName: string
+  providerName: string;
 
   @IsEnum(ServiceRequestModality)
   @IsOptional()
-  modality?: ServiceRequestModality
+  modality?: ServiceRequestModality;
 
   @IsDateString()
-  preferredDate: string
+  preferredDate: string;
 
   @IsString()
   @IsOptional()
-  address?: string
+  address?: string;
 
   @IsString()
   @IsOptional()
-  city?: string
+  city?: string;
 
   @IsString()
-  clientName: string
+  clientName: string;
 
   @IsString()
-  clientPhone: string
+  clientPhone: string;
 
   @IsEmail()
   @IsOptional()
-  clientEmail?: string
+  clientEmail?: string;
 
   @IsString()
   @IsOptional()
-  description?: string
+  description?: string;
 
   @IsNumber()
   @IsOptional()
-  price?: number
+  price?: number;
 
   @IsString()
   @IsOptional()
-  priceUnit?: string
+  priceUnit?: string;
 }

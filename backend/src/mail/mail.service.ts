@@ -1,10 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common'
-import * as nodemailer from 'nodemailer'
+import { Injectable, Logger } from '@nestjs/common';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailService {
-  private readonly logger = new Logger(MailService.name)
-  private transporter: nodemailer.Transporter
+  private readonly logger = new Logger(MailService.name);
+  private transporter: nodemailer.Transporter;
 
   constructor() {
     this.transporter = nodemailer.createTransport({
@@ -15,17 +15,17 @@ export class MailService {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
       },
-    })
+    });
   }
 
   private get fromAddress() {
-    const name = process.env.MAIL_FROM_NAME || 'WorkPlace Manager'
-    const addr = process.env.MAIL_USER || 'noreply@workplacemanager.com'
-    return `"${name}" <${addr}>`
+    const name = process.env.MAIL_FROM_NAME || 'WorkPlace Manager';
+    const addr = process.env.MAIL_USER || 'noreply@workplacemanager.com';
+    return `"${name}" <${addr}>`;
   }
 
   async sendPasswordReset(email: string, token: string, firstName: string) {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/recover-password?token=${token}`
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/recover-password?token=${token}`;
     try {
       await this.transporter.sendMail({
         from: this.fromAddress,
@@ -45,14 +45,16 @@ export class MailService {
             </p>
           </div>
         `,
-      })
+      });
     } catch (err) {
-      this.logger.warn(`Could not send password reset email to ${email}: ${err.message}`)
+      this.logger.warn(
+        `Could not send password reset email to ${email}: ${err.message}`
+      );
     }
   }
 
   async sendEmailVerification(email: string, token: string, firstName: string) {
-    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`
+    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
     try {
       await this.transporter.sendMail({
         from: this.fromAddress,
@@ -72,9 +74,11 @@ export class MailService {
             </p>
           </div>
         `,
-      })
+      });
     } catch (err) {
-      this.logger.warn(`Could not send verification email to ${email}: ${err.message}`)
+      this.logger.warn(
+        `Could not send verification email to ${email}: ${err.message}`
+      );
     }
   }
 }

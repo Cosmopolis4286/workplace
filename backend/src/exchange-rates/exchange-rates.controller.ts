@@ -78,7 +78,7 @@ export class ExchangeRatesController {
   update(
     @Param('id') id: string,
     @Body() dto: UpdateExchangeRateDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: any
   ) {
     return this.exchangeRatesService.update(id, dto, user.id);
   }

@@ -1,84 +1,98 @@
-import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
-import { QueryAnalyticsDto } from './dto/query-analytics.dto'
-import { CustomerSegment } from '@prisma/client'
+import {
+  Injectable,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { QueryAnalyticsDto } from './dto/query-analytics.dto';
+import { CustomerSegment } from '@prisma/client';
 
 function startOfDay(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 }
 function endOfDay(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 }
 function startOfWeek(d: Date) {
-  const day = d.getDay() // 0=Sun
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Monday
-  return startOfDay(new Date(d.setDate(diff)))
+  const day = d.getDay(); // 0=Sun
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  return startOfDay(new Date(d.setDate(diff)));
 }
 function startOfQuarter(d: Date) {
-  const q = Math.floor(d.getMonth() / 3)
-  return startOfDay(new Date(d.getFullYear(), q * 3, 1))
+  const q = Math.floor(d.getMonth() / 3);
+  return startOfDay(new Date(d.getFullYear(), q * 3, 1));
 }
 
-function getPeriodRange(period: string, dateFrom?: string, dateTo?: string): { from: Date; to: Date } {
-  const now = new Date()
-  const to = endOfDay(now)
-  const from = startOfDay(new Date())
+function getPeriodRange(
+  period: string,
+  dateFrom?: string,
+  dateTo?: string
+): { from: Date; to: Date } {
+  const now = new Date();
+  const to = endOfDay(now);
+  const from = startOfDay(new Date());
 
   switch (period) {
     case 'today':
       // from = start of today, to = now
-      return { from, to }
+      return { from, to };
     case 'week':
-      return { from: startOfWeek(new Date()), to }
+      return { from: startOfWeek(new Date()), to };
     case '7d':
-      from.setDate(from.getDate() - 6)
-      break
+      from.setDate(from.getDate() - 6);
+      break;
     case 'quarter':
-      return { from: startOfQuarter(new Date()), to }
+      return { from: startOfQuarter(new Date()), to };
     case '90d':
-      from.setDate(from.getDate() - 89)
-      break
+      from.setDate(from.getDate() - 89);
+      break;
     case '1y':
-      from.setFullYear(from.getFullYear() - 1)
-      from.setDate(from.getDate() + 1)
-      break
+      from.setFullYear(from.getFullYear() - 1);
+      from.setDate(from.getDate() + 1);
+      break;
     case 'custom':
-      if (!dateFrom || !dateTo) throw new BadRequestException('dateFrom and dateTo are required for custom period')
-      return { from: startOfDay(new Date(dateFrom)), to: endOfDay(new Date(dateTo)) }
+      if (!dateFrom || !dateTo)
+        throw new BadRequestException(
+          'dateFrom and dateTo are required for custom period'
+        );
+      return {
+        from: startOfDay(new Date(dateFrom)),
+        to: endOfDay(new Date(dateTo)),
+      };
     case '30d':
     default:
-      from.setDate(from.getDate() - 29)
+      from.setDate(from.getDate() - 29);
   }
 
-  return { from, to }
+  return { from, to };
 }
 
 function getPreviousPeriodRange(
   period: string,
   compareWith: string,
-  current: { from: Date; to: Date },
+  current: { from: Date; to: Date }
 ): { from: Date; to: Date } | null {
-  if (compareWith === 'none') return null
+  if (compareWith === 'none') return null;
 
-  const duration = current.to.getTime() - current.from.getTime()
+  const duration = current.to.getTime() - current.from.getTime();
 
   if (compareWith === 'year') {
     return {
       from: new Date(current.from.getTime() - 365 * 24 * 60 * 60 * 1000),
       to: new Date(current.to.getTime() - 365 * 24 * 60 * 60 * 1000),
-    }
+    };
   }
 
   // previous period
   return {
     from: new Date(current.from.getTime() - duration - 1),
     to: new Date(current.from.getTime() - 1),
-  }
+  };
 }
 
 function pct(current: number, previous: number | null): number | null {
-  if (previous === null || previous === 0) return null
-  return Math.round(((current - previous) / previous) * 1000) / 10
+  if (previous === null || previous === 0) return null;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
 @Injectable()
@@ -89,30 +103,40 @@ export class AnalyticsService {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
-    })
-    if (!restaurant) throw new ForbiddenException('El usuario no tiene un restaurante asociado')
-    return restaurant.id
+    });
+    if (!restaurant)
+      throw new ForbiddenException(
+        'El usuario no tiene un restaurante asociado'
+      );
+    return restaurant.id;
   }
 
   // ─── Main analytics endpoint ──────────────────────────────────────────────
 
   async getOverview(userId: string, dto: QueryAnalyticsDto) {
-    const commerceId = await this.getRestaurantId(userId)
-    const { period = '30d', compareWith = 'previous', dateFrom, dateTo } = dto
+    const commerceId = await this.getRestaurantId(userId);
+    const { period = '30d', compareWith = 'previous', dateFrom, dateTo } = dto;
 
-    const current = getPeriodRange(period, dateFrom, dateTo)
-    const previous = getPreviousPeriodRange(period, compareWith, current)
+    const current = getPeriodRange(period, dateFrom, dateTo);
+    const previous = getPreviousPeriodRange(period, compareWith, current);
 
-    const [kpis, prevKpis, revenueTrend, ordersByHour, topProducts, customerSegments, performance] =
-      await Promise.all([
-        this.getKpis(commerceId, current.from, current.to),
-        previous ? this.getKpis(commerceId, previous.from, previous.to) : null,
-        this.getRevenueTrend(commerceId, current.from, current.to, period),
-        this.getOrdersByHour(commerceId, current.from, current.to),
-        this.getTopProducts(commerceId, current.from, current.to),
-        this.getCustomerSegments(commerceId),
-        this.getPerformanceMetrics(commerceId, current.from, current.to),
-      ])
+    const [
+      kpis,
+      prevKpis,
+      revenueTrend,
+      ordersByHour,
+      topProducts,
+      customerSegments,
+      performance,
+    ] = await Promise.all([
+      this.getKpis(commerceId, current.from, current.to),
+      previous ? this.getKpis(commerceId, previous.from, previous.to) : null,
+      this.getRevenueTrend(commerceId, current.from, current.to, period),
+      this.getOrdersByHour(commerceId, current.from, current.to),
+      this.getTopProducts(commerceId, current.from, current.to),
+      this.getCustomerSegments(commerceId),
+      this.getPerformanceMetrics(commerceId, current.from, current.to),
+    ]);
 
     return {
       period,
@@ -126,60 +150,70 @@ export class AnalyticsService {
         : null,
       kpis: {
         totalRevenue: kpis.totalRevenue,
-        totalRevenueChange: pct(kpis.totalRevenue, prevKpis?.totalRevenue ?? null),
+        totalRevenueChange: pct(
+          kpis.totalRevenue,
+          prevKpis?.totalRevenue ?? null
+        ),
         totalOrders: kpis.totalOrders,
         totalOrdersChange: pct(kpis.totalOrders, prevKpis?.totalOrders ?? null),
         avgTicket: kpis.avgTicket,
         avgTicketChange: pct(kpis.avgTicket, prevKpis?.avgTicket ?? null),
         newCustomers: kpis.newCustomers,
-        newCustomersChange: pct(kpis.newCustomers, prevKpis?.newCustomers ?? null),
+        newCustomersChange: pct(
+          kpis.newCustomers,
+          prevKpis?.newCustomers ?? null
+        ),
       },
       revenueTrend,
       ordersByHour,
       topProducts,
       customerSegments,
       performance,
-    }
+    };
   }
 
   // ─── KPIs ────────────────────────────────────────────────────────────────
 
   private async getKpis(commerceId: string, from: Date, to: Date) {
     // Revenue and orders from appointments (completed ones represent served customers)
-    const [completedAppointments, totalOrders, newCustomers, customers] = await Promise.all([
-      this.prisma.appointment.findMany({
-        where: {
-          commerceId,
-          status: 'COMPLETADA',
-          date: { gte: from, lte: to },
-        },
-        select: { id: true },
-      }),
-      this.prisma.appointment.count({
-        where: {
-          commerceId,
-          date: { gte: from, lte: to },
-          status: { notIn: ['CANCELADA', 'NO_SHOW'] },
-        },
-      }),
-      this.prisma.customer.count({
-        where: { commerceId, createdAt: { gte: from, lte: to } },
-      }),
-      this.prisma.customer.aggregate({
-        where: { commerceId },
-        _sum: { totalSpent: true, totalOrders: true },
-        _count: { id: true },
-      }),
-    ])
+    const [completedAppointments, totalOrders, newCustomers, customers] =
+      await Promise.all([
+        this.prisma.appointment.findMany({
+          where: {
+            commerceId,
+            status: 'COMPLETADA',
+            date: { gte: from, lte: to },
+          },
+          select: { id: true },
+        }),
+        this.prisma.appointment.count({
+          where: {
+            commerceId,
+            date: { gte: from, lte: to },
+            status: { notIn: ['CANCELADA', 'NO_SHOW'] },
+          },
+        }),
+        this.prisma.customer.count({
+          where: { commerceId, createdAt: { gte: from, lte: to } },
+        }),
+        this.prisma.customer.aggregate({
+          where: { commerceId },
+          _sum: { totalSpent: true, totalOrders: true },
+          _count: { id: true },
+        }),
+      ]);
 
     // Revenue: sum of totalSpent from customers updated in period
     const revenueData = await this.prisma.customer.aggregate({
       where: { commerceId, updatedAt: { gte: from, lte: to } },
       _sum: { totalSpent: true },
-    })
+    });
 
-    const totalRevenue = Number(revenueData._sum.totalSpent ?? 0)
-    const avgTicket = totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0
+    const totalRevenue = Number(revenueData._sum.totalSpent ?? 0);
+    const avgTicket =
+      totalOrders > 0
+        ? Math.round((totalRevenue / totalOrders) * 100) / 100
+        : 0;
 
     return {
       totalRevenue,
@@ -187,7 +221,7 @@ export class AnalyticsService {
       avgTicket,
       newCustomers,
       completedAppointments: completedAppointments.length,
-    }
+    };
   }
 
   // ─── Revenue trend (daily buckets) ───────────────────────────────────────
@@ -196,75 +230,84 @@ export class AnalyticsService {
     commerceId: string,
     from: Date,
     to: Date,
-    period: string,
+    period: string
   ) {
     // Aggregate customer spending updates by day
     const customers = await this.prisma.customer.findMany({
       where: { commerceId, updatedAt: { gte: from, lte: to } },
       select: { totalSpent: true, updatedAt: true, createdAt: true },
-    })
+    });
 
     // Build daily buckets
-    const days = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    const labels: string[] = []
-    const values: number[] = []
+    const days =
+      Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const labels: string[] = [];
+    const values: number[] = [];
 
-    const fmt = (period === '1y')
-      ? (d: Date) => d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' })
-      : (period === 'today')
-        ? (d: Date) => `${d.getHours()}:00`
-        : (d: Date) => d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+    const fmt =
+      period === '1y'
+        ? (d: Date) =>
+            d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' })
+        : period === 'today'
+          ? (d: Date) => `${d.getHours()}:00`
+          : (d: Date) =>
+              d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
 
     // For today, group by hour
     if (period === 'today') {
-      const hourly: number[] = Array(24).fill(0)
+      const hourly: number[] = Array(24).fill(0);
       customers.forEach((c) => {
-        const h = new Date(c.updatedAt).getHours()
-        hourly[h] += Number(c.totalSpent)
-      })
-      const currentHour = new Date().getHours()
+        const h = new Date(c.updatedAt).getHours();
+        hourly[h] += Number(c.totalSpent);
+      });
+      const currentHour = new Date().getHours();
       for (let h = 6; h <= Math.min(currentHour, 23); h++) {
-        labels.push(`${h}:00`)
-        values.push(Math.round(hourly[h] * 100) / 100)
+        labels.push(`${h}:00`);
+        values.push(Math.round(hourly[h] * 100) / 100);
       }
-      return { labels, values }
+      return { labels, values };
     }
 
     // For year period, group by month
     if (period === '1y') {
-      const monthly: Record<string, number> = {}
+      const monthly: Record<string, number> = {};
       for (let i = 0; i < 12; i++) {
-        const d = new Date(from)
-        d.setMonth(d.getMonth() + i)
-        const key = `${d.getFullYear()}-${d.getMonth()}`
-        monthly[key] = 0
+        const d = new Date(from);
+        d.setMonth(d.getMonth() + i);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        monthly[key] = 0;
       }
       customers.forEach((c) => {
-        const d = new Date(c.updatedAt)
-        const key = `${d.getFullYear()}-${d.getMonth()}`
-        if (key in monthly) monthly[key] += Number(c.totalSpent)
-      })
+        const d = new Date(c.updatedAt);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        if (key in monthly) monthly[key] += Number(c.totalSpent);
+      });
       for (const [key, val] of Object.entries(monthly)) {
-        const [year, month] = key.split('-').map(Number)
-        labels.push(fmt(new Date(year, month, 1)))
-        values.push(Math.round(val * 100) / 100)
+        const [year, month] = key.split('-').map(Number);
+        labels.push(fmt(new Date(year, month, 1)));
+        values.push(Math.round(val * 100) / 100);
       }
     } else {
       for (let i = 0; i < days; i++) {
-        const d = new Date(from)
-        d.setDate(d.getDate() + i)
-        labels.push(fmt(d))
-        values.push(0)
+        const d = new Date(from);
+        d.setDate(d.getDate() + i);
+        labels.push(fmt(d));
+        values.push(0);
       }
       customers.forEach((c) => {
-        const d = new Date(c.updatedAt)
-        const idx = Math.floor((startOfDay(d).getTime() - from.getTime()) / (1000 * 60 * 60 * 24))
-        if (idx >= 0 && idx < values.length) values[idx] += Number(c.totalSpent)
-      })
-      values.forEach((_, i) => { values[i] = Math.round(values[i] * 100) / 100 })
+        const d = new Date(c.updatedAt);
+        const idx = Math.floor(
+          (startOfDay(d).getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        if (idx >= 0 && idx < values.length)
+          values[idx] += Number(c.totalSpent);
+      });
+      values.forEach((_, i) => {
+        values[i] = Math.round(values[i] * 100) / 100;
+      });
     }
 
-    return { labels, values }
+    return { labels, values };
   }
 
   // ─── Orders by hour ──────────────────────────────────────────────────────
@@ -277,23 +320,23 @@ export class AnalyticsService {
         status: { notIn: ['CANCELADA', 'NO_SHOW'] },
       },
       select: { date: true },
-    })
+    });
 
-    const hours: number[] = Array(24).fill(0)
+    const hours: number[] = Array(24).fill(0);
     appointments.forEach((a) => {
-      const h = new Date(a.date).getHours()
-      hours[h]++
-    })
+      const h = new Date(a.date).getHours();
+      hours[h]++;
+    });
 
     // Only include business hours 6-23
-    const labels: string[] = []
-    const values: number[] = []
+    const labels: string[] = [];
+    const values: number[] = [];
     for (let h = 6; h <= 23; h++) {
-      labels.push(`${h}:00`)
-      values.push(hours[h])
+      labels.push(`${h}:00`);
+      values.push(hours[h]);
     }
 
-    return { labels, values }
+    return { labels, values };
   }
 
   // ─── Top products ─────────────────────────────────────────────────────────
@@ -305,7 +348,7 @@ export class AnalyticsService {
       select: { name: true, stock: true, maxStock: true, price: true },
       orderBy: { stock: 'asc' },
       take: 10,
-    })
+    });
 
     // Score by (maxStock - currentStock) as units sold proxy
     const scored = products
@@ -315,13 +358,13 @@ export class AnalyticsService {
         revenue: Math.max(0, (p.maxStock ?? 0) - p.stock) * Number(p.price),
       }))
       .sort((a, b) => b.unitsSold - a.unitsSold)
-      .slice(0, 5)
+      .slice(0, 5);
 
     return {
       labels: scored.map((p) => p.name),
       values: scored.map((p) => p.unitsSold),
       revenue: scored.map((p) => Math.round(p.revenue * 100) / 100),
-    }
+    };
   }
 
   // ─── Customer segments ───────────────────────────────────────────────────
@@ -331,30 +374,39 @@ export class AnalyticsService {
       by: ['segment'],
       where: { commerceId },
       _count: { id: true },
-    })
+    });
 
     const segmentMap: Record<CustomerSegment, string> = {
       VIP: 'VIP',
       PREMIUM: 'Premium',
       REGULAR: 'Regular',
       NUEVO: 'Nuevos',
-    }
+    };
 
-    const allSegments: CustomerSegment[] = ['VIP', 'PREMIUM', 'REGULAR', 'NUEVO']
+    const allSegments: CustomerSegment[] = [
+      'VIP',
+      'PREMIUM',
+      'REGULAR',
+      'NUEVO',
+    ];
     const counts = allSegments.map((s) => ({
       label: segmentMap[s],
       count: segments.find((sg) => sg.segment === s)?._count.id ?? 0,
-    }))
+    }));
 
     return {
       labels: counts.map((c) => c.label),
       values: counts.map((c) => c.count),
-    }
+    };
   }
 
   // ─── Performance metrics ─────────────────────────────────────────────────
 
-  private async getPerformanceMetrics(commerceId: string, from: Date, to: Date) {
+  private async getPerformanceMetrics(
+    commerceId: string,
+    from: Date,
+    to: Date
+  ) {
     const [settings, customers, appointments] = await Promise.all([
       this.prisma.restaurantSettings.findUnique({ where: { commerceId } }),
       this.prisma.customer.aggregate({
@@ -368,25 +420,34 @@ export class AnalyticsService {
         where: { commerceId, date: { gte: from, lte: to } },
         _count: { id: true },
       }),
-    ])
+    ]);
 
-    const totalInPeriod = appointments.reduce((sum, a) => sum + a._count.id, 0)
-    const cancelled = appointments.find((a) => a.status === 'CANCELADA')?._count.id ?? 0
-    const noShow = appointments.find((a) => a.status === 'NO_SHOW')?._count.id ?? 0
+    const totalInPeriod = appointments.reduce((sum, a) => sum + a._count.id, 0);
+    const cancelled =
+      appointments.find((a) => a.status === 'CANCELADA')?._count.id ?? 0;
+    const noShow =
+      appointments.find((a) => a.status === 'NO_SHOW')?._count.id ?? 0;
     const cancellationRate =
-      totalInPeriod > 0 ? Math.round(((cancelled + noShow) / totalInPeriod) * 1000) / 10 : 0
+      totalInPeriod > 0
+        ? Math.round(((cancelled + noShow) / totalInPeriod) * 1000) / 10
+        : 0;
 
-    const totalCustomers = customers._count.id
-    const totalOrders = Number(customers._sum.totalOrders ?? 0)
-    const totalRevenue = Number(customers._sum.totalSpent ?? 0)
-    const avgTicket = totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0
+    const totalCustomers = customers._count.id;
+    const totalOrders = Number(customers._sum.totalOrders ?? 0);
+    const totalRevenue = Number(customers._sum.totalSpent ?? 0);
+    const avgTicket =
+      totalOrders > 0
+        ? Math.round((totalRevenue / totalOrders) * 100) / 100
+        : 0;
     const avgOrderFrequency =
-      totalCustomers > 0 ? Math.round((totalOrders / totalCustomers) * 10) / 10 : 0
-    const clv = Number(customers._avg.totalSpent ?? 0)
+      totalCustomers > 0
+        ? Math.round((totalOrders / totalCustomers) * 10) / 10
+        : 0;
+    const clv = Number(customers._avg.totalSpent ?? 0);
 
     // New customers in last 30 days for retention calc
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const [newInLast30, returning] = await Promise.all([
       this.prisma.customer.count({
         where: { commerceId, createdAt: { gte: thirtyDaysAgo } },
@@ -394,20 +455,24 @@ export class AnalyticsService {
       this.prisma.customer.count({
         where: { commerceId, totalOrders: { gt: 1 } },
       }),
-    ])
+    ]);
 
     const retentionRate =
-      totalCustomers > 0 ? Math.round((returning / totalCustomers) * 1000) / 10 : 0
+      totalCustomers > 0
+        ? Math.round((returning / totalCustomers) * 1000) / 10
+        : 0;
 
     // Financial: use product data for gross margin
     const products = await this.prisma.product.aggregate({
       where: { commerceId },
       _avg: { price: true, cost: true },
-    })
-    const avgPrice = Number(products._avg.price ?? 0)
-    const avgCost = Number(products._avg.cost ?? 0)
+    });
+    const avgPrice = Number(products._avg.price ?? 0);
+    const avgCost = Number(products._avg.cost ?? 0);
     const grossMargin =
-      avgPrice > 0 ? Math.round(((avgPrice - avgCost) / avgPrice) * 1000) / 10 : 0
+      avgPrice > 0
+        ? Math.round(((avgPrice - avgCost) / avgPrice) * 1000) / 10
+        : 0;
 
     return {
       operational: {
@@ -430,6 +495,6 @@ export class AnalyticsService {
         totalRevenue,
         totalOrders,
       },
-    }
+    };
   }
 }

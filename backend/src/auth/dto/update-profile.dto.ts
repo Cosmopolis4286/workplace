@@ -1,33 +1,41 @@
-import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator'
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(50)
-  firstName?: string
+  firstName?: string;
 
   @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(50)
-  lastName?: string
+  lastName?: string;
 
   @IsOptional()
   @IsEmail()
-  email?: string
+  email?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(20)
-  phone?: string
+  phone?: string;
 
   @IsOptional()
   @IsString()
   @MinLength(3)
   @MaxLength(30)
   @Matches(/^[a-z0-9_.-]+$/, {
-    message: 'El username solo puede contener letras minúsculas, números, puntos, guiones y guiones bajos',
+    message:
+      'El username solo puede contener letras minúsculas, números, puntos, guiones y guiones bajos',
   })
-  username?: string
+  username?: string;
 }

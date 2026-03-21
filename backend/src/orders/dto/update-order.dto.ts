@@ -1,28 +1,28 @@
-import { IsOptional, IsEnum, IsString } from 'class-validator'
-import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client'
+import { IsOptional, IsEnum, IsString } from 'class-validator';
+import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 
 export class UpdateOrderDto {
   @IsOptional()
   @IsEnum(OrderStatus)
-  status?: OrderStatus
+  status?: OrderStatus;
 
   @IsOptional()
   @IsEnum(PaymentMethod)
-  paymentMethod?: PaymentMethod
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsEnum(PaymentStatus)
-  paymentStatus?: PaymentStatus
+  paymentStatus?: PaymentStatus;
 
   @IsOptional()
   @IsString()
-  deliveryAddress?: string
+  deliveryAddress?: string;
 
   @IsOptional()
   @IsString()
-  notes?: string
+  notes?: string;
 
   @IsOptional()
   @IsString()
-  cancelReason?: string
+  cancelReason?: string;
 }
