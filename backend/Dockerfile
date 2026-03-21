@@ -32,6 +32,13 @@ COPY backend/tsconfig.json ./backend/
 COPY backend/tsconfig.seed.json ./backend/
 COPY scripts/init.sh ./scripts/
 
+WORKDIR /app/backend
+
+# Generar Prisma Client y build TS
+RUN pnpm prisma generate \
+    && pnpm build \
+    && pnpm exec tsc -p tsconfig.seed.json
+
 # Dependencias mínimas en prod
 RUN apk add --no-cache dumb-init ca-certificates openssl netcat-openbsd \
     && addgroup -S app -g 1001 \
