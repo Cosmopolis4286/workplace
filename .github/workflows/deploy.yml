@@ -124,39 +124,67 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Extract metadata
-      id: meta
+    - name: Extract metadata for backend
+      id: meta-backend
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.IMAGE_NAME }}
+        images: ${{ secrets.DOCKER_USERNAME }}/workplace-backend
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Build and push
+    - name: Extract metadata for frontend
+      id: meta-frontend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push backend
       uses: docker/build-push-action@v5
       with:
-        context: .
-        file: ./backend/Dockerfile
+        context: ./backend
+        file: ./backend/Dockerfile.prod
         target: production
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push frontend
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile.prod
+        target: production
+        push: true
+        tags: ${{ steps.meta-frontend.outputs.tags }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
-    - name: Verify built image
+    - name: Verify built images
       run: |
-        echo "🔍 Verificando que la imagen construida sea funcional..."
-        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace:main
+        echo "🔍 Verificando que las imágenes construidas sean funcionales..."
+        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main
+        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main
         
-        # Probar que la imagen tenga los archivos compilados
-        docker run --rm ${{ secrets.DOCKER_USERNAME }}/workplace:main ls -la /app/backend/dist/ || {
-          echo "❌ La imagen no tiene archivos compilados"
+        # Probar que la imagen del backend tenga los archivos compilados
+        docker run --rm ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main ls -la /app/backend/dist/ || {
+          echo "❌ La imagen del backend no tiene archivos compilados"
           exit 1
         }
         
-        echo "✅ Imagen verificada correctamente"
+        # Probar que la imagen del frontend tenga los archivos compilados
+        docker run --rm ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main ls -la /app/.output/ || {
+          echo "❌ La imagen del frontend no tiene archivos compilados"
+          exit 1
+        }
+        
+        echo "✅ Imágenes verificadas correctamente"
 
   deploy:
     needs: buildeploy
@@ -197,14 +225,19 @@ jobs:
             docker exec workplace_postgres pg_dumpall -U workplace > backup.sql || true
           fi
 
-          echo "⬇️ Pull imagen"
-          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace:main
+          echo "⬇️ Pull imágenes"
+          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main
+          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main
 
           if docker image inspect workplace-backend:latest > /dev/null 2>&1; then
             docker tag workplace-backend:latest workplace-backend:backup-$(date +%s)
           fi
+          if docker image inspect workplace-frontend:latest > /dev/null 2>&1; then
+            docker tag workplace-frontend:latest workplace-frontend:backup-$(date +%s)
+          fi
 
-          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace:main workplace-backend:latest
+          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main workplace-backend:latest
+          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main workplace-frontend:latest
 
           docker compose down
           docker compose up -d

@@ -84,7 +84,7 @@ services:
     environment:
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: 3000
-      BACKEND_API_URL: http://localhost:3001
+      BACKEND_API_URL: http://localhost:3001/api
     depends_on:
       - backend
     networks:
