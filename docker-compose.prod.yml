@@ -107,6 +107,9 @@ services:
       migrate:
         condition: service_completed_successfully
 
+    volumes:
+      - uploads_data:/app/backend/uploads
+
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/health || exit 1"]
       interval: 20s
@@ -141,6 +144,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
 
 networks:
   app_network:
