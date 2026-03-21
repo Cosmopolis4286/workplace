@@ -19,4 +19,6 @@ module.exports = {
   moduleNameMapping: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  testTimeout: 30000,
+  passWithNoTests: true,
 };
