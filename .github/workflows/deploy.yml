@@ -154,13 +154,13 @@ jobs:
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
           # Verificar directorio
-          echo "🔍 Verificando directorio: /root/apps/myapp/workplace"
-          if [ ! -d "/root/apps/myapp/workplace" ]; then
-            echo "❌ El directorio no existe: /root/apps/myapp/workplace"
+          echo "🔍 Verificando directorio: /home/myapp/apps/workplace"
+          if [ ! -d "/home/myapp/apps/workplace" ]; then
+            echo "❌ El directorio no existe: /home/myapp/apps/workplace"
             exit 1
           fi
           
-          cd /root/apps/myapp/workplace
+          cd /home/myapp/apps/workplace
           
           # Verificar Docker está corriendo
           if ! docker info > /dev/null 2>&1; then
@@ -226,7 +226,7 @@ jobs:
       run: |
         sleep 10
         ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          cd /root/apps/myapp/workplace
+          cd /home/myapp/apps/workplace
           
           # Verificar que los contenedores estén corriendo
           if ! docker compose ps | grep -q "Up"; then
@@ -271,13 +271,13 @@ jobs:
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
           # Verificar directorio
-          echo "🔍 Verificando directorio: /root/apps/myapp/workplace"
-          if [ ! -d "/root/apps/myapp/workplace" ]; then
-            echo "❌ El directorio no existe: /root/apps/myapp/workplace"
+          echo "🔍 Verificando directorio: /home/myapp/apps/workplace"
+          if [ ! -d "/home/myapp/apps/workplace" ]; then
+            echo "❌ El directorio no existe: /home/myapp/apps/workplace"
             exit 1
           fi
           
-          cd /root/apps/myapp/workplace
+          cd /home/myapp/apps/workplace
           echo "🔄 Rolling back to previous version..."
           docker-compose down
           
