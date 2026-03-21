@@ -125,55 +125,25 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Deploy to production
-      uses: appleboy/ssh-action@v1.0.3
+      uses: webfactory/ssh-agent@v0.9.1
       with:
-        host: ${{ secrets.PRODUCTION_HOST }}
-        username: ${{ secrets.PRODUCTION_USER }}
-        key: ${{ secrets.PRODUCTION_SSH_KEY }}
-        script: |
-          cd /opt/workplace
-          
-          # Backup current deployment
-          docker-compose down
-          docker tag workplace-backend:latest workplace-backend:backup-$(date +%Y%m%d-%H%M%S)
-          
-          # Pull new images
-          docker-compose pull
-          
-          # Run migrations
-          echo "🔄 Running database migrations..."
-          docker-compose run --rm migrate
-          
-          # Start services
-          echo "🚀 Starting services..."
-          docker-compose up -d
-          
-          # Wait for health checks
-          echo "⏳ Waiting for services to be healthy..."
-          sleep 30
-          
-          # Verify deployment
-          if docker-compose ps | grep -q "healthy"; then
-            echo "✅ Deployment successful!"
-            
-            # Clean up old images
-            docker image prune -f
-            
-            # Send notification (optional)
-            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
-              -H 'Content-type: application/json' \
-              --data "{\"text\":\"✅ Workplace deployed successfully to production\"}"
-          else
-            echo "❌ Deployment failed - rolling back..."
-            docker-compose down
-            docker tag workplace-backend:backup-$(date +%Y%m%d-%H%M%S) workplace-backend:latest
-            docker-compose up -d
-            
-            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
-              -H 'Content-type: application/json' \
-              --data "{\"text\":\"❌ Workplace deployment failed - rolled back\"}"
-            exit 1
-          fi
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Deploy to VPS
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -e
+          echo "💾 Backup de Postgres"
+          docker exec -t workplace_postgres pg_dumpall -U $POSTGRES_USER > /home/${{ secrets.PRODUCTION_USER }}/backup_$(date +%F_%H-%M-%S).sql
+
+          echo "⬇️ Actualizando contenedores"
+          cd /home/${{ secrets.PRODUCTION_USER }}/workplace
+          docker compose pull
+          docker compose build --no-cache
+          docker compose up -d
+
+          echo "✅ Deploy completado"
+        EOF
 
   rollback:
     needs: deploy
