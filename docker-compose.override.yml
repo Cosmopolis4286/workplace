@@ -1,0 +1,54 @@
+services:
+  backend:
+    container_name: workplace_backend_dev
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    volumes:
+      - ./backend:/app/backend:cached
+      - /app/backend/node_modules
+      - ./.env:/app/backend/.env:cached
+    env_file:
+      - ./.env
+    command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
+    ports:
+      - "127.0.0.1:${NODE_PORT}:${NODE_PORT}"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      NODE_OPTIONS: ${NODE_OPTIONS}
+      PORT: ${NODE_PORT}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:${NODE_PORT}/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    mem_limit: 512m
+    cpus: 0.5
+
+  frontend:
+    container_name: workplace_frontend_dev
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./frontend:/app/frontend:cached
+      - /app/frontend/node_modules
+      - ./.env:/app/frontend/.env:cached
+    env_file:
+      - ./.env
+    command: sh -c "pnpm install --frozen-lockfile && pnpm dev"
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT}:${FRONTEND_PORT}"
+    environment:
+      NITRO_HOST: ${NITRO_HOST}
+      NITRO_PORT: ${FRONTEND_PORT}
+      NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL}
+    mem_limit: 256m
+    cpus: 0.3

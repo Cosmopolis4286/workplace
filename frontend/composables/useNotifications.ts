@@ -75,7 +75,7 @@ export const useNotifications = () => {
       if (opts.page)    params.set('page',   String(opts.page))
       if (opts.limit)   params.set('limit',  String(opts.limit))
       const qs = params.toString()
-      const res = await apiFetch(`/api/notifications${qs ? '?' + qs : ''}`)
+      const res = await apiFetch(`/notifications${qs ? '?' + qs : ''}`)
       notifications.value = res.data
       totalCount.value     = res.total
     } catch (e: any) {
@@ -93,7 +93,7 @@ export const useNotifications = () => {
     n.read   = true
     n.readAt = new Date().toISOString()
     try {
-      await apiFetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
+      await apiFetch(`/notifications/${id}/read`, { method: 'PATCH' })
     } catch {
       n.read   = false
       n.readAt = null
@@ -104,7 +104,7 @@ export const useNotifications = () => {
   async function markAllAsRead() {
     notifications.value.forEach(n => { n.read = true; n.readAt = new Date().toISOString() })
     try {
-      await apiFetch('/api/notifications/read-all', { method: 'PATCH' })
+      await apiFetch('/notifications/read-all', { method: 'PATCH' })
     } catch (e: any) {
       error.value = e.message
     }
@@ -114,7 +114,7 @@ export const useNotifications = () => {
   async function deleteNotification(id: string) {
     notifications.value = notifications.value.filter(n => n.id !== id)
     try {
-      await apiFetch(`/api/notifications/${id}`, { method: 'DELETE' })
+      await apiFetch(`/notifications/${id}`, { method: 'DELETE' })
     } catch (e: any) {
       error.value = e.message
     }
@@ -125,7 +125,7 @@ export const useNotifications = () => {
     notifications.value = []
     totalCount.value    = 0
     try {
-      await apiFetch('/api/notifications/clear-all', { method: 'DELETE' })
+      await apiFetch('/notifications/clear-all', { method: 'DELETE' })
     } catch (e: any) {
       error.value = e.message
     }

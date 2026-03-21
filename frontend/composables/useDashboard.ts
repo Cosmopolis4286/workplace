@@ -77,13 +77,13 @@ export function useDashboard() {
     try {
       const [ordersRes, statsRes, analyticsRes, productsRes] = await Promise.allSettled([
         // Active orders (non-terminal statuses)
-        apiFetch('/api/orders?status=PENDIENTE&limit=20'),
+        apiFetch('/orders?status=PENDIENTE&limit=20'),
         // Order stats
-        apiFetch('/api/orders/stats'),
+        apiFetch('/orders/stats'),
         // Analytics overview for today's KPIs
-        apiFetch('/api/analytics/overview?period=today&compareWith=previous'),
+        apiFetch('/analytics/overview?period=today&compareWith=previous'),
         // Low-stock products
-        apiFetch('/api/menu/products?status=BAJO_STOCK&limit=1'),
+        apiFetch('/menu/products?status=BAJO_STOCK&limit=1'),
       ])
 
       // Active orders — merge PENDIENTE + CONFIRMADO + PREPARANDO + LISTO + EN_ENTREGA
@@ -95,7 +95,7 @@ export function useDashboard() {
       // Also fetch other active statuses concurrently
       const otherStatuses: OrderStatus[] = ['CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
       const otherResults = await Promise.allSettled(
-        otherStatuses.map(s => apiFetch(`/api/orders?status=${s}&limit=20`))
+        otherStatuses.map(s => apiFetch(`/orders?status=${s}&limit=20`))
       )
       otherResults.forEach(r => {
         if (r.status === 'fulfilled') allActive = [...allActive, ...(r.value?.data ?? [])]
@@ -120,7 +120,7 @@ export function useDashboard() {
       // Low-stock count — fetch aggregate
       let lowStock = 0
       try {
-        const lowStockRes = await apiFetch('/api/menu/products?status=BAJO_STOCK&limit=50')
+        const lowStockRes = await apiFetch('/menu/products?status=BAJO_STOCK&limit=50')
         lowStock = lowStockRes?.total ?? lowStockRes?.data?.length ?? 0
       } catch {}
 
@@ -151,7 +151,7 @@ export function useDashboard() {
   // ── Update single order status (optimistic) ──────────────────────────────────
   async function updateOrderStatus(id: string, status: OrderStatus, cancelReason?: string): Promise<boolean> {
     try {
-      const updated = await apiFetch(`/api/orders/${id}/status`, {
+      const updated = await apiFetch(`/orders/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status, cancelReason }),
       })
@@ -169,7 +169,7 @@ export function useDashboard() {
 
       // Refresh stats
       try {
-        orderStats.value = await apiFetch('/api/orders/stats')
+        orderStats.value = await apiFetch('/orders/stats')
         kpis.value = { ...kpis.value, activeOrders: orderStats.value?.activeOrders ?? kpis.value.activeOrders }
       } catch {}
 
@@ -183,7 +183,7 @@ export function useDashboard() {
   // ── Mark order as paid ────────────────────────────────────────────────────────
   async function markOrderPaid(id: string): Promise<boolean> {
     try {
-      const updated = await apiFetch(`/api/orders/${id}`, {
+      const updated = await apiFetch(`/orders/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ paymentStatus: 'PAGADO' }),
       })

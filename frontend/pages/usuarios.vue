@@ -564,7 +564,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 async function loadCategories() {
   try {
-    categories.value = await apiFetch<UserCategory[]>('/api/users/categories')
+    categories.value = await apiFetch<UserCategory[]>('/users/categories')
   } catch { /* silently ignore */ }
 }
 
@@ -576,7 +576,7 @@ async function load() {
     if (roleFilter.value) params.set('role', roleFilter.value)
     if (categoryFilter.value) params.set('categoryId', categoryFilter.value)
     if (subcategoryFilter.value) params.set('subcategoryId', subcategoryFilter.value)
-    const res = await apiFetch<{ data: UserItem[]; total: number }>(`/api/users?${params}`)
+    const res = await apiFetch<{ data: UserItem[]; total: number }>(`/users?${params}`)
     users.value = res.data
     total.value = res.total
   } catch (e: unknown) {
@@ -638,7 +638,7 @@ async function save() {
         categoryId: form.value.categoryId || null,
         subcategoryId: form.value.subcategoryId || null,
       }
-      await apiFetch(`/api/users/${editing.value.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      await apiFetch(`/users/${editing.value.id}`, { method: 'PUT', body: JSON.stringify(body) })
     } else {
       const body: Record<string, unknown> = {
         firstName: form.value.firstName,
@@ -651,7 +651,7 @@ async function save() {
         categoryId: form.value.categoryId || undefined,
         subcategoryId: form.value.subcategoryId || undefined,
       }
-      await apiFetch('/api/users', { method: 'POST', body: JSON.stringify(body) })
+      await apiFetch('/users', { method: 'POST', body: JSON.stringify(body) })
     }
     showModal.value = false
     selectedUsers.value = []
@@ -666,7 +666,7 @@ async function save() {
 
 async function toggleStatus(u: UserItem) {
   try {
-    await apiFetch(`/api/users/${u.id}/toggle-status`, { method: 'PATCH' })
+    await apiFetch(`/users/${u.id}/toggle-status`, { method: 'PATCH' })
     u.isActive = !u.isActive
   } catch (e: unknown) {
     error.value = (e as Error).message
@@ -682,7 +682,7 @@ async function doDelete() {
   saving.value = true
   try {
     const targets = bulkDeleteTargets.value.length > 0 ? bulkDeleteTargets.value : [deleteTarget.value]
-    await Promise.all(targets.map(u => apiFetch(`/api/users/${u.id}`, { method: 'DELETE' })))
+    await Promise.all(targets.map(u => apiFetch(`/users/${u.id}`, { method: 'DELETE' })))
     deleteTarget.value = null
     bulkDeleteTargets.value = []
     selectedUsers.value = []

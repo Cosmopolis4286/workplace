@@ -267,7 +267,7 @@ async function apiFetch(path: string) {
 async function loadOrderStats() {
   loadingOrders.value = true
   try {
-    orderStats.value = await apiFetch('/api/orders/stats')
+    orderStats.value = await apiFetch('/orders/stats')
   } catch (e: any) {
     globalError.value = e.message
   } finally {
@@ -278,7 +278,7 @@ async function loadOrderStats() {
 async function loadExpenseStats() {
   loadingExpenses.value = true
   try {
-    expenseStats.value = await apiFetch('/api/expenses/stats')
+    expenseStats.value = await apiFetch('/expenses/stats')
   } catch (e: any) {
     globalError.value = e.message
   } finally {
@@ -289,7 +289,7 @@ async function loadExpenseStats() {
 async function loadEmployeeStats() {
   loadingEmployees.value = true
   try {
-    employeeStats.value = await apiFetch('/api/employees/stats')
+    employeeStats.value = await apiFetch('/employees/stats')
   } catch (e: any) {
     globalError.value = e.message
   } finally {

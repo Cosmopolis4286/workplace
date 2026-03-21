@@ -215,7 +215,7 @@ export function useClienteDashboard() {
   async function loadStats() {
     loadingStats.value = true
     try {
-      stats.value = await apiFetch('/api/orders/stats')
+      stats.value = await apiFetch('/orders/stats')
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -233,7 +233,7 @@ export function useClienteDashboard() {
         if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
       })
       const qs = params.toString()
-      const res = await apiFetch(`/api/orders${qs ? '?' + qs : ''}`)
+      const res = await apiFetch(`/orders${qs ? '?' + qs : ''}`)
       orders.value   = res.data
       totalCount.value = res.total
       currentPage.value = res.page
@@ -249,7 +249,7 @@ export function useClienteDashboard() {
     loading.value = true
     error.value   = null
     try {
-      const order = await apiFetch('/api/orders', {
+      const order = await apiFetch('/orders', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
@@ -267,7 +267,7 @@ export function useClienteDashboard() {
   // ── Update order (full) ─────────────────────────────────────────────────────
   async function updateOrder(id: string, payload: UpdateOrderPayload): Promise<Order | null> {
     try {
-      const updated = await apiFetch(`/api/orders/${id}`, {
+      const updated = await apiFetch(`/orders/${id}`, {
         method: 'PUT',
         body: JSON.stringify(payload),
       })
@@ -284,7 +284,7 @@ export function useClienteDashboard() {
   // ── Patch status ────────────────────────────────────────────────────────────
   async function updateStatus(id: string, status: OrderStatus, cancelReason?: string): Promise<boolean> {
     try {
-      const updated = await apiFetch(`/api/orders/${id}/status`, {
+      const updated = await apiFetch(`/orders/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status, cancelReason }),
       })
@@ -301,7 +301,7 @@ export function useClienteDashboard() {
   // ── Delete order ─────────────────────────────────────────────────────────────
   async function deleteOrder(id: string): Promise<boolean> {
     try {
-      await apiFetch(`/api/orders/${id}`, { method: 'DELETE' })
+      await apiFetch(/orders/${id}`, { method: 'DELETE' })
       orders.value = orders.value.filter(o => o.id !== id)
       await loadStats()
       return true
@@ -314,7 +314,7 @@ export function useClienteDashboard() {
   // ── Get single ───────────────────────────────────────────────────────────────
   async function getOrder(id: string): Promise<Order | null> {
     try {
-      return await apiFetch(`/api/orders/${id}`)
+      return await apiFetch(/orders/${id}`)
     } catch (e: any) {
       error.value = e.message
       return null

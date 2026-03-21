@@ -389,7 +389,7 @@ async function loadMatrix() {
   loading.value = true
   error.value = null
   try {
-    const data = await apiFetch<PermissionRow[]>('/api/permissions/matrix')
+    const data = await apiFetch<PermissionRow[]>('/permissions/matrix')
     permissions.value = data
 
     const matrix: Record<string, Record<Role, boolean>> = {}
@@ -429,7 +429,7 @@ async function saveAll() {
   successMsg.value = null
   try {
     const count = pendingChanges.value.length
-    await apiFetch('/api/permissions/bulk', {
+    await apiFetch('/permissions/bulk', {
       method: 'PATCH',
       body: JSON.stringify({ updates: pendingChanges.value }),
     })
@@ -445,7 +445,7 @@ async function saveAll() {
 
 async function loadPlans() {
   try {
-    const data = await apiFetch<PlanInfo[]>('/api/plans?includeInactive=false')
+    const data = await apiFetch<PlanInfo[]>('/plans?includeInactive=false')
     plans.value = data
   } catch { /* non-critical */ }
 }
@@ -489,7 +489,7 @@ async function saveNewPerm() {
       ? newPermForm.value.customModule.trim()
       : newPermForm.value.module
 
-    await apiFetch('/api/permissions', {
+    await apiFetch('/permissions', {
       method: 'POST',
       body: JSON.stringify({
         key: newPermForm.value.key.trim(),
@@ -513,7 +513,7 @@ async function saveNewPerm() {
 async function confirmDelete(perm: PermissionRow) {
   if (!confirm(`¿Eliminar el permiso "${perm.label}" (${perm.key})?\nEsta acción no se puede deshacer.`)) return
   try {
-    await apiFetch(`/api/permissions/${perm.id}`, { method: 'DELETE' })
+    await apiFetch(`/permissions/${perm.id}`, { method: 'DELETE' })
     await loadMatrix()
     successMsg.value = `Permiso "${perm.key}" eliminado.`
     setTimeout(() => { successMsg.value = null }, 3000)

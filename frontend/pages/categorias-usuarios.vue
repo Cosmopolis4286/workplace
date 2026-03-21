@@ -336,7 +336,7 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    categories.value = await apiFetch<Category[]>('/api/users/categories')
+    categories.value = await apiFetch<Category[]>('/users/categories')
     // Keep selectedCat in sync after reload
     if (selectedCat.value) {
       selectedCat.value = categories.value.find(c => c.id === selectedCat.value!.id) ?? null
@@ -377,9 +377,9 @@ async function saveCat() {
   try {
     const body = { name: catModal.name.trim(), icon: catModal.icon.trim() || undefined }
     if (catModal.editing) {
-      await apiFetch(`/api/users/categories/${catModal.editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      await apiFetch(`/users/categories/${catModal.editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
     } else {
-      await apiFetch('/api/users/categories', { method: 'POST', body: JSON.stringify(body) })
+      await apiFetch('/users/categories', { method: 'POST', body: JSON.stringify(body) })
     }
     catModal.show = false
     await load()
@@ -414,9 +414,9 @@ async function saveSub() {
   try {
     const body = { name: subModal.name.trim() }
     if (subModal.editing) {
-      await apiFetch(`/api/users/subcategories/${subModal.editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      await apiFetch(`/users/subcategories/${subModal.editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
     } else {
-      await apiFetch(`/api/users/categories/${selectedCat.value.id}/subcategories`, { method: 'POST', body: JSON.stringify(body) })
+      await apiFetch(`/users/categories/${selectedCat.value.id}/subcategories`, { method: 'POST', body: JSON.stringify(body) })
     }
     subModal.show = false
     await load()
@@ -459,8 +459,8 @@ async function doDelete() {
   deleteModal.error  = null
   try {
     const path = deleteModal.type === 'cat'
-      ? `/api/users/categories/${deleteModal.id}`
-      : `/api/users/subcategories/${deleteModal.id}`
+      ? `/users/categories/${deleteModal.id}`
+      : `/users/subcategories/${deleteModal.id}`
     await apiFetch(path, { method: 'DELETE' })
     if (deleteModal.type === 'cat' && selectedCat.value?.id === deleteModal.id) {
       selectedCat.value = null
