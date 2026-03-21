@@ -58,7 +58,8 @@ RUN rm -rf node_modules/.cache \
     && find node_modules -name "test*" -type d -exec rm -rf {} + 2>/dev/null || true \
     && find node_modules -name "tests*" -type d -exec rm -rf {} + 2>/dev/null || true \
     && find node_modules -name "__tests__*" -type d -exec rm -rf {} + 2>/dev/null || true \
-    && rm -rf /tmp/* /var/tmp/* /root/.cache
+    && rm -rf /tmp/* /var/tmp/* /root/.cache \
+    && rm -rf /app/backend/node_modules/.prisma/client
 
 WORKDIR /app
 
@@ -66,11 +67,16 @@ WORKDIR /app
 COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/dist-seed ./backend/dist-seed
 COPY --from=build /app/backend/prisma ./backend/prisma
-COPY --from=build /app/backend/node_modules/.prisma ./backend/node_modules/.prisma
 COPY --from=build /app/scripts/init.sh ./scripts/init.sh
 
+# Generar cliente Prisma en producción
+WORKDIR /app/backend
+RUN npx prisma@5.22.0 generate && rm -rf node_modules/.prisma/client
+
 # Permisos y usuario
-RUN chown -R app:app /app
+RUN addgroup -S -g 1001 app && \
+    adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G app app && \
+    chown -R app:app /app
 USER app
 
 EXPOSE ${NODE_PORT}
