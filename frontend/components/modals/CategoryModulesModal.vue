@@ -168,7 +168,7 @@ function startEdit(cat: Cat) {
 async function saveEdit(cat: Cat) {
   saving.value = true; error.value = null
   try {
-    await apiFetch(/users/categories/${cat.id}`, {
+    await apiFetch(`/users/categories/${cat.id}`, {
       method: 'PUT',
       body: JSON.stringify({ name: editName.value, icon: editIcon.value || undefined }),
     })
@@ -181,7 +181,7 @@ async function deleteCategory(cat: Cat) {
   if (!confirm(`¿Eliminar categoría "${cat.name}"?`)) return
   saving.value = true; error.value = null
   try {
-    await apiFetch(/users/categories/${cat.id}`, { method: 'DELETE' })
+    await apiFetch(`/users/categories/${cat.id}`, { method: 'DELETE' })
     await load(); emit('updated')
   } catch (e: any) { error.value = e.message }
   finally { saving.value = false }
@@ -193,7 +193,7 @@ async function toggleModule(cat: Cat, mod: string) {
   // Optimistic update
   cat.allowedModules = updated
   try {
-    await apiFetch(/users/categories/${cat.id}`, {
+    await apiFetch(`/users/categories/${cat.id}`, {
       method: 'PUT',
       body: JSON.stringify({ allowedModules: updated }),
     })
