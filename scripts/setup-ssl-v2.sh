@@ -133,11 +133,11 @@ EOL
     --agree-tos \
     --non-interactive \
     --preferred-challenges http-01 \
-    --http-01-port 80
+    --http-01-port 80 || true
   
-  # Verificar si se obtuvieron los certificados
+  # Verificar si se obtuvieron los certificados (o si ya existían)
   if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-    echo "✅ Certificados SSL obtenidos exitosamente"
+    echo "✅ Certificados SSL disponibles"
     
     # Detener nginx temporal
     docker compose down nginx
