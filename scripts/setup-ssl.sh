@@ -1,15 +1,20 @@
 #!/bin/bash
 set -euo pipefail
 
+# Cargar variables de entorno
+if [ -f "/opt/workplace/.env" ]; then
+  source /opt/workplace/.env
+fi
+
+# Usar DOMAIN_HOST del .env, o valor por defecto
+DOMAIN="${DOMAIN_HOST:-localhost}"
+
 # Instalar Certbot si no está disponible
 if ! command -v certbot &> /dev/null; then
   echo "📦 Instalando Certbot..."
   sudo apt update
   sudo apt install -y certbot python3-certbot-nginx
 fi
-
-# Configurar dominio (reemplazar con tu dominio real)
-DOMAIN="tu-dominio.com"
 
 # Obtener certificados SSL si no existen
 if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
