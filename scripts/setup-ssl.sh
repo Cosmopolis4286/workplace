@@ -43,7 +43,7 @@ EOL
   sleep 10
   
   # Obtener certificados
-  sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN --email admin@$DOMAIN --agree-tos --non-interactive
+  sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN --email admin@$DOMAIN --agree-tos --non-interactive --nginx-server-root /opt/workplace/nginx/conf.d/
   
   # Si tuvo éxito, usar config con SSL
   if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
