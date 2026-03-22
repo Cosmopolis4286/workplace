@@ -67,6 +67,20 @@ else
   echo "❌ privkey.pem NO encontrado"
 fi
 
+# Verificar si existen certificados en cualquier ubicación
+echo "🔍 Buscando certificados existentes en el sistema..."
+if sudo find /etc/letsencrypt -name "*$DOMAIN*" 2>/dev/null | head -5; then
+  echo "⚠️ Se encontraron certificados existentes, limpiando..."
+  # Limpiar certificados existentes para este dominio
+  sudo certbot delete --cert-name $DOMAIN 2>/dev/null || true
+  sudo rm -rf /etc/letsencrypt/live/$DOMAIN 2>/dev/null || true
+  sudo rm -rf /etc/letsencrypt/archive/$DOMAIN 2>/dev/null || true
+  sudo rm -f /etc/letsencrypt/renewal/$DOMAIN.conf 2>/dev/null || true
+  echo "🧹 Certificados existentes eliminados"
+else
+  echo "✅ No hay certificados existentes para $DOMAIN"
+fi
+
 if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
   echo "🔒 SSL ya configurado, usando certificados existentes"
   
@@ -155,6 +169,7 @@ EOL
     --email admin@$DOMAIN \
     --agree-tos \
     --non-interactive \
+    --force-renewal \
     --preferred-challenges http-01 \
     --http-01-port 80 || true
   
