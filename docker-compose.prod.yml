@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -55,7 +53,7 @@ services:
     command: >
       sh -c "
         echo '⏳ Running migrations...' &&
-        npx prisma@5.22.0 migrate deploy --skip-seed || echo 'Migrations already applied or failed' &&
+        npx prisma@5.22.0 migrate deploy || echo 'Migrations already applied or failed' &&
         echo '✅ Done'
       "
     restart: "no"
@@ -89,7 +87,7 @@ services:
     volumes:
       - uploads_data:/app/backend/uploads
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://backend:${NODE_PORT}/api/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -105,14 +103,16 @@ services:
     ports:
       - "${FRONTEND_PORT}:${FRONTEND_PORT}"
     environment:
-      BACKEND_API_URL: ${BACKEND_API_URL}   # Por ejemplo: http://127.0.0.1:${NODE_PORT}/api
+      BACKEND_API_URL: http://backend:${NODE_PORT}/api
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
-    # Se elimina la dependencia de backend para que frontend siempre arranque
+    depends_on:
+      backend:
+        condition: service_healthy
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 0"]
+      test: ["CMD-SHELL", "curl -f http://frontend:${FRONTEND_PORT}/ || exit 0"]
       interval: 30s
       timeout: 5s
       retries: 3
