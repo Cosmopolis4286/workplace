@@ -272,14 +272,14 @@ jobs:
           # Verificación de servicios críticos (excepto nginx)
           echo "🔍 Verificando servicios críticos..."
           
-          if ! docker compose ps postgres | grep -q "Healthy"; then
-            echo "❌ Postgres no está Healthy"
+          if ! docker compose ps postgres | grep -q "healthy"; then
+            echo "❌ Postgres no está healthy"
             docker compose logs postgres --tail=30
             exit 1
           fi
           
-          if ! docker compose ps redis | grep -q "Healthy"; then
-            echo "❌ Redis no está Healthy"
+          if ! docker compose ps redis | grep -q "healthy"; then
+            echo "❌ Redis no está healthy"
             docker compose logs redis --tail=30
             exit 1
           fi
