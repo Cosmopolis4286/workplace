@@ -115,8 +115,57 @@ if sudo certbot certonly \
   echo "✅ Certificados generados exitosamente"
   
   # Verificar archivos
-  if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
-    echo "🔍 Archivos de certificado verificados"
+  echo "🔍 Verificando archivos de certificado..."
+  echo "📁 Buscando en: /etc/letsencrypt/live/$DOMAIN/"
+  sudo ls -la /etc/letsencrypt/live/$DOMAIN/ 2>/dev/null || echo "❌ Directorio live no encontrado"
+  
+  echo "📁 Buscando en: /etc/letsencrypt/archive/$DOMAIN/"
+  sudo ls -la /etc/letsencrypt/archive/$DOMAIN/ 2>/dev/null || echo "❌ Directorio archive no encontrado"
+  
+  # Verificar archivos específicos
+  FULLCHAIN_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+  PRIVKEY_PATH="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
+  
+  echo "📁 Verificando: $FULLCHAIN_PATH"
+  if [ -f "$FULLCHAIN_PATH" ]; then
+    echo "✅ fullchain.pem encontrado"
+    sudo ls -la "$FULLCHAIN_PATH"
+    FULLCHAIN_EXISTS=true
+  else
+    echo "❌ fullchain.pem NO encontrado"
+    FULLCHAIN_EXISTS=false
+  fi
+  
+  echo "� Verificando: $PRIVKEY_PATH"
+  if [ -f "$PRIVKEY_PATH" ]; then
+    echo "✅ privkey.pem encontrado"
+    sudo ls -la "$PRIVKEY_PATH"
+    PRIVKEY_EXISTS=true
+  else
+    echo "❌ privkey.pem NO encontrado"
+    PRIVKEY_EXISTS=false
+  fi
+  
+  # Si son symlinks, verificar los destinos
+  if [ -L "$FULLCHAIN_PATH" ]; then
+    echo "🔗 fullchain.pem es symlink a: $(readlink -f $FULLCHAIN_PATH)"
+    if [ -f "$(readlink -f $FULLCHAIN_PATH)" ]; then
+      echo "✅ Destino del symlink existe"
+    else
+      echo "❌ Destino del symlink NO existe"
+    fi
+  fi
+  
+  if [ -L "$PRIVKEY_PATH" ]; then
+    echo "🔗 privkey.pem es symlink a: $(readlink -f $PRIVKEY_PATH)"
+    if [ -f "$(readlink -f $PRIVKEY_PATH)" ]; then
+      echo "✅ Destino del symlink existe"
+    else
+      echo "❌ Destino del symlink NO existe"
+    fi
+  fi
+  
+  if [ "$FULLCHAIN_EXISTS" = true ] && [ "$PRIVKEY_EXISTS" = true ]; then
     
     # Configurar nginx con SSL
     sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
