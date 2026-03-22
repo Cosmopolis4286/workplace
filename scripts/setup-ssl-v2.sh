@@ -125,6 +125,14 @@ EOL
     cp /opt/workplace/nginx/conf.d/default.prod.conf /opt/workplace/nginx/conf.d/default.conf
     sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
     
+    # Descomentar líneas SSL
+    sed -i 's/listen 443;/listen 443 ssl;/' /opt/workplace/nginx/conf.d/default.conf
+    sed -i 's/# http2 on;/http2 on;/' /opt/workplace/nginx/conf.d/default.conf
+    sed -i 's/# ssl_certificate/ssl_certificate/' /opt/workplace/nginx/conf.d/default.conf
+    sed -i 's/# ssl_certificate_key/ssl_certificate_key/' /opt/workplace/nginx/conf.d/default.conf
+    sed -i 's/# include \/etc\/letsencrypt\/options-ssl-nginx.conf;/include \/etc\/letsencrypt\/options-ssl-nginx.conf;/' /opt/workplace/nginx/conf.d/default.conf
+    sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
+    
     # Iniciar nginx con SSL
     docker compose up -d nginx
     
@@ -140,6 +148,14 @@ else
   # Usar config con SSL y reemplazar placeholder con dominio real
   cp /opt/workplace/nginx/conf.d/default.prod.conf /opt/workplace/nginx/conf.d/default.conf
   sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
+  
+  # Descomentar líneas SSL
+  sed -i 's/listen 443;/listen 443 ssl;/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# http2 on;/http2 on;/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# ssl_certificate/ssl_certificate/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# ssl_certificate_key/ssl_certificate_key/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# include \/etc\/letsencrypt\/options-ssl-nginx.conf;/include \/etc\/letsencrypt\/options-ssl-nginx.conf;/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
   
   # Reiniciar nginx si está corriendo
   if docker compose ps nginx | grep -q "Up"; then
