@@ -134,6 +134,13 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
           type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
+      
+    - name: Set image tags
+      run: |
+        echo "BACKEND_IMAGE_TAG=main-${{ github.sha }}" >> $GITHUB_ENV
+        echo "FRONTEND_IMAGE_TAG=main-${{ github.sha }}" >> $GITHUB_ENV
+        echo "🏷️ Backend image tag: main-${{ github.sha }}"
+        echo "🏷️ Frontend image tag: main-${{ github.sha }}"
 
     - name: Extract metadata for frontend
       id: meta-frontend
@@ -145,6 +152,7 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
           type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
+      
 
     - name: Build and push backend
       uses: docker/build-push-action@v7
@@ -174,6 +182,11 @@ jobs:
         
         # Probar que el backend se ejecute correctamente
         echo "🧪 Testeando backend..."
+        echo "🏷️ Usando imagen: ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
+        
+        # Pull para asegurar que tenemos la imagen
+        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
+        
         docker run --rm -d --name test-backend \
           -e NODE_ENV=production \
           -e DATABASE_URL="sqlite:memory:" \
@@ -217,6 +230,11 @@ jobs:
         
         # Probar que el frontend se ejecute correctamente
         echo "🧪 Testeando frontend..."
+        echo "🏷️ Usando imagen: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}"
+        
+        # Pull para asegurar que tenemos la imagen
+        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
+        
         docker run --rm -d --name test-frontend \
           -e BACKEND_API_URL=http://localhost:3001/api \
           -e NITRO_HOST=0.0.0.0 \
@@ -310,8 +328,11 @@ jobs:
           echo "� Login Docker Hub..."
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
-          # Pull nuevas imágenes con SHA específico
+          # Pull nuevas imágenes con tags consistentes
           echo "⬇️ Pull nuevas imágenes..."
+          echo "🏷️ Backend tag: main-${{ github.sha }}"
+          echo "🏷️ Frontend tag: main-${{ github.sha }}"
+          
           docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
           docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
           
