@@ -52,6 +52,21 @@ EOL
 fi
 
 # Verificar si ya existen certificados para este dominio
+echo "🔍 Verificando certificados existentes para $DOMAIN..."
+echo "📁 Buscando: /etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+  echo "✅ fullchain.pem encontrado"
+else
+  echo "❌ fullchain.pem NO encontrado"
+fi
+
+echo "📁 Buscando: /etc/letsencrypt/live/$DOMAIN/privkey.pem"
+if [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
+  echo "✅ privkey.pem encontrado"
+else
+  echo "❌ privkey.pem NO encontrado"
+fi
+
 if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
   echo "🔒 SSL ya configurado, usando certificados existentes"
   
