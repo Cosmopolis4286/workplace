@@ -174,7 +174,26 @@ EOL
     --http-01-port 80 || true
   
   # Verificar si se obtuvieron los certificados (o si ya existían)
+  echo "🔍 Verificando archivos de certificado..."
+  echo "📁 fullchain.pem: /etc/letsencrypt/live/$DOMAIN/fullchain.pem"
   if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    echo "✅ fullchain.pem encontrado"
+    FULLCHAIN_EXISTS=true
+  else
+    echo "❌ fullchain.pem NO encontrado"
+    FULLCHAIN_EXISTS=false
+  fi
+  
+  echo "📁 privkey.pem: /etc/letsencrypt/live/$DOMAIN/privkey.pem"
+  if [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
+    echo "✅ privkey.pem encontrado"
+    PRIVKEY_EXISTS=true
+  else
+    echo "❌ privkey.pem NO encontrado"
+    PRIVKEY_EXISTS=false
+  fi
+  
+  if [ "$FULLCHAIN_EXISTS" = true ] && [ "$PRIVKEY_EXISTS" = true ]; then
     echo "✅ Certificados SSL disponibles"
     
     # Restaurar config completo y activar SSL
