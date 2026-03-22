@@ -1,27 +1,24 @@
+version: "3.9"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: workplace_postgres
     restart: unless-stopped
-
     ports:
-      - "5432:5432"  # Expuesto al host para Nginx o CI/CD si es necesario
-
+      - "5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
-
     volumes:
       - postgres_data:/var/lib/postgresql/data/pgdata
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
-
     shm_size: 256mb
     networks:
       - app_network
@@ -30,22 +27,18 @@ services:
     image: redis:7-alpine
     container_name: workplace_redis
     restart: unless-stopped
-
     command: >
       redis-server
       --requirepass ${REDIS_PASSWORD}
       --appendonly yes
       --appendfsync everysec
-
     volumes:
       - redis_data:/data
-
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping"]
       interval: 10s
       timeout: 3s
       retries: 5
-
     networks:
       - app_network
 
@@ -78,7 +71,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${NODE_PORT}:${NODE_PORT}"  # Expuesto a host para Nginx
+      - "${NODE_PORT}:${NODE_PORT}"
     environment:
       NODE_ENV: production
       PORT: ${NODE_PORT}
@@ -110,16 +103,19 @@ services:
     init: true
     stop_grace_period: 30s
     ports:
-      - "${FRONTEND_PORT}:${FRONTEND_PORT}"  # Expuesto a host para Nginx
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
     environment:
-      BACKEND_API_URL: ${BACKEND_API_URL}  # Por ejemplo: http://127.0.0.1:${NODE_PORT}/api
+      BACKEND_API_URL: ${BACKEND_API_URL}   # Por ejemplo: http://127.0.0.1:${NODE_PORT}/api
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
-    depends_on:
-      backend:
-        condition: service_healthy
+    # Se elimina la dependencia de backend para que frontend siempre arranque
     networks:
       - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 0"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   postgres_data:
