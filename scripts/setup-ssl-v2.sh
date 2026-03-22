@@ -18,6 +18,39 @@ if ! command -v certbot &> /dev/null; then
   sudo apt install -y certbot python3-certbot-nginx
 fi
 
+# Crear archivos SSL de nginx si no existen
+if [ ! -f "/etc/letsencrypt/options-ssl-nginx.conf" ]; then
+  echo "📝 Creando configuración SSL para nginx..."
+  sudo mkdir -p /etc/letsencrypt
+  
+  # Crear options-ssl-nginx.conf
+  cat > /tmp/options-ssl-nginx.conf << 'EOL'
+ssl_session_cache shared:le_nginx_SSL:10m;
+ssl_session_timeout 1440m;
+ssl_session_tickets off;
+
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers off;
+
+ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+
+ssl_ecdh_curve X25519:prime256v1:secp384r1:secp521r1;
+ssl_stapling on;
+ssl_stapling_verify on;
+
+ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+EOL
+  
+  sudo mv /tmp/options-ssl-nginx.conf /etc/letsencrypt/options-ssl-nginx.conf
+  
+  # Generar dhparams si no existe
+  if [ ! -f "/etc/letsencrypt/ssl-dhparams.pem" ]; then
+    echo "🔐 Generando parámetros DH..."
+    sudo openssl dhparam -out /tmp/dhparams.pem 2048
+    sudo mv /tmp/dhparams.pem /etc/letsencrypt/ssl-dhparams.pem
+  fi
+fi
+
 # Obtener certificados SSL si no existen
 if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
   echo "🔒 Obteniendo certificados SSL para $DOMAIN..."
