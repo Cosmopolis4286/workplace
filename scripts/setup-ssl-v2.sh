@@ -78,7 +78,7 @@ if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencryp
   sed -i 's/# http2 on;/http2 on;/' /opt/workplace/nginx/conf.d/default.conf
   sed -i 's/# ssl_certificate/ssl_certificate/' /opt/workplace/nginx/conf.d/default.conf
   sed -i 's/# ssl_certificate_key/ssl_certificate_key/' /opt/workplace/nginx/conf.d/default.conf
-  sed -i 's/# include \/etc\/letsencrypt\/options-ssl-nginx.conf;/include \/etc\/letsencrypt\/options-ssl-nginx.conf;/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's|# include /etc/letsencrypt/options-ssl-nginx.conf;|include /etc/letsencrypt/options-ssl-nginx.conf;|' /opt/workplace/nginx/conf.d/default.conf
   sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
   
   # Reiniciar nginx si está corriendo
@@ -91,7 +91,8 @@ else
   echo "🔒 Obteniendo certificados SSL para $DOMAIN..."
   
   # Detener nginx si está corriendo
-  docker compose down nginx || true
+  docker compose stop nginx || true
+  docker compose rm -f nginx || true
   
   # Crear directorio para certbot
   sudo mkdir -p /var/www/certbot
@@ -138,8 +139,15 @@ EOL
     exit 1
   fi
   
-  # Obtener certificados con modo standalone
+  # Obtener certificados con modo standalone (deteniendo nginx completamente)
   echo "🔐 Solicitando certificados SSL..."
+  
+  # Detener completamente todos los servicios para liberar puerto 80
+  docker compose down || true
+  
+  # Esperar a que los puertos se liberen
+  sleep 5
+  
   sudo certbot certonly \
     --standalone \
     -d $DOMAIN \
@@ -166,11 +174,11 @@ EOL
     sed -i 's/# http2 on;/http2 on;/' /opt/workplace/nginx/conf.d/default.conf
     sed -i 's/# ssl_certificate/ssl_certificate/' /opt/workplace/nginx/conf.d/default.conf
     sed -i 's/# ssl_certificate_key/ssl_certificate_key/' /opt/workplace/nginx/conf.d/default.conf
-    sed -i 's/# include \/etc\/letsencrypt\/options-ssl-nginx.conf;/include \/etc\/letsencrypt\/options-ssl-nginx.conf;/' /opt/workplace/nginx/conf.d/default.conf
+    sed -i 's|# include /etc/letsencrypt/options-ssl-nginx.conf;|include /etc/letsencrypt/options-ssl-nginx.conf;|' /opt/workplace/nginx/conf.d/default.conf
     sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
     
-    # Iniciar nginx con SSL
-    docker compose up -d nginx
+    # Reiniciar todos los servicios
+    docker compose up -d
     
     echo "🔄 Nginx reiniciado con configuración SSL"
   else
