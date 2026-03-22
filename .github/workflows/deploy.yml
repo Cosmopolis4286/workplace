@@ -200,15 +200,16 @@ jobs:
 
     - name: Deploy to VPS
       run: |
-        # Copiar docker-compose de producción
+        # Copiar docker-compose y configs de nginx de producción
         scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/docker-compose.yml
+        scp -o StrictHostKeyChecking=no -r nginx ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
         
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
 
           APP_DIR="/opt/workplace"
 
-          echo "🚀 Deploy iniciado"
+          echo "🚀 Deploy iniciado con Nginx interno"
 
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
@@ -228,6 +229,7 @@ jobs:
           echo "⬇️ Pull imágenes"
           docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main
           docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main
+          docker pull nginx:alpine
 
           if docker image inspect workplace-backend:latest > /dev/null 2>&1; then
             docker tag workplace-backend:latest workplace-backend:backup-$(date +%s)
@@ -239,12 +241,16 @@ jobs:
           docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main workplace-backend:latest
           docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main workplace-frontend:latest
 
+          echo "🔄 Deteniendo servicios antiguos"
           docker compose down
+
+          echo "🚀 Iniciando nuevos servicios"
           docker compose up -d
 
-          sleep 25
+          echo "⏱️ Esperando inicialización (45s)..."
+          sleep 45
 
-          echo "🔍 Health check"
+          echo "🔍 Health check completo"
           docker compose ps
           
           # Verificación más robusta del estado
@@ -265,14 +271,38 @@ jobs:
             exit 1
           fi
           
-          # Verificación específica del backend
+          # Verificación específica de servicios críticos
+          echo "🔍 Verificando servicios críticos..."
+          
+          if ! docker compose ps nginx | grep -q "Up"; then
+            echo "❌ Nginx no está Up"
+            docker compose logs nginx --tail=30
+            exit 1
+          fi
+          
           if ! docker compose ps backend | grep -q "Up"; then
             echo "❌ Backend no está Up"
             docker compose logs backend --tail=30
             exit 1
           fi
           
-          echo "✅ Todos los contenedores están saludables"
+          if ! docker compose ps frontend | grep -q "Up"; then
+            echo "❌ Frontend no está Up"
+            docker compose logs frontend --tail=30
+            exit 1
+          fi
+          
+          echo "🌐 Verificando conectividad desde Nginx"
+          # Verificar que nginx pueda conectar con backend y frontend
+          if ! docker exec workplace_nginx wget -q --spider http://workplace_backend:3001/api/health; then
+            echo "⚠️ Nginx no puede conectar con backend API"
+          fi
+          
+          if ! docker exec workplace_nginx wget -q --spider http://workplace_frontend:3000/; then
+            echo "⚠️ Nginx no puede conectar con frontend"
+          fi
+          
+          echo "✅ Todos los servicios están saludables y conectados"
 
           docker logout
         EOF

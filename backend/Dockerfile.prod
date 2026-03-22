@@ -59,7 +59,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     && pnpm install --prod
 
 # Generar cliente Prisma
-RUN npx prisma@5.22.0 generate
+RUN pnpm prisma generate
 
 # Permisos y usuario no root
 RUN addgroup -S -g 1001 app && \
