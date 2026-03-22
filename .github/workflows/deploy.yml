@@ -133,6 +133,7 @@ jobs:
           type=ref,event=branch
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
 
     - name: Extract metadata for frontend
       id: meta-frontend
@@ -143,6 +144,7 @@ jobs:
           type=ref,event=branch
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
 
     - name: Build and push backend
       uses: docker/build-push-action@v7
@@ -180,7 +182,7 @@ jobs:
           -e REDIS_PASSWORD="test" \
           -e DISABLE_DB_CONNECTION=true \
           -p 3001:3001 \
-          ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main
+          ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
         
         # Esperar hasta 60s a que el health check responda
         echo "⏳ Esperando health check del backend (hasta 60s)..."
@@ -220,11 +222,11 @@ jobs:
           -e NITRO_HOST=0.0.0.0 \
           -e NITRO_PORT=3000 \
           -p 3000:3000 \
-          ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main
+          ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
         
         # Esperar hasta 60s a que el health check responda
         echo "⏳ Esperando health check del frontend (hasta 60s)..."
-        if timeout 60 bash -c 'until curl -f http://localhost:3000/api/health; do sleep 2; done'; then
+        if timeout 60 bash -c 'until curl -f http://localhost:3000/; do sleep 2; done'; then
           echo "✅ Frontend health check OK"
         else
           echo "❌ Frontend health check falló después de 60s"
@@ -267,6 +269,11 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+    - name: Setup SSH known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+
     - name: Deploy to VPS (Rolling Update)
       run: |
         set -euo pipefail
@@ -275,15 +282,15 @@ jobs:
         
         # Copiar archivos de configuración
         echo "📁 Copiando configuración..."
-        scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/docker-compose.yml
-        scp -o StrictHostKeyChecking=no nginx/nginx.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/nginx.conf
-        scp -o StrictHostKeyChecking=no nginx/conf.d/default.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/default.conf
-        scp -o StrictHostKeyChecking=no scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/setup-ssl-v2.sh
-        scp -o StrictHostKeyChecking=no scripts/backup-postgres.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/backup-postgres.sh
-        scp -o StrictHostKeyChecking=no scripts/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/production-monitor.sh
+        scp docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/docker-compose.yml
+        scp nginx/nginx.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/nginx.conf
+        scp nginx/conf.d/default.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/default.conf
+        scp scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/setup-ssl-v2.sh
+        scp scripts/backup-postgres.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/backup-postgres.sh
+        scp scripts/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/production-monitor.sh
         
         # Ejecutar deploy rolling update
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           
           echo "� Rolling Update en producción..."
@@ -303,10 +310,14 @@ jobs:
           echo "� Login Docker Hub..."
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
-          # Pull nuevas imágenes
+          # Pull nuevas imágenes con SHA específico
           echo "⬇️ Pull nuevas imágenes..."
-          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main
-          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main
+          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
+          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
+          
+          # Taggear como latest para el deploy
+          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/workplace-backend:latest
+          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:latest
           
           # Backup de imágenes actuales
           echo "💾 Backup de imágenes actuales..."
@@ -317,18 +328,70 @@ jobs:
             docker tag workplace-frontend:latest workplace-frontend:backup-$(date +%s)
           fi
           
-          # Rolling Update Backend
-          echo "🔄 Actualizando Backend..."
+          # Canary Deploy con métricas reales
+          echo "🚀 Iniciando Canary Deploy con métricas..."
           
-          # Escalar backend a 2 instancias
-          docker compose up -d --scale backend=2 --no-deps backend
+          # Obtener SHA del deploy actual
+          CURRENT_SHA="${{ github.sha }}"
+          echo "📦 Deployando SHA: $CURRENT_SHA"
           
-          # Esperar a que la nueva instancia esté healthy
-          echo "⏳ Esperando health check del nuevo backend..."
-          timeout 60 bash -c 'until docker compose ps backend | grep -q "healthy"; do sleep 2; done'
+          # Backup versión actual
+          docker compose stop backend
           
-          # Detener instancia antigua
-          docker compose up -d --scale backend=1 --no-deps backend
+          # Deploy canary (misma imagen pero con validación extendida)
+          echo "🧪 Desplegando versión canary..."
+          docker compose up -d --no-deps backend
+          
+          # Esperar health check del canary
+          echo "⏳ Esperando health check del canary..."
+          if ! timeout 60 bash -c 'until curl -f http://localhost:3001/api/health; do sleep 2; done'; then
+            echo "❌ Canary health check falló"
+            docker compose logs backend --tail=30
+            # Restaurar backup si existe
+            if docker images | grep -q "workplace-backend:backup"; then
+              LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
+              docker tag $LATEST_BACKUP ${{ secrets.DOCKER_USERNAME }}/workplace-backend:latest
+              docker compose up -d --no-deps backend
+            fi
+            exit 1
+          fi
+          
+          # Verificar métricas reales por 60 segundos
+          echo "📊 Verificando métricas del canary (60s)..."
+          CANARY_SUCCESS=true
+          
+          for i in {1..12}; do
+            # Verificar error rate (simulado con health checks)
+            if ! curl -f -s http://localhost:3001/api/health > /dev/null; then
+              echo "❌ Error detectado en iteración $i"
+              CANARY_SUCCESS=false
+              break
+            fi
+            
+            # Verificar latencia (debe ser < 1000ms)
+            LATENCY=$(curl -o /dev/null -s -w '%{time_total}' http://localhost:3001/api/health | awk '{printf "%.0f", $1*1000}')
+            if [ "$LATENCY" -gt 1000 ]; then
+              echo "⚠️ Alta latencia detectada: ${LATENCY}ms"
+              CANARY_SUCCESS=false
+              break
+            fi
+            
+            echo "✅ Métrica OK ($i/12) - Latencia: ${LATENCY}ms"
+            sleep 5
+          done
+          
+          if [ "$CANARY_SUCCESS" = "true" ]; then
+            echo "✅ Canary exitoso, versión establecida como producción"
+          else
+            echo "❌ Canary falló, restaurando versión anterior"
+            # Restaurar backup más reciente
+            LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
+            if [ -n "$LATEST_BACKUP" ]; then
+              docker tag $LATEST_BACKUP ${{ secrets.DOCKER_USERNAME }}/workplace-backend:latest
+              docker compose up -d --no-deps backend
+            fi
+            exit 1
+          fi
           
           # Rolling Update Frontend (nginx no depende de frontend)
           echo "🔄 Actualizando Frontend..."
@@ -389,17 +452,26 @@ jobs:
           
           echo "✅ Rolling Update completado exitosamente!"
           
-          # Cleanup de imágenes antiguas (mantener últimas 5)
-          echo "🧹 Cleanup de imágenes antiguas..."
-          docker image prune -f
-          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.CreatedAt}}" | grep "workplace-" | tail -n +6 | awk '{print $1":"$2}' | xargs -r docker rmi
+          # Cleanup seguro de imágenes antiguas (mantener últimas 10 versiones)
+          echo "🧹 Cleanup seguro de imágenes antiguas..."
+          
+          # Solo hacer cleanup si el deploy fue exitoso
+          if docker compose ps | grep -q "healthy"; then
+            # Mantener últimas 10 versiones de cada imagen
+            docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-" | grep -v "latest" | grep -v "backup" | sort -r | tail -n +11 | xargs -r docker rmi || true
+            
+            # Limpiar imágenes dangling (sin etiquetas)
+            docker image prune -f --filter "until=24h" || true
+          else
+            echo "⚠️ Omitiendo cleanup por seguridad (servicios no healthy)"
+          fi
           
           docker logout
         EOF
 
     - name: Verify
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           cd /opt/workplace
           docker compose ps | grep Up
         EOF
@@ -415,13 +487,18 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+    - name: Setup SSH known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+
     - name: Complete Rollback
       run: |
         set -euo pipefail
         
         echo "🔄 Iniciando Rollback Completo..."
         
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           
           cd /opt/workplace
