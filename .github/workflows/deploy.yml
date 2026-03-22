@@ -203,9 +203,11 @@ jobs:
         # Copiar docker-compose y configs de nginx de producción
         scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/docker-compose.yml
         
-        # Crear estructura de directorios nginx si no existe
+        # Limpiar y crear estructura de directorios nginx
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          mkdir -p /opt/workplace/nginx/conf.d
+          sudo rm -rf /opt/workplace/nginx
+          sudo mkdir -p /opt/workplace/nginx/conf.d
+          sudo chown -R $USER:$USER /opt/workplace/nginx
         EOF
         
         # Copiar archivos de nginx individualmente
