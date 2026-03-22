@@ -214,10 +214,10 @@ jobs:
         scp -o StrictHostKeyChecking=no nginx/nginx.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/nginx.conf
         scp -o StrictHostKeyChecking=no nginx/conf.d/default.prod.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/default.prod.conf
         scp -o StrictHostKeyChecking=no scripts/setup-ssl.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/setup-ssl.sh
-        scp -o StrictHostKeyChecking=no .env ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/.env
+        scp -o StrictHostKeyChecking=no scripts/create-env.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/create-env.sh
         
-        # Configurar SSL automáticamente
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "chmod +x /opt/workplace/setup-ssl.sh && /opt/workplace/setup-ssl.sh"
+        # Crear .env y configurar SSL automáticamente
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "chmod +x /opt/workplace/create-env.sh && /opt/workplace/create-env.sh && chmod +x /opt/workplace/setup-ssl.sh && /opt/workplace/setup-ssl.sh"
         
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
