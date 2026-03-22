@@ -42,9 +42,9 @@ cd /app/backend
 
 # Aplicar migraciones
 echo "🔧 Aplicando migraciones Prisma..."
-npx prisma@5.22.0 migrate deploy || true
+pnpm prisma migrate deploy || true
 echo "✅ Migraciones aplicadas"
 
 # Iniciar aplicación
 echo "🚀 Iniciando aplicación backend..."
-exec node dist/main.js
+exec node dist/src/main.js
