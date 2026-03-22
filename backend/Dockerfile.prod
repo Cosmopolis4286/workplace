@@ -44,14 +44,14 @@ RUN apk add --no-cache dumb-init ca-certificates openssl libssl3 python3 make g+
 WORKDIR /app
 
 # Copiar solo lo esencial desde build
-COPY --from=build /app/backend/dist ./dist
+COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/scripts/init-backend-prod.sh ./scripts/init-backend-prod.sh
-COPY --from=build /app/backend/package.json ./package.json
-COPY --from=build /app/backend/prisma ./prisma
+COPY --from=build /app/backend/package.json ./backend/package.json
+COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
-WORKDIR /app
+WORKDIR /app/backend
 
 # Instalar solo deps de producción necesarias
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
