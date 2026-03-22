@@ -265,39 +265,27 @@ jobs:
           echo "🔄 Deteniendo servicios antiguos"
           docker compose down
 
-          echo "🚀 Iniciando nuevos servicios"
-          docker compose up -d
+          echo "🚀 Iniciando servicios sin nginx"
+          docker compose up -d postgres redis backend frontend
 
-          echo "⏱️ Esperando inicialización (45s)..."
-          sleep 45
+          echo "⏱️ Esperando inicialización de servicios core (30s)..."
+          sleep 30
 
-          echo "🔍 Health check completo"
+          echo "🔍 Health check servicios core"
           docker compose ps
           
-          # Verificación más robusta del estado
-          echo "🔍 Verificando estado de contenedores..."
+          # Verificación de servicios críticos (excepto nginx)
+          echo "🔍 Verificando servicios críticos..."
           
-          # Contar contenedores Up
-          UP_COUNT=$(docker compose ps --services | wc -l)
-          HEALTHY_COUNT=$(docker compose ps | grep -c "Up" || echo "0")
-          
-          echo "Contenedores esperados: $UP_COUNT"
-          echo "Contenedores saludables: $HEALTHY_COUNT"
-          
-          if [ "$HEALTHY_COUNT" -lt "$UP_COUNT" ]; then
-            echo "❌ Contenedores no saludables"
-            echo "📋 Logs de contenedores con problemas:"
-            docker compose ps
-            docker compose logs --tail=20
+          if ! docker compose ps postgres | grep -q "Healthy"; then
+            echo "❌ Postgres no está Healthy"
+            docker compose logs postgres --tail=30
             exit 1
           fi
           
-          # Verificación específica de servicios críticos
-          echo "🔍 Verificando servicios críticos..."
-          
-          if ! docker compose ps nginx | grep -q "Up"; then
-            echo "❌ Nginx no está Up"
-            docker compose logs nginx --tail=30
+          if ! docker compose ps redis | grep -q "Healthy"; then
+            echo "❌ Redis no está Healthy"
+            docker compose logs redis --tail=30
             exit 1
           fi
           
@@ -313,17 +301,7 @@ jobs:
             exit 1
           fi
           
-          echo "🌐 Verificando conectividad desde Nginx"
-          # Verificar que nginx pueda conectar con backend y frontend
-          if ! docker exec workplace_nginx wget -q --spider http://workplace_backend:3001/api/health; then
-            echo "⚠️ Nginx no puede conectar con backend API"
-          fi
-          
-          if ! docker exec workplace_nginx wget -q --spider http://workplace_frontend:3000/; then
-            echo "⚠️ Nginx no puede conectar con frontend"
-          fi
-          
-          echo "✅ Todos los servicios están saludables y conectados"
+          echo "✅ Servicios core están saludables"
 
           docker logout
         EOF
