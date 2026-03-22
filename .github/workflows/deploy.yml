@@ -216,15 +216,6 @@ jobs:
         scp -o StrictHostKeyChecking=no scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/setup-ssl-v2.sh
         scp -o StrictHostKeyChecking=no scripts/create-env.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/create-env.sh
         
-        # Crear .env y configurar SSL automáticamente
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          cd /opt/workplace
-          chmod +x create-env.sh
-          ./create-env.sh
-          chmod +x setup-ssl-v2.sh
-          ./setup-ssl-v2.sh
-        EOF
-        
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
 
@@ -236,6 +227,10 @@ jobs:
 
           sudo mkdir -p $APP_DIR
           cd $APP_DIR
+
+          # Crear .env si no existe
+          chmod +x create-env.sh
+          ./create-env.sh
 
           if ! docker info > /dev/null 2>&1; then
             echo "❌ Docker no disponible"
@@ -302,6 +297,11 @@ jobs:
           fi
           
           echo "✅ Servicios core están saludables"
+          
+          # Configurar SSL y nginx
+          echo "🔧 Configurando SSL y nginx..."
+          chmod +x setup-ssl-v2.sh
+          ./setup-ssl-v2.sh
 
           docker logout
         EOF
