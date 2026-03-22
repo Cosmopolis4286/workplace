@@ -217,7 +217,13 @@ jobs:
         scp -o StrictHostKeyChecking=no scripts/create-env.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/create-env.sh
         
         # Crear .env y configurar SSL automáticamente
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "chmod +x /opt/workplace/create-env.sh && /opt/workplace/create-env.sh && chmod +x /opt/workplace/setup-ssl-v2.sh && /opt/workplace/setup-ssl-v2.sh"
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          cd /opt/workplace
+          chmod +x create-env.sh
+          ./create-env.sh
+          chmod +x setup-ssl-v2.sh
+          ./setup-ssl-v2.sh
+        EOF
         
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
