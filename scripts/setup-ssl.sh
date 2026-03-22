@@ -20,12 +20,23 @@ fi
 if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
   echo "🔒 Obteniendo certificados SSL para $DOMAIN..."
   
-  # Primero usar config con SSL como template para Certbot
-  cp /opt/workplace/nginx/conf.d/default.prod.conf /opt/workplace/nginx/conf.d/default.conf
-  # Reemplazar placeholder con dominio real
-  sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
+  # Crear config temporal HTTP para validación Certbot
+  cat > /opt/workplace/nginx/conf.d/default.conf << EOL
+server {
+    listen 80;
+    server_name $DOMAIN www.$DOMAIN;
+    
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
+}
+EOL
   
-  # Iniciar nginx con la configuración de SSL
+  # Iniciar nginx con configuración temporal
   docker compose up -d nginx
   
   # Esperar a que nginx esté listo
