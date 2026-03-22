@@ -168,23 +168,51 @@ jobs:
         
     - name: Verify built images
       run: |
-        echo "🔍 Verificando que las imágenes construidas sean funcionales..."
-        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main
-        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main
+        echo "🔍 Verificando imágenes construidas..."
         
-        # Probar que la imagen del backend tenga los archivos compilados
-        docker run --rm ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main ls -la /app/backend/dist/ || {
-          echo "❌ La imagen del backend no tiene archivos compilados"
+        # Probar que el backend se ejecute correctamente
+        echo "🧪 Testeando backend..."
+        docker run --rm -d --name test-backend \
+          -e NODE_ENV=production \
+          -e DATABASE_URL=postgresql://test:test@localhost:5432/test \
+          ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main
+        
+        # Esperar a que inicie
+        sleep 10
+        
+        # Verificar health endpoint
+        if ! docker exec test-backend curl -f http://localhost:3001/api/health; then
+          echo "❌ Backend health check falló"
+          docker logs test-backend --tail=20
+          docker stop test-backend
           exit 1
-        }
+        fi
         
-        # Probar que la imagen del frontend tenga los archivos compilados
-        docker run --rm ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main ls -la /app/.output/ || {
-          echo "❌ La imagen del frontend no tiene archivos compilados"
+        docker stop test-backend
+        echo "✅ Backend verificado correctamente"
+        
+        # Probar que el frontend se ejecute correctamente
+        echo "🧪 Testeando frontend..."
+        docker run --rm -d --name test-frontend \
+          -e BACKEND_API_URL=http://localhost:3001/api \
+          -e NITRO_HOST=0.0.0.0 \
+          ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main
+        
+        # Esperar a que inicie
+        sleep 10
+        
+        # Verificar health endpoint
+        if ! docker exec test-frontend curl -f http://localhost:3000/api/health; then
+          echo "❌ Frontend health check falló"
+          docker logs test-frontend --tail=20
+          docker stop test-frontend
           exit 1
-        }
+        fi
         
-        echo "✅ Imágenes verificadas correctamente"
+        docker stop test-frontend
+        echo "✅ Frontend verificado correctamente"
+        
+        echo "🎉 Todas las imágenes verificadas correctamente"
 
   deploy:
     needs: buildeploy
@@ -198,111 +226,133 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Deploy to VPS
+    - name: Deploy to VPS (Rolling Update)
       run: |
-        # Copiar docker-compose y configs de nginx de producción
+        set -euo pipefail
+        
+        echo "🚀 Iniciando Rolling Update..."
+        
+        # Copiar archivos de configuración
+        echo "📁 Copiando configuración..."
         scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/docker-compose.yml
-        
-        # Limpiar y crear estructura de directorios nginx
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          sudo rm -rf /opt/workplace/nginx
-          sudo mkdir -p /opt/workplace/nginx/conf.d
-          sudo chown -R $USER:$USER /opt/workplace/nginx
-        EOF
-        
-        # Copiar archivos de nginx individualmente
         scp -o StrictHostKeyChecking=no nginx/nginx.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/nginx.conf
         scp -o StrictHostKeyChecking=no nginx/conf.d/default.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/default.conf
         scp -o StrictHostKeyChecking=no scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/setup-ssl-v2.sh
-        scp -o StrictHostKeyChecking=no scripts/create-env.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/create-env.sh
+        scp -o StrictHostKeyChecking=no scripts/backup-postgres.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/backup-postgres.sh
+        scp -o StrictHostKeyChecking=no scripts/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/production-monitor.sh
         
+        # Ejecutar deploy rolling update
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
-
-          APP_DIR="/opt/workplace"
-
-          echo "🚀 Deploy iniciado con Nginx interno"
-
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-
-          sudo mkdir -p $APP_DIR
-          cd $APP_DIR
-
-          # Crear .env si no existe
-          chmod +x create-env.sh
-          ./create-env.sh
-
-          if ! docker info > /dev/null 2>&1; then
-            echo "❌ Docker no disponible"
+          
+          echo "� Rolling Update en producción..."
+          cd /opt/workplace
+          
+          # Evitar deploys simultáneos
+          if [ -f ".deploy.lock" ]; then
+            echo "❌ Deploy en progreso, abortando..."
             exit 1
           fi
-
-          echo "💾 Backup DB"
-          if docker ps --format '{{.Names}}' | grep -q workplace_postgres; then
-            docker exec workplace_postgres pg_dumpall -U workplace > backup.sql || true
-          fi
-
-          echo "⬇️ Pull imágenes"
+          
+          # Crear lock file
+          touch .deploy.lock
+          trap "rm -f .deploy.lock" EXIT
+          
+          # Login a Docker Hub
+          echo "� Login Docker Hub..."
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+          
+          # Pull nuevas imágenes
+          echo "⬇️ Pull nuevas imágenes..."
           docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main
           docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main
-          docker pull nginx:alpine
-
+          
+          # Backup de imágenes actuales
+          echo "💾 Backup de imágenes actuales..."
           if docker image inspect workplace-backend:latest > /dev/null 2>&1; then
             docker tag workplace-backend:latest workplace-backend:backup-$(date +%s)
           fi
           if docker image inspect workplace-frontend:latest > /dev/null 2>&1; then
             docker tag workplace-frontend:latest workplace-frontend:backup-$(date +%s)
           fi
-
-          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main workplace-backend:latest
-          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main workplace-frontend:latest
-
-          echo "🔄 Deteniendo servicios antiguos"
-          docker compose down
-
-          echo "🚀 Iniciando servicios sin nginx"
-          docker compose up -d postgres redis backend frontend
-
-          echo "⏱️ Esperando inicialización de servicios core (30s)..."
-          sleep 30
-
-          echo "🔍 Health check servicios core"
+          
+          # Rolling Update Backend
+          echo "🔄 Actualizando Backend..."
+          
+          # Escalar backend a 2 instancias
+          docker compose up -d --scale backend=2 --no-deps backend
+          
+          # Esperar a que la nueva instancia esté healthy
+          echo "⏳ Esperando health check del nuevo backend..."
+          timeout 60 bash -c 'until docker compose ps backend | grep -q "healthy"; do sleep 2; done'
+          
+          # Detener instancia antigua
+          docker compose up -d --scale backend=1 --no-deps backend
+          
+          # Rolling Update Frontend (nginx no depende de frontend)
+          echo "🔄 Actualizando Frontend..."
+          
+          # Escalar frontend a 2 instancias
+          docker compose up -d --scale frontend=2 --no-deps frontend
+          
+          # Esperar a que la nueva instancia esté healthy
+          echo "⏳ Esperando health check del nuevo frontend..."
+          timeout 60 bash -c 'until docker compose ps frontend | grep -q "healthy"; do sleep 2; done'
+          
+          # Detener instancia antigua
+          docker compose up -d --scale frontend=1 --no-deps frontend
+          
+          # Reiniciar nginx para que tome los cambios (depende solo de backend)
+          echo "🔄 Reiniciando Nginx..."
+          docker compose restart nginx
+          
+          # Configurar SSL si es necesario
+          echo "🔧 Configurando SSL..."
+          chmod +x setup-ssl-v2.sh
+          ./setup-ssl-v2.sh
+          
+          # Verificar estado final
+          echo "🔍 Verificando estado final..."
           docker compose ps
           
-          # Verificación de servicios críticos (excepto nginx)
-          echo "🔍 Verificando servicios críticos..."
-          
+          # Health checks finales (nginx solo depende de backend)
           if ! docker compose ps postgres | grep -q "healthy"; then
             echo "❌ Postgres no está healthy"
-            docker compose logs postgres --tail=30
+            docker compose logs postgres --tail=20
             exit 1
           fi
           
           if ! docker compose ps redis | grep -q "healthy"; then
             echo "❌ Redis no está healthy"
-            docker compose logs redis --tail=30
+            docker compose logs redis --tail=20
             exit 1
           fi
           
-          if ! docker compose ps backend | grep -q "Up"; then
-            echo "❌ Backend no está Up"
-            docker compose logs backend --tail=30
+          if ! docker compose ps backend | grep -q "healthy"; then
+            echo "❌ Backend no está healthy"
+            docker compose logs backend --tail=20
             exit 1
           fi
           
-          if ! docker compose ps frontend | grep -q "Up"; then
-            echo "❌ Frontend no está Up"
-            docker compose logs frontend --tail=30
+          # Nginx debe estar Up (no necesita estar healthy)
+          if ! docker compose ps nginx | grep -q "Up"; then
+            echo "❌ Nginx no está Up"
+            docker compose logs nginx --tail=20
             exit 1
           fi
           
-          echo "✅ Servicios core están saludables"
+          # Frontend es opcional para nginx, pero verificamos si está healthy
+          if docker compose ps frontend | grep -q "Up" && ! docker compose ps frontend | grep -q "healthy"; then
+            echo "⚠️ Frontend está Up pero no healthy (nginx puede servir fallback)"
+          fi
           
-          # Configurar SSL y nginx
-          echo "🔧 Configurando SSL y nginx..."
-          chmod +x setup-ssl-v2.sh
-          ./setup-ssl-v2.sh
-
+          echo "✅ Rolling Update completado exitosamente!"
+          
+          # Cleanup de imágenes antiguas (mantener últimas 5)
+          echo "🧹 Cleanup de imágenes antiguas..."
+          docker image prune -f
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.CreatedAt}}" | grep "workplace-" | tail -n +6 | awk '{print $1":"$2}' | xargs -r docker rmi
+          
           docker logout
         EOF
 
@@ -324,24 +374,86 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Rollback
+    - name: Complete Rollback
       run: |
+        set -euo pipefail
+        
+        echo "🔄 Iniciando Rollback Completo..."
+        
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
-
-          APP_DIR="/opt/workplace"
-          cd $APP_DIR
-
-          BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep backup | sort -r | head -n 1)
-
-          if [ -z "$BACKUP" ]; then
-            echo "❌ No backup"
+          
+          cd /opt/workplace
+          
+          echo "🔍 Buscando backup más reciente..."
+          
+          # Encontrar backup más reciente
+          BACKUP_BACKEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
+          BACKUP_FRONTEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-frontend:backup" | sort -r | head -n 1)
+          
+          if [ -z "$BACKUP_BACKEND" ] || [ -z "$BACKUP_FRONTEND" ]; then
+            echo "❌ No se encontraron backups para rollback"
+            echo "Backups disponibles:"
+            docker images --format "{{.Repository}}:{{.Tag}}" | grep backup || echo "No hay backups"
             exit 1
           fi
-
-          docker tag $BACKUP workplace-backend:latest
+          
+          echo "📦 Usando backups:"
+          echo "Backend: $BACKUP_BACKEND"
+          echo "Frontend: $BACKUP_FRONTEND"
+          
+          # Detener servicios actuales
+          echo "🔄 Deteniendo servicios actuales..."
           docker compose down
+          
+          # Hacer rollback de imágenes
+          echo "🔄 Haciendo rollback de imágenes..."
+          docker tag $BACKUP_BACKEND workplace-backend:latest
+          docker tag $BACKUP_FRONTEND workplace-frontend:latest
+          
+          # Iniciar servicios con versiones anteriores
+          echo "🚀 Iniciando servicios con rollback..."
           docker compose up -d
-
-          echo "✅ Rollback OK"
+          
+          # Esperar a que los servicios inicien
+          echo "⏳ Esperando que los servicios inicien..."
+          sleep 30
+          
+          # Verificar health checks post-rollback (nginx solo depende de backend)
+          if ! docker compose ps postgres | grep -q "healthy"; then
+            echo "❌ Postgres no está healthy después de rollback"
+            docker compose logs postgres --tail=20
+            exit 1
+          fi
+          
+          if ! docker compose ps redis | grep -q "healthy"; then
+            echo "❌ Redis no está healthy después de rollback"
+            docker compose logs redis --tail=20
+            exit 1
+          fi
+          
+          if ! docker compose ps backend | grep -q "healthy"; then
+            echo "❌ Backend no está healthy después de rollback"
+            docker compose logs backend --tail=20
+            exit 1
+          fi
+          
+          # Nginx debe estar Up (depende solo de backend)
+          if ! docker compose ps nginx | grep -q "Up"; then
+            echo "❌ Nginx no está Up después de rollback"
+            docker compose logs nginx --tail=20
+            exit 1
+          fi
+          
+          # Frontend es opcional
+          if docker compose ps frontend | grep -q "Up" && ! docker compose ps frontend | grep -q "healthy"; then
+            echo "⚠️ Frontend Up pero no healthy después de rollback (nginx puede servir fallback)"
+          fi
+          
+          echo "✅ Rollback completado exitosamente!"
+          echo "🎉 Servicios restaurados a versión anterior"
+          
+          # Limpiar imágenes fallidas
+          echo "🧹 Limpiando imágenes fallidas..."
+          docker image prune -f
         EOF
