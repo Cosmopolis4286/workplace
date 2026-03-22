@@ -51,8 +51,29 @@ EOL
   fi
 fi
 
-# Obtener certificados SSL si no existen
-if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+# Verificar si ya existen certificados para este dominio
+if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
+  echo "🔒 SSL ya configurado, usando certificados existentes"
+  
+  # Restaurar config completo y activar SSL
+  mv /opt/workplace/nginx/conf.d/default.conf.backup /opt/workplace/nginx/conf.d/default.conf 2>/dev/null || true
+  sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
+  
+  # Descomentar líneas SSL
+  sed -i 's/listen 443;/listen 443 ssl;/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# http2 on;/http2 on;/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# ssl_certificate/ssl_certificate/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# ssl_certificate_key/ssl_certificate_key/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# include \/etc\/letsencrypt\/options-ssl-nginx.conf;/include \/etc\/letsencrypt\/options-ssl-nginx.conf;/' /opt/workplace/nginx/conf.d/default.conf
+  sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
+  
+  # Reiniciar nginx si está corriendo
+  if docker compose ps nginx | grep -q "Up"; then
+    docker compose restart nginx
+  else
+    docker compose up -d nginx
+  fi
+else
   echo "🔒 Obteniendo certificados SSL para $DOMAIN..."
   
   # Detener nginx si está corriendo
