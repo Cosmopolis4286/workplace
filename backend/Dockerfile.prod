@@ -8,7 +8,7 @@ RUN apk add --no-cache python3 make g++ git openssl-dev \
 
 WORKDIR /app
 
-# Copiar lockfiles para caching
+# Copiar solo lockfiles para caching
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/package.json ./backend/
 
@@ -16,7 +16,7 @@ COPY backend/package.json ./backend/
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --prod=false
 
-# Copiar código fuente
+# Copiar código fuente y generar build
 COPY backend/src ./backend/src
 COPY backend/prisma ./backend/prisma
 COPY backend/tsconfig*.json ./backend/
@@ -29,15 +29,16 @@ RUN pnpm prisma generate \
     && pnpm build \
     && pnpm exec tsc -p tsconfig.seed.json
 
-# Limpiar deps dev antes de pasar a producción
+# Limpiar deps de desarrollo antes de copiar a producción
 RUN pnpm prune --prod
 
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
 
+# Variables opcionales
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-# Dependencias mínimas runtime
+# Dependencias mínimas de runtime - solo lo necesario
 RUN apk add --no-cache dumb-init ca-certificates openssl libssl3 python3 make g++ curl netcat-openbsd
 
 WORKDIR /app
@@ -49,20 +50,24 @@ COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=build /app/backend/node_modules ./backend/node_modules
 
 WORKDIR /app/backend
 
-# Generar cliente Prisma (opcional, ya lo hicimos en build)
+# Instalar solo deps de producción necesarias
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    corepack enable && corepack prepare pnpm@9.15.0 --activate \
+    && pnpm install --prod
+
+# Generar cliente Prisma
 RUN npx prisma@5.22.0 generate
 
-# Usuario no root
+# Permisos y usuario no root
 RUN addgroup -S -g 1001 app && \
     adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G app app && \
     chown -R app:app /app
 USER app
 
-EXPOSE 3001
+EXPOSE ${NODE_PORT}
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["sh", "/app/scripts/init-backend-prod.sh"]
