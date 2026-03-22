@@ -177,11 +177,8 @@ EOL
   if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
     echo "✅ Certificados SSL disponibles"
     
-    # Detener nginx temporal
-    docker compose down nginx
-    
     # Restaurar config completo y activar SSL
-    mv /opt/workplace/nginx/conf.d/default.conf.backup /opt/workplace/nginx/conf.d/default.conf
+    # El backup no existe porque no creamos nginx temporal, usamos el original
     sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
     
     # Descomentar líneas SSL
