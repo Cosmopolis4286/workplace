@@ -4,7 +4,7 @@ services:
     container_name: workplace_postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5432:5432"  # Expuesto para Nginx/CI/CD si es necesario
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -69,7 +69,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${NODE_PORT}:${NODE_PORT}"
+      - "${NODE_PORT}:${NODE_PORT}"  # <-- expuesto al host para Nginx
     environment:
       NODE_ENV: production
       PORT: ${NODE_PORT}
@@ -87,7 +87,7 @@ services:
     volumes:
       - uploads_data:/app/backend/uploads
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://backend:${NODE_PORT}/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -101,9 +101,9 @@ services:
     init: true
     stop_grace_period: 30s
     ports:
-      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"  # <-- expuesto al host para Nginx
     environment:
-      BACKEND_API_URL: http://backend:${NODE_PORT}/api
+      BACKEND_API_URL: http://127.0.0.1:${NODE_PORT}/api  # Nginx externo se conecta a backend
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
     depends_on:
@@ -112,7 +112,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://frontend:${FRONTEND_PORT}/ || exit 0"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 0"]
       interval: 30s
       timeout: 5s
       retries: 3
