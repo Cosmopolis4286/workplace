@@ -78,8 +78,9 @@ server {
 }
 EOL
   
-  # Mover config temporal al lugar correcto
-  sudo mv /tmp/nginx-temp.conf /opt/workplace/nginx/conf.d/default.conf
+  # Hacer backup del config actual y usar config temporal
+  cp /opt/workplace/nginx/conf.d/default.conf /opt/workplace/nginx/conf.d/default.conf.backup
+  mv /tmp/nginx-temp.conf /opt/workplace/nginx/conf.d/default.conf
   
   # Iniciar nginx con configuración temporal (solo HTTP)
   docker compose up -d nginx
@@ -121,8 +122,8 @@ EOL
     # Detener nginx temporal
     docker compose down nginx
     
-    # Usar config con SSL y reemplazar placeholder con dominio real
-    cp /opt/workplace/nginx/conf.d/default.prod.conf /opt/workplace/nginx/conf.d/default.conf
+    # Restaurar config completo y activar SSL
+    mv /opt/workplace/nginx/conf.d/default.conf.backup /opt/workplace/nginx/conf.d/default.conf
     sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
     
     # Descomentar líneas SSL
@@ -145,8 +146,7 @@ EOL
   fi
 else
   echo "🔒 SSL ya configurado, usando certificados existentes"
-  # Usar config con SSL y reemplazar placeholder con dominio real
-  cp /opt/workplace/nginx/conf.d/default.prod.conf /opt/workplace/nginx/conf.d/default.conf
+  # Usar config actual y reemplazar placeholder con dominio real
   sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
   
   # Descomentar líneas SSL
