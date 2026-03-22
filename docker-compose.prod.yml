@@ -121,6 +121,7 @@ services:
       - ./fallback:/var/www/fallback:ro
       - uploads_data:/var/www/uploads:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:rw
     depends_on:
       backend:
         condition: service_healthy

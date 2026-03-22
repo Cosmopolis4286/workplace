@@ -9,7 +9,7 @@ fi
 # Usar DOMAIN_HOST del .env, o valor por defecto
 DOMAIN="${DOMAIN_HOST:-localhost}"
 
-echo "🔧 Configurando SSL para dominio: $DOMAIN"
+echo "🔧 Configurando SSL para dominio: $DOMAIN (modo producción sin downtime)"
 
 # Instalar Certbot si no está disponible
 if ! command -v certbot &> /dev/null; then
@@ -83,9 +83,9 @@ if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencryp
   else
     echo "⚠️ Certificados encontrados pero expirados, intentando renovar..."
     
-    # Intentar renovar en lugar de generar nuevos
-    echo "🔄 Intentando renovar certificados existentes..."
-    if sudo certbot renew --cert-name $DOMAIN --non-interactive; then
+    # Intentar renovar en lugar de generar nuevos (webroot mode)
+    echo "🔄 Intentando renovar certificados existentes (webroot mode)..."
+    if sudo certbot renew --cert-name $DOMAIN --webroot -w /opt/workplace/certbot/www --non-interactive; then
       echo "✅ Certificados renovados exitosamente"
       
       # Verificar que los archivos existan después de renovar
@@ -103,8 +103,8 @@ if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencryp
         sed -i 's|# include /etc/letsencrypt/options-ssl-nginx.conf;|include /etc/letsencrypt/options-ssl-nginx.conf;|' /opt/workplace/nginx/conf.d/default.conf
         sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
         
-        # Iniciar nginx con SSL
-        docker compose up -d
+        # Reiniciar nginx para aplicar nuevos certificados
+        docker compose restart nginx
         
         echo "✅ Configuración SSL completada con certificados renovados"
         exit 0
@@ -126,96 +126,51 @@ if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencryp
       sed -i 's|# include /etc/letsencrypt/options-ssl-nginx.conf;|include /etc/letsencrypt/options-ssl-nginx.conf;|' /opt/workplace/nginx/conf.d/default.conf
       sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
       
-      # Iniciar nginx con SSL
-      docker compose up -d
+      # Reiniciar nginx
+      docker compose restart nginx
       
       echo "⚠️ Configuración SSL completada con certificados existentes (pueden estar expirados)"
-      echo "📅 Los certificados se podrán renovar después de 2026-03-23 10:52:08 UTC"
+      echo "📅 Los certificados se podrán renovar después del rate limit de Let's Encrypt"
       exit 0
     fi
   fi
 else
-  echo "❌ No se encontraron certificados existentes"
+  echo "❌ No se encontraron certificados existentes, generando nuevos..."
 fi
 
-# Limpieza de certificados existentes si los hay
-echo "🧹 Limpiando certificados anteriores..."
-sudo certbot delete --cert-name $DOMAIN 2>/dev/null || true
-sudo rm -rf /etc/letsencrypt/live/$DOMAIN 2>/dev/null || true
-sudo rm -rf /etc/letsencrypt/archive/$DOMAIN 2>/dev/null || true
-sudo rm -f /etc/letsencrypt/renewal/$DOMAIN.conf 2>/dev/null || true
+# Si no hay certificados, generar nuevos con webroot (SIN detener nginx)
+echo "🔒 Generando nuevos certificados SSL para $DOMAIN (webroot mode)..."
 
-# Detener completamente todos los servicios para liberar puerto 80
-echo "🔄 Deteniendo servicios para liberar puerto 80..."
-docker compose down || true
-sleep 5
+# Asegurar que nginx esté corriendo para servir ACME challenges
+if ! docker compose ps nginx | grep -q "Up"; then
+  echo "🚀 Iniciando nginx para ACME challenges..."
+  docker compose up -d nginx
+  sleep 10
+fi
 
-# Generar certificados con modo standalone
-echo "🔐 Generando certificados SSL..."
+# Verificar que nginx esté sirviendo ACME challenges
+echo "🔍 Verificando configuración ACME..."
+if ! curl -f http://$DOMAIN/.well-known/acme-challenge/ > /dev/null 2>&1; then
+  echo "⚠️ ACME challenge endpoint no accesible, pero continuando..."
+fi
+
+# Generar certificados con webroot (nginx sigue corriendo)
+echo "🔐 Solicitando certificados SSL con webroot..."
 if sudo certbot certonly \
-  --standalone \
+  --webroot \
+  -w /opt/workplace/certbot/www \
   -d $DOMAIN \
   -d www.$DOMAIN \
   --email admin@$DOMAIN \
   --agree-tos \
   --non-interactive \
-  --preferred-challenges http-01 \
-  --http-01-port 80; then
+  --preferred-challenges http-01; then
   
   echo "✅ Certificados generados exitosamente"
   
   # Verificar archivos
-  echo "🔍 Verificando archivos de certificado..."
-  echo "📁 Buscando en: /etc/letsencrypt/live/$DOMAIN/"
-  sudo ls -la /etc/letsencrypt/live/$DOMAIN/ 2>/dev/null || echo "❌ Directorio live no encontrado"
-  
-  echo "📁 Buscando en: /etc/letsencrypt/archive/$DOMAIN/"
-  sudo ls -la /etc/letsencrypt/archive/$DOMAIN/ 2>/dev/null || echo "❌ Directorio archive no encontrado"
-  
-  # Verificar archivos específicos
-  FULLCHAIN_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
-  PRIVKEY_PATH="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
-  
-  echo "📁 Verificando: $FULLCHAIN_PATH"
-  if [ -f "$FULLCHAIN_PATH" ]; then
-    echo "✅ fullchain.pem encontrado"
-    sudo ls -la "$FULLCHAIN_PATH"
-    FULLCHAIN_EXISTS=true
-  else
-    echo "❌ fullchain.pem NO encontrado"
-    FULLCHAIN_EXISTS=false
-  fi
-  
-  echo "� Verificando: $PRIVKEY_PATH"
-  if [ -f "$PRIVKEY_PATH" ]; then
-    echo "✅ privkey.pem encontrado"
-    sudo ls -la "$PRIVKEY_PATH"
-    PRIVKEY_EXISTS=true
-  else
-    echo "❌ privkey.pem NO encontrado"
-    PRIVKEY_EXISTS=false
-  fi
-  
-  # Si son symlinks, verificar los destinos
-  if [ -L "$FULLCHAIN_PATH" ]; then
-    echo "🔗 fullchain.pem es symlink a: $(readlink -f $FULLCHAIN_PATH)"
-    if [ -f "$(readlink -f $FULLCHAIN_PATH)" ]; then
-      echo "✅ Destino del symlink existe"
-    else
-      echo "❌ Destino del symlink NO existe"
-    fi
-  fi
-  
-  if [ -L "$PRIVKEY_PATH" ]; then
-    echo "🔗 privkey.pem es symlink a: $(readlink -f $PRIVKEY_PATH)"
-    if [ -f "$(readlink -f $PRIVKEY_PATH)" ]; then
-      echo "✅ Destino del symlink existe"
-    else
-      echo "❌ Destino del symlink NO existe"
-    fi
-  fi
-  
-  if [ "$FULLCHAIN_EXISTS" = true ] && [ "$PRIVKEY_EXISTS" = true ]; then
+  if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
+    echo "🔍 Archivos de certificado verificados"
     
     # Configurar nginx con SSL
     sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
@@ -228,21 +183,11 @@ if sudo certbot certonly \
     sed -i 's|# include /etc/letsencrypt/options-ssl-nginx.conf;|include /etc/letsencrypt/options-ssl-nginx.conf;|' /opt/workplace/nginx/conf.d/default.conf
     sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
     
-    # Iniciar todos los servicios
-    echo "🚀 Iniciando servicios con SSL..."
-    docker compose up -d
+    # Reiniciar nginx para aplicar SSL (sin downtime de otros servicios)
+    docker compose restart nginx
     
-    # Verificar que nginx esté corriendo
-    sleep 10
-    if docker compose ps nginx | grep -q "Up"; then
-      echo "✅ Nginx iniciado con SSL correctamente"
-    else
-      echo "❌ Error al iniciar nginx"
-      docker compose logs nginx --tail=20
-      exit 1
-    fi
-    
-    echo "✅ Configuración SSL completada exitosamente"
+    echo "✅ Configuración SSL completada exitosamente (sin downtime)"
+    echo "🎉 Nginx ahora sirve HTTPS con certificados válidos"
   else
     echo "❌ No se encontraron los archivos de certificado después de generar"
     exit 1

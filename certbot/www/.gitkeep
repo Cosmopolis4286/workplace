@@ -1,0 +1,3 @@
+# Webroot directory for Let's Encrypt challenges
+# This directory will be mounted by nginx for ACME challenges
+# Certbot will write challenge files here during domain validation
