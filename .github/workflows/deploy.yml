@@ -47,16 +47,16 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
         node-version: '20'
         cache: 'npm'
 
     - name: Install pnpm
-      uses: pnpm/action-setup@v3
+      uses: pnpm/action-setup@v4
       with:
         version: 9.15.4
 
@@ -91,7 +91,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
@@ -192,7 +192,7 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true'
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: webfactory/ssh-agent@v0.9.1
       with:
