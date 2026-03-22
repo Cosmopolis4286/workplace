@@ -1,0 +1,35 @@
+name: SSL Certificate Renewal
+
+on:
+  schedule:
+    # Ejecutar todos los días a las 3:00 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  renew-ssl:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: webfactory/ssh-agent@v0.9.1
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Renew SSL certificates
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          # Intentar renovar certificados
+          if command -v certbot &> /dev/null; then
+            echo "🔄 Renovando certificados SSL..."
+            certbot renew --quiet --no-self-upgrade
+            
+            # Si se renovaron, recargar nginx
+            if [ $? -eq 0 ]; then
+              echo "✅ Certificados renovados, recargando nginx..."
+              docker exec workplace_nginx nginx -s reload || true
+            fi
+          else
+            echo "⚠️ Certbot no encontrado. Omitiendo renovación SSL."
+          fi
+        EOF
