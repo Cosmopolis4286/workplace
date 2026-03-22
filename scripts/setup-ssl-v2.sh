@@ -51,13 +51,13 @@ EOL
   fi
 fi
 
-# Verificar si ya existen certificados válidos
+# Verificar si ya existen certificados (incluso expirados)
 echo "🔍 Verificando certificados existentes para $DOMAIN..."
 if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
   echo "✅ Certificados SSL encontrados, verificando validez..."
   
   # Verificar que los certificados no estén expirados
-  if openssl x509 -checkend 86400 -noout -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"; then
+  if openssl x509 -checkend 86400 -noout -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" 2>/dev/null; then
     echo "🔒 SSL ya configurado y válido, usando certificados existentes"
     
     # Configurar nginx con SSL
@@ -81,12 +81,62 @@ if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencryp
     echo "✅ Configuración SSL completada con certificados existentes"
     exit 0
   else
-    echo "⚠️ Certificados expirados, renovando..."
+    echo "⚠️ Certificados encontrados pero expirados, intentando renovar..."
+    
+    # Intentar renovar en lugar de generar nuevos
+    echo "🔄 Intentando renovar certificados existentes..."
+    if sudo certbot renew --cert-name $DOMAIN --non-interactive; then
+      echo "✅ Certificados renovados exitosamente"
+      
+      # Verificar que los archivos existan después de renovar
+      if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
+        echo "🔍 Archivos renovados verificados"
+        
+        # Configurar nginx con SSL
+        sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
+        
+        # Activar SSL
+        sed -i 's/listen 443;/listen 443 ssl;/' /opt/workplace/nginx/conf.d/default.conf
+        sed -i 's/# http2 on;/http2 on;/' /opt/workplace/nginx/conf.d/default.conf
+        sed -i 's/# ssl_certificate/ssl_certificate/' /opt/workplace/nginx/conf.d/default.conf
+        sed -i 's/# ssl_certificate_key/ssl_certificate_key/' /opt/workplace/nginx/conf.d/default.conf
+        sed -i 's|# include /etc/letsencrypt/options-ssl-nginx.conf;|include /etc/letsencrypt/options-ssl-nginx.conf;|' /opt/workplace/nginx/conf.d/default.conf
+        sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
+        
+        # Iniciar nginx con SSL
+        docker compose up -d
+        
+        echo "✅ Configuración SSL completada con certificados renovados"
+        exit 0
+      else
+        echo "❌ Error: archivos no encontrados después de renovar"
+        exit 1
+      fi
+    else
+      echo "⚠️ No se pudo renovar, usando certificados existentes (expirados) temporalmente..."
+      
+      # Usar certificados existentes aunque estén expirados para desarrollo
+      sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
+      
+      # Activar SSL
+      sed -i 's/listen 443;/listen 443 ssl;/' /opt/workplace/nginx/conf.d/default.conf
+      sed -i 's/# http2 on;/http2 on;/' /opt/workplace/nginx/conf.d/default.conf
+      sed -i 's/# ssl_certificate/ssl_certificate/' /opt/workplace/nginx/conf.d/default.conf
+      sed -i 's/# ssl_certificate_key/ssl_certificate_key/' /opt/workplace/nginx/conf.d/default.conf
+      sed -i 's|# include /etc/letsencrypt/options-ssl-nginx.conf;|include /etc/letsencrypt/options-ssl-nginx.conf;|' /opt/workplace/nginx/conf.d/default.conf
+      sed -i 's/# ssl_dhparam/ssl_dhparam/' /opt/workplace/nginx/conf.d/default.conf
+      
+      # Iniciar nginx con SSL
+      docker compose up -d
+      
+      echo "⚠️ Configuración SSL completada con certificados existentes (pueden estar expirados)"
+      echo "📅 Los certificados se podrán renovar después de 2026-03-23 10:52:08 UTC"
+      exit 0
+    fi
   fi
+else
+  echo "❌ No se encontraron certificados existentes"
 fi
-
-# Si no hay certificados válidos, generar nuevos
-echo "🔒 Obteniendo nuevos certificados SSL para $DOMAIN..."
 
 # Limpieza de certificados existentes si los hay
 echo "🧹 Limpiando certificados anteriores..."
