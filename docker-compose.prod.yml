@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -28,10 +30,12 @@ services:
       --requirepass ${REDIS_PASSWORD}
       --appendonly yes
       --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -51,7 +55,7 @@ services:
     command: >
       sh -c "
         echo '⏳ Running migrations...' &&
-        npx prisma@5.22.0 migrate deploy || echo 'Migrations already applied or failed' &&
+        pnpm prisma migrate deploy &&
         echo '✅ Done'
       "
     restart: "no"
@@ -103,7 +107,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 0"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -125,8 +129,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-      frontend:
-        condition: service_healthy
     networks:
       - app_network
 
@@ -138,3 +140,4 @@ volumes:
 networks:
   app_network:
     driver: bridge
+    internal: true
