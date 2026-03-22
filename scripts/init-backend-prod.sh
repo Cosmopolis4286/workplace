@@ -44,7 +44,7 @@ if [ -n "$REDIS_HOST" ]; then
     wait_for_service "$REDIS_HOST" "$REDIS_PORT" "$REDIS_RETRIES" "Redis"
 fi
 
-cd /app
+cd /app/backend
 
 # Aplicar migraciones
 echo "🔧 Aplicando migraciones Prisma..."
