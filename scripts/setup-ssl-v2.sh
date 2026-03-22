@@ -61,7 +61,7 @@ if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
   # Crear directorio para certbot
   sudo mkdir -p /var/www/certbot
   
-  # Crear config temporal simple para validación
+  # Crear config temporal simple para validación (sin SSL)
   cat > /tmp/nginx-temp.conf << EOL
 server {
     listen 80;
@@ -81,7 +81,7 @@ EOL
   # Mover config temporal al lugar correcto
   sudo mv /tmp/nginx-temp.conf /opt/workplace/nginx/conf.d/default.conf
   
-  # Iniciar nginx con configuración temporal
+  # Iniciar nginx con configuración temporal (solo HTTP)
   docker compose up -d nginx
   
   # Esperar a que nginx esté listo
@@ -118,13 +118,15 @@ EOL
   if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
     echo "✅ Certificados SSL obtenidos exitosamente"
     
-    # Usar config con SSL
+    # Detener nginx temporal
+    docker compose down nginx
+    
+    # Usar config con SSL y reemplazar placeholder con dominio real
     cp /opt/workplace/nginx/conf.d/default.prod.conf /opt/workplace/nginx/conf.d/default.conf
-    # Reemplazar placeholder con dominio real
     sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
     
-    # Reiniciar nginx con SSL
-    docker compose restart nginx
+    # Iniciar nginx con SSL
+    docker compose up -d nginx
     
     echo "🔄 Nginx reiniciado con configuración SSL"
   else
@@ -135,9 +137,8 @@ EOL
   fi
 else
   echo "🔒 SSL ya configurado, usando certificados existentes"
-  # Usar config con SSL
+  # Usar config con SSL y reemplazar placeholder con dominio real
   cp /opt/workplace/nginx/conf.d/default.prod.conf /opt/workplace/nginx/conf.d/default.conf
-  # Reemplazar placeholder con dominio real
   sed -i "s/tu-dominio.com/$DOMAIN/g" /opt/workplace/nginx/conf.d/default.conf
   
   # Reiniciar nginx si está corriendo
