@@ -213,7 +213,7 @@ jobs:
         # Copiar archivos de nginx individualmente
         scp -o StrictHostKeyChecking=no nginx/nginx.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/nginx.conf
         scp -o StrictHostKeyChecking=no nginx/conf.d/default.prod.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/default.prod.conf
-        scp -o StrictHostKeyChecking=no scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/setup-ssl.sh
+        scp -o StrictHostKeyChecking=no scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/setup-ssl-v2.sh
         scp -o StrictHostKeyChecking=no scripts/create-env.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/create-env.sh
         
         # Crear .env y configurar SSL automáticamente
