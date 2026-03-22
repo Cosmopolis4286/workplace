@@ -83,7 +83,7 @@ services:
     volumes:
       - uploads_data:/app/backend/uploads
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://backend:${NODE_PORT}/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -100,13 +100,10 @@ services:
       BACKEND_API_URL: http://backend:${NODE_PORT}/api
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
-    depends_on:
-      backend:
-        condition: service_healthy
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://frontend:${FRONTEND_PORT}/ || exit 0"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 0"]
       interval: 30s
       timeout: 5s
       retries: 3
