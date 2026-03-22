@@ -36,7 +36,7 @@ RUN pnpm prune --prod
 FROM node:20-alpine AS production
 
 # Variables opcionales
-ENV NODE_OPTIONS="--max-old-space-size=128"
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 # Dependencias mínimas de runtime - solo lo necesario
 RUN apk add --no-cache dumb-init ca-certificates openssl libssl3 python3 make g++ curl netcat-openbsd
@@ -56,7 +56,7 @@ WORKDIR /app
 # Instalar solo deps de producción necesarias
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     corepack enable && corepack prepare pnpm@9.15.0 --activate \
-    && pnpm install --frozen-lockfile --prod
+    && pnpm install --prod
 
 # Generar cliente Prisma
 RUN npx prisma@5.22.0 generate
