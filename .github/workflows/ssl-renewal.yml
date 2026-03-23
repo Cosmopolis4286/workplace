@@ -1,10 +1,16 @@
-name: SSL Certificate Renewal
+name: SSL Certificate Renewal (Production-Grade)
 
 on:
   schedule:
-    # Ejecutar todos los días a las 3:00 AM UTC
-    - cron: '0 3 * * *'
+    # Ejecutar cada 12 horas (más estándar para Let's Encrypt)
+    - cron: '0 */12 * * *'
   workflow_dispatch:
+    inputs:
+      force_renewal:
+        description: 'Forzar renovación de certificados'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   renew-ssl:
@@ -12,24 +18,113 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-    - uses: webfactory/ssh-agent@v0.9.1
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.10.0
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Renew SSL certificates
+    - name: Add known hosts (secure)
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          # Intentar renovar certificados
-          if command -v certbot &> /dev/null; then
-            echo "🔄 Renovando certificados SSL..."
-            certbot renew --quiet --no-self-upgrade
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+        chmod 600 ~/.ssh/known_hosts
+
+    - name: Renew SSL certificates (production-grade)
+      run: |
+        echo "🔒 Iniciando renovación SSL de certificados..."
+        echo "📅 Fecha: $(date)"
+        echo "🖥️  Host: ${{ secrets.PRODUCTION_HOST }}"
+        
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          
+          echo "🔍 Verificando instalación de certbot..."
+          if ! command -v certbot &> /dev/null; then
+            echo "❌ Certbot no encontrado. Abortando renovación SSL."
+            exit 1
+          fi
+          
+          echo "📋 Verificando configuración de certbot..."
+          certbot certificates --quiet || true
+          
+          echo "🔄 Iniciando renovación con deploy hook..."
+          # Usar deploy hook para reload solo si hay renovación real
+          RENEW_CMD="certbot renew --quiet --deploy-hook 'docker compose -f /opt/workplace/docker-compose.yml exec -T nginx nginx -s reload'"
+          
+          # Si es forzado, agregar flag
+          if [ "${{ github.event.inputs.force_renewal }}" = "true" ]; then
+            echo "⚡ Modo forzado activado"
+            RENEW_CMD="$RENEW_CMD --force-renewal"
+          fi
+          
+          # Ejecutar renovación con logging
+          echo "📝 Ejecutando: $RENEW_CMD"
+          if eval "$RENEW_CMD"; then
+            echo "✅ Renovación SSL completada exitosamente"
             
-            # Si se renovaron, recargar nginx
-            if [ $? -eq 0 ]; then
-              echo "✅ Certificados renovados, recargando nginx..."
-              docker exec workplace_nginx nginx -s reload || true
+            # Verificar estado final de certificados
+            echo "📋 Estado final de certificados:"
+            certbot certificates --quiet || true
+            
+            # Verificar que nginx esté corriendo
+            if docker compose -f /opt/workplace/docker-compose.yml ps nginx | grep -q "Up"; then
+              echo "🚀 Nginx está corriendo correctamente"
+            else
+              echo "⚠️ Advertencia: Nginx no está corriendo"
             fi
+            
           else
-            echo "⚠️ Certbot no encontrado. Omitiendo renovación SSL."
+            echo "❌ Error durante renovación SSL"
+            echo "📋 Logs de certbot (últimas 10 líneas):"
+            journalctl -u certbot --no-pager -n 10 || true
+            exit 1
           fi
         EOF
+
+    - name: Verify SSL certificates
+      run: |
+        echo "🔍 Verificando certificados SSL renovados..."
+        
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          
+          # Obtener dominio del archivo nginx.conf
+          DOMAIN=$(grep -oP 'server_name\s+\K[^;]+' /opt/workplace/nginx/conf.d/default.conf | head -n1 | awk '{print $1}')
+          echo "🌐 Verificando certificado para dominio: $DOMAIN"
+          
+          # Verificar fecha de expiración
+          if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+            EXPIRY=$(openssl x509 -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" -noout -enddate | cut -d= -f2)
+            EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s)
+            CURRENT_EPOCH=$(date +%s)
+            DAYS_LEFT=$(( ($EXPIRY_EPOCH - $CURRENT_EPOCH) / 86400 ))
+            
+            echo "📅 Fecha de expiración: $EXPIRY"
+            echo "⏰ Días restantes: $DAYS_LEFT"
+            
+            if [ $DAYS_LEFT -lt 30 ]; then
+              echo "⚠️ Advertencia: Certificado expira en menos de 30 días"
+            else
+              echo "✅ Certificado válido por $DAYS_LEFT días"
+            fi
+          else
+            echo "❌ No se encontró certificado para $DOMAIN"
+            exit 1
+          fi
+          
+          # Test de conexión SSL
+          echo "🔐 Verificando configuración SSL..."
+          if command -v openssl &> /dev/null; then
+            echo -n | openssl s_client -connect $DOMAIN:443 -servername $DOMAIN 2>/dev/null | openssl x509 -noout -dates || echo "⚠️ No se pudo verificar conexión SSL"
+          fi
+        EOF
+
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "🚨 ALERTA: Falló la renovación SSL"
+        echo "📧 Se debería notificar al administrador"
+        echo "🔗 Revisa el workflow en GitHub Actions para más detalles"
+        
+        # Aquí podrías agregar notificación por Slack, email, etc.
+        # Ejemplo: curl -X POST ... (webhook de Slack)
