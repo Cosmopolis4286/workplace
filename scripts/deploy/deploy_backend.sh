@@ -66,6 +66,16 @@ function create_backup() {
 
 function deploy_services() {
   echo "🚀 Deploy sin downtime con imágenes específicas..."
+  
+  # Detener frontend y backend primero
+  docker compose stop frontend backend || true
+  sleep 5
+  
+  # Esperar que se desconecten de la red
+  echo "⏳ Esperando que contenedores se desconecten..."
+  sleep 10
+  
+  # Recrear servicios
   docker compose up -d --no-deps --force-recreate backend frontend
   echo "📦 Usando SHA tags: main-${CURRENT_SHA}"
 }
