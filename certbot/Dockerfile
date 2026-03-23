@@ -1,6 +1,12 @@
 # Custom Certbot image with curl pre-installed
 FROM certbot/certbot:v2.10.0
 
+# Build argument for domain (multi-domain support)
+ARG DOMAIN=playrke.com
+
+# Environment variable for runtime domain configuration
+ENV DOMAIN=$DOMAIN
+
 # Install curl for health checks and monitoring
 RUN apk add --no-cache curl
 
@@ -19,6 +25,6 @@ WORKDIR /etc/letsencrypt
 # Default command - autonomous cron daemon with logging
 CMD ["crond", "-f", "-l", "2"]
 
-# Healthcheck - portable outside compose
+# Healthcheck - portable outside compose, domain-agnostic
 HEALTHCHECK --interval=1m --timeout=5s --retries=3 \
-    CMD test -f /etc/letsencrypt/live/playrke.com/fullchain.pem || exit 1
+    CMD test -f /etc/letsencrypt/live/$DOMAIN/fullchain.pem || exit 1
