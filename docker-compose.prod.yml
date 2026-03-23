@@ -126,10 +126,11 @@ services:
     volumes:
       - uploads_data:/app/backend/uploads
     healthcheck:
-      test: ["CMD-SHELL", "curl -f --max-time 3 http://localhost:${NODE_PORT}/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f --max-time 3 http://localhost:${NODE_PORT}/api/ready || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - app_network
     tmpfs:
