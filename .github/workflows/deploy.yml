@@ -370,11 +370,35 @@ jobs:
         echo "📋 Scripts copiados:"
         echo "- rolling_update_backend.sh (nuevo - zero downtime)"
         echo "- verify_load_balancing.sh (nuevo - validación)"
-        echo "- deploy_backend.sh (fallback)"
+        echo "- deploy_backend.sh (legacy - ya no se usa)"
         echo "- rolling_update.sh (frontend)"
         echo "- rollback.sh (híbrido)"
         echo "- canary_check.sh"
         echo "- cleanup.sh"
+
+    - name: Pre-Deploy Canary Check
+      run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
+          
+          # Variables de entorno
+          export CURRENT_SHA="${{ github.sha }}"
+          export DOCKER_USERNAME="${{ secrets.DOCKER_USERNAME }}"
+          export BACKEND_TAG="main-${{ github.sha }}"
+          export FRONTEND_TAG="main-${{ github.sha }}"
+          export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
+          
+          # 🔍 Verificar estado actual ANTES de deploy
+          echo "� Pre-deploy verification..."
+          chmod +x scripts/deploy/canary_check.sh
+          if bash scripts/deploy/canary_check.sh; then
+            echo "✅ Pre-deploy canary validation passed"
+          else
+            echo "❌ Pre-deploy canary validation failed"
+            exit 1
+          fi
+        EOF
 
     - name: Deploy Backend
       run: |
@@ -393,54 +417,28 @@ jobs:
           # Login a Docker Hub
           echo "$DOCKER_PASSWORD" | docker login -u $DOCKER_USERNAME --password-stdin
           
-          # Ejecutar rolling update del backend (zero downtime)
+          # 🚀 FORZAR Rolling Update del Backend (Zero Downtime OBLIGATORIO)
           chmod +x scripts/deploy/rolling_update_backend.sh
-          if bash scripts/deploy/rolling_update_backend.sh; then
-            echo "✅ Backend rolling update completado"
-          else
-            echo "❌ Backend rolling update falló, intentando método fallback..."
-            # Fallback al método anterior si rolling falla
-            chmod +x scripts/deploy/deploy_backend.sh
-            bash scripts/deploy/deploy_backend.sh
-          fi
+          bash scripts/deploy/rolling_update_backend.sh
+          
+          # ✅ Zero downtime garantizado - no hay fallback
+          echo "🎉 Backend actualizado con zero downtime absoluto"
         EOF
 
-    - name: Canary Check
+    - name: Post-Deploy Verification
       run: |
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           
-          # Variables de entorno
-          export CURRENT_SHA="${{ github.sha }}"
-          export DOCKER_USERNAME="${{ secrets.DOCKER_USERNAME }}"
-          export BACKEND_TAG="main-${{ github.sha }}"
-          export FRONTEND_TAG="main-${{ github.sha }}"
-          export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
-          
-          # Ejecutar canary check
-          chmod +x scripts/deploy/canary_check.sh
-          if bash scripts/deploy/canary_check.sh; then
-            echo "✅ Canary validation passed"
-          else
-            echo "❌ Canary validation failed"
-            exit 1
-          fi
-        EOF
-
-    - name: Verify Load Balancing
-      run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          cd /opt/workplace
-          
-          # Verificar que load balancing esté funcionando antes de rolling update
-          echo "🔍 Verificando load balancing pre-rolling..."
+          # Verificar que load balancing esté funcionando después del rolling
+          echo "🔍 Verificando load balancing post-rolling..."
           chmod +x scripts/deploy/verify_load_balancing.sh
           if bash scripts/deploy/verify_load_balancing.sh; then
-            echo "✅ Load balancing pre-rolling OK"
+            echo "✅ Load balancing post-rolling OK"
           else
-            echo "⚠️ Load balancing pre-rolling tiene issues, pero continuando..."
+            echo "⚠️ Load balancing post-rolling tiene issues"
+            exit 1
           fi
         EOF
 
