@@ -203,7 +203,7 @@ services:
       - uploads_data:/var/www/uploads:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:rw
-      - ./scripts/nginx-reload.sh:/usr/local/bin/nginx-reload:ro
+      - ./scripts/nginx/nginx-reload.sh:/usr/local/bin/nginx-reload:ro
     tmpfs:
       - /var/cache/nginx
       - /var/run
@@ -226,24 +226,37 @@ services:
       context: ./certbot
       dockerfile: Dockerfile
       args:
-        DOMAIN: playrke.com
+        DOMAIN: ${DOMAIN:-playrke.com}
     container_name: workplace_certbot
     restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
+      - /var/log/certbot:/var/log/certbot
     environment:
-      - DOMAIN=playrke.com
+      - DOMAIN=${DOMAIN:-playrke.com}
+      - STAGING_MODE=${STAGING_MODE:-false}
     networks:
       - app_network
     cpus: "0.1"
     mem_limit: 64m
     mem_reservation: 32m
+    depends_on:
+      nginx:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "test", "-f", "/etc/letsencrypt/live/playrke.com/fullchain.pem"]
+      test: ["CMD", "test", "-f", "/etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem"]
       interval: 1m
       timeout: 5s
       retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
   postgres_data:
@@ -254,3 +267,6 @@ networks:
   app_network:
     driver: bridge
     internal: true
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
