@@ -196,20 +196,20 @@ function check_alert_thresholds() {
   local response_time=$2
   local error_rate=$3
   
-  # Alerta de uptime
-  if (( $(echo "$uptime < $ALERT_THRESHOLD_UPTIME" | bc -l) )); then
+  # Alerta de uptime - usar awk en lugar de bc
+  if awk "BEGIN {exit ($uptime < $ALERT_THRESHOLD_UPTIME)}"; then
     log_sla "🚨 ALERTA: Uptime por debajo del umbral: ${uptime}% < ${ALERT_THRESHOLD_UPTIME}%"
     send_alert "uptime_low" "Uptime: ${uptime}% (umbral: ${ALERT_THRESHOLD_UPTIME}%)"
   fi
   
-  # Alerta de tiempo de respuesta
-  if (( $(echo "$response_time > $ALERT_THRESHOLD_RESPONSE_TIME" | bc -l) )); then
+  # Alerta de tiempo de respuesta - usar awk en lugar de bc
+  if awk "BEGIN {exit ($response_time > $ALERT_THRESHOLD_RESPONSE_TIME)}"; then
     log_sla "🚨 ALERTA: Tiempo de respuesta alto: ${response_time}ms > ${ALERT_THRESHOLD_RESPONSE_TIME}ms"
     send_alert "response_time_high" "Response Time: ${response_time}ms (umbral: ${ALERT_THRESHOLD_RESPONSE_TIME}ms)"
   fi
   
-  # Alerta de tasa de error
-  if (( $(echo "$error_rate > $ALERT_THRESHOLD_ERROR_RATE" | bc -l) )); then
+  # Alerta de tasa de error - usar awk en lugar de bc
+  if awk "BEGIN {exit ($error_rate > $ALERT_THRESHOLD_ERROR_RATE)}"; then
     log_sla "🚨 ALERTA: Tasa de error alta: ${error_rate}% > ${ALERT_THRESHOLD_ERROR_RATE}%"
     send_alert "error_rate_high" "Error Rate: ${error_rate}% (umbral: ${ALERT_THRESHOLD_ERROR_RATE}%)"
   fi
@@ -252,15 +252,15 @@ function calculate_sla_impact() {
     downtime_during_deploy=$(calculate_downtime_from_metrics)
   fi
   
-  # Calcular SLA del período
+  # Calcular SLA del período - usar awk en lugar de bc
   local period_duration=86400  # 24 horas en segundos
-  local uptime_percentage=$(echo "($period_duration - $downtime_during_deploy) * 100 / $period_duration" | bc -l)
+  local uptime_percentage=$(awk "BEGIN {printf \"%.2f\", ($period_duration - $downtime_during_deploy) * 100 / $period_duration}")
   
   log_metric "downtime_during_deploy" "$downtime_during_deploy"
   log_metric "sla_percentage" "$uptime_percentage"
   
-  # Verificar cumplimiento de SLA
-  if (( $(echo "$uptime_percentage < $ALERT_THRESHOLD_UPTIME" | bc -l) )); then
+  # Verificar cumplimiento de SLA - usar awk en lugar de bc
+  if awk "BEGIN {exit ($uptime_percentage >= $ALERT_THRESHOLD_UPTIME)}"; then
     log_sla "❌ SLA NO CUMPLIDO: ${uptime_percentage}% < ${ALERT_THRESHOLD_UPTIME}%"
     send_alert "sla_breached" "SLA: ${uptime_percentage}% (requerido: ${ALERT_THRESHOLD_UPTIME}%)"
   else
