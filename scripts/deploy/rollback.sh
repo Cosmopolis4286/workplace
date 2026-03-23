@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Variables
 export DOCKER_USERNAME=${DOCKER_USERNAME}
-export LOG_DIR="/var/log/deploy"
+export LOG_DIR="/opt/workplace/logs/deploy"
 export BACKUP_DIR="/opt/workplace/backups"
 
 # Funciones
