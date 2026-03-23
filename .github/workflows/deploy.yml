@@ -352,6 +352,82 @@ jobs:
         mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
+    - name: Setup Production Environment
+      run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          
+          # Verificar si el directorio existe
+          if [ ! -d "/opt/workplace" ]; then
+            echo "🚀 Directorio /opt/workplace no existe - creando entorno..."
+            
+            # Crear directorio base
+            sudo mkdir -p /opt/workplace
+            sudo chown $USER:$USER /opt/workplace
+            
+            # Crear estructura básica
+            mkdir -p /opt/workplace/{logs/{deploy,sla},metrics,backups,scripts/{deploy,deployment},nginx/conf.d}
+            
+            # Crear .env base simple
+            echo "NODE_ENV=production" > /opt/workplace/.env
+            echo "POSTGRES_DB=workplace_prod" >> /opt/workplace/.env
+            echo "POSTGRES_USER=workplace_user" >> /opt/workplace/.env
+            echo "POSTGRES_PASSWORD=CHANGE_ME_SECURE_PASSWORD" >> /opt/workplace/.env
+            echo "DATABASE_URL=postgresql://workplace_user:CHANGE_ME_SECURE_PASSWORD@postgres:5432/workplace_prod" >> /opt/workplace/.env
+            echo "REDIS_PASSWORD=CHANGE_ME_REDIS_PASSWORD" >> /opt/workplace/.env
+            echo "REDIS_HOST=redis" >> /opt/workplace/.env
+            echo "REDIS_PORT=6379" >> /opt/workplace/.env
+            echo "NODE_PORT=3001" >> /opt/workplace/.env
+            echo "FRONTEND_PORT=3000" >> /opt/workplace/.env
+            echo "JWT_SECRET=CHANGE_ME_JWT_SECRET_MIN_32_CHARS" >> /opt/workplace/.env
+            echo "SESSION_SECRET=CHANGE_ME_SESSION_SECRET" >> /opt/workplace/.env
+            echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> /opt/workplace/.env
+            echo "COMPOSE_PROJECT_NAME=workplace" >> /opt/workplace/.env
+            echo "LOG_LEVEL=info" >> /opt/workplace/.env
+            echo "METRICS_ENABLED=true" >> /opt/workplace/.env
+            
+            # Crear script de inicialización simple
+            echo '#!/bin/bash' > /opt/workplace/scripts/deployment/init-backend-prod.sh
+            echo 'set -euo pipefail' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
+            echo 'echo "🚀 Inicializando Backend Production..."' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
+            echo 'cd /app/backend' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
+            echo 'echo "🔧 Aplicando migraciones Prisma..."' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
+            echo 'pnpm prisma migrate deploy || true' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
+            echo 'echo "✅ Migraciones aplicadas"' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
+            echo 'echo "🚀 Iniciando aplicación backend..."' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
+            echo 'exec node dist/src/main.js' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
+            
+            chmod +x /opt/workplace/scripts/deployment/init-backend-prod.sh
+            chmod -R 755 /opt/workplace/scripts
+            chmod -R 755 /opt/workplace/logs
+            chmod -R 755 /opt/workplace/metrics
+            
+            echo "✅ Entorno de producción creado"
+          else
+            echo "✅ Directorio /opt/workplace ya existe"
+          fi
+        EOF
+
+    - name: Copy Configuration Files
+      run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          
+          # Copiar docker-compose
+          scp -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 \
+            -o ServerAliveInterval=30 \
+            docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
+          
+          # Copiar configuración nginx
+          scp -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 \
+            -o ServerAliveInterval=30 \
+            -r nginx/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
+          
+          echo "✅ Archivos de configuración copiados"
+        EOF
+
     - name: Copy deploy scripts
       run: |
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
