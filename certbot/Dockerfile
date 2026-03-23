@@ -8,21 +8,25 @@ ARG DOMAIN=playrke.com
 ENV DOMAIN=$DOMAIN
 
 # Install curl for health checks and monitoring
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl openssl
 
 # Add custom scripts with proper permissions
 COPY scripts/renew-ssl.sh /usr/local/bin/renew-ssl.sh
-RUN chmod +x /usr/local/bin/renew-ssl.sh && \
-    chown root:root /usr/local/bin/renew-ssl.sh
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/renew-ssl.sh /usr/local/bin/docker-entrypoint.sh && \
+    chown root:root /usr/local/bin/renew-ssl.sh /usr/local/bin/docker-entrypoint.sh
 
-# Configure cron job (autonomous image - no compose dependency)
-RUN echo "0 */12 * * * /usr/local/bin/renew-ssl.sh" > /etc/crontabs/root && \
+# Configure cron job for automatic renewals (backup to entrypoint)
+RUN echo "0 */12 * * * /usr/local/bin/renew-ssl.sh >> /var/log/certbot-renew.log 2>&1" > /etc/crontabs/root && \
     chmod 0600 /etc/crontabs/root
 
 # Set working directory
 WORKDIR /etc/letsencrypt
 
-# Default command - autonomous cron daemon with logging
+# Use new entrypoint for automated SSL management
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+# Default command - can be overridden for manual operations
 CMD ["crond", "-f", "-l", "2"]
 
 # Healthcheck - portable outside compose, domain-agnostic
