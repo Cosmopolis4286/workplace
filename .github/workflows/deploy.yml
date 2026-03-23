@@ -305,6 +305,17 @@ jobs:
         
         echo "🚀 Iniciando Rolling Update..."
         
+        # Crear directorios necesarios antes de copiar
+        echo "📁 Creando estructura de directorios..."
+        ssh -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 \
+            -o ServerAliveInterval=30 \
+            ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          mkdir -p /opt/workplace/nginx/conf.d
+          mkdir -p /opt/workplace/scripts
+          mkdir -p /opt/workplace/fallback
+        EOF
+        
         # Copiar archivos de configuración (scp fuera del ssh)
         echo "📁 Copiando configuración al servidor..."
         scp -o StrictHostKeyChecking=yes \
@@ -322,15 +333,15 @@ jobs:
         scp -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=10 \
             -o ServerAliveInterval=30 \
-            scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/setup-ssl-v2.sh
+            scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/setup-ssl-v2.sh
         scp -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=10 \
             -o ServerAliveInterval=30 \
-            scripts/backup-postgres.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/backup-postgres.sh
+            scripts/backup-postgres.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/backup-postgres.sh
         scp -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=10 \
             -o ServerAliveInterval=30 \
-            scripts/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/production-monitor.sh
+            scripts/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/production-monitor.sh
         
         # Ejecutar deploy rolling update (solo comandos)
         ssh -o StrictHostKeyChecking=yes \
@@ -356,13 +367,21 @@ jobs:
           echo "� Login Docker Hub..."
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
-          # Pull nuevas imágenes con tags consistentes
-          echo "⬇️ Pull nuevas imágenes..."
-          echo "🏷️ Backend tag: main-${{ github.sha }}"
-          echo "🏷️ Frontend tag: main-${{ github.sha }}"
+          # Pull forzado de imágenes nuevas
+          echo "⬇️ Pull forzado de imágenes SHA..."
+          export BACKEND_TAG=main-${{ github.sha }}
+          export FRONTEND_TAG=main-${{ github.sha }}
+          export DOCKER_USER=${{ secrets.DOCKER_USERNAME }}
           
-          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
-          docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
+          echo "🏷️ Tags a usar:"
+          echo "Backend: ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}"
+          echo "Frontend: ${DOCKER_USER}/workplace-frontend:${FRONTEND_TAG}"
+          
+          docker compose pull
+          
+          # Deploy sin downtime real
+          echo "🚀 Deploy sin downtime..."
+          docker compose up -d --no-deps --force-recreate backend
           
           # Usar siempre SHA tags para trazabilidad completa
           echo "📦 Usando SHA tags: main-${{ github.sha }}"
