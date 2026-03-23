@@ -221,12 +221,6 @@ services:
       dockerfile: Dockerfile
     container_name: workplace_certbot
     restart: unless-stopped
-    command: >
-      sh -c "
-      # Crear tarea cron
-      echo '0 */12 * * * /usr/local/bin/renew-ssl.sh' | crontab - &&
-      crond -f
-      "
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
