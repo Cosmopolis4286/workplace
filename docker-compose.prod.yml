@@ -219,6 +219,8 @@ services:
     build:
       context: ./certbot
       dockerfile: Dockerfile
+      args:
+        DOMAIN: playrke.com
     container_name: workplace_certbot
     restart: unless-stopped
     volumes:
