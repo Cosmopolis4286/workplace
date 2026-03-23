@@ -38,6 +38,12 @@ jobs:
         cd backend
         pnpm install --frozen-lockfile
 
+    - name: Database schema validation
+      run: |
+        cd backend
+        pnpm prisma validate
+        pnpm prisma generate
+
     - name: Type checking
       run: |
         cd backend
@@ -59,12 +65,6 @@ jobs:
         pnpm audit --audit-level moderate
       timeout-minutes: 5
       continue-on-error: ${{ github.event.inputs.force_approval == 'true' }}
-
-    - name: Database schema validation
-      run: |
-        cd backend
-        pnpm prisma validate
-        pnpm prisma generate
 
     - name: Check for migration conflicts
       run: |
