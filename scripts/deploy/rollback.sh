@@ -108,8 +108,15 @@ function start_rollback_services() {
   echo "⏳ Esperando bases de datos..."
   sleep 10
   
-  # Iniciar backend y frontend (omitir migrate)
-  docker compose up -d backend frontend nginx
+  # Iniciar servicios individualmente para evitar dependencias de migrate
+  echo "🔄 Iniciando backend..."
+  docker compose up -d --no-deps backend
+  
+  echo "🔄 Iniciando frontend..."
+  docker compose up -d --no-deps frontend
+  
+  echo "🔄 Iniciando nginx..."
+  docker compose up -d --no-deps nginx
   
   echo "⏳ Esperando que los servicios inicien..."
   sleep 30
