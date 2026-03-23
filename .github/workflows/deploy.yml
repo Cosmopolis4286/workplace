@@ -182,6 +182,26 @@ jobs:
       run: |
         echo "🔍 Verificando imágenes construidas..."
         
+        # Crear red Docker para los tests
+        docker network create test-net || true
+        
+        # Levantar Postgres para el test
+        echo "🗄️ Levantando Postgres para test..."
+        docker run -d --name test-postgres --network test-net \
+          -e POSTGRES_USER=test \
+          -e POSTGRES_PASSWORD=test \
+          -e POSTGRES_DB=test_db \
+          postgres:16-alpine
+        
+        # Esperar a que Postgres esté listo
+        echo "⏳ Esperando Postgres..."
+        timeout 30 bash -c 'until docker exec test-postgres pg_isready; do sleep 2; done'
+        
+        # Levantar Redis para el test
+        echo "🔴 Levantando Redis para test..."
+        docker run -d --name test-redis --network test-net \
+          redis:7-alpine
+        
         # Probar que el backend se ejecute correctamente
         echo "🧪 Testeando backend..."
         echo "🏷️ Usando imagen: ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
@@ -190,22 +210,23 @@ jobs:
         docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
         
         # Quitar --rm para poder ver logs si falla
-        docker run -d --name test-backend \
-          -e DATABASE_URL="sqlite:memory:" \
-          -e DISABLE_DB_CONNECTION=true \
+        docker run -d --name test-backend --network test-net \
+          -e DATABASE_URL="postgresql://test:test@test-postgres:5432/test_db" \
+          -e REDIS_HOST=test-redis \
           -e NODE_ENV=test \
           -p 3001:3001 \
           ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
         
         # Esperar un momento para que el contenedor inicie y muestre errores si hay
-        sleep 5
+        sleep 10
         
         # Verificar si el contenedor sigue corriendo
         if ! docker ps | grep -q test-backend; then
           echo "❌ El backend se cayó inmediatamente"
           echo "📋 Logs del crash:"
           docker logs test-backend --tail=100
-          docker rm -f test-backend || true
+          docker rm -f test-backend test-postgres test-redis || true
+          docker network rm test-net || true
           exit 1
         fi
         
@@ -217,11 +238,13 @@ jobs:
           echo "❌ Backend health check falló después de 60s"
           echo "📋 Logs del backend:"
           docker logs test-backend --tail=100
-          docker rm -f test-backend
+          docker rm -f test-backend test-postgres test-redis || true
+          docker network rm test-net || true
           exit 1
         fi
         
-        docker rm -f test-backend
+        docker rm -f test-backend test-postgres test-redis || true
+        docker network rm test-net || true
         echo "✅ Backend verificado correctamente"
         
         # Probar que el frontend se ejecute correctamente
