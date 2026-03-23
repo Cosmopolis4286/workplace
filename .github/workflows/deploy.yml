@@ -390,10 +390,10 @@ jobs:
           export FRONTEND_TAG="main-${{ github.sha }}"
           export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
           
-          # 🔍 Verificar estado actual ANTES de deploy
-          echo "� Pre-deploy verification..."
+          # 🔍 Verificar estado actual ANTES de deploy (modo pre-deploy)
+          echo "🔍 Pre-deploy verification..."
           chmod +x scripts/deploy/canary_check.sh
-          if bash scripts/deploy/canary_check.sh; then
+          if bash scripts/deploy/canary_check.sh pre-deploy; then
             echo "✅ Pre-deploy canary validation passed"
           else
             echo "❌ Pre-deploy canary validation failed"
