@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -9,7 +9,10 @@ const execAsync = promisify(exec);
 export class SafeMigrationService {
   private readonly logger = new Logger(SafeMigrationService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject('RedisService') private readonly redisService?: any,
+  ) {}
 
   /**
    * Ejecuta migración con validaciones de seguridad
@@ -187,15 +190,16 @@ export class SafeMigrationService {
    */
   private async validateRedisConnection(): Promise<void> {
     try {
-      // Esto debería implementarse según tu RedisService
-      const redisService = this.prisma.app?.get('RedisService');
-      if (redisService) {
-        await redisService.set('migration_test', 'ok', 10);
-        const value = await redisService.get('migration_test');
+      // Validar Redis si está disponible
+      if (this.redisService) {
+        await this.redisService.set('migration_test', 'ok', 10);
+        const value = await this.redisService.get('migration_test');
         if (value !== 'ok') {
           throw new Error('Redis connection test failed');
         }
         this.logger.log('✅ Conexión a Redis validada');
+      } else {
+        this.logger.warn('⚠️ RedisService no disponible - saltando validación Redis');
       }
     } catch (error) {
       throw new Error(`Error validando Redis: ${error.message}`);
