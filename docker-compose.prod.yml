@@ -231,11 +231,6 @@ services:
     cpus: "0.1"
     mem_limit: 64m
     mem_reservation: 32m
-    healthcheck:
-      test: ["CMD", "test", "-f", "/etc/letsencrypt/live/playrke.com/fullchain.pem"]
-      interval: 1m
-      timeout: 5s
-      retries: 3
 
 volumes:
   postgres_data:

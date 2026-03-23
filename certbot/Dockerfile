@@ -2,8 +2,7 @@
 FROM certbot/certbot:v2.10.0
 
 # Install curl for health checks and monitoring
-RUN apk add --no-cache curl && \
-    rm -rf /var/cache/apk/*
+RUN apk add --no-cache curl
 
 # Add custom scripts with proper permissions
 COPY scripts/renew-ssl.sh /usr/local/bin/renew-ssl.sh
@@ -17,8 +16,9 @@ RUN echo "0 */12 * * * /usr/local/bin/renew-ssl.sh" > /etc/crontabs/root && \
 # Set working directory
 WORKDIR /etc/letsencrypt
 
-# Explicit user (certbot needs root for certificates)
-USER root
+# Default command - autonomous cron daemon with logging
+CMD ["crond", "-f", "-l", "2"]
 
-# Default command - autonomous cron daemon
-CMD ["crond", "-f"]
+# Healthcheck - portable outside compose
+HEALTHCHECK --interval=1m --timeout=5s --retries=3 \
+    CMD test -f /etc/letsencrypt/live/playrke.com/fullchain.pem || exit 1
