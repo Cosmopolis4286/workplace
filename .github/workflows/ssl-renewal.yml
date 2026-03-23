@@ -1,4 +1,4 @@
-name: SSL Certificate Renewal (Production-Grade)
+name: SSL Certificate Renewal (Bulletproof 10/10)
 
 on:
   schedule:
@@ -11,6 +11,9 @@ on:
         required: false
         default: false
         type: boolean
+
+env:
+  DOMAIN: playrke.com
 
 jobs:
   renew-ssl:
@@ -29,14 +32,19 @@ jobs:
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
         chmod 600 ~/.ssh/known_hosts
 
-    - name: Renew SSL certificates (production-grade)
+    - name: Renew SSL certificates (bulletproof 10/10)
       run: |
         echo "🔒 Iniciando renovación SSL de certificados..."
         echo "📅 Fecha: $(date)"
         echo "🖥️  Host: ${{ secrets.PRODUCTION_HOST }}"
+        echo "🌐 Dominio: ${{ env.DOMAIN }}"
         
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        # SSH con timeouts para evitar colgar
+        ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
+          
+          # Variables reutilizables
+          COMPOSE="docker compose -f /opt/workplace/docker-compose.yml"
           
           echo "🔍 Verificando instalación de certbot..."
           if ! command -v certbot &> /dev/null; then
@@ -57,7 +65,7 @@ jobs:
           fi
           
           # Deploy hook robusto usando HUP en lugar de exec
-          DEPLOY_HOOK="docker compose -f /opt/workplace/docker-compose.yml kill -s HUP nginx"
+          DEPLOY_HOOK="$COMPOSE kill -s HUP nginx"
           
           # Ejecutar renovación sin eval
           if certbot renew --quiet --deploy-hook "$DEPLOY_HOOK" $FORCE_FLAG; then
@@ -67,11 +75,21 @@ jobs:
             echo "📋 Estado final de certificados:"
             certbot certificates --quiet || true
             
-            # Verificar que nginx esté corriendo
-            if docker compose -f /opt/workplace/docker-compose.yml ps nginx | grep -q "Up"; then
+            # Verificar que nginx esté corriendo (más robusto)
+            if $COMPOSE ps --status running | grep -q "nginx"; then
               echo "🚀 Nginx está corriendo correctamente"
+              
+              # Healthcheck avanzado si está disponible
+              if docker inspect --format='{{.State.Health.Status}}' workplace_nginx 2>/dev/null | grep -q "healthy"; then
+                echo "� Healthcheck de nginx: healthy"
+              else
+                echo "💛 Healthcheck de nginx: no disponible o unhealthy"
+              fi
             else
               echo "⚠️ Advertencia: Nginx no está corriendo"
+              # Intentar reiniciar nginx
+              echo "🔄 Intentando reiniciar nginx..."
+              $COMPOSE restart nginx || echo "❌ No se pudo reiniciar nginx"
             fi
             
           else
@@ -86,11 +104,12 @@ jobs:
       run: |
         echo "🔍 Verificando certificados SSL renovados..."
         
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        # SSH con timeouts para evitar colgar
+        ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           
-          # Usar dominio desde secrets (más robusto que parsing)
-          DOMAIN="playrke.com"
+          # Usar dominio desde env (más limpio)
+          DOMAIN="${{ env.DOMAIN }}"
           echo "🌐 Verificando certificado para dominio: $DOMAIN"
           
           # Verificar fecha de expiración

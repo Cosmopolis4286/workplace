@@ -36,7 +36,7 @@ df -h | grep -E "/$|/opt|/var"
 # 5. Verificar certificados SSL
 echo ""
 echo "🔒 Certificados SSL:"
-DOMAIN="${DOMAIN_HOST:-localhost}"
+DOMAIN="${DOMAIN:-localhost}"
 if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
     expiry=$(openssl x509 -enddate -noout -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" | cut -d= -f2)
     echo "  $DOMAIN: Expira $expiry"

@@ -9,7 +9,7 @@ if [ -f "/opt/workplace/.env" ]; then
   source /opt/workplace/.env
 fi
 
-DOMAIN="${DOMAIN_HOST:-localhost}"
+DOMAIN="${DOMAIN:-localhost}"
 
 echo "🔄 Auto-renewal check for $DOMAIN at $(date)"
 
