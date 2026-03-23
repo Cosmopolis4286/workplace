@@ -26,13 +26,37 @@ function wait_healthy() {
 function rolling_update_backend() {
   echo "🔄 Actualizando Backend con Rolling Update Controlado..."
   
-  # 1. Identificar instancia actual (la vieja)
-  echo "� Identificando instancia backend actual..."
-  local CURRENT_BACKEND_ID=$(docker compose ps -q backend | head -n 1)
-  if [ -z "$CURRENT_BACKEND_ID" ]; then
-    echo "❌ No se encontró instancia backend actual"
-    return 1
+  # Verificar que docker-compose esté corriendo
+  if ! docker compose ps >/dev/null 2>&1; then
+    echo "🚀 Docker compose no está corriendo - iniciando servicios base..."
+    docker compose up -d postgres redis nginx
+    sleep 15
+    
+    # Esperar que los servicios base estén healthy
+    echo "⏳ Esperando servicios base..."
+    sleep 10
   fi
+  
+  # Identificar instancia backend actual
+  local CURRENT_BACKEND_ID=$(docker compose ps -q backend)
+  if [ -z "$CURRENT_BACKEND_ID" ]; then
+    echo "🚀 No se encontró backend actual - iniciando primera instancia..."
+    # Si no hay backend, iniciarlo directamente
+    docker compose up -d backend
+    sleep 15
+    
+    # Verificar que esté healthy
+    local NEW_BACKEND_ID=$(docker compose ps -q backend)
+    if wait_healthy backend; then
+      echo "✅ Backend iniciado exitosamente"
+      return 0
+    else
+      echo "❌ Error iniciando backend"
+      return 1
+    fi
+  fi
+  
+  echo "📋 Identificando instancia backend actual: $CURRENT_BACKEND_ID"
   
   local CURRENT_BACKEND_NAME=$(docker inspect --format='{{.Name}}' "$CURRENT_BACKEND_ID" | sed 's/\///')
   echo "📦 Instancia actual: $CURRENT_BACKEND_NAME ($CURRENT_BACKEND_ID)"
