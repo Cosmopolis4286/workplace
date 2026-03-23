@@ -27,11 +27,11 @@ function rolling_update_frontend() {
   echo "🔄 Actualizando Frontend..."
   
   # Escalar frontend a 2 instancias
-  docker compose -f docker-compose.prod.yml up -d --scale frontend=2 --no-deps frontend
+  docker compose up -d --scale frontend=2 --no-deps frontend
   
   # Esperar a que AMBAS instancias estén healthy
   echo "⏳ Esperando health check de AMBAS instancias frontend..."
-  local FRONTEND_IDS=$(docker compose -f docker-compose.prod.yml ps -q frontend)
+  local FRONTEND_IDS=$(docker compose ps -q frontend)
   local ALL_HEALTHY=true
   
   for ID in $FRONTEND_IDS; do
@@ -49,16 +49,16 @@ function rolling_update_frontend() {
   fi
   
   # Detener instancia antigua
-  docker compose -f docker-compose.prod.yml up -d --scale frontend=1 --no-deps frontend
+  docker compose up -d --scale frontend=1 --no-deps frontend
   echo "✅ Rolling update frontend completado"
 }
 
 function restart_nginx() {
   echo "🔄 Reiniciando Nginx..."
-  docker compose -f docker-compose.prod.yml restart nginx
+  docker compose restart nginx
   
   # Esperar que nginx esté healthy
-  local NGINX_ID=$(docker compose -f docker-compose.prod.yml ps -q nginx)
+  local NGINX_ID=$(docker compose ps -q nginx)
   if [ -n "$NGINX_ID" ]; then
     wait_healthy $NGINX_ID 30 2
   fi
@@ -87,11 +87,11 @@ function verify_final_state() {
   echo "🔍 Verificando estado final..."
   
   # Obtener IDs de contenedores
-  local POSTGRES_ID=$(docker compose -f docker-compose.prod.yml ps -q postgres)
-  local REDIS_ID=$(docker compose -f docker-compose.prod.yml ps -q redis)
-  local BACKEND_ID=$(docker compose -f docker-compose.prod.yml ps -q backend)
-  local FRONTEND_ID=$(docker compose -f docker-compose.prod.yml ps -q frontend)
-  local NGINX_ID=$(docker compose -f docker-compose.prod.yml ps -q nginx)
+  local POSTGRES_ID=$(docker compose ps -q postgres)
+  local REDIS_ID=$(docker compose ps -q redis)
+  local BACKEND_ID=$(docker compose ps -q backend)
+  local FRONTEND_ID=$(docker compose ps -q frontend)
+  local NGINX_ID=$(docker compose ps -q nginx)
   
   # Verificar servicios críticos
   [ -n "$POSTGRES_ID" ] && wait_healthy $POSTGRES_ID 30 2 || { echo "❌ Postgres no está healthy"; return 1; }
@@ -101,7 +101,7 @@ function verify_final_state() {
   
   # Frontend es opcional
   if [ -n "$FRONTEND_ID" ]; then
-    if docker compose -f docker-compose.prod.yml ps frontend | grep -q "Up" && ! docker compose -f docker-compose.prod.yml ps frontend | grep -q "healthy"; then
+    if docker compose ps frontend | grep -q "Up" && ! docker compose ps frontend | grep -q "healthy"; then
       echo "⚠️ Frontend está Up pero no healthy (nginx puede servir fallback)"
     else
       wait_healthy $FRONTEND_ID 60 2 || echo "⚠️ Frontend no está healthy"
@@ -111,7 +111,7 @@ function verify_final_state() {
   echo "✅ Todos los servicios están healthy!"
   
   # Guardar estado final
-  docker compose -f docker-compose.prod.yml ps > $LOG_DIR/final_state_$(date +%s).log
+  docker compose ps > $LOG_DIR/final_state_$(date +%s).log
   echo "📋 Estado final guardado en $LOG_DIR/final_state_$(date +%s).log"
 }
 
