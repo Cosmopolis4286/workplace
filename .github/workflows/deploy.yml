@@ -343,8 +343,8 @@ jobs:
             -o ServerAliveInterval=30 \
             scripts/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/production-monitor.sh
         
-        # Ejecutar deploy rolling update (con expansión de variables)
-        ssh -o StrictHostKeyChecking=yes \
+        # Ejecutar deploy rolling update (con expansión de variables y timeout global)
+        timeout 600 ssh -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=10 \
             -o ServerAliveInterval=30 \
             ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << EOF
@@ -373,16 +373,20 @@ jobs:
           export FRONTEND_TAG=main-${{ github.sha }}
           export DOCKER_USER=${{ secrets.DOCKER_USERNAME }}
           
+          # Exportar imágenes completas para compose
+          export BACKEND_IMAGE=${DOCKER_USER}/workplace-backend:${BACKEND_TAG}
+          export FRONTEND_IMAGE=${DOCKER_USER}/workplace-frontend:${FRONTEND_TAG}
+          
           echo "🏷️ Tags a usar:"
-          echo "Backend: ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}"
-          echo "Frontend: ${DOCKER_USER}/workplace-frontend:${FRONTEND_TAG}"
+          echo "Backend: ${BACKEND_IMAGE}"
+          echo "Frontend: ${FRONTEND_IMAGE}"
           
           # Pull específico de las imágenes SHA
-          docker pull ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}
-          docker pull ${DOCKER_USER}/workplace-frontend:${FRONTEND_TAG}
+          docker pull ${BACKEND_IMAGE}
+          docker pull ${FRONTEND_IMAGE}
           
-          # Deploy sin downtime real con tags específicos
-          echo "🚀 Deploy sin downtime con tags específicos..."
+          # Deploy sin downtime real con imágenes específicas
+          echo "🚀 Deploy sin downtime con imágenes específicas..."
           docker compose up -d --no-deps --force-recreate backend frontend
           
           # Usar siempre SHA tags para trazabilidad completa
@@ -420,22 +424,30 @@ jobs:
           # Levantar canary en paralelo (otro nombre/puerto)
           echo "🧪 Levantando canary en paralelo..."
           
-          # Obtener nombre real de la red
-          NETWORK_NAME=$(docker network ls --format '{{.Name}}' | grep workplace | head -n 1 || echo "app_network")
+          # Obtener nombre real de la red del contenedor backend actual
+          NETWORK_NAME=$(docker compose ps -q backend | xargs docker inspect --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null || echo "app_network")
           echo "🌐 Usando red: $NETWORK_NAME"
           
           docker run -d \
             --name workplace_backend_canary \
             --network $NETWORK_NAME \
-            -p 3002:3001 \
+            --restart unless-stopped \
+            --memory 512m \
+            --cpus 0.5 \
+            --log-driver json-file \
+            --log-opt max-size=10m \
+            --log-opt max-file=3 \
             --env-file /opt/workplace/.env \
             -e NODE_ENV=production \
             -e PORT=3001 \
-            ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}
+            ${BACKEND_IMAGE}
           
-          # Esperar health check del canary
+          # Esperar health check del canary (usando IP real)
           echo "⏳ Esperando health check del canary..."
-          if ! timeout 60 bash -c 'until curl -f http://localhost:3002/api/health; do sleep 2; done'; then
+          CANARY_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' workplace_backend_canary)
+          echo "🌐 Canary IP: $CANARY_IP"
+          
+          if ! timeout 60 bash -c 'until curl -f http://'$CANARY_IP':3001/api/health; do sleep 2; done'; then
             echo "❌ Canary health check falló"
             docker logs workplace_backend_canary --tail=30
             docker rm -f workplace_backend_canary
@@ -447,10 +459,13 @@ jobs:
           CANARY_SUCCESS=true
           ERROR_COUNT=0
           TOTAL_LATENCY=0
+          ITERATIONS=0
           
           for i in {1..12}; do
+            ITERATIONS=$i
+            
             # Nivel 1: Health check básico (liveness)
-            if ! curl -f -s http://localhost:3002/api/health > /dev/null; then
+            if ! curl -f -s http://$CANARY_IP:3001/api/health > /dev/null; then
               echo "❌ Health check falló en iteración $i"
               ERROR_COUNT=$((ERROR_COUNT + 1))
               if [ $ERROR_COUNT -gt 2 ]; then
@@ -460,20 +475,20 @@ jobs:
             fi
             
             # Nivel 2: DB connectivity (simulado con endpoint ligero)
-            if ! curl -f -s http://localhost:3002/api/version > /dev/null 2>&1; then
+            if ! curl -f -s http://$CANARY_IP:3001/api/version > /dev/null 2>&1; then
               echo "⚠️ Version endpoint falló en iteración $i"
               ERROR_COUNT=$((ERROR_COUNT + 1))
             fi
             
             # Nivel 3: Readiness check (endpoint que depende de todo)
-            if ! curl -f -s --max-time 5 http://localhost:3002/api/ready > /dev/null 2>&1; then
+            if ! curl -f -s --max-time 5 http://$CANARY_IP:3001/api/ready > /dev/null 2>&1; then
               echo "⚠️ Readiness endpoint falló en iteración $i"
               # No contar como error fatal, solo advertencia
             fi
             
             # Medir latencia del endpoint principal
             START_TIME=$(date +%s%N)
-            curl -f -s http://localhost:3002/api/health > /dev/null
+            curl -f -s http://$CANARY_IP:3001/api/health > /dev/null
             END_TIME=$(date +%s%N)
             LATENCY=$(( (END_TIME - START_TIME) / 1000000 ))  # Convertir a ms
             
@@ -487,19 +502,25 @@ jobs:
             fi
             
             # Calcular latencia promedio
-            AVG_LATENCY=$((TOTAL_LATENCY / i))
+            AVG_LATENCY=$((TOTAL_LATENCY / ITERATIONS))
             echo "✅ Métrica OK ($i/12) - Latencia: ${LATENCY}ms, Promedio: ${AVG_LATENCY}ms, Errores: $ERROR_COUNT"
             sleep 5
           done
           
-          # Métricas finales
-          FINAL_AVG_LATENCY=$((TOTAL_LATENCY / 12))
-          ERROR_RATE=$((ERROR_COUNT * 100 / 12))
+          # Métricas finales con cálculo correcto
+          FINAL_AVG_LATENCY=$((TOTAL_LATENCY / ITERATIONS))
+          ERROR_RATE=$((ERROR_COUNT * 100 / ITERATIONS))
           
           echo "📊 Métricas Finales Canary:"
           echo "   Latencia Promedio: ${FINAL_AVG_LATENCY}ms"
           echo "   Error Rate: ${ERROR_RATE}%"
-          echo "   Errores Totales: $ERROR_COUNT/12"
+          echo "   Errores Totales: $ERROR_COUNT/$ITERATIONS"
+          
+          # Circuit breaker: si error rate > 50% abortar inmediato
+          if [ "$ERROR_RATE" -gt 50 ]; then
+            echo "🚨 Circuit breaker activado - Error rate demasiado alto: ${ERROR_RATE}%"
+            CANARY_SUCCESS=false
+          fi
           
           # Limpiar canary
           docker rm -f workplace_backend_canary
@@ -514,7 +535,7 @@ jobs:
             # Restaurar backup más reciente
             LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
             if [ -n "$LATEST_BACKUP" ]; then
-              docker tag $LATEST_BACKUP ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}
+              docker tag $LATEST_BACKUP ${BACKEND_IMAGE}
               docker compose up -d --no-deps backend
             fi
             exit 1
@@ -539,8 +560,8 @@ jobs:
           
           # Configurar SSL si es necesario
           echo "🔧 Configurando SSL..."
-          chmod +x setup-ssl-v2.sh
-          ./setup-ssl-v2.sh
+          chmod +x /opt/workplace/scripts/setup-ssl-v2.sh
+          /opt/workplace/scripts/setup-ssl-v2.sh
           
           # Verificar estado final
           echo "🔍 Verificando estado final..."
