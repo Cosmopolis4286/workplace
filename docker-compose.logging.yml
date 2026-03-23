@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # Loki - Log aggregation
   loki:
