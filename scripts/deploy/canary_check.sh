@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# Cargar variables de entorno
+if [ -f /opt/workplace/.env ]; then
+  source /opt/workplace/.env
+fi
+
 # Variables
 export BACKEND_IMAGE=${BACKEND_IMAGE}
 export CURRENT_SHA=${CURRENT_SHA}
