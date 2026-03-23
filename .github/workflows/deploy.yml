@@ -368,8 +368,9 @@ jobs:
           -r scripts/deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
         
         echo "📋 Scripts copiados:"
-        echo "- rolling_update_backend.sh (nuevo - zero downtime)"
-        echo "- verify_load_balancing.sh (nuevo - validación)"
+        echo "- rolling_update_backend.sh (zero downtime controlado)"
+        echo "- verify_load_balancing.sh (validación de balanceo)"
+        echo "- sla-monitor.sh (monitoreo SLA en tiempo real)"
         echo "- deploy_backend.sh (legacy - ya no se usa)"
         echo "- rolling_update.sh (frontend)"
         echo "- rollback.sh (híbrido)"
@@ -417,12 +418,21 @@ jobs:
           # Login a Docker Hub
           echo "$DOCKER_PASSWORD" | docker login -u $DOCKER_USERNAME --password-stdin
           
-          # 🚀 FORZAR Rolling Update del Backend (Zero Downtime OBLIGATORIO)
-          chmod +x scripts/deploy/rolling_update_backend.sh
-          bash scripts/deploy/rolling_update_backend.sh
+          # 🚀 Iniciar monitoreo SLA del deploy
+          chmod +x scripts/deploy/sla-monitor.sh
+          bash scripts/deploy/sla-monitor.sh start-deploy
           
-          # ✅ Zero downtime garantizado - no hay fallback
-          echo "🎉 Backend actualizado con zero downtime absoluto"
+          # 🔄 FORZAR Rolling Update del Backend (Zero Downtime OBLIGATORIO)
+          if bash scripts/deploy/rolling_update_backend.sh; then
+            # ✅ Deploy exitoso - finalizar monitoreo SLA
+            bash scripts/deploy/sla-monitor.sh end-deploy success
+            echo "🎉 Backend actualizado con zero downtime absoluto"
+          else
+            # ❌ Deploy fallido - finalizar monitoreo SLA
+            bash scripts/deploy/sla-monitor.sh end-deploy failure
+            echo "❌ Backend rolling update falló"
+            exit 1
+          fi
         EOF
 
     - name: Post-Deploy Verification
