@@ -371,10 +371,11 @@ jobs:
         echo "- rolling_update_backend.sh (zero downtime controlado)"
         echo "- verify_load_balancing.sh (validación de balanceo)"
         echo "- sla-monitor.sh (monitoreo SLA en tiempo real)"
+        echo "- canary-traffic-split.sh (canary real 10% traffic)"
+        echo "- canary_check.sh (pre-deploy health check)"
         echo "- deploy_backend.sh (legacy - ya no se usa)"
         echo "- rolling_update.sh (frontend)"
         echo "- rollback.sh (híbrido)"
-        echo "- canary_check.sh"
         echo "- cleanup.sh"
 
     - name: Pre-Deploy Canary Check
@@ -422,17 +423,39 @@ jobs:
           chmod +x scripts/deploy/sla-monitor.sh
           bash scripts/deploy/sla-monitor.sh start-deploy
           
-          # 🔄 FORZAR Rolling Update del Backend (Zero Downtime OBLIGATORIO)
-          if bash scripts/deploy/rolling_update_backend.sh; then
-            # ✅ Deploy exitoso - finalizar monitoreo SLA
+          # 🌃 ESTRATEGIA DE DEPLOYMENT:
+          # Opción A: Canary Real (10% traffic) - Comentar si no se quiere
+          # Opción B: Rolling Update Directo - Descomentar si se quiere
+          
+          # === Opción A: Canary Real (10% traffic) ===
+          echo "🌃 Usando estrategia: Canary Real (10% traffic)"
+          if bash scripts/deploy/canary-traffic-split.sh; then
+            echo "✅ Canary real exitoso - 100% tráfico al nuevo backend"
             bash scripts/deploy/sla-monitor.sh end-deploy success
-            echo "🎉 Backend actualizado con zero downtime absoluto"
+            echo "🎉 Backend actualizado con canary real"
           else
-            # ❌ Deploy fallido - finalizar monitoreo SLA
-            bash scripts/deploy/sla-monitor.sh end-deploy failure
-            echo "❌ Backend rolling update falló"
-            exit 1
+            echo "❌ Canary real falló - intentando rolling update directo"
+            # Fallback a rolling update directo
+            if bash scripts/deploy/rolling_update_backend.sh; then
+              bash scripts/deploy/sla-monitor.sh end-deploy success
+              echo "🎉 Backend actualizado con rolling update fallback"
+            else
+              bash scripts/deploy/sla-monitor.sh end-deploy failure
+              echo "❌ Backend rolling update fallback falló"
+              exit 1
+            fi
           fi
+          
+          # === Opción B: Rolling Update Directo (sin canary) ===
+          # echo "🚀 Usando estrategia: Rolling Update Directo"
+          # if bash scripts/deploy/rolling_update_backend.sh; then
+          #   bash scripts/deploy/sla-monitor.sh end-deploy success
+          #   echo "🎉 Backend actualizado con zero downtime absoluto"
+          # else
+          #   bash scripts/deploy/sla-monitor.sh end-deploy failure
+          #   echo "❌ Backend rolling update falló"
+          #   exit 1
+          # fi
         EOF
 
     - name: Post-Deploy Verification
