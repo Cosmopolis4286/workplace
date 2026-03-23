@@ -33,7 +33,7 @@ RUN NODE_OPTIONS="--max-old-space-size=2048" pnpm run build \
 FROM node:20-alpine AS production
 
 # Dependencias runtime mínimas
-RUN apk add --no-cache dumb-init ca-certificates
+RUN apk add --no-cache dumb-init ca-certificates curl
 
 WORKDIR /app
 
