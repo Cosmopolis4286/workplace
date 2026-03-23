@@ -309,20 +309,20 @@ jobs:
           exit 1
         fi
         
-        # Verificar package.json en ubicaciones posibles
-        if docker exec test-frontend test -f "/app/.output/package.json"; then
-          echo "✅ Frontend package.json exists in .output"
-        elif docker exec test-frontend test -f "/app/frontend/package.json"; then
-          echo "✅ Frontend package.json exists in frontend"
-        elif docker exec test-frontend test -f "/app/package.json"; then
-          echo "✅ Frontend package.json exists in app"
+        # Verificar archivos críticos del build
+        if docker exec test-frontend test -f "/app/.output/server/index.mjs"; then
+          echo "✅ Frontend server entrypoint exists"
         else
-          echo "❌ Frontend package.json missing in all locations"
-          echo "📋 Contents of /app:"
-          docker exec test-frontend ls -la /app/ || true
+          echo "❌ Frontend server entrypoint missing"
           docker stop test-frontend
           exit 1
         fi
+        
+        # Debug de estructura (solo para referencia)
+        echo "📋 Frontend container structure:"
+        docker exec test-frontend ls -la /app/.output/ 2>/dev/null || echo "No .output directory readable"
+        echo "📋 Server files:"
+        docker exec test-frontend ls -la /app/.output/server/ 2>/dev/null || echo "No server directory readable"
         
         docker rm -f test-backend test-postgres test-redis test-frontend || true
         docker network rm test-net || true
