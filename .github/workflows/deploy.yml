@@ -366,6 +366,14 @@ jobs:
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
           -r scripts/deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
+        
+        echo "📋 Scripts copiados:"
+        echo "- rolling_update_backend.sh (nuevo - zero downtime)"
+        echo "- deploy_backend.sh (fallback)"
+        echo "- rolling_update.sh (frontend)"
+        echo "- rollback.sh (híbrido)"
+        echo "- canary_check.sh"
+        echo "- cleanup.sh"
 
     - name: Deploy Backend
       run: |
@@ -379,10 +387,21 @@ jobs:
           export DOCKER_PASSWORD="${{ secrets.DOCKER_PASSWORD }}"
           export BACKEND_TAG="main-${{ github.sha }}"
           export FRONTEND_TAG="main-${{ github.sha }}"
+          export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
           
-          # Ejecutar deploy backend
-          chmod +x scripts/deploy/deploy_backend.sh
-          bash scripts/deploy/deploy_backend.sh
+          # Login a Docker Hub
+          echo "$DOCKER_PASSWORD" | docker login -u $DOCKER_USERNAME --password-stdin
+          
+          # Ejecutar rolling update del backend (zero downtime)
+          chmod +x scripts/deploy/rolling_update_backend.sh
+          if bash scripts/deploy/rolling_update_backend.sh; then
+            echo "✅ Backend rolling update completado"
+          else
+            echo "❌ Backend rolling update falló, intentando método fallback..."
+            # Fallback al método anterior si rolling falla
+            chmod +x scripts/deploy/deploy_backend.sh
+            bash scripts/deploy/deploy_backend.sh
+          fi
         EOF
 
     - name: Canary Check
