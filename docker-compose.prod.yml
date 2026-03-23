@@ -165,10 +165,11 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f --max-time 3 http://localhost:${FRONTEND_PORT}/ || exit 1"]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:' + (process.env.NITRO_PORT || process.env.FRONTEND_PORT || 3000) + '/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 10s
     tmpfs:
       - /tmp
 
