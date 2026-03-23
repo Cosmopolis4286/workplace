@@ -1,0 +1,160 @@
+name: SSL Certificate Renewal (Bulletproof 10/10)
+
+on:
+  schedule:
+    # Ejecutar cada 12 horas (más estándar para Let's Encrypt)
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+    inputs:
+      force_renewal:
+        description: 'Forzar renovación de certificados'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  DOMAIN: playrke.com
+
+jobs:
+  renew-ssl:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.10.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Add known hosts (secure)
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+        chmod 600 ~/.ssh/known_hosts
+
+    - name: Renew SSL certificates (bulletproof 10/10)
+      run: |
+        echo "🔒 Iniciando renovación SSL de certificados..."
+        echo "📅 Fecha: $(date)"
+        echo "🖥️  Host: ${{ secrets.PRODUCTION_HOST }}"
+        echo "🌐 Dominio: ${{ env.DOMAIN }}"
+        
+        # SSH con timeouts para evitar colgar
+        ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          
+          # Variables reutilizables
+          COMPOSE="docker compose -f /opt/workplace/docker-compose.yml"
+          
+          echo "🔍 Verificando instalación de certbot..."
+          if ! command -v certbot &> /dev/null; then
+            echo "❌ Certbot no encontrado. Abortando renovación SSL."
+            exit 1
+          fi
+          
+          echo "📋 Verificando configuración de certbot..."
+          certbot certificates --quiet || true
+          
+          echo "🔄 Iniciando renovación con deploy hook robusto..."
+          
+          # Preparar flags (sin eval - más seguro)
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force_renewal }}" = "true" ]; then
+            echo "⚡ Modo forzado activado"
+            FORCE_FLAG="--force-renewal"
+          fi
+          
+          # Deploy hook robusto usando HUP en lugar de exec
+          DEPLOY_HOOK="$COMPOSE kill -s HUP nginx"
+          
+          # Ejecutar renovación sin eval
+          if certbot renew --quiet --deploy-hook "$DEPLOY_HOOK" $FORCE_FLAG; then
+            echo "✅ Renovación SSL completada exitosamente"
+            
+            # Verificar estado final de certificados
+            echo "📋 Estado final de certificados:"
+            certbot certificates --quiet || true
+            
+            # Verificar que nginx esté corriendo (más robusto)
+            if $COMPOSE ps --status running | grep -q "nginx"; then
+              echo "🚀 Nginx está corriendo correctamente"
+              
+              # Healthcheck avanzado si está disponible
+              if docker inspect --format='{{.State.Health.Status}}' workplace_nginx 2>/dev/null | grep -q "healthy"; then
+                echo "� Healthcheck de nginx: healthy"
+              else
+                echo "💛 Healthcheck de nginx: no disponible o unhealthy"
+              fi
+            else
+              echo "⚠️ Advertencia: Nginx no está corriendo"
+              # Intentar reiniciar nginx
+              echo "🔄 Intentando reiniciar nginx..."
+              $COMPOSE restart nginx || echo "❌ No se pudo reiniciar nginx"
+            fi
+            
+          else
+            echo "❌ Error durante renovación SSL"
+            echo "📋 Logs de certbot (últimas 20 líneas):"
+            tail -n 20 /var/log/letsencrypt/letsencrypt.log || echo "No se encontraron logs"
+            exit 1
+          fi
+        EOF
+
+    - name: Verify SSL certificates
+      run: |
+        echo "🔍 Verificando certificados SSL renovados..."
+        
+        # SSH con timeouts para evitar colgar
+        ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          
+          # Usar dominio desde env (más limpio)
+          DOMAIN="${{ env.DOMAIN }}"
+          echo "🌐 Verificando certificado para dominio: $DOMAIN"
+          
+          # Verificar fecha de expiración
+          if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+            EXPIRY=$(openssl x509 -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" -noout -enddate | cut -d= -f2)
+            EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s)
+            CURRENT_EPOCH=$(date +%s)
+            DAYS_LEFT=$(( ($EXPIRY_EPOCH - $CURRENT_EPOCH) / 86400 ))
+            
+            echo "📅 Fecha de expiración: $EXPIRY"
+            echo "⏰ Días restantes: $DAYS_LEFT"
+            
+            if [ $DAYS_LEFT -lt 30 ]; then
+              echo "⚠️ Advertencia: Certificado expira en menos de 30 días"
+            else
+              echo "✅ Certificado válido por $DAYS_LEFT días"
+            fi
+          else
+            echo "❌ No se encontró certificado para $DOMAIN"
+            exit 1
+          fi
+          
+          # Verificación SSL completa (más robusta)
+          echo "🔐 Verificando configuración SSL..."
+          if command -v curl &> /dev/null; then
+            # Test HTTP/HTTPS y headers
+            echo "📡 Test de conexión HTTPS..."
+            if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "https://$DOMAIN" | grep -q "200\|301\|302"; then
+              echo "✅ Conexión HTTPS funcional"
+            else
+              echo "⚠️ Advertencia: Conexión HTTPS con problemas"
+            fi
+            
+            # Verificar chain SSL
+            echo "🔗 Verificando cadena SSL..."
+            openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt || echo "⚠️ No se pudo verificar cadena SSL"
+          fi
+        EOF
+
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "🚨 ALERTA: Falló la renovación SSL"
+        echo "📧 Se debería notificar al administrador"
+        echo "🔗 Revisa el workflow en GitHub Actions para más detalles"
+        
+        # Aquí podrías agregar notificación por Slack, email, etc.
+        # Ejemplo: curl -X POST ... (webhook de Slack)

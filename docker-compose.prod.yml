@@ -209,6 +209,31 @@ services:
     networks:
       - app_network
 
+  certbot:
+    image: certbot/certbot
+    container_name: workplace_certbot
+    restart: unless-stopped
+    command: >
+      sh -c "
+      while true; do
+        echo ' Verificando renovación SSL...';
+        certbot renew --quiet --deploy-hook 'docker exec workplace_nginx nginx -s reload';
+        echo ' Verificación SSL completada';
+        sleep 43200;  # 12 horas
+      done
+      "
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DOMAIN=playrke.com
+    networks:
+      - app_network
+    cpus: "0.1"
+    mem_limit: 64m
+    mem_reservation: 32m
+
 volumes:
   postgres_data:
   redis_data:
