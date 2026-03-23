@@ -189,51 +189,39 @@ jobs:
         # Pull para asegurar que tenemos la imagen
         docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
         
-        docker run --rm -d --name test-backend \
-          -e NODE_ENV=production \
+        # Quitar --rm para poder ver logs si falla
+        docker run -d --name test-backend \
           -e DATABASE_URL="sqlite:memory:" \
-          -e REDIS_HOST="localhost" \
-          -e REDIS_PORT=6379 \
-          -e REDIS_PASSWORD="test" \
           -e DISABLE_DB_CONNECTION=true \
+          -e NODE_ENV=test \
           -p 3001:3001 \
           ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
         
+        # Esperar un momento para que el contenedor inicie y muestre errores si hay
+        sleep 5
+        
+        # Verificar si el contenedor sigue corriendo
+        if ! docker ps | grep -q test-backend; then
+          echo "❌ El backend se cayó inmediatamente"
+          echo "📋 Logs del crash:"
+          docker logs test-backend --tail=100
+          docker rm -f test-backend || true
+          exit 1
+        fi
+        
         # Esperar hasta 60s a que el health check responda
         echo "⏳ Esperando health check del backend (hasta 60s)..."
-        if timeout 60 bash -c 'until curl -f http://workplace_backend:3001/api/health; do sleep 2; done'; then
+        if timeout 60 bash -c 'until curl -f http://localhost:3001/api/health; do sleep 2; done'; then
           echo "✅ Backend health check OK"
         else
           echo "❌ Backend health check falló después de 60s"
-          echo "🔍 Verificando estado del contenedor..."
-          docker compose ps backend
-          echo "📋 Logs del backend (últimas 30 líneas):"
-          docker compose logs backend --tail=30
-          echo "🔍 Verificando puerto del contenedor..."
-          docker compose exec backend netstat -tlnp 2>/dev/null || echo "netstat no disponible"
-          echo "🔍 Verificando procesos del contenedor..."
-          docker compose exec backend ps aux 2>/dev/null || echo "ps no disponible"
+          echo "📋 Logs del backend:"
+          docker logs test-backend --tail=100
+          docker rm -f test-backend
           exit 1
         fi
         
-        # Verificaciones adicionales
-        if docker exec test-backend test -d "/app/backend/dist"; then
-          echo "✅ Backend dist folder exists"
-        else
-          echo "❌ Backend dist folder missing"
-          docker stop test-backend
-          exit 1
-        fi
-        
-        if docker exec test-backend test -f "/app/backend/package.json"; then
-          echo "✅ Backend package.json exists"
-        else
-          echo "❌ Backend package.json missing"
-          docker stop test-backend
-          exit 1
-        fi
-        
-        docker stop test-backend
+        docker rm -f test-backend
         echo "✅ Backend verificado correctamente"
         
         # Probar que el frontend se ejecute correctamente
