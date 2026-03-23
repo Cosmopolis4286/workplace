@@ -13,6 +13,7 @@ services:
       -c max_connections=100
       -c shared_buffers=128MB
       -c effective_cache_size=256MB
+      -c wal_level=replica
     volumes:
       - postgres_data:/var/lib/postgresql/data/pgdata
     healthcheck:
@@ -40,6 +41,7 @@ services:
       --maxmemory-policy allkeys-lru
       --rename-command FLUSHALL ""
       --rename-command FLUSHDB ""
+      --protected-mode yes
     volumes:
       - redis_data:/data
     healthcheck:
@@ -202,6 +204,10 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:rw
       - ./scripts/nginx-reload.sh:/usr/local/bin/nginx-reload:ro
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /var/log/nginx
     depends_on:
       backend:
         condition: service_healthy
@@ -210,7 +216,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: ["CMD", "sh", "-c", "nginx -t && curl -f http://localhost || exit 1"]
+      test: ["CMD", "nginx", "-t"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -233,6 +239,11 @@ services:
     cpus: "0.1"
     mem_limit: 64m
     mem_reservation: 32m
+    healthcheck:
+      test: ["CMD", "test", "-f", "/etc/letsencrypt/live/playrke.com/fullchain.pem"]
+      interval: 1m
+      timeout: 5s
+      retries: 3
 
 volumes:
   postgres_data:
