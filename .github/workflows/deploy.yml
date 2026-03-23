@@ -277,6 +277,11 @@ jobs:
     needs: buildeploy
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true'
+    
+    # Control de concurrencia - evita pipelines simultáneos
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
 
     steps:
     - uses: actions/checkout@v6
@@ -298,12 +303,20 @@ jobs:
         
         # Copiar archivos de configuración
         echo "📁 Copiando configuración..."
-        scp docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/docker-compose.yml
-        scp nginx/nginx.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/nginx.conf
-        scp nginx/conf.d/default.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/default.conf
-        scp scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/setup-ssl-v2.sh
-        scp scripts/backup-postgres.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/backup-postgres.sh
-        scp scripts/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/production-monitor.sh
+        ssh -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=10 \
+              -o ServerAliveInterval=30 \
+              -o UserKnownHostsFile=/dev/null \
+              ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          mkdir -p /opt/workplace
+          echo "📁 Copiando configuración..."
+          scp docker-compose.prod.yml /opt/workplace/docker-compose.yml
+          scp nginx/nginx.conf /opt/workplace/nginx/nginx.conf
+          scp nginx/conf.d/default.conf /opt/workplace/nginx/conf.d/default.conf
+          scp scripts/setup-ssl-v2.sh /opt/workplace/setup-ssl-v2.sh
+          scp scripts/backup-postgres.sh /opt/workplace/backup-postgres.sh
+          scp scripts/production-monitor.sh /opt/workplace/production-monitor.sh
+        EOF
         
         # Ejecutar deploy rolling update
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
@@ -337,13 +350,18 @@ jobs:
           # Usar siempre SHA tags para trazabilidad completa
           echo "📦 Usando SHA tags: main-${{ github.sha }}"
           
-          # Backup de imágenes actuales
-          echo "💾 Backup de imágenes actuales..."
-          if docker image inspect ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }} > /dev/null 2>&1; then
-            docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }} workplace-backend:backup-$(date +%s)
+          # Backup de versión ANTERIOR (crítico para rollback)
+          echo "💾 Backup de versión ANTERIOR..."
+          CURRENT_BACKEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend" | grep -v "backup" | head -n 1)
+          CURRENT_FRONTEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-frontend" | grep -v "backup" | head -n 1)
+          
+          if [ -n "$CURRENT_BACKEND" ]; then
+            echo "📦 Backup backend: $CURRENT_BACKEND"
+            docker tag $CURRENT_BACKEND workplace-backend:backup-$(date +%s)
           fi
-          if docker image inspect ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }} > /dev/null 2>&1; then
-            docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }} workplace-frontend:backup-$(date +%s)
+          if [ -n "$CURRENT_FRONTEND" ]; then
+            echo "📦 Backup frontend: $CURRENT_FRONTEND"
+            docker tag $CURRENT_FRONTEND workplace-frontend:backup-$(date +%s)
           fi
           
           # Canary Deploy con métricas reales
@@ -437,33 +455,50 @@ jobs:
           echo "🔍 Verificando estado final..."
           docker compose ps
           
-          # Health checks finales (nginx solo depende de backend)
-          if ! docker compose ps postgres | grep -q "healthy"; then
-            echo "❌ Postgres no está healthy"
+          # Health checks finales usando docker inspect (más robusto)
+          echo "🔍 Verificando estado final con docker inspect..."
+          
+          # Verificar Postgres
+          POSTGRES_STATUS=$(docker inspect --format='{{.State.Health.Status}}' workplace_postgres 2>/dev/null || echo "unknown")
+          if [ "$POSTGRES_STATUS" != "healthy" ]; then
+            echo "❌ Postgres no está healthy (status: $POSTGRES_STATUS)"
             docker compose logs postgres --tail=20
             exit 1
           fi
           
-          if ! docker compose ps redis | grep -q "healthy"; then
-            echo "❌ Redis no está healthy"
+          # Verificar Redis
+          REDIS_STATUS=$(docker inspect --format='{{.State.Health.Status}}' workplace_redis 2>/dev/null || echo "unknown")
+          if [ "$REDIS_STATUS" != "healthy" ]; then
+            echo "❌ Redis no está healthy (status: $REDIS_STATUS)"
             docker compose logs redis --tail=20
             exit 1
           fi
           
-          if ! docker compose ps backend | grep -q "healthy"; then
-            echo "❌ Backend no está healthy"
+          # Verificar Backend
+          BACKEND_STATUS=$(docker inspect --format='{{.State.Health.Status}}' workplace_backend 2>/dev/null || echo "unknown")
+          if [ "$BACKEND_STATUS" != "healthy" ]; then
+            echo "❌ Backend no está healthy (status: $BACKEND_STATUS)"
             docker compose logs backend --tail=20
             exit 1
           fi
           
-          # Nginx debe estar Up (no necesita estar healthy)
-          if ! docker compose ps nginx | grep -q "Up"; then
-            echo "❌ Nginx no está Up"
+          # Verificar Frontend
+          FRONTEND_STATUS=$(docker inspect --format='{{.State.Health.Status}}' workplace_frontend 2>/dev/null || echo "unknown")
+          if [ "$FRONTEND_STATUS" != "healthy" ]; then
+            echo "❌ Frontend no está healthy (status: $FRONTEND_STATUS)"
+            docker compose logs frontend --tail=20
+            exit 1
+          fi
+          
+          # Verificar Nginx
+          NGINX_STATUS=$(docker inspect --format='{{.State.Health.Status}}' workplace_nginx 2>/dev/null || echo "unknown")
+          if [ "$NGINX_STATUS" != "healthy" ]; then
+            echo "❌ Nginx no está healthy (status: $NGINX_STATUS)"
             docker compose logs nginx --tail=20
             exit 1
           fi
           
-          # Frontend es opcional para nginx, pero verificamos si está healthy
+          echo "✅ Todos los servicios están healthy!"
           if docker compose ps frontend | grep -q "Up" && ! docker compose ps frontend | grep -q "healthy"; then
             echo "⚠️ Frontend está Up pero no healthy (nginx puede servir fallback)"
           fi
