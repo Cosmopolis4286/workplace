@@ -4,7 +4,7 @@ set -euo pipefail
 # Variables
 export BACKEND_IMAGE=${BACKEND_IMAGE}
 export CURRENT_SHA=${CURRENT_SHA}
-export LOG_DIR="/var/log/deploy"
+export LOG_DIR="/opt/workplace/logs/deploy"
 
 # Funciones
 function wait_healthy() {
