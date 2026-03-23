@@ -289,7 +289,7 @@ jobs:
           exit 1
         fi
         
-        if docker exec test-frontend test -f "/app/package.json"; then
+        if docker exec test-frontend test -f "/app/frontend/package.json"; then
           echo "✅ Frontend package.json exists"
         else
           echo "❌ Frontend package.json missing"
