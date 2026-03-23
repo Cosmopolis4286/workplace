@@ -1,29 +1,26 @@
-#!/bin/bash
-# Nginx reload script - ejecutado desde host (no desde contenedor)
-# Uso: ./nginx-reload.sh
+#!/bin/sh
+# Nginx reload script - ejecutado DENTRO del contenedor nginx
+# Uso: /usr/local/bin/nginx-reload (llamado por certbot deploy-hook)
+#
+# Este script:
+# 1. Valida configuración nginx
+# 2. Recarga nginx sin downtime
+# 3. Falla rápido si hay errores
+#
+# Salida:
+# - 0: éxito (nginx recargado)
+# - 1: error (config inválida o reload fallido)
 
-set -euo pipefail
+set -e
 
 echo "🔄 Recargando configuración Nginx..."
 
-# Verificar que nginx esté corriendo
-if ! docker ps --filter "name=workplace_nginx" --filter "status=running" | grep -q "workplace_nginx"; then
-    echo "❌ Nginx no está corriendo"
-    exit 1
-fi
+# Validar configuración antes de recargar (crítico para evitar downtime)
+echo "🧪 Validando configuración Nginx..."
+nginx -t
 
-# Test configuración antes de recargar
-echo "🧪 Testeando configuración Nginx..."
-if ! docker exec workplace_nginx nginx -t; then
-    echo "❌ Configuración Nginx inválida"
-    exit 1
-fi
+# Recargar nginx (graceful reload - no downtime)
+echo "🔄 Ejecutando reload graceful..."
+nginx -s reload
 
-# Recargar nginx
-echo "🔄 Recargando Nginx..."
-if docker exec workplace_nginx nginx -s reload; then
-    echo "✅ Nginx recargado exitosamente"
-else
-    echo "❌ Falló recarga de Nginx"
-    exit 1
-fi
+echo "✅ Nginx recargado exitosamente"
