@@ -367,8 +367,8 @@ jobs:
           echo "� Login Docker Hub..."
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
-          # Pull forzado de imágenes nuevas
-          echo "⬇️ Pull forzado de imágenes SHA..."
+          # Pull forzado de imágenes SHA específicas
+          echo "⬇️ Pull forzado de imágenes SHA específicas..."
           export BACKEND_TAG=main-${{ github.sha }}
           export FRONTEND_TAG=main-${{ github.sha }}
           export DOCKER_USER=${{ secrets.DOCKER_USERNAME }}
@@ -377,54 +377,65 @@ jobs:
           echo "Backend: ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}"
           echo "Frontend: ${DOCKER_USER}/workplace-frontend:${FRONTEND_TAG}"
           
-          docker compose pull
+          # Pull específico de las imágenes SHA
+          docker pull ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}
+          docker pull ${DOCKER_USER}/workplace-frontend:${FRONTEND_TAG}
           
-          # Deploy sin downtime real
-          echo "🚀 Deploy sin downtime..."
-          docker compose up -d --no-deps --force-recreate backend
+          # Deploy sin downtime real con tags específicos
+          echo "🚀 Deploy sin downtime con tags específicos..."
+          docker compose up -d --no-deps --force-recreate backend frontend
           
           # Usar siempre SHA tags para trazabilidad completa
           echo "📦 Usando SHA tags: main-${{ github.sha }}"
           
-          # Backup de versión ANTERIOR (crítico para rollback)
-          echo "💾 Backup de versión ANTERIOR..."
-          CURRENT_BACKEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend" | grep -v "backup" | head -n 1)
-          CURRENT_FRONTEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-frontend" | grep -v "backup" | head -n 1)
+          # Backup de versión ANTERIOR (determinista)
+          echo "💾 Backup de versión ANTERIOR (determinista)..."
           
-          if [ -n "$CURRENT_BACKEND" ]; then
-            echo "📦 Backup backend: $CURRENT_BACKEND"
-            docker tag $CURRENT_BACKEND workplace-backend:backup-$(date +%s)
-          fi
-          if [ -n "$CURRENT_FRONTEND" ]; then
-            echo "📦 Backup frontend: $CURRENT_FRONTEND"
-            docker tag $CURRENT_FRONTEND workplace-frontend:backup-$(date +%s)
+          # Obtener imagen actual del contenedor running (más seguro)
+          if docker compose ps backend | grep -q "Up"; then
+            CURRENT_BACKEND=$(docker inspect $(docker compose ps -q backend) --format '{{.Image}}' 2>/dev/null || echo "")
+            echo "📦 Backend actual: $CURRENT_BACKEND"
+            if [ -n "$CURRENT_BACKEND" ] && [ "$CURRENT_BACKEND" != "${DOCKER_USER}/workplace-backend:${BACKEND_TAG}" ]; then
+              docker tag $CURRENT_BACKEND workplace-backend:backup-$(date +%s)
+              echo "✅ Backup backend creado"
+            fi
           fi
           
-          # Canary Deploy con métricas reales
-          echo "🚀 Iniciando Canary Deploy con métricas..."
+          if docker compose ps frontend | grep -q "Up"; then
+            CURRENT_FRONTEND=$(docker inspect $(docker compose ps -q frontend) --format '{{.Image}}' 2>/dev/null || echo "")
+            echo "📦 Frontend actual: $CURRENT_FRONTEND"
+            if [ -n "$CURRENT_FRONTEND" ] && [ "$CURRENT_FRONTEND" != "${DOCKER_USER}/workplace-frontend:${FRONTEND_TAG}" ]; then
+              docker tag $CURRENT_FRONTEND workplace-frontend:backup-$(date +%s)
+              echo "✅ Backup frontend creado"
+            fi
+          fi
+          
+          # Canary Deploy real (paralelo sin downtime)
+          echo "🚀 Iniciando Canary Deploy real (paralelo)..."
           
           # Obtener SHA del deploy actual
           CURRENT_SHA="${{ github.sha }}"
           echo "📦 Deployando SHA: $CURRENT_SHA"
           
-          # Backup versión actual
-          docker compose stop backend
-          
-          # Deploy canary (misma imagen pero con validación extendida)
-          echo "🧪 Desplegando versión canary..."
-          docker compose up -d --no-deps backend
+          # Levantar canary en paralelo (otro nombre/puerto)
+          echo "🧪 Levantando canary en paralelo..."
+          docker run -d \
+            --name workplace_backend_canary \
+            --network app_network \
+            -p 3002:3001 \
+            -e NODE_ENV=production \
+            -e DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} \
+            -e REDIS_HOST=redis \
+            -e REDIS_PORT=6379 \
+            -e REDIS_PASSWORD=${REDIS_PASSWORD} \
+            ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}
           
           # Esperar health check del canary
           echo "⏳ Esperando health check del canary..."
-          if ! timeout 60 bash -c 'until curl -f http://localhost:3001/api/health; do sleep 2; done'; then
+          if ! timeout 60 bash -c 'until curl -f http://localhost:3002/api/health; do sleep 2; done'; then
             echo "❌ Canary health check falló"
-            docker compose logs backend --tail=30
-            # Restaurar backup si existe
-            if docker images | grep -q "workplace-backend:backup"; then
-              LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
-              docker tag $LATEST_BACKUP ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
-              docker compose up -d --no-deps backend
-            fi
+            docker logs workplace_backend_canary --tail=30
+            docker rm -f workplace_backend_canary
             exit 1
           fi
           
@@ -434,14 +445,14 @@ jobs:
           
           for i in {1..12}; do
             # Verificar error rate (simulado con health checks)
-            if ! curl -f -s http://localhost:3001/api/health > /dev/null; then
+            if ! curl -f -s http://localhost:3002/api/health > /dev/null; then
               echo "❌ Error detectado en iteración $i"
               CANARY_SUCCESS=false
               break
             fi
             
             # Verificar latencia (debe ser < 1000ms)
-            LATENCY=$(curl -o /dev/null -s -w '%{time_total}' http://localhost:3001/api/health | awk '{printf "%.0f", $1*1000}')
+            LATENCY=$(curl -o /dev/null -s -w '%{time_total}' http://localhost:3002/api/health | awk '{printf "%.0f", $1*1000}')
             if [ "$LATENCY" -gt 1000 ]; then
               echo "⚠️ Alta latencia detectada: ${LATENCY}ms"
               CANARY_SUCCESS=false
@@ -452,6 +463,9 @@ jobs:
             sleep 5
           done
           
+          # Limpiar canary
+          docker rm -f workplace_backend_canary
+          
           if [ "$CANARY_SUCCESS" = "true" ]; then
             echo "✅ Canary exitoso, versión establecida como producción"
           else
@@ -459,7 +473,7 @@ jobs:
             # Restaurar backup más reciente
             LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
             if [ -n "$LATEST_BACKUP" ]; then
-              docker tag $LATEST_BACKUP ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
+              docker tag $LATEST_BACKUP ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}
               docker compose up -d --no-deps backend
             fi
             exit 1
