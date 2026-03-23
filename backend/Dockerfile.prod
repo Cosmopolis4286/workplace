@@ -45,7 +45,7 @@ WORKDIR /app
 
 # Copiar solo lo esencial desde build
 COPY --from=build /app/backend/dist ./backend/dist
-COPY --from=build /app/scripts/init-backend-prod.sh ./scripts/init-backend-prod.sh
+COPY --from=build /app/scripts/deployment/init-backend-prod.sh ./scripts/deployment/init-backend-prod.sh
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
@@ -70,4 +70,4 @@ USER app
 EXPOSE ${NODE_PORT}
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "/app/scripts/init-backend-prod.sh"]
+CMD ["sh", "/app/scripts/deployment/init-backend-prod.sh"]
