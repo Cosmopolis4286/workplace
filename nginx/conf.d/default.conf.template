@@ -1,0 +1,85 @@
+# =========================
+# ZONAS DE RATE LIMIT (Nivel Enterprise)
+# =========================
+# Rate limit general - 10 req/s por IP
+limit_req_zone $binary_remote_addr zone=general_limit:10m rate=10r/s;
+
+# Rate limit API - 5 req/s por IP
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=5r/s;
+
+# Rate limit uploads - 2 req/s por IP
+limit_req_zone $binary_remote_addr zone=upload_limit:10m rate=2r/s;
+
+# Rate limit global - 100 req/s por IP (corregido)
+limit_req_zone $binary_remote_addr zone=global_limit:10m rate=100r/s;
+
+# Burst zones para picos temporales
+limit_req_zone $binary_remote_addr zone=general_burst:10m rate=20r/s burst=40 nodelay;
+limit_req_zone $binary_remote_addr zone=api_burst:10m rate=10r/s burst=20 nodelay;
+
+# Connection limiting zones
+limit_conn_zone $binary_remote_addr zone=conn_limit_per_ip:10m;
+
+# =========================
+# ACME CHALLENGE (Let's Encrypt)
+# =========================
+server {
+    listen 80;
+    server_name {{DOMAIN}} www.{{DOMAIN}};
+    
+    # ACME Challenge - Let's Encrypt domain validation
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        try_files $uri $uri/ =404;
+    }
+    
+    # Redirect everything else to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# =========================
+# HTTPS PRINCIPAL (HTTP/2 + Enterprise)
+# =========================
+server {
+    listen 443 ssl http2;
+    server_name {{DOMAIN}} www.{{DOMAIN}};
+
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/{{DOMAIN}}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{DOMAIN}}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # HEADERS DE SEGURIDAD (heredados de nginx.conf)
+    # Los headers de seguridad ya están configurados en nginx.conf
+    
+    # Incluir configuración común factorizada
+    include /etc/nginx/conf.d/common.conf;
+    
+    # =========================
+    # BLOQUEO DIRECTO (ANTI-BYPASS CF) - Dinámico
+    # =========================
+    include /etc/nginx/conf.d/cloudflare-ips.conf;
+}
+
+# =========================
+# HTTP PRINCIPAL (sin SSL para deploy interno)
+# =========================
+server {
+    listen 80;
+    server_name localhost;
+
+    # ACME Challenge para localhost (testing)
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        try_files $uri $uri/ =404;
+    }
+
+    # HEADERS DE SEGURIDAD (heredados de nginx.conf)
+    # Los headers de seguridad ya están configurados en nginx.conf
+    
+    # Incluir configuración común factorizada
+    include /etc/nginx/conf.d/common.conf;
+}
