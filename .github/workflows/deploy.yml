@@ -216,6 +216,7 @@ jobs:
           -e DB_PORT=5432 \
           -e REDIS_HOST=test-redis \
           -e REDIS_PORT=6379 \
+          -e JWT_SECRET="test-jwt-secret-for-ci-only" \
           -e NODE_ENV=test \
           -p 3001:3001 \
           ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
