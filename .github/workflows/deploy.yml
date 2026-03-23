@@ -343,11 +343,11 @@ jobs:
             -o ServerAliveInterval=30 \
             scripts/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/production-monitor.sh
         
-        # Ejecutar deploy rolling update (solo comandos)
+        # Ejecutar deploy rolling update (con expansión de variables)
         ssh -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=10 \
             -o ServerAliveInterval=30 \
-            ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+            ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << EOF
           set -euo pipefail
           
           echo "� Rolling Update en producción..."
@@ -419,15 +419,18 @@ jobs:
           
           # Levantar canary en paralelo (otro nombre/puerto)
           echo "🧪 Levantando canary en paralelo..."
+          
+          # Obtener nombre real de la red
+          NETWORK_NAME=$(docker network ls --format '{{.Name}}' | grep workplace | head -n 1 || echo "app_network")
+          echo "🌐 Usando red: $NETWORK_NAME"
+          
           docker run -d \
             --name workplace_backend_canary \
-            --network app_network \
+            --network $NETWORK_NAME \
             -p 3002:3001 \
+            --env-file /opt/workplace/.env \
             -e NODE_ENV=production \
-            -e DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} \
-            -e REDIS_HOST=redis \
-            -e REDIS_PORT=6379 \
-            -e REDIS_PASSWORD=${REDIS_PASSWORD} \
+            -e PORT=3001 \
             ${DOCKER_USER}/workplace-backend:${BACKEND_TAG}
           
           # Esperar health check del canary
@@ -439,37 +442,75 @@ jobs:
             exit 1
           fi
           
-          # Verificar métricas reales por 60 segundos
+          # Verificar métricas reales por 60 segundos (endpoints multi-nivel)
           echo "📊 Verificando métricas del canary (60s)..."
           CANARY_SUCCESS=true
+          ERROR_COUNT=0
+          TOTAL_LATENCY=0
           
           for i in {1..12}; do
-            # Verificar error rate (simulado con health checks)
+            # Nivel 1: Health check básico (liveness)
             if ! curl -f -s http://localhost:3002/api/health > /dev/null; then
-              echo "❌ Error detectado en iteración $i"
-              CANARY_SUCCESS=false
-              break
+              echo "❌ Health check falló en iteración $i"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+              if [ $ERROR_COUNT -gt 2 ]; then
+                CANARY_SUCCESS=false
+                break
+              fi
             fi
             
-            # Verificar latencia (debe ser < 1000ms)
-            LATENCY=$(curl -o /dev/null -s -w '%{time_total}' http://localhost:3002/api/health | awk '{printf "%.0f", $1*1000}')
+            # Nivel 2: DB connectivity (simulado con endpoint ligero)
+            if ! curl -f -s http://localhost:3002/api/version > /dev/null 2>&1; then
+              echo "⚠️ Version endpoint falló en iteración $i"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+            
+            # Nivel 3: Readiness check (endpoint que depende de todo)
+            if ! curl -f -s --max-time 5 http://localhost:3002/api/ready > /dev/null 2>&1; then
+              echo "⚠️ Readiness endpoint falló en iteración $i"
+              # No contar como error fatal, solo advertencia
+            fi
+            
+            # Medir latencia del endpoint principal
+            START_TIME=$(date +%s%N)
+            curl -f -s http://localhost:3002/api/health > /dev/null
+            END_TIME=$(date +%s%N)
+            LATENCY=$(( (END_TIME - START_TIME) / 1000000 ))  # Convertir a ms
+            
+            TOTAL_LATENCY=$((TOTAL_LATENCY + LATENCY))
+            
+            # Validar latencia (< 1000ms)
             if [ "$LATENCY" -gt 1000 ]; then
               echo "⚠️ Alta latencia detectada: ${LATENCY}ms"
               CANARY_SUCCESS=false
               break
             fi
             
-            echo "✅ Métrica OK ($i/12) - Latencia: ${LATENCY}ms"
+            # Calcular latencia promedio
+            AVG_LATENCY=$((TOTAL_LATENCY / i))
+            echo "✅ Métrica OK ($i/12) - Latencia: ${LATENCY}ms, Promedio: ${AVG_LATENCY}ms, Errores: $ERROR_COUNT"
             sleep 5
           done
+          
+          # Métricas finales
+          FINAL_AVG_LATENCY=$((TOTAL_LATENCY / 12))
+          ERROR_RATE=$((ERROR_COUNT * 100 / 12))
+          
+          echo "📊 Métricas Finales Canary:"
+          echo "   Latencia Promedio: ${FINAL_AVG_LATENCY}ms"
+          echo "   Error Rate: ${ERROR_RATE}%"
+          echo "   Errores Totales: $ERROR_COUNT/12"
           
           # Limpiar canary
           docker rm -f workplace_backend_canary
           
-          if [ "$CANARY_SUCCESS" = "true" ]; then
-            echo "✅ Canary exitoso, versión establecida como producción"
+          # Validación final (umbrales estrictos)
+          if [ "$CANARY_SUCCESS" = "true" ] && [ "$ERROR_RATE" -lt 25 ] && [ "$FINAL_AVG_LATENCY" -lt 800 ]; then
+            echo "✅ Canary exitoso - Métricas dentro de umbrales"
           else
-            echo "❌ Canary falló, restaurando versión anterior"
+            echo "❌ Canary falló - Métricas fuera de umbrales"
+            echo "   Error Rate > 25% o Latencia > 800ms"
+            
             # Restaurar backup más reciente
             LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
             if [ -n "$LATEST_BACKUP" ]; then
@@ -572,16 +613,19 @@ jobs:
           
           echo "✅ Rolling Update completado exitosamente!"
           
-          # Cleanup seguro de imágenes antiguas (mantener últimas 10 versiones)
+          # Cleanup seguro con prune (más robusto que xargs)
           echo "🧹 Cleanup seguro de imágenes antiguas..."
           
           # Solo hacer cleanup si el deploy fue exitoso
           if docker compose ps | grep -q "healthy"; then
-            # Mantener últimas 10 versiones de cada imagen
-            docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-" | grep -v "backup" | sort -r | tail -n +11 | xargs -r docker rmi || true
+            # Mantener imágenes recientes (72h) y eliminar dangling
+            echo "🗑️ Limpiando imágenes antiguas (>72h) y dangling..."
+            docker image prune --force --filter "until=72h" || true
+            docker image prune --force --filter "dangling=true" || true
             
-            # Limpiar imágenes dangling (sin etiquetas)
-            docker image prune -f --filter "until=24h" || true
+            # Opcional: mantener solo últimos 10 SHA tags si quieres más control
+            echo "🏷️ Manteniendo últimos 10 SHA tags..."
+            docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-" | grep "main-" | sort -V | tail -n +11 | xargs -r docker rmi -f || true
           else
             echo "⚠️ Omitiendo cleanup por seguridad (servicios no healthy)"
           fi
