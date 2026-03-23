@@ -464,7 +464,7 @@ jobs:
         scp -o StrictHostKeyChecking=yes \
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
-          scripts/deploy/rollback.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
+          scripts/deploy/rollback.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/ || echo "Rollback script already exists"
 
     - name: Complete Rollback
       run: |
