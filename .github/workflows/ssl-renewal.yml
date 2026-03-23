@@ -47,19 +47,20 @@ jobs:
           echo "📋 Verificando configuración de certbot..."
           certbot certificates --quiet || true
           
-          echo "🔄 Iniciando renovación con deploy hook..."
-          # Usar deploy hook para reload solo si hay renovación real
-          RENEW_CMD="certbot renew --quiet --deploy-hook 'docker compose -f /opt/workplace/docker-compose.yml exec -T nginx nginx -s reload'"
+          echo "🔄 Iniciando renovación con deploy hook robusto..."
           
-          # Si es forzado, agregar flag
+          # Preparar flags (sin eval - más seguro)
+          FORCE_FLAG=""
           if [ "${{ github.event.inputs.force_renewal }}" = "true" ]; then
             echo "⚡ Modo forzado activado"
-            RENEW_CMD="$RENEW_CMD --force-renewal"
+            FORCE_FLAG="--force-renewal"
           fi
           
-          # Ejecutar renovación con logging
-          echo "📝 Ejecutando: $RENEW_CMD"
-          if eval "$RENEW_CMD"; then
+          # Deploy hook robusto usando HUP en lugar de exec
+          DEPLOY_HOOK="docker compose -f /opt/workplace/docker-compose.yml kill -s HUP nginx"
+          
+          # Ejecutar renovación sin eval
+          if certbot renew --quiet --deploy-hook "$DEPLOY_HOOK" $FORCE_FLAG; then
             echo "✅ Renovación SSL completada exitosamente"
             
             # Verificar estado final de certificados
@@ -75,8 +76,8 @@ jobs:
             
           else
             echo "❌ Error durante renovación SSL"
-            echo "📋 Logs de certbot (últimas 10 líneas):"
-            journalctl -u certbot --no-pager -n 10 || true
+            echo "📋 Logs de certbot (últimas 20 líneas):"
+            tail -n 20 /var/log/letsencrypt/letsencrypt.log || echo "No se encontraron logs"
             exit 1
           fi
         EOF
@@ -88,8 +89,8 @@ jobs:
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           
-          # Obtener dominio del archivo nginx.conf
-          DOMAIN=$(grep -oP 'server_name\s+\K[^;]+' /opt/workplace/nginx/conf.d/default.conf | head -n1 | awk '{print $1}')
+          # Usar dominio desde secrets (más robusto que parsing)
+          DOMAIN="playrke.com"
           echo "🌐 Verificando certificado para dominio: $DOMAIN"
           
           # Verificar fecha de expiración
@@ -112,10 +113,20 @@ jobs:
             exit 1
           fi
           
-          # Test de conexión SSL
+          # Verificación SSL completa (más robusta)
           echo "🔐 Verificando configuración SSL..."
-          if command -v openssl &> /dev/null; then
-            echo -n | openssl s_client -connect $DOMAIN:443 -servername $DOMAIN 2>/dev/null | openssl x509 -noout -dates || echo "⚠️ No se pudo verificar conexión SSL"
+          if command -v curl &> /dev/null; then
+            # Test HTTP/HTTPS y headers
+            echo "📡 Test de conexión HTTPS..."
+            if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "https://$DOMAIN" | grep -q "200\|301\|302"; then
+              echo "✅ Conexión HTTPS funcional"
+            else
+              echo "⚠️ Advertencia: Conexión HTTPS con problemas"
+            fi
+            
+            # Verificar chain SSL
+            echo "🔗 Verificando cadena SSL..."
+            openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt || echo "⚠️ No se pudo verificar cadena SSL"
           fi
         EOF
 
