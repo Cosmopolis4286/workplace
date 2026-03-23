@@ -365,7 +365,7 @@ jobs:
         scp -o StrictHostKeyChecking=yes \
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
-          -r scripts/deploy/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
+          -r scripts/deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
 
     - name: Deploy Backend
       run: |
