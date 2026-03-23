@@ -238,9 +238,21 @@ jobs:
           exit 1
         fi
         
-        # Esperar hasta 60s a que el health check responda
+        # Esperar hasta 60s a que el health check responda (con timeout mejorado)
         echo "⏳ Esperando health check del backend (hasta 60s)..."
-        if timeout 60 bash -c 'until curl -f http://localhost:3001/api/health; do sleep 2; done'; then
+        BACKEND_READY=false
+        for i in {1..30}; do
+          if curl -f --max-time 5 --connect-timeout 3 http://localhost:3001/api/health >/dev/null 2>&1; then
+            echo "✅ Backend health check OK (intento $i/30)"
+            BACKEND_READY=true
+            break
+          else
+            echo "⏳ Intento $i/30 - backend no responde"
+            sleep 2
+          fi
+        done
+        
+        if [ "$BACKEND_READY" = "true" ]; then
           echo "✅ Backend health check OK"
         else
           echo "❌ Backend health check falló después de 60s"
@@ -269,9 +281,21 @@ jobs:
           -p 3000:3000 \
           ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
         
-        # Esperar hasta 60s a que el health check responda
+        # Esperar hasta 60s a que el health check responda (con timeout mejorado)
         echo "⏳ Esperando health check del frontend (hasta 60s)..."
-        if timeout 60 bash -c 'until curl -f http://localhost:3000/; do sleep 2; done'; then
+        FRONTEND_READY=false
+        for i in {1..30}; do
+          if curl -f --max-time 5 --connect-timeout 3 http://localhost:3000/ >/dev/null 2>&1; then
+            echo "✅ Frontend health check OK (intento $i/30)"
+            FRONTEND_READY=true
+            break
+          else
+            echo "⏳ Intento $i/30 - frontend no responde"
+            sleep 2
+          fi
+        done
+        
+        if [ "$FRONTEND_READY" = "true" ]; then
           echo "✅ Frontend health check OK"
         else
           echo "❌ Frontend health check falló después de 60s"
@@ -469,14 +493,27 @@ jobs:
             -e PORT=3001 \
             ${BACKEND_IMAGE}
           
-          # Esperar health check del canary (usando IP real)
+          # Esperar health check del canary (usando IP real con timeouts mejorados)
           echo "⏳ Esperando health check del canary..."
           CANARY_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' workplace_backend_canary)
           echo "🌐 Canary IP: $CANARY_IP"
           
-          if ! timeout 60 bash -c 'until curl -f http://'$CANARY_IP':3001/api/health; do sleep 2; done'; then
-            echo "❌ Canary health check falló"
-            docker logs workplace_backend_canary --tail=30
+          CANARY_READY=false
+          for i in {1..30}; do
+            if curl -f --max-time 5 --connect-timeout 3 http://$CANARY_IP:3001/api/health >/dev/null 2>&1; then
+              echo "✅ Canary health check OK (intento $i/30)"
+              CANARY_READY=true
+              break
+            else
+              echo "⏳ Intento $i/30 - canary no responde"
+              sleep 2
+            fi
+          done
+          
+          if [ "$CANARY_READY" != "true" ]; then
+            echo "❌ Canary health check falló después de 60s"
+            echo "📋 Logs del canary:"
+            docker logs workplace_backend_canary --tail=50
             docker rm -f workplace_backend_canary
             exit 1
           fi
