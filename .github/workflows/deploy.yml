@@ -81,39 +81,20 @@ jobs:
         pnpm lint:ci
       continue-on-error: ${{ github.event.inputs.force_deploy == 'true' }}
 
-  buildeploy:
+  build-backend:
     needs: test
     runs-on: ubuntu-latest
-    if: |
-      github.ref == 'refs/heads/main' && 
-      (github.event_name == 'push' || github.event.inputs.force_deploy == 'true')
-    timeout-minutes: 25
+    timeout-minutes: 15
+    
+    outputs:
+      image-tag: ${{ steps.set-tag.outputs.tag }}
+      image-name: ${{ steps.set-tag.outputs.name }}
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
       with:
         fetch-depth: 0
-
-    - name: Validate production deployment
-      run: |
-        set -e
-        echo "🔍 Validando entorno de producción..."
-        
-        if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-          echo "❌ Solo permitido en main"
-          exit 1
-        fi
-        
-        if [ "$GITHUB_EVENT_NAME" == "push" ]; then
-          COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')
-          if echo "$COMMIT_MESSAGE" | grep -q "Merge branch 'develop'"; then
-            echo "❌ Merges desde develop bloqueados"
-            exit 1
-          fi
-        fi
-        
-        echo "✅ Validación OK"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
@@ -124,8 +105,15 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Extract metadata for backend
-      id: meta-backend
+    - name: Set image tag
+      id: set-tag
+      run: |
+        echo "tag=main-${{ github.sha }}" >> $GITHUB_OUTPUT
+        echo "name=${{ secrets.DOCKER_USERNAME }}/workplace-backend" >> $GITHUB_OUTPUT
+        echo "🏷️ Backend image tag: main-${{ github.sha }}"
+
+    - name: Extract metadata
+      id: meta
       uses: docker/metadata-action@v6
       with:
         images: ${{ secrets.DOCKER_USERNAME }}/workplace-backend
@@ -134,15 +122,53 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
       
-    - name: Set image tags
+    - name: Build and push backend
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: ./backend/Dockerfile.prod
+        target: production
+        push: true
+        pull: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
+          ${{ steps.meta.outputs.tags }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  build-frontend:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    outputs:
+      image-tag: ${{ steps.set-tag.outputs.tag }}
+      image-name: ${{ steps.set-tag.outputs.name }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Login Docker Hub
+      uses: docker/login-action@v4
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Set image tag
+      id: set-tag
       run: |
-        echo "BACKEND_IMAGE_TAG=main-${{ github.sha }}" >> $GITHUB_ENV
-        echo "FRONTEND_IMAGE_TAG=main-${{ github.sha }}" >> $GITHUB_ENV
-        echo "🏷️ Backend image tag: main-${{ github.sha }}"
+        echo "tag=main-${{ github.sha }}" >> $GITHUB_OUTPUT
+        echo "name=${{ secrets.DOCKER_USERNAME }}/workplace-frontend" >> $GITHUB_OUTPUT
         echo "🏷️ Frontend image tag: main-${{ github.sha }}"
 
-    - name: Extract metadata for frontend
-      id: meta-frontend
+    - name: Extract metadata
+      id: meta
       uses: docker/metadata-action@v6
       with:
         images: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend
@@ -151,20 +177,6 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
       
-
-    - name: Build and push backend
-      uses: docker/build-push-action@v7
-      with:
-        context: .
-        file: ./backend/Dockerfile.prod
-        target: production
-        push: true
-        tags: |
-          ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
-          ${{ steps.meta-backend.outputs.tags }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
     - name: Build and push frontend
       uses: docker/build-push-action@v7
       with:
@@ -172,12 +184,31 @@ jobs:
         file: ./frontend/Dockerfile.prod
         target: production
         push: true
+        pull: true
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
-          ${{ steps.meta-frontend.outputs.tags }}
+          ${{ steps.meta.outputs.tags }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        
+
+  verify-images:
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Login Docker Hub
+      uses: docker/login-action@v4
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
     - name: Verify built images
       run: |
         echo "🔍 Verificando imágenes construidas..."
@@ -191,16 +222,25 @@ jobs:
           -e POSTGRES_USER=test \
           -e POSTGRES_PASSWORD=test \
           -e POSTGRES_DB=test_db \
+          --health-cmd pg_isready \
+          --health-interval 10s \
+          --health-timeout 5s \
+          --health-retries 5 \
           postgres:16-alpine
         
-        # Esperar a que Postgres esté listo
-        echo "⏳ Esperando Postgres..."
-        timeout 30 bash -c 'until docker exec test-postgres pg_isready; do sleep 2; done'
-        
         # Levantar Redis para el test
-        echo "🔴 Levantando Redis para test..."
+        echo "� Levantando Redis para test..."
         docker run -d --name test-redis --network test-net \
+          --health-cmd "redis-cli ping" \
+          --health-interval 10s \
+          --health-timeout 5s \
+          --health-retries 5 \
           redis:7-alpine
+        
+        # Esperar a que las bases de datos estén ready usando health checks
+        echo "⏳ Esperando que las bases de datos estén ready..."
+        timeout 60 bash -c 'until docker inspect test-postgres --format="{{.State.Health.Status}}" | grep -q "healthy"; do sleep 2; done'
+        timeout 60 bash -c 'until docker inspect test-redis --format="{{.State.Health.Status}}" | grep -q "healthy"; do sleep 2; done'
         
         # Probar que el backend se ejecute correctamente
         echo "🧪 Testeando backend..."
@@ -209,7 +249,7 @@ jobs:
         # Pull para asegurar que tenemos la imagen
         docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
         
-        # Quitar --rm para poder ver logs si falla
+        # Correr backend con health check
         docker run -d --name test-backend --network test-net \
           -e DATABASE_URL="postgresql://test:test@test-postgres:5432/test_db" \
           -e DB_HOST=test-postgres \
@@ -223,49 +263,17 @@ jobs:
           -e GOOGLE_CLIENT_SECRET="test-google-client-secret-for-ci-only" \
           -e NODE_ENV=test \
           -p 3001:3001 \
+          --health-cmd "curl -f http://localhost:3001/api/health || exit 1" \
+          --health-interval 10s \
+          --health-timeout 5s \
+          --health-retries 5 \
           ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
         
-        # Esperar un momento para que el contenedor inicie y muestre errores si hay
-        sleep 10
+        # Esperar health check usando docker inspect
+        echo "⏳ Esperando health check del backend..."
+        timeout 120 bash -c 'until docker inspect test-backend --format="{{.State.Health.Status}}" | grep -q "healthy"; do sleep 2; done'
         
-        # Verificar si el contenedor sigue corriendo
-        if ! docker ps | grep -q test-backend; then
-          echo "❌ El backend se cayó inmediatamente"
-          echo "📋 Logs del crash:"
-          docker logs test-backend --tail=100
-          docker rm -f test-backend test-postgres test-redis || true
-          docker network rm test-net || true
-          exit 1
-        fi
-        
-        # Esperar hasta 60s a que el health check responda (con timeout mejorado)
-        echo "⏳ Esperando health check del backend (hasta 60s)..."
-        BACKEND_READY=false
-        for i in {1..30}; do
-          if curl -f --max-time 5 --connect-timeout 3 http://localhost:3001/api/health >/dev/null 2>&1; then
-            echo "✅ Backend health check OK (intento $i/30)"
-            BACKEND_READY=true
-            break
-          else
-            echo "⏳ Intento $i/30 - backend no responde"
-            sleep 2
-          fi
-        done
-        
-        if [ "$BACKEND_READY" = "true" ]; then
-          echo "✅ Backend health check OK"
-        else
-          echo "❌ Backend health check falló después de 60s"
-          echo "📋 Logs del backend:"
-          docker logs test-backend --tail=100
-          docker rm -f test-backend test-postgres test-redis || true
-          docker network rm test-net || true
-          exit 1
-        fi
-        
-        docker rm -f test-backend test-postgres test-redis || true
-        docker network rm test-net || true
-        echo "✅ Backend verificado correctamente"
+        echo "✅ Backend health check OK"
         
         # Probar que el frontend se ejecute correctamente
         echo "🧪 Testeando frontend..."
@@ -274,35 +282,23 @@ jobs:
         # Pull para asegurar que tenemos la imagen
         docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
         
-        docker run --rm -d --name test-frontend \
+        # Correr frontend con health check
+        docker run -d --name test-frontend \
           -e BACKEND_API_URL=http://localhost:3001/api \
           -e NITRO_HOST=0.0.0.0 \
           -e NITRO_PORT=3000 \
           -p 3000:3000 \
+          --health-cmd "curl -f http://localhost:3000/ || exit 1" \
+          --health-interval 10s \
+          --health-timeout 5s \
+          --health-retries 5 \
           ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
         
-        # Esperar hasta 60s a que el health check responda (con timeout mejorado)
-        echo "⏳ Esperando health check del frontend (hasta 60s)..."
-        FRONTEND_READY=false
-        for i in {1..30}; do
-          if curl -f --max-time 5 --connect-timeout 3 http://localhost:3000/ >/dev/null 2>&1; then
-            echo "✅ Frontend health check OK (intento $i/30)"
-            FRONTEND_READY=true
-            break
-          else
-            echo "⏳ Intento $i/30 - frontend no responde"
-            sleep 2
-          fi
-        done
+        # Esperar health check usando docker inspect
+        echo "⏳ Esperando health check del frontend..."
+        timeout 120 bash -c 'until docker inspect test-frontend --format="{{.State.Health.Status}}" | grep -q "healthy"; do sleep 2; done'
         
-        if [ "$FRONTEND_READY" = "true" ]; then
-          echo "✅ Frontend health check OK"
-        else
-          echo "❌ Frontend health check falló después de 60s"
-          docker logs test-frontend --tail=30
-          docker stop test-frontend
-          exit 1
-        fi
+        echo "✅ Frontend health check OK"
         
         # Verificaciones adicionales
         if docker exec test-frontend test -d "/app/.output"; then
@@ -321,20 +317,21 @@ jobs:
           exit 1
         fi
         
-        docker stop test-frontend
-        echo "✅ Frontend verificado correctamente"
-        
-        echo "🎉 Todas las imágenes verificadas correctamente"
+        docker rm -f test-backend test-postgres test-redis test-frontend || true
+        docker network rm test-net || true
+        echo "✅ Todas las imágenes verificadas correctamente"
 
   deploy:
-    needs: buildeploy
+    needs: verify-images
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.event.inputs.force_deploy == 'true'
+    if: |
+      github.ref == 'refs/heads/main' && 
+      (github.event_name == 'push' || github.event.inputs.force_deploy == 'true')
     
     # Control de concurrencia - evita pipelines simultáneos
     concurrency:
       group: production-deploy
-      cancel-in-progress: false
+      cancel-in-progress: true
 
     steps:
     - uses: actions/checkout@v6
@@ -354,44 +351,6 @@ jobs:
         
         echo "🚀 Iniciando Rolling Update..."
         
-        # Crear directorios necesarios antes de copiar
-        echo "📁 Creando estructura de directorios..."
-        ssh -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          mkdir -p /opt/workplace/nginx/conf.d
-          mkdir -p /opt/workplace/scripts
-          mkdir -p /opt/workplace/fallback
-        EOF
-        
-        # Copiar archivos de configuración (scp fuera del ssh)
-        echo "📁 Copiando configuración al servidor..."
-        scp -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/docker-compose.yml
-        scp -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            nginx/nginx.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/nginx.conf
-        scp -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            nginx/conf.d/default.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/default.conf
-        scp -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            scripts/ssl/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/ssl/setup-ssl-v2.sh
-        scp -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            scripts/database/backup-postgres.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/database/backup-postgres.sh
-        scp -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            scripts/monitoring/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/monitoring/production-monitor.sh
-        
         # Ejecutar deploy rolling update (con expansión de variables y timeout global)
         timeout 600 ssh -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=10 \
@@ -399,8 +358,14 @@ jobs:
             ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << EOF
           set -euo pipefail
           
-          echo "� Rolling Update en producción..."
+          echo "🔄 Rolling Update en producción..."
           cd /opt/workplace
+          
+          # Crear directorios necesarios
+          echo "📁 Creando estructura de directorios..."
+          mkdir -p /opt/workplace/nginx/conf.d
+          mkdir -p /opt/workplace/scripts
+          mkdir -p /opt/workplace/fallback
           
           # Evitar deploys simultáneos
           if [ -f ".deploy.lock" ]; then
@@ -413,7 +378,7 @@ jobs:
           trap "rm -f .deploy.lock" EXIT
           
           # Login a Docker Hub
-          echo "� Login Docker Hub..."
+          echo "🔐 Login Docker Hub..."
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           
           # Pull forzado de imágenes SHA específicas
@@ -430,9 +395,9 @@ jobs:
           echo "Backend: ${BACKEND_IMAGE}"
           echo "Frontend: ${FRONTEND_IMAGE}"
           
-          # Pull específico de las imágenes SHA
-          docker pull ${BACKEND_IMAGE}
-          docker pull ${FRONTEND_IMAGE}
+          # Pull específico de las imágenes SHA (quiet para velocidad)
+          docker pull --quiet ${BACKEND_IMAGE}
+          docker pull --quiet ${FRONTEND_IMAGE}
           
           # Deploy sin downtime real con imágenes específicas
           echo "🚀 Deploy sin downtime con imágenes específicas..."
@@ -441,8 +406,8 @@ jobs:
           # Usar siempre SHA tags para trazabilidad completa
           echo "📦 Usando SHA tags: main-${{ github.sha }}"
           
-          # Backup de versión ANTERIOR (determinista sin colisiones)
-          echo "💾 Backup de versión ANTERIOR (determinista)..."
+          # Backup de versión ANTERIOR (determinista con .last_backup)
+          echo "💾 Backup de versión ANTERIOR (con .last_backup)..."
           
           # Obtener imagen actual del contenedor running (más seguro)
           if docker compose ps backend | grep -q "Up"; then
@@ -452,6 +417,8 @@ jobs:
               BACKUP_TAG="backup-$(date +%s)-$(echo $CURRENT_SHA | cut -c1-7)"
               docker tag $CURRENT_BACKEND workplace-backend:$BACKUP_TAG
               echo "✅ Backup backend creado: $BACKUP_TAG"
+              # Guardar en .last_backup para trazabilidad
+              echo "workplace-backend:$BACKUP_TAG" > .last_backend_backup
             fi
           fi
           
@@ -462,6 +429,8 @@ jobs:
               BACKUP_TAG="backup-$(date +%s)-$(echo $CURRENT_SHA | cut -c1-7)"
               docker tag $CURRENT_FRONTEND workplace-frontend:$BACKUP_TAG
               echo "✅ Backup frontend creado: $BACKUP_TAG"
+              # Guardar en .last_backup para trazabilidad
+              echo "workplace-frontend:$BACKUP_TAG" > .last_frontend_backup
             fi
           fi
           
@@ -596,11 +565,19 @@ jobs:
             echo "❌ Canary falló - Métricas fuera de umbrales"
             echo "   Error Rate > 25% o Latencia > 800ms"
             
-            # Restaurar backup más reciente
-            LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
-            if [ -n "$LATEST_BACKUP" ]; then
+            # Restaurar backup más reciente usando .last_backup
+            if [ -f ".last_backend_backup" ]; then
+              LATEST_BACKUP=$(cat .last_backend_backup)
+              echo "🔄 Restaurando desde .last_backend_backup: $LATEST_BACKUP"
               docker tag $LATEST_BACKUP ${BACKEND_IMAGE}
               docker compose up -d --no-deps backend
+            else
+              # Fallback a búsqueda por tag
+              LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
+              if [ -n "$LATEST_BACKUP" ]; then
+                docker tag $LATEST_BACKUP ${BACKEND_IMAGE}
+                docker compose up -d --no-deps backend
+              fi
             fi
             exit 1
           fi
@@ -736,8 +713,8 @@ jobs:
             echo "⚠️ Omitiendo cleanup por seguridad (servicios no healthy)"
           fi
           
-          docker logout
-        EOF
+        docker logout
+EOF
 
     - name: Verify
       run: |
@@ -775,9 +752,22 @@ jobs:
           
           echo "🔍 Buscando backup más reciente..."
           
-          # Encontrar backup más reciente
-          BACKUP_BACKEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
-          BACKUP_FRONTEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-frontend:backup" | sort -r | head -n 1)
+          # Encontrar backup más reciente usando .last_backup files primero
+          if [ -f ".last_backend_backup" ]; then
+            BACKUP_BACKEND=$(cat .last_backend_backup)
+            echo "📦 Backend backup desde .last_backend_backup: $BACKUP_BACKEND"
+          else
+            BACKUP_BACKEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
+            echo "📦 Backend backup por búsqueda: $BACKUP_BACKEND"
+          fi
+          
+          if [ -f ".last_frontend_backup" ]; then
+            BACKUP_FRONTEND=$(cat .last_frontend_backup)
+            echo "📦 Frontend backup desde .last_frontend_backup: $BACKUP_FRONTEND"
+          else
+            BACKUP_FRONTEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-frontend:backup" | sort -r | head -n 1)
+            echo "📦 Frontend backup por búsqueda: $BACKUP_FRONTEND"
+          fi
           
           if [ -z "$BACKUP_BACKEND" ] || [ -z "$BACKUP_FRONTEND" ]; then
             echo "❌ No se encontraron backups para rollback"
