@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Variables
 export FRONTEND_IMAGE=${FRONTEND_IMAGE}
-export LOG_DIR="/var/log/deploy"
+export LOG_DIR="/opt/workplace/logs/deploy"
 
 # Funciones
 function wait_healthy() {
