@@ -88,7 +88,7 @@ services:
       - /tmp
 
   backend:
-    image: ${DOCKER_USER:-workplace}/workplace-backend:${BACKEND_TAG:-main}
+    image: ${BACKEND_IMAGE:-workplace/workplace-backend:main}
     container_name: workplace_backend
     restart: unless-stopped
     init: true
@@ -136,7 +136,7 @@ services:
       - /tmp
 
   frontend:
-    image: ${DOCKER_USER:-workplace}/workplace-frontend:${FRONTEND_TAG:-main}
+    image: ${FRONTEND_IMAGE:-workplace/workplace-frontend:main}
     container_name: workplace_frontend
     restart: unless-stopped
     init: true
