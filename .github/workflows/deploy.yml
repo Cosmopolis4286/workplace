@@ -354,10 +354,18 @@ jobs:
 
     - name: Copy deploy scripts
       run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          
+          # Crear directorio de scripts si no existe
+          mkdir -p /opt/workplace/scripts/deploy
+          echo "✅ Directorio /opt/workplace/scripts/deploy creado"
+        EOF
+        
         scp -o StrictHostKeyChecking=yes \
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
-          -r scripts/deploy/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/
+          -r scripts/deploy/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
 
     - name: Deploy Backend
       run: |
