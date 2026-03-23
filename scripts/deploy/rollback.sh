@@ -101,13 +101,20 @@ EOF
 function start_rollback_services() {
   echo "🚀 Iniciando servicios con rollback..."
   
-  # Iniciar servicios con versiones anteriores
-  docker compose up -d
+  # Iniciar servicios básicos primero (sin migrate)
+  docker compose up -d postgres redis
+  
+  # Esperar que las bases de datos estén ready
+  echo "⏳ Esperando bases de datos..."
+  sleep 10
+  
+  # Iniciar backend y frontend (omitir migrate)
+  docker compose up -d backend frontend nginx
   
   echo "⏳ Esperando que los servicios inicien..."
   sleep 30
   
-  echo "✅ Servicios iniciados con rollback"
+  echo "✅ Servicios iniciados con rollback (migraciones omitidas)"
 }
 
 function verify_rollback() {
