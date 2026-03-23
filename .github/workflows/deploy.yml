@@ -132,7 +132,6 @@ jobs:
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
           type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
       
     - name: Set image tags
@@ -150,7 +149,6 @@ jobs:
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
           type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
       
 
@@ -336,17 +334,16 @@ jobs:
           docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
           docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
           
-          # Taggear como latest para el deploy
-          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/workplace-backend:latest
-          docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:latest
+          # Usar siempre SHA tags para trazabilidad completa
+          echo "📦 Usando SHA tags: main-${{ github.sha }}"
           
           # Backup de imágenes actuales
           echo "💾 Backup de imágenes actuales..."
-          if docker image inspect workplace-backend:latest > /dev/null 2>&1; then
-            docker tag workplace-backend:latest workplace-backend:backup-$(date +%s)
+          if docker image inspect ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }} > /dev/null 2>&1; then
+            docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }} workplace-backend:backup-$(date +%s)
           fi
-          if docker image inspect workplace-frontend:latest > /dev/null 2>&1; then
-            docker tag workplace-frontend:latest workplace-frontend:backup-$(date +%s)
+          if docker image inspect ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }} > /dev/null 2>&1; then
+            docker tag ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }} workplace-frontend:backup-$(date +%s)
           fi
           
           # Canary Deploy con métricas reales
@@ -371,7 +368,7 @@ jobs:
             # Restaurar backup si existe
             if docker images | grep -q "workplace-backend:backup"; then
               LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
-              docker tag $LATEST_BACKUP ${{ secrets.DOCKER_USERNAME }}/workplace-backend:latest
+              docker tag $LATEST_BACKUP ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
               docker compose up -d --no-deps backend
             fi
             exit 1
@@ -408,7 +405,7 @@ jobs:
             # Restaurar backup más reciente
             LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
             if [ -n "$LATEST_BACKUP" ]; then
-              docker tag $LATEST_BACKUP ${{ secrets.DOCKER_USERNAME }}/workplace-backend:latest
+              docker tag $LATEST_BACKUP ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
               docker compose up -d --no-deps backend
             fi
             exit 1
@@ -479,7 +476,7 @@ jobs:
           # Solo hacer cleanup si el deploy fue exitoso
           if docker compose ps | grep -q "healthy"; then
             # Mantener últimas 10 versiones de cada imagen
-            docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-" | grep -v "latest" | grep -v "backup" | sort -r | tail -n +11 | xargs -r docker rmi || true
+            docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-" | grep -v "backup" | sort -r | tail -n +11 | xargs -r docker rmi || true
             
             # Limpiar imágenes dangling (sin etiquetas)
             docker image prune -f --filter "until=24h" || true
@@ -547,8 +544,8 @@ jobs:
           
           # Hacer rollback de imágenes
           echo "🔄 Haciendo rollback de imágenes..."
-          docker tag $BACKUP_BACKEND workplace-backend:latest
-          docker tag $BACKUP_FRONTEND workplace-frontend:latest
+          docker tag $BACKUP_BACKEND ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
+          docker tag $BACKUP_FRONTEND ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
           
           # Iniciar servicios con versiones anteriores
           echo "🚀 Iniciando servicios con rollback..."
