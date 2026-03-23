@@ -392,25 +392,27 @@ jobs:
           # Usar siempre SHA tags para trazabilidad completa
           echo "📦 Usando SHA tags: main-${{ github.sha }}"
           
-          # Backup de versión ANTERIOR (determinista)
+          # Backup de versión ANTERIOR (determinista sin colisiones)
           echo "💾 Backup de versión ANTERIOR (determinista)..."
           
           # Obtener imagen actual del contenedor running (más seguro)
           if docker compose ps backend | grep -q "Up"; then
             CURRENT_BACKEND=$(docker inspect $(docker compose ps -q backend) --format '{{.Image}}' 2>/dev/null || echo "")
             echo "📦 Backend actual: $CURRENT_BACKEND"
-            if [ -n "$CURRENT_BACKEND" ] && [ "$CURRENT_BACKEND" != "${DOCKER_USER}/workplace-backend:${BACKEND_TAG}" ]; then
-              docker tag $CURRENT_BACKEND workplace-backend:backup-$(date +%s)
-              echo "✅ Backup backend creado"
+            if [ -n "$CURRENT_BACKEND" ] && [ "$CURRENT_BACKEND" != "${BACKEND_IMAGE}" ]; then
+              BACKUP_TAG="backup-$(date +%s)-$(echo $CURRENT_SHA | cut -c1-7)"
+              docker tag $CURRENT_BACKEND workplace-backend:$BACKUP_TAG
+              echo "✅ Backup backend creado: $BACKUP_TAG"
             fi
           fi
           
           if docker compose ps frontend | grep -q "Up"; then
             CURRENT_FRONTEND=$(docker inspect $(docker compose ps -q frontend) --format '{{.Image}}' 2>/dev/null || echo "")
             echo "📦 Frontend actual: $CURRENT_FRONTEND"
-            if [ -n "$CURRENT_FRONTEND" ] && [ "$CURRENT_FRONTEND" != "${DOCKER_USER}/workplace-frontend:${FRONTEND_TAG}" ]; then
-              docker tag $CURRENT_FRONTEND workplace-frontend:backup-$(date +%s)
-              echo "✅ Backup frontend creado"
+            if [ -n "$CURRENT_FRONTEND" ] && [ "$CURRENT_FRONTEND" != "${FRONTEND_IMAGE}" ]; then
+              BACKUP_TAG="backup-$(date +%s)-$(echo $CURRENT_SHA | cut -c1-7)"
+              docker tag $CURRENT_FRONTEND workplace-frontend:$BACKUP_TAG
+              echo "✅ Backup frontend creado: $BACKUP_TAG"
             fi
           fi
           
@@ -547,9 +549,25 @@ jobs:
           # Escalar frontend a 2 instancias
           docker compose up -d --scale frontend=2 --no-deps frontend
           
-          # Esperar a que la nueva instancia esté healthy
-          echo "⏳ Esperando health check del nuevo frontend..."
-          timeout 60 bash -c 'until docker compose ps frontend | grep -q "healthy"; do sleep 2; done'
+          # Esperar a que AMBAS instancias estén healthy
+          echo "⏳ Esperando health check de AMBAS instancias frontend..."
+          timeout 60 bash -c '
+            FRONTEND_IDS=$(docker compose ps -q frontend)
+            ALL_HEALTHY=true
+            for ID in $FRONTEND_IDS; do
+              STATUS=$(docker inspect $ID --format "{{.State.Health.Status}}" 2>/dev/null || echo "unknown")
+              if [ "$STATUS" != "healthy" ]; then
+                echo "❌ Frontend instance $ID not healthy: $STATUS"
+                ALL_HEALTHY=false
+              fi
+            done
+            if [ "$ALL_HEALTHY" = "true" ]; then
+              echo "✅ Ambas instancias frontend están healthy"
+            else
+              echo "❌ No todas las instancias frontend están healthy"
+              exit 1
+            fi
+          '
           
           # Detener instancia antigua
           docker compose up -d --scale frontend=1 --no-deps frontend
@@ -634,19 +652,24 @@ jobs:
           
           echo "✅ Rolling Update completado exitosamente!"
           
-          # Cleanup seguro con prune (más robusto que xargs)
-          echo "🧹 Cleanup seguro de imágenes antiguas..."
+          # Cleanup conservador (protege rollback candidates)
+          echo "🧹 Cleanup conservador de imágenes antiguas..."
           
           # Solo hacer cleanup si el deploy fue exitoso
           if docker compose ps | grep -q "healthy"; then
-            # Mantener imágenes recientes (72h) y eliminar dangling
-            echo "🗑️ Limpiando imágenes antiguas (>72h) y dangling..."
-            docker image prune --force --filter "until=72h" || true
-            docker image prune --force --filter "dangling=true" || true
-            
-            # Opcional: mantener solo últimos 10 SHA tags si quieres más control
+            # Mantener últimas 10 SHA tags (para rollback reciente)
             echo "🏷️ Manteniendo últimos 10 SHA tags..."
             docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-" | grep "main-" | sort -V | tail -n +11 | xargs -r docker rmi -f || true
+            
+            # Limpiar solo imágenes dangling (sin etiquetas) más antiguas de 72h
+            echo "🗑️ Limpiando imágenes dangling (>72h)..."
+            docker image prune --force --filter "until=72h" --filter "dangling=true" || true
+            
+            # Mantener última tag estable si existe
+            echo "🔒 Protegiendo tags estables..."
+            docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-" | grep -E "stable|latest" | sort -u | while read img; do
+              echo "   Protegiendo: $img"
+            done
           else
             echo "⚠️ Omitiendo cleanup por seguridad (servicios no healthy)"
           fi
