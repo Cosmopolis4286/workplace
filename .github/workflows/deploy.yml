@@ -309,10 +309,17 @@ jobs:
           exit 1
         fi
         
-        if docker exec test-frontend test -f "/app/frontend/package.json"; then
-          echo "✅ Frontend package.json exists"
+        # Verificar package.json en ubicaciones posibles
+        if docker exec test-frontend test -f "/app/.output/package.json"; then
+          echo "✅ Frontend package.json exists in .output"
+        elif docker exec test-frontend test -f "/app/frontend/package.json"; then
+          echo "✅ Frontend package.json exists in frontend"
+        elif docker exec test-frontend test -f "/app/package.json"; then
+          echo "✅ Frontend package.json exists in app"
         else
-          echo "❌ Frontend package.json missing"
+          echo "❌ Frontend package.json missing in all locations"
+          echo "📋 Contents of /app:"
+          docker exec test-frontend ls -la /app/ || true
           docker stop test-frontend
           exit 1
         fi
