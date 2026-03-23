@@ -229,7 +229,7 @@ jobs:
           postgres:16-alpine
         
         # Levantar Redis para el test
-        echo "� Levantando Redis para test..."
+        echo "🔴 Levantando Redis para test..."
         docker run -d --name test-redis --network test-net \
           --health-cmd "redis-cli ping" \
           --health-interval 10s \
@@ -345,376 +345,81 @@ jobs:
         mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Deploy to VPS (Rolling Update)
+    - name: Copy deploy scripts
       run: |
-        set -euo pipefail
-        
-        echo "🚀 Iniciando Rolling Update..."
-        
-        # Ejecutar deploy rolling update (con expansión de variables y timeout global)
-        timeout 600 ssh -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << EOF
+        scp -o StrictHostKeyChecking=yes \
+          -o ConnectTimeout=10 \
+          -o ServerAliveInterval=30 \
+          -r scripts/deploy/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/
+
+    - name: Deploy Backend
+      run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
-          
-          echo "🔄 Rolling Update en producción..."
           cd /opt/workplace
           
-          # Crear directorios necesarios
-          echo "📁 Creando estructura de directorios..."
-          mkdir -p /opt/workplace/nginx/conf.d
-          mkdir -p /opt/workplace/scripts
-          mkdir -p /opt/workplace/fallback
+          # Variables de entorno
+          export CURRENT_SHA="${{ github.sha }}"
+          export DOCKER_USERNAME="${{ secrets.DOCKER_USERNAME }}"
+          export DOCKER_PASSWORD="${{ secrets.DOCKER_PASSWORD }}"
+          export BACKEND_TAG="main-${{ github.sha }}"
+          export FRONTEND_TAG="main-${{ github.sha }}"
           
-          # Evitar deploys simultáneos
-          if [ -f ".deploy.lock" ]; then
-            echo "❌ Deploy en progreso, abortando..."
-            exit 1
-          fi
+          # Ejecutar deploy backend
+          chmod +x scripts/deploy/deploy_backend.sh
+          bash scripts/deploy/deploy_backend.sh
+        EOF
+
+    - name: Canary Check
+      run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
           
-          # Crear lock file
-          touch .deploy.lock
-          trap "rm -f .deploy.lock" EXIT
+          # Variables de entorno
+          export CURRENT_SHA="${{ github.sha }}"
+          export DOCKER_USERNAME="${{ secrets.DOCKER_USERNAME }}"
+          export BACKEND_TAG="main-${{ github.sha }}"
+          export FRONTEND_TAG="main-${{ github.sha }}"
+          export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
           
-          # Login a Docker Hub
-          echo "🔐 Login Docker Hub..."
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-          
-          # Pull forzado de imágenes SHA específicas
-          echo "⬇️ Pull forzado de imágenes SHA específicas..."
-          export BACKEND_TAG=main-${{ github.sha }}
-          export FRONTEND_TAG=main-${{ github.sha }}
-          export DOCKER_USER=${{ secrets.DOCKER_USERNAME }}
-          
-          # Exportar imágenes completas para compose
-          export BACKEND_IMAGE=${DOCKER_USER}/workplace-backend:${BACKEND_TAG}
-          export FRONTEND_IMAGE=${DOCKER_USER}/workplace-frontend:${FRONTEND_TAG}
-          
-          echo "🏷️ Tags a usar:"
-          echo "Backend: ${BACKEND_IMAGE}"
-          echo "Frontend: ${FRONTEND_IMAGE}"
-          
-          # Pull específico de las imágenes SHA (quiet para velocidad)
-          docker pull --quiet ${BACKEND_IMAGE}
-          docker pull --quiet ${FRONTEND_IMAGE}
-          
-          # Deploy sin downtime real con imágenes específicas
-          echo "🚀 Deploy sin downtime con imágenes específicas..."
-          docker compose up -d --no-deps --force-recreate backend frontend
-          
-          # Usar siempre SHA tags para trazabilidad completa
-          echo "📦 Usando SHA tags: main-${{ github.sha }}"
-          
-          # Backup de versión ANTERIOR (determinista con .last_backup)
-          echo "💾 Backup de versión ANTERIOR (con .last_backup)..."
-          
-          # Obtener imagen actual del contenedor running (más seguro)
-          if docker compose ps backend | grep -q "Up"; then
-            CURRENT_BACKEND=$(docker inspect $(docker compose ps -q backend) --format '{{.Image}}' 2>/dev/null || echo "")
-            echo "📦 Backend actual: $CURRENT_BACKEND"
-            if [ -n "$CURRENT_BACKEND" ] && [ "$CURRENT_BACKEND" != "${BACKEND_IMAGE}" ]; then
-              BACKUP_TAG="backup-$(date +%s)-$(echo $CURRENT_SHA | cut -c1-7)"
-              docker tag $CURRENT_BACKEND workplace-backend:$BACKUP_TAG
-              echo "✅ Backup backend creado: $BACKUP_TAG"
-              # Guardar en .last_backup para trazabilidad
-              echo "workplace-backend:$BACKUP_TAG" > .last_backend_backup
-            fi
-          fi
-          
-          if docker compose ps frontend | grep -q "Up"; then
-            CURRENT_FRONTEND=$(docker inspect $(docker compose ps -q frontend) --format '{{.Image}}' 2>/dev/null || echo "")
-            echo "📦 Frontend actual: $CURRENT_FRONTEND"
-            if [ -n "$CURRENT_FRONTEND" ] && [ "$CURRENT_FRONTEND" != "${FRONTEND_IMAGE}" ]; then
-              BACKUP_TAG="backup-$(date +%s)-$(echo $CURRENT_SHA | cut -c1-7)"
-              docker tag $CURRENT_FRONTEND workplace-frontend:$BACKUP_TAG
-              echo "✅ Backup frontend creado: $BACKUP_TAG"
-              # Guardar en .last_backup para trazabilidad
-              echo "workplace-frontend:$BACKUP_TAG" > .last_frontend_backup
-            fi
-          fi
-          
-          # Canary Deploy real (paralelo sin downtime)
-          echo "🚀 Iniciando Canary Deploy real (paralelo)..."
-          
-          # Obtener SHA del deploy actual
-          CURRENT_SHA="${{ github.sha }}"
-          echo "📦 Deployando SHA: $CURRENT_SHA"
-          
-          # Levantar canary en paralelo (otro nombre/puerto)
-          echo "🧪 Levantando canary en paralelo..."
-          
-          # Obtener nombre real de la red del contenedor backend actual
-          NETWORK_NAME=$(docker compose ps -q backend | xargs docker inspect --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null || echo "app_network")
-          echo "🌐 Usando red: $NETWORK_NAME"
-          
-          docker run -d \
-            --name workplace_backend_canary \
-            --network $NETWORK_NAME \
-            --restart unless-stopped \
-            --memory 512m \
-            --cpus 0.5 \
-            --log-driver json-file \
-            --log-opt max-size=10m \
-            --log-opt max-file=3 \
-            --env-file /opt/workplace/.env \
-            -e NODE_ENV=production \
-            -e PORT=3001 \
-            ${BACKEND_IMAGE}
-          
-          # Esperar health check del canary (usando IP real con timeouts mejorados)
-          echo "⏳ Esperando health check del canary..."
-          CANARY_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' workplace_backend_canary)
-          echo "🌐 Canary IP: $CANARY_IP"
-          
-          CANARY_READY=false
-          for i in {1..30}; do
-            if curl -f --max-time 5 --connect-timeout 3 http://$CANARY_IP:3001/api/health >/dev/null 2>&1; then
-              echo "✅ Canary health check OK (intento $i/30)"
-              CANARY_READY=true
-              break
-            else
-              echo "⏳ Intento $i/30 - canary no responde"
-              sleep 2
-            fi
-          done
-          
-          if [ "$CANARY_READY" != "true" ]; then
-            echo "❌ Canary health check falló después de 60s"
-            echo "📋 Logs del canary:"
-            docker logs workplace_backend_canary --tail=50
-            docker rm -f workplace_backend_canary
-            exit 1
-          fi
-          
-          # Verificar métricas reales por 60 segundos (endpoints multi-nivel)
-          echo "📊 Verificando métricas del canary (60s)..."
-          CANARY_SUCCESS=true
-          ERROR_COUNT=0
-          TOTAL_LATENCY=0
-          ITERATIONS=0
-          
-          for i in {1..12}; do
-            ITERATIONS=$i
-            
-            # Nivel 1: Health check básico (liveness)
-            if ! curl -f -s http://$CANARY_IP:3001/api/health > /dev/null; then
-              echo "❌ Health check falló en iteración $i"
-              ERROR_COUNT=$((ERROR_COUNT + 1))
-              if [ $ERROR_COUNT -gt 2 ]; then
-                CANARY_SUCCESS=false
-                break
-              fi
-            fi
-            
-            # Nivel 2: DB connectivity (simulado con endpoint ligero)
-            if ! curl -f -s http://$CANARY_IP:3001/api/version > /dev/null 2>&1; then
-              echo "⚠️ Version endpoint falló en iteración $i"
-              ERROR_COUNT=$((ERROR_COUNT + 1))
-            fi
-            
-            # Nivel 3: Readiness check (endpoint que depende de todo)
-            if ! curl -f -s --max-time 5 http://$CANARY_IP:3001/api/ready > /dev/null 2>&1; then
-              echo "⚠️ Readiness endpoint falló en iteración $i"
-              # No contar como error fatal, solo advertencia
-            fi
-            
-            # Medir latencia del endpoint principal
-            START_TIME=$(date +%s%N)
-            curl -f -s http://$CANARY_IP:3001/api/health > /dev/null
-            END_TIME=$(date +%s%N)
-            LATENCY=$(( (END_TIME - START_TIME) / 1000000 ))  # Convertir a ms
-            
-            TOTAL_LATENCY=$((TOTAL_LATENCY + LATENCY))
-            
-            # Validar latencia (< 1000ms)
-            if [ "$LATENCY" -gt 1000 ]; then
-              echo "⚠️ Alta latencia detectada: ${LATENCY}ms"
-              CANARY_SUCCESS=false
-              break
-            fi
-            
-            # Calcular latencia promedio
-            AVG_LATENCY=$((TOTAL_LATENCY / ITERATIONS))
-            echo "✅ Métrica OK ($i/12) - Latencia: ${LATENCY}ms, Promedio: ${AVG_LATENCY}ms, Errores: $ERROR_COUNT"
-            sleep 5
-          done
-          
-          # Métricas finales con cálculo correcto
-          FINAL_AVG_LATENCY=$((TOTAL_LATENCY / ITERATIONS))
-          ERROR_RATE=$((ERROR_COUNT * 100 / ITERATIONS))
-          
-          echo "📊 Métricas Finales Canary:"
-          echo "   Latencia Promedio: ${FINAL_AVG_LATENCY}ms"
-          echo "   Error Rate: ${ERROR_RATE}%"
-          echo "   Errores Totales: $ERROR_COUNT/$ITERATIONS"
-          
-          # Circuit breaker: si error rate > 50% abortar inmediato
-          if [ "$ERROR_RATE" -gt 50 ]; then
-            echo "🚨 Circuit breaker activado - Error rate demasiado alto: ${ERROR_RATE}%"
-            CANARY_SUCCESS=false
-          fi
-          
-          # Limpiar canary
-          docker rm -f workplace_backend_canary
-          
-          # Validación final (umbrales estrictos)
-          if [ "$CANARY_SUCCESS" = "true" ] && [ "$ERROR_RATE" -lt 25 ] && [ "$FINAL_AVG_LATENCY" -lt 800 ]; then
-            echo "✅ Canary exitoso - Métricas dentro de umbrales"
+          # Ejecutar canary check
+          chmod +x scripts/deploy/canary_check.sh
+          if bash scripts/deploy/canary_check.sh; then
+            echo "✅ Canary validation passed"
           else
-            echo "❌ Canary falló - Métricas fuera de umbrales"
-            echo "   Error Rate > 25% o Latencia > 800ms"
-            
-            # Restaurar backup más reciente usando .last_backup
-            if [ -f ".last_backend_backup" ]; then
-              LATEST_BACKUP=$(cat .last_backend_backup)
-              echo "🔄 Restaurando desde .last_backend_backup: $LATEST_BACKUP"
-              docker tag $LATEST_BACKUP ${BACKEND_IMAGE}
-              docker compose up -d --no-deps backend
-            else
-              # Fallback a búsqueda por tag
-              LATEST_BACKUP=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
-              if [ -n "$LATEST_BACKUP" ]; then
-                docker tag $LATEST_BACKUP ${BACKEND_IMAGE}
-                docker compose up -d --no-deps backend
-              fi
-            fi
+            echo "❌ Canary validation failed"
             exit 1
           fi
+        EOF
+
+    - name: Rolling Update
+      run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
           
-          # Rolling Update Frontend (nginx no depende de frontend)
-          echo "🔄 Actualizando Frontend..."
+          # Variables de entorno
+          export FRONTEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}"
           
-          # Escalar frontend a 2 instancias
-          docker compose up -d --scale frontend=2 --no-deps frontend
+          # Ejecutar rolling update
+          chmod +x scripts/deploy/rolling_update.sh
+          bash scripts/deploy/rolling_update.sh
+        EOF
+
+    - name: Cleanup
+      run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
           
-          # Esperar a que AMBAS instancias estén healthy
-          echo "⏳ Esperando health check de AMBAS instancias frontend..."
-          timeout 60 bash -c '
-            FRONTEND_IDS=$(docker compose ps -q frontend)
-            ALL_HEALTHY=true
-            for ID in $FRONTEND_IDS; do
-              STATUS=$(docker inspect $ID --format "{{.State.Health.Status}}" 2>/dev/null || echo "unknown")
-              if [ "$STATUS" != "healthy" ]; then
-                echo "❌ Frontend instance $ID not healthy: $STATUS"
-                ALL_HEALTHY=false
-              fi
-            done
-            if [ "$ALL_HEALTHY" = "true" ]; then
-              echo "✅ Ambas instancias frontend están healthy"
-            else
-              echo "❌ No todas las instancias frontend están healthy"
-              exit 1
-            fi
-          '
+          # Ejecutar cleanup
+          chmod +x scripts/deploy/cleanup.sh
+          bash scripts/deploy/cleanup.sh
           
-          # Detener instancia antigua
-          docker compose up -d --scale frontend=1 --no-deps frontend
-          
-          # Reiniciar nginx para que tome los cambios (depende solo de backend)
-          echo "🔄 Reiniciando Nginx..."
-          docker compose restart nginx
-          
-          # Configurar SSL si es necesario
-          echo "🔧 Configurando SSL..."
-          chmod +x /opt/workplace/scripts/ssl/setup-ssl-v2.sh
-          /opt/workplace/scripts/ssl/setup-ssl-v2.sh
-          
-          # Verificar estado final
-          echo "🔍 Verificando estado final..."
-          docker compose ps
-          
-          # Health checks finales usando docker inspect con nombres dinámicos
-          echo "🔍 Verificando estado final con docker inspect..."
-          
-          # Obtener IDs de contenedores dinámicamente
-          POSTGRES_ID=$(docker compose ps -q postgres)
-          REDIS_ID=$(docker compose ps -q redis)
-          BACKEND_ID=$(docker compose ps -q backend)
-          FRONTEND_ID=$(docker compose ps -q frontend)
-          NGINX_ID=$(docker compose ps -q nginx)
-          
-          # Verificar Postgres
-          if [ -n "$POSTGRES_ID" ]; then
-            POSTGRES_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $POSTGRES_ID 2>/dev/null || echo "unknown")
-            if [ "$POSTGRES_STATUS" != "healthy" ]; then
-              echo "❌ Postgres no está healthy (status: $POSTGRES_STATUS)"
-              docker compose logs postgres --tail=20
-              exit 1
-            fi
-          fi
-          
-          # Verificar Redis
-          if [ -n "$REDIS_ID" ]; then
-            REDIS_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $REDIS_ID 2>/dev/null || echo "unknown")
-            if [ "$REDIS_STATUS" != "healthy" ]; then
-              echo "❌ Redis no está healthy (status: $REDIS_STATUS)"
-              docker compose logs redis --tail=20
-              exit 1
-            fi
-          fi
-          
-          # Verificar Backend
-          if [ -n "$BACKEND_ID" ]; then
-            BACKEND_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $BACKEND_ID 2>/dev/null || echo "unknown")
-            if [ "$BACKEND_STATUS" != "healthy" ]; then
-              echo "❌ Backend no está healthy (status: $BACKEND_STATUS)"
-              docker compose logs backend --tail=20
-              exit 1
-            fi
-          fi
-          
-          # Verificar Frontend
-          if [ -n "$FRONTEND_ID" ]; then
-            FRONTEND_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $FRONTEND_ID 2>/dev/null || echo "unknown")
-            if [ "$FRONTEND_STATUS" != "healthy" ]; then
-              echo "❌ Frontend no está healthy (status: $FRONTEND_STATUS)"
-              docker compose logs frontend --tail=20
-              exit 1
-            fi
-          fi
-          
-          # Verificar Nginx
-          if [ -n "$NGINX_ID" ]; then
-            NGINX_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $NGINX_ID 2>/dev/null || echo "unknown")
-            if [ "$NGINX_STATUS" != "healthy" ]; then
-              echo "❌ Nginx no está healthy (status: $NGINX_STATUS)"
-              docker compose logs nginx --tail=20
-              exit 1
-            fi
-          fi
-          
-          echo "✅ Todos los servicios están healthy!"
-          if docker compose ps frontend | grep -q "Up" && ! docker compose ps frontend | grep -q "healthy"; then
-            echo "⚠️ Frontend está Up pero no healthy (nginx puede servir fallback)"
-          fi
-          
-          echo "✅ Rolling Update completado exitosamente!"
-          
-          # Cleanup conservador (protege rollback candidates)
-          echo "🧹 Cleanup conservador de imágenes antiguas..."
-          
-          # Solo hacer cleanup si el deploy fue exitoso
-          if docker compose ps | grep -q "healthy"; then
-            # Mantener últimas 10 SHA tags (para rollback reciente)
-            echo "🏷️ Manteniendo últimos 10 SHA tags..."
-            docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-" | grep "main-" | sort -V | tail -n +11 | xargs -r docker rmi -f || true
-            
-            # Limpiar solo imágenes dangling (sin etiquetas) más antiguas de 72h
-            echo "🗑️ Limpiando imágenes dangling (>72h)..."
-            docker image prune --force --filter "until=72h" --filter "dangling=true" || true
-            
-            # Mantener última tag estable si existe
-            echo "🔒 Protegiendo tags estables..."
-            docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-" | grep -E "stable|latest" | sort -u | while read img; do
-              echo "   Protegiendo: $img"
-            done
-          else
-            echo "⚠️ Omitiendo cleanup por seguridad (servicios no healthy)"
-          fi
-          
-        docker logout
-EOF
+          # Logout de Docker
+          docker logout
+        EOF
 
     - name: Verify
       run: |
@@ -739,99 +444,23 @@ EOF
         mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
+    - name: Copy rollback script
+      run: |
+        scp -o StrictHostKeyChecking=yes \
+          -o ConnectTimeout=10 \
+          -o ServerAliveInterval=30 \
+          scripts/deploy/rollback.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
+
     - name: Complete Rollback
       run: |
-        set -euo pipefail
-        
-        echo "🔄 Iniciando Rollback Completo..."
-        
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
-          
           cd /opt/workplace
           
-          echo "🔍 Buscando backup más reciente..."
+          # Variables de entorno
+          export DOCKER_USERNAME="${{ secrets.DOCKER_USERNAME }}"
           
-          # Encontrar backup más reciente usando .last_backup files primero
-          if [ -f ".last_backend_backup" ]; then
-            BACKUP_BACKEND=$(cat .last_backend_backup)
-            echo "📦 Backend backup desde .last_backend_backup: $BACKUP_BACKEND"
-          else
-            BACKUP_BACKEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-backend:backup" | sort -r | head -n 1)
-            echo "📦 Backend backup por búsqueda: $BACKUP_BACKEND"
-          fi
-          
-          if [ -f ".last_frontend_backup" ]; then
-            BACKUP_FRONTEND=$(cat .last_frontend_backup)
-            echo "📦 Frontend backup desde .last_frontend_backup: $BACKUP_FRONTEND"
-          else
-            BACKUP_FRONTEND=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "workplace-frontend:backup" | sort -r | head -n 1)
-            echo "📦 Frontend backup por búsqueda: $BACKUP_FRONTEND"
-          fi
-          
-          if [ -z "$BACKUP_BACKEND" ] || [ -z "$BACKUP_FRONTEND" ]; then
-            echo "❌ No se encontraron backups para rollback"
-            echo "Backups disponibles:"
-            docker images --format "{{.Repository}}:{{.Tag}}" | grep backup || echo "No hay backups"
-            exit 1
-          fi
-          
-          echo "📦 Usando backups:"
-          echo "Backend: $BACKUP_BACKEND"
-          echo "Frontend: $BACKUP_FRONTEND"
-          
-          # Detener servicios actuales
-          echo "🔄 Deteniendo servicios actuales..."
-          docker compose down
-          
-          # Hacer rollback de imágenes (sin reutilizar SHA)
-          echo "🔄 Haciendo rollback de imágenes..."
-          docker tag $BACKUP_BACKEND ${{ secrets.DOCKER_USERNAME }}/workplace-backend:rollback-$(date +%s)
-          docker tag $BACKUP_FRONTEND ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:rollback-$(date +%s)
-          
-          # Iniciar servicios con versiones anteriores
-          echo "🚀 Iniciando servicios con rollback..."
-          docker compose up -d
-          
-          # Esperar a que los servicios inicien
-          echo "⏳ Esperando que los servicios inicien..."
-          sleep 30
-          
-          # Verificar health checks post-rollback (nginx solo depende de backend)
-          if ! docker compose ps postgres | grep -q "healthy"; then
-            echo "❌ Postgres no está healthy después de rollback"
-            docker compose logs postgres --tail=20
-            exit 1
-          fi
-          
-          if ! docker compose ps redis | grep -q "healthy"; then
-            echo "❌ Redis no está healthy después de rollback"
-            docker compose logs redis --tail=20
-            exit 1
-          fi
-          
-          if ! docker compose ps backend | grep -q "healthy"; then
-            echo "❌ Backend no está healthy después de rollback"
-            docker compose logs backend --tail=20
-            exit 1
-          fi
-          
-          # Nginx debe estar Up (depende solo de backend)
-          if ! docker compose ps nginx | grep -q "Up"; then
-            echo "❌ Nginx no está Up después de rollback"
-            docker compose logs nginx --tail=20
-            exit 1
-          fi
-          
-          # Frontend es opcional
-          if docker compose ps frontend | grep -q "Up" && ! docker compose ps frontend | grep -q "healthy"; then
-            echo "⚠️ Frontend Up pero no healthy después de rollback (nginx puede servir fallback)"
-          fi
-          
-          echo "✅ Rollback completado exitosamente!"
-          echo "🎉 Servicios restaurados a versión anterior"
-          
-          # Limpiar imágenes fallidas
-          echo "🧹 Limpiando imágenes fallidas..."
-          docker image prune -f
+          # Ejecutar rollback
+          chmod +x scripts/deploy/rollback.sh
+          bash scripts/deploy/rollback.sh
         EOF
