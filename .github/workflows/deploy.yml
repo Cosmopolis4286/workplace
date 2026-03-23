@@ -212,7 +212,10 @@ jobs:
         # Quitar --rm para poder ver logs si falla
         docker run -d --name test-backend --network test-net \
           -e DATABASE_URL="postgresql://test:test@test-postgres:5432/test_db" \
+          -e DB_HOST=test-postgres \
+          -e DB_PORT=5432 \
           -e REDIS_HOST=test-redis \
+          -e REDIS_PORT=6379 \
           -e NODE_ENV=test \
           -p 3001:3001 \
           ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
@@ -350,15 +353,15 @@ jobs:
         scp -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=10 \
             -o ServerAliveInterval=30 \
-            scripts/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/setup-ssl-v2.sh
+            scripts/ssl/setup-ssl-v2.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/ssl/setup-ssl-v2.sh
         scp -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=10 \
             -o ServerAliveInterval=30 \
-            scripts/backup-postgres.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/backup-postgres.sh
+            scripts/database/backup-postgres.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/database/backup-postgres.sh
         scp -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=10 \
             -o ServerAliveInterval=30 \
-            scripts/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/production-monitor.sh
+            scripts/monitoring/production-monitor.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/monitoring/production-monitor.sh
         
         # Ejecutar deploy rolling update (con expansión de variables y timeout global)
         timeout 600 ssh -o StrictHostKeyChecking=yes \
@@ -595,8 +598,8 @@ jobs:
           
           # Configurar SSL si es necesario
           echo "🔧 Configurando SSL..."
-          chmod +x /opt/workplace/scripts/setup-ssl-v2.sh
-          /opt/workplace/scripts/setup-ssl-v2.sh
+          chmod +x /opt/workplace/scripts/ssl/setup-ssl-v2.sh
+          /opt/workplace/scripts/ssl/setup-ssl-v2.sh
           
           # Verificar estado final
           echo "🔍 Verificando estado final..."
