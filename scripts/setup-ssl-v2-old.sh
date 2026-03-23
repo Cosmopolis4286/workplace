@@ -6,8 +6,8 @@ if [ -f "/opt/workplace/.env" ]; then
   source /opt/workplace/.env
 fi
 
-# Usar DOMAIN_HOST del .env, o valor por defecto
-DOMAIN="${DOMAIN_HOST:-localhost}"
+# Usar DOMAIN del .env, o valor por defecto
+DOMAIN="${DOMAIN:-localhost}"
 
 echo "🔧 Configurando SSL para dominio: $DOMAIN"
 
