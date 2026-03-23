@@ -369,6 +369,7 @@ jobs:
         
         echo "📋 Scripts copiados:"
         echo "- rolling_update_backend.sh (nuevo - zero downtime)"
+        echo "- verify_load_balancing.sh (nuevo - validación)"
         echo "- deploy_backend.sh (fallback)"
         echo "- rolling_update.sh (frontend)"
         echo "- rollback.sh (híbrido)"
@@ -424,6 +425,22 @@ jobs:
           else
             echo "❌ Canary validation failed"
             exit 1
+          fi
+        EOF
+
+    - name: Verify Load Balancing
+      run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
+          
+          # Verificar que load balancing esté funcionando antes de rolling update
+          echo "🔍 Verificando load balancing pre-rolling..."
+          chmod +x scripts/deploy/verify_load_balancing.sh
+          if bash scripts/deploy/verify_load_balancing.sh; then
+            echo "✅ Load balancing pre-rolling OK"
+          else
+            echo "⚠️ Load balancing pre-rolling tiene issues, pero continuando..."
           fi
         EOF
 
