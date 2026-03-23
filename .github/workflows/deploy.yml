@@ -201,12 +201,18 @@ jobs:
         
         # Esperar hasta 60s a que el health check responda
         echo "⏳ Esperando health check del backend (hasta 60s)..."
-        if timeout 60 bash -c 'until curl -f http://localhost:3001/api/health; do sleep 2; done'; then
+        if timeout 60 bash -c 'until curl -f http://workplace_backend:3001/api/health; do sleep 2; done'; then
           echo "✅ Backend health check OK"
         else
           echo "❌ Backend health check falló después de 60s"
-          docker logs test-backend --tail=30
-          docker stop test-backend
+          echo "🔍 Verificando estado del contenedor..."
+          docker compose ps backend
+          echo "📋 Logs del backend (últimas 30 líneas):"
+          docker compose logs backend --tail=30
+          echo "🔍 Verificando puerto del contenedor..."
+          docker compose exec backend netstat -tlnp 2>/dev/null || echo "netstat no disponible"
+          echo "🔍 Verificando procesos del contenedor..."
+          docker compose exec backend ps aux 2>/dev/null || echo "ps no disponible"
           exit 1
         fi
         
