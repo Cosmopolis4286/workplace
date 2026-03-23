@@ -219,6 +219,8 @@ jobs:
           -e JWT_SECRET="test-jwt-secret-for-ci-only" \
           -e JWT_REFRESH_SECRET="test-jwt-refresh-secret-for-ci-only" \
           -e JWT_ACCESS_SECRET="test-jwt-access-secret-for-ci-only" \
+          -e GOOGLE_CLIENT_ID="test-google-client-id-for-ci-only" \
+          -e GOOGLE_CLIENT_SECRET="test-google-client-secret-for-ci-only" \
           -e NODE_ENV=test \
           -p 3001:3001 \
           ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
