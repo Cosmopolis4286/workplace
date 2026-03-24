@@ -22,8 +22,16 @@ FROM deps AS builder
 
 WORKDIR /app/frontend
 
-# Copiar código fuente
-COPY frontend/ ./
+# Copiar código fuente optimizado
+COPY frontend/nuxt.config.ts ./
+COPY frontend/assets ./assets
+COPY frontend/components ./components
+COPY frontend/layouts ./layouts
+COPY frontend/pages ./pages
+COPY frontend/plugins ./plugins
+COPY frontend/server ./server
+COPY frontend/utils ./utils
+COPY frontend/app.vue ./
 
 # Construir Nuxt con memoria extendida
 RUN NODE_OPTIONS="--max-old-space-size=2048" pnpm run build \
