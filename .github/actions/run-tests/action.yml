@@ -1,0 +1,81 @@
+name: Run Tests with Coverage
+description: Run unit tests with coverage threshold validation
+author: 'WorkPlace Team'
+
+inputs:
+  force-deploy:
+    description: 'Force deploy even if tests fail'
+    required: false
+    default: false
+    type: boolean
+  coverage-threshold:
+    description: 'Coverage threshold percentage'
+    required: false
+    default: '80'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Backend Tests with Coverage
+      shell: bash
+      run: |
+        cd backend
+        pnpm test:coverage
+      env:
+        DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+
+    - name: Run Frontend Tests with Coverage
+      shell: bash
+      run: |
+        cd frontend
+        pnpm test:coverage
+
+    - name: Check Coverage Threshold
+      shell: bash
+      run: |
+        echo "🔍 Checking coverage thresholds..."
+        
+        # Backend coverage
+        BACKEND_COVERAGE=$(cd backend && pnpm run coverage:percentage || echo "0")
+        echo "Backend coverage: ${BACKEND_COVERAGE}%"
+        
+        # Frontend coverage  
+        FRONTEND_COVERAGE=$(cd frontend && pnpm run coverage:percentage || echo "0")
+        echo "Frontend coverage: ${FRONTEND_COVERAGE}%"
+        
+        # Check thresholds
+        THRESHOLD=${{ inputs.coverage-threshold }}
+        
+        if (( $(echo "$BACKEND_COVERAGE < $THRESHOLD" | bc -l) )); then
+          echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${THRESHOLD}%"
+          if [ "${{ inputs.force-deploy }}" != "true" ]; then
+            exit 1
+          fi
+          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
+        fi
+        
+        if (( $(echo "$FRONTEND_COVERAGE < $THRESHOLD" | bc -l) )); then
+          echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${THRESHOLD}%"
+          if [ "${{ inputs.force-deploy }}" != "true" ]; then
+            exit 1
+          fi
+          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
+        fi
+        
+        echo "✅ All coverage requirements met!"
+
+    - name: Upload Coverage Reports
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Run linting
+      shell: bash
+      run: |
+        cd backend
+        pnpm lint:ci
+      continue-on-error: ${{ inputs.force-deploy == 'true' }}
