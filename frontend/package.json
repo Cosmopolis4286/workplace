@@ -10,7 +10,7 @@
     "postinstall": "nuxt prepare",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
-    "coverage:percentage": "vitest run --coverage --reporter=json | grep 'All files' | jq '.total.lines.pct' || echo '0'"
+    "coverage:percentage": "node scripts/get-coverage.js"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
