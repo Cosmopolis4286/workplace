@@ -27,7 +27,7 @@ describe('Simple Logic Tests', () => {
 
     it('should handle division by zero safely', () => {
       const result = 10 / 0
-      expect(isNaN(result)).toBe(true)
+      expect(!isFinite(result)).toBe(true)
     })
   })
 
