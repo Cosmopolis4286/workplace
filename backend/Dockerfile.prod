@@ -55,7 +55,8 @@ WORKDIR /app/backend
 
 # Instalar solo deps de producción necesarias
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    corepack enable && corepack prepare pnpm@9.15.0 --activate \    && pnpm install --prod
+    corepack enable && corepack prepare pnpm@9.15.0 --activate && \
+    pnpm install --prod
 
 # Generar cliente Prisma
 RUN pnpm prisma generate
