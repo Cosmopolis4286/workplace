@@ -1,60 +1,102 @@
-# Dependencias
+# ================================
+# Dependencies
+# ================================
 node_modules
 frontend/node_modules
 backend/node_modules
 **/node_modules
 .pnpm-store/
+.pnpm-debug.log*
 
-# Builds
+# ================================
+# Build outputs
+# ================================
 frontend/.nuxt
 frontend/.nitro
 frontend/.cache
 frontend/.output
 frontend/.data
+frontend/dist
 backend/dist
 **/dist
+build/
+out/
 
-# Logs
-*.log
-*.log.*
-logs/
-
+# ================================
 # Environment (CRÍTICO)
+# ================================
 .env
 .env.*
 !.env.example
 
+# ================================
+# Logs
+# ================================
+*.log
+*.log.*
+logs/
+
+# ================================
 # Git
+# ================================
 .git
 .gitignore
 .gitattributes
 
+# ================================
 # Docker
+# ================================
 Dockerfile*
 docker-compose*.yml
 docker-compose*.yaml
 .dockerignore
 
+# ================================
 # OS
+# ================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 desktop.ini
 
+# ================================
 # Editor
+# ================================
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.eslintcache
 
-# Cache
+# ================================
+# Cache & Temp
+# ================================
 .cache/
 .temp/
 tmp/
+.parcel-cache/
+.vite/
 
+# ================================
 # Testing
+# ================================
 coverage/
 .nyc_output/
+test-results/
+junit.xml
 
-# Misc
-*.tsbuildinfo
+# ================================
+# Runtime
+# ================================
 uploads/
+storage/
+
+# ================================
+# Misc
+# ================================
+*.tsbuildinfo
