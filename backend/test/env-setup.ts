@@ -24,7 +24,11 @@ const testEnvVars = {
   RATE_LIMIT_WINDOW_MS: '900000',
   RATE_LIMIT_MAX_REQUESTS: '100',
   LOG_LEVEL: 'error',
-  ENABLE_METRICS: 'false'
+  ENABLE_METRICS: 'false',
+  // Google OAuth test variables
+  GOOGLE_CLIENT_ID: 'test-google-client-id-for-testing',
+  GOOGLE_CLIENT_SECRET: 'test-google-client-secret-for-testing',
+  GOOGLE_CALLBACK_URL: 'http://localhost:3001/auth/google/callback'
 }
 
 // Apply all environment variables
@@ -38,3 +42,5 @@ console.log(`🔧 DATABASE_URL: ${process.env.DATABASE_URL?.replace(/\/\/.*@/, '
 console.log(`🔧 REDIS_URL: ${process.env.REDIS_URL}`)
 console.log(`🔧 JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Set' : '❌ Missing'}`)
 console.log(`🔧 JWT_REFRESH_SECRET: ${process.env.JWT_REFRESH_SECRET ? '✅ Set' : '❌ Missing'}`)
+console.log(`🔧 GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID ? '✅ Set' : '❌ Missing'}`)
+console.log(`🔧 GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? '✅ Set' : '❌ Missing'}`)
