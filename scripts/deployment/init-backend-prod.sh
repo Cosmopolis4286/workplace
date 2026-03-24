@@ -40,11 +40,6 @@ wait_for_service "$REDIS_HOST" "$REDIS_PORT" "$REDIS_RETRIES" "Redis"
 
 cd /app/backend
 
-# Aplicar migraciones
-echo "🔧 Aplicando migraciones Prisma..."
-pnpm prisma migrate deploy || true
-echo "✅ Migraciones aplicadas"
-
 # Iniciar aplicación
 echo "🚀 Iniciando aplicación backend..."
 exec node dist/src/main.js
