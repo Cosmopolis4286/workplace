@@ -23,8 +23,8 @@ RUN echo "0 */12 * * * /usr/local/bin/renew-ssl.sh >> /var/log/certbot-renew.log
 # Set working directory
 WORKDIR /etc/letsencrypt
 
-# Use new entrypoint for automated SSL management
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# Use default certbot entrypoint (más confiable)
+# ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Default command - can be overridden for manual operations
 CMD ["crond", "-f", "-l", "2"]
