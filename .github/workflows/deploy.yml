@@ -1,4 +1,4 @@
-name: Production Deploy (Hybrid)
+name: Production Deploy (Pipeline Híbrido)
 
 on:
   push:
@@ -6,12 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       force_deploy:
-        description: 'Force deploy even if tests fail'
+        description: 'Forzar deploy incluso si los tests fallan'
         required: false
         default: false
         type: boolean
       force_rollback:
-        description: 'Force rollback if deployment fails'
+        description: 'Forzar rollback si el deployment falla'
         required: false
         default: false
         type: boolean
@@ -23,25 +23,26 @@ env:
 jobs:
   # 1. Tests Unitarios con Coverage (YAML para setup + Shell para lógica)
   test:
+    name: Ejecutar Tests con Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 15
     
     steps:
-    - name: Checkout code
+    - name: Checkout del código
       uses: actions/checkout@v4
 
-    - name: Setup Test Environment
+    - name: Configurar Entorno de Tests
       uses: ./.github/actions/setup-tests
       with:
         node-version: '20'
 
-    - name: Run Tests with Coverage
+    - name: Ejecutar Tests con Coverage
       uses: ./.github/actions/run-tests
       with:
         force-deploy: ${{ github.event.inputs.force_deploy }}
         coverage-threshold: '80'
 
-    - name: Upload Coverage Reports
+    - name: Subir Reportes de Coverage
       uses: codecov/codecov-action@v3
       with:
         files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
@@ -51,27 +52,28 @@ jobs:
 
   # 2. Tests E2E (YAML para setup + Shell para lógica)
   e2e-tests:
+    name: Ejecutar Tests E2E
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 20
     
     steps:
-    - name: Checkout code
+    - name: Checkout del código
       uses: actions/checkout@v4
 
-    - name: Setup Node.js and pnpm
+    - name: Configurar Node.js y pnpm
       uses: ./.github/actions/setup-node-pnpm
       with:
         node-version: '20'
 
-    - name: Run E2E Tests
+    - name: Ejecutar Tests E2E
       shell: bash
       run: |
         chmod +x scripts/ci/run-e2e.sh
         ./scripts/ci/run-e2e.sh
 
-    - name: Upload E2E Test Results
+    - name: Subir Resultados de Tests E2E
       uses: actions/upload-artifact@v3
       if: always()
       with:
@@ -79,8 +81,9 @@ jobs:
         path: e2e-tests/playwright-report/
         retention-days: 30
 
-  # 3. Build Docker Images (YAML - estándar)
+  # 3. Construir Imágenes Docker (YAML - estándar)
   build-backend:
+    name: Construir Imagen Backend
     runs-on: ubuntu-latest
     needs: [test, e2e-tests]
     timeout-minutes: 15
@@ -90,27 +93,27 @@ jobs:
       image-name: ${{ steps.set-tag.outputs.name }}
 
     steps:
-    - name: Checkout code
+    - name: Checkout del código
       uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
-    - name: Set up Docker Buildx
+    - name: Configurar Docker Buildx
       uses: docker/setup-buildx-action@v4
 
-    - name: Login Docker Hub
+    - name: Iniciar sesión en Docker Hub
       uses: docker/login-action@v4
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Set image tag
+    - name: Establecer tag de imagen
       id: set-tag
       run: |
         echo "tag=main-${{ github.sha }}" >> $GITHUB_OUTPUT
         echo "name=${{ secrets.DOCKER_USERNAME }}/workplace-backend" >> $GITHUB_OUTPUT
 
-    - name: Extract metadata
+    - name: Extraer metadatos
       id: meta
       uses: docker/metadata-action@v6
       with:
@@ -120,7 +123,7 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
       
-    - name: Build and push backend
+    - name: Construir y publicar backend
       uses: docker/build-push-action@v7
       with:
         context: .
@@ -135,6 +138,7 @@ jobs:
         cache-to: type=gha,mode=max
 
   build-frontend:
+    name: Construir Imagen Frontend
     runs-on: ubuntu-latest
     needs: [test, e2e-tests]
     timeout-minutes: 15
@@ -144,27 +148,27 @@ jobs:
       image-name: ${{ steps.set-tag.outputs.name }}
 
     steps:
-    - name: Checkout code
+    - name: Checkout del código
       uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
-    - name: Set up Docker Buildx
+    - name: Configurar Docker Buildx
       uses: docker/setup-buildx-action@v4
 
-    - name: Login Docker Hub
+    - name: Iniciar sesión en Docker Hub
       uses: docker/login-action@v4
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Set image tag
+    - name: Establecer tag de imagen
       id: set-tag
       run: |
         echo "tag=main-${{ github.sha }}" >> $GITHUB_OUTPUT
         echo "name=${{ secrets.DOCKER_USERNAME }}/workplace-frontend" >> $GITHUB_OUTPUT
 
-    - name: Extract metadata
+    - name: Extraer metadatos
       id: meta
       uses: docker/metadata-action@v6
       with:
@@ -174,7 +178,7 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
       
-    - name: Build and push frontend
+    - name: Construir y publicar frontend
       uses: docker/build-push-action@v7
       with:
         context: .
@@ -188,21 +192,22 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-  # 4. Deploy (YAML para setup + Shell para lógica compleja)
+  # 4. Deploy a Producción (YAML para setup + Shell para lógica compleja)
   deploy:
+    name: Deploy a Producción
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
     timeout-minutes: 30
     
     steps:
-    - name: Checkout code
+    - name: Checkout del código
       uses: actions/checkout@v4
 
-    - name: Setup SSH known hosts (YAML)
+    - name: Configurar SSH known hosts (YAML)
       run: |
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Copy Configuration Files (YAML)
+    - name: Copiar Archivos de Configuración (YAML)
       run: |
         # Copiar archivos base
         scp -o StrictHostKeyChecking=no \
@@ -231,28 +236,28 @@ jobs:
           -o ServerAliveInterval=30 \
           -r scripts/deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
 
-    - name: Deploy Infrastructure (Shell - lógica compleja)
+    - name: Deploy de Infraestructura (Shell - lógica compleja)
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           
-          # Setup nginx
+          # Configurar nginx
           chmod +x scripts/deployment/setup-nginx-prod.sh
           DOMAIN_NAME='${{ secrets.DOMAIN_NAME || 'localhost' }}' ./scripts/deployment/setup-nginx-prod.sh
           
-          # Pre-deploy check
-          echo "🔍 Pre-deploy check..."
+          # Verificación pre-deploy
+          echo "🔍 Verificación pre-deploy..."
           if docker compose ps | grep -q "Up"; then
-            echo "✅ System running, proceeding with canary"
+            echo "✅ Sistema corriendo, procediendo con canary"
           else
-            echo "⚠️ System not running, starting base services"
+            echo "⚠️ Sistema no corriendo, iniciando servicios base"
             docker compose up -d postgres redis nginx
             sleep 10
           fi
           
           # Canary deployment (lógica compleja)
-          echo "🚀 Starting Canary Deployment..."
+          echo "🚀 Iniciando Canary Deployment..."
           export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
           export FRONTEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}"
           
@@ -260,20 +265,20 @@ jobs:
             chmod +x scripts/deploy/canary-traffic-split.sh
             ./scripts/deploy/canary-traffic-split.sh
           else
-            echo "❌ Canary script not found, using rolling update"
+            echo "❌ Script canary no encontrado, usando rolling update"
             docker compose up -d --force-recreate
           fi
           
-          echo "✅ Deployment completed"
+          echo "✅ Deploy completado"
         EOF
 
-    - name: Post-Deploy Verification (Shell)
+    - name: Verificación Post-Deploy (Shell)
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           
-          echo "🔍 Post-deploy verification..."
+          echo "🔍 Verificación post-deploy..."
           docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
           
           # Health checks con rollback automático
@@ -281,7 +286,7 @@ jobs:
           BACKEND_HEALTH=false
           FRONTEND_HEALTH=false
           
-          # Backend health check
+          # Health check backend
           if docker compose exec --no-TTY backend curl -f http://localhost:3001/api/health; then
             echo "✅ Backend health check OK"
             BACKEND_HEALTH=true
@@ -290,7 +295,7 @@ jobs:
             BACKEND_HEALTH=false
           fi
           
-          # Frontend health check
+          # Health check frontend
           if docker compose exec --no-TTY frontend curl -f http://localhost:3000; then
             echo "✅ Frontend health check OK"
             FRONTEND_HEALTH=true
@@ -301,94 +306,96 @@ jobs:
           
           # Verificación final y rollback si es necesario
           if [ "$BACKEND_HEALTH" = true ] && [ "$FRONTEND_HEALTH" = true ]; then
-            echo "✅ All health checks passed - Deployment successful!"
-            echo "🎉 Deployment verification completed successfully"
+            echo "✅ Todos los health checks pasaron - Deploy exitoso!"
+            echo "🎉 Verificación de deploy completada exitosamente"
           else
-            echo "🚨 Health checks failed - Initiating automatic rollback..."
+            echo "🚨 Health checks fallaron - Iniciando rollback automático..."
             
             # Ejecutar rollback automático mejorado
             if [ -f "scripts/deploy/rollback-enhanced.sh" ]; then
               chmod +x scripts/deploy/rollback-enhanced.sh
-              echo "🔄 Running enhanced automatic rollback..."
+              echo "🔄 Ejecutando rollback automático mejorado..."
               ./scripts/deploy/rollback-enhanced.sh
-              echo "✅ Enhanced rollback completed"
+              echo "✅ Rollback mejorado completado"
             elif [ -f "scripts/deploy/rollback.sh" ]; then
               chmod +x scripts/deploy/rollback.sh
-              echo "🔄 Running fallback automatic rollback..."
+              echo "🔄 Ejecutando rollback automático de fallback..."
               ./scripts/deploy/rollback.sh
-              echo "✅ Fallback rollback completed"
+              echo "✅ Rollback de fallback completado"
             else
-              echo "❌ No rollback script found - manual intervention required"
+              echo "❌ No se encontró script de rollback - Intervención manual requerida"
             fi
             
             exit 1
           fi
         EOF
 
-  # 6. Manual Rollback (si es necesario)
+  # 6. Rollback Manual (si es necesario)
   rollback:
+    name: Rollback Manual
     runs-on: ubuntu-latest
     needs: deploy
     if: failure() && github.event.inputs.force_rollback == 'true'
     timeout-minutes: 10
     
     steps:
-    - name: Setup SSH known hosts
+    - name: Configurar SSH known hosts
       run: |
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Manual Rollback
+    - name: Rollback Manual
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           
-          echo "🔄 Executing manual rollback..."
+          echo "🔄 Ejecutando rollback manual..."
           
           # Manual rollback mejorado
           if [ -f "scripts/deploy/rollback-enhanced.sh" ]; then
             chmod +x scripts/deploy/rollback-enhanced.sh
-            echo "🔄 Running enhanced manual rollback..."
+            echo "🔄 Ejecutando rollback manual mejorado..."
             ./scripts/deploy/rollback-enhanced.sh
-            echo "✅ Enhanced manual rollback completed"
+            echo "✅ Rollback manual mejorado completado"
           elif [ -f "scripts/deploy/rollback.sh" ]; then
             chmod +x scripts/deploy/rollback.sh
-            echo "🔄 Running fallback manual rollback..."
+            echo "🔄 Ejecutando rollback manual de fallback..."
             ./scripts/deploy/rollback.sh
-            echo "✅ Fallback manual rollback completed"
+            echo "✅ Rollback manual de fallback completado"
           else
-            echo "❌ No rollback script found"
+            echo "❌ No se encontró script de rollback"
             exit 1
           fi
         EOF
 
-  # 7. Notify Success/Failure
+  # 7. Notificar Éxito/Fallo
   notify:
+    name: Notificar Estado del Deploy
     runs-on: ubuntu-latest
     needs: deploy
     if: always()
     
     steps:
-    - name: Deployment Status
+    - name: Estado del Deployment
       run: |
         if [ "${{ needs.deploy.result }}" == "success" ]; then
-          echo "🎉 Deployment completed successfully!"
-          echo "📊 Summary:"
-          echo "- ✅ Tests passed"
-          echo "- ✅ E2E tests passed" 
-          echo "- ✅ Images built and pushed"
-          echo "- ✅ Infrastructure deployed"
-          echo "- ✅ Health checks passed"
-          echo "- ✅ No rollback needed"
+          echo "🎉 Deployment completado exitosamente!"
+          echo "📊 Resumen:"
+          echo "- ✅ Tests pasaron"
+          echo "- ✅ Tests E2E pasaron" 
+          echo "- ✅ Imágenes construidas y publicadas"
+          echo "- ✅ Infraestructura deployada"
+          echo "- ✅ Health checks pasaron"
+          echo "- ✅ No se necesitó rollback"
         else
-          echo "❌ Deployment failed!"
-          echo "� Summary:"
-          echo "- ❌ Deployment failed"
-          echo "- 🔄 Automatic rollback initiated"
-          echo "- 📋 Check logs for details"
-          echo "- 🔧 Manual intervention may be required"
+          echo "❌ Deployment falló!"
+          echo "📊 Resumen:"
+          echo "- ❌ Deployment falló"
+          echo "- 🔄 Rollback automático iniciado"
+          echo "- 📋 Revisar logs para detalles"
+          echo "- 🔧 Puede requerir intervención manual"
           
           if [ "${{ github.event.inputs.force_rollback }}" == "true" ]; then
-            echo "- 🔄 Manual rollback requested"
+            echo "- 🔄 Rollback manual solicitado"
           fi
         fi
