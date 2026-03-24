@@ -37,6 +37,7 @@ describe('AuthService', () => {
   const mockRedisService = {
     getLoginAttempts: jest.fn(),
     setLoginAttempts: jest.fn(),
+    resetLoginAttempts: jest.fn(),
     saveRefreshToken: jest.fn(),
   }
 
