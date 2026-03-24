@@ -67,7 +67,7 @@ services:
   migrate:
     build:
       context: .
-      dockerfile: backend/Dockerfile.prod
+      dockerfile: backend/Dockerfile.migrate
     container_name: workplace_migrate
     env_file:
       - .env

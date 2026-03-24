@@ -1,0 +1,39 @@
+# ---------- MIGRATE ----------
+FROM node:20-alpine AS base
+
+# Variables opcionales
+ENV NODE_OPTIONS="--max-old-space-size=256"
+
+# Dependencias mínimas para Prisma
+RUN apk add --no-cache dumb-init ca-certificates openssl libssl3 python3 make
+
+WORKDIR /app
+
+# Copiar solo lo esencial para Prisma
+COPY backend/package.json ./backend/
+COPY backend/prisma ./backend/prisma
+COPY pnpm-lock.yaml ./pnpm-lock.yaml
+COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
+
+WORKDIR /app/backend
+
+# Instalar solo Prisma CLI (sin dependencias del backend)
+FROM base AS prisma-install
+RUN npm install -g pnpm@9.15.0
+
+FROM base AS final
+# Copiar pnpm global del stage anterior
+COPY --from=prisma-install /usr/local/bin/pnpm /usr/local/bin/pnpm
+
+# Instalar solo cliente Prisma (sin dependencias extra)
+RUN pnpm add @prisma/client --prod \
+    && npx prisma generate
+
+# Permisos y usuario no root
+RUN addgroup -S -g 1001 migrate && \
+    adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G migrate migrate && \
+    chown -R migrate:migrate /app
+USER migrate
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["npx", "prisma", "migrate", "deploy"]
