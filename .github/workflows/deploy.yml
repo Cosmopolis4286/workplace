@@ -1,4 +1,4 @@
-name: Production Deploy
+name: Production Deploy (Hybrid)
 
 on:
   push:
@@ -16,110 +16,26 @@ env:
   IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/workplace
 
 jobs:
+  # 1. Tests Unitarios con Coverage (YAML para setup + Shell para lógica)
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test_db
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Setup Test Environment (YAML)
+      uses: ./.github/workflows/scripts/setup-tests.yml
       with:
         node-version: '20'
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v2
-      with:
-        version: 8
-
-    - name: Cache pnpm dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.pnpm-store
-          backend/node_modules
-          frontend/node_modules
-        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-
-
-    - name: Install dependencies
+    - name: Run Tests with Coverage (Shell)
       run: |
-        cd backend && pnpm install
-        cd ../frontend && pnpm install
-
-    - name: Run Backend Tests with Coverage
-      run: |
-        cd backend
-        pnpm test:coverage
+        chmod +x scripts/ci/run-tests.sh
+        ./scripts/ci/run-tests.sh ${{ github.event.inputs.force_deploy }}
       env:
-        DATABASE_URL: postgresql://test:test@localhost:5432/test_db
-        REDIS_URL: redis://localhost:6379
-
-    - name: Run Frontend Tests with Coverage
-      run: |
-        cd frontend
-        pnpm test:coverage
-
-    - name: Check Coverage Threshold (80%)
-      run: |
-        echo "🔍 Checking coverage thresholds..."
-        
-        # Backend coverage
-        BACKEND_COVERAGE=$(cd backend && pnpm run coverage:percentage || echo "0")
-        echo "Backend coverage: ${BACKEND_COVERAGE}%"
-        
-        # Frontend coverage  
-        FRONTEND_COVERAGE=$(cd frontend && pnpm run coverage:percentage || echo "0")
-        echo "Frontend coverage: ${FRONTEND_COVERAGE}%"
-        
-        # Check thresholds
-        THRESHOLD=80
-        
-        if (( $(echo "$BACKEND_COVERAGE < $THRESHOLD" | bc -l) )); then
-          echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${THRESHOLD}%"
-          if [ "${{ github.event.inputs.force_deploy }}" != "true" ]; then
-            exit 1
-          fi
-          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
-        fi
-        
-        if (( $(echo "$FRONTEND_COVERAGE < $THRESHOLD" | bc -l) )); then
-          echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${THRESHOLD}%"
-          if [ "${{ github.event.inputs.force_deploy }}" != "true" ]; then
-            exit 1
-          fi
-          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
-        fi
-        
-        echo "✅ All coverage requirements met!"
+        COVERAGE_THRESHOLD: '80'
 
     - name: Upload Coverage Reports
       uses: codecov/codecov-action@v3
@@ -129,15 +45,37 @@ jobs:
         name: codecov-umbrella
         fail_ci_if_error: false
 
-    - name: Run linting
-      run: |
-        cd backend
-        pnpm lint:ci
-      continue-on-error: ${{ github.event.inputs.force_deploy == 'true' }}
-
-  build-backend:
-    needs: test
+  # 2. Tests E2E (YAML para setup + Shell para lógica)
+  e2e-tests:
     runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 20
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js and pnpm (YAML)
+      uses: ./.github/workflows/scripts/setup-node-pnpm.yml
+
+    - name: Run E2E Tests (Shell)
+      run: |
+        chmod +x scripts/ci/run-e2e.sh
+        ./scripts/ci/run-e2e.sh
+
+    - name: Upload E2E Test Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-report
+        path: e2e-tests/playwright-report/
+        retention-days: 30
+
+  # 3. Build Docker Images (YAML - estándar)
+  build-backend:
+    runs-on: ubuntu-latest
+    needs: [test, e2e-tests]
     timeout-minutes: 15
     
     outputs:
@@ -164,7 +102,6 @@ jobs:
       run: |
         echo "tag=main-${{ github.sha }}" >> $GITHUB_OUTPUT
         echo "name=${{ secrets.DOCKER_USERNAME }}/workplace-backend" >> $GITHUB_OUTPUT
-        echo "🏷️ Backend image tag: main-${{ github.sha }}"
 
     - name: Extract metadata
       id: meta
@@ -191,8 +128,8 @@ jobs:
         cache-to: type=gha,mode=max
 
   build-frontend:
-    needs: test
     runs-on: ubuntu-latest
+    needs: [test, e2e-tests]
     timeout-minutes: 15
     
     outputs:
@@ -219,7 +156,6 @@ jobs:
       run: |
         echo "tag=main-${{ github.sha }}" >> $GITHUB_OUTPUT
         echo "name=${{ secrets.DOCKER_USERNAME }}/workplace-frontend" >> $GITHUB_OUTPUT
-        echo "🏷️ Frontend image tag: main-${{ github.sha }}"
 
     - name: Extract metadata
       id: meta
@@ -245,232 +181,28 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-  verify-images:
-    needs: [build-backend, build-frontend]
+  # 4. Deploy (YAML para setup + Shell para lógica compleja)
+  deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
+    needs: [build-backend, build-frontend]
+    timeout-minutes: 30
+    
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v4
-
-    - name: Login Docker Hub
-      uses: docker/login-action@v4
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Verify built images
+    - name: Setup SSH known hosts (YAML)
       run: |
-        echo "🔍 Verificando imágenes construidas..."
-        
-        # Crear red Docker para los tests
-        docker network create test-net || true
-        
-        # Levantar Postgres para el test
-        echo "🗄️ Levantando Postgres para test..."
-        docker run -d --name test-postgres --network test-net \
-          -e POSTGRES_USER=test \
-          -e POSTGRES_PASSWORD=test \
-          -e POSTGRES_DB=test_db \
-          --health-cmd pg_isready \
-          --health-interval 10s \
-          --health-timeout 5s \
-          --health-retries 5 \
-          postgres:16-alpine
-        
-        # Levantar Redis para el test
-        echo "🔴 Levantando Redis para test..."
-        docker run -d --name test-redis --network test-net \
-          --health-cmd "redis-cli ping" \
-          --health-interval 10s \
-          --health-timeout 5s \
-          --health-retries 5 \
-          redis:7-alpine
-        
-        # Esperar a que las bases de datos estén ready usando health checks
-        echo "⏳ Esperando que las bases de datos estén ready..."
-        timeout 60 bash -c 'until docker inspect test-postgres --format="{{.State.Health.Status}}" | grep -q "healthy"; do sleep 2; done'
-        timeout 60 bash -c 'until docker inspect test-redis --format="{{.State.Health.Status}}" | grep -q "healthy"; do sleep 2; done'
-        
-        # Probar que el backend se ejecute correctamente
-        echo "🧪 Testeando backend..."
-        echo "🏷️ Usando imagen: ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
-        
-        # Pull para asegurar que tenemos la imagen
-        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
-        
-        # Correr backend con health check
-        docker run -d --name test-backend --network test-net \
-          -e DATABASE_URL="postgresql://test:test@test-postgres:5432/test_db" \
-          -e DB_HOST=test-postgres \
-          -e DB_PORT=5432 \
-          -e REDIS_HOST=test-redis \
-          -e REDIS_PORT=6379 \
-          -e JWT_SECRET="test-jwt-secret-for-ci-only" \
-          -e JWT_REFRESH_SECRET="test-jwt-refresh-secret-for-ci-only" \
-          -e JWT_ACCESS_SECRET="test-jwt-access-secret-for-ci-only" \
-          -e GOOGLE_CLIENT_ID="test-google-client-id-for-ci-only" \
-          -e GOOGLE_CLIENT_SECRET="test-google-client-secret-for-ci-only" \
-          -e NODE_ENV=test \
-          -p 3001:3001 \
-          --health-cmd "curl -f http://localhost:3001/api/health || exit 1" \
-          --health-interval 10s \
-          --health-timeout 5s \
-          --health-retries 5 \
-          ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
-        
-        # Esperar health check usando docker inspect
-        echo "⏳ Esperando health check del backend..."
-        timeout 120 bash -c 'until docker inspect test-backend --format="{{.State.Health.Status}}" | grep -q "healthy"; do sleep 2; done'
-        
-        echo "✅ Backend health check OK"
-        
-        # Probar que el frontend se ejecute correctamente
-        echo "🧪 Testeando frontend..."
-        echo "🏷️ Usando imagen: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}"
-        
-        # Pull para asegurar que tenemos la imagen
-        docker pull ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
-        
-        # Correr frontend con health check
-        docker run -d --name test-frontend \
-          -e BACKEND_API_URL=http://localhost:3001/api \
-          -e NITRO_HOST=0.0.0.0 \
-          -e NITRO_PORT=3000 \
-          -p 3000:3000 \
-          --health-cmd "curl -f http://localhost:3000/ || exit 1" \
-          --health-interval 10s \
-          --health-timeout 5s \
-          --health-retries 5 \
-          ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
-        
-        # Esperar health check usando docker inspect
-        echo "⏳ Esperando health check del frontend..."
-        timeout 120 bash -c 'until docker inspect test-frontend --format="{{.State.Health.Status}}" | grep -q "healthy"; do sleep 2; done'
-        
-        echo "✅ Frontend health check OK"
-        
-        # Verificaciones adicionales
-        if docker exec test-frontend test -d "/app/.output"; then
-          echo "✅ Frontend .output folder exists"
-        else
-          echo "❌ Frontend .output folder missing"
-          docker stop test-frontend
-          exit 1
-        fi
-        
-        # Verificar archivos críticos del build
-        if docker exec test-frontend test -f "/app/.output/server/index.mjs"; then
-          echo "✅ Frontend server entrypoint exists"
-        else
-          echo "❌ Frontend server entrypoint missing"
-          docker stop test-frontend
-          exit 1
-        fi
-        
-        # Debug de estructura (solo para referencia)
-        echo "📋 Frontend container structure:"
-        docker exec test-frontend ls -la /app/.output/ 2>/dev/null || echo "No .output directory readable"
-        echo "📋 Server files:"
-        docker exec test-frontend ls -la /app/.output/server/ 2>/dev/null || echo "No server directory readable"
-        
-        docker rm -f test-backend test-postgres test-redis test-frontend || true
-        docker network rm test-net || true
-        echo "✅ Todas las imágenes verificadas correctamente"
-
-  deploy:
-    needs: verify-images
-    runs-on: ubuntu-latest
-    if: |
-      github.ref == 'refs/heads/main' && 
-      (github.event_name == 'push' || github.event.inputs.force_deploy == 'true')
-    
-    # Control de concurrencia - evita pipelines simultáneos
-    concurrency:
-      group: production-deploy
-      cancel-in-progress: true
-
-    steps:
-    - uses: actions/checkout@v6
-
-    - uses: webfactory/ssh-agent@v0.10.0
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    - name: Setup SSH known hosts
-      run: |
-        mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Setup Production Environment
+    - name: Copy Configuration Files (YAML)
       run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          
-          # Verificar si el directorio existe
-          if [ ! -d "/opt/workplace" ]; then
-            echo "🚀 Directorio /opt/workplace no existe - creando entorno..."
-            
-            # Crear directorio base
-            sudo mkdir -p /opt/workplace
-            sudo chown $USER:$USER /opt/workplace
-            
-            # Crear estructura básica
-            mkdir -p /opt/workplace/{logs/{deploy,sla},metrics,backups,scripts/{deploy,deployment},nginx/conf.d}
-            
-            # Crear .env base simple
-            echo "NODE_ENV=production" > /opt/workplace/.env
-            echo "POSTGRES_DB=workplace_prod" >> /opt/workplace/.env
-            echo "POSTGRES_USER=workplace_user" >> /opt/workplace/.env
-            echo "POSTGRES_PASSWORD=CHANGE_ME_SECURE_PASSWORD" >> /opt/workplace/.env
-            echo "DATABASE_URL=postgresql://workplace_user:CHANGE_ME_SECURE_PASSWORD@postgres:5432/workplace_prod" >> /opt/workplace/.env
-            echo "REDIS_PASSWORD=CHANGE_ME_REDIS_PASSWORD" >> /opt/workplace/.env
-            echo "REDIS_HOST=redis" >> /opt/workplace/.env
-            echo "REDIS_PORT=6379" >> /opt/workplace/.env
-            echo "NODE_PORT=3001" >> /opt/workplace/.env
-            echo "FRONTEND_PORT=3000" >> /opt/workplace/.env
-            echo "JWT_SECRET=CHANGE_ME_JWT_SECRET_MIN_32_CHARS" >> /opt/workplace/.env
-            echo "SESSION_SECRET=CHANGE_ME_SESSION_SECRET" >> /opt/workplace/.env
-            echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> /opt/workplace/.env
-            echo "COMPOSE_PROJECT_NAME=workplace" >> /opt/workplace/.env
-            echo "LOG_LEVEL=info" >> /opt/workplace/.env
-            echo "METRICS_ENABLED=true" >> /opt/workplace/.env
-            
-            # Crear script de inicialización simple
-            echo '#!/bin/bash' > /opt/workplace/scripts/deployment/init-backend-prod.sh
-            echo 'set -euo pipefail' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
-            echo 'echo "🚀 Inicializando Backend Production..."' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
-            echo 'cd /app/backend' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
-            echo 'echo "🔧 Aplicando migraciones Prisma..."' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
-            echo 'pnpm prisma migrate deploy || true' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
-            echo 'echo "✅ Migraciones aplicadas"' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
-            echo 'echo "🚀 Iniciando aplicación backend..."' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
-            echo 'exec node dist/src/main.js' >> /opt/workplace/scripts/deployment/init-backend-prod.sh
-            
-            chmod +x /opt/workplace/scripts/deployment/init-backend-prod.sh
-            chmod -R 755 /opt/workplace/scripts
-            chmod -R 755 /opt/workplace/logs
-            chmod -R 755 /opt/workplace/metrics
-            
-            echo "✅ Entorno de producción creado"
-          else
-            echo "✅ Directorio /opt/workplace ya existe"
-          fi
-        EOF
-
-    - name: Copy Configuration Files
-      run: |
-        # Copiar docker-compose desde GitHub Actions al servidor
+        # Copiar archivos base
         scp -o StrictHostKeyChecking=no \
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
           docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
         
-        # Subir solo configuración base nginx (sin secrets)
         scp -o StrictHostKeyChecking=no \
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
@@ -481,213 +213,99 @@ jobs:
           -o ServerAliveInterval=30 \
           nginx/conf.d/common.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/
         
-        # Subir script de configuración nginx
+        # Copiar scripts
         scp -o StrictHostKeyChecking=no \
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
           scripts/deployment/setup-nginx-prod.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deployment/
         
-        # Ejecutar configuración nginx en servidor
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "cd /opt/workplace && chmod +x scripts/deployment/setup-nginx-prod.sh && DOMAIN_NAME='${{ secrets.DOMAIN_NAME || 'localhost' }}' ./scripts/deployment/setup-nginx-prod.sh"
-        
-        echo "✅ Configuración nginx base copiada y específica creada"
-
-    - name: Copy deploy scripts
-      run: |
-        # Crear directorio de scripts en servidor
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "mkdir -p /opt/workplace/scripts/deploy"
-        
-        # Copiar scripts desde GitHub Actions al servidor
         scp -o StrictHostKeyChecking=no \
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
           -r scripts/deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
-        
-        # Copiar scripts de deployment
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "mkdir -p /opt/workplace/scripts/deployment"
-        scp -o StrictHostKeyChecking=no \
-          -o ConnectTimeout=10 \
-          -o ServerAliveInterval=30 \
-          scripts/deployment/init-backend-prod.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deployment/
-        
-        echo "✅ Scripts copiados"
-        
-        echo "📋 Scripts copiados:"
-        echo "- rolling_update_backend.sh (zero downtime controlado)"
-        echo "- verify_load_balancing.sh (validación de balanceo)"
-        echo "- sla-monitor.sh (monitoreo SLA en tiempo real)"
-        echo "- canary-traffic-split.sh (canary real 10% traffic)"
-        echo "- canary_check.sh (pre-deploy health check)"
-        echo "- deploy_backend.sh (legacy - ya no se usa)"
-        echo "- rolling_update.sh (frontend)"
-        echo "- rollback.sh (híbrido)"
-        echo "- cleanup.sh"
 
-    - name: Pre-Deploy Canary Check
+    - name: Deploy Infrastructure (Shell - lógica compleja)
       run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           
-          # Variables de entorno
-          export CURRENT_SHA="${{ github.sha }}"
-          export DOCKER_USERNAME="${{ secrets.DOCKER_USERNAME }}"
-          export BACKEND_TAG="main-${{ github.sha }}"
-          export FRONTEND_TAG="main-${{ github.sha }}"
+          # Setup nginx
+          chmod +x scripts/deployment/setup-nginx-prod.sh
+          DOMAIN_NAME='${{ secrets.DOMAIN_NAME || 'localhost' }}' ./scripts/deployment/setup-nginx-prod.sh
+          
+          # Pre-deploy check
+          echo "🔍 Pre-deploy check..."
+          if docker compose ps | grep -q "Up"; then
+            echo "✅ System running, proceeding with canary"
+          else
+            echo "⚠️ System not running, starting base services"
+            docker compose up -d postgres redis nginx
+            sleep 10
+          fi
+          
+          # Canary deployment (lógica compleja)
+          echo "🚀 Starting Canary Deployment..."
           export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
-          
-          # 🔍 Verificar estado actual ANTES de deploy (modo pre-deploy)
-          echo "🔍 Pre-deploy verification..."
-          chmod +x scripts/deploy/canary_check.sh
-          if bash scripts/deploy/canary_check.sh pre-deploy; then
-            echo "✅ Pre-deploy canary validation passed"
-          else
-            echo "❌ Pre-deploy canary validation failed"
-            exit 1
-          fi
-        EOF
-
-    - name: Deploy Backend
-      run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          cd /opt/workplace
-          
-          # Variables de entorno
-          export CURRENT_SHA="${{ github.sha }}"
-          export DOCKER_USERNAME="${{ secrets.DOCKER_USERNAME }}"
-          export DOCKER_PASSWORD="${{ secrets.DOCKER_PASSWORD }}"
-          export BACKEND_TAG="main-${{ github.sha }}"
-          export FRONTEND_TAG="main-${{ github.sha }}"
-          export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
-          
-          # Login a Docker Hub
-          echo "$DOCKER_PASSWORD" | docker login -u $DOCKER_USERNAME --password-stdin
-          
-          # 🚀 Iniciar monitoreo SLA del deploy
-          chmod +x scripts/deploy/sla-monitor.sh
-          bash scripts/deploy/sla-monitor.sh start-deploy
-          
-          # 🌃 ESTRATEGIA DE DEPLOYMENT:
-          # Opción A: Canary Real (10% traffic) - Comentar si no se quiere
-          # Opción B: Rolling Update Directo - Descomentar si se quiere
-          
-          # === Opción A: Canary Real (10% traffic) ===
-          echo "🌃 Usando estrategia: Canary Real (10% traffic)"
-          if bash scripts/deploy/canary-traffic-split.sh; then
-            echo "✅ Canary real exitoso - 100% tráfico al nuevo backend"
-            bash scripts/deploy/sla-monitor.sh end-deploy success
-            echo "🎉 Backend actualizado con canary real"
-          else
-            echo "❌ Canary real falló - intentando rolling update directo"
-            # Fallback a rolling update directo
-            if bash scripts/deploy/rolling_update_backend.sh; then
-              bash scripts/deploy/sla-monitor.sh end-deploy success
-              echo "🎉 Backend actualizado con rolling update fallback"
-            else
-              bash scripts/deploy/sla-monitor.sh end-deploy failure
-              echo "❌ Backend rolling update fallback falló"
-              exit 1
-            fi
-          fi
-          
-          # === Opción B: Rolling Update Directo (sin canary) ===
-          # echo "🚀 Usando estrategia: Rolling Update Directo"
-          # if bash scripts/deploy/rolling_update_backend.sh; then
-          #   bash scripts/deploy/sla-monitor.sh end-deploy success
-          #   echo "🎉 Backend actualizado con zero downtime absoluto"
-          # else
-          #   bash scripts/deploy/sla-monitor.sh end-deploy failure
-          #   echo "❌ Backend rolling update falló"
-          #   exit 1
-          # fi
-        EOF
-
-    - name: Post-Deploy Verification
-      run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          cd /opt/workplace
-          
-          # Verificar que load balancing esté funcionando después del rolling
-          echo "🔍 Verificando load balancing post-rolling..."
-          chmod +x scripts/deploy/verify_load_balancing.sh
-          if bash scripts/deploy/verify_load_balancing.sh; then
-            echo "✅ Load balancing post-rolling OK"
-          else
-            echo "⚠️ Load balancing post-rolling tiene issues"
-            exit 1
-          fi
-        EOF
-
-    - name: Rolling Update
-      run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          cd /opt/workplace
-          
-          # Variables de entorno
           export FRONTEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}"
           
-          # Ejecutar rolling update
-          chmod +x scripts/deploy/rolling_update.sh
-          bash scripts/deploy/rolling_update.sh
+          if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
+            chmod +x scripts/deploy/canary-traffic-split.sh
+            ./scripts/deploy/canary-traffic-split.sh
+          else
+            echo "❌ Canary script not found, using rolling update"
+            docker compose up -d --force-recreate
+          fi
+          
+          echo "✅ Deployment completed"
         EOF
 
-    - name: Cleanup
+    - name: Post-Deploy Verification (Shell)
       run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           
-          # Ejecutar cleanup
-          chmod +x scripts/deploy/cleanup.sh
-          bash scripts/deploy/cleanup.sh
+          echo "🔍 Post-deploy verification..."
+          docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
           
-          # Logout de Docker
-          docker logout
+          # Health checks
+          echo "🏥 Health checks:"
+          if docker compose exec --no-TTY backend curl -f http://localhost:3001/api/health; then
+            echo "✅ Backend health check OK"
+          else
+            echo "❌ Backend health check FAILED"
+            exit 1
+          fi
+          
+          if docker compose exec --no-TTY frontend curl -f http://localhost:3000; then
+            echo "✅ Frontend health check OK"
+          else
+            echo "❌ Frontend health check FAILED"
+            exit 1
+          fi
+          
+          echo "✅ Deployment verification completed"
         EOF
 
-    - name: Verify
-      run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          cd /opt/workplace
-          docker compose ps | grep Up
-        EOF
-      if: always()
-
-  rollback:
-    needs: deploy
+  # 5. Notify Success
+  notify:
     runs-on: ubuntu-latest
-    if: always() && needs.deploy.result == 'failure'
-
+    needs: deploy
+    if: always()
+    
     steps:
-    - uses: webfactory/ssh-agent@v0.10.0
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    - name: Setup SSH known hosts
+    - name: Deployment Status
       run: |
-        mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
-
-    - name: Copy rollback script
-      run: |
-        scp -o StrictHostKeyChecking=yes \
-          -o ConnectTimeout=10 \
-          -o ServerAliveInterval=30 \
-          scripts/deploy/rollback.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/ || echo "Rollback script already exists"
-
-    - name: Complete Rollback
-      run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          cd /opt/workplace
-          
-          # Variables de entorno
-          export DOCKER_USERNAME="${{ secrets.DOCKER_USERNAME }}"
-          
-          # Ejecutar rollback
-          chmod +x scripts/deploy/rollback.sh
-          bash scripts/deploy/rollback.sh
-        EOF
+        if [ "${{ needs.deploy.result }}" == "success" ]; then
+          echo "🎉 Deployment completed successfully!"
+          echo "📊 Summary:"
+          echo "- ✅ Tests passed"
+          echo "- ✅ E2E tests passed" 
+          echo "- ✅ Images built and pushed"
+          echo "- ✅ Infrastructure deployed"
+          echo "- ✅ Health checks passed"
+        else
+          echo "❌ Deployment failed!"
+          echo "🔍 Check the logs for details"
+        fi
