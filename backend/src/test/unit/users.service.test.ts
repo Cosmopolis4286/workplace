@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { UsersService } from '../../users/users.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { Role } from '@prisma/client'
 
 describe('UsersService', () => {
   let service: UsersService
@@ -46,14 +47,13 @@ describe('UsersService', () => {
       mockPrismaService.user.findMany.mockResolvedValue(users)
       mockPrismaService.user.count.mockResolvedValue(2)
 
-      const result = await service.findAll({ page: 1, limit: 10 })
+      const result = await service.findAllUsers({ page: 1, limit: 10 })
 
       expect(result).toEqual({
         data: users,
         total: 2,
         page: 1,
         limit: 10,
-        totalPages: 1,
       })
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
         skip: 0,
@@ -68,14 +68,13 @@ describe('UsersService', () => {
       mockPrismaService.user.findMany.mockResolvedValue(users)
       mockPrismaService.user.count.mockResolvedValue(25)
 
-      const result = await service.findAll({ page: 2, limit: 10 })
+      const result = await service.findAllUsers({ page: 2, limit: 10 })
 
       expect(result).toEqual({
         data: users,
         total: 25,
         page: 2,
         limit: 10,
-        totalPages: 3,
       })
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
         skip: 10,
@@ -91,18 +90,19 @@ describe('UsersService', () => {
 
       mockPrismaService.user.findUnique.mockResolvedValue(user)
 
-      const result = await service.findById(1)
+      const result = await service.findById('1')
 
       expect(result).toEqual(user)
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '1' },
+        include: { commerce: true },
       })
     })
 
     it('should return null if user not found', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null)
 
-      const result = await service.findById(999)
+      const result = await service.findById('999')
 
       expect(result).toBeNull()
     })
@@ -112,16 +112,18 @@ describe('UsersService', () => {
     it('should create new user', async () => {
       const createUserDto = {
         email: 'newuser@example.com',
-        name: 'New User',
         password: 'password123',
-        role: 'USER',
+        firstName: 'New',
+        lastName: 'User',
+        role: Role.NORMAL,
       }
 
       const createdUser = {
         id: 2,
         email: 'newuser@example.com',
-        name: 'New User',
-        role: 'USER',
+        firstName: 'New',
+        lastName: 'User',
+        role: 'NORMAL',
         isActive: true,
       }
 
@@ -131,7 +133,12 @@ describe('UsersService', () => {
 
       expect(result).toEqual(createdUser)
       expect(mockPrismaService.user.create).toHaveBeenCalledWith({
-        data: createUserDto,
+        data: expect.objectContaining({
+          email: createUserDto.email,
+          firstName: createUserDto.firstName,
+          lastName: createUserDto.lastName,
+          role: createUserDto.role,
+        }),
       })
     })
   })
@@ -139,24 +146,26 @@ describe('UsersService', () => {
   describe('update', () => {
     it('should update user', async () => {
       const updateUserDto = {
-        name: 'Updated Name',
+        firstName: 'Updated',
+        lastName: 'Name',
         email: 'updated@example.com',
       }
 
       const updatedUser = {
         id: 1,
-        name: 'Updated Name',
+        firstName: 'Updated',
+        lastName: 'Name',
         email: 'updated@example.com',
-        role: 'USER',
+        role: 'NORMAL',
       }
 
       mockPrismaService.user.update.mockResolvedValue(updatedUser)
 
-      const result = await service.update(1, updateUserDto)
+      const result = await service.updateUser('1', updateUserDto)
 
       expect(result).toEqual(updatedUser)
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '1' },
         data: updateUserDto,
       })
     })
@@ -172,11 +181,11 @@ describe('UsersService', () => {
 
       mockPrismaService.user.delete.mockResolvedValue(deletedUser)
 
-      const result = await service.delete(1)
+      const result = await service.deleteUser('1')
 
-      expect(result).toEqual(deletedUser)
+      expect(result).toEqual({ message: 'Usuario eliminado correctamente' })
       expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '1' },
       })
     })
   })
