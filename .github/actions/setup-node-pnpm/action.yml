@@ -41,3 +41,9 @@ runs:
       run: |
         cd backend && pnpm install
         cd ../frontend && pnpm install
+
+    - name: Generate Prisma Client
+      shell: bash
+      run: |
+        cd backend
+        pnpm prisma generate
