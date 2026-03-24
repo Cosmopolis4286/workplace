@@ -8,16 +8,17 @@ describe('Source Code Coverage', () => {
       expect(Role.SUPERADMIN).toBe('SUPERADMIN')
       expect(Role.ADMIN).toBe('ADMIN')
       expect(Role.COMMERCE).toBe('COMMERCE')
+      expect(Role.FREELANCER).toBe('FREELANCER')
       expect(Role.NORMAL).toBe('NORMAL')
     })
 
     it('should have correct role count', () => {
       const roles = Object.values(Role)
-      expect(roles).toHaveLength(4)
+      expect(roles).toHaveLength(5)
     })
 
     it('should validate role values', () => {
-      const validRoles = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'NORMAL']
+      const validRoles = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER', 'NORMAL']
       const roles = Object.values(Role)
       
       roles.forEach(role => {
