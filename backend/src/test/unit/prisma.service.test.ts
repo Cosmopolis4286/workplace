@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { PrismaService } from '../prisma/prisma.service'
+import { PrismaService } from '../../prisma/prisma.service'
 
 describe('PrismaService', () => {
   let service: PrismaService
@@ -46,7 +46,7 @@ describe('PrismaService', () => {
       
       await service.cleanDatabase()
       
-      expect(executeRawSpy).toHaveBeenCalledWith expect.stringContaining('TRUNCATE TABLE'))
+      expect(executeRawSpy).toHaveBeenCalledWith(expect.stringContaining('TRUNCATE TABLE'))
     })
   })
 
@@ -57,7 +57,7 @@ describe('PrismaService', () => {
       const result = await service.healthCheck()
       
       expect(result).toEqual({ status: 'ok', database: 'connected' })
-      expect(queryRawSpy).toHaveBeenCalledWith expect.stringContaining('SELECT 1'))
+      expect(queryRawSpy).toHaveBeenCalledWith(expect.stringContaining('SELECT 1'))
     })
 
     it('should handle database connection errors', async () => {

@@ -29,11 +29,11 @@ describe('Source Code Coverage', () => {
   describe('Type Operations', () => {
     it('should handle role comparisons', () => {
       expect(Role.ADMIN === Role.ADMIN).toBe(true)
-      expect(Role.SUPERADMIN !== Role.NORMAL).toBe(true)
+      expect(Role.SUPERADMIN as string !== Role.NORMAL as string).toBe(true)
     })
 
     it('should handle role assignments', () => {
-      const userRole = Role.ADMIN
+      const userRole: string = Role.ADMIN
       const permissions = {
         canManageUsers: userRole === Role.ADMIN || userRole === Role.SUPERADMIN,
         canManageCommerce: userRole === Role.COMMERCE || userRole === Role.ADMIN || userRole === Role.SUPERADMIN,

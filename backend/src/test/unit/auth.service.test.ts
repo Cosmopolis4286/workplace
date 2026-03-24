@@ -21,6 +21,9 @@ describe('AuthService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    refreshToken: {
+      create: jest.fn(),
+    },
   }
 
   const mockJwtService = {
@@ -47,8 +50,25 @@ describe('AuthService', () => {
   }
 
   const mockConfigService = {
-    get: jest.fn(),
-    getOrThrow: jest.fn().mockReturnValue('7d'),
+    get: jest.fn((key: string) => {
+      switch (key) {
+        case 'JWT_REFRESH_EXPIRES_IN':
+          return '7d'
+        default:
+          return undefined
+      }
+    }),
+    getOrThrow: jest.fn((key: string) => {
+      switch (key) {
+        case 'JWT_REFRESH_EXPIRES_IN':
+          return '7d'
+        case 'JWT_SECRET':
+        case 'JWT_REFRESH_SECRET':
+          return 'test-secret'
+        default:
+          return 'test-secret'
+      }
+    }),
   }
 
   beforeEach(async () => {
@@ -113,7 +133,6 @@ describe('AuthService', () => {
       mockRedisService.getLoginAttempts.mockResolvedValue(0)
       mockUsersService.findByEmail.mockResolvedValue(user)
       mockUsersService.validatePassword.mockResolvedValue(true)
-      mockConfigService.getOrThrow.mockReturnValue('test-secret')
       mockJwtService.sign.mockReturnValueOnce('access-token').mockReturnValueOnce('refresh-token')
 
       const result = await service.login(loginDto)
@@ -156,7 +175,6 @@ describe('AuthService', () => {
       }
 
       mockUsersService.create.mockResolvedValue(createdUser)
-      mockConfigService.getOrThrow.mockReturnValue('test-secret')
       mockJwtService.sign.mockReturnValueOnce('access-token').mockReturnValueOnce('refresh-token')
 
       const result = await service.register(registerDto)
