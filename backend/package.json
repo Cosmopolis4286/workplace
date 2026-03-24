@@ -9,7 +9,7 @@
     "test": "jest",
     "test:ci": "jest --ci --coverage --watchAll=false",
     "test:coverage": "jest --coverage --watchAll=false",
-    "coverage:percentage": "jest --coverage --watchAll=false | grep 'All files' | awk '{print $4}' | sed 's/%//'",
+    "coverage:percentage": "node scripts/get-coverage.js",
     "test:integration": "jest --config jest.integration.config.js",
     "test:e2e": "jest --config jest.e2e.config.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
