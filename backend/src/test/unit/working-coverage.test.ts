@@ -16,11 +16,11 @@ describe('Working Coverage Tests', () => {
       expect(roles).toContain('ADMIN')
       expect(roles).toContain('COMMERCE')
       expect(roles).toContain('NORMAL')
-      expect(roles).toHaveLength(4)
+      expect(roles).toHaveLength(5)
     })
 
     it('should validate role string values', () => {
-      const validRoles = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'NORMAL']
+      const validRoles = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER', 'NORMAL']
       const roles = Object.values(Role)
       
       roles.forEach(role => {
@@ -73,7 +73,7 @@ describe('Working Coverage Tests', () => {
 
   describe('Role Assignment Tests', () => {
     it('should handle role assignments correctly', () => {
-      const userRole = 'ADMIN'
+      const userRole: string = 'ADMIN'
       const permissions = {
         canManageUsers: userRole === 'ADMIN' || userRole === 'SUPERADMIN',
         canManageCommerce: userRole === 'COMMERCE' || userRole === 'ADMIN' || userRole === 'SUPERADMIN',
@@ -86,7 +86,7 @@ describe('Working Coverage Tests', () => {
     })
 
     it('should handle different role permissions', () => {
-      const userRole = 'NORMAL'
+      const userRole: string = 'NORMAL'
       const permissions = {
         canManageUsers: userRole === 'ADMIN' || userRole === 'SUPERADMIN',
         canManageCommerce: userRole === 'COMMERCE' || userRole === 'ADMIN' || userRole === 'SUPERADMIN',
@@ -114,7 +114,7 @@ describe('Working Coverage Tests', () => {
     it('should get all roles as array', () => {
       const allRoles = Object.values(Role)
       expect(Array.isArray(allRoles)).toBe(true)
-      expect(allRoles.length).toBe(4)
+      expect(allRoles.length).toBe(5)
     })
   })
 
@@ -170,10 +170,10 @@ describe('Working Coverage Tests', () => {
 
   describe('Date Operations Tests', () => {
     it('should handle date operations', () => {
-      const date = new Date('2024-01-01')
-      expect(date.getFullYear()).toBe(2024)
-      expect(date.getMonth()).toBe(0) // January is 0
-      expect(date.getDate()).toBe(1)
+      const date = new Date(Date.UTC(2024, 0, 1))
+      expect(date.getUTCFullYear()).toBe(2024)
+      expect(date.getUTCMonth()).toBe(0) // January is 0
+      expect(date.getUTCDate()).toBe(1)
     })
   })
 
