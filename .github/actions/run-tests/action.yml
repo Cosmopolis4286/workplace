@@ -16,6 +16,18 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        cd backend && pnpm install
+        cd ../frontend && pnpm install
+
+    - name: Generate Prisma Client
+      shell: bash
+      run: |
+        cd backend
+        pnpm prisma generate
+
     - name: Run Backend Tests with Coverage
       shell: bash
       run: |
@@ -47,7 +59,7 @@ runs:
         # Check thresholds
         THRESHOLD=${{ inputs.coverage-threshold }}
         
-        if (( $(echo "$BACKEND_COVERAGE < $THRESHOLD" | bc -l) )); then
+        if (( $(echo "$BACKEND_COVERAGE < $THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
           echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${THRESHOLD}%"
           if [ "${{ inputs.force-deploy }}" != "true" ]; then
             exit 1
@@ -55,7 +67,7 @@ runs:
           echo "⚠️ Force deploy enabled - proceeding despite low coverage"
         fi
         
-        if (( $(echo "$FRONTEND_COVERAGE < $THRESHOLD" | bc -l) )); then
+        if (( $(echo "$FRONTEND_COVERAGE < $THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
           echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${THRESHOLD}%"
           if [ "${{ inputs.force-deploy }}" != "true" ]; then
             exit 1
