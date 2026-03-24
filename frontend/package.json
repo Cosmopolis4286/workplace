@@ -7,7 +7,10 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "coverage:percentage": "vitest run --coverage --reporter=json | grep 'All files' | jq '.total.lines.pct' || echo '0'"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
@@ -26,6 +29,10 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.33",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "@vitest/coverage-v8": "^1.0.0",
+    "vitest": "^1.0.0",
+    "jsdom": "^23.0.0",
+    "jq": "^1.7.0"
   }
 }
