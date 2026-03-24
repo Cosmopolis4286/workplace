@@ -14,13 +14,12 @@ RUN apk add --no-cache \
 
 # Solo copiar lo necesario para tests
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+COPY package.json ./
 COPY e2e-tests/ ./e2e-tests/
-COPY frontend/ ./frontend/
 
 # Instalar dependencias de forma optimizada
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate && \
-    pnpm install --prod --frozen-lockfile --force
+    pnpm install --prod
 
 # Configurar Playwright para modo headless
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
