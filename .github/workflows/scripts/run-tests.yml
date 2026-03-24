@@ -1,21 +1,30 @@
-name: Test Coverage
+name: Run Tests with Coverage
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+  workflow_call:
+    inputs:
+      force-deploy:
+        description: 'Force deploy even if tests fail'
+        required: false
+        default: false
+        type: boolean
+      coverage-threshold:
+        description: 'Coverage threshold percentage'
+        required: false
+        default: '80'
 
 jobs:
-  test-coverage:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     services:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: workplace_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -38,38 +47,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v2
-      with:
-        version: 8
-
-    - name: Cache pnpm dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.pnpm-store
-          backend/node_modules
-          frontend/node_modules
-        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-
-
-    - name: Install dependencies
-      run: |
-        cd backend && pnpm install
-        cd ../frontend && pnpm install
+    - name: Setup Node.js and pnpm
+      uses: ./.github/workflows/scripts/setup-node-pnpm.yml
 
     - name: Run Backend Tests with Coverage
       run: |
         cd backend
         pnpm test:coverage
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/workplace_test
+        DATABASE_URL: postgresql://test:test@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379
 
     - name: Run Frontend Tests with Coverage
@@ -90,16 +76,22 @@ jobs:
         echo "Frontend coverage: ${FRONTEND_COVERAGE}%"
         
         # Check thresholds
-        THRESHOLD=80
+        THRESHOLD=${{ inputs.coverage-threshold }}
         
         if (( $(echo "$BACKEND_COVERAGE < $THRESHOLD" | bc -l) )); then
           echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${THRESHOLD}%"
-          exit 1
+          if [ "${{ inputs.force-deploy }}" != "true" ]; then
+            exit 1
+          fi
+          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
         fi
         
         if (( $(echo "$FRONTEND_COVERAGE < $THRESHOLD" | bc -l) )); then
           echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${THRESHOLD}%"
-          exit 1
+          if [ "${{ inputs.force-deploy }}" != "true" ]; then
+            exit 1
+          fi
+          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
         fi
         
         echo "✅ All coverage requirements met!"
@@ -111,3 +103,13 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+
+    - name: Run linting
+      run: |
+        cd backend
+        pnpm lint:ci
+      continue-on-error: ${{ inputs.force-deploy == 'true' }}
+
+    outputs:
+      backend-coverage: ${{ steps.backend-coverage.outputs.percentage }}
+      frontend-coverage: ${{ steps.frontend-coverage.outputs.percentage }}

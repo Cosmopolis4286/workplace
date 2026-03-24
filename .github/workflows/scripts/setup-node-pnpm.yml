@@ -1,0 +1,51 @@
+name: Setup Node.js and pnpm
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version'
+        required: false
+        default: '20'
+      pnpm-version:
+        description: 'pnpm version'
+        required: false
+        default: '8'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    - name: Cache pnpm dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.pnpm-store
+          backend/node_modules
+          frontend/node_modules
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
+    - name: Install dependencies
+      run: |
+        cd backend && pnpm install
+        cd ../frontend && pnpm install
+
+    outputs:
+      cache-hit: ${{ steps.cache.outputs.cache-hit }}
