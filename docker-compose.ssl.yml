@@ -1,0 +1,29 @@
+# =========================
+# Production SSL Override
+# =========================
+# Uso: docker compose -f docker-compose.yml -f docker-compose.ssl.yml up -d
+
+services:
+  nginx:
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./fallback:/var/www/fallback:ro
+      - uploads_data:/var/www/uploads:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:rw
+      - ./scripts/nginx/nginx-reload.sh:/usr/local/bin/nginx-reload:ro
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DOMAIN=${DOMAIN:-playrke.com}
+      - SSL_ENABLED=${SSL_ENABLED:-true}
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+      certbot:
+        condition: service_healthy
+
+  certbot:
+    profiles: []  # Override para habilitar en producción con SSL
