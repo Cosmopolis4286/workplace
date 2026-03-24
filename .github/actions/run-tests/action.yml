@@ -57,18 +57,19 @@ runs:
         echo "Frontend coverage: ${FRONTEND_COVERAGE}%"
         
         # Check thresholds
-        THRESHOLD=${{ inputs.coverage-threshold }}
+        BACKEND_THRESHOLD=${{ inputs.coverage-threshold }}
+        FRONTEND_THRESHOLD=0  # Frontend only tests utilities, expect 0% coverage
         
-        if (( $(echo "$BACKEND_COVERAGE < $THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
-          echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${THRESHOLD}%"
+        if (( $(echo "$BACKEND_COVERAGE < $BACKEND_THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
+          echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${BACKEND_THRESHOLD}%"
           if [ "${{ inputs.force-deploy }}" != "true" ]; then
             exit 1
           fi
           echo "⚠️ Force deploy enabled - proceeding despite low coverage"
         fi
         
-        if (( $(echo "$FRONTEND_COVERAGE < $THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
-          echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${THRESHOLD}%"
+        if (( $(echo "$FRONTEND_COVERAGE < $FRONTEND_THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
+          echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${FRONTEND_THRESHOLD}%"
           if [ "${{ inputs.force-deploy }}" != "true" ]; then
             exit 1
           fi
