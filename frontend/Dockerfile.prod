@@ -3,8 +3,8 @@ FROM node:20-alpine AS base
 
 WORKDIR /app
 
-# Habilitar pnpm solo para builds
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Habilitar pnpm con versión específica
+RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
 
 # ---------- DEPENDENCIAS ----------
 FROM base AS deps
@@ -15,7 +15,7 @@ COPY frontend/package.json ./frontend/
 
 # Instalar dependencias con cache
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile --prefer-offline
+    pnpm install --frozen-lockfile --prefer-offline --force
 
 # ---------- BUILD ----------
 FROM deps AS builder
