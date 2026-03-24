@@ -306,14 +306,19 @@ jobs:
           else
             echo "🚨 Health checks failed - Initiating automatic rollback..."
             
-            # Ejecutar rollback automático
-            if [ -f "scripts/deploy/rollback.sh" ]; then
+            # Ejecutar rollback automático mejorado
+            if [ -f "scripts/deploy/rollback-enhanced.sh" ]; then
+              chmod +x scripts/deploy/rollback-enhanced.sh
+              echo "🔄 Running enhanced automatic rollback..."
+              ./scripts/deploy/rollback-enhanced.sh
+              echo "✅ Enhanced rollback completed"
+            elif [ -f "scripts/deploy/rollback.sh" ]; then
               chmod +x scripts/deploy/rollback.sh
-              echo "🔄 Running automatic rollback..."
+              echo "🔄 Running fallback automatic rollback..."
               ./scripts/deploy/rollback.sh
-              echo "✅ Rollback completed"
+              echo "✅ Fallback rollback completed"
             else
-              echo "❌ Rollback script not found - manual intervention required"
+              echo "❌ No rollback script found - manual intervention required"
             fi
             
             exit 1
@@ -340,12 +345,19 @@ jobs:
           
           echo "🔄 Executing manual rollback..."
           
-          if [ -f "scripts/deploy/rollback.sh" ]; then
+          # Manual rollback mejorado
+          if [ -f "scripts/deploy/rollback-enhanced.sh" ]; then
+            chmod +x scripts/deploy/rollback-enhanced.sh
+            echo "🔄 Running enhanced manual rollback..."
+            ./scripts/deploy/rollback-enhanced.sh
+            echo "✅ Enhanced manual rollback completed"
+          elif [ -f "scripts/deploy/rollback.sh" ]; then
             chmod +x scripts/deploy/rollback.sh
+            echo "🔄 Running fallback manual rollback..."
             ./scripts/deploy/rollback.sh
-            echo "✅ Manual rollback completed"
+            echo "✅ Fallback manual rollback completed"
           else
-            echo "❌ Rollback script not found"
+            echo "❌ No rollback script found"
             exit 1
           fi
         EOF
