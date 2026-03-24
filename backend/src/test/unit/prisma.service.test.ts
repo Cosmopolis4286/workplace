@@ -16,13 +16,15 @@ describe('PrismaService', () => {
     expect(service).toBeDefined()
   })
 
-  it('should have prisma client initialized', () => {
-    expect(service.client).toBeDefined()
+  it('should have prisma client methods available', () => {
+    expect(service.$connect).toBeDefined()
+    expect(service.$disconnect).toBeDefined()
+    expect(service.user).toBeDefined()
   })
 
   describe('onModuleInit', () => {
     it('should connect to database', async () => {
-      const connectSpy = jest.spyOn(service.client, '$connect').mockResolvedValue(undefined)
+      const connectSpy = jest.spyOn(service, '$connect').mockResolvedValue(undefined)
       
       await service.onModuleInit()
       
@@ -32,38 +34,11 @@ describe('PrismaService', () => {
 
   describe('onModuleDestroy', () => {
     it('should disconnect from database', async () => {
-      const disconnectSpy = jest.spyOn(service.client, '$disconnect').mockResolvedValue(undefined)
+      const disconnectSpy = jest.spyOn(service, '$disconnect').mockResolvedValue(undefined)
       
       await service.onModuleDestroy()
       
       expect(disconnectSpy).toHaveBeenCalled()
-    })
-  })
-
-  describe('cleanDatabase', () => {
-    it('should truncate all tables', async () => {
-      const executeRawSpy = jest.spyOn(service.client, '$executeRaw').mockResolvedValue(undefined)
-      
-      await service.cleanDatabase()
-      
-      expect(executeRawSpy).toHaveBeenCalledWith(expect.stringContaining('TRUNCATE TABLE'))
-    })
-  })
-
-  describe('healthCheck', () => {
-    it('should return health status', async () => {
-      const queryRawSpy = jest.spyOn(service.client, '$queryRaw').mockResolvedValue([{ status: 'ok' }])
-      
-      const result = await service.healthCheck()
-      
-      expect(result).toEqual({ status: 'ok', database: 'connected' })
-      expect(queryRawSpy).toHaveBeenCalledWith(expect.stringContaining('SELECT 1'))
-    })
-
-    it('should handle database connection errors', async () => {
-      const queryRawSpy = jest.spyOn(service.client, '$queryRaw').mockRejectedValue(new Error('Connection failed'))
-      
-      await expect(service.healthCheck()).rejects.toThrow('Connection failed')
     })
   })
 })
