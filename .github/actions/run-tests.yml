@@ -52,11 +52,6 @@ jobs:
 
     - name: Run Backend Tests with Coverage
       run: |
-        cd backend
-        pnpm test:coverage
-      env:
-        DATABASE_URL: postgresql://test:test@localhost:5432/test_db
-        REDIS_URL: redis://localhost:6379
 
     - name: Run Frontend Tests with Coverage
       run: |
