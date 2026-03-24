@@ -410,38 +410,53 @@ jobs:
 
     - name: Copy Configuration Files
       run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          
-          # Copiar docker-compose
-          scp -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
-          
-          # Copiar configuración nginx
-          scp -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 \
-            -o ServerAliveInterval=30 \
-            -r nginx/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
-          
-          echo "✅ Archivos de configuración copiados"
-        EOF
+        # Copiar docker-compose desde GitHub Actions al servidor
+        scp -o StrictHostKeyChecking=no \
+          -o ConnectTimeout=10 \
+          -o ServerAliveInterval=30 \
+          docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
+        
+        # Subir solo configuración base nginx (sin secrets)
+        scp -o StrictHostKeyChecking=no \
+          -o ConnectTimeout=10 \
+          -o ServerAliveInterval=30 \
+          nginx/nginx.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/
+        
+        scp -o StrictHostKeyChecking=no \
+          -o ConnectTimeout=10 \
+          -o ServerAliveInterval=30 \
+          nginx/conf.d/common.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/
+        
+        # Subir script de configuración nginx
+        scp -o StrictHostKeyChecking=no \
+          -o ConnectTimeout=10 \
+          -o ServerAliveInterval=30 \
+          scripts/deployment/setup-nginx-prod.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deployment/
+        
+        # Ejecutar configuración nginx en servidor
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "cd /opt/workplace && DOMAIN_NAME='${{ secrets.DOMAIN_NAME || 'localhost' }}' ./scripts/deployment/setup-nginx-prod.sh"
+        
+        echo "✅ Configuración nginx base copiada y específica creada"
 
     - name: Copy deploy scripts
       run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          
-          # Crear directorio de scripts si no existe
-          mkdir -p /opt/workplace/scripts/deploy
-          echo "✅ Directorio /opt/workplace/scripts/deploy creado"
-        EOF
+        # Crear directorio de scripts en servidor
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "mkdir -p /opt/workplace/scripts/deploy"
         
-        scp -o StrictHostKeyChecking=yes \
+        # Copiar scripts desde GitHub Actions al servidor
+        scp -o StrictHostKeyChecking=no \
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
           -r scripts/deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
+        
+        # Copiar scripts de deployment
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "mkdir -p /opt/workplace/scripts/deployment"
+        scp -o StrictHostKeyChecking=no \
+          -o ConnectTimeout=10 \
+          -o ServerAliveInterval=30 \
+          scripts/deployment/init-backend-prod.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deployment/
+        
+        echo "✅ Scripts copiados"
         
         echo "📋 Scripts copiados:"
         echo "- rolling_update_backend.sh (zero downtime controlado)"
