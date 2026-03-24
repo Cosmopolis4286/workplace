@@ -59,6 +59,8 @@ describe('UsersService', () => {
         skip: 0,
         take: 10,
         orderBy: { createdAt: 'desc' },
+        select: expect.any(Object),
+        where: expect.any(Object),
       })
     })
 
@@ -80,6 +82,8 @@ describe('UsersService', () => {
         skip: 10,
         take: 10,
         orderBy: { createdAt: 'desc' },
+        select: expect.any(Object),
+        where: expect.any(Object),
       })
     })
   })
@@ -99,12 +103,10 @@ describe('UsersService', () => {
       })
     })
 
-    it('should return null if user not found', async () => {
+    it('should throw NotFoundException if user not found', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null)
 
-      const result = await service.findById('999')
-
-      expect(result).toBeNull()
+      await expect(service.findById('999')).rejects.toThrow('Usuario no encontrado')
     })
   })
 
@@ -139,6 +141,7 @@ describe('UsersService', () => {
           lastName: createUserDto.lastName,
           role: createUserDto.role,
         }),
+        include: expect.any(Object),
       })
     })
   })
@@ -167,6 +170,7 @@ describe('UsersService', () => {
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: '1' },
         data: updateUserDto,
+        include: expect.any(Object),
       })
     })
   })
