@@ -1,0 +1,83 @@
+# Docker Compose para Unit Tests del Backend - Ultra optimizado
+version: '3.8'
+
+services:
+  # Backend para Unit Tests - versión ultra ligera
+  test-backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile.test
+    environment:
+      NODE_ENV: test
+      NODE_OPTIONS: "--max-old-space-size=1024"
+      # Variables mínimas para tests (sin credenciales reales)
+      DATABASE_URL: postgresql://test:test@test-postgres:5432/test_db
+      REDIS_URL: redis://test-redis:6379
+      JWT_SECRET: test-jwt-secret-for-unit-tests
+      JWT_REFRESH_SECRET: test-refresh-secret-for-unit-tests
+      GOOGLE_CLIENT_ID: test-google-client-id
+      GOOGLE_CLIENT_SECRET: test-google-client-secret
+    ports:
+      - "9324:9324"  # Puerto diferente para no conflictuar
+    networks:
+      - backend-test-network
+    volumes:
+      - ./coverage:/app/backend/coverage  # Para guardar resultados de coverage
+    command: ["sh", "-c", "cd backend && pnpm test:coverage"]
+    restart: "no"  # No reiniciar automáticamente
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:9324/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 2
+      start_period: 5s
+
+  # PostgreSQL mínimo para tests unitarios
+  test-postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    ports:
+      - "5433:5432"  # Puerto diferente para no conflictuar
+    volumes:
+      - postgres_test_unit_data:/var/lib/postgresql/data
+    networks:
+      - backend-test-network
+    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d test_db"]
+      interval: 3s
+      timeout: 2s
+      retries: 3
+      start_period: 3s
+
+  # Redis mínimo para tests unitarios
+  test-redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6380"  # Puerto diferente para no conflictuar
+    volumes:
+      - redis_test_unit_data:/data
+    networks:
+      - backend-test-network
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 2
+
+# Volúmenes para persistencia de tests unitarios
+volumes:
+  postgres_test_unit_data:
+    driver: local
+  redis_test_unit_data:
+    driver: local
+
+# Red aislada para tests unitarios
+networks:
+  backend-test-network:
+    driver: bridge

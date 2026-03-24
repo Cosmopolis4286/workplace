@@ -1,0 +1,38 @@
+# Dockerfile ultra-ligero para Unit Tests del Backend
+FROM node:20-alpine AS test-runner
+
+# Instalar dependencias mínimas para tests
+RUN apk add --no-cache \
+    curl \
+    dumb-init \
+    ca-certificates
+
+WORKDIR /app
+
+# Solo copiar lo necesario para tests unitarios
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY backend/package.json ./backend/
+COPY backend/src ./backend/src/
+COPY backend/test ./backend/test/
+COPY backend/tsconfig*.json ./backend/
+
+# Instalar dependencias de forma optimizada
+RUN corepack enable && corepack prepare pnpm@10.20.0 --activate && \
+    pnpm install --prod --frozen-lockfile --force
+
+# Variables de entorno para tests
+ENV NODE_ENV=test
+ENV NODE_OPTIONS="--max-old-space-size=1024"
+
+# Exponer puerto para debug (opcional)
+EXPOSE 9324
+
+# Usuario no root para seguridad
+RUN addgroup -S -g 1001 test && \
+    adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G test test && \
+    chown -R test:test /app
+USER test
+
+# Comando por defecto: ejecutar tests unitarios
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["sh", "-c", "cd backend && pnpm test"]
