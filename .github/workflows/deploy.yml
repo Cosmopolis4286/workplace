@@ -434,7 +434,7 @@ jobs:
           scripts/deployment/setup-nginx-prod.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deployment/
         
         # Ejecutar configuración nginx en servidor
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "cd /opt/workplace && DOMAIN_NAME='${{ secrets.DOMAIN_NAME || 'localhost' }}' ./scripts/deployment/setup-nginx-prod.sh"
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "cd /opt/workplace && chmod +x scripts/deployment/setup-nginx-prod.sh && DOMAIN_NAME='${{ secrets.DOMAIN_NAME || 'localhost' }}' ./scripts/deployment/setup-nginx-prod.sh"
         
         echo "✅ Configuración nginx base copiada y específica creada"
 
