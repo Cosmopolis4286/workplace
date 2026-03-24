@@ -113,10 +113,25 @@ storage/
 # ================================
 # Docker
 # ================================
-.dockerignore
+# Docker ignore files (deben ser incluidos)
 !.dockerignore
 !frontend/.dockerignore
 !backend/.dockerignore
+
+# Docker build temp (ignorar)
+.docker/
+*.dockerfile.tmp
+docker-compose.override.yml
+
+# Docker volumes locales (ignorar)
+postgres_data/
+redis_data/
+uploads_data/
+logs_data/
+
+# Docker secrets (ignorar)
+*.docker.key
+*.docker.crt
 
 # ================================
 # Claude Code
