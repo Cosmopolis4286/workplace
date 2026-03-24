@@ -10,6 +10,11 @@ on:
         required: false
         default: false
         type: boolean
+      force_rollback:
+        description: 'Force rollback if deployment fails'
+        required: false
+        default: false
+        type: boolean
 
 env:
   REGISTRY: docker.io
@@ -271,26 +276,81 @@ jobs:
           echo "🔍 Post-deploy verification..."
           docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
           
-          # Health checks
+          # Health checks con rollback automático
           echo "🏥 Health checks:"
+          BACKEND_HEALTH=false
+          FRONTEND_HEALTH=false
+          
+          # Backend health check
           if docker compose exec --no-TTY backend curl -f http://localhost:3001/api/health; then
             echo "✅ Backend health check OK"
+            BACKEND_HEALTH=true
           else
             echo "❌ Backend health check FAILED"
-            exit 1
+            BACKEND_HEALTH=false
           fi
           
+          # Frontend health check
           if docker compose exec --no-TTY frontend curl -f http://localhost:3000; then
             echo "✅ Frontend health check OK"
+            FRONTEND_HEALTH=true
           else
             echo "❌ Frontend health check FAILED"
-            exit 1
+            FRONTEND_HEALTH=false
           fi
           
-          echo "✅ Deployment verification completed"
+          # Verificación final y rollback si es necesario
+          if [ "$BACKEND_HEALTH" = true ] && [ "$FRONTEND_HEALTH" = true ]; then
+            echo "✅ All health checks passed - Deployment successful!"
+            echo "🎉 Deployment verification completed successfully"
+          else
+            echo "🚨 Health checks failed - Initiating automatic rollback..."
+            
+            # Ejecutar rollback automático
+            if [ -f "scripts/deploy/rollback.sh" ]; then
+              chmod +x scripts/deploy/rollback.sh
+              echo "🔄 Running automatic rollback..."
+              ./scripts/deploy/rollback.sh
+              echo "✅ Rollback completed"
+            else
+              echo "❌ Rollback script not found - manual intervention required"
+            fi
+            
+            exit 1
+          fi
         EOF
 
-  # 5. Notify Success
+  # 6. Manual Rollback (si es necesario)
+  rollback:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure() && github.event.inputs.force_rollback == 'true'
+    timeout-minutes: 10
+    
+    steps:
+    - name: Setup SSH known hosts
+      run: |
+        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+
+    - name: Manual Rollback
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
+          
+          echo "🔄 Executing manual rollback..."
+          
+          if [ -f "scripts/deploy/rollback.sh" ]; then
+            chmod +x scripts/deploy/rollback.sh
+            ./scripts/deploy/rollback.sh
+            echo "✅ Manual rollback completed"
+          else
+            echo "❌ Rollback script not found"
+            exit 1
+          fi
+        EOF
+
+  # 7. Notify Success/Failure
   notify:
     runs-on: ubuntu-latest
     needs: deploy
@@ -307,7 +367,16 @@ jobs:
           echo "- ✅ Images built and pushed"
           echo "- ✅ Infrastructure deployed"
           echo "- ✅ Health checks passed"
+          echo "- ✅ No rollback needed"
         else
           echo "❌ Deployment failed!"
-          echo "🔍 Check the logs for details"
+          echo "� Summary:"
+          echo "- ❌ Deployment failed"
+          echo "- 🔄 Automatic rollback initiated"
+          echo "- 📋 Check logs for details"
+          echo "- 🔧 Manual intervention may be required"
+          
+          if [ "${{ github.event.inputs.force_rollback }}" == "true" ]; then
+            echo "- 🔄 Manual rollback requested"
+          fi
         fi
