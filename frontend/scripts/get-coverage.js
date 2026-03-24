@@ -11,10 +11,10 @@ try {
   
   // Parse the text output to find the coverage percentage
   const lines = output.split('\n');
-  const coverageLine = lines.find(line => line.includes('All files') && line.includes('%'));
+  const coverageLine = lines.find(line => line.trim().startsWith('All files') && line.includes('|'));
   
   if (coverageLine) {
-    // Extract percentage from line like "All files                             |    6.71 |     4.01 |    4.06 |    6.79 |"
+    // Extract percentage from line like "All files          |       0 |        0 |       0 |      0"
     const parts = coverageLine.split('|').map(part => part.trim());
     // The coverage percentage is the second number after "All files"
     if (parts.length >= 2 && parts[1]) {
