@@ -186,10 +186,14 @@ services:
     container_name: workplace_nginx
     restart: unless-stopped
     init: true
+    command: >
+      sh -c "
+        /usr/local/bin/detect-env.sh &&
+        nginx -g 'daemon off;'
+      "
     security_opt:
       - no-new-privileges:true
       - apparmor:docker-default
-      - seccomp:default
     cap_drop:
       - ALL
     cap_add:
@@ -220,7 +224,7 @@ services:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:rw
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./fallback:/var/www/fallback:ro
       - uploads_data:/var/www/uploads:ro
@@ -248,9 +252,9 @@ services:
       retries: 3
       start_period: 10s
     environment:
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DOMAIN=${DOMAIN:-playrke.com}
-      - SSL_ENABLED=${SSL_ENABLED:-true}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DOMAIN=${DOMAIN:-localhost}
+      - SSL_ENABLED=${SSL_ENABLED:-false}
 
   certbot:
     build:
@@ -264,7 +268,6 @@ services:
     security_opt:
       - no-new-privileges:true
       - apparmor:docker-default
-      - seccomp:default
     cap_drop:
       - ALL
     cap_add:
