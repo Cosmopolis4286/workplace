@@ -20,63 +20,13 @@ jobs:
         docker build -t workplace-backend:test -f backend/Dockerfile.prod .
         docker build -t workplace-frontend:test -f frontend/Dockerfile.prod .
 
-    - name: Start test environment
-      run: |
-        # Create test network
-        docker network create workplace-test-network
-        
-        # Start dependencies
-        docker run -d --name test-postgres \
-          --network workplace-test-network \
-          -e POSTGRES_DB=workplace_e2e \
-          -e POSTGRES_USER=workplace \
-          -e POSTGRES_PASSWORD=test123 \
-          postgres:16-alpine
-        
-        docker run -d --name test-redis \
-          --network workplace-test-network \
-          redis:7-alpine
-        
-        # Wait for dependencies
-        sleep 10
-        
-        # Start application
-        docker run -d --name test-backend \
-          --network workplace-test-network \
-          -e DATABASE_URL=postgresql://workplace:test123@test-postgres:5432/workplace_e2e \
-          -e REDIS_URL=redis://test-redis:6379 \
-          -e NODE_ENV=test \
-          -p 3001:3001 \
-          workplace-backend:test
-        
-        docker run -d --name test-frontend \
-          --network workplace-test-network \
-          -e NUXT_PUBLIC_API_URL=http://test-backend:3001 \
-          -p 3000:3000 \
-          workplace-frontend:test
-
-    - name: Wait for services
-      run: |
-        echo "⏳ Waiting for services to be ready..."
-        
-        # Wait for backend
-        timeout 60 bash -c 'until curl -f http://localhost:3001/api/health; do sleep 2; done'
-        
-        # Wait for frontend  
-        timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
-        
-        echo "✅ All services ready"
-
-    - name: Install Playwright
-      run: |
-        cd e2e-tests
-        pnpm install
-        npx playwright install --with-deps
-
     - name: Run E2E Tests
       run: |
-        cd e2e-tests
-        npx playwright test --reporter=html
+        echo "🧪 Running E2E tests with ultra-optimized environment..."
+        
+        # Usar script optimizado para E2E
+        chmod +x scripts/ci/run-e2e-optimized.sh
+        ./scripts/ci/run-e2e-optimized.sh
       env:
         BASE_URL: http://localhost:3000
         API_URL: http://localhost:3001
@@ -92,6 +42,7 @@ jobs:
     - name: Cleanup
       if: always()
       run: |
-        docker stop test-backend test-frontend test-postgres test-redis || true
-        docker rm test-backend test-frontend test-postgres test-redis || true
-        docker network rm workplace-test-network || true
+        echo "🧹 Cleaning up optimized test environment..."
+        
+        # El script optimizado ya incluye cleanup
+        echo "✅ Cleanup handled by optimized script"
