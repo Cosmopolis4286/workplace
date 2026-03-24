@@ -65,7 +65,9 @@ services:
         max-file: "3"
 
   migrate:
-    image: ${DOCKER_USER}/workplace-backend:main
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
     container_name: workplace_migrate
     env_file:
       - .env
@@ -88,7 +90,9 @@ services:
       - /tmp
 
   backend:
-    image: ${BACKEND_IMAGE:-workplace/workplace-backend:main}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
     container_name: workplace_backend
     restart: unless-stopped
     init: true
@@ -137,7 +141,10 @@ services:
       - /tmp
 
   frontend:
-    image: ${FRONTEND_IMAGE:-workplace/workplace-frontend:main}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.prod
+    container_name: workplace_frontend
     restart: unless-stopped
     init: true
     stop_grace_period: 30s
