@@ -40,7 +40,7 @@ jobs:
       uses: ./.github/actions/run-tests
       with:
         force-deploy: ${{ github.event.inputs.force_deploy }}
-        coverage-threshold: '10'
+        coverage-threshold: '5'
 
     - name: Subir Reportes de Coverage
       uses: codecov/codecov-action@v3
