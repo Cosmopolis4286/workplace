@@ -102,7 +102,7 @@ describe('AuthController', () => {
 
       mockAuthService.refreshToken.mockResolvedValue(newTokens)
 
-      const result = await controller.refreshToken(refreshDto)
+      const result = await controller.refresh({ userId: 'test-user', ...refreshDto })
 
       expect(result).toEqual(newTokens)
       expect(mockAuthService.refreshToken).toHaveBeenCalledWith(refreshDto)
@@ -115,7 +115,7 @@ describe('AuthController', () => {
 
       mockAuthService.refreshToken.mockRejectedValue(new Error('Invalid refresh token'))
 
-      await expect(controller.refreshToken(refreshDto)).rejects.toThrow('Invalid refresh token')
+      await expect(controller.refresh({ userId: 'test-user', ...refreshDto })).rejects.toThrow('Invalid refresh token')
     })
   })
 
