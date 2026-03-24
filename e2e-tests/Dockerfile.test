@@ -15,7 +15,8 @@ RUN apk add --no-cache \
 # Solo copiar lo necesario para tests
 WORKDIR /app
 COPY package.json ./
-COPY e2e-tests/ ./e2e-tests/
+COPY tests/ ./tests/
+COPY playwright.config.ts ./
 
 # Instalar dependencias de forma optimizada
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate && \
@@ -37,4 +38,4 @@ USER test
 
 # Comando por defecto: ejecutar tests
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "cd e2e-tests && npx playwright test --headed=false"]
+CMD ["sh", "-c", "npx playwright test --headed=false"]
