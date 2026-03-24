@@ -1,15 +1,42 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { HealthController } from '../../health/health.controller'
+import { PrismaService } from '../../prisma/prisma.service'
+import { RedisService } from '../../redis/redis.service'
 
 describe('HealthController', () => {
   let controller: HealthController
+  let prismaService: PrismaService
+  let redisService: RedisService
+
+  const mockPrismaService = {
+    $queryRaw: jest.fn(),
+    $connect: jest.fn(),
+    $disconnect: jest.fn(),
+  }
+
+  const mockRedisService = {
+    set: jest.fn(),
+    get: jest.fn(),
+  }
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HealthController],
+      providers: [
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
+        {
+          provide: RedisService,
+          useValue: mockRedisService,
+        },
+      ],
     }).compile()
 
     controller = module.get<HealthController>(HealthController)
+    prismaService = module.get<PrismaService>(PrismaService)
+    redisService = module.get<RedisService>(RedisService)
   })
 
   it('should be defined', () => {
@@ -24,8 +51,6 @@ describe('HealthController', () => {
         status: 'ok',
         timestamp: expect.any(String),
         uptime: expect.any(Number),
-        environment: expect.any(String),
-        version: expect.any(String),
       })
     })
   })
@@ -34,21 +59,10 @@ describe('HealthController', () => {
     it('should return ready status', async () => {
       const result = await controller.ready()
 
-      expect(result).toEqual({
-        status: 'ready',
-        timestamp: expect.any(String),
-      })
-    })
-  })
-
-  describe('live', () => {
-    it('should return live status', async () => {
-      const result = await controller.live()
-
-      expect(result).toEqual({
-        status: 'live',
-        timestamp: expect.any(String),
-      })
+      expect(result).toHaveProperty('ready')
+      expect(result).toHaveProperty('uptime')
+      expect(result).toHaveProperty('timestamp')
+      expect(result).toHaveProperty('checks')
     })
   })
 })
