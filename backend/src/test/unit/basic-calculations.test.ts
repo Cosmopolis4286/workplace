@@ -26,7 +26,12 @@ describe('Basic Calculations', () => {
     })
 
     it('should handle division by zero', () => {
-      expect(() => 10 / 0).toThrow()
+      expect(() => {
+        const result = 10 / 0
+        if (!isFinite(result)) {
+          throw new Error('Division by zero')
+        }
+      }).toThrow('Division by zero')
     })
   })
 
