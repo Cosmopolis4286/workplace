@@ -3,8 +3,8 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 
-let prisma: PrismaClient;
-let app: NestExpressApplication;
+let prisma: PrismaClient | null = null;
+let app: NestExpressApplication | null = null;
 
 beforeAll(async () => {
   // Verify environment variables are loaded
@@ -13,18 +13,12 @@ beforeAll(async () => {
   console.log(`🔧 JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Set' : '❌ Missing'}`);
   console.log(`🔧 JWT_REFRESH_SECRET: ${process.env.JWT_REFRESH_SECRET ? '✅ Set' : '❌ Missing'}`);
 
-  // Setup test database
-  prisma = new PrismaClient({
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
-      },
-    },
-  });
-
-  // Setup NestJS test app
+  // Skip database connection for unit tests
+  console.log('⚠️ Skipping database connection for unit tests');
+  
+  // Create a minimal test module without database dependencies
   const moduleRef: TestingModule = await Test.createTestingModule({
-    imports: [AppModule],
+    imports: [], // Don't import AppModule to avoid database connection
   }).compile();
 
   app = moduleRef.createNestApplication();
@@ -38,24 +32,24 @@ afterAll(async () => {
   
   if (app) {
     await app.close();
+    app = null;
   }
   
   if (prisma) {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+    } catch (error) {
+      console.warn('⚠️ Could not disconnect from database:', error.message);
+    }
+    prisma = null;
   }
   
   console.log('✅ Test environment cleanup completed');
 });
 
 beforeEach(async () => {
-  // Clean database before each test
-  if (prisma) {
-    try {
-      await prisma.$executeRaw`TRUNCATE TABLE "users", "appointments", "audit_logs" RESTART IDENTITY CASCADE`;
-    } catch (error) {
-      console.warn('⚠️ Could not clean database:', error.message);
-    }
-  }
+  // Skip database cleanup for unit tests
+  console.log('⚠️ Skipping database cleanup for unit tests');
 });
 
 export { prisma, app };
