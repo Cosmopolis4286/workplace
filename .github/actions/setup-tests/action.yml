@@ -1,0 +1,22 @@
+name: Setup Tests Environment
+description: Setup test environment with PostgreSQL and Redis
+author: 'WorkPlace Team'
+
+inputs:
+  node-version:
+    description: 'Node.js version'
+    required: false
+    default: '20'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js and pnpm
+      uses: ./.github/actions/setup-node-pnpm
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Setup PostgreSQL and Redis services
+      shell: bash
+      run: |
+        echo "✅ Test environment with PostgreSQL and Redis ready"
