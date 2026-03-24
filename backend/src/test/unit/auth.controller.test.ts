@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { AuthController } from '../../auth/auth.controller'
 import { AuthService } from '../../auth/auth.service'
 import { JwtService } from '@nestjs/jwt'
+import { ConfigService } from '@nestjs/config'
 
 describe('AuthController', () => {
   let controller: AuthController
@@ -11,7 +12,16 @@ describe('AuthController', () => {
     login: jest.fn(),
     register: jest.fn(),
     refreshToken: jest.fn(),
+    refreshTokens: jest.fn(),
     logout: jest.fn(),
+  }
+
+  const mockConfigService = {
+    get: jest.fn((key: string) => {
+      if (key === 'JWT_REFRESH_EXPIRES_IN') return '7d'
+      if (key === 'JWT_EXPIRES_IN') return '15m'
+      return undefined
+    }),
   }
 
   beforeEach(async () => {
@@ -21,6 +31,10 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
         JwtService,
       ],
@@ -100,12 +114,13 @@ describe('AuthController', () => {
         refreshToken: 'new-refresh-token',
       }
 
-      mockAuthService.refreshToken.mockResolvedValue(newTokens)
+      mockAuthService.refreshTokens.mockResolvedValue(newTokens)
 
-      const result = await controller.refresh({ userId: 'test-user', ...refreshDto })
+      const mockRequest = { user: { userId: 'test-user' } }
+      const result = await controller.refresh(mockRequest, refreshDto)
 
       expect(result).toEqual(newTokens)
-      expect(mockAuthService.refreshToken).toHaveBeenCalledWith(refreshDto)
+      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('test-user', refreshDto.refreshToken)
     })
 
     it('should throw error when refresh token is invalid', async () => {
@@ -113,24 +128,26 @@ describe('AuthController', () => {
         refreshToken: 'invalid-token',
       }
 
-      mockAuthService.refreshToken.mockRejectedValue(new Error('Invalid refresh token'))
+      mockAuthService.refreshTokens.mockRejectedValue(new Error('Invalid refresh token'))
 
-      await expect(controller.refresh({ userId: 'test-user', ...refreshDto })).rejects.toThrow('Invalid refresh token')
+      const mockRequest = { user: { userId: 'test-user' } }
+      await expect(controller.refresh(mockRequest, refreshDto)).rejects.toThrow('Invalid refresh token')
     })
   })
 
   describe('logout', () => {
     it('should logout user successfully', async () => {
-      const logoutDto = {
-        refreshToken: 'valid-refresh-token',
+      const mockUser = { 
+        id: 'test-user-id', 
+        jti: 'test-jti' 
       }
 
       mockAuthService.logout.mockResolvedValue(undefined)
 
-      const result = await controller.logout(logoutDto)
+      const result = await controller.logout(mockUser)
 
-      expect(result).toEqual({ message: 'Logout successful' })
-      expect(mockAuthService.logout).toHaveBeenCalledWith(logoutDto)
+      expect(result).toEqual({ message: 'Sesión cerrada exitosamente' })
+      expect(mockAuthService.logout).toHaveBeenCalledWith('test-user-id', 'test-jti', 900)
     })
   })
 })
