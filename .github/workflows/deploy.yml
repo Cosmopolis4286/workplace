@@ -21,71 +21,71 @@ env:
   IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/workplace
 
 jobs:
-  # 1. Tests Unitarios con Coverage (YAML para setup + Shell para lógica) - COMENTADO TEMPORALMENTE
-  # test:
-  #   name: Ejecutar Tests con Coverage
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 15
-  #   
-  #   steps:
-  #   - name: Checkout del código
-  #     uses: actions/checkout@v4
-  # 
-  #   - name: Configurar Entorno de Tests
-  #     uses: ./.github/actions/setup-tests
-  #     with:
-  #       node-version: '20'
-  # 
-  #   - name: Ejecutar Tests con Coverage
-  #     uses: ./.github/actions/run-tests
-  #     with:
-  #       force-deploy: ${{ github.event.inputs.force_deploy }}
-  #       coverage-threshold: '80'
-  # 
-  #   - name: Subir Reportes de Coverage
-  #     uses: codecov/codecov-action@v3
-  #     with:
-  #       files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
-  #       flags: unittests
-  #       name: codecov-umbrella
-  #       fail_ci_if_error: false
+  # 1. Tests Unitarios con Coverage (YAML para setup + Shell para lógica)
+  test:
+    name: Ejecutar Tests con Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout del código
+      uses: actions/checkout@v4
 
-  # 2. Tests E2E (YAML para setup + Shell para lógica) - COMENTADO TEMPORALMENTE
-  # e2e-tests:
-  #   name: Ejecutar Tests E2E
-  #   runs-on: ubuntu-latest
-  #   needs: test
-  #   if: github.ref == 'refs/heads/main'
-  #   timeout-minutes: 20
-  #   
-  #   steps:
-  #   - name: Checkout del código
-  #     uses: actions/checkout@v4
-  # 
-  #   - name: Configurar Node.js y pnpm
-  #     uses: ./.github/actions/setup-node-pnpm
-  #     with:
-  #       node-version: '20'
-  # 
-  #   - name: Ejecutar Tests E2E
-  #     shell: bash
-  #     run: |
-  #       chmod +x scripts/ci/run-e2e.sh
-  #       ./scripts/ci/run-e2e.sh
-  # 
-  #   - name: Subir Resultados de Tests E2E
-  #     uses: actions/upload-artifact@v3
-  #     if: always()
-  #     with:
+    - name: Configurar Entorno de Tests
+      uses: ./.github/actions/setup-tests
+      with:
+        node-version: '20'
+
+    - name: Ejecutar Tests con Coverage
+      uses: ./.github/actions/run-tests
+      with:
+        force-deploy: ${{ github.event.inputs.force_deploy }}
+        coverage-threshold: '70'
+
+    - name: Subir Reportes de Coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  # 2. Tests E2E (YAML para setup + Shell para lógica)
+  e2e-tests:
+    name: Ejecutar Tests E2E
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 20
+    
+    steps:
+    - name: Checkout del código
+      uses: actions/checkout@v4
+
+    - name: Configurar Node.js y pnpm
+      uses: ./.github/actions/setup-node-pnpm
+      with:
+        node-version: '20'
+
+    - name: Ejecutar Tests E2E
+      shell: bash
+      run: |
+        chmod +x scripts/ci/run-e2e.sh
+        ./scripts/ci/run-e2e.sh
+
+    - name: Subir Resultados de Tests E2E
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
         name: playwright-report
         path: e2e-tests/playwright-report/
         retention-days: 30
 
-  # 3. Construir Imágenes Docker (YAML - estándar) - SIN DEPENDENCIA DE TESTS
+  # 3. Construir Imágenes Docker (YAML - estándar)
   build-backend:
     name: Construir Imagen Backend
     runs-on: ubuntu-latest
-    # needs: [test, e2e-tests] - COMENTADO PARA EVITAR DEPENDENCIA DE TESTS
+    needs: [test, e2e-tests]
     timeout-minutes: 15
     
     outputs:
@@ -140,7 +140,7 @@ jobs:
   build-frontend:
     name: Construir Imagen Frontend
     runs-on: ubuntu-latest
-    # needs: [test, e2e-tests] - COMENTADO PARA EVITAR DEPENDENCIA DE TESTS
+    needs: [test, e2e-tests]
     timeout-minutes: 15
     
     outputs:

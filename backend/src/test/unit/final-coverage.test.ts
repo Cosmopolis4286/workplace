@@ -22,7 +22,7 @@ describe('Final Coverage Tests', () => {
 
   describe('String Role Comparisons', () => {
     it('should compare roles as strings', () => {
-      const userRole = 'ADMIN'
+      const userRole = 'ADMIN' as any
       const isAdmin = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
       const isCommerce = userRole === 'COMMERCE' || userRole === 'ADMIN' || userRole === 'SUPERADMIN'
       
@@ -31,7 +31,7 @@ describe('Final Coverage Tests', () => {
     })
 
     it('should handle normal user permissions', () => {
-      const userRole = 'NORMAL'
+      const userRole = 'NORMAL' as any
       const canManageUsers = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
       const canManageCommerce = userRole === 'COMMERCE' || userRole === 'ADMIN' || userRole === 'SUPERADMIN'
       

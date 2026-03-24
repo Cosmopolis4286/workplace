@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { AuthController } from '../auth/auth.controller'
-import { AuthService } from '../auth/auth.service'
+import { AuthController } from '../../auth/auth.controller'
+import { AuthService } from '../../auth/auth.service'
 import { JwtService } from '@nestjs/jwt'
 
 describe('AuthController', () => {
@@ -8,7 +8,6 @@ describe('AuthController', () => {
   let authService: AuthService
 
   const mockAuthService = {
-    validateUser: jest.fn(),
     login: jest.fn(),
     register: jest.fn(),
     refreshToken: jest.fn(),
@@ -42,36 +41,22 @@ describe('AuthController', () => {
         password: 'password123',
       }
 
-      const user = {
-        id: 1,
-        email: 'test@example.com',
-        role: 'USER',
-      }
-
       const tokens = {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
+        user: {
+          id: 1,
+          email: 'test@example.com',
+          role: 'USER'
+        }
       }
 
-      mockAuthService.validateUser.mockResolvedValue(user)
       mockAuthService.login.mockResolvedValue(tokens)
 
       const result = await controller.login(loginDto)
 
       expect(result).toEqual(tokens)
-      expect(mockAuthService.validateUser).toHaveBeenCalledWith('test@example.com', 'password123')
-      expect(mockAuthService.login).toHaveBeenCalledWith(user)
-    })
-
-    it('should throw error when credentials are invalid', async () => {
-      const loginDto = {
-        email: 'wrong@example.com',
-        password: 'wrongpassword',
-      }
-
-      mockAuthService.validateUser.mockResolvedValue(null)
-
-      await expect(controller.login(loginDto)).rejects.toThrow('Invalid credentials')
+      expect(mockAuthService.login).toHaveBeenCalledWith(loginDto)
     })
   })
 
@@ -80,35 +65,33 @@ describe('AuthController', () => {
       const registerDto = {
         email: 'newuser@example.com',
         password: 'password123',
-        name: 'New User',
-      }
-
-      const createdUser = {
-        id: 2,
-        email: 'newuser@example.com',
-        name: 'New User',
-        role: 'USER',
+        firstName: 'New',
+        lastName: 'User',
+        commerceName: 'Test Commerce'
       }
 
       const tokens = {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
+        user: {
+          id: 2,
+          email: 'newuser@example.com',
+          role: 'USER'
+        }
       }
 
-      mockAuthService.register.mockResolvedValue(createdUser)
-      mockAuthService.login.mockResolvedValue(tokens)
+      mockAuthService.register.mockResolvedValue(tokens)
 
       const result = await controller.register(registerDto)
 
       expect(result).toEqual(tokens)
       expect(mockAuthService.register).toHaveBeenCalledWith(registerDto)
-      expect(mockAuthService.login).toHaveBeenCalledWith(createdUser)
     })
   })
 
   describe('refreshToken', () => {
     it('should return new access token', async () => {
-      const refreshTokenDto = {
+      const refreshDto = {
         refreshToken: 'valid-refresh-token',
       }
 
@@ -119,20 +102,20 @@ describe('AuthController', () => {
 
       mockAuthService.refreshToken.mockResolvedValue(newTokens)
 
-      const result = await controller.refreshToken(refreshTokenDto)
+      const result = await controller.refreshToken(refreshDto)
 
       expect(result).toEqual(newTokens)
-      expect(mockAuthService.refreshToken).toHaveBeenCalledWith('valid-refresh-token')
+      expect(mockAuthService.refreshToken).toHaveBeenCalledWith(refreshDto)
     })
 
     it('should throw error when refresh token is invalid', async () => {
-      const refreshTokenDto = {
+      const refreshDto = {
         refreshToken: 'invalid-token',
       }
 
       mockAuthService.refreshToken.mockRejectedValue(new Error('Invalid refresh token'))
 
-      await expect(controller.refreshToken(refreshTokenDto)).rejects.toThrow('Invalid refresh token')
+      await expect(controller.refreshToken(refreshDto)).rejects.toThrow('Invalid refresh token')
     })
   })
 
@@ -147,7 +130,7 @@ describe('AuthController', () => {
       const result = await controller.logout(logoutDto)
 
       expect(result).toEqual({ message: 'Logout successful' })
-      expect(mockAuthService.logout).toHaveBeenCalledWith('valid-refresh-token')
+      expect(mockAuthService.logout).toHaveBeenCalledWith(logoutDto)
     })
   })
 })

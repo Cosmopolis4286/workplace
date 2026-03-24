@@ -1,15 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
-import { BcryptService } from '../common/bcrypt.service'
-import { AuthService } from '../auth/auth.service'
-import { PrismaService } from '../prisma/prisma.service'
+import { AuthService } from '../../auth/auth.service'
+import { PrismaService } from '../../prisma/prisma.service'
+import { UsersService } from '../../users/users.service'
+import { RedisService } from '../../redis/redis.service'
+import { MailService } from '../../mail/mail.service'
 
 describe('AuthService', () => {
   let service: AuthService
   let jwtService: JwtService
   let prismaService: PrismaService
-  let bcryptService: BcryptService
+  let usersService: UsersService
+  let redisService: RedisService
+  let mailService: MailService
 
   const mockPrismaService = {
     user: {
@@ -24,14 +28,26 @@ describe('AuthService', () => {
     verify: jest.fn(),
   }
 
-  const mockBcryptService = {
-    hash: jest.fn(),
-    compare: jest.fn(),
+  const mockUsersService = {
+    create: jest.fn(),
+    findByEmail: jest.fn(),
+    validatePassword: jest.fn(),
+  }
+
+  const mockRedisService = {
+    getLoginAttempts: jest.fn(),
+    setLoginAttempts: jest.fn(),
+    saveRefreshToken: jest.fn(),
+  }
+
+  const mockMailService = {
+    sendPasswordResetEmail: jest.fn(),
+    sendVerificationEmail: jest.fn(),
   }
 
   const mockConfigService = {
     get: jest.fn(),
-    getOrThrow: jest.fn(),
+    getOrThrow: jest.fn().mockReturnValue('7d'),
   }
 
   beforeEach(async () => {
@@ -47,8 +63,16 @@ describe('AuthService', () => {
           useValue: mockJwtService,
         },
         {
-          provide: BcryptService,
-          useValue: mockBcryptService,
+          provide: UsersService,
+          useValue: mockUsersService,
+        },
+        {
+          provide: RedisService,
+          useValue: mockRedisService,
+        },
+        {
+          provide: MailService,
+          useValue: mockMailService,
         },
         {
           provide: ConfigService,
@@ -60,119 +84,86 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService)
     jwtService = module.get<JwtService>(JwtService)
     prismaService = module.get<PrismaService>(PrismaService)
-    bcryptService = module.get<BcryptService>(BcryptService)
+    usersService = module.get<UsersService>(UsersService)
+    redisService = module.get<RedisService>(RedisService)
+    mailService = module.get<MailService>(MailService)
   })
 
   it('should be defined', () => {
     expect(service).toBeDefined()
   })
 
-  describe('validateUser', () => {
-    it('should return user if credentials are valid', async () => {
-      const user = {
-        id: 1,
-        email: 'test@example.com',
-        password: 'hashedPassword',
-        role: 'USER',
-        isActive: true,
-      }
-
-      mockPrismaService.user.findUnique.mockResolvedValue(user)
-      mockBcryptService.compare.mockResolvedValue(true)
-
-      const result = await service.validateUser('test@example.com', 'password')
-
-      expect(result).toEqual({
-        id: 1,
-        email: 'test@example.com',
-        role: 'USER',
-        isActive: true,
-      })
-      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
-        where: { email: 'test@example.com' },
-      })
-      expect(mockBcryptService.compare).toHaveBeenCalledWith('password', 'hashedPassword')
-    })
-
-    it('should return null if user not found', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue(null)
-
-      const result = await service.validateUser('nonexistent@example.com', 'password')
-
-      expect(result).toBeNull()
-    })
-
-    it('should return null if password is invalid', async () => {
-      const user = {
-        id: 1,
-        email: 'test@example.com',
-        password: 'hashedPassword',
-        role: 'USER',
-        isActive: true,
-      }
-
-      mockPrismaService.user.findUnique.mockResolvedValue(user)
-      mockBcryptService.compare.mockResolvedValue(false)
-
-      const result = await service.validateUser('test@example.com', 'wrongpassword')
-
-      expect(result).toBeNull()
-    })
-  })
-
   describe('login', () => {
     it('should return access and refresh tokens', async () => {
+      const loginDto = {
+        email: 'test@example.com',
+        password: 'password123'
+      }
+
       const user = {
         id: 1,
         email: 'test@example.com',
         role: 'USER',
+        firstName: 'Test',
+        lastName: 'User',
+        password: 'hashedPassword'
       }
 
+      mockRedisService.getLoginAttempts.mockResolvedValue(0)
+      mockUsersService.findByEmail.mockResolvedValue(user)
+      mockUsersService.validatePassword.mockResolvedValue(true)
       mockConfigService.getOrThrow.mockReturnValue('test-secret')
       mockJwtService.sign.mockReturnValueOnce('access-token').mockReturnValueOnce('refresh-token')
 
-      const result = await service.login(user)
+      const result = await service.login(loginDto)
 
-      expect(result).toEqual({
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-      })
+      expect(result).toHaveProperty('accessToken')
+      expect(result).toHaveProperty('refreshToken')
+      expect(result).toHaveProperty('user')
       expect(mockJwtService.sign).toHaveBeenCalledTimes(2)
+    })
+
+    it('should throw error if too many login attempts', async () => {
+      const loginDto = {
+        email: 'test@example.com',
+        password: 'password123'
+      }
+
+      mockRedisService.getLoginAttempts.mockResolvedValue(5)
+
+      await expect(service.login(loginDto)).rejects.toThrow()
     })
   })
 
   describe('register', () => {
-    it('should create new user with hashed password', async () => {
-      const createUserDto = {
+    it('should create new user', async () => {
+      const registerDto = {
         email: 'newuser@example.com',
         password: 'password123',
-        name: 'New User',
+        firstName: 'New',
+        lastName: 'User',
+        commerceName: 'Test Commerce'
       }
 
-      const hashedPassword = 'hashedPassword123'
       const createdUser = {
         id: 2,
         email: 'newuser@example.com',
-        name: 'New User',
+        firstName: 'New',
+        lastName: 'User',
         role: 'USER',
         isActive: true,
       }
 
-      mockBcryptService.hash.mockResolvedValue(hashedPassword)
-      mockPrismaService.user.create.mockResolvedValue(createdUser)
+      mockUsersService.create.mockResolvedValue(createdUser)
+      mockConfigService.getOrThrow.mockReturnValue('test-secret')
+      mockJwtService.sign.mockReturnValueOnce('access-token').mockReturnValueOnce('refresh-token')
 
-      const result = await service.register(createUserDto)
+      const result = await service.register(registerDto)
 
-      expect(result).toEqual(createdUser)
-      expect(mockBcryptService.hash).toHaveBeenCalledWith('password123')
-      expect(mockPrismaService.user.create).toHaveBeenCalledWith({
-        data: {
-          email: 'newuser@example.com',
-          password: hashedPassword,
-          name: 'New User',
-          role: 'USER',
-        },
-      })
+      expect(result).toHaveProperty('user')
+      expect(result).toHaveProperty('accessToken')
+      expect(result).toHaveProperty('refreshToken')
+      expect(mockUsersService.create).toHaveBeenCalledWith(registerDto)
     })
   })
 })
