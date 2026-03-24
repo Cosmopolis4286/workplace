@@ -47,33 +47,80 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v4
 
     - name: Setup Node.js
-      uses: actions/setup-node@v5
+      uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
+        cache-dependency-path: |
+          backend/package-lock.json
+          frontend/package-lock.json
 
     - name: Install pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v2
       with:
-        version: 9.15.4
+        version: 8
 
     - name: Install dependencies
       run: |
-        cd backend
-        pnpm install --frozen-lockfile
+        cd backend && pnpm install
+        cd ../frontend && pnpm install
 
-    - name: Run unit tests
+    - name: Run Backend Tests with Coverage
       run: |
         cd backend
-        pnpm test:ci
+        pnpm test:coverage
       env:
         DATABASE_URL: postgresql://test:test@localhost:5432/test_db
-        REDIS_HOST: localhost
-        REDIS_PORT: 6379
-        NODE_ENV: test
+        REDIS_URL: redis://localhost:6379
+
+    - name: Run Frontend Tests with Coverage
+      run: |
+        cd frontend
+        pnpm test:coverage
+
+    - name: Check Coverage Threshold (80%)
+      run: |
+        echo "🔍 Checking coverage thresholds..."
+        
+        # Backend coverage
+        BACKEND_COVERAGE=$(cd backend && pnpm run coverage:percentage || echo "0")
+        echo "Backend coverage: ${BACKEND_COVERAGE}%"
+        
+        # Frontend coverage  
+        FRONTEND_COVERAGE=$(cd frontend && pnpm run coverage:percentage || echo "0")
+        echo "Frontend coverage: ${FRONTEND_COVERAGE}%"
+        
+        # Check thresholds
+        THRESHOLD=80
+        
+        if (( $(echo "$BACKEND_COVERAGE < $THRESHOLD" | bc -l) )); then
+          echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${THRESHOLD}%"
+          if [ "${{ github.event.inputs.force_deploy }}" != "true" ]; then
+            exit 1
+          fi
+          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
+        fi
+        
+        if (( $(echo "$FRONTEND_COVERAGE < $THRESHOLD" | bc -l) )); then
+          echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${THRESHOLD}%"
+          if [ "${{ github.event.inputs.force_deploy }}" != "true" ]; then
+            exit 1
+          fi
+          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
+        fi
+        
+        echo "✅ All coverage requirements met!"
+
+    - name: Upload Coverage Reports
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
 
     - name: Run linting
       run: |
