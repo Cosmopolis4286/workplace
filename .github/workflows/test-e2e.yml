@@ -1,0 +1,107 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+
+    - name: Build Docker images
+      run: |
+        docker build -t workplace-backend:test -f backend/Dockerfile.prod .
+        docker build -t workplace-frontend:test -f frontend/Dockerfile.prod .
+
+    - name: Start test environment
+      run: |
+        # Create test network
+        docker network create workplace-test-network
+        
+        # Start dependencies
+        docker run -d --name test-postgres \
+          --network workplace-test-network \
+          -e POSTGRES_DB=workplace_e2e \
+          -e POSTGRES_USER=workplace \
+          -e POSTGRES_PASSWORD=test123 \
+          postgres:16-alpine
+        
+        docker run -d --name test-redis \
+          --network workplace-test-network \
+          redis:7-alpine
+        
+        # Wait for dependencies
+        sleep 10
+        
+        # Start application
+        docker run -d --name test-backend \
+          --network workplace-test-network \
+          -e DATABASE_URL=postgresql://workplace:test123@test-postgres:5432/workplace_e2e \
+          -e REDIS_URL=redis://test-redis:6379 \
+          -e NODE_ENV=test \
+          -p 3001:3001 \
+          workplace-backend:test
+        
+        docker run -d --name test-frontend \
+          --network workplace-test-network \
+          -e NUXT_PUBLIC_API_URL=http://test-backend:3001 \
+          -p 3000:3000 \
+          workplace-frontend:test
+
+    - name: Wait for services
+      run: |
+        echo "⏳ Waiting for services to be ready..."
+        
+        # Wait for backend
+        timeout 60 bash -c 'until curl -f http://localhost:3001/api/health; do sleep 2; done'
+        
+        # Wait for frontend  
+        timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
+        
+        echo "✅ All services ready"
+
+    - name: Install Playwright
+      run: |
+        cd e2e-tests
+        pnpm install
+        npx playwright install --with-deps
+
+    - name: Run E2E Tests
+      run: |
+        cd e2e-tests
+        npx playwright test --reporter=html
+      env:
+        BASE_URL: http://localhost:3000
+        API_URL: http://localhost:3001
+
+    - name: Upload E2E Test Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-report
+        path: e2e-tests/playwright-report/
+        retention-days: 30
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker stop test-backend test-frontend test-postgres test-redis || true
+        docker rm test-backend test-frontend test-postgres test-redis || true
+        docker network rm workplace-test-network || true
