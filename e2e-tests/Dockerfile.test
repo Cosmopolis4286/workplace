@@ -1,0 +1,41 @@
+# Dockerfile específico para E2E Tests - Ultra ligero
+FROM node:20-alpine AS test-runner
+
+# Instalar dependencias mínimas para Playwright
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    dumb-init
+
+# Solo copiar lo necesario para tests
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+COPY e2e-tests/ ./e2e-tests/
+COPY frontend/ ./frontend/
+
+# Instalar dependencias de forma optimizada
+RUN corepack enable && corepack prepare pnpm@10.20.0 --activate && \
+    pnpm install --prod --frozen-lockfile --force
+
+# Configurar Playwright para modo headless
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+# Exponer puerto para debug (opcional)
+EXPOSE 9323
+
+# Usuario no root para seguridad
+RUN addgroup -S -g 1001 test && \
+    adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G test test && \
+    chown -R test:test /app
+USER test
+
+# Comando por defecto: ejecutar tests
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["sh", "-c", "cd e2e-tests && npx playwright test --headed=false"]
