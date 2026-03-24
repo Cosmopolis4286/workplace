@@ -4,7 +4,7 @@ FROM node:20-alpine AS build
 # Dependencias para compilar Nest/Prisma
 RUN apk add --no-cache python3 make g++ git openssl-dev \
     && corepack enable \
-    && corepack prepare pnpm@10.20.0 --activate
+    && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
@@ -48,13 +48,14 @@ COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/scripts/deployment/init-backend-prod.sh ./scripts/deployment/init-backend-prod.sh
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/backend/prisma ./backend/prisma
+COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
 WORKDIR /app/backend
 
 # Instalar solo deps de producción necesarias
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    corepack enable && corepack prepare pnpm@10.20.0 --activate \
-    && pnpm install --prod
+    corepack enable && corepack prepare pnpm@9.15.0 --activate \    && pnpm install --prod
 
 # Generar cliente Prisma
 RUN pnpm prisma generate
