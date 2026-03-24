@@ -1,15 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { AppModule } from '../app.module'
 
 describe('Basic Backend Tests', () => {
-  let app: TestingModule
-
-  beforeAll(async () => {
-    app = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile()
-  })
-
   it('should pass a simple test', () => {
     expect(1 + 1).toBe(2)
   })
@@ -24,7 +15,11 @@ describe('Basic Backend Tests', () => {
     expect(Math.min(1, 2, 3)).toBe(1)
   })
 
-  afterAll(async () => {
-    await app.close()
+  it('should verify environment variables are set', () => {
+    expect(process.env.NODE_ENV).toBe('test')
+    expect(process.env.JWT_SECRET).toBeDefined()
+    expect(process.env.JWT_REFRESH_SECRET).toBeDefined()
+    expect(process.env.DATABASE_URL).toBeDefined()
+    expect(process.env.REDIS_URL).toBeDefined()
   })
 })

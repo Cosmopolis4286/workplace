@@ -21,4 +21,6 @@ module.exports = {
   },
   testTimeout: 10000,
   passWithNoTests: true,
+  // Load test environment variables
+  setupFiles: ['<rootDir>/test/env-setup.ts'],
 };
