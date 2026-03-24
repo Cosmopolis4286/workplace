@@ -1,27 +1,33 @@
 #!/usr/bin/env node
 
-const { execSync } = require('child_process');
+import { execSync } from 'child_process';
 
 try {
-  // Run vitest coverage and capture output
-  const output = execSync('npx vitest run --coverage --reporter=json', { 
+  // Run vitest coverage and capture text output
+  const output = execSync('npx vitest run --coverage', { 
     encoding: 'utf8',
     stdio: 'pipe'
   });
   
-  // Parse the JSON output
-  const coverageData = JSON.parse(output);
+  // Parse the text output to find the coverage percentage
+  const lines = output.split('\n');
+  const coverageLine = lines.find(line => line.includes('All files') && line.includes('%'));
   
-  // Extract the line coverage percentage
-  if (coverageData && coverageData.total && coverageData.total.lines) {
-    const coverage = coverageData.total.lines.pct;
-    console.log(coverage);
-    process.exit(0);
+  if (coverageLine) {
+    // Extract percentage from line like "All files                             |    6.71 |     4.01 |    4.06 |    6.79 |"
+    const parts = coverageLine.split('|').map(part => part.trim());
+    // The coverage percentage is the second number after "All files"
+    if (parts.length >= 2 && parts[1]) {
+      const coverage = parts[1];
+      console.log(coverage);
+      process.exit(0);
+    }
   }
   
   console.log('0');
   process.exit(1);
 } catch (error) {
+  console.error('Error:', error.message);
   console.log('0');
   process.exit(1);
 }

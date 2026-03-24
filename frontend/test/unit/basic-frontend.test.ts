@@ -83,11 +83,12 @@ describe('Basic Frontend Logic', () => {
         return date.toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
-          day: 'numeric'
+          day: 'numeric',
+          timeZone: 'UTC'
         })
       }
 
-      const testDate = new Date('2024-01-15')
+      const testDate = new Date(Date.UTC(2024, 0, 15))
       expect(formatDate(testDate)).toBe('January 15, 2024')
     })
 
