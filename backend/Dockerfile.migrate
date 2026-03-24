@@ -12,13 +12,10 @@ WORKDIR /app
 # Copiar solo schema Prisma
 COPY backend/prisma ./prisma
 
-# Instalar solo Prisma CLI (sin dependencias del backend)
-RUN npm install -g prisma@latest
+# Instalar solo Prisma CLI (versión estable)
+RUN npm install -g prisma@5.22.0
 
 WORKDIR /app
-
-# Generar cliente Prisma
-RUN npx prisma generate
 
 # Permisos y usuario no root
 RUN addgroup -S -g 1001 migrate && \
