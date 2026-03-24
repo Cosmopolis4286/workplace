@@ -80,10 +80,10 @@ describe('Basic Calculations', () => {
 
   describe('Date Operations', () => {
     it('should create dates correctly', () => {
-      const date = new Date('2024-01-01')
-      expect(date.getFullYear()).toBe(2024)
-      expect(date.getMonth()).toBe(0) // January is 0
-      expect(date.getDate()).toBe(1)
+      const date = new Date(Date.UTC(2024, 0, 1))
+      expect(date.getUTCFullYear()).toBe(2024)
+      expect(date.getUTCMonth()).toBe(0) // January is 0
+      expect(date.getUTCDate()).toBe(1)
     })
 
     it('should format dates', () => {
