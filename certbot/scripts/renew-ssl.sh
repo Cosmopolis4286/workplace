@@ -24,9 +24,9 @@ if eval "$CERTBOT_CMD"; then
         
         # Try to reload nginx
         if command -v docker-compose >/dev/null 2>&1; then
-            docker-compose exec nginx nginx -s reload 2>/dev/null || docker-compose restart nginx
-        elif docker ps | grep -q "nginx"; then
-            docker exec $(docker ps -q --filter "name=nginx") nginx -s reload 2>/dev/null || docker restart $(docker ps -q --filter "name=nginx")
+            docker-compose exec workplace_nginx nginx -s reload 2>/dev/null || docker-compose restart workplace_nginx
+        elif docker ps | grep -q "workplace_nginx"; then
+            docker exec workplace_nginx nginx -s reload 2>/dev/null || docker restart workplace_nginx
         fi
         
         echo "✅ Nginx recargado"

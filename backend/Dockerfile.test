@@ -21,7 +21,7 @@ RUN corepack enable && corepack prepare pnpm@10.20.0 --activate && \
     pnpm install --prod --frozen-lockfile --force
 
 # Variables de entorno para tests
-ENV NODE_ENV=test
+ENV ENVIRONMENT=test
 ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 # Exponer puerto para debug (opcional)

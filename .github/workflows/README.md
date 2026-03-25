@@ -114,7 +114,7 @@ PRODUCTION_HOST        # Servidor de producción
 PRODUCTION_USER        # Usuario SSH  
 DOCKER_USERNAME        # Docker Hub username
 DOCKER_PASSWORD        # Docker Hub password
-DOMAIN_NAME            # Dominio para SSL (opcional)
+DOMAIN            # Dominio para SSL (opcional)
 ```
 
 #### Desarrollo
@@ -137,7 +137,7 @@ POSTGRES_DB=workplace
 REDIS_PASSWORD=your_redis_password
 
 # Backend
-NODE_ENV=production
+ENVIRONMENT=production
 NODE_PORT=3001
 
 # Frontend

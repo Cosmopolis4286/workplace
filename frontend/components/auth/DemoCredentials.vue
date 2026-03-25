@@ -191,7 +191,7 @@ const isOpen = ref(false)
 const showPasswordFor = ref<string | null>(null)
 const fillingRole = ref<string | null>(null)
 
-const isDevelopment = computed(() => process.env.NODE_ENV === 'development')
+const isDevelopment = computed(() => process.env.ENVIRONMENT === 'development')
 
 const toggleModal = () => { isOpen.value = !isOpen.value }
 const closeModal = () => { isOpen.value = false }

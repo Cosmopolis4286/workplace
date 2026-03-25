@@ -6,7 +6,7 @@ if [ ! -f "/opt/workplace/.env" ]; then
   echo "📝 Creando archivo .env para producción..."
   cat > /opt/workplace/.env << 'EOL'
 APP_NAME=WorkPlace
-NODE_ENV=production
+ENVIRONMENT=production
 NODE_PORT=3001
 FRONTEND_PORT=3000
 NITRO_HOST=0.0.0.0

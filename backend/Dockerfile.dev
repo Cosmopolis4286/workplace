@@ -11,19 +11,22 @@ WORKDIR /app
 # ---------- BACKEND ----------
 FROM base AS backend
 
-# Copiar archivos de configuración
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY backend/package.json ./backend/
-COPY backend/prisma ./backend/prisma
+WORKDIR /app/backend
 
-# Instalar dependencias del backend
+# Copiar archivos de configuración del backend
+COPY backend/package.json ./package.json
+COPY pnpm-lock.yaml ./pnpm-lock.yaml
+COPY backend/prisma ./prisma
+
+# Instalar dependencias del backend (incluyendo devDependencies)
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    cd backend && pnpm install --frozen-lockfile
+    pnpm install --no-frozen-lockfile --dev
+
+# Copiar código fuente
+COPY backend/src ./src
 
 # Generar Prisma Client
-RUN cd backend && pnpm prisma generate
-
-WORKDIR /app/backend
+RUN pnpm prisma:generate
 
 EXPOSE 3001
 

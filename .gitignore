@@ -134,6 +134,17 @@ logs_data/
 *.docker.crt
 
 # ================================
+# SSL Certificates (Development & Production)
+# ================================
+etc/letsencrypt/
+certbot/test-certs/
+*.pem
+*.crt
+*.key
+!scripts/dev/generate-dev-certs.sh
+!scripts/dev/setup-dev-ssl.sh
+
+# ================================
 # Claude Code
 # ================================
 .claude/

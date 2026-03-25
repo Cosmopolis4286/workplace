@@ -4,14 +4,14 @@ set -euo pipefail
 echo "🔧 Configurando Nginx para Producción..."
 
 # Variables del entorno
-DOMAIN_NAME="${DOMAIN_NAME:-localhost}"
+DOMAIN="${DOMAIN:-localhost}"
 
 # Crear configuración específica de producción
 cat > /opt/workplace/nginx/conf.d/production.conf << EOF
 # Configuración específica de producción
 server {
     listen 80;
-    server_name $DOMAIN_NAME;
+    server_name $DOMAIN;
     
     # Redirect HTTP to HTTPS
     return 301 https://\$server_name\$request_uri;
@@ -19,11 +19,11 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name $DOMAIN_NAME;
+    server_name $DOMAIN;
     
     # SSL configuration (certificados deben existir en el servidor)
-    ssl_certificate /etc/ssl/certs/$DOMAIN_NAME.pem;
-    ssl_certificate_key /etc/ssl/private/$DOMAIN_NAME.key;
+    ssl_certificate /etc/ssl/certs/$DOMAIN.pem;
+    ssl_certificate_key /etc/ssl/private/$DOMAIN.key;
     
     # Security headers específicos de producción
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;

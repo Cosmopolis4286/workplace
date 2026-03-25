@@ -247,7 +247,7 @@ jobs:
           
           # Configurar nginx
           chmod +x scripts/deployment/setup-nginx-prod.sh
-          DOMAIN_NAME='${{ secrets.DOMAIN_NAME || 'localhost' }}' ./scripts/deployment/setup-nginx-prod.sh
+          DOMAIN='${{ secrets.DOMAIN || 'localhost' }}' ./scripts/deployment/setup-nginx-prod.sh
           
           # Verificación pre-deploy
           echo "🔍 Verificación pre-deploy..."

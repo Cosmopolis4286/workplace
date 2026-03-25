@@ -202,7 +202,7 @@ services:
 
   backend:
     environment:
-      - NODE_ENV=development
+      - ENVIRONMENT=development
       - DEBUG=true
       - LOG_LEVEL=debug
     volumes:
@@ -213,7 +213,7 @@ services:
 
   frontend:
     environment:
-      - NODE_ENV=development
+      - ENVIRONMENT=development
       - NUXT_DEBUG=true
     volumes:
       # Mount source code for development

@@ -2,7 +2,7 @@
 export default defineEventHandler(async (event) => {
   try {
     // Verificar conexión a backend
-    const backendUrl = process.env.BACKEND_API_URL || 'http://backend:3001/api'
+    const backendUrl = process.env.BACKEND_API_URL || '/api'
     
     const backendHealth = await $fetch(`${backendUrl}/health`, {
       timeout: 5000
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
+      environment: process.env.ENVIRONMENT || 'development',
       backend: {
         connected: !!backendHealth,
         status: backendHealth?.status || 'unreachable',

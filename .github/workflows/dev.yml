@@ -85,7 +85,7 @@ jobs:
         DATABASE_URL: postgresql://dev:dev@localhost:5432/workplace_dev
         REDIS_HOST: localhost
         REDIS_PORT: 6379
-        NODE_ENV: test
+        ENVIRONMENT: test
       timeout-minutes: 10
       continue-on-error: ${{ github.event.inputs.force_deploy == 'true' }}
 
@@ -97,7 +97,7 @@ jobs:
         DATABASE_URL: postgresql://dev:dev@localhost:5432/workplace_dev
         REDIS_HOST: localhost
         REDIS_PORT: 6379
-        NODE_ENV: test
+        ENVIRONMENT: test
       timeout-minutes: 10
       continue-on-error: ${{ github.event.inputs.force_deploy == 'true' }}
 
@@ -109,7 +109,7 @@ jobs:
         DATABASE_URL: postgresql://dev:dev@localhost:5432/workplace_dev
         REDIS_HOST: localhost
         REDIS_PORT: 6379
-        NODE_ENV: test
+        ENVIRONMENT: test
       timeout-minutes: 15
       continue-on-error: ${{ github.event.inputs.force_deploy == 'true' }}
 
