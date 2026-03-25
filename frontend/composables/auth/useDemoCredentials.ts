@@ -22,11 +22,11 @@ export const useDemoCredentials = () => {
   const config = useRuntimeConfig()
 
   const isAvailable = computed(
-    () => process.env.ENVIRONMENT === 'development' && credentials.value.length > 0,
+    () => config.public.environment === 'development' && credentials.value.length > 0,
   )
 
   const loadCredentials = async (): Promise<void> => {
-    if (process.env.ENVIRONMENT !== 'development') return
+    if (config.public.environment !== 'development') return
     if (credentials.value.length > 0) return
     if (loadPromise) return loadPromise
 
@@ -35,6 +35,7 @@ export const useDemoCredentials = () => {
 
     loadPromise = (async () => {
       try {
+        // Try to get from backend first
         const res = await $fetch<DemoCredentialsResponse>(
           `${config.public.apiUrl}/auth/demo-credentials`,
         )
@@ -42,7 +43,7 @@ export const useDemoCredentials = () => {
           credentials.value = res.data
         }
       } catch (err: any) {
-        error.value = err?.data?.message || 'No se pudieron cargar las credenciales demo'
+                error.value = err?.data?.message || 'No se pudieron cargar las credenciales demo'
       } finally {
         isLoading.value = false
         loadPromise = null
@@ -58,7 +59,7 @@ export const useDemoCredentials = () => {
   }
 
   onMounted(() => {
-    if (process.env.ENVIRONMENT === 'development') {
+    if (config.public.environment === 'development') {
       loadCredentials()
     }
   })
