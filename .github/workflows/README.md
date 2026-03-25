@@ -114,7 +114,7 @@ PRODUCTION_HOST        # Servidor de producción
 PRODUCTION_USER        # Usuario SSH  
 DOCKER_USERNAME        # Docker Hub username
 DOCKER_PASSWORD        # Docker Hub password
-DOMAIN_NAME            # Dominio para SSL (opcional)
+DOMAIN            # Dominio para SSL (opcional)
 ```
 
 #### Desarrollo
