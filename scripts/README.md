@@ -32,12 +32,27 @@ Los scripts han sido organizados por funcionalidad para mejor mantenimiento:
 - `create-env.sh` - Creación de archivo .env para producción
 - `update-cloudflare-ips.sh` - Actualización de IPs de Cloudflare
 
+### 🛠️ Development (`scripts/development/`)
+- `debug-toggle.sh` - Habilita/deshabilita debug logs temporalmente
+
+### 🐳 Docker (`scripts/docker/`)
+- `docker-smart-start.sh` - Inicio inteligente de servicios con detección SSL
+
+### 🧪 Testing (`scripts/testing/`)
+- `test-ssl-flow.sh` - Testing del flujo Certbot-Nginx en producción
+
 ## 🔄 Uso Común
 
 ### Desarrollo
 ```bash
 # Iniciar entorno completo
 ./scripts/deployment/init-dev.sh
+
+# Inicio inteligente de servicios
+./scripts/docker/docker-smart-start.sh
+
+# Debug temporal
+./scripts/development/debug-toggle.sh enable
 
 # Migraciones manuales
 ./scripts/database/migrate-external.sh
@@ -56,6 +71,9 @@ Los scripts han sido organizados por funcionalidad para mejor mantenimiento:
 
 # Configuración SSL
 ./scripts/ssl/setup-ssl-v2.sh
+
+# Testing SSL flow
+./scripts/testing/test-ssl-flow.sh
 ```
 
 ### Mantenimiento
