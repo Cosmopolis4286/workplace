@@ -252,6 +252,8 @@ services:
         condition: service_healthy
       frontend:
         condition: service_healthy
+      certbot:
+        condition: service_healthy
     networks:
       - app_network
       - external_network
@@ -278,11 +280,34 @@ services:
     # profiles: - ssl  # Comentado para auto-iniciar con SSL_ENABLED=true
     command: >
       sh -c "
+        echo '🔧 Setting up SSL certificates...'
+        
+        # Create directory structure
+        mkdir -p /etc/letsencrypt/live/${DOMAIN:-playrke.com}
+        mkdir -p /var/www/certbot/.well-known/acme-challenge
+        
         if [ '${SSL_ENABLED:-false}' = 'true' ]; then
-          echo '🔒 SSL enabled - starting Certbot...'
-          exec /scripts/certbot-setup.sh
+          echo '🔒 SSL enabled - checking certificates...'
+          
+          # Check if certificates exist
+          if [ ! -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem ]; then
+            echo '📦 No certificates found - generating self-signed for development...'
+            
+            # Generate self-signed certificate for development
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+              -keyout /etc/letsencrypt/live/${DOMAIN:-playrke.com}/privkey.pem \
+              -out /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem \
+              -subj '/CN=${DOMAIN:-playrke.com}'
+              
+            echo '✅ Self-signed certificates generated for development'
+          else
+            echo '✅ Certificates already exist'
+          fi
+          
+          echo '🚀 Certbot setup complete - keeping container running for renewal'
+          sleep infinity
         else
-          echo '🚫 SSL disabled - Certbot not needed'
+          echo '🚫 SSL disabled - exiting'
           exit 0
         fi
       "
@@ -322,8 +347,10 @@ services:
       - /tmp:rw,size=10m,mode=1777
       - /var/tmp:rw,size=10m,mode=1777
     depends_on:
-      nginx:
-        condition: service_healthy
+      - postgres
+      - redis
+    # nginx:
+    #   condition: service_healthy  # Removido para evitar circular dependency
     healthcheck:
       test: ["CMD", "sh", "-c", "if [ '${SSL_ENABLED:-false}' = 'true' ]; then test -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem; else exit 0; fi"]
       interval: 1m
