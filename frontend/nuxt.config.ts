@@ -14,6 +14,7 @@ export default defineNuxtConfig({
   modules: [
     '@nuxtjs/tailwindcss',
     '@vueuse/nuxt',
+    '@vite-pwa/nuxt',
   ],
 
   tailwindcss: {
@@ -55,6 +56,40 @@ export default defineNuxtConfig({
       fs: {
         allow: ['..']
       }
+    }
+  },
+
+  pwa: {
+    registerType: 'autoUpdate',
+    workbox: {
+      navigateFallback: '/',
+      globPatterns: ['**/*.{js,css,html,png,svg,ico}']
+    },
+    client: {
+      installPrompt: true
+    },
+    manifest: {
+      name: 'WorkPlace Manager',
+      short_name: 'WorkPlace',
+      description: 'Gestor de lugar de trabajo',
+      theme_color: '#3b82f6',
+      background_color: '#ffffff',
+      display: 'standalone',
+      orientation: 'portrait',
+      scope: '/',
+      start_url: '/',
+      icons: [
+        {
+          src: 'icon-192.png',
+          sizes: '192x192',
+          type: 'image/png'
+        },
+        {
+          src: 'icon-512.png',
+          sizes: '512x512',
+          type: 'image/png'
+        }
+      ]
     }
   }
 })
