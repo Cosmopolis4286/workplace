@@ -239,7 +239,7 @@ services:
       - ./fallback:/var/www/fallback:ro
       - uploads_data:/var/www/uploads:ro
       - ./scripts/nginx/nginx-reload.sh:/usr/local/bin/nginx-reload:ro
-      - ./etc/letsencrypt:/etc/letsencrypt:ro
+      - ./etc/letsencrypt:/etc/letsencrypt:rw
     tmpfs:
       - /var/cache/nginx:rw,size=100m,mode=1777
       - /var/run:rw,size=10m,mode=1755
@@ -278,7 +278,7 @@ services:
     restart: unless-stopped
     init: true
     # profiles: - ssl  # Comentado para auto-iniciar con SSL_ENABLED=true
-    command: >
+    entrypoint: >
       sh -c "
         echo '🔧 Setting up SSL certificates...'
         
@@ -294,10 +294,7 @@ services:
             echo '📦 No certificates found - generating self-signed for development...'
             
             # Generate self-signed certificate for development
-            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-              -keyout /etc/letsencrypt/live/${DOMAIN:-playrke.com}/privkey.pem \
-              -out /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem \
-              -subj '/CN=${DOMAIN:-playrke.com}'
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/letsencrypt/live/${DOMAIN:-playrke.com}/privkey.pem -out /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem -subj '/CN=${DOMAIN:-playrke.com}'
               
             echo '✅ Self-signed certificates generated for development'
           else
@@ -328,9 +325,10 @@ services:
         soft: 4096
         hard: 4096
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:rw
+      - ./etc/letsencrypt:/etc/letsencrypt:rw
       - ./certbot/www:/var/www/certbot:rw
       - /var/log/certbot:/var/log/certbot:rw
+      - /var/log/letsencrypt:/var/log/letsencrypt:rw
     environment:
       - DOMAIN=${DOMAIN:-playrke.com}
       - STAGING_MODE=${STAGING_MODE:-false}
