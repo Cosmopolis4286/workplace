@@ -219,7 +219,7 @@ services:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ./nginx/conf.d/dev.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/conf.d/${SSL_ENABLED:-false}/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/conf.d/proxy-headers.conf:/etc/nginx/conf.d/proxy-headers.conf:ro
       - ./nginx/conf.d/upstreams.conf:/etc/nginx/conf.d/upstreams.conf:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -261,8 +261,17 @@ services:
     restart: unless-stopped
     init: true
     profiles:
-      - production
       - ssl
+    command: >
+      sh -c "
+        if [ '${SSL_ENABLED:-false}' = 'true' ]; then
+          echo '🔒 SSL enabled - starting Certbot...'
+          exec /scripts/certbot-setup.sh
+        else
+          echo '🚫 SSL disabled - Certbot not needed'
+          exit 0
+        fi
+      "
     security_opt:
       - no-new-privileges:true
       - apparmor:docker-default
@@ -302,7 +311,7 @@ services:
       nginx:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "test", "-f", "/etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem"]
+      test: ["CMD", "sh", "-c", "if [ '${SSL_ENABLED:-false}' = 'true' ]; then test -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem; else exit 0; fi"]
       interval: 1m
       timeout: 5s
       retries: 3
