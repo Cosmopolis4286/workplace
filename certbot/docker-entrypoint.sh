@@ -76,11 +76,24 @@ generate_certificates() {
     fi
 }
 
-# Function to reload nginx (simplificado)
+# Function to reload nginx (mejorado)
 reload_nginx() {
-    log "Certificados generados, nginx debería ser recargado externamente"
-    log_success "Configuración SSL completada - nginx requiere reload manual"
-    return 0
+    log "Recargando nginx para aplicar nuevos certificados..."
+    
+    # Intentar recargar nginx graceful
+    if docker exec workplace_nginx nginx -t >/dev/null 2>&1; then
+        if docker exec workplace_nginx nginx -s reload >/dev/null 2>&1; then
+            log_success "Nginx recargado exitosamente"
+            return 0
+        else
+            log_warning "Reload fallido, intentando restart..."
+            docker restart workplace_nginx >/dev/null 2>&1
+            return 0
+        fi
+    else
+        log_error "Configuración nginx inválida, no se puede recargar"
+        return 1
+    fi
 }
 
 # Function to check existing certificates
@@ -136,7 +149,7 @@ main() {
             fi
         fi
         
-        # Reload nginx to apply certificates (simplificado)
+        # Reload nginx to apply certificates (mejorado)
         reload_nginx
     fi
     
