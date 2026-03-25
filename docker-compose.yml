@@ -311,9 +311,9 @@ services:
           fi
           
           if [ "$REQUEST_CERT" = 'true' ]; then
-            echo '🚀 Requesting certificates from Let'\''s Encrypt via DNS challenge...'
-            # Use DNS challenge (no port 80 required)
-            certbot certonly --manual --preferred-challenges dns \
+            echo '🚀 Requesting certificates from Let'\''s Encrypt via webroot...'
+            # Use webroot mode (requires port 80 to be open)
+            certbot certonly --webroot -w /var/www/certbot \
               --email admin@${DOMAIN:-playrke.com} \
               --agree-tos \
               --no-eff-email \
@@ -321,7 +321,7 @@ services:
               -d ${DOMAIN:-playrke.com} \
               ${STAGING_MODE:+--staging}
               
-            echo '✅ Let'\''s Encrypt certificates obtained via DNS challenge'
+            echo '✅ Let'\''s Encrypt certificates obtained via webroot'
           fi
           
           echo '🚀 Certbot setup complete - starting renewal cron...'
