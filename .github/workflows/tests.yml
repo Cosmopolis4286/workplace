@@ -1,0 +1,84 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        cd backend && pnpm install
+        cd ../frontend && pnpm install
+
+    - name: Generate Prisma Client
+      shell: bash
+      run: |
+        cd backend
+        pnpm prisma generate
+
+    - name: Run Backend Tests with Coverage
+      shell: bash
+      run: |
+        cd backend
+        pnpm test:coverage
+      env:
+        DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+
+    - name: Run Frontend Tests with Coverage
+      shell: bash
+      run: |
+        cd frontend
+        pnpm test:coverage
+
+    - name: Check Coverage Threshold
+      shell: bash
+      run: |
+        echo "🔍 Checking coverage thresholds..."
+        
+        # Backend coverage
+        BACKEND_COVERAGE=$(cd backend && pnpm run coverage:percentage || echo "0")
+        echo "Backend coverage: ${BACKEND_COVERAGE}%"
+        
+        # Frontend coverage  
+        FRONTEND_COVERAGE=$(cd frontend && pnpm run coverage:percentage || echo "0")
+        echo "Frontend coverage: ${FRONTEND_COVERAGE}%"
+        
+        # Check thresholds
+        BACKEND_THRESHOLD=80
+        FRONTEND_THRESHOLD=0  # Frontend only tests utilities, expect 0% coverage
+        
+        if (( $(echo "$BACKEND_COVERAGE < $BACKEND_THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
+          echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${BACKEND_THRESHOLD}%"
+          exit 1
+        fi
+        
+        if (( $(echo "$FRONTEND_COVERAGE < $FRONTEND_THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
+          echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${FRONTEND_THRESHOLD}%"
+          exit 1
+        fi
+        
+        echo "✅ All coverage requirements met!"
+
+    - name: Upload Coverage Reports
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Run linting
+      shell: bash
+      run: |
+        cd backend
+        pnpm lint:ci

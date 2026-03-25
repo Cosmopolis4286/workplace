@@ -78,7 +78,7 @@ jobs:
           scripts/deployment/setup-nginx-prod.sh ${{ inputs.production-user }}@${{ inputs.production-host }}:/opt/workplace/scripts/deployment/
         
         # Ejecutar configuración nginx en servidor
-        ssh -o StrictHostKeyChecking=no ${{ inputs.production-user }}@${{ inputs.production-host }} "cd /opt/workplace && chmod +x scripts/deployment/setup-nginx-prod.sh && DOMAIN_NAME='${{ inputs.domain-name }}' ./scripts/deployment/setup-nginx-prod.sh"
+        ssh -o StrictHostKeyChecking=no ${{ inputs.production-user }}@${{ inputs.production-host }} "cd /opt/workplace && chmod +x scripts/deployment/setup-nginx-prod.sh && DOMAIN='${{ inputs.domain-name }}' ./scripts/deployment/setup-nginx-prod.sh"
         
         echo "✅ Configuración nginx base copiada y específica creada"
 
