@@ -188,7 +188,7 @@ function setup_canary() {
     --log-opt max-size=10m \
     --log-opt max-file=3 \
     --env-file /opt/workplace/.env \
-    -e NODE_ENV=production \
+    -e ENVIRONMENT=production \
     -e PORT=3001 \
     -e DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}" \
     -e REDIS_HOST=redis \

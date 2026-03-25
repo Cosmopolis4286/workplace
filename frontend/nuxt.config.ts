@@ -37,7 +37,8 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      apiUrl: process.env.BACKEND_API_URL || 'http://localhost:3001/api',
+      environment: process.env.ENVIRONMENT || 'development',
+      apiUrl: process.env.BACKEND_API_URL || '/api',
       recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY || '',
     },
   },

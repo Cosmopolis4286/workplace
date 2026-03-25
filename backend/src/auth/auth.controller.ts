@@ -211,7 +211,7 @@ export class AuthController {
 
   @Get('demo-credentials')
   async getDemoCredentials() {
-    if (this.config.get('NODE_ENV') !== 'development') {
+    if (this.config.get('ENVIRONMENT') !== 'development') {
       throw new ForbiddenException('Solo disponible en desarrollo');
     }
     return this.authService.getDemoCredentials();

@@ -144,7 +144,7 @@ function start_rollback_services() {
   docker run -d --name workplace_backend_rollback \
     --network workplace_app_network \
     --env-file .env \
-    -e NODE_ENV=production \
+    -e ENVIRONMENT=production \
     -e PORT=${NODE_PORT:-3001} \
     -e DATABASE_URL=postgresql://${POSTGRES_USER:-workplace}:${POSTGRES_PASSWORD:-workplace_secret}@postgres:5432/${POSTGRES_DB:-workplace_db} \
     -e REDIS_HOST=redis \
@@ -158,7 +158,7 @@ function start_rollback_services() {
   echo "🔄 Iniciando frontend con: $FRONTEND_IMAGE_TO_USE"
   docker run -d --name workplace_frontend_rollback \
     --network workplace_app_network \
-    -e BACKEND_API_URL=http://workplace_backend_rollback:3001/api \
+    -e BACKEND_API_URL=/api \
     -e NITRO_HOST=0.0.0.0 \
     -e NITRO_PORT=${FRONTEND_PORT:-3000} \
     --restart unless-stopped \

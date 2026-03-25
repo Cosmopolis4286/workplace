@@ -85,13 +85,13 @@ export const useCatalog = () => {
 
   async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers = { ...getHeaders(), 'Content-Type': 'application/json', ...options.headers }
-    const res = await fetch(`${apiUrl}/api${path}`, { ...options, headers })
+    const res = await fetch(`${apiUrl}${path}`, { ...options, headers })
 
     if (res.status === 401) {
       const refreshed = await refreshAccessToken()
       if (refreshed) {
         const retryHeaders = { ...getHeaders(), 'Content-Type': 'application/json' }
-        const retry = await fetch(`${apiUrl}/api${path}`, { ...options, headers: retryHeaders })
+        const retry = await fetch(`${apiUrl}${path}`, { ...options, headers: retryHeaders })
         if (!retry.ok) throw new Error(`HTTP ${retry.status}`)
         return retry.json()
       }

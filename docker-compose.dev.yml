@@ -45,7 +45,7 @@ services:
     container_name: workplace_backend_dev
     build:
       context: .
-      dockerfile: backend/Dockerfile.prod
+      dockerfile: backend/Dockerfile.dev
     volumes:
       - ./backend:/app/backend:cached
       - backend_node_modules:/app/backend/node_modules
@@ -55,7 +55,7 @@ services:
     ports:
       - "127.0.0.1:3001:3001"
     environment:
-      NODE_ENV: development
+      ENVIRONMENT: development
       DATABASE_URL: ${DATABASE_URL}
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -72,7 +72,7 @@ services:
     container_name: workplace_frontend_dev
     build:
       context: .
-      dockerfile: frontend/Dockerfile.prod
+      dockerfile: frontend/Dockerfile.dev
     volumes:
       - ./frontend:/app/frontend:cached
       - frontend_node_modules:/app/frontend/node_modules
@@ -85,6 +85,11 @@ services:
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: 3000
       BACKEND_API_URL: http://localhost:3001/api
+      ENVIRONMENT: development
+      DEBUG: nuxt:*
+      LOG_LEVEL: debug
+      NUXT_DEBUG: true
+      NITRO_DEBUG: true
     depends_on:
       - backend
     networks:

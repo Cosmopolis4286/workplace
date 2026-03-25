@@ -44,7 +44,14 @@ export const usePermissions = () => {
   // ── Fetch desde backend ───────────────────────────────────────────────────
 
   async function fetchPermissions(): Promise<void> {
-    if (!isAuthenticated.value || loading.value) return
+    console.log('🔐 Iniciando carga de permisos...')
+    console.log('🔐 Autenticado:', isAuthenticated.value)
+    console.log('🔐 Token:', token.value ? 'Presente' : 'Ausente')
+    
+    if (!isAuthenticated.value || loading.value) {
+      console.log('❌ No se pueden cargar permisos: no autenticado o ya cargando')
+      return
+    }
     loading.value = true
     try {
       const doFetch = () =>
@@ -61,6 +68,7 @@ export const usePermissions = () => {
       if (!res.ok) throw new Error('Failed to fetch permissions')
 
       const data = await res.json() as { keys: string[] }
+      console.log('🔑 Permisos cargados:', data.keys)
       permissionKeys.value = data.keys
       initialized.value = true
 
