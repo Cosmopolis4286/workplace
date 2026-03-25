@@ -262,7 +262,7 @@ services:
       frontend:
         condition: service_healthy
       certbot:
-        condition: service_healthy
+        condition: service_completed_successfully
     networks:
       - app_network
       - external_network
@@ -298,22 +298,22 @@ services:
         if [ '${SSL_ENABLED:-false}' = 'true' ]; then
           echo '🔒 SSL enabled - checking certificates...'
           
-          # Check if certificates exist and are self-signed
+          # Check if certificates exist and are valid (not self-signed)
           if [ ! -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem ]; then
             echo '📦 No certificates found - requesting from Lets Encrypt...'
             REQUEST_CERT=true
-          elif openssl x509 -in /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem -text -noout | grep -q 'Subject:.*CN = ${DOMAIN:-playrke.com}'; then
-            echo '🔄 Self-signed certificate detected - requesting from Lets Encrypt...'
-            REQUEST_CERT=true
-          else
+          elif openssl x509 -in /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem -text -noout 2>/dev/null | grep -q 'Issuer:.*Let'"'"'s' Encrypt; then
             echo '✅ Valid Lets Encrypt certificate found'
             REQUEST_CERT=false
+          else
+            echo '🔄 Invalid or self-signed certificate detected - requesting from Lets Encrypt...'
+            REQUEST_CERT=true
           fi
           
           if [ '$REQUEST_CERT' = 'true' ]; then
-            # Request real certificate from Let's Encrypt
-            certbot certonly --webroot \
-              --webroot-path=/var/www/certbot \
+            echo '🚀 Using standalone mode for certificate request...'
+            # Use standalone mode (requires nginx to be stopped temporarily)
+            certbot certonly --standalone \
               --email admin@${DOMAIN:-playrke.com} \
               --agree-tos \
               --no-eff-email \
@@ -324,8 +324,11 @@ services:
             echo '✅ Lets Encrypt certificates obtained'
           fi
           
-          echo '🚀 Certbot setup complete - keeping container running for renewal'
-          sleep infinity
+          echo '🚀 Certbot setup complete - starting renewal cron...'
+          # Start renewal cron job
+          echo '0 */12 * * * /usr/local/bin/renew-ssl.sh >> /var/log/certbot/renew.log 2>&1' | crontab -
+          crond -f -l 2
+          
         else
           echo '🚫 SSL disabled - exiting'
           exit 0
@@ -350,6 +353,7 @@ services:
     volumes:
       - ./etc/letsencrypt:/etc/letsencrypt:rw
       - ./certbot/www:/var/www/certbot:rw
+      - ./certbot/scripts/renew-ssl.sh:/usr/local/bin/renew-ssl.sh:ro
       - /var/log/certbot:/var/log/certbot:rw
       - /var/log/letsencrypt:/var/log/letsencrypt:rw
     environment:
