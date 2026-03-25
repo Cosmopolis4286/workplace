@@ -124,9 +124,7 @@ const ADMIN_KEYS = COMMERCE_KEYS.filter(
 )
 
 const ROLE_DEFAULTS = {
-  SUPERADMIN: PERMISSIONS.map(p => p.key).filter(
-    k => !k.startsWith('menu:') && !k.startsWith('inventory:')
-  ),
+  SUPERADMIN: PERMISSIONS.map(p => p.key),
   ADMIN: [...ADMIN_KEYS, 'users:view', 'users:manage', 'plans:view', 'exchange_rates:view'],
   COMMERCE: COMMERCE_KEYS,
   FREELANCER: [

@@ -33,12 +33,12 @@ export function useDefaultRate() {
     loading.value = true
     try {
       const headers = { 'Content-Type': 'application/json', ...getHeaders() }
-      let res = await fetch(`${base}/api/exchange-rates/default`, { headers })
+      let res = await fetch(`${base}/exchange-rates/default`, { headers })
       if (res.status === 401) {
         const refreshed = await refreshAccessToken()
         if (refreshed) {
           const retryHeaders = { 'Content-Type': 'application/json', ...getHeaders() }
-          res = await fetch(`${base}/api/exchange-rates/default`, { headers: retryHeaders })
+          res = await fetch(`${base}/exchange-rates/default`, { headers: retryHeaders })
         }
       }
       if (res.ok) {
