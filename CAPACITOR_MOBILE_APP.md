@@ -121,10 +121,14 @@ frontend/
 2. ✅ Configure PWA in Nuxt
 3. ✅ Initialize Capacitor project
 4. ✅ Test basic Android build
-5. **Install Android Studio for APK generation**
-6. **Test app on Android device/emulator**
-7. **Optimize UI components for mobile**
-8. **Add native features (camera, notifications)**
+5. ✅ Install Android Studio for APK generation
+6. **Open project in Android Studio manually:**
+   - File → Open → `c:\Users\Eisker\Documents\projects\workplace\frontend\android`
+   - Wait for Gradle sync to complete
+   - Build → Build Bundle(s) / APK(s) → Build APK(s)
+7. **Test app on Android device/emulator**
+8. **Optimize UI components for mobile**
+9. **Add native features (camera, notifications)**
 
 ---
 **Created**: March 24, 2026  
