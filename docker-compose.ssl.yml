@@ -6,7 +6,10 @@
 services:
   nginx:
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/conf.d/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/conf.d/common.conf:/etc/nginx/conf.d/common.conf:ro
+      - ./nginx/conf.d/proxy-headers.conf:/etc/nginx/conf.d/proxy-headers.conf:ro
+      - ./nginx/conf.d/cloudflare-ips.conf:/etc/nginx/conf.d/cloudflare-ips.conf:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./fallback:/var/www/fallback:ro
       - uploads_data:/var/www/uploads:ro
@@ -17,6 +20,9 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DOMAIN=${DOMAIN:-playrke.com}
       - SSL_ENABLED=${SSL_ENABLED:-true}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     depends_on:
       backend:
         condition: service_healthy
