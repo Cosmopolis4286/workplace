@@ -261,8 +261,6 @@ services:
         condition: service_healthy
       frontend:
         condition: service_healthy
-      certbot:
-        condition: service_completed_successfully
     networks:
       - app_network
       - external_network
@@ -287,8 +285,10 @@ services:
     restart: unless-stopped
     init: true
     # profiles: - ssl  # Comentado para auto-iniciar con SSL_ENABLED=true
-    entrypoint: >
-      sh -c "
+    entrypoint:
+      - sh
+      - -c
+      - |
         echo '🔧 Setting up SSL certificates...'
         
         # Create directory structure
@@ -311,17 +311,16 @@ services:
           fi
           
           if [ '$REQUEST_CERT' = 'true' ]; then
-            echo '🚀 Using standalone mode for certificate request...'
-            # Use standalone mode (requires nginx to be stopped temporarily)
-            certbot certonly --standalone \
-              --email admin@${DOMAIN:-playrke.com} \
-              --agree-tos \
-              --no-eff-email \
-              --force-renewal \
-              -d ${DOMAIN:-playrke.com} \
-              ${STAGING_MODE:+--staging}
+            echo '🚀 Using self-signed certificates for development...'
+            # Generate self-signed certificates for development
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+              -keyout /etc/letsencrypt/live/${DOMAIN:-playrke.com}/privkey.pem \
+              -out /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem \
+              -subj "/CN=${DOMAIN:-playrke.com}" \
+              -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:${DOMAIN:-playrke.com},DNS:www.${DOMAIN:-playrke.com}\n")) \
+              -extensions SAN
               
-            echo '✅ Lets Encrypt certificates obtained'
+            echo '✅ Self-signed certificates generated'
           fi
           
           echo '🚀 Certbot setup complete - starting renewal cron...'
@@ -333,7 +332,6 @@ services:
           echo '🚫 SSL disabled - exiting'
           exit 0
         fi
-      "
     security_opt:
       - no-new-privileges:true
       - apparmor:docker-default
