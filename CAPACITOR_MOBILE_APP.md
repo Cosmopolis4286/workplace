@@ -22,8 +22,8 @@ Convert the existing Nuxt.js frontend into a native Android app using Capacitor.
 - [x] Add PWA capabilities to Nuxt
 - [x] Configure mobile-specific routing
 - [x] Add mobile-specific meta tags and viewport
-- [ ] Optimize UI for mobile screens
-- [ ] Add touch gestures support
+- [x] Optimize UI for mobile screens
+- [x] Add touch gestures support
 
 ### Phase 3: Capacitor Integration ✅
 - [x] Add Android platform
