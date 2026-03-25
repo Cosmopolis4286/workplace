@@ -287,8 +287,10 @@ services:
     restart: unless-stopped
     init: true
     # profiles: - ssl  # Comentado para auto-iniciar con SSL_ENABLED=true
-    entrypoint: >
-      sh -c "
+    entrypoint:
+      - sh
+      - -c
+      - |
         echo '🔧 Setting up SSL certificates...'
         
         # Create directory structure
@@ -316,7 +318,6 @@ services:
           echo '🚫 SSL disabled - exiting'
           exit 0
         fi
-      "
     security_opt:
       - no-new-privileges:true
       - apparmor:docker-default
