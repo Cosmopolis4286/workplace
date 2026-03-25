@@ -26,8 +26,9 @@ services:
     command: >
       sh -c "
         echo '🔧 Processing production configuration...' &&
-        envsubst '${DOMAIN}' < /etc/nginx/conf.d/prod.conf.template > /etc/nginx/conf.d/default.conf &&
-        echo '✅ Configuration generated for DOMAIN: ${DOMAIN}' &&
+        export DOMAIN='${DOMAIN:-playrke.com}' &&
+        envsubst '\$DOMAIN' < /etc/nginx/conf.d/prod.conf.template > /etc/nginx/conf.d/default.conf &&
+        echo '✅ Configuration generated for DOMAIN: ${DOMAIN:-playrke.com}' &&
         nginx -g 'daemon off;'
       "
     ports:
