@@ -66,14 +66,105 @@ server {
     # Headers estándar avanzados
     include /etc/nginx/conf.d/proxy-headers.conf;
 
-    # Frontend location
-    include /etc/nginx/conf.d/frontend-location.conf;
+    # Frontend location con fallback
+    location / {
+        # Intentar servir del frontend primero
+        proxy_pass http://frontend_cluster;
+        include /etc/nginx/conf.d/proxy-headers.conf;
+        
+        # Caching para SSR responses
+        proxy_cache ssr_cache;
+        proxy_cache_valid 200 302 5m;
+        proxy_cache_valid 404 1m;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_bypass $cookie_nocache $arg_nocache;
+        proxy_no_cache $cookie_nocache $arg_nocache;
+        
+        # Cache headers
+        add_header X-Cache-Status $upstream_cache_status always;
+        add_header X-Cache-Key $scheme$proxy_host$request_uri always;
+        
+        # Fallback si frontend no está disponible
+        error_page 502 503 504 = @frontend_fallback;
+    }
 
-    # API location
-    include /etc/nginx/conf.d/api-location.conf;
+    # Frontend fallback - servir página estática
+    location @frontend_fallback {
+        root /var/www/fallback;
+        try_files /fallback.html =503;
+        
+        # Headers para fallback
+        add_header X-Fallback "frontend" always;
+        add_header X-Environment "production" always;
+    }
 
-    # Static locations
-    include /etc/nginx/conf.d/static-location.conf;
+    # API location con fallback
+    location /api/ {
+        # Intentar servir del backend primero
+        proxy_pass http://backend_cluster;
+        include /etc/nginx/conf.d/proxy-headers.conf;
+        
+        # Caching para API responses
+        proxy_cache api_cache;
+        proxy_cache_valid 200 302 10m;
+        proxy_cache_valid 404 1m;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_bypass $cookie_nocache $arg_nocache $http_authorization;
+        proxy_no_cache $cookie_nocache $arg_nocache $http_authorization;
+        
+        # Cache headers
+        add_header X-Cache-Status $upstream_cache_status always;
+        add_header X-Cache-Key $scheme$proxy_host$request_uri always;
+        
+        # Rate limiting específico para API
+        limit_req zone=api_limit burst=10 nodelay;
+        
+        # Fallback si backend no está disponible
+        error_page 502 503 504 = @api_fallback;
+    }
+
+    # API fallback - servir JSON estático
+    location @api_fallback {
+        root /var/www/fallback;
+        try_files /api-fallback.json =503;
+        
+        # Headers para fallback
+        add_header Content-Type application/json;
+        add_header X-Fallback "api" always;
+        add_header X-Environment "production" always;
+        add_header Access-Control-Allow-Origin "https://${DOMAIN}";
+        add_header Access-Control-Allow-Credentials true;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+    }
+
+    # Uploads location con caching largo
+    location /uploads/ {
+        alias /var/www/uploads/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options nosniff;
+        
+        # Seguridad para uploads
+        location ~* \.(php|jsp|asp|sh|py|pl|rb)$ {
+            deny all;
+        }
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Static assets con caching agresivo
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Cache-Status STATIC always;
+        access_log off;
+    }
     
     # Logging estructurado para producción
     access_log /var/log/nginx/prod_access.log json_combined;
