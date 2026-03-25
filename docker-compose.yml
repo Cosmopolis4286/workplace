@@ -275,8 +275,7 @@ services:
     container_name: workplace_certbot
     restart: unless-stopped
     init: true
-    profiles:
-      - ssl
+    # profiles: - ssl  # Comentado para auto-iniciar con SSL_ENABLED=true
     command: >
       sh -c "
         if [ '${SSL_ENABLED:-false}' = 'true' ]; then
