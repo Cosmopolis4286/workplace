@@ -137,7 +137,7 @@ POSTGRES_DB=workplace
 REDIS_PASSWORD=your_redis_password
 
 # Backend
-NODE_ENV=production
+ENVIRONMENT=production
 NODE_PORT=3001
 
 # Frontend

@@ -37,7 +37,7 @@ EOF
 
 # Crear .env base
 cat > .env << 'EOF'
-NODE_ENV=production
+ENVIRONMENT=production
 POSTGRES_DB=workplace_prod
 POSTGRES_USER=workplace_user
 POSTGRES_PASSWORD=CHANGE_ME_SECURE_PASSWORD

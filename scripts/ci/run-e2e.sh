@@ -54,7 +54,7 @@ docker run -d --name test-backend \
     --network $NETWORK_NAME \
     -e DATABASE_URL=postgresql://workplace:test123@test-postgres:5432/workplace_e2e \
     -e REDIS_URL=redis://test-redis:6379 \
-    -e NODE_ENV=test \
+    -e ENVIRONMENT=test \
     -p 3001:3001 \
     $BACKEND_IMAGE
 

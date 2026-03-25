@@ -55,7 +55,7 @@ services:
     ports:
       - "127.0.0.1:3001:3001"
     environment:
-      NODE_ENV: development
+      ENVIRONMENT: development
       DATABASE_URL: ${DATABASE_URL}
       REDIS_HOST: redis
       REDIS_PORT: 6379

@@ -30,7 +30,7 @@ if [ ! -f "$WORKPLACE_DIR/.env" ]; then
   echo "📝 Creando archivo .env base..."
   cat > "$WORKPLACE_DIR/.env" << 'EOF'
 # Variables de Entorno - Production
-NODE_ENV=production
+ENVIRONMENT=production
 
 # Database
 POSTGRES_DB=workplace_prod
@@ -80,7 +80,7 @@ POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
 REDIS_PASSWORD=CHANGE_ME_REDIS_PASSWORD
 
 # Application
-NODE_ENV=production
+ENVIRONMENT=production
 NODE_PORT=3001
 FRONTEND_PORT=3000
 

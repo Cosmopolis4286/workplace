@@ -22,11 +22,11 @@ export const useDemoCredentials = () => {
   const config = useRuntimeConfig()
 
   const isAvailable = computed(
-    () => process.env.NODE_ENV === 'development' && credentials.value.length > 0,
+    () => process.env.ENVIRONMENT === 'development' && credentials.value.length > 0,
   )
 
   const loadCredentials = async (): Promise<void> => {
-    if (process.env.NODE_ENV !== 'development') return
+    if (process.env.ENVIRONMENT !== 'development') return
     if (credentials.value.length > 0) return
     if (loadPromise) return loadPromise
 
@@ -58,7 +58,7 @@ export const useDemoCredentials = () => {
   }
 
   onMounted(() => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.ENVIRONMENT === 'development') {
       loadCredentials()
     }
   })
