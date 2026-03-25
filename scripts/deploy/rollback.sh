@@ -144,7 +144,7 @@ function start_rollback_services() {
   docker run -d --name workplace_backend_rollback \
     --network workplace_app_network \
     --env-file .env \
-    -e NODE_ENV=production \
+    -e ENVIRONMENT=production \
     -e PORT=${NODE_PORT:-3001} \
     -e DATABASE_URL=postgresql://${POSTGRES_USER:-workplace}:${POSTGRES_PASSWORD:-workplace_secret}@postgres:5432/${POSTGRES_DB:-workplace_db} \
     -e REDIS_HOST=redis \

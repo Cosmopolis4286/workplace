@@ -8,7 +8,7 @@ services:
       context: ..
       dockerfile: backend/Dockerfile.test
     environment:
-      NODE_ENV: test
+      ENVIRONMENT: test
       NODE_OPTIONS: "--max-old-space-size=1024"
       # Variables mínimas para tests (sin credenciales reales)
       DATABASE_URL: postgresql://test:test@test-postgres:5432/test_db

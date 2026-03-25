@@ -16,7 +16,7 @@ describe('Basic Backend Tests', () => {
   })
 
   it('should verify environment variables are set', () => {
-    expect(process.env.NODE_ENV).toBe('test')
+    expect(process.env.ENVIRONMENT).toBe('test')
     expect(process.env.JWT_SECRET).toBeDefined()
     expect(process.env.JWT_REFRESH_SECRET).toBeDefined()
     expect(process.env.DATABASE_URL).toBeDefined()

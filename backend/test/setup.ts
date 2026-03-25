@@ -9,7 +9,7 @@ let app: NestExpressApplication | null = null;
 beforeAll(async () => {
   // Verify environment variables are loaded
   console.log('🔧 Setting up test environment...');
-  console.log(`🔧 NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`🔧 ENVIRONMENT: ${process.env.ENVIRONMENT}`);
   console.log(`🔧 JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Set' : '❌ Missing'}`);
   console.log(`🔧 JWT_REFRESH_SECRET: ${process.env.JWT_REFRESH_SECRET ? '✅ Set' : '❌ Missing'}`);
 
