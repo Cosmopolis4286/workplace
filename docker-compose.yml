@@ -302,7 +302,7 @@ services:
           if [ ! -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem ]; then
             echo '📦 No certificates found - requesting from Lets Encrypt...'
             REQUEST_CERT=true
-          elif openssl x509 -in /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem -text -noout 2>/dev/null | grep -q 'Issuer:.*Let'"'"'s' Encrypt; then
+          elif [ -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem ] && openssl x509 -in /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem -text -noout 2>/dev/null | grep -q 'Issuer:.*Let'"'"'s' Encrypt; then
             echo '✅ Valid Lets Encrypt certificate found'
             REQUEST_CERT=false
           else
