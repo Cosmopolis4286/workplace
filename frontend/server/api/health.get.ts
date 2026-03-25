@@ -2,7 +2,7 @@
 export default defineEventHandler(async (event) => {
   try {
     // Verificar conexión a backend
-    const backendUrl = process.env.BACKEND_API_URL || 'http://backend:3001/api'
+    const backendUrl = process.env.BACKEND_API_URL || '/api'
     
     const backendHealth = await $fetch(`${backendUrl}/health`, {
       timeout: 5000
