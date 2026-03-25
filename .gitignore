@@ -139,6 +139,19 @@ logs_data/
 .claude/
 
 # ================================
+# Capacitor (Mobile App)
+# ================================
+frontend/android/
+frontend/ios/
+frontend/*.xcworkspace
+frontend/*.xcodeproj
+frontend/capacitor.config.json
+frontend/app/
+frontend/dist/
+frontend/www/
+frontend/node_modules/@capacitor/
+
+# ================================
 # Misc
 # ================================
 *.tsbuildinfo
