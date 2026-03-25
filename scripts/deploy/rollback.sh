@@ -158,7 +158,7 @@ function start_rollback_services() {
   echo "🔄 Iniciando frontend con: $FRONTEND_IMAGE_TO_USE"
   docker run -d --name workplace_frontend_rollback \
     --network workplace_app_network \
-    -e BACKEND_API_URL=http://workplace_backend_rollback:3001/api \
+    -e BACKEND_API_URL=/api \
     -e NITRO_HOST=0.0.0.0 \
     -e NITRO_PORT=${FRONTEND_PORT:-3000} \
     --restart unless-stopped \
