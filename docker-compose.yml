@@ -310,17 +310,18 @@ services:
             REQUEST_CERT=true
           fi
           
-          if [ '$REQUEST_CERT' = 'true' ]; then
-            echo '🚀 Using self-signed certificates for development...'
-            # Generate self-signed certificates for development
-            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-              -keyout /etc/letsencrypt/live/${DOMAIN:-playrke.com}/privkey.pem \
-              -out /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem \
-              -subj "/CN=${DOMAIN:-playrke.com}" \
-              -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:${DOMAIN:-playrke.com},DNS:www.${DOMAIN:-playrke.com}\n")) \
-              -extensions SAN
+          if [ "$REQUEST_CERT" = 'true' ]; then
+            echo '🚀 Requesting certificates from Let'\''s Encrypt via DNS challenge...'
+            # Use DNS challenge (no port 80 required)
+            certbot certonly --manual --preferred-challenges dns \
+              --email admin@${DOMAIN:-playrke.com} \
+              --agree-tos \
+              --no-eff-email \
+              --force-renewal \
+              -d ${DOMAIN:-playrke.com} \
+              ${STAGING_MODE:+--staging}
               
-            echo '✅ Self-signed certificates generated'
+            echo '✅ Let'\''s Encrypt certificates obtained via DNS challenge'
           fi
           
           echo '🚀 Certbot setup complete - starting renewal cron...'
