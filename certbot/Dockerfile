@@ -15,13 +15,10 @@ RUN mkdir -p /var/www/certbot
 
 # Add custom scripts with proper permissions
 COPY scripts/renew-ssl.sh /usr/local/bin/renew-ssl.sh
+COPY scripts/setup-certificates.sh /usr/local/bin/setup-certificates.sh
 COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/renew-ssl.sh /usr/local/bin/docker-entrypoint.sh && \
-    chown root:root /usr/local/bin/renew-ssl.sh /usr/local/bin/docker-entrypoint.sh
-
-# Configure cron job for automatic renewals (backup to entrypoint)
-RUN echo "0 */12 * * * /usr/local/bin/renew-ssl.sh >> /var/log/certbot-renew.log 2>&1" > /etc/crontabs/root && \
-    chmod 0600 /etc/crontabs/root
+RUN chmod +x /usr/local/bin/renew-ssl.sh /usr/local/bin/setup-certificates.sh /usr/local/bin/docker-entrypoint.sh && \
+    chown root:root /usr/local/bin/renew-ssl.sh /usr/local/bin/setup-certificates.sh /usr/local/bin/docker-entrypoint.sh
 
 # Set working directory
 WORKDIR /etc/letsencrypt
