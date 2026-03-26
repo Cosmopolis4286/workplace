@@ -69,13 +69,62 @@ services:
         soft: 10032
         hard: 10032
     logging:
-      driver: json-file
+      driver: loki
       options:
-        labels: "redis"
-        env: "os,customer"
-        compress: "true"
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: workplace_pgbouncer
+    restart: unless-stopped
+    environment:
+      DATABASES_HOST: postgres
+      DATABASES_PORT: 5432
+      DATABASES_USER: ${POSTGRES_USER}
+      DATABASES_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASES_DBNAME: ${POSTGRES_DB}
+      DATABASES_POOL_SIZE: 20
+      DATABASES_MAX_DB_CONNECTIONS: 80
+      DATABASES_MIN_POOL_SIZE: 5
+      DATABASES_RESERVE_POOL_SIZE: 5
+      DATABASES_RESERVE_POOL_TIMEOUT: 5
+      DATABASES_SERVER_LIFETIME: 3600
+      DATABASES_SERVER_RESET_QUERY: DISCARD ALL
+      POOL_MODE: transaction
+      LISTEN_PORT: 6432
+      ADMIN_USERS: ${POSTGRES_USER}
+      STATS_USERS: ${POSTGRES_USER}
+      AUTH_TYPE: md5
+      CLIENT_TLS_SSLMODE: disable
+      SERVER_TLS_SSLMODE: disable
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${POSTGRES_USER} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 128m
+    mem_reservation: 64m
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
 
   migrate:
     build:
@@ -117,10 +166,11 @@ services:
         soft: 65536
         hard: 65536
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
     env_file:
       - .env
     environment:
@@ -174,10 +224,11 @@ services:
         soft: 65536
         hard: 65536
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
     read_only: false
     cpus: "0.75"
     mem_limit: 384m
@@ -326,10 +377,11 @@ services:
       retries: 3
       start_period: 120s
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
         labels: "service=certbot"
         compress: "true"
 
@@ -366,10 +418,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
 
   redis_backup:
     image: redis:7-alpine
@@ -401,10 +454,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
 
   # Observability Stack
   prometheus:
@@ -431,10 +485,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
 
   grafana:
     image: grafana/grafana:latest
@@ -458,10 +513,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
 
   loki:
     image: grafana/loki:latest
@@ -481,10 +537,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
 
   promtail:
     image: grafana/promtail:latest
@@ -503,10 +560,94 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
+
+  # Prometheus Exporters
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: workplace_postgres_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      PG_EXPORTER_DISABLE_DEFAULT_METRICS: false
+      PG_EXPORTER_EXCLUDE_DATABASE: template0,template1
+      PG_EXPORTER_INCLUDE_DATABASE: ${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 128m
+    mem_reservation: 64m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
+
+  redis_exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: workplace_redis_exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_EXPORTER_CHECK_KEYS: "*"
+      REDIS_EXPORTER_CHECK_SINGLE_KEYS: "*"
+      REDIS_EXPORTER_SCRIPT: ""
+      REDIS_EXPORTER_CONNECTION_TIMEOUT: 15s
+      REDIS_EXPORTER_WEB_LISTEN_ADDRESS: 0.0.0.0:9121
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 64m
+    mem_reservation: 32m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
+
+  node_exporter:
+    image: prom/node-exporter:latest
+    container_name: workplace_node_exporter
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 64m
+    mem_reservation: 32m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
 
 volumes:
   postgres_data:
