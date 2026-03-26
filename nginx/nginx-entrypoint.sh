@@ -33,10 +33,10 @@ generate_nginx_config() {
     nginx -t
     
     if [ "${ENVIRONMENT}" = "development" ]; then
-        echo "🔧 Modo desarrollo: Solo HTTP, logs en stdout/stderr"
+        echo " Modo desarrollo: Solo HTTP, logs en stdout/stderr"
         exec nginx -g 'daemon off; access_log /dev/stdout json_combined; error_log /dev/stderr warn;'
     else
-        echo "🚀 Modo producción: Solo HTTP, logs en /var/log/nginx/"
+        echo " Modo producción: Solo HTTP, logs en /var/log/nginx/"
         exec nginx -g 'daemon off;'
     fi
 }
