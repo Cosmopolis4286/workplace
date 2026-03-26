@@ -257,6 +257,94 @@ services:
     networks:
       - private_network
 
+  # 🗄️ Backup Strategy Services - Enterprise Grade
+  postgres_backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      BACKUP_RETENTION_DAYS: 7
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      REMOTE_BACKUP: "false"
+    volumes:
+      - postgres_backups:/opt/workplace/backups/postgres
+      - ./scripts/database:/opt/workplace/scripts/database:ro
+      - ./logs:/opt/workplace/logs
+    command: >
+      sh -c "
+        echo 'Installing cron and dependencies...' &&
+        apk add --no-cache dcron docker-compose &&
+        echo 'Setting up backup environment...' &&
+        mkdir -p /opt/workplace/backups/postgres /opt/workplace/logs &&
+        chmod +x /opt/workplace/scripts/database/backup-postgres.sh &&
+        echo 'Installing cron job...' &&
+        echo '\${BACKUP_SCHEDULE} /opt/workplace/scripts/database/backup-postgres.sh >> /opt/workplace/logs/backup-postgres-cron.log 2>&1' | crontab - &&
+        echo 'Cron installed with schedule: \${BACKUP_SCHEDULE}' &&
+        echo 'Starting cron daemon...' &&
+        crond -f -l 2
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  redis_backup:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      BACKUP_SCHEDULE: "0 3 * * *"  # Daily at 3 AM
+      BACKUP_RETENTION_DAYS: 7
+      REMOTE_BACKUP: "false"
+    volumes:
+      - redis_backups:/opt/workplace/backups/redis
+      - ./scripts/database:/opt/workplace/scripts/database:ro
+      - ./logs:/opt/workplace/logs
+    command: >
+      sh -c "
+        echo 'Installing cron and dependencies...' &&
+        apk add --no-cache dcron docker-compose &&
+        echo 'Setting up backup environment...' &&
+        mkdir -p /opt/workplace/backups/redis /opt/workplace/logs &&
+        chmod +x /opt/workplace/scripts/database/backup-redis.sh &&
+        echo 'Installing cron job...' &&
+        echo '\${BACKUP_SCHEDULE} /opt/workplace/scripts/database/backup-redis.sh >> /opt/workplace/logs/backup-redis-cron.log 2>&1' | crontab - &&
+        echo 'Cron installed with schedule: \${BACKUP_SCHEDULE}' &&
+        echo 'Starting cron daemon...' &&
+        crond -f -l 2
+      "
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 128m
+    mem_reservation: 64m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
 volumes:
   postgres_data:
   redis_data:
