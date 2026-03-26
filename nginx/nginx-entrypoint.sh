@@ -44,15 +44,19 @@ wait_for_backend() {
     local wait_time=0
     
     while [ $wait_time -lt $max_wait ]; do
-        if ping -c 1 backend >/dev/null 2>&1; then
-            echo "✅ Backend está accesible"
-            return 0
+        # Primero verificar que DNS resuelva el hostname
+        if nslookup backend >/dev/null 2>&1; then
+            # Si DNS funciona, intentar conectar al endpoint de salud
+            if curl -f --connect-timeout 3 --max-time 5 http://backend:3001/api/ready >/dev/null 2>&1; then
+                echo "✅ Backend está accesible"
+                return 0
+            fi
         fi
         
         sleep 2
         wait_time=$((wait_time + 2))
         
-        if [ $wait_time -eq $max_wait ]; then
+        if [ $wait_time -ge $max_wait ]; then
             echo "⚠️ Tiempo de espera agotado, continuando..."
             return 1
         fi
