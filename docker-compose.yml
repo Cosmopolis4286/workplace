@@ -10,10 +10,10 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     command: >
       postgres
-      -c max_connections=200
+      -c max_connections=80
       -c shared_buffers=256MB
       -c effective_cache_size=512MB
-      -c work_mem=4MB
+      -c work_mem=2MB
       -c maintenance_work_mem=64MB
       -c wal_level=replica
       -c checkpoint_completion_target=0.9
@@ -49,6 +49,9 @@ services:
       --protected-mode yes
       --tcp-keepalive 300
       --timeout 0
+      --save 60 1000
+      --save 300 10
+      --save 900 1
     volumes:
       - redis_data:/data
     healthcheck:
@@ -123,7 +126,7 @@ services:
     environment:
       ENVIRONMENT: production
       PORT: ${NODE_PORT}
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -139,12 +142,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     volumes:
       - uploads_data:/app/backend/uploads
     healthcheck:
-      test: ["CMD-SHELL", "curl -f --max-time 3 http://localhost:${NODE_PORT}/api/ready || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${NODE_PORT}/api/ready || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -191,7 +196,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f --max-time 5 http://localhost:${FRONTEND_PORT}/ || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${FRONTEND_PORT}/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -205,7 +210,7 @@ services:
     container_name: workplace_nginx
     restart: unless-stopped
     init: true
-    user: "root:root"
+    user: "101:101"
     entrypoint: ["/bin/sh", "/nginx-entrypoint.sh"]
     mem_limit: 256m
     cpus: "0.5"
@@ -253,7 +258,7 @@ services:
       frontend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "sh", "-c", "curl -f --max-time 3 http://localhost/health || exit 1"]
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -328,6 +333,181 @@ services:
         labels: "service=certbot"
         compress: "true"
 
+  # Backup Strategy Services
+  postgres_backup:
+    image: postgres:16-alpine
+    container_name: workplace_postgres_backup
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      BACKUP_RETENTION_DAYS: 7
+    volumes:
+      - postgres_backups:/backups
+      - ./scripts/database/backup-postgres.sh:/backup.sh:ro
+    command: >
+      sh -c "
+        echo 'Installing cron...' &&
+        apk add --no-cache dcron &&
+        echo '${BACKUP_SCHEDULE} /backup.sh' | crontab - &&
+        crond -f -l 2
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis_backup:
+    image: redis:7-alpine
+    container_name: workplace_redis_backup
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_HOST: redis
+      BACKUP_SCHEDULE: "0 3 * * *"  # Daily at 3 AM
+      BACKUP_RETENTION_DAYS: 7
+    volumes:
+      - redis_backups:/backups
+      - ./scripts/database/backup-redis.sh:/backup.sh:ro
+    command: >
+      sh -c "
+        echo 'Installing cron...' &&
+        apk add --no-cache dcron &&
+        echo '${BACKUP_SCHEDULE} /backup.sh' | crontab - &&
+        crond -f -l 2
+      "
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 128m
+    mem_reservation: 64m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Observability Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: workplace_prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - app_network
+    cpus: "0.5"
+    mem_limit: 512m
+    mem_reservation: 256m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: workplace_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  loki:
+    image: grafana/loki:latest
+    container_name: workplace_loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: workplace_promtail
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 128m
+    mem_reservation: 64m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   postgres_data:
   redis_data:
@@ -339,6 +519,11 @@ volumes:
   certbot_logs:
   letsencrypt_logs:
   certbot_conf:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  postgres_backups:
+  redis_backups:
 
 networks:
   app_network:
