@@ -32,6 +32,11 @@ detect_ssl_certificates() {
 generate_nginx_config() {
     local ssl_mode=$1
     
+    # Mover upstreams.conf temporalmente para evitar conflictos al iniciar
+    if [ -f /etc/nginx/conf.d/upstreams.conf ]; then
+        mv /etc/nginx/conf.d/upstreams.conf /etc/nginx/conf.d/upstreams.conf.bak
+    fi
+    
     if [ $ssl_mode -eq 0 ]; then
         echo "🔒 Modo HTTPS - Usando configuración SSL"
         envsubst '${DOMAIN}' < /nginx-ssl.conf.template > /etc/nginx/conf.d/default.conf
