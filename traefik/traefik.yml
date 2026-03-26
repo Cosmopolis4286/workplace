@@ -1,0 +1,84 @@
+# 🚀 Traefik Configuration - Enterprise Level
+# Reemplaza NGINX + Certbot + Scripts SSL
+
+api:
+  dashboard: true
+  insecure: true  # Solo para desarrollo, deshabilitar en producción
+  debug: false
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        options: "modern"
+      middlewares:
+        - security-headers@file
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: "app_network"
+    watch: true
+  
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${EMAIL:-admin@${DOMAIN}}"
+      storage: "/letsencrypt/acme.json"
+      httpChallenge:
+        entryPoint: "web"
+      certificatesDuration: 90
+      # Caso para producción
+      # caServer: "https://acme-v02.api.letsencrypt.org/directory"
+      # Staging para desarrollo
+      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+log:
+  level: "INFO"
+  format: "json"
+  filePath: "/var/log/traefik/traefik.log"
+
+accessLog:
+  format: "json"
+  filePath: "/var/log/traefik/access.log"
+  bufferingSize: 100
+  fields:
+    names:
+      ClientUsername: "drop"
+    defaultMode: "keep"
+
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    manualRouting: true
+
+tracing:
+  jaeger:
+    samplingServerURL: "http://jaeger:14268/api/sampling"
+    localAgentHostPort: "jaeger:6831"
+
+ping:
+  entryPoint: "web"
+
+# Middlewares globales
+experimental:
+  plugins:
+    traefik-plugin-rewritebody:
+      moduleName: "github.com/traefik/plugin-rewritebody"
+      version: "v1.1.0"
