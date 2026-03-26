@@ -6,6 +6,13 @@ CHECK_INTERVAL=30
 
 echo "🔍 Iniciando monitor SSL para $DOMAIN (intervalo: ${CHECK_INTERVAL}s)"
 
+# Esperar que nginx esté disponible antes de monitorear
+echo "⏳ Esperando que nginx esté disponible..."
+while ! pgrep nginx >/dev/null 2>&1; do
+    sleep 2
+done
+echo "✅ nginx detectado, iniciando monitoreo SSL"
+
 while true; do
     # Verificar si existen certificados válidos
     if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
