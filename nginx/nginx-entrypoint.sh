@@ -34,8 +34,29 @@ generate_nginx_config() {
         envsubst '${DOMAIN}' < /nginx-http.conf.template > /etc/nginx/conf.d/default.conf
     fi
     
-    # Verificar configuración antes de iniciar
-    nginx -t
+    # NO hacer nginx -t aquí - esperar a backend primero
+}
+
+# Función para esperar a que backend esté listo
+wait_for_backend() {
+    echo "⏳ Esperando a que backend esté listo..."
+    local max_wait=60
+    local wait_time=0
+    
+    while [ $wait_time -lt $max_wait ]; do
+        if ping -c 1 backend >/dev/null 2>&1; then
+            echo "✅ Backend está accesible"
+            return 0
+        fi
+        
+        sleep 2
+        wait_time=$((wait_time + 2))
+        
+        if [ $wait_time -eq $max_wait ]; then
+            echo "⚠️ Tiempo de espera agotado, continuando..."
+            return 1
+        fi
+    done
 }
 
 # Flujo principal
@@ -48,6 +69,9 @@ fi
 
 echo "📝 Generando configuración de nginx..."
 generate_nginx_config $ssl_mode
+
+echo "⏳ Esperando a que backend esté listo..."
+wait_for_backend
 
 echo "🔍 Probando configuración de nginx..."
 nginx -t
