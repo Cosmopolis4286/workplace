@@ -35,12 +35,23 @@ check_certificates() {
     elif [ "$DEV_MODE" = "true" ]; then
         echo "✅ Certificado de desarrollo encontrado"
         return 1  # No necesita certificados
-    elif openssl x509 -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" -noout -issuer 2>/dev/null | grep -q "Let's Encrypt"; then
-        echo "✅ Certificado Let's Encrypt válido encontrado"
-        return 1  # No necesita certificados
     else
-        echo "🔄 Certificado inválido detectado - se necesita regenerar"
-        return 0  # Necesita certificados
+        # Verificar si existe certificado y obtener issuer
+        CERT_ISSUER=$(openssl x509 -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" -noout -issuer 2>/dev/null | grep "O =" | sed 's/.*O = \(.*\)/\1/')
+        
+        if [ -z "$CERT_ISSUER" ]; then
+            echo "🔄 No se pudo leer el issuer del certificado - regenerando"
+            return 0  # Necesita certificados
+        elif echo "$CERT_ISSUER" | grep -q "STAGING"; then
+            echo "🔄 Certificado de staging detectado - regenerando para producción"
+            return 0  # Necesita certificados
+        elif echo "$CERT_ISSUER" | grep -q "Let's Encrypt"; then
+            echo "✅ Certificado Let's Encrypt de producción encontrado"
+            return 1  # No necesita certificados
+        else
+            echo "🔄 Certificado inválido o desconocido - regenerando"
+            return 0  # Necesita certificados
+        fi
     fi
 }
 
