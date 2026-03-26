@@ -26,8 +26,6 @@ RUN echo "0 */12 * * * /usr/local/bin/renew-ssl.sh >> /var/log/certbot-renew.log
 # Set working directory
 WORKDIR /etc/letsencrypt
 
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-
 # Healthcheck - portable outside compose, domain-agnostic
 HEALTHCHECK --interval=1m --timeout=5s --retries=3 \
     CMD test -f /etc/letsencrypt/live/$DOMAIN/fullchain.pem || exit 1
