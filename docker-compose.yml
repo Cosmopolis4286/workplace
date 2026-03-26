@@ -214,11 +214,14 @@ services:
         /bin/sh /nginx-entrypoint.sh &
         NGINX_PID=$!
         
-        # Iniciar monitor SSL
-        /bin/sh /ssl-monitor.sh &
-        MONITOR_PID=$!
+        # Iniciar monitor SSL (solo si nginx inició correctamente)
+        sleep 5
+        if kill -0 $NGINX_PID 2>/dev/null; then
+          /bin/sh /ssl-monitor.sh &
+          MONITOR_PID=$!
+        fi
         
-        # Esperar procesos
+        # Esperar proceso principal
         wait $NGINX_PID
     mem_limit: 128m
     cpus: "0.5"
@@ -277,12 +280,16 @@ services:
         /usr/local/bin/setup-certificates.sh &
         SETUP_PID=$!
         
-        # Iniciar monitor de estado
-        /usr/local/bin/ssl-status.sh &
-        STATUS_PID=$!
-        
-        # Esperar procesos
+        # Esperar configuración inicial
         wait $SETUP_PID
+        
+        # Si todo está bien, iniciar monitor de estado
+        if [ $? -eq 0 ]; then
+          /usr/local/bin/ssl-status.sh &
+        fi
+        
+        # Mantener contenedor activo
+        tail -f /dev/null
     security_opt:
       - no-new-privileges:true
       - apparmor:docker-default
