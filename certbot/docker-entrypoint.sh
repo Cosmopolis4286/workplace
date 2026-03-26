@@ -80,14 +80,20 @@ generate_certificates() {
 reload_nginx() {
     log "Recargando nginx para aplicar nuevos certificados..."
     
-    # Intentar recargar nginx graceful
-    if docker exec workplace_nginx nginx -t >/dev/null 2>&1; then
-        if docker exec workplace_nginx nginx -s reload >/dev/null 2>&1; then
-            log_success "Nginx recargado exitosamente"
-            return 0
+    # Intentar recargar nginx graceful usando señal directa
+    if nginx -t >/dev/null 2>&1; then
+        # Si nginx está corriendo en el mismo host, enviar señal de reload
+        if pgrep nginx >/dev/null; then
+            nginx -s reload >/dev/null 2>&1
+            if [ $? -eq 0 ]; then
+                log_success "Nginx recargado exitosamente"
+                return 0
+            else
+                log_warning "Reload fallido, nginx continuará con configuración existente"
+                return 0
+            fi
         else
-            log_warning "Reload fallido, intentando restart..."
-            docker restart workplace_nginx >/dev/null 2>&1
+            log_success "Nginx no está corriendo, se iniciará con nuevos certificados"
             return 0
         fi
     else
