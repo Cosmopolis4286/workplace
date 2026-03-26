@@ -23,6 +23,9 @@ upstream frontend_cluster {
     keepalive_timeout 60s;
 }
 
+# DNS resolver for Docker Compose
+resolver 127.0.0.11 valid=30s;
+
 # HTTP redirect to HTTPS
 server {
     listen 80;

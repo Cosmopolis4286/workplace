@@ -69,11 +69,10 @@ services:
         soft: 10032
         hard: 10032
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
 
   pgbouncer:
     image: edoburu/pgbouncer:latest
@@ -92,7 +91,7 @@ services:
       DATABASES_RESERVE_POOL_TIMEOUT: 5
       DATABASES_SERVER_LIFETIME: 3600
       DATABASES_SERVER_RESET_QUERY: DISCARD ALL
-      POOL_MODE: transaction
+      POOL_MODE: session
       LISTEN_PORT: 6432
       ADMIN_USERS: ${POSTGRES_USER}
       STATS_USERS: ${POSTGRES_USER}
@@ -124,11 +123,10 @@ services:
         soft: 65536
         hard: 65536
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
 
   migrate:
     build:
@@ -170,11 +168,10 @@ services:
         soft: 65536
         hard: 65536
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
     env_file:
       - .env
     environment:
@@ -202,29 +199,6 @@ services:
         condition: service_completed_successfully
     volumes:
       - uploads_data:/app/backend/uploads
-    deploy:
-      replicas: 3
-      resources:
-        limits:
-          cpus: '2.25'
-          memory: 2.3G
-        reservations:
-          cpus: '0.75'
-          memory: 384M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        monitor: 60s
-        max_failure_ratio: 0.3
-      rollback_config:
-        parallelism: 0
-        order: stop-first
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${NODE_PORT}/api/ready || exit 1"]
       interval: 15s
@@ -251,11 +225,10 @@ services:
         soft: 65536
         hard: 65536
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
     read_only: false
     cpus: "0.75"
     mem_limit: 384m
@@ -279,29 +252,6 @@ services:
       start_period: 30s
     networks:
       - app_network
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 768M
-        reservations:
-          cpus: '0.75'
-          memory: 192M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        monitor: 60s
-        max_failure_ratio: 0.3
-      rollback_config:
-        parallelism: 0
-        order: stop-first
     tmpfs:
       - /tmp
       - /app/frontend/.nuxt:rw,size=100m,mode=1777
@@ -387,11 +337,10 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -438,11 +387,10 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
 
   redis_backup:
     image: redis:7-alpine
@@ -481,11 +429,10 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
 
   # Observability Stack
   prometheus:
@@ -512,11 +459,10 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
 
   grafana:
     image: grafana/grafana:latest
@@ -540,11 +486,10 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
 
   loki:
     image: grafana/loki:latest
@@ -564,11 +509,33 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
+
+  # Log Aggregation (Promtail)
+  promtail:
+    image: grafana/promtail:latest
+    container_name: workplace_promtail
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - app_network
+    cpus: "0.25"
+    mem_limit: 128m
+    mem_reservation: 64m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Prometheus Exporters
   postgres_exporter:
@@ -591,11 +558,10 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
 
   redis_exporter:
     image: oliver006/redis_exporter:latest
@@ -620,11 +586,10 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
 
   node_exporter:
     image: prom/node-exporter:latest
@@ -657,11 +622,10 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
@@ -681,7 +645,6 @@ volumes:
 networks:
   app_network:
     driver: bridge
-    internal: true
     ipam:
       config:
         - subnet: 172.21.0.0/16
