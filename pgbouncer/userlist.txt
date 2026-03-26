@@ -1,0 +1,4 @@
+# PgBouncer User List - MD5 Hash
+# Generated with: echo "password" | md5sum
+
+"workplace" "6f3b57d4a48574dead455454e120cca5"
