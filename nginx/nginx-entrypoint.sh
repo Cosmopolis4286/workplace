@@ -40,4 +40,26 @@ generate_nginx_config() {
         exec nginx -g 'daemon off;'
     fi
 }
+
+# Flujo principal
+echo "🔍 Detectando modo SSL..."
+if detect_ssl_certificates; then
+    ssl_mode=0  # HTTPS
+else
+    ssl_mode=1  # HTTP
+fi
+
+echo "📝 Generando configuración de nginx..."
+generate_nginx_config $ssl_mode
+
+echo "🔍 Probando configuración de nginx..."
+nginx -t
+
+if [ $? -eq 0 ]; then
+    echo "✅ Configuración de nginx válida"
+    echo "🚀 Iniciando nginx..."
+    exec nginx -g daemon off;
+else
+    echo "❌ Error en configuración de nginx"
+    exit 1
 fi
