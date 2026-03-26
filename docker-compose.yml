@@ -318,6 +318,10 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
+  nginx_cache:
+  nginx_logs:
+  nginx_tmp:
+  nginx_run:
 
 networks:
   app_network:
