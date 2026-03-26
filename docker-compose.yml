@@ -36,7 +36,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"  # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -44,7 +43,8 @@ services:
       - traefik_letsencrypt:/letsencrypt
       - traefik_logs:/var/log/traefik
     networks:
-      - app_network
+      - public_network
+      - private_network
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 30s
@@ -88,7 +88,12 @@ services:
     environment:
       ENVIRONMENT: production
       PORT: ${NODE_PORT}
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      # Database credentials (separated for security)
+      DB_HOST: pgbouncer
+      DB_PORT: 6432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -114,7 +119,8 @@ services:
       retries: 5
       start_period: 60s
     networks:
-      - app_network
+      - public_network
+      - private_network
     tmpfs:
       - /tmp
     labels:
@@ -167,7 +173,8 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - app_network
+      - public_network
+      - private_network
     tmpfs:
       - /tmp
       - /app/frontend/.nuxt:rw,size=100m,mode=1777
@@ -180,11 +187,21 @@ services:
       - "traefik.http.routers.frontend.middlewares=security-headers@file,compression@file,rate-limit@file"
       - "traefik.http.services.frontend.loadbalancer.healthcheck.path=/"
       - "traefik.http.services.frontend.loadbalancer.healthcheck.interval=30s"
-
-  # Resto de servicios sin cambios (PostgreSQL, Redis, etc.)
+ 
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: >
+      postgres
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -198,7 +215,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - app_network
+      - private_network
 
   redis:
     image: redis:7-alpine
@@ -212,7 +229,7 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - app_network
+      - private_network
 
   pgbouncer:
     image: edoburu/pgbouncer:latest
@@ -221,7 +238,6 @@ services:
       DATABASES_HOST: postgres
       DATABASES_PORT: 5432
       DATABASES_USER: ${POSTGRES_USER}
-      DATABASES_PASSWORD: ${POSTGRES_PASSWORD}
       DATABASES_DBNAME: ${POSTGRES_DB}
       DATABASES_POOL_SIZE: 20
       DATABASES_MAX_DB_CONNECTIONS: 80
@@ -235,13 +251,14 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U $${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
-      - app_network
+      - public_network
+      - private_network
 
 volumes:
   postgres_data:
@@ -258,5 +275,8 @@ volumes:
   traefik_logs:
 
 networks:
-  app_network:
+  public_network:
     driver: bridge
+  private_network:
+    driver: bridge
+    internal: true
