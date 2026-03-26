@@ -26,19 +26,16 @@ detect_ssl_certificates() {
 generate_nginx_config() {
     local ssl_mode=$1
     
-    # Usar template HTTP
-    envsubst '${DOMAIN}' < /nginx-http.conf.template > /etc/nginx/conf.d/default.conf
-    
-    # Verificar configuración HTTP antes de iniciar
-    nginx -t
-    
-    if [ "${ENVIRONMENT}" = "development" ]; then
-        echo " Modo desarrollo: Solo HTTP, logs en stdout/stderr"
-        exec nginx -g 'daemon off; access_log /dev/stdout json_combined; error_log /dev/stderr warn;'
+    if [ $ssl_mode -eq 0 ]; then
+        echo "🔒 Modo HTTPS - Usando configuración SSL"
+        envsubst '${DOMAIN}' < /nginx-ssl.conf.template > /etc/nginx/conf.d/default.conf
     else
-        echo " Modo producción: Solo HTTP, logs en /var/log/nginx/"
-        exec nginx -g 'daemon off;'
+        echo "🚫 Modo HTTP - Usando configuración HTTP"
+        envsubst '${DOMAIN}' < /nginx-http.conf.template > /etc/nginx/conf.d/default.conf
     fi
+    
+    # Verificar configuración antes de iniciar
+    nginx -t
 }
 
 # Flujo principal
