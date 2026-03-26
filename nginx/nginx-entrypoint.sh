@@ -1,27 +1,30 @@
 #!/bin/sh
-# nginx-entrypoint.sh - Detección dinámica SSL y cambio automático HTTP/HTTPS
+# nginx-entrypoint.sh - Punto de entrada optimizado para nginx
+# Resuelve problemas de DNS entre contenedores Docker
 
 set -e
 
-# Verificar si existen certificados SSL válidos
-if [ -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/${DOMAIN}/privkey.pem" ]; then
-    echo "🔒 Certificados SSL encontrados - iniciando modo HTTPS"
-    
-    # Usar template SSL
-    envsubst '${DOMAIN}' < /nginx-ssl.conf.template > /etc/nginx/conf.d/default.conf
-    
-    # Verificar configuración SSL antes de iniciar
-    nginx -t
-    
-    if [ "${ENVIRONMENT}" = "development" ]; then
-        echo "🔧 Modo desarrollo: HTTPS activado, logs en stdout/stderr"
-        exec nginx -g 'daemon off; access_log /dev/stdout json_combined; error_log /dev/stderr warn;'
+# Variables de entorno
+DOMAIN="${DOMAIN:-playrke.com}"
+HTTP_PORT="${HTTP_PORT:-80}"
+HTTPS_PORT="${HTTPS_PORT:-443}"
+
+echo "🔧 Iniciando nginx para dominio: $DOMAIN"
+
+# Función para detectar certificados SSL
+detect_ssl_certificates() {
+    if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
+        echo "🔒 Certificados SSL encontrados - iniciando modo HTTPS"
+        return 0  # HTTPS
     else
-        echo "🚀 Modo producción: HTTPS activado, logs en /var/log/nginx/"
-        exec nginx -g 'daemon off;'
+        echo "🚫 No se encontraron certificados SSL - iniciando modo HTTP"
+        return 1  # HTTP
     fi
-else
-    echo "🚫 No se encontraron certificados SSL - iniciando solo HTTP"
+}
+
+# Función para generar configuración de nginx
+generate_nginx_config() {
+    local ssl_mode=$1
     
     # Usar template HTTP
     envsubst '${DOMAIN}' < /nginx-http.conf.template > /etc/nginx/conf.d/default.conf
