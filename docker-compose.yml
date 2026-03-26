@@ -329,8 +329,8 @@ networks:
     internal: true
     ipam:
       config:
-        - subnet: 172.20.0.0/16
-          gateway: 172.20.0.1
+        - subnet: 172.21.0.0/16
+          gateway: 172.21.0.1
     driver_opts:
       com.docker.network.bridge.name: workplace_br
       com.docker.network.driver.mtu: 1500
