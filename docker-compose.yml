@@ -231,6 +231,7 @@ services:
     volumes:
       - prometheus_data:/prometheus
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus-rules.yml:/etc/prometheus/prometheus-rules.yml:ro
     networks:
       - private_network
     cpus: "0.5"
@@ -505,6 +506,41 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
+
+  # 🔧 MinIO Setup Service - Enterprise Features
+  minio_setup:
+    image: alpine:latest
+    restart: "no"
+    container_name: minio_setup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./scripts:/scripts:ro
+      - ./logs:/var/log
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: >
+      sh -c "
+        echo 'Installing dependencies...' &&
+        apk add --no-cache wget curl &&
+        echo 'Setting up MinIO enterprise features...' &&
+        /scripts/minio-setup.sh
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
         max-file: "3"
 
 volumes:
