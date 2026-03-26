@@ -9,7 +9,7 @@ services:
       - "--api.insecure=false"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=app_network"
+      - "--providers.docker.network=public_network"
       - "--providers.file.directory=/etc/traefik/dynamic"
       - "--providers.file.watch=true"
       - "--entrypoints.web.address=:80"
@@ -269,18 +269,19 @@ services:
       BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
       BACKUP_RETENTION_DAYS: 7
       PGPASSWORD: ${POSTGRES_PASSWORD}
-      REMOTE_BACKUP: "false"
+      REMOTE_BACKUP: "true"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: workplace-backups
     volumes:
       - postgres_backups:/opt/workplace/backups/postgres
       - ./scripts/database:/opt/workplace/scripts/database:ro
       - ./logs:/opt/workplace/logs
     command: >
       sh -c "
-        echo 'Installing cron and dependencies...' &&
-        apk add --no-cache dcron docker-compose &&
         echo 'Setting up backup environment...' &&
         mkdir -p /opt/workplace/backups/postgres /opt/workplace/logs &&
-        chmod +x /opt/workplace/scripts/database/backup-postgres.sh &&
         echo 'Installing cron job...' &&
         echo '\${BACKUP_SCHEDULE} /opt/workplace/scripts/database/backup-postgres.sh >> /opt/workplace/logs/backup-postgres-cron.log 2>&1' | crontab - &&
         echo 'Cron installed with schedule: \${BACKUP_SCHEDULE}' &&
@@ -289,6 +290,8 @@ services:
       "
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - private_network
@@ -311,18 +314,19 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       BACKUP_SCHEDULE: "0 3 * * *"  # Daily at 3 AM
       BACKUP_RETENTION_DAYS: 7
-      REMOTE_BACKUP: "false"
+      REMOTE_BACKUP: "true"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: workplace-backups
     volumes:
       - redis_backups:/opt/workplace/backups/redis
       - ./scripts/database:/opt/workplace/scripts/database:ro
       - ./logs:/opt/workplace/logs
     command: >
       sh -c "
-        echo 'Installing cron and dependencies...' &&
-        apk add --no-cache dcron docker-compose &&
         echo 'Setting up backup environment...' &&
         mkdir -p /opt/workplace/backups/redis /opt/workplace/logs &&
-        chmod +x /opt/workplace/scripts/database/backup-redis.sh &&
         echo 'Installing cron job...' &&
         echo '\${BACKUP_SCHEDULE} /opt/workplace/scripts/database/backup-redis.sh >> /opt/workplace/logs/backup-redis-cron.log 2>&1' | crontab - &&
         echo 'Cron installed with schedule: \${BACKUP_SCHEDULE}' &&
@@ -331,6 +335,8 @@ services:
       "
     depends_on:
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - private_network
@@ -343,6 +349,37 @@ services:
       driver: json-file
       options:
         max-size: "5m"
+        max-file: "3"
+
+  # 🗄️ MinIO - Remote Backup Storage
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    container_name: minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - private_network
+    cpus: "0.5"
+    mem_limit: 512m
+    mem_reservation: 256m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
         max-file: "3"
 
 volumes:
