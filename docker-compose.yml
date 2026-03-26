@@ -240,7 +240,8 @@ services:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ./nginx/conf.d/${SSL_ENABLED:-false}/nginx.conf.template:/nginx.conf.template:ro
+      - ./nginx/conf.d/nginx-ssl.conf.template:/nginx-ssl.conf.template:ro
+      - ./nginx/conf.d/nginx-http.conf.template:/nginx-http.conf.template:ro
       - ./nginx/conf.d/proxy-headers.conf:/etc/nginx/conf.d/proxy-headers.conf:ro
       - ./nginx/conf.d/upstreams.conf:/etc/nginx/conf.d/upstreams.conf:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -274,7 +275,6 @@ services:
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - DOMAIN=${DOMAIN:-localhost}
-      - SSL_ENABLED=${SSL_ENABLED:-true}
 
   certbot:
     build:
@@ -285,51 +285,44 @@ services:
     container_name: workplace_certbot
     restart: unless-stopped
     init: true
-    # profiles: - ssl  # Comentado para auto-iniciar con SSL_ENABLED=true
+    # profiles: []  # certbot siempre inicia automáticamente
     entrypoint:
       - sh
       - -c
       - |
-        echo "🔧 Setting up SSL certificates..."
+        echo "🔧 Configurando certificados SSL..."
 
         mkdir -p /etc/letsencrypt/live/${DOMAIN:-playrke.com}
         mkdir -p /var/www/certbot/.well-known/acme-challenge
 
-        if [ "${SSL_ENABLED:-false}" = "true" ]; then
-          echo "🔒 SSL enabled - checking certificates..."
-
-          if [ ! -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem ]; then
-            echo "📦 No certificates found - requesting from Let's Encrypt..."
-            REQUEST_CERT=true
-          elif openssl x509 -in /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem -noout -issuer | grep -q "Let's Encrypt"; then
-            echo "✅ Valid Let's Encrypt certificate found"
-            REQUEST_CERT=false
-          else
-            echo "🔄 Invalid certificate detected - requesting new one..."
-            REQUEST_CERT=true
-          fi
-
-          if [ "$REQUEST_CERT" = "true" ]; then
-            echo "🚀 Requesting certificates from Let's Encrypt via webroot..."
-
-            certbot certonly --webroot -w /var/www/certbot \
-              --email admin@${DOMAIN:-playrke.com} \
-              --agree-tos \
-              --no-eff-email \
-              -d ${DOMAIN:-playrke.com} \
-              ${STAGING_MODE:+--staging}
-
-            echo "✅ Certificate obtained"
-          fi
-
-          echo "🚀 Starting renewal cron..."
-          echo "0 */12 * * * /usr/local/bin/renew-ssl.sh >> /var/log/certbot/renew.log 2>&1" | crontab -
-          crond -f -l 2
-
+        # Siempre intenta obtener certificados (si no existen)
+        if [ ! -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem ]; then
+          echo "📦 No se encontraron certificados - solicitando a Let's Encrypt..."
+          REQUEST_CERT=true
+        elif openssl x509 -in /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem -noout -issuer | grep -q "Let's Encrypt"; then
+          echo "✅ Certificado Let's Encrypt válido encontrado"
+          REQUEST_CERT=false
         else
-          echo "🚫 SSL disabled"
-          exit 0
+          echo "🔄 Certificado inválido detectado - solicitando nuevo..."
+          REQUEST_CERT=true
         fi
+
+        if [ "$REQUEST_CERT" = "true" ]; then
+          echo "🚀 Solicitando certificados a Let's Encrypt via webroot..."
+
+          certbot certonly --webroot -w /var/www/certbot \
+            --email admin@${DOMAIN:-playrke.com} \
+            --agree-tos \
+            --no-eff-email \
+            -d ${DOMAIN:-playrke.com} \
+            ${STAGING_MODE:+--staging}
+
+          echo "✅ Certificado obtenido"
+        fi
+
+        echo "🚀 Iniciando renovación automática..."
+        echo "0 */12 * * * /usr/local/bin/renew-ssl.sh >> /var/log/certbot/renew.log 2>&1" | crontab -
+        crond -f -l 2
     security_opt:
       - no-new-privileges:true
       - apparmor:docker-default
@@ -356,7 +349,6 @@ services:
       - DOMAIN=${DOMAIN:-playrke.com}
       - STAGING_MODE=${STAGING_MODE:-false}
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - SSL_ENABLED=${SSL_ENABLED:-true}
     networks:
       - app_network
       - external_network
@@ -371,7 +363,7 @@ services:
       - /var/spool/cron/crontabs:rw,size=5m,mode=1755
     depends_on: []
     healthcheck:
-      test: ["CMD", "sh", "-c", "if [ '${SSL_ENABLED:-false}' = 'true' ]; then test -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem; else exit 0; fi"]
+      test: ["CMD", "sh", "-c", "test -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem || exit 0"]
       interval: 5m
       timeout: 10s
       retries: 2
