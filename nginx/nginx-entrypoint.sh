@@ -43,14 +43,14 @@ generate_nginx_config() {
 
 # Función para validar configuración de nginx
 validate_and_start_nginx() {
-    echo "🔍 Validando configuración de nginx..."
+    echo " Validando configuración de nginx..."
     
     if nginx -t; then
-        echo "✅ Configuración de nginx válida"
-        echo "🚀 Iniciando nginx..."
-        exec nginx -g daemon off
+        echo " Configuración de nginx válida"
+    echo " Iniciando nginx..."
+    exec nginx -g "daemon off;"
     else
-        echo "❌ Error en configuración de nginx - intentando configuración de emergencia"
+        echo " Error en configuración de nginx - intentando configuración de emergencia"
         
         # Configuración de emergencia
         cat > /etc/nginx/conf.d/default.conf << 'EOF'
@@ -71,8 +71,8 @@ server {
 }
 EOF
         
-        echo "� Iniciando nginx con configuración de emergencia..."
-        exec nginx -g daemon off
+        echo "🚀 Iniciando nginx con configuración de emergencia..."
+        exec nginx -g "daemon off;"
     fi
 }
 
