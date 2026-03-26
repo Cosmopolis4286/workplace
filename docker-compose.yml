@@ -80,11 +80,10 @@ services:
         soft: 65536
         hard: 65536
     logging:
-      driver: loki
+      driver: json-file
       options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        loki-retries: "3"
+        max-size: "10m"
+        max-file: "3"
     env_file:
       - .env
     environment:
@@ -149,10 +148,11 @@ services:
         soft: 65536
         hard: 65536
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
     read_only: true
     cpus: "0.75"
     mem_limit: 384m
@@ -241,10 +241,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
 
   grafana:
     image: grafana/grafana:latest
@@ -276,10 +277,11 @@ services:
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
       - "traefik.http.routers.grafana.middlewares=security-headers@file"
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
 
   loki:
     image: grafana/loki:latest
@@ -297,10 +299,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
 
   redis:
     image: redis:7-alpine
@@ -326,7 +329,7 @@ services:
       DATABASES_DBNAME: ${POSTGRES_DB}
       DATABASES_POOL_SIZE: 20
       DATABASES_MAX_DB_CONNECTIONS: 80
-      POOL_MODE: session
+      POOL_MODE: transaction
       LISTEN_PORT: 6432
       AUTH_TYPE: md5
     volumes:
@@ -384,10 +387,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "5m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
 
   redis_backup:
     image: redis:7-alpine
@@ -425,10 +429,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "5m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
 
   # � External Cron Scheduler - Enterprise Pattern
   cron_scheduler:
@@ -473,10 +478,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "5m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
 
   # ��️ MinIO - Remote Backup Storage
   minio:
@@ -486,7 +492,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
+      MINIO_BROWSER_REDIRECT_URL: https://minio.${DOMAIN:-localhost}:9001
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -504,12 +510,64 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "10m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
 
-  # 🔧 MinIO Setup Service - Enterprise Features
+  # � rclone - MinIO to Google Drive Sync (SPOF Elimination)
+  rclone_sync:
+    image: rclone/rclone:latest
+    restart: unless-stopped
+    container_name: rclone_sync
+    environment:
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: workplace-backups
+      GOOGLE_DRIVE_FOLDER: workplace-backups
+      LOG_FILE: /var/log/rclone-sync.log
+    volumes:
+      - ./scripts/backup:/scripts:ro
+      - rclone_config:/config/rclone
+      - ./logs:/var/log
+    command: >
+      sh -c "
+        echo 'Setting up rclone sync service...' &&
+        echo 'Waiting for MinIO to be healthy...' &&
+        while ! nc -z minio 9000; do
+          echo 'Waiting for MinIO...' &&
+          sleep 5
+        done &&
+        echo 'MinIO is ready, configuring rclone...' &&
+        if [ ! -f /config/rclone/rclone.conf ]; then
+          echo 'rclone config not found. Please configure Google Drive remote manually:' &&
+          echo 'docker exec -it rclone_sync rclone config create google-drive drive' &&
+          sleep 30
+        fi &&
+        echo 'Starting periodic sync...' &&
+        echo '0 */6 * * * /scripts/backup/rclone-sync.sh >> /var/log/rclone-cron.log 2>&1' | crontab - &&
+        crond -f -l 2
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+  # � MinIO Setup Service - Enterprise Features
   minio_setup:
     image: alpine:latest
     restart: "no"
@@ -539,10 +597,11 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: json-file
+      driver: loki
       options:
-        max-size: "5m"
-        max-file: "3"
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
 
 volumes:
   postgres_data:
@@ -554,6 +613,7 @@ volumes:
   postgres_backups:
   redis_backups:
   minio_data:
+  rclone_config:
   # Traefik volumes
   traefik_letsencrypt:
   traefik_logs:
