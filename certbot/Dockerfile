@@ -16,9 +16,10 @@ RUN mkdir -p /var/www/certbot
 # Add custom scripts with proper permissions
 COPY scripts/renew-ssl.sh /usr/local/bin/renew-ssl.sh
 COPY scripts/setup-certificates.sh /usr/local/bin/setup-certificates.sh
+COPY scripts/generate-dev-cert.sh /usr/local/bin/generate-dev-cert.sh
 COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/renew-ssl.sh /usr/local/bin/setup-certificates.sh /usr/local/bin/docker-entrypoint.sh && \
-    chown root:root /usr/local/bin/renew-ssl.sh /usr/local/bin/setup-certificates.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/renew-ssl.sh /usr/local/bin/setup-certificates.sh /usr/local/bin/generate-dev-cert.sh /usr/local/bin/docker-entrypoint.sh && \
+    chown root:root /usr/local/bin/renew-ssl.sh /usr/local/bin/setup-certificates.sh /usr/local/bin/generate-dev-cert.sh /usr/local/bin/docker-entrypoint.sh
 
 # Set working directory
 WORKDIR /etc/letsencrypt
