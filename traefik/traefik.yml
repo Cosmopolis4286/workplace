@@ -68,11 +68,6 @@ metrics:
     addServicesLabels: true
     manualRouting: true
 
-tracing:
-  jaeger:
-    samplingServerURL: "http://jaeger:14268/api/sampling"
-    localAgentHostPort: "jaeger:6831"
-
 ping:
   entryPoint: "web"
 
