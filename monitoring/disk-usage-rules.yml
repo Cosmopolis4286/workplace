@@ -1,0 +1,116 @@
+groups:
+  - name: disk_usage_alerts
+    rules:
+      - alert: HighDiskUsage
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+          service: disk
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 80% on {{ $labels.instance }}. Only {{ $value }}% free space remaining."
+          runbook_url: "https://docs.workplace.com/runbooks/disk-usage"
+
+      - alert: CriticalDiskUsage
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+          service: disk
+        annotations:
+          summary: "Critical disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 90% on {{ $labels.instance }}. Only {{ $value }}% free space remaining. Immediate action required."
+          runbook_url: "https://docs.workplace.com/runbooks/disk-usage"
+
+      - alert: DiskSpaceRunningOut
+        expr: predict_linear(node_filesystem_avail_bytes{fstype!="tmpfs"}[6h], 3600 * 24) < 0
+        for: 1h
+        labels:
+          severity: critical
+          service: disk
+        annotations:
+          summary: "Disk space will run out within 24 hours on {{ $labels.instance }}"
+          description: "Based on current usage rate, disk {{ $labels.mountpoint }} on {{ $labels.instance }} will run out of space within 24 hours."
+          runbook_url: "https://docs.workplace.com/runbooks/disk-usage"
+
+      - alert: PostgresDataVolumeHigh
+        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/postgresql/data"} / node_filesystem_size_bytes{mountpoint="/var/lib/postgresql/data"}) * 100 < 15
+        for: 10m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "PostgreSQL data volume running low on space"
+          description: "PostgreSQL data volume on {{ $labels.instance }} has only {{ $value }}% free space remaining."
+          runbook_url: "https://docs.workplace.com/runbooks/postgres-disk"
+
+      - alert: MinIODataVolumeHigh
+        expr: (node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"}) * 100 < 15
+        for: 10m
+        labels:
+          severity: warning
+          service: minio
+        annotations:
+          summary: "MinIO data volume running low on space"
+          description: "MinIO data volume on {{ $labels.instance }} has only {{ $value }}% free space remaining."
+          runbook_url: "https://docs.workplace.com/runbooks/minio-disk"
+
+      - alert: LogVolumeHigh
+        expr: (node_filesystem_avail_bytes{mountpoint="/var/log"} / node_filesystem_size_bytes{mountpoint="/var/log"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+          service: logging
+        annotations:
+          summary: "Log volume running low on space"
+          description: "Log volume on {{ $labels.instance }} has only {{ $value }}% free space remaining."
+          runbook_url: "https://docs.workplace.com/runbooks/log-disk"
+
+  - name: backup_disk_health
+    rules:
+      - alert: BackupVolumeInsufficient
+        expr: (node_filesystem_avail_bytes{mountpoint="/backups"} / node_filesystem_size_bytes{mountpoint="/backups"}) * 100 < 5
+        for: 15m
+        labels:
+          severity: critical
+          service: backup
+        annotations:
+          summary: "Backup volume critically low on space"
+          description: "Backup volume on {{ $labels.instance }} has only {{ $value }}% free space remaining. Backups may fail."
+          runbook_url: "https://docs.workplace.com/runbooks/backup-disk"
+
+      - alert: BackupGrowthRateHigh
+        expr: rate(node_filesystem_size_bytes{mountpoint="/backups"}[1h]) > 104857600  # 100MB/hour
+        for: 2h
+        labels:
+          severity: warning
+          service: backup
+        annotations:
+          summary: "Backup volume growing rapidly"
+          description: "Backup volume on {{ $labels.instance }} is growing at {{ $value | humanizeBytes }}/hour. Consider cleanup policy."
+          runbook_url: "https://docs.workplace.com/runbooks/backup-growth"
+
+  - name: docker_disk_health
+    rules:
+      - alert: DockerDiskSpaceHigh
+        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/docker"} / node_filesystem_size_bytes{mountpoint="/var/lib/docker"}) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+          service: docker
+        annotations:
+          summary: "Docker data directory running low on space"
+          description: "Docker data directory on {{ $labels.instance }} has only {{ $value }}% free space remaining."
+          runbook_url: "https://docs.workplace.com/runbooks/docker-disk"
+
+      - alert: DockerImageCacheHigh
+        expr: (node_filesystem_size_bytes{mountpoint="/var/lib/docker"} - node_filesystem_avail_bytes{mountpoint="/var/lib/docker"}) > 10737418240  # 10GB
+        for: 1h
+        labels:
+          severity: info
+          service: docker
+        annotations:
+          summary: "Docker image cache is large"
+          description: "Docker image cache on {{ $labels.instance }} is using {{ $value | humanizeBytes }}. Consider cleanup."
+          runbook_url: "https://docs.workplace.com/runbooks/docker-cleanup"
