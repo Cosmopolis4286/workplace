@@ -190,8 +190,6 @@ services:
         condition: service_healthy
       pgbouncer:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     volumes:
       - uploads_data:/app/backend/uploads
     healthcheck:
@@ -425,6 +423,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
+    init: true
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -453,6 +452,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
+    init: true
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
@@ -479,6 +479,7 @@ services:
   loki:
     image: grafana/loki:latest
     restart: unless-stopped
+    init: true
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml:ro
