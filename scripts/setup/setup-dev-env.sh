@@ -102,7 +102,6 @@ generate_env() {
 
 # Environment Detection
 ENVIRONMENT=development
-SSL_ENABLED=false
 
 # Development Ports (auto-detected)
 HTTP_PORT=$http_port
@@ -193,7 +192,6 @@ services:
       # HTTPS port disabled for development
     environment:
       - ENVIRONMENT=development
-      - SSL_ENABLED=false
       - DOMAIN=localhost
     volumes:
       # Additional development volumes
