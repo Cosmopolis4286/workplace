@@ -20,6 +20,7 @@ server {
     # Let's Encrypt challenge
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
+        try_files $uri =404;
     }
     
     # Redirect everything else to HTTPS

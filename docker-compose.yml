@@ -290,48 +290,44 @@ services:
       - sh
       - -c
       - |
-        echo '🔧 Setting up SSL certificates...'
-        
-        # Create directory structure
+        echo "🔧 Setting up SSL certificates..."
+
         mkdir -p /etc/letsencrypt/live/${DOMAIN:-playrke.com}
         mkdir -p /var/www/certbot/.well-known/acme-challenge
-        
-        if [ '${SSL_ENABLED:-false}' = 'true' ]; then
-          echo '🔒 SSL enabled - checking certificates...'
-          
-          # Check if certificates exist and are valid (not self-signed)
+
+        if [ "${SSL_ENABLED:-false}" = "true" ]; then
+          echo "🔒 SSL enabled - checking certificates..."
+
           if [ ! -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem ]; then
-            echo '📦 No certificates found - requesting from Lets Encrypt...'
+            echo "📦 No certificates found - requesting from Let's Encrypt..."
             REQUEST_CERT=true
-          elif [ -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem ] && openssl x509 -in /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem -text -noout 2>/dev/null | grep -q 'Issuer:.*Let'"'"'s' Encrypt; then
-            echo '✅ Valid Lets Encrypt certificate found'
+          elif openssl x509 -in /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem -noout -issuer | grep -q "Let's Encrypt"; then
+            echo "✅ Valid Let's Encrypt certificate found"
             REQUEST_CERT=false
           else
-            echo '🔄 Invalid or self-signed certificate detected - requesting from Lets Encrypt...'
+            echo "🔄 Invalid certificate detected - requesting new one..."
             REQUEST_CERT=true
           fi
-          
-          if [ "$REQUEST_CERT" = 'true' ]; then
-            echo '🚀 Requesting certificates from Let'\''s Encrypt via webroot...'
-            # Use webroot mode (requires port 80 to be open)
+
+          if [ "$REQUEST_CERT" = "true" ]; then
+            echo "🚀 Requesting certificates from Let's Encrypt via webroot..."
+
             certbot certonly --webroot -w /var/www/certbot \
               --email admin@${DOMAIN:-playrke.com} \
               --agree-tos \
               --no-eff-email \
-              --force-renewal \
               -d ${DOMAIN:-playrke.com} \
               ${STAGING_MODE:+--staging}
-              
-            echo '✅ Let'\''s Encrypt certificates obtained via webroot'
+
+            echo "✅ Certificate obtained"
           fi
-          
-          echo '🚀 Certbot setup complete - starting renewal cron...'
-          # Start renewal cron job
-          echo '0 */12 * * * /usr/local/bin/renew-ssl.sh >> /var/log/certbot/renew.log 2>&1' | crontab -
+
+          echo "🚀 Starting renewal cron..."
+          echo "0 */12 * * * /usr/local/bin/renew-ssl.sh >> /var/log/certbot/renew.log 2>&1" | crontab -
           crond -f -l 2
-          
+
         else
-          echo '🚫 SSL disabled - exiting'
+          echo "🚫 SSL disabled"
           exit 0
         fi
     security_opt:
