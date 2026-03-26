@@ -8,14 +8,16 @@ limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
 limit_req_zone $binary_remote_addr zone=general:10m rate=20r/s;
 
 upstream backend_cluster {
-    server backend:3001 max_fails=3 fail_timeout=30s;
+    least_conn;
+    server backend:3000 max_fails=3 fail_timeout=30s weight=1;
     keepalive 32;
     keepalive_requests 100;
     keepalive_timeout 60s;
 }
 
 upstream frontend_cluster {
-    server frontend:3000 max_fails=3 fail_timeout=30s;
+    least_conn;
+    server frontend:3000 max_fails=3 fail_timeout=30s weight=1;
     keepalive 32;
     keepalive_requests 100;
     keepalive_timeout 60s;
