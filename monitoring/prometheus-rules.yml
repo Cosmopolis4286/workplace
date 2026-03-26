@@ -1,0 +1,134 @@
+groups:
+  - name: workplace_alerts
+    rules:
+      # Backend alerts
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend service is down"
+          description: "Backend has been down for more than 1 minute"
+
+      - alert: BackendHighErrorRate
+        expr: rate(http_requests_total{job="backend",status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend high error rate"
+          description: "Backend error rate is {{ $value }} errors per second"
+
+      - alert: BackendHighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="backend"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend high response time"
+          description: "95th percentile response time is {{ $value }}s"
+
+      # Database alerts
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL has been down for more than 1 minute"
+
+      - alert: PgBouncerHighConnections
+        expr: pgbouncer_pool_size_used{job="pgbouncer"} > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PgBouncer high connection usage"
+          description: "PgBouncer connection pool is {{ $value }}% used"
+
+      # Redis alerts
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis has been down for more than 1 minute"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes{job="redis"} / redis_memory_max_bytes{job="redis"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}"
+
+      # Traefik alerts
+      - alert: TraefikDown
+        expr: up{job="traefik"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Traefik is down"
+          description: "Traefik has been down for more than 1 minute"
+
+      - alert: TraefikHighErrorRate
+        expr: rate(traefik_service_requests_total{job="traefik",code=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Traefik high error rate"
+          description: "Traefik error rate is {{ $value }} errors per second"
+
+      # MinIO alerts
+      - alert: MinIODown
+        expr: up{job="minio"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MinIO is down"
+          description: "MinIO has been down for more than 1 minute"
+
+      - alert: MinIOHighDiskUsage
+        expr: minio_node_disk_used_bytes{job="minio"} / minio_node_disk_total_bytes{job="minio"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MinIO high disk usage"
+          description: "MinIO disk usage is {{ $value | humanizePercentage }}"
+
+      # System alerts
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is {{ $value }}% on {{ $labels.instance }}/{{ $labels.mountpoint }}"
