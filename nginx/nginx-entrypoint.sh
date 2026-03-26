@@ -62,6 +62,12 @@ server {
         return 200 "Servicio en mantenimiento\n";
         add_header Content-Type text/plain;
     }
+    
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
 }
 EOF
         
@@ -72,11 +78,18 @@ EOF
 
 # Función para verificar backend en background (no bloqueante)
 check_backend_quick() {
+    # Esperar un momento a que la red esté estable
+    sleep 2
+    
     # Intento rápido de verificación, pero no bloquear si falla
-    if nslookup backend >/dev/null 2>&1 && curl -f --connect-timeout 2 --max-time 3 http://backend:3001/api/ready >/dev/null 2>&1; then
-        echo "✅ Backend está accesible"
+    if nslookup backend >/dev/null 2>&1; then
+        if curl -f --connect-timeout 2 --max-time 3 http://backend:3001/api/ready >/dev/null 2>&1; then
+            echo "✅ Backend está accesible"
+        else
+            echo "⚠️ Backend resuelve DNS pero no responde aún, nginx continuará iniciando..."
+        fi
     else
-        echo "⚠️ Backend no accesible aún, nginx continuará iniciando..."
+        echo "⚠️ Backend DNS no resuelto aún, nginx continuará iniciando..."
     fi
 }
 

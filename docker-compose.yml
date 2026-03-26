@@ -210,6 +210,9 @@ services:
       - sh
       - -c
       - |
+        export NGINX_PID=""
+        export SETUP_PID=""
+        
         # Iniciar nginx en background
         /bin/sh /nginx-entrypoint.sh &
         NGINX_PID=$!
@@ -276,6 +279,9 @@ services:
       - sh
       - -c
       - |
+        export NGINX_PID=""
+        export SETUP_PID=""
+        
         # Iniciar configuración de certificados
         /usr/local/bin/setup-certificates.sh &
         SETUP_PID=$!
