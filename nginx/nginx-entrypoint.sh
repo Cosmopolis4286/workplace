@@ -39,4 +39,5 @@ generate_nginx_config() {
         echo "🚀 Modo producción: Solo HTTP, logs en /var/log/nginx/"
         exec nginx -g 'daemon off;'
     fi
+}
 fi
