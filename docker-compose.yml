@@ -206,26 +206,7 @@ services:
     restart: unless-stopped
     init: true
     user: "root:root"
-    entrypoint:
-      - sh
-      - -c
-      - |
-        export NGINX_PID=""
-        export SETUP_PID=""
-        
-        # Iniciar nginx en background
-        /bin/sh /nginx-entrypoint.sh &
-        NGINX_PID=$!
-        
-        # Iniciar monitor SSL (solo si nginx inició correctamente)
-        sleep 5
-        if kill -0 $NGINX_PID 2>/dev/null; then
-          /bin/sh /ssl-monitor.sh &
-          MONITOR_PID=$!
-        fi
-        
-        # Esperar proceso principal
-        wait $NGINX_PID
+    entrypoint: ["/bin/sh", "/nginx-entrypoint.sh"]
     mem_limit: 128m
     cpus: "0.5"
     pids_limit: 100
@@ -275,27 +256,7 @@ services:
     restart: unless-stopped
     init: true
     # profiles: []  # certbot siempre inicia automáticamente
-    entrypoint:
-      - sh
-      - -c
-      - |
-        export NGINX_PID=""
-        export SETUP_PID=""
-        
-        # Iniciar configuración de certificados
-        /usr/local/bin/setup-certificates.sh &
-        SETUP_PID=$!
-        
-        # Esperar configuración inicial
-        wait $SETUP_PID
-        
-        # Si todo está bien, iniciar monitor de estado
-        if [ $? -eq 0 ]; then
-          /usr/local/bin/ssl-status.sh &
-        fi
-        
-        # Mantener contenedor activo
-        tail -f /dev/null
+    entrypoint: ["/bin/sh", "/usr/local/bin/setup-certificates.sh"]
     security_opt:
       - no-new-privileges:true
       - apparmor:docker-default
