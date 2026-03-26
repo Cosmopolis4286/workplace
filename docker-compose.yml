@@ -249,6 +249,7 @@ services:
       - uploads_data:/var/www/uploads:ro
       - ./scripts/nginx/nginx-reload.sh:/usr/local/bin/nginx-reload:ro
       - ./etc/letsencrypt:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
     tmpfs:
       - /var/cache/nginx:rw,size=100m,mode=1777
       - /var/run:rw,size=10m,mode=1755
@@ -367,10 +368,11 @@ services:
     mem_limit: 64m
     mem_reservation: 32m
     pids_limit: 50
-    read_only: true
+    read_only: false
     tmpfs:
       - /tmp:rw,size=10m,mode=1777
       - /var/tmp:rw,size=10m,mode=1777
+      - /var/spool/cron/crontabs:rw,size=5m,mode=1755
     depends_on: []
     healthcheck:
       test: ["CMD", "sh", "-c", "if [ '${SSL_ENABLED:-false}' = 'true' ]; then test -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem; else exit 0; fi"]
