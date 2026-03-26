@@ -317,6 +317,7 @@ services:
       - DOMAIN=${DOMAIN:-playrke.com}
       - STAGING_MODE=${STAGING_MODE:-false}
       - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DEV_MODE=${DEV_MODE:-false}
     networks:
       - app_network
       - external_network
