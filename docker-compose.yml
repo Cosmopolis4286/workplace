@@ -365,13 +365,9 @@ services:
       - ./logs:/opt/workplace/logs
     command: >
       sh -c "
-        echo 'Setting up backup environment...' &&
-        mkdir -p /opt/workplace/backups/postgres /opt/workplace/logs &&
-        echo 'Installing cron job...' &&
-        echo '\${BACKUP_SCHEDULE} /opt/workplace/scripts/database/backup-postgres.sh >> /opt/workplace/logs/backup-postgres-cron.log 2>&1' | crontab - &&
-        echo 'Cron installed with schedule: \${BACKUP_SCHEDULE}' &&
-        echo 'Starting cron daemon...' &&
-        crond -f -l 2
+        echo 'Backup service ready - waiting for external scheduler...' &&
+        echo 'PostgreSQL backup container ready' &&
+        tail -f /dev/null
       "
     depends_on:
       postgres:
@@ -410,13 +406,9 @@ services:
       - ./logs:/opt/workplace/logs
     command: >
       sh -c "
-        echo 'Setting up backup environment...' &&
-        mkdir -p /opt/workplace/backups/redis /opt/workplace/logs &&
-        echo 'Installing cron job...' &&
-        echo '\${BACKUP_SCHEDULE} /opt/workplace/scripts/database/backup-redis.sh >> /opt/workplace/logs/backup-redis-cron.log 2>&1' | crontab - &&
-        echo 'Cron installed with schedule: \${BACKUP_SCHEDULE}' &&
-        echo 'Starting cron daemon...' &&
-        crond -f -l 2
+        echo 'Backup service ready - waiting for external scheduler...' &&
+        echo 'Redis backup container ready' &&
+        tail -f /dev/null
       "
     depends_on:
       redis:
@@ -436,7 +428,55 @@ services:
         max-size: "5m"
         max-file: "3"
 
-  # 🗄️ MinIO - Remote Backup Storage
+  # � External Cron Scheduler - Enterprise Pattern
+  cron_scheduler:
+    image: alpine:latest
+    restart: unless-stopped
+    container_name: cron_scheduler
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./scripts:/scripts:ro
+      - ./logs:/var/log
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      POSTGRES_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      REDIS_SCHEDULE: "0 3 * * *"   # Daily at 3 AM
+      VALIDATION_SCHEDULE: "0 4 * * *"  # Daily at 4 AM
+      LOG_ROTATION_SCHEDULE: "0 5 * * *"  # Daily at 5 AM
+    command: >
+      sh -c "
+        echo 'Installing cron and dependencies...' &&
+        apk add --no-cache dcron docker-cli &&
+        echo 'Setting up cron jobs...' &&
+        echo '\${POSTGRES_SCHEDULE} /scripts/cron-scheduler.sh postgres-backup >> /var/log/cron-scheduler.log 2>&1' | crontab - &&
+        echo '\${REDIS_SCHEDULE} /scripts/cron-scheduler.sh redis-backup >> /var/log/cron-scheduler.log 2>&1' | crontab - &&
+        echo '\${VALIDATION_SCHEDULE} /scripts/cron-scheduler.sh validate-backups >> /var/log/cron-scheduler.log 2>&1' | crontab - &&
+        echo '\${LOG_ROTATION_SCHEDULE} /scripts/log-rotation.sh >> /var/log/cron-scheduler.log 2>&1' | crontab - &&
+        echo 'Starting cron daemon...' &&
+        crond -f -l 2
+      "
+    depends_on:
+      postgres_backup:
+        condition: service_started
+      redis_backup:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 128m
+    mem_reservation: 64m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # ��️ MinIO - Remote Backup Storage
   minio:
     image: minio/minio:latest
     restart: unless-stopped
