@@ -26,6 +26,11 @@ upstream frontend_cluster {
 # DNS resolver for Docker Compose
 resolver 127.0.0.11 valid=30s;
 
+# Upstream retry configuration
+proxy_next_upstream error timeout http_502 http_503 http_504;
+proxy_next_upstream_tries 3;
+proxy_next_upstream_timeout 30s;
+
 server {
     listen 80;
     server_name ${DOMAIN};
