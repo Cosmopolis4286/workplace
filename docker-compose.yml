@@ -97,8 +97,12 @@ services:
       ADMIN_USERS: ${POSTGRES_USER}
       STATS_USERS: ${POSTGRES_USER}
       AUTH_TYPE: md5
+      AUTH_FILE: /etc/pgbouncer/userlist.txt
       CLIENT_TLS_SSLMODE: disable
       SERVER_TLS_SSLMODE: disable
+    volumes:
+      - ./config/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+      - ./config/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${POSTGRES_USER} || exit 1"]
       interval: 10s
@@ -385,6 +389,40 @@ services:
         labels: "service=certbot"
         compress: "true"
 
+  # Remote Backup Storage (MinIO)
+  minio:
+    image: minio/minio:latest
+    container_name: workplace_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - app_network
+    cpus: "0.5"
+    mem_limit: 512m
+    mem_reservation: 256m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        max-retries: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Backup Strategy Services
   postgres_backup:
     image: postgres:16-alpine
@@ -397,8 +435,13 @@ services:
       POSTGRES_HOST: postgres
       BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
       BACKUP_RETENTION_DAYS: 7
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: workplace-backups
+      REMOTE_BACKUP: "true"
     volumes:
-      - postgres_backups:/backups
+      - minio_data:/backups
       - ./scripts/database/backup-postgres.sh:/backup.sh:ro
     command: >
       sh -c "
@@ -409,6 +452,8 @@ services:
       "
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - app_network
@@ -433,6 +478,11 @@ services:
       REDIS_HOST: redis
       BACKUP_SCHEDULE: "0 3 * * *"  # Daily at 3 AM
       BACKUP_RETENTION_DAYS: 7
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: workplace-backups
+      REMOTE_BACKUP: "true"
     volumes:
       - redis_backups:/backups
       - ./scripts/database/backup-redis.sh:/backup.sh:ro
@@ -445,6 +495,8 @@ services:
       "
     depends_on:
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - app_network
@@ -543,29 +595,6 @@ services:
         loki-batch-size: "400"
         max-retries: "3"
 
-  promtail:
-    image: grafana/promtail:latest
-    container_name: workplace_promtail
-    restart: unless-stopped
-    volumes:
-      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yml:ro
-      - /var/log:/var/log:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    command: -config.file=/etc/promtail/config.yml
-    networks:
-      - app_network
-    cpus: "0.25"
-    mem_limit: 128m
-    mem_reservation: 64m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://loki:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        max-retries: "3"
-
   # Prometheus Exporters
   postgres_exporter:
     image: prometheuscommunity/postgres-exporter:latest
@@ -628,13 +657,23 @@ services:
     restart: unless-stopped
     command:
       - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--collector.cpu'
+      - '--collector.meminfo'
+      - '--collector.diskstats'
+      - '--collector.netdev'
+      - '--collector.filesystem'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run)($$|/)'
+      - '--no-collector.ipvs'
+      - '--no-collector.netclass'
+      - '--no-collector.nfs'
+      - '--no-collector.nfsd'
+      - '--no-collector.pressure'
+      - '--no-collector.wifi'
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/rootfs:ro
+      - /etc/hostname:/etc/hostname:ro
     networks:
       - app_network
     cpus: "0.25"
@@ -665,6 +704,7 @@ volumes:
   loki_data:
   postgres_backups:
   redis_backups:
+  minio_data:
 
 networks:
   app_network:
