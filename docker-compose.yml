@@ -91,7 +91,7 @@ services:
     environment:
       ENVIRONMENT: production
       PORT: ${NODE_PORT}
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -105,8 +105,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      pgbouncer:
         condition: service_healthy
     volumes:
       - uploads_data:/app/backend/uploads
@@ -236,6 +234,7 @@ services:
       DATABASES_MAX_DB_CONNECTIONS: 80
       POOL_MODE: session
       LISTEN_PORT: 6432
+      AUTH_TYPE: trust
     depends_on:
       postgres:
         condition: service_healthy
