@@ -52,14 +52,14 @@ validate_and_start_nginx() {
     else
         echo " Error en configuración de nginx - intentando configuración de emergencia"
         
-        # Configuración de emergencia
+        # Configuración de emergencia sin upstreams
         cat > /etc/nginx/conf.d/default.conf << 'EOF'
 server {
     listen 80;
     server_name _;
     
     location / {
-        return 200 "Servicio en mantenimiento\n";
+        return 200 "Servicio en mantenimiento - nginx iniciado correctamente\n";
         add_header Content-Type text/plain;
     }
     
@@ -68,10 +68,37 @@ server {
         return 200 "healthy\n";
         add_header Content-Type text/plain;
     }
+    
+    # Proxy directo sin upstreams (intenta conectar si backend está disponible)
+    location /api/ {
+        proxy_pass http://backend:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 2s;
+        proxy_send_timeout 5s;
+        proxy_read_timeout 5s;
+        # No fallar si backend no está disponible
+        proxy_next_upstream off;
+    }
+    
+    location / {
+        proxy_pass http://frontend:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 2s;
+        proxy_send_timeout 5s;
+        proxy_read_timeout 5s;
+        # No fallar si frontend no está disponible
+        proxy_next_upstream off;
+    }
 }
 EOF
         
-        echo "🚀 Iniciando nginx con configuración de emergencia..."
+        echo " Iniciando nginx con configuración de emergencia..."
         exec nginx -g "daemon off;"
     fi
 }
