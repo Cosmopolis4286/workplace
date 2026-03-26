@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: workplace_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -35,7 +34,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: workplace_redis
     restart: unless-stopped
     command: >
       redis-server
@@ -76,7 +74,6 @@ services:
 
   pgbouncer:
     image: edoburu/pgbouncer:latest
-    container_name: workplace_pgbouncer
     restart: unless-stopped
     environment:
       DATABASES_HOST: postgres
@@ -132,7 +129,6 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile.migrate
-    container_name: workplace_migrate
     env_file:
       - .env
     environment:
@@ -157,7 +153,6 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile.prod
-    container_name: workplace_backend
     restart: unless-stopped
     init: true
     stop_grace_period: 30s
@@ -200,7 +195,7 @@ services:
     volumes:
       - uploads_data:/app/backend/uploads
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${NODE_PORT}/api/ready || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/ready || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -214,7 +209,6 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile.prod
-    container_name: workplace_frontend
     restart: unless-stopped
     init: true
     stop_grace_period: 30s
@@ -245,7 +239,7 @@ services:
       ENVIRONMENT: production
       NUXT_DEBUG: false
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${FRONTEND_PORT}/ || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -258,7 +252,6 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: workplace_nginx
     restart: unless-stopped
     init: true
     user: "101:101"
@@ -308,7 +301,7 @@ services:
       frontend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
+      test: ["CMD", "sh", "-c", "curl -f http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -317,7 +310,6 @@ services:
   # Remote Backup Storage (MinIO)
   minio:
     image: minio/minio:latest
-    container_name: workplace_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -326,9 +318,6 @@ services:
       MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
     volumes:
       - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     networks:
       - app_network
     cpus: "0.5"
@@ -350,7 +339,6 @@ services:
   # Backup Strategy Services
   postgres_backup:
     image: postgres:16-alpine
-    container_name: workplace_postgres_backup
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -394,7 +382,6 @@ services:
 
   redis_backup:
     image: redis:7-alpine
-    container_name: workplace_redis_backup
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -437,7 +424,6 @@ services:
   # Observability Stack
   prometheus:
     image: prom/prometheus:latest
-    container_name: workplace_prometheus
     restart: unless-stopped
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -466,7 +452,6 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: workplace_grafana
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
@@ -493,7 +478,6 @@ services:
 
   loki:
     image: grafana/loki:latest
-    container_name: workplace_loki
     restart: unless-stopped
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
@@ -517,12 +501,11 @@ services:
   # Log Aggregation (Promtail)
   promtail:
     image: grafana/promtail:latest
-    container_name: workplace_promtail
     restart: unless-stopped
     volumes:
       - ./monitoring/promtail-config.yaml:/etc/promtail/config.yml:ro
       - /var/log:/var/log:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     command: -config.file=/etc/promtail/config.yml
     networks:
       - app_network
@@ -540,7 +523,6 @@ services:
   # Prometheus Exporters
   postgres_exporter:
     image: prometheuscommunity/postgres-exporter:latest
-    container_name: workplace_postgres_exporter
     restart: unless-stopped
     environment:
       DATA_SOURCE_NAME: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
@@ -565,7 +547,6 @@ services:
 
   redis_exporter:
     image: oliver006/redis_exporter:latest
-    container_name: workplace_redis_exporter
     restart: unless-stopped
     environment:
       REDIS_ADDR: redis://redis:6379
@@ -593,7 +574,6 @@ services:
 
   node_exporter:
     image: prom/node-exporter:latest
-    container_name: workplace_node_exporter
     restart: unless-stopped
     command:
       - '--path.procfs=/host/proc'
