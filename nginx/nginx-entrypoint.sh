@@ -74,13 +74,28 @@ generate_nginx_config() {
 wait_for_backend() {
     echo "⏳ Verificando conexión con backend (no bloqueante)..."
     
-    # Intento rápido de verificación, pero no bloquear si falla
-    if curl -f --connect-timeout 2 --max-time 3 http://backend:3001/api/ready >/dev/null 2>&1; then
-        echo "✅ Backend está accesible"
-    else
-        echo "⚠️ Backend no accesible aún, nginx continuará iniciando..."
-    fi
+    # Esperar a que el servicio backend esté disponible en DNS
+    local max_attempts=30
+    local attempt=1
     
+    while [ $attempt -le $max_attempts ]; do
+        if nslookup backend >/dev/null 2>&1 || getent hosts backend >/dev/null 2>&1; then
+            # Intento rápido de verificación
+            if curl -f --connect-timeout 2 --max-time 3 http://backend:3001/api/ready >/dev/null 2>&1; then
+                echo "✅ Backend está accesible"
+                return 0
+            else
+                echo "⚠️ Backend resuelve DNS pero no responde aún (intento $attempt/$max_attempts)"
+            fi
+        else
+            echo "⚠️ Backend DNS no resuelto aún (intento $attempt/$max_attempts)"
+        fi
+        
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    echo "⚠️ Backend no accesible después de ${max_attempts} intentos, nginx continuará iniciando..."
     return 0  # Siempre continuar
 }
 
@@ -121,13 +136,24 @@ if [ "$dns_resolved" = false ]; then
 fi
 
 echo "🔍 Probando configuración de nginx..."
-nginx -t
-
-if [ $? -eq 0 ]; then
+if nginx -t; then
     echo "✅ Configuración de nginx válida"
     echo "🚀 Iniciando nginx..."
     exec nginx -g daemon off;
 else
-    echo "❌ Error en configuración de nginx"
-    exit 1
+    echo "❌ Error en configuración de nginx - intentando configuración mínima"
+    # Configuración de emergencia
+    cat > /etc/nginx/conf.d/default.conf << 'EOF'
+server {
+    listen 80;
+    server_name _;
+    
+    location / {
+        return 200 "Servicio en mantenimiento\n";
+        add_header Content-Type text/plain;
+    }
+}
+EOF
+    echo "🚀 Iniciando nginx con configuración de emergencia..."
+    exec nginx -g daemon off;
 fi
