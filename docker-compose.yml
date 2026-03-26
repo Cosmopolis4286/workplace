@@ -55,10 +55,11 @@ services:
       - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.traefik.middlewares=security-headers@file,traefik-auth"
+      - "traefik.http.routers.traefik.middlewares=security-headers@file,traefik-auth,traefik-ipwhitelist"
       - "traefik.http.services.traefik.loadbalancer.server.port=8080"
       - "traefik.http.routers.traefik.service=traefik"
       - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$l9xA8G1t$$RZsQ2L7QI8zR5c8zK8b5c/"
+      - "traefik.http.middlewares.traefik-ipwhitelist.ipwhitelist.sourcerange=127.0.0.1/32,::1/128"
     environment:
       - "DOMAIN=${DOMAIN:-localhost}"
       - "EMAIL=${EMAIL:-admin@${DOMAIN:-localhost}}"
@@ -191,7 +192,7 @@ services:
     restart: unless-stopped
     command: >
       postgres
-      -c max_connections=100
+      -c max_connections=30
       -c shared_buffers=256MB
       -c effective_cache_size=512MB
       -c maintenance_work_mem=64MB
@@ -354,10 +355,11 @@ services:
       BACKUP_RETENTION_DAYS: 7
       PGPASSWORD: ${POSTGRES_PASSWORD}
       REMOTE_BACKUP: "true"
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      MINIO_BUCKET: workplace-backups
+      S3_ENDPOINT: ${S3_ENDPOINT:-s3.amazonaws.com}
+      S3_ACCESS_KEY: ${AWS_ACCESS_KEY_ID}
+      S3_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY}
+      S3_BUCKET: ${S3_BUCKET:-workplace-backups}
+      S3_REGION: ${AWS_REGION:-us-east-1}
     volumes:
       - postgres_backups:/opt/workplace/backups/postgres
       - ./scripts/database:/opt/workplace/scripts/database:ro
@@ -399,10 +401,11 @@ services:
       BACKUP_SCHEDULE: "0 3 * * *"  # Daily at 3 AM
       BACKUP_RETENTION_DAYS: 7
       REMOTE_BACKUP: "true"
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      MINIO_BUCKET: workplace-backups
+      S3_ENDPOINT: ${S3_ENDPOINT:-s3.amazonaws.com}
+      S3_ACCESS_KEY: ${AWS_ACCESS_KEY_ID}
+      S3_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY}
+      S3_BUCKET: ${S3_BUCKET:-workplace-backups}
+      S3_REGION: ${AWS_REGION:-us-east-1}
     volumes:
       - redis_backups:/opt/workplace/backups/redis
       - ./scripts/database:/opt/workplace/scripts/database:ro
