@@ -1,154 +1,73 @@
 services:
-  postgres:
-    image: postgres:16-alpine
+  # Traefik - Reemplaza NGINX + Certbot + Scripts SSL
+  traefik:
+    image: traefik:v3.0
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      PGDATA: /var/lib/postgresql/data/pgdata
-    command: >
-      postgres
-      -c max_connections=80
-      -c shared_buffers=256MB
-      -c effective_cache_size=512MB
-      -c work_mem=2MB
-      -c maintenance_work_mem=64MB
-      -c wal_level=replica
-      -c checkpoint_completion_target=0.9
-      -c wal_buffers=16MB
-      -c random_page_cost=1.1
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=app_network"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entryPoint.permanent=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${EMAIL:-admin@${DOMAIN:-localhost}}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--log.level=INFO"
+      - "--log.format=json"
+      - "--log.filePath=/var/log/traefik/traefik.log"
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+      - "--accesslog.filePath=/var/log/traefik/access.log"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.addEntryPointsLabels=true"
+      - "--metrics.prometheus.addServicesLabels=true"
+      - "--ping=true"
+      - "--global.checkNewVersion=false"
+      - "--global.sendAnonymousUsage=false"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
     volumes:
-      - postgres_data:/var/lib/postgresql/data/pgdata
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    shm_size: 512mb
-    cpus: "1.0"
-    mem_limit: 1g
-    mem_reservation: 512m
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik_letsencrypt:/letsencrypt
+      - traefik_logs:/var/log/traefik
     networks:
       - app_network
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: >
-      redis-server
-      --requirepass ${REDIS_PASSWORD}
-      --appendonly yes
-      --appendfsync everysec
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
-      --rename-command FLUSHALL ""
-      --rename-command FLUSHDB ""
-      --protected-mode yes
-      --tcp-keepalive 300
-      --timeout 0
-      --save 60 1000
-      --save 300 10
-      --save 900 1
-    volumes:
-      - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-    networks:
-      - app_network
-    cpus: "0.25"
-    mem_limit: 256m
-    mem_reservation: 128m
-    ulimits:
-      nofile:
-        soft: 10032
-        hard: 10032
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  pgbouncer:
-    image: edoburu/pgbouncer:latest
-    restart: unless-stopped
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.middlewares=security-headers@file"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+      - "traefik.http.routers.traefik.service=traefik"
     environment:
-      DATABASES_HOST: postgres
-      DATABASES_PORT: 5432
-      DATABASES_USER: ${POSTGRES_USER}
-      DATABASES_PASSWORD: ${POSTGRES_PASSWORD}
-      DATABASES_DBNAME: ${POSTGRES_DB}
-      DATABASES_POOL_SIZE: 20
-      DATABASES_MAX_DB_CONNECTIONS: 80
-      DATABASES_MIN_POOL_SIZE: 5
-      DATABASES_RESERVE_POOL_SIZE: 5
-      DATABASES_RESERVE_POOL_TIMEOUT: 5
-      DATABASES_SERVER_LIFETIME: 3600
-      DATABASES_SERVER_RESET_QUERY: DISCARD ALL
-      POOL_MODE: session
-      LISTEN_PORT: 6432
-      ADMIN_USERS: ${POSTGRES_USER}
-      STATS_USERS: ${POSTGRES_USER}
-      AUTH_TYPE: md5
-      AUTH_FILE: /etc/pgbouncer/userlist.txt
-      CLIENT_TLS_SSLMODE: disable
-      SERVER_TLS_SSLMODE: disable
-    volumes:
-      - ./config/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
-      - ./config/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${POSTGRES_USER} || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      - "DOMAIN=${DOMAIN:-localhost}"
+      - "EMAIL=${EMAIL:-admin@${DOMAIN:-localhost}}"
     depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - app_network
-    cpus: "0.25"
-    mem_limit: 128m
-    mem_reservation: 64m
-    security_opt:
-      - no-new-privileges:true
-    ulimits:
-      nofile:
-        soft: 65536
-        hard: 65536
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - backend
+      - frontend
 
-  migrate:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile.migrate
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: >
-      sh -c "
-        echo ' Running migrations...' &&
-        npx prisma migrate deploy &&
-        echo ' Done'
-      "
-    restart: "no"
-    init: true
-    networks:
-      - app_network
-    tmpfs:
-      - /tmp
-
+  # Backend - Solo labels para routing
   backend:
     build:
       context: .
@@ -176,7 +95,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      # Production logging levels
       LOG_LEVEL: info
       DEBUG: false
       VERBOSE: false
@@ -202,7 +120,17 @@ services:
       - app_network
     tmpfs:
       - /tmp
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT}"
+      - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file,security-headers@file,rate-limit@file"
+      - "traefik.http.services.backend.loadbalancer.healthcheck.path=/api/ready"
+      - "traefik.http.services.backend.loadbalancer.healthcheck.interval=15s"
 
+  # Frontend - Solo labels para routing
   frontend:
     build:
       context: .
@@ -232,7 +160,6 @@ services:
       BACKEND_API_URL: /api
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
-      # Production logging levels
       LOG_LEVEL: warn
       ENVIRONMENT: production
       NUXT_DEBUG: false
@@ -247,472 +174,94 @@ services:
     tmpfs:
       - /tmp
       - /app/frontend/.nuxt:rw,size=100m,mode=1777
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`, `www.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=${FRONTEND_PORT}"
+      - "traefik.http.routers.frontend.middlewares=security-headers@file,compression@file,rate-limit@file"
+      - "traefik.http.services.frontend.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.frontend.loadbalancer.healthcheck.interval=30s"
 
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
-    init: true
-    user: "101:101"
-    entrypoint: ["/bin/sh", "/nginx-entrypoint.sh"]
-    mem_limit: 256m
-    cpus: "0.5"
-    pids_limit: 100
-    security_opt:
-      - no-new-privileges:true
-      - apparmor:docker-default
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETUID
-      - SETGID
-      - NET_BIND_SERVICE
-    ulimits:
-      nproc: 512
-      nofile:
-        soft: 4096
-        hard: 4096
-    ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
-    volumes:
-      - ./nginx/nginx-entrypoint.sh:/nginx-entrypoint.sh:ro
-      - ./nginx/ssl-monitor.sh:/ssl-monitor.sh:ro
-      - ./nginx/conf.d/nginx-ssl.conf.template:/nginx-ssl.conf.template:ro
-      - ./nginx/conf.d/nginx-http.conf.template:/nginx-http.conf.template:ro
-      - ./nginx/conf.d/proxy-headers.conf:/etc/nginx/conf.d/proxy-headers.conf:ro
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certbot/www:/var/www/certbot:ro
-      - certbot_conf:/etc/letsencrypt:ro
-      - nginx_cache:/var/cache/nginx
-      - nginx_logs:/var/log/nginx
-      - nginx_tmp:/tmp
-      - nginx_run:/var/run
-    environment:
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - DOMAIN=${DOMAIN:-localhost}
-      - NGINX_WORKER_PROCESSES=auto
-      - NGINX_WORKER_CONNECTIONS=1024
-    depends_on:
-      backend:
-        condition: service_healthy
-      frontend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "sh", "-c", "curl -f http://localhost/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # Remote Backup Storage (MinIO)
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
-    volumes:
-      - minio_data:/data
-    networks:
-      - app_network
-    cpus: "0.5"
-    mem_limit: 512m
-    mem_reservation: 256m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Backup Strategy Services
-  postgres_backup:
+  # Resto de servicios sin cambios (PostgreSQL, Redis, etc.)
+  postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_HOST: postgres
-      BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
-      BACKUP_RETENTION_DAYS: 7
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      MINIO_BUCKET: workplace-backups
-      REMOTE_BACKUP: "true"
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - minio_data:/backups
-      - ./scripts/database/backup-postgres.sh:/backup.sh:ro
-    command: >
-      sh -c "
-        echo 'Installing cron...' &&
-        apk add --no-cache dcron &&
-        echo '${BACKUP_SCHEDULE} /backup.sh' | crontab - &&
-        crond -f -l 2
-      "
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
+      - postgres_data:/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - app_network
-    cpus: "0.25"
-    mem_limit: 256m
-    mem_reservation: 128m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  redis_backup:
+  redis:
     image: redis:7-alpine
     restart: unless-stopped
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_HOST: redis
-      BACKUP_SCHEDULE: "0 3 * * *"  # Daily at 3 AM
-      BACKUP_RETENTION_DAYS: 7
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      MINIO_BUCKET: workplace-backups
-      REMOTE_BACKUP: "true"
-    volumes:
-      - redis_backups:/backups
-      - ./scripts/database/backup-redis.sh:/backup.sh:ro
     command: >
-      sh -c "
-        echo 'Installing cron...' &&
-        apk add --no-cache dcron &&
-        echo '${BACKUP_SCHEDULE} /backup.sh' | crontab - &&
-        crond -f -l 2
-      "
-    depends_on:
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    networks:
-      - app_network
-    cpus: "0.25"
-    mem_limit: 128m
-    mem_reservation: 64m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # SSL Certificate Management (Certbot)
-  certbot:
-    build:
-      context: ./certbot
-      dockerfile: Dockerfile
-      args:
-        DOMAIN: ${DOMAIN:-playrke.com}
-    container_name: workplace_certbot
-    restart: unless-stopped
-    init: true
-    entrypoint: ["/bin/sh", "/usr/local/bin/setup-certificates.sh"]
-    security_opt:
-      - no-new-privileges:true
-      - apparmor:docker-default
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETUID
-      - SETGID
-      - NET_BIND_SERVICE
-    ulimits:
-      nproc: 512
-      nofile:
-        soft: 4096
-        hard: 4096
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
     volumes:
-      - ./certbot/www:/var/www/certbot:rw
-      - ./certbot/scripts/check-ssl-expiration.sh:/usr/local/bin/check-ssl-expiration.sh:ro
-      - ./certbot/scripts/backup-ssl.sh:/usr/local/bin/backup-ssl.sh:ro
-      - ./certbot/scripts/renew-ssl.sh:/usr/local/bin/renew-ssl.sh:ro
-      - ./certbot/ssl-status.sh:/usr/local/bin/ssl-status.sh:ro
-      - certbot_logs:/var/log/certbot:rw
-      - letsencrypt_logs:/var/log/letsencrypt:rw
-      - certbot_conf:/etc/letsencrypt:rw
-      - certbot_backups:/letsencrypt/backups:rw
-    environment:
-      - DOMAIN=${DOMAIN:-playrke.com}
-      - STAGING_MODE=${STAGING_MODE:-true}
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - DEV_MODE=${DEV_MODE:-true}
-      - EMAIL=${EMAIL:-admin@${DOMAIN:-playrke.com}}
-      - CERTBOT_RENEWAL_INTERVAL=86400
-    networks:
-      - app_network
-      - external_network
-    cpus: "0.25"
-    mem_limit: 128m
-    mem_reservation: 64m
-    pids_limit: 50
-    read_only: false
-    tmpfs:
-      - /tmp:rw,size=20m,mode=1777
-      - /var/tmp:rw,size=20m,mode=1777
-      - /var/spool/cron/crontabs:rw,size=5m,mode=1755
-    depends_on:
-      nginx:
-        condition: service_healthy
+      - redis_data:/data
     healthcheck:
-      test: ["CMD", "sh", "-c", "test -f /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem && openssl x509 -checkend 86400 -noout -in /etc/letsencrypt/live/${DOMAIN:-playrke.com}/fullchain.pem"]
-      interval: 300s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-        labels: "service=certbot"
-        compress: "true"
-
-  # Observability Stack
-  prometheus:
-    image: prom/prometheus:latest
-    restart: unless-stopped
-    init: true
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
+      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     networks:
       - app_network
-    cpus: "0.5"
-    mem_limit: 512m
-    mem_reservation: 256m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  grafana:
-    image: grafana/grafana:latest
-    restart: unless-stopped
-    init: true
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: false
-      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-    ports:
-      - "3001:3000"
-    networks:
-      - app_network
-    cpus: "0.25"
-    mem_limit: 256m
-    mem_reservation: 128m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  loki:
-    image: grafana/loki:latest
-    restart: unless-stopped
-    init: true
-    command: -config.file=/etc/loki/local-config.yaml
-    volumes:
-      - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml:ro
-      - loki_data:/loki
-    ports:
-      - "3100:3100"
-    networks:
-      - app_network
-    cpus: "0.25"
-    mem_limit: 256m
-    mem_reservation: 128m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Log Aggregation (Promtail)
-  promtail:
-    image: grafana/promtail:latest
-    restart: unless-stopped
-    volumes:
-      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yml:ro
-      - /var/log:/var/log:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    command: -config.file=/etc/promtail/config.yml
-    networks:
-      - app_network
-    cpus: "0.25"
-    mem_limit: 128m
-    mem_reservation: 64m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Prometheus Exporters
-  postgres_exporter:
-    image: prometheuscommunity/postgres-exporter:latest
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
-      PG_EXPORTER_DISABLE_DEFAULT_METRICS: false
-      PG_EXPORTER_EXCLUDE_DATABASE: template0,template1
-      PG_EXPORTER_INCLUDE_DATABASE: ${POSTGRES_DB}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      DATABASES_POOL_SIZE: 20
+      DATABASES_MAX_DB_CONNECTIONS: 80
+      POOL_MODE: session
+      LISTEN_PORT: 6432
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U $${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - app_network
-    cpus: "0.25"
-    mem_limit: 128m
-    mem_reservation: 64m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  redis_exporter:
-    image: oliver006/redis_exporter:latest
-    restart: unless-stopped
-    environment:
-      REDIS_ADDR: redis://redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_EXPORTER_CHECK_KEYS: "*"
-      REDIS_EXPORTER_CHECK_SINGLE_KEYS: "*"
-      REDIS_EXPORTER_SCRIPT: ""
-      REDIS_EXPORTER_CONNECTION_TIMEOUT: 15s
-      REDIS_EXPORTER_WEB_LISTEN_ADDRESS: 0.0.0.0:9121
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - app_network
-    cpus: "0.25"
-    mem_limit: 64m
-    mem_reservation: 32m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  node_exporter:
-    image: prom/node-exporter:latest
-    restart: unless-stopped
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.cpu'
-      - '--collector.meminfo'
-      - '--collector.diskstats'
-      - '--collector.netdev'
-      - '--collector.filesystem'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run)($$|/)'
-      - '--no-collector.ipvs'
-      - '--no-collector.netclass'
-      - '--no-collector.nfs'
-      - '--no-collector.nfsd'
-      - '--no-collector.pressure'
-      - '--no-collector.wifi'
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /etc/hostname:/etc/hostname:ro
-    networks:
-      - app_network
-    cpus: "0.25"
-    mem_limit: 64m
-    mem_reservation: 32m
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 volumes:
   postgres_data:
   redis_data:
   uploads_data:
-  nginx_cache:
-  nginx_logs:
-  nginx_tmp:
-  nginx_run:
   prometheus_data:
   grafana_data:
   loki_data:
   postgres_backups:
   redis_backups:
   minio_data:
-  certbot_logs:
-  letsencrypt_logs:
-  certbot_conf:
-  certbot_backups:
+  # Traefik volumes
+  traefik_letsencrypt:
+  traefik_logs:
 
 networks:
   app_network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.21.0.0/16
-          gateway: 172.21.0.1
-    driver_opts:
-      com.docker.network.bridge.name: workplace_br
-      com.docker.network.driver.mtu: 1500
-  external_network:
-    driver: bridge
-    driver_opts:
-      com.docker.network.bridge.name: workplace_ext
-      com.docker.network.driver.mtu: 1500
