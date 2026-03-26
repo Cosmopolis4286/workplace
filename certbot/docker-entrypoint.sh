@@ -76,33 +76,98 @@ generate_certificates() {
     fi
 }
 
-# Function to reload nginx (mejorado)
+# Function to reload nginx (mejorado con auto-detección)
 reload_nginx() {
     log "Recargando nginx para aplicar nuevos certificados..."
     
-    # Intentar recargar nginx graceful usando señal directa
+    # Intentar recargar nginx graceful usando múltiples métodos
     if nginx -t >/dev/null 2>&1; then
-        # Si nginx está corriendo en el mismo host, enviar señal de reload
+        # Método 1: Direct reload si nginx está corriendo
         if pgrep nginx >/dev/null; then
             nginx -s reload >/dev/null 2>&1
             if [ $? -eq 0 ]; then
-                log_success "Nginx recargado exitosamente"
-                return 0
-            else
-                log_warning "Reload fallido, nginx continuará con configuración existente"
+                log_success "Nginx recargado exitosamente (método directo)"
                 return 0
             fi
-        else
-            log_success "Nginx no está corriendo, se iniciará con nuevos certificados"
+        fi
+        
+        # Método 2: Docker exec si estamos en Docker
+        if command -v docker >/dev/null 2>&1; then
+            if docker exec workplace_nginx nginx -s reload >/dev/null 2>&1; then
+                log_success "Nginx recargado exitosamente (método Docker)"
+                return 0
+            fi
+        fi
+        
+        # Método 3: Señal SIGHUP al proceso nginx
+        if pkill -HUP nginx >/dev/null 2>&1; then
+            log_success "Nginx recargado exitosamente (método señal)"
             return 0
         fi
+        
+        log_warning "Todos los métodos de reload fallaron, nginx continuará con configuración existente"
+        return 0
     else
         log_error "Configuración nginx inválida, no se puede recargar"
         return 1
     fi
 }
 
-# Function to check existing certificates
+# Function to check SSL expiration with alerts
+check_ssl_expiration() {
+    if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+        # Get expiration date in seconds
+        local expiry_date=$(openssl x509 -enddate -noout -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" | cut -d= -f2)
+        local expiry_seconds=$(date -d "$expiry_date" +%s)
+        local current_seconds=$(date +%s)
+        local days_until_expiry=$(( (expiry_seconds - current_seconds) / 86400 ))
+        
+        log "Certificado expira en: $expiry_date ($days_until_expiry días)"
+        
+        # Alert thresholds
+        if [ $days_until_expiry -le 3 ]; then
+            log_error "🚨 CRÍTICO: Certificado expira en $days_until_expiry días!"
+            return 2
+        elif [ $days_until_expiry -le 15 ]; then
+            log_warning "⚠️ ADVERTENCIA: Certificado expira en $days_until_expiry días"
+            return 1
+        else
+            log_success "✅ Certificado válido por $days_until_expiry días"
+            return 0
+        fi
+    else
+        log_error "No se encontró certificado para verificar expiración"
+        return 3
+    fi
+}
+
+# Function to backup SSL certificates
+backup_ssl_certificates() {
+    if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+        local backup_dir="/letsencrypt/backups"
+        local backup_file="$backup_dir/${DOMAIN}_$(date +%Y%m%d_%H%M%S).tar.gz"
+        
+        mkdir -p "$backup_dir"
+        
+        # Backup certificates
+        tar -czf "$backup_file" -C /etc/letsencrypt live/ "$DOMAIN" 2>/dev/null
+        
+        if [ $? -eq 0 ]; then
+            log_success "Backup SSL creado: $backup_file"
+            
+            # Clean old backups (keep last 10)
+            find "$backup_dir" -name "${DOMAIN}_*.tar.gz" -type f | sort -r | tail -n +11 | xargs rm -f
+            
+            return 0
+        else
+            log_error "Falló la creación del backup SSL"
+            return 1
+        fi
+    else
+        log_warning "No hay certificados para hacer backup"
+        return 1
+    fi
+}
 check_existing_certificates() {
     if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
         log "Certificados existentes encontrados, verificando validez..."
@@ -136,34 +201,66 @@ renew_certificates() {
 
 # Main execution
 main() {
+    log "🚀 Iniciando sistema SSL mejorado para $DOMAIN"
+    
     # Check if certificates already exist and are valid
     if check_existing_certificates; then
-        log_success "Configuración SSL ya está lista"
+        log_success "✅ Configuración SSL ya está lista"
+        
+        # Check expiration and create backup
+        check_ssl_expiration
+        backup_ssl_certificates
+        
     else
+        log "🔄 Iniciando flujo de generación de certificados..."
+        
         # Try to renew first, then generate new ones
         if ! renew_certificates; then
             # Wait for nginx to be ready (simplificado)
             if ! wait_for_nginx; then
-                log_error "No se puede continuar sin nginx listo"
+                log_error "❌ No se puede continuar sin nginx listo"
                 exit 1
             fi
             
             # Generate new certificates
             if ! generate_certificates; then
-                log_error "Falló la configuración SSL"
+                log_error "❌ Falló la configuración SSL"
                 exit 1
             fi
         fi
+        
+        # Backup new certificates
+        backup_ssl_certificates
         
         # Reload nginx to apply certificates (mejorado)
         reload_nginx
     fi
     
-    log_success "Configuración SSL completada exitosamente"
+    log_success "🎉 Configuración SSL completada exitosamente"
+    
+    # Setup monitoring cron job
+    setup_monitoring_cron
     
     # Start cron daemon for automatic renewals
-    log "Iniciando cron daemon para renovaciones automáticas..."
+    log "⏰ Iniciando cron daemon para renovaciones automáticas..."
     exec crond -f -l 2
+}
+
+# Function to setup monitoring cron job
+setup_monitoring_cron() {
+    local cron_file="/etc/cron.d/ssl-monitoring"
+    
+    # Create cron job for daily SSL check
+    cat > "$cron_file" << EOF
+# SSL Monitoring - Daily check at 9 AM
+0 9 * * * root /usr/local/bin/check-ssl-expiration.sh >> /var/log/certbot/monitoring.log 2>&1
+
+# SSL Backup - Weekly backup on Sundays at 2 AM
+0 2 * * 0 root /usr/local/bin/backup-ssl.sh >> /var/log/certbot/backup.log 2>&1
+EOF
+    
+    chmod 644 "$cron_file"
+    log "✅ Cron jobs de monitoreo configurados"
 }
 
 # Handle signals gracefully
