@@ -26,7 +26,7 @@
     >
       <div
         v-if="open"
-        class="relative flex-1 flex flex-col max-w-xs w-full bg-gradient-to-b from-white via-white to-gray-50 shadow-2xl border-r-4 border-workplace-red/20"
+        class="relative flex-1 flex flex-col h-full max-w-xs w-full bg-gradient-to-b from-white via-white to-gray-50 shadow-2xl border-r-4 border-workplace-red/20"
       >
         <!-- Mobile Header -->
         <div class="px-6 py-4 bg-gradient-to-r from-workplace-red to-red-600 text-white flex items-center justify-between">
