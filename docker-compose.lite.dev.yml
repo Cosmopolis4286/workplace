@@ -44,10 +44,11 @@ services:
       DB_NAME: ${POSTGRES_DB}
     volumes:
       # Hot reload: código montado desde host
-      - ./backend:/app
+      # Nota: el WORKDIR en Dockerfile.dev es /app/backend
+      - ./backend:/app/backend
       # Excepciones para node_modules y uploads
-      - /app/node_modules
-      - uploads_data:/app/uploads
+      - /app/backend/node_modules
+      - uploads_data:/app/backend/uploads
     ports:
       # Acceso directo para Postman/debugging
       - "3001:3001"
@@ -82,9 +83,10 @@ services:
       NITRO_PORT: ${FRONTEND_PORT:-3000}
     volumes:
       # Hot reload: código montado desde host
-      - ./frontend:/app
+      # Nota: el WORKDIR en Dockerfile.dev es /app/frontend
+      - ./frontend:/app/frontend
       # Excepciones para node_modules y .nuxt
-      - /app/node_modules
+      - /app/frontend/node_modules
       - /app/frontend/.nuxt
     ports:
       # Acceso directo para debugging
