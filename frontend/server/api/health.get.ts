@@ -2,7 +2,7 @@
 export default defineEventHandler(async (event) => {
   try {
     // Verificar conexión a backend
-    const backendUrl = process.env.BACKEND_API_URL || '/api'
+    const backendUrl = process.env.API_URL || '/api'
     
     const backendHealth = await $fetch(`${backendUrl}/health`, {
       timeout: 5000
@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
 
     // Verificar variables de entorno críticas
     const envChecks = {
-      BACKEND_API_URL: !!process.env.BACKEND_API_URL,
+      API_URL: !!process.env.API_URL,
       NITRO_HOST: !!process.env.NITRO_HOST,
       NITRO_PORT: !!process.env.NITRO_PORT
     }

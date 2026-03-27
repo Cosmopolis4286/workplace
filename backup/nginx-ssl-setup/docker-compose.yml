@@ -229,7 +229,7 @@ services:
       backend:
         condition: service_healthy
     environment:
-      BACKEND_API_URL: /api
+      API_URL: /api
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
       # Production logging levels
