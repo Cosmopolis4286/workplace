@@ -42,6 +42,20 @@ if [[ ! -f ".env" ]]; then
 fi
 success "Archivo .env presente"
 
+# 1.5 Limpiar BOM y caracteres de retorno de carro (Windows → Linux)
+log "🧹 Limpiando formato de .env..."
+# Remover BOM (UTF-8)
+if [[ $(head -c 3 .env | od -An -tx1 | tr -d ' ') == "efbbbf" ]]; then
+    log "  Detectado BOM, removiendo..."
+    tail -c +4 .env > .env.tmp && mv .env.tmp .env
+fi
+# Remover CRLF (carriage return)
+if grep -q $'\r' .env 2>/dev/null; then
+    log "  Detectados caracteres CR, convirtiendo..."
+    sed -i 's/\r$//' .env
+fi
+success ".env limpio"
+
 # 2. Cargar variables esenciales
 set -a
 source .env
