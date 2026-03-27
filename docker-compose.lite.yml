@@ -22,7 +22,7 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.letsencrypt.acme.email=${EMAIL:-admin@${DOMAIN:-localhost}}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--log.level=WARN"  # Logs mínimos
+      - "--log.level=ERROR"  # Solo errores críticos
       - "--accesslog=false"  # Sin access logs para ahorrar I/O
       - "--serversTransport.insecureSkipVerify=false"
     ports:
@@ -93,7 +93,7 @@ services:
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT}"
-      - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file"
+      - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file,rate-limit@file"
     logging:
       driver: "json-file"
       options:

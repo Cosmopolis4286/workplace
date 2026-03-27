@@ -1,0 +1,27 @@
+# 🚦 Rate Limit Middleware - Production Ready
+
+http:
+  middlewares:
+    # Global Rate Limiting
+    rate-limit:
+      rateLimit:
+        average: 100
+        period: "1m"
+        burst: 50
+        sourceCriterion: "ip"
+        
+    # Aggressive Rate Limiting (for API)
+    rate-limit-aggressive:
+      rateLimit:
+        average: 50
+        period: "1m"
+        burst: 25
+        sourceCriterion: "ip"
+        
+    # Per-User Rate Limiting
+    rate-limit-user:
+      rateLimit:
+        average: 200
+        period: "1m"
+        burst: 100
+        sourceCriterion: "request.RemoteAddr"
