@@ -1,0 +1,718 @@
+services:
+  # Traefik - Reemplaza NGINX + Certbot + Scripts SSL
+  traefik:
+    image: traefik:v3.0
+    restart: unless-stopped
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=public_network"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entryPoint.permanent=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${EMAIL:-admin@${DOMAIN:-localhost}}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=INFO"
+      - "--log.format=json"
+      - "--log.filePath=/var/log/traefik/traefik.log"
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+      - "--accesslog.filePath=/var/log/traefik/access.log"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.addEntryPointsLabels=true"
+      - "--metrics.prometheus.addServicesLabels=true"
+      - "--ping=true"
+      - "--global.checkNewVersion=false"
+      - "--global.sendAnonymousUsage=false"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/ssl:/etc/ssl/certs:ro
+      - ./traefik/ssl:/etc/ssl/private:ro
+      - traefik_letsencrypt:/letsencrypt
+      - traefik_logs:/var/log/traefik
+    networks:
+      - public_network
+      - private_network
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+      - "traefik.http.routers.traefik.service=traefik"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$l9xA8G1t$$RZsQ2L7QI8zR5c8zK8b5c/"
+    environment:
+      - "DOMAIN=${DOMAIN:-localhost}"
+      - "EMAIL=${EMAIL:-admin@${DOMAIN:-localhost}}"
+
+  # Backend - Solo labels para routing
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: production
+      PORT: ${NODE_PORT}
+      # Database credentials (separated for security)
+      DB_HOST: pgbouncer
+      DB_PORT: 6432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      LOG_LEVEL: info
+      DEBUG: false
+      VERBOSE: false
+    cpus: "0.75"
+    mem_limit: 768m
+    mem_reservation: 384m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/backend/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/ready || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - private_network
+    tmpfs:
+      - /tmp
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT}"
+      - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file,global-rate-limit@file,security-headers@file"
+      - "traefik.http.services.backend.loadbalancer.healthcheck.path=/api/ready"
+      - "traefik.http.services.backend.loadbalancer.healthcheck.interval=15s"
+
+  # Frontend - Solo labels para routing
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.prod
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+    read_only: true
+    cpus: "0.75"
+    mem_limit: 384m
+    mem_reservation: 192m
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BACKEND_API_URL: /api
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: ${FRONTEND_PORT}
+      LOG_LEVEL: warn
+      ENVIRONMENT: production
+      NUXT_DEBUG: false
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - public_network
+    tmpfs:
+      - /tmp
+      - /app/frontend/.nuxt:rw,size=100m,mode=1777
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`, `www.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=${FRONTEND_PORT}"
+      - "traefik.http.routers.frontend.middlewares=global-rate-limit@file,security-headers@file,compression@file"
+      - "traefik.http.services.frontend.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.frontend.loadbalancer.healthcheck.interval=30s"
+ 
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    command: >
+      postgres
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - private_network
+
+  # 📊 Observabilidad Stack - Centralización de logs y métricas
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - prometheus_data:/prometheus
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alertmanager.yml:/etc/prometheus/alertmanager.yml:ro
+    networks:
+      - private_network
+    cpus: "0.5"
+    mem_limit: 512m
+    mem_reservation: 256m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    restart: unless-stopped
+    container_name: alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=https://alertmanager.${DOMAIN:-localhost}'
+    volumes:
+      - alertmanager_data:/alertmanager
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    networks:
+      - private_network
+      - public_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.alertmanager.entrypoints=websecure"
+      - "traefik.http.routers.alertmanager.tls.certresolver=letsencrypt"
+      - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: https://grafana.${DOMAIN:-localhost}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - private_network
+      - public_network
+    cpus: "0.5"
+    mem_limit: 512m
+    mem_reservation: 256m
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.http.routers.grafana.middlewares=global-rate-limit@file,security-headers@file"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+  loki:
+    image: grafana/loki:latest
+    restart: unless-stopped
+    container_name: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+      - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml:ro
+    networks:
+      - private_network
+    cpus: "0.5"
+    mem_limit: 512m
+    mem_reservation: 256m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --appendfsync everysec --maxmemory 512mb --maxmemory-policy allkeys-lru --rename-command FLUSHALL "" --rename-command FLUSHDB "" --protected-mode yes --tcp-keepalive 300 --timeout 0
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - private_network
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    restart: unless-stopped
+    environment:
+      DATABASES_HOST: postgres
+      DATABASES_PORT: 5432
+      DATABASES_USER: ${POSTGRES_USER}
+      DATABASES_DBNAME: ${POSTGRES_DB}
+      DATABASES_POOL_SIZE: 50
+      DATABASES_MAX_DB_CONNECTIONS: 100
+      POOL_MODE: transaction
+      LISTEN_PORT: 6432
+      AUTH_TYPE: md5
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - private_network
+
+  # 🗄️ Critical Volumes Backup Service - Enterprise Grade
+  critical_backup:
+    image: alpine:latest
+    restart: "no"
+    container_name: critical_backup
+    environment:
+      BACKUP_DIR: /opt/workplace/backups/critical
+      RETENTION_DAYS: 7
+    command: >
+      sh -c "
+        echo 'Installing dependencies...' &&
+        apk add --no-cache tar coreutils &&
+        echo 'Setting up critical volumes backup...' &&
+        chmod +x /scripts/backup/backup-critical-volumes.sh &&
+        /scripts/backup/backup-critical-volumes.sh
+      "
+    volumes:
+      - ./scripts/backup:/scripts:ro
+      - ./backups:/opt/workplace/backups
+      - uploads_data:/source/uploads:ro
+      - grafana_data:/source/grafana:ro
+      - prometheus_data:/source/prometheus:ro
+    depends_on:
+      - grafana
+      - prometheus
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+  postgres_backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      BACKUP_RETENTION_DAYS: 7
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      REMOTE_BACKUP: "true"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: workplace-backups
+    volumes:
+      - postgres_backups:/opt/workplace/backups/postgres
+      - ./scripts/database:/opt/workplace/scripts/database:ro
+      - ./logs:/opt/workplace/logs
+    command: >
+      sh -c "
+        echo 'Backup service ready - waiting for external scheduler...' &&
+        echo 'PostgreSQL backup container ready' &&
+        tail -f /dev/null
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+  redis_backup:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      BACKUP_SCHEDULE: "0 3 * * *"  # Daily at 3 AM
+      BACKUP_RETENTION_DAYS: 7
+      REMOTE_BACKUP: "true"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: workplace-backups
+    volumes:
+      - redis_backups:/opt/workplace/backups/redis
+      - ./scripts/database:/opt/workplace/scripts/database:ro
+      - ./logs:/opt/workplace/logs
+    command: >
+      sh -c "
+        echo 'Backup service ready - waiting for external scheduler...' &&
+        echo 'Redis backup container ready' &&
+        tail -f /dev/null
+      "
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 128m
+    mem_reservation: 64m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+  # � External Cron Scheduler - Enterprise Pattern
+  cron_scheduler:
+    image: alpine:latest
+    restart: unless-stopped
+    container_name: cron_scheduler
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./scripts:/scripts:ro
+      - ./logs:/var/log
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      POSTGRES_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      REDIS_SCHEDULE: "0 3 * * *"   # Daily at 3 AM
+      VALIDATION_SCHEDULE: "0 4 * * *"  # Daily at 4 AM
+      LOG_ROTATION_SCHEDULE: "0 5 * * *"  # Daily at 5 AM
+    command: >
+      sh -c "
+        echo 'Installing cron and dependencies...' &&
+        apk add --no-cache dcron docker-cli &&
+        echo 'Setting up cron jobs...' &&
+        echo '\${POSTGRES_SCHEDULE} /scripts/cron-scheduler.sh postgres-backup >> /var/log/cron-scheduler.log 2>&1' | crontab - &&
+        echo '\${REDIS_SCHEDULE} /scripts/cron-scheduler.sh redis-backup >> /var/log/cron-scheduler.log 2>&1' | crontab - &&
+        echo '\${VALIDATION_SCHEDULE} /scripts/cron-scheduler.sh validate-backups >> /var/log/cron-scheduler.log 2>&1' | crontab - &&
+        echo '\${LOG_ROTATION_SCHEDULE} /scripts/log-rotation.sh >> /var/log/cron-scheduler.log 2>&1' | crontab - &&
+        echo 'Starting cron daemon...' &&
+        crond -f -l 2
+      "
+    depends_on:
+      postgres_backup:
+        condition: service_started
+      redis_backup:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 128m
+    mem_reservation: 64m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+  # ��️ MinIO - Remote Backup Storage
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    container_name: minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BROWSER_REDIRECT_URL: https://minio.${DOMAIN:-localhost}:9001
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - private_network
+      - public_network
+    cpus: "0.5"
+    mem_limit: 512m
+    mem_reservation: 256m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio.rule=Host(`minio.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.minio.entrypoints=websecure"
+      - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio.loadbalancer.server.port=9001"
+      - "traefik.http.routers.minio.middlewares=minio-auth@file"
+
+  # � rclone - MinIO to Google Drive Sync (SPOF Elimination)
+  rclone_sync:
+    image: rclone/rclone:latest
+    restart: unless-stopped
+    container_name: rclone_sync
+    environment:
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: workplace-backups
+      GOOGLE_DRIVE_FOLDER: workplace-backups
+      LOG_FILE: /var/log/rclone-sync.log
+    volumes:
+      - ./scripts/backup:/scripts:ro
+      - rclone_config:/config/rclone
+      - ./logs:/var/log
+    command: >
+      sh -c "
+        echo 'Setting up rclone sync service...' &&
+        echo 'Waiting for MinIO to be healthy...' &&
+        while ! nc -z minio 9000; do
+          echo 'Waiting for MinIO...' &&
+          sleep 5
+        done &&
+        echo 'MinIO is ready, checking rclone configuration...' &&
+        if [ ! -f /config/rclone/rclone.conf ]; then
+          echo '⚠️  rclone config not found. Container will wait for manual configuration.' &&
+          echo 'To configure Google Drive, run:' &&
+          echo 'docker exec -it rclone_sync rclone config create google-drive drive' &&
+          echo 'Container will sleep and retry every 5 minutes...' &&
+          while true; do
+            sleep 300
+            if [ -f /config/rclone/rclone.conf ]; then
+              echo '✅ rclone config found! Starting sync service...' &&
+              break
+            fi
+            echo 'Still waiting for rclone configuration...'
+          done
+        fi &&
+        echo 'Starting periodic sync...' &&
+        echo '0 */6 * * * /scripts/backup/rclone-sync.sh >> /var/log/rclone-cron.log 2>&1' | crontab - &&
+        crond -f -l 2
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+  # � MinIO Setup Service - Enterprise Features
+  minio_setup:
+    image: alpine:latest
+    restart: "no"
+    container_name: minio_setup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./scripts:/scripts:ro
+      - ./logs:/var/log
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: >
+      sh -c "
+        echo 'Installing dependencies...' &&
+        apk add --no-cache wget curl &&
+        echo 'Setting up MinIO enterprise features...' &&
+        /scripts/minio-setup.sh
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  alertmanager_data:
+  postgres_backups:
+  redis_backups:
+  minio_data:
+  rclone_config:
+  critical_backups:
+  # Traefik volumes
+  traefik_letsencrypt:
+  traefik_logs:
+
+networks:
+  public_network:
+    driver: bridge
+  private_network:
+    driver: bridge
+    internal: true
