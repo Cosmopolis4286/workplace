@@ -130,6 +130,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT}"
       - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file,security-headers@file,rate-limit@file"
       - "traefik.http.services.backend.loadbalancer.healthcheck.path=/api/ready"
@@ -184,6 +185,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`, `www.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=${FRONTEND_PORT}"
       - "traefik.http.routers.frontend.middlewares=security-headers@file,compression@file,rate-limit@file"
       - "traefik.http.services.frontend.loadbalancer.healthcheck.path=/"
@@ -226,14 +228,14 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
       - '--storage.tsdb.retention.time=15d'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'
     volumes:
       - prometheus_data:/prometheus
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/prometheus-rules.yml:/etc/prometheus/prometheus-rules.yml:ro
+      - ./monitoring/alertmanager.yml:/etc/prometheus/alertmanager.yml:ro
     networks:
       - private_network
     cpus: "0.5"
@@ -247,6 +249,38 @@ services:
         loki-url: "http://loki:3100/loki/api/v1/push"
         loki-batch-size: "400"
         loki-retries: "3"
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    restart: unless-stopped
+    container_name: alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=https://alertmanager.${DOMAIN:-localhost}'
+    volumes:
+      - alertmanager_data:/alertmanager
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    networks:
+      - private_network
+      - public_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.alertmanager.entrypoints=websecure"
+      - "traefik.http.routers.alertmanager.tls.certresolver=letsencrypt"
+      - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
 
   grafana:
     image: grafana/grafana:latest
@@ -274,6 +308,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
       - "traefik.http.routers.grafana.middlewares=security-headers@file"
     logging:
@@ -327,8 +362,8 @@ services:
       DATABASES_PORT: 5432
       DATABASES_USER: ${POSTGRES_USER}
       DATABASES_DBNAME: ${POSTGRES_DB}
-      DATABASES_POOL_SIZE: 20
-      DATABASES_MAX_DB_CONNECTIONS: 80
+      DATABASES_POOL_SIZE: 50
+      DATABASES_MAX_DB_CONNECTIONS: 100
       POOL_MODE: transaction
       LISTEN_PORT: 6432
       AUTH_TYPE: md5
@@ -504,6 +539,7 @@ services:
       start_period: 30s
     networks:
       - private_network
+      - public_network
     cpus: "0.5"
     mem_limit: 512m
     mem_reservation: 256m
@@ -515,10 +551,16 @@ services:
         loki-url: "http://loki:3100/loki/api/v1/push"
         loki-batch-size: "400"
         loki-retries: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio.rule=Host(`minio.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.minio.entrypoints=websecure"
+      - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio.loadbalancer.server.port=9001"
 
   # � rclone - MinIO to Google Drive Sync (SPOF Elimination)
   rclone_sync:
-    image: alpine:latest
+    image: rclone/rclone:latest
     restart: unless-stopped
     container_name: rclone_sync
     environment:
@@ -534,9 +576,6 @@ services:
       - ./logs:/var/log
     command: >
       sh -c "
-        echo 'Installing rclone...' &&
-        apk add --no-cache curl unzip &&
-        curl -s https://rclone.org/install.sh | sh &&
         echo 'Setting up rclone sync service...' &&
         echo 'Waiting for MinIO to be healthy...' &&
         while ! nc -z minio 9000; do
@@ -622,6 +661,7 @@ volumes:
   prometheus_data:
   grafana_data:
   loki_data:
+  alertmanager_data:
   postgres_backups:
   redis_backups:
   minio_data:
