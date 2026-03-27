@@ -101,7 +101,7 @@ generate_env() {
 # Created: $(date)
 
 # Environment Detection
-ENVIRONMENT=development
+APP_ENV=development
 
 # Development Ports (auto-detected)
 HTTP_PORT=$http_port
@@ -190,7 +190,7 @@ services:
       - \${HTTP_PORT:-80}:80
       # HTTPS port disabled for development
     environment:
-      - ENVIRONMENT=development
+      - APP_ENV=development
       - DOMAIN=localhost
     volumes:
       # Additional development volumes
@@ -199,7 +199,7 @@ services:
 
   backend:
     environment:
-      - ENVIRONMENT=development
+      - APP_ENV=development
       - DEBUG=true
       - LOG_LEVEL=debug
     volumes:
@@ -210,7 +210,7 @@ services:
 
   frontend:
     environment:
-      - ENVIRONMENT=development
+      - APP_ENV=development
       - NUXT_DEBUG=true
     volumes:
       # Mount source code for development

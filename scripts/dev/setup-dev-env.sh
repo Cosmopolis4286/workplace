@@ -41,7 +41,7 @@ DOMAIN=localhost
 EMAIL=admin@localhost
 
 # Configuración de la app
-ENVIRONMENT=development
+APP_ENV=development
 STAGING_MODE=true
 SSL_ENABLED=false
 
@@ -67,7 +67,7 @@ log "✅ .env creado para desarrollo local"
 log "🔧 Variables configuradas:"
 echo "  DOMAIN: $DOMAIN"
 echo "  EMAIL: $EMAIL"
-echo "  ENVIRONMENT: $ENVIRONMENT"
+echo "  APP_ENV: $APP_ENV"
 echo "  SSL_ENABLED: $SSL_ENABLED"
 echo ""
 

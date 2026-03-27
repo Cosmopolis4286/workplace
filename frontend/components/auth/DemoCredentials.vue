@@ -170,6 +170,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDemoCredentials, type DemoCredential } from '~/composables/auth/useDemoCredentials'
 
 interface Props {
@@ -187,11 +188,11 @@ const emit = defineEmits<{
 
 const { credentials, isLoading, error, isAvailable, refresh } = useDemoCredentials()
 
+const config = useRuntimeConfig()
 const isOpen = ref(false)
+const isDevelopment = computed(() => config.public.environment === 'development')
 const showPasswordFor = ref<string | null>(null)
 const fillingRole = ref<string | null>(null)
-
-const isDevelopment = computed(() => process.env.ENVIRONMENT === 'development')
 
 const toggleModal = () => { isOpen.value = !isOpen.value }
 const closeModal = () => { isOpen.value = false }

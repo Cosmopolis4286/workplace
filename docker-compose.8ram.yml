@@ -90,7 +90,7 @@ services:
     env_file:
       - .env
     environment:
-      ENVIRONMENT: production
+      APP_ENV: production
       PORT: ${NODE_PORT}
       # Database credentials (separated for security)
       DB_HOST: pgbouncer
@@ -168,7 +168,7 @@ services:
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
       LOG_LEVEL: warn
-      ENVIRONMENT: production
+      APP_ENV: production
       NUXT_DEBUG: false
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 1"]
