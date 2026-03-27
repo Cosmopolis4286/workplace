@@ -1,5 +1,18 @@
 # 🚀 Docker Compose DEV - Optimizado para desarrollo rápido
 # Objetivo: velocidad + visibilidad, NO eficiencia
+# 
+# ⚠️ IMPORTANTE: Ejecutar SIEMPRE con --env-file .env.dev
+# El archivo .env (producción) tiene valores diferentes que causarán errores de conexión
+#
+# Comando correcto:
+#   docker compose --env-file .env.dev -f docker-compose.lite.dev.yml up -d
+#
+# Accesos disponibles:
+#   - Frontend: http://localhost:3000
+#   - Backend API: http://localhost:3001
+#   - PostgreSQL: localhost:5432
+#   - Redis: localhost:6379  
+#   - Traefik Dashboard: http://localhost:8080
 
 services:
   # 🌐 Traefik - Router simplificado para DEV
