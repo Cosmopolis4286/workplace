@@ -49,9 +49,18 @@ backup_postgres() {
         log "✅ PostgreSQL backup: $(basename "$backup_file")"
         
         # Compress if file is large
-        if [ $(stat -f%s "$backup_file" | cut -d' ' ' -f1) -gt 104857600 ]; then
+        if [ $(stat -c%s "$backup_file") -gt 104857600 ]; then
             gzip "$backup_file"
             log "🗜️ Comprimido: $(basename "$backup_file").gz"
+        fi
+        
+        # Verify backup integrity
+        if [ -f "${backup_file}.gz" ]; then
+            if gunzip -t "${backup_file}.gz" 2>/dev/null; then
+                log "✅ Verificado: $(basename "${backup_file}.gz")"
+            else
+                error "❌ Corrupción detectada: $(basename "${backup_file}.gz")"
+            fi
         fi
     else
         error "❌ Falló backup PostgreSQL"
@@ -135,11 +144,16 @@ show_status() {
 
 # Install crontab
 install_crontab() {
-    log "⏰ Instalando crontab de backups..."
+    log " Instalando crontab de backups..."
     
     local temp_cron=$(mktemp)
     
-    cat > "$temp_cron" << EOF
+    # Keep existing cron jobs
+    crontab -l 2>/dev/null > "$temp_cron" || echo "# Workplace Backups" > "$temp_cron"
+    
+    # Add new jobs
+    cat >> "$temp_cron" << EOF
+
 # Backups automáticos - Workplace App
 # PostgreSQL: Diario a las 2 AM
 0 2 * * * /opt/workplace/scripts/backup/host-backup.sh postgres >> /var/log/workplace-backups.log 2>&1
@@ -154,12 +168,12 @@ install_crontab() {
 0 5 * * * /opt/workplace/scripts/backup/host-backup.sh cleanup >> /var/log/workplace-backups.log 2>&1
 EOF
     
-    # Install crontab
-    if crontab "$temp_cron"; then
-        log "✅ Crontab instalado"
-        log "📋 Revisar con: crontab -l"
+    # Install new crontab safely
+    if (crontab -l 2>/dev/null; cat "$temp_cron") | crontab -; then
+        log " Crontab instalado (preservando jobs existentes)"
+        log " Revisar con: crontab -l"
     else
-        error "❌ Falló instalación de crontab"
+        error " Falló instalación de crontab"
     fi
     
     rm -f "$temp_cron"

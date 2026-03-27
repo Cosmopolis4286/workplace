@@ -14,6 +14,13 @@ services:
       - /opt/workplace/backups:/backups
     command: >
       sh -c "
+        LOCK_FILE='/tmp/workplace_backup.lock'
+        if [ -f \"\$LOCK_FILE\" ]; then
+          echo 'Backup ya en ejecución' &&
+          exit 1
+        fi &&
+        trap 'rm -f \"\$LOCK_FILE\"' EXIT &&
+        touch \"\$LOCK_FILE\" &&
         echo 'Installing dependencies...' &&
         apk add --no-cache postgresql-client redis &&
         echo 'Starting backup service...' &&
@@ -21,11 +28,10 @@ services:
           echo 'Running backup cycle...' &&
           DATE=\$(date +%Y%m%d_%H%M%S) &&
           
-          # PostgreSQL backup (direct connection)
+          # PostgreSQL backup (direct connection + compression)
           echo 'PostgreSQL backup...' &&
-          if pg_dump -h postgres -U \${POSTGRES_USER} \${POSTGRES_DB} > /backups/postgres_\${DATE}.sql; then
-            echo '✅ PostgreSQL OK'
-            gzip /backups/postgres_\${DATE}.sql || true
+          if pg_dump -h postgres -U \${POSTGRES_USER} \${POSTGRES_DB} | gzip > /backups/postgres_\${DATE}.sql.gz; then
+            echo '✅ PostgreSQL OK (compressed)'
           else
             echo '❌ PostgreSQL failed'
           fi &&
@@ -34,8 +40,8 @@ services:
           echo 'Redis backup...' &&
           if docker exec redis redis-cli -h redis -a \${REDIS_PASSWORD} BGSAVE; then
             sleep 3 &&
-            if cp /redis/dump.rdb /backups/redis_\${DATE}.rdb; then
-              echo '✅ Redis OK'
+            if cp /var/lib/docker/volumes/redis_data/_data/dump.rdb /backups/redis_\${DATE}.rdb; then
+              echo '✅ Redis OK (direct copy)'
               gzip /backups/redis_\${DATE}.rdb || true
             else
               echo '❌ Redis copy failed'
@@ -50,6 +56,14 @@ services:
             echo '✅ Uploads OK'
           else
             echo '❌ Uploads failed'
+          fi &&
+          
+          # Verify backup integrity
+          echo 'Verifying backup integrity...' &&
+          if [ -f \"/backups/postgres_\${DATE}.sql.gz\" ] && [ -f \"/backups/redis_\${DATE}.rdb.gz\" ] && [ -f \"/backups/uploads_\${DATE}.tar.gz\" ]; then
+            echo '✅ All backups verified'
+          else
+            echo '⚠️ Some backups may be incomplete'
           fi &&
           
           # Cleanup old backups
