@@ -2,7 +2,7 @@
 // Plugin de Nuxt para manejar automáticamente el refresh de tokens JWT
 // Se ejecuta solo en el cliente (client-side)
 
-import { watch, onBeforeUnmount } from 'vue'
+import { watch } from 'vue'
 import { defineNuxtPlugin, useRuntimeConfig, useNuxtApp, navigateTo } from '#app'
 import type { FetchOptions } from 'ofetch'
 
@@ -84,8 +84,10 @@ export default defineNuxtPlugin(() => {
     }
   }, { immediate: true })
 
-  // Limpiar al desmontar
-  onBeforeUnmount(() => {
-    if (refreshTimer) clearTimeout(refreshTimer)
-  })
+  // Limpiar al desmontar - en plugin usamos beforeunload del window
+  if (process.client) {
+    window.addEventListener('beforeunload', () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+    })
+  }
 })

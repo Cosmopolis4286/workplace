@@ -2,7 +2,8 @@
 // Plugin de Nuxt para Socket.IO - manejo global de WebSocket
 
 import { io, Socket } from 'socket.io-client'
-import type { InjectionKey } from 'vue'
+import { computed, readonly, ref } from 'vue'
+import type { InjectionKey, Ref } from 'vue'
 
 export interface SocketIOPlugin {
   socket: Socket | null
@@ -66,13 +67,15 @@ export default defineNuxtPlugin(() => {
     }
   }
   
-  // Limpiar al desmontar la app
-  onBeforeUnmount(() => {
-    disconnect()
-  })
+  // Limpiar al cerrar la pestaña - en plugin usamos beforeunload del window
+  if (process.client) {
+    window.addEventListener('beforeunload', () => {
+      disconnect()
+    })
+  }
   
   const plugin: SocketIOPlugin = {
-    socket: readonly(socket),
+    socket: computed(() => socket),
     connect,
     disconnect,
     isConnected: readonly(isConnected),
