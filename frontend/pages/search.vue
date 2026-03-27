@@ -5,7 +5,7 @@
     <div
       class="relative overflow-hidden px-4 py-10 sm:py-14 transition-colors duration-500"
       :class="activeTab === 'productos'
-        ? 'bg-gradient-to-br from-red-600 via-red-500 to-orange-500'
+        ? 'bg-gradient-to-br from-red-700 via-red-600 to-red-500'
         : 'bg-gradient-to-br from-blue-700 via-blue-500 to-indigo-500'"
     >
       <div class="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-white/5 pointer-events-none" />
@@ -72,7 +72,7 @@
             </div>
             <div class="text-left">
               <p class="text-white font-black text-xl leading-none">{{ displayGroups }}</p>
-              <p class="text-white/70 text-[11px] leading-none mt-0.5">{{ activeTab === 'productos' ? 'restaurantes' : 'proveedores' }}</p>
+              <p class="text-white/70 text-[11px] leading-none mt-0.5">{{ activeTab === 'productos' ? 'comercios' : 'proveedores' }}</p>
             </div>
           </div>
         </div>
@@ -87,7 +87,7 @@
           <input
             v-model="searchInput"
             type="text"
-            :placeholder="activeTab === 'productos' ? 'Busca productos, restaurantes, categorías...' : 'Busca servicios, categorías, proveedores...'"
+            :placeholder="activeTab === 'productos' ? 'Busca productos, comercios, categorías...' : 'Busca servicios, categorías, proveedores...'"
             class="w-full pl-12 pr-10 py-4 rounded-2xl text-sm text-gray-900 bg-white shadow-lg placeholder-gray-400 outline-none focus:ring-4 focus:ring-white/30 transition-all duration-200"
             @input="handleSearchInput"
           />
@@ -186,7 +186,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
                 </svg>
-                Restaurantes
+                Comercios
               </h3>
               <div class="space-y-0.5">
                 <button
