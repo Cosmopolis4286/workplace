@@ -29,7 +29,6 @@ services:
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - traefik_letsencrypt:/letsencrypt
     networks:
       - public_network
@@ -49,6 +48,8 @@ services:
     restart: unless-stopped
     init: true
     read_only: true
+    tmpfs:
+      - /tmp
     security_opt:
       - no-new-privileges:true
     env_file:
@@ -68,6 +69,17 @@ services:
     cpus: "0.5"
     mem_limit: 512m
     mem_reservation: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-localhost}`)"
@@ -90,6 +102,9 @@ services:
     init: true
     security_opt:
       - no-new-privileges:true
+    environment:
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: ${FRONTEND_PORT}
     tmpfs:
       - /tmp
       - /app/frontend/.nuxt:rw,size=50m,mode=1777
@@ -174,7 +189,7 @@ services:
     mem_limit: 150m
     mem_reservation: 75m
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
