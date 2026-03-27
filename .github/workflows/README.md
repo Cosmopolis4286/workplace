@@ -142,7 +142,7 @@ NODE_PORT=3001
 
 # Frontend
 FRONTEND_PORT=3000
-BACKEND_API_URL=http://localhost:3001/api
+API_URL=http://localhost:3001/api
 NITRO_HOST=localhost
 ```
 
