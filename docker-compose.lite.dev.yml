@@ -96,6 +96,7 @@ services:
       dockerfile: frontend/Dockerfile.dev
     container_name: frontend-dev
     environment:
+      ENVIRONMENT: development
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT:-3000}
       DEBUG: "*"
