@@ -43,10 +43,10 @@ certificatesResolvers:
       httpChallenge:
         entryPoint: "web"
       certificatesDuration: 90
-      # Caso para producción
-      # caServer: "https://acme-v02.api.letsencrypt.org/directory"
       # Staging para desarrollo
       caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
+      # Producción
+      # caServer: "https://acme-v02.api.letsencrypt.org/directory"
 
 log:
   level: "INFO"
