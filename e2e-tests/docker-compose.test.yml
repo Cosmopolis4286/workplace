@@ -8,7 +8,7 @@ services:
       dockerfile: backend/Dockerfile.prod
       target: production  # Solo runtime, sin build tools
     environment:
-      ENVIRONMENT: test
+      APP_ENV: test
       DATABASE_URL: postgresql://test:test@postgres:5432/test_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: test-secret
@@ -40,7 +40,7 @@ services:
       dockerfile: frontend/Dockerfile.prod
       target: production  # Solo runtime, sin build tools
     environment:
-      ENVIRONMENT: test
+      APP_ENV: test
       PORT: 3000
       NUXT_PUBLIC_API_URL: http://localhost:3001
     ports:

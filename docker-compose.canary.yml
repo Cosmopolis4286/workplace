@@ -21,7 +21,7 @@ services:
     env_file:
       - .env
     environment:
-      ENVIRONMENT: production
+      APP_ENV: production
       PORT: 3002  # Different port for canary
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_HOST: redis

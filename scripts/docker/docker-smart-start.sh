@@ -24,15 +24,15 @@ if [ -f .env ]; then
 fi
 
 # Detectar configuración
-ENVIRONMENT=${ENVIRONMENT:-development}
+APP_ENV=${APP_ENV:-development}
 DOMAIN=${DOMAIN:-localhost}
 
 echo -e "${YELLOW}📋 Configuration:${NC}"
-echo -e "   Environment: ${ENVIRONMENT}"
+echo -e "   Environment: ${APP_ENV}"
 echo -e "   Domain: ${DOMAIN}"
 
 # Decidir comando
-if [ "$ENVIRONMENT" = "development" ]; then
+if [ "$APP_ENV" = "development" ]; then
     echo -e "${GREEN}🔧 Development mode${NC}"
     docker compose -f docker-compose.dev.yml up -d
 else
@@ -42,7 +42,7 @@ fi
 
 # Mostrar URLs
 echo -e "${BLUE}🌐 Access URLs:${NC}"
-if [ "$ENVIRONMENT" = "development" ]; then
+if [ "$APP_ENV" = "development" ]; then
     echo -e "${YELLOW}🌐 http://localhost:${FRONTEND_PORT:-3000}${NC}"
 else
     if [ "$DOMAIN" != "localhost" ]; then

@@ -48,7 +48,7 @@ services:
     env_file:
       - .env.dev
     environment:
-      ENVIRONMENT: development
+      APP_ENV: development
       PORT: ${NODE_PORT:-3001}
       DEBUG: "*"
       LOG_LEVEL: debug
@@ -96,7 +96,7 @@ services:
       dockerfile: frontend/Dockerfile.dev
     container_name: frontend-dev
     environment:
-      ENVIRONMENT: development
+      APP_ENV: development
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT:-3000}
       DEBUG: "*"

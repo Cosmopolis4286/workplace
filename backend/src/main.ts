@@ -13,7 +13,7 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { logger: auditLogger });
 
-  const isDev = process.env.ENVIRONMENT !== 'production';
+  const isDev = process.env.APP_ENV !== 'production';
   app.enableCors({
     origin: isDev ? true : process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
