@@ -59,8 +59,6 @@ http:
     maintenance:
       statusCodes:
         - "503"
-      service:
-        name: maintenance-service
 
     # IP Whitelist (opcional)
     ip-whitelist:
@@ -82,5 +80,4 @@ http:
       errors:
         status:
           - "400-599"
-        service: error-service
         query: "/{status}.html"
