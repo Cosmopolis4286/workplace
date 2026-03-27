@@ -143,7 +143,6 @@ sudo gpasswd -a promtail_user docker
 ### Recommended Production Setup
 
 ```yaml
-version: '3.8'
 
 services:
   # Application containers (no docker.sock access)

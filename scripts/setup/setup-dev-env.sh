@@ -183,7 +183,6 @@ create_dev_override() {
     log "Creating development docker-compose override..."
     
     cat > docker-compose.override.yml << EOF
-version: '3.8'
 
 services:
   nginx:

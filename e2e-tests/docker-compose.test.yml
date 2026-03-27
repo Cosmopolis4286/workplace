@@ -1,5 +1,4 @@
 # Docker Compose específico para E2E Tests - Ultra optimizado
-version: '3.8'
 
 services:
   # Backend para tests - versión ultra ligera
