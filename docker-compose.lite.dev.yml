@@ -25,7 +25,7 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=public_network"
       - "--entrypoints.web.address=:80"
-      - "--entrypoints.web.http.redirections.entryPoint.to=web"
+      # Sin redirección en DEV - HTTP puro
       # Sin TLS en DEV - HTTP puro para velocidad
       - "--log.level=INFO"  # Más visibilidad en dev
       - "--accesslog=true"  # Access logs para debugging
@@ -50,6 +50,8 @@ services:
     environment:
       ENVIRONMENT: development
       PORT: ${NODE_PORT:-3001}
+      DEBUG: "*"
+      LOG_LEVEL: debug
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: ${POSTGRES_USER}
@@ -67,6 +69,7 @@ services:
       # Acceso directo para Postman/debugging
       - "3001:3001"
     networks:
+      - public_network
       - private_network
     # Sin read_only, sin límites, sin seguridad excesiva para DEV
     healthcheck:
@@ -95,6 +98,8 @@ services:
     environment:
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT:-3000}
+      DEBUG: "*"
+      NUXT_DEBUG: "true"
     volumes:
       # Hot reload: código montado desde host
       # Nota: el WORKDIR en Dockerfile.dev es /app/frontend
@@ -108,6 +113,8 @@ services:
     networks:
       - public_network
     # Sin límites, sin seguridad excesiva para DEV
+    depends_on:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
       interval: 10s
@@ -167,6 +174,46 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+
+  # 📧 Mailhog - Email testing para dev
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog-dev
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - public_network
+      - private_network
+    environment:
+      MH_STORAGE: memory
+      MH_CORS_ORIGIN: "*"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mailhog.rule=Host(`mailhog.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.mailhog.entrypoints=web"
+      - "traefik.http.services.mailhog.loadbalancer.server.port=8025"
+
+  # 🛠️ Adminer - Database management UI
+  adminer:
+    image: adminer:latest
+    container_name: adminer-dev
+    ports:
+      - "8081:8080"
+    networks:
+      - public_network
+      - private_network
+    environment:
+      ADMINER_DESIGN: dracula
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adminer.rule=Host(`db.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.adminer.entrypoints=web"
+      - "traefik.http.services.adminer.loadbalancer.server.port=8080"
 
 volumes:
   postgres_data:
