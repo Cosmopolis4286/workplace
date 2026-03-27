@@ -387,12 +387,6 @@ services:
     image: alpine:latest
     restart: "no"
     container_name: critical_backup
-    volumes:
-      - uploads_data:/source/uploads:ro
-      - grafana_data:/source/grafana:ro
-      - prometheus_data:/source/prometheus:ro
-      - ./backups:/backup
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       BACKUP_DIR: /opt/workplace/backups/critical
       RETENTION_DAYS: 7
