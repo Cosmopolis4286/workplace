@@ -28,6 +28,16 @@ error() {
     echo -e "${RED}[✗]${NC} $1"
 }
 
+# Detectar comando Docker Compose (v1 vs v2)
+if command -v docker-compose &> /dev/null; then
+    COMPOSE="docker-compose"
+elif docker compose version &> /dev/null; then
+    COMPOSE="docker compose"
+else
+    error "Docker Compose no está instalado"
+    exit 1
+fi
+
 # Directorio base
 WORKPLACE_DIR="/opt/workplace"
 cd "$WORKPLACE_DIR"
@@ -42,91 +52,85 @@ if [[ ! -f ".env" ]]; then
 fi
 success "Archivo .env presente"
 
-# 1.5 Limpiar BOM y caracteres de retorno de carro (Windows → Linux)
+# 1.5 Limpiar BOM y CRLF
 log "🧹 Limpiando formato de .env..."
+
 # Remover BOM (UTF-8)
 if [[ $(head -c 3 .env | od -An -tx1 | tr -d ' ') == "efbbbf" ]]; then
     log "  Detectado BOM, removiendo..."
     tail -c +4 .env > .env.tmp && mv .env.tmp .env
 fi
-# Remover CRLF (carriage return)
+
+# Remover CRLF
 if grep -q $'\r' .env 2>/dev/null; then
     log "  Detectados caracteres CR, convirtiendo..."
     sed -i 's/\r$//' .env
 fi
+
 success ".env limpio"
 
-# 2. Cargar variables esenciales
+# 2. Cargar variables
 set -a
 source .env
 set +a
 
-# 3. Verificar variables críticas
+# 3. Validar variables críticas
 if [[ -z "${DOMAIN:-}" ]]; then
-    error "DOMAIN no está definido en .env"
+    error "DOMAIN no está definido"
     exit 1
 fi
 
 if [[ -z "${EMAIL:-}" ]]; then
-    error "EMAIL no está definido en .env (necesario para Let's Encrypt)"
+    error "EMAIL no está definido (Let's Encrypt)"
     exit 1
 fi
 
 success "Variables de entorno cargadas"
 
-# 4. Crear estructura de directorios
-log "📁 Creando estructura de directorios..."
-mkdir -p backups
-mkdir -p logs
-mkdir -p traefik_letsencrypt
-mkdir -p traefik/ssl
+# 4. Crear directorios
+log "📁 Creando estructura..."
+mkdir -p backups logs traefik_letsencrypt traefik/ssl
 success "Directorios creados"
 
-# 5. Fijar permisos de acme.json (CRÍTICO para Let's Encrypt)
-log "🔐 Configurando permisos de Let's Encrypt..."
+# 5. Permisos acme.json
+log "🔐 Configurando Let's Encrypt..."
 if [[ ! -f "traefik_letsencrypt/acme.json" ]]; then
     touch traefik_letsencrypt/acme.json
 fi
 chmod 600 traefik_letsencrypt/acme.json
-success "Permisos acme.json: 600"
+success "Permisos correctos"
 
-# 6. Verificar Docker y Docker Compose
+# 6. Verificar Docker
 log "🐳 Verificando Docker..."
 if ! command -v docker &> /dev/null; then
-    error "Docker no está instalado"
-    exit 1
-fi
-
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    error "Docker Compose no está instalado"
+    error "Docker no instalado"
     exit 1
 fi
 success "Docker disponible"
 
-# 7. Detener servicios existentes (si hay)
-log "🛑 Deteniendo servicios existentes..."
-docker-compose -f docker-compose.lite.yml down --remove-orphans 2>/dev/null || true
-docker compose -f docker-compose.lite.yml down --remove-orphans 2>/dev/null || true
+# 7. Detener servicios
+log "🛑 Deteniendo servicios..."
+$COMPOSE -f docker-compose.lite.yml down --remove-orphans 2>/dev/null || true
 success "Servicios detenidos"
 
-# 8. Limpiar imágenes antiguas (opcional pero recomendado)
-log "🧹 Limpiando recursos Docker antiguos..."
+# 8. Limpiar Docker
+log "🧹 Limpiando recursos..."
 docker system prune -f --volumes 2>/dev/null || true
 success "Limpieza completada"
 
-# 9. Build de imágenes
+# 9. Build
 log "🔨 Construyendo imágenes..."
-docker-compose -f docker-compose.lite.yml build --no-cache
-success "Imágenes construidas"
+$COMPOSE -f docker-compose.lite.yml build --no-cache
+success "Build completado"
 
-# 10. Iniciar servicios en orden
+# 10. Up
 log "▶️ Iniciando servicios..."
-docker-compose -f docker-compose.lite.yml up -d
+$COMPOSE -f docker-compose.lite.yml up -d
 
-# 11. Esperar a que PostgreSQL esté listo
+# 11. Esperar PostgreSQL
 log "⏳ Esperando PostgreSQL..."
 for i in {1..30}; do
-    if docker-compose -f docker-compose.lite.yml exec -T postgres pg_isready -U "$POSTGRES_USER" &>/dev/null; then
+    if $COMPOSE -f docker-compose.lite.yml exec -T postgres pg_isready -U "$POSTGRES_USER" &>/dev/null; then
         success "PostgreSQL listo"
         break
     fi
@@ -134,24 +138,25 @@ for i in {1..30}; do
     sleep 2
 done
 
-# 12. Ejecutar migraciones
+# 12. Migraciones
 log "🔄 Ejecutando migraciones..."
-docker-compose -f docker-compose.lite.yml exec -T backend npm run migrate:deploy || {
-    warn "No se pudieron ejecutar migraciones automáticamente"
-    warn "Ejecuta manualmente: docker-compose -f docker-compose.lite.yml exec backend npm run migrate:deploy"
+$COMPOSE -f docker-compose.lite.yml exec -T backend npm run migrate:deploy || {
+    warn "Migraciones fallaron"
 }
 
-# 13. Esperar healthchecks
-log "🏥 Verificando healthchecks..."
+# 13. Healthchecks
+log "🏥 Verificando servicios..."
 sleep 10
 
 SERVICES=("traefik" "postgres" "redis" "backend" "frontend")
 ALL_HEALTHY=true
 
 for service in "${SERVICES[@]}"; do
-    status=$(docker-compose -f docker-compose.lite.yml ps -q "$service" 2>/dev/null || echo "")
-    if [[ -n "$status" ]]; then
-        health=$(docker inspect --format='{{.State.Health.Status}}' "$status" 2>/dev/null || echo "no healthcheck")
+    container=$($COMPOSE -f docker-compose.lite.yml ps -q "$service" 2>/dev/null || echo "")
+    
+    if [[ -n "$container" ]]; then
+        health=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null || echo "no healthcheck")
+        
         if [[ "$health" == "healthy" ]] || [[ "$health" == "no healthcheck" ]]; then
             success "$service: $health"
         else
@@ -163,23 +168,20 @@ for service in "${SERVICES[@]}"; do
     fi
 done
 
-# 14. Mostrar estado final
-log "📊 Estado del deploy:"
-echo ""
-docker-compose -f docker-compose.lite.yml ps
+# 14. Estado final
+log "📊 Estado:"
+$COMPOSE -f docker-compose.lite.yml ps
 
 echo ""
-log "🌐 URLs de acceso:"
+log "🌐 URLs:"
 echo "  Frontend: https://${DOMAIN}"
-echo "  API:      https://api.${DOMAIN}"
+echo "  API:      https://${DOMAIN}/api"
 echo ""
 
 if [[ "$ALL_HEALTHY" == true ]]; then
-    success "🎉 Deploy completado exitosamente!"
-    log "Backups automáticos: 2:00 AM diarios"
-    log "Logs: docker-compose -f docker-compose.lite.yml logs -f"
+    success "🎉 Deploy exitoso"
 else
-    warn "⚠️ Algunos servicios no están healthy. Revisa los logs:"
-    log "docker-compose -f docker-compose.lite.yml logs -f"
+    warn "⚠️ Problemas detectados"
+    log "$COMPOSE -f docker-compose.lite.yml logs -f"
     exit 1
 fi
