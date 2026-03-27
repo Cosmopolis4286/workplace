@@ -518,7 +518,7 @@ services:
 
   # � rclone - MinIO to Google Drive Sync (SPOF Elimination)
   rclone_sync:
-    image: rclone/rclone:latest
+    image: alpine:latest
     restart: unless-stopped
     container_name: rclone_sync
     environment:
@@ -534,17 +534,29 @@ services:
       - ./logs:/var/log
     command: >
       sh -c "
+        echo 'Installing rclone...' &&
+        apk add --no-cache curl unzip &&
+        curl -s https://rclone.org/install.sh | sh &&
         echo 'Setting up rclone sync service...' &&
         echo 'Waiting for MinIO to be healthy...' &&
         while ! nc -z minio 9000; do
           echo 'Waiting for MinIO...' &&
           sleep 5
         done &&
-        echo 'MinIO is ready, configuring rclone...' &&
+        echo 'MinIO is ready, checking rclone configuration...' &&
         if [ ! -f /config/rclone/rclone.conf ]; then
-          echo 'rclone config not found. Please configure Google Drive remote manually:' &&
+          echo '⚠️  rclone config not found. Container will wait for manual configuration.' &&
+          echo 'To configure Google Drive, run:' &&
           echo 'docker exec -it rclone_sync rclone config create google-drive drive' &&
-          sleep 30
+          echo 'Container will sleep and retry every 5 minutes...' &&
+          while true; do
+            sleep 300
+            if [ -f /config/rclone/rclone.conf ]; then
+              echo '✅ rclone config found! Starting sync service...' &&
+              break
+            fi
+            echo 'Still waiting for rclone configuration...'
+          done
         fi &&
         echo 'Starting periodic sync...' &&
         echo '0 */6 * * * /scripts/backup/rclone-sync.sh >> /var/log/rclone-cron.log 2>&1' | crontab - &&
