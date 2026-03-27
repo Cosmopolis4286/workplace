@@ -216,7 +216,16 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
-
+  
+  // Nuevos campos para sistema robusto
+  revokedAt DateTime?  // Cuando se revoca (logout)
+  replacedByTokenId String?  // Si fue reemplazado por refresh
+  deviceInfo String?   // Info del dispositivo (opcional)
+  ipAddress  String?   // IP de creación (opcional)
+  
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
