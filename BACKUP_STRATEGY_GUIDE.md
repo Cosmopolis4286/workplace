@@ -86,7 +86,49 @@ docker logs -f workplace_backup
 docker-compose -f docker-compose.backup-lite.yml down
 ```
 
-## 📁 Estructura de Backups
+## �️ Opción 3: Docker Backup Seguro (Recomendado)
+
+### Ventajas
+- ✅ Todo dentro de Docker
+- ✅ Sin acceso root al host (seguro)
+- ✅ Configuración centralizada
+- ✅ Logs unificados
+- ✅ Control via docker-compose
+
+### Desventajas
+- ⚠️ Requiere configuración de red manual
+- ⚠️ Comunicación entre contenedores
+
+### Uso
+```bash
+# Iniciar servicio de backups seguro
+docker-compose -f docker-compose.backup-secure.yml up -d
+
+# Ver logs
+docker logs -f workplace_backup
+
+# Detener
+docker-compose -f docker-compose.backup-secure.yml down
+```
+
+## 🔥 Comparación Final de Estrategias
+
+| Estrategia | Consumo RAM | Seguridad | Complejidad | Fiabilidad | Recomendación |
+|------------|---------------|----------|-------------|------------|----------------|
+| Host Crontab | 0MB | Máxima | Baja | Alta | ⭐⭐⭐ |
+| Docker Lite | 50MB | Media | Media | Alta | ⭐⭐ |
+| Docker Seguro | 50MB | Alta | Alta | Alta | ⭐⭐ |
+
+### 🔧 Configuración de Red (para Docker Seguro)
+
+```bash
+# Crear red externa si no existe
+docker network create workplace_private_network --driver bridge --internal=false
+
+# O usar red existente del stack principal
+```
+
+## �📁 Estructura de Backups
 
 ```
 /opt/workplace/backups/
