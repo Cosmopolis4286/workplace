@@ -182,6 +182,6 @@ if [[ "$ALL_HEALTHY" == true ]]; then
     success "🎉 Deploy exitoso"
 else
     warn "⚠️ Problemas detectados"
-    log "$COMPOSE -f docker-compose.lite.yml logs -f"
+    $COMPOSE -f docker-compose.lite.yml logs -f
     exit 1
 fi
