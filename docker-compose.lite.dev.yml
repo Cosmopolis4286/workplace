@@ -101,6 +101,14 @@ services:
       NITRO_PORT: ${FRONTEND_PORT:-3000}
       DEBUG: "*"
       NUXT_DEBUG: "true"
+      # Polling para hot reload en Docker (crítico para HMR)
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      WATCHPACK_POLLING: "true"
+      # Limitar workers para reducir consumo de RAM en paralelo
+      NUXT_DEV_WORKERS: "1"
+      # Aumentar límite de memoria para Node.js (2GB suficiente para dev)
+      NODE_OPTIONS: "--max-old-space-size=2048"
     volumes:
       # Hot reload: código montado desde host
       # Nota: el WORKDIR en Dockerfile.dev es /app/frontend
