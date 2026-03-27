@@ -1,0 +1,20 @@
+# /etc/logrotate.d/workplace-backups
+# Rotación de logs de backups - Production ready
+
+/var/log/workplace-backups.log {
+    daily
+    missingok
+    rotate 7
+    compress
+    delaycompress
+    notifempty
+    create 0644 root root
+    postrotate
+        # Enviar resumen si existe
+        if [ -f /usr/bin/mail ]; then
+            tail -100 /var/log/workplace-backups.log.1 | mail -s "Workplace Backups - Resumen diario" admin@tudominio.com
+        fi
+    endscript
+        # Limpiar logs rotados antiguos
+        find /var/log -name "workplace-backups.log.*.gz" -mtime +30 -delete 2>/dev/null || true
+}

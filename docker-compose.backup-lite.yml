@@ -9,38 +9,47 @@ services:
     restart: unless-stopped
     container_name: workplace_backup
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - redis_data:/redis:ro
+      - uploads_data:/uploads:ro
       - /opt/workplace/backups:/backups
     command: >
       sh -c "
         echo 'Installing dependencies...' &&
-        apk add --no-cache docker-cli postgresql-client redis &&
+        apk add --no-cache postgresql-client redis &&
         echo 'Starting backup service...' &&
         while true; do
           echo 'Running backup cycle...' &&
           DATE=\$(date +%Y%m%d_%H%M%S) &&
           
-          # PostgreSQL backup
+          # PostgreSQL backup (direct connection)
           echo 'PostgreSQL backup...' &&
-          if docker exec postgres pg_dump -U \${POSTGRES_USER} \${POSTGRES_DB} > /backups/postgres_\${DATE}.sql; then
+          if pg_dump -h postgres -U \${POSTGRES_USER} \${POSTGRES_DB} > /backups/postgres_\${DATE}.sql; then
             echo '✅ PostgreSQL OK'
             gzip /backups/postgres_\${DATE}.sql || true
           else
             echo '❌ PostgreSQL failed'
           fi &&
           
-          # Redis backup
+          # Redis backup (async + volume mount)
           echo 'Redis backup...' &&
-          if docker exec redis redis-cli -a \${REDIS_PASSWORD} save; then
-            sleep 2 &&
+          if docker exec redis redis-cli -h redis -a \${REDIS_PASSWORD} BGSAVE; then
+            sleep 3 &&
             if docker cp redis:/data/dump.rdb /backups/redis_\${DATE}.rdb; then
               echo '✅ Redis OK'
               gzip /backups/redis_\${DATE}.rdb || true
             else
-              echo '❌ Redis failed'
+              echo '❌ Redis copy failed'
             fi
           else
             echo '❌ Redis save failed'
+          fi &&
+          
+          # Uploads backup
+          echo 'Uploads backup...' &&
+          if tar czf /backups/uploads_\${DATE}.tar.gz -C /uploads .; then
+            echo '✅ Uploads OK'
+          else
+            echo '❌ Uploads failed'
           fi &&
           
           # Cleanup old backups
@@ -49,8 +58,9 @@ services:
           find /backups -name '*.sql.gz*' -mtime +7 -delete 2>/dev/null || true &&
           find /backups -name '*.rdb*' -mtime +7 -delete 2>/dev/null || true &&
           find /backups -name '*.rdb.gz*' -mtime +7 -delete 2>/dev/null || true &&
+          find /backups -name '*.tar.gz*' -mtime +7 -delete 2>/dev/null || true &&
           
-          echo 'Backup cycle completed. Sleeping 86400 seconds...' &&
+          echo 'Backup cycle completed. Next run in 24 hours...' &&
           sleep 86400;
         done
       "
