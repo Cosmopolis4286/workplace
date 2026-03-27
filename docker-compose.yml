@@ -132,7 +132,7 @@ services:
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT}"
-      - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file,security-headers@file,rate-limit@file"
+      - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file,global-rate-limit@file,security-headers@file"
       - "traefik.http.services.backend.loadbalancer.healthcheck.path=/api/ready"
       - "traefik.http.services.backend.loadbalancer.healthcheck.interval=15s"
 
@@ -187,7 +187,7 @@ services:
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=${FRONTEND_PORT}"
-      - "traefik.http.routers.frontend.middlewares=security-headers@file,compression@file,rate-limit@file"
+      - "traefik.http.routers.frontend.middlewares=global-rate-limit@file,security-headers@file,compression@file"
       - "traefik.http.services.frontend.loadbalancer.healthcheck.path=/"
       - "traefik.http.services.frontend.loadbalancer.healthcheck.interval=30s"
  
@@ -196,7 +196,7 @@ services:
     restart: unless-stopped
     command: >
       postgres
-      -c max_connections=30
+      -c max_connections=100
       -c shared_buffers=256MB
       -c effective_cache_size=512MB
       -c maintenance_work_mem=64MB
@@ -310,7 +310,7 @@ services:
       - "traefik.http.routers.grafana.entrypoints=websecure"
       - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
-      - "traefik.http.routers.grafana.middlewares=security-headers@file"
+      - "traefik.http.routers.grafana.middlewares=global-rate-limit@file,security-headers@file"
     logging:
       driver: loki
       options:
@@ -382,7 +382,48 @@ services:
     networks:
       - private_network
 
-  # 🗄️ Backup Strategy Services - Enterprise Grade
+  # 🗄️ Critical Volumes Backup Service - Enterprise Grade
+  critical_backup:
+    image: alpine:latest
+    restart: "no"
+    container_name: critical_backup
+    volumes:
+      - uploads_data:/source/uploads:ro
+      - grafana_data:/source/grafana:ro
+      - prometheus_data:/source/prometheus:ro
+      - ./backups:/backup
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      BACKUP_DIR: /opt/workplace/backups/critical
+      RETENTION_DAYS: 7
+    command: >
+      sh -c "
+        echo 'Installing dependencies...' &&
+        apk add --no-cache tar coreutils &&
+        echo 'Setting up critical volumes backup...' &&
+        chmod +x /scripts/backup/backup-critical-volumes.sh &&
+        /scripts/backup/backup-critical-volumes.sh
+      "
+    volumes:
+      - ./scripts/backup:/scripts:ro
+      - ./backups:/opt/workplace/backups
+    depends_on:
+      - grafana
+      - prometheus
+    networks:
+      - private_network
+    cpus: "0.25"
+    mem_limit: 256m
+    mem_reservation: 128m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        loki-retries: "3"
+
   postgres_backup:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -557,6 +598,7 @@ services:
       - "traefik.http.routers.minio.entrypoints=websecure"
       - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
       - "traefik.http.services.minio.loadbalancer.server.port=9001"
+      - "traefik.http.routers.minio.middlewares=minio-auth@file"
 
   # � rclone - MinIO to Google Drive Sync (SPOF Elimination)
   rclone_sync:
@@ -666,6 +708,7 @@ volumes:
   redis_backups:
   minio_data:
   rclone_config:
+  critical_backups:
   # Traefik volumes
   traefik_letsencrypt:
   traefik_logs:

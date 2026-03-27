@@ -2,6 +2,13 @@
 
 http:
   middlewares:
+    # Global Rate Limiting
+    global-rate-limit:
+      rateLimit:
+        average: 100
+        period: "1m"
+        burst: 200
+    
     # Security Headers
     security-headers:
       headers:
@@ -15,6 +22,12 @@ http:
           Permissions-Policy: "camera=(), microphone=(), geolocation=()"
           Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
           Strict-Transport-Security: "max-age=31536000; includeSubDomains; preload"
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
 
     # Rate Limiting
     rate-limit:
