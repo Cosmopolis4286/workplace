@@ -45,22 +45,15 @@ backup_postgres() {
     local timestamp=$(date +%Y%m%d_%H%M%S)
     local backup_file="$BACKUP_DIR/postgres/postgres_${timestamp}.sql"
     
-    if docker exec postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "$backup_file"; then
-        log "✅ PostgreSQL backup: $(basename "$backup_file")"
-        
-        # Compress if file is large
-        if [ $(stat -c%s "$backup_file") -gt 104857600 ]; then
-            gzip "$backup_file"
-            log "🗜️ Comprimido: $(basename "$backup_file").gz"
-        fi
+    # Direct compression (faster + less disk usage)
+    if timeout 300 docker exec postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "${backup_file}.gz"; then
+        log "✅ PostgreSQL backup: $(basename "${backup_file}.gz") (comprimido)"
         
         # Verify backup integrity
-        if [ -f "${backup_file}.gz" ]; then
-            if gunzip -t "${backup_file}.gz" 2>/dev/null; then
-                log "✅ Verificado: $(basename "${backup_file}.gz")"
-            else
-                error "❌ Corrupción detectada: $(basename "${backup_file}.gz")"
-            fi
+        if gunzip -t "${backup_file}.gz" 2>/dev/null; then
+            log "✅ PostgreSQL verificado: $(basename "${backup_file}.gz")"
+        else
+            error "❌ PostgreSQL corrupto: $(basename "${backup_file}.gz")"
         fi
     else
         error "❌ Falló backup PostgreSQL"
@@ -73,18 +66,27 @@ backup_redis() {
     local timestamp=$(date +%Y%m%d_%H%M%S)
     local backup_file="$BACKUP_DIR/redis/redis_${timestamp}.rdb"
     
-    # Trigger Redis save
-    if docker exec redis redis-cli -a "$REDIS_PASSWORD" save; then
-        sleep 2  # Wait for RDB to be written
+    # Trigger Redis BGSAVE (async - no blocking)
+    if docker exec redis redis-cli -a "$REDIS_PASSWORD" BGSAVE; then
+        sleep 3  # Wait for async save
         
         # Copy RDB file from container
         if docker cp redis:/data/dump.rdb "$backup_file"; then
             log "✅ Redis backup: $(basename "$backup_file")"
             
             # Compress if file is large
-            if [ $(stat -f%s "$backup_file" | cut -d' ' ' -f1) -gt 10485760 ]; then
+            if [ $(stat -c%s "$backup_file") -gt 10485760 ]; then
                 gzip "$backup_file"
                 log "🗜️ Comprimido: $(basename "$backup_file").gz"
+            fi
+            
+            # Verify backup integrity
+            if [ -f "${backup_file}.gz" ]; then
+                if gunzip -t "${backup_file}.gz" 2>/dev/null; then
+                    log "✅ Redis verificado: $(basename "${backup_file}.gz")"
+                else
+                    error "❌ Redis corrupto: $(basename "${backup_file}.gz")"
+                fi
             fi
         else
             error "❌ Falló copia Redis RDB"
@@ -144,15 +146,16 @@ show_status() {
 
 # Install crontab
 install_crontab() {
-    log " Instalando crontab de backups..."
+    log "⏰ Instalando crontab de backups..."
     
     local temp_cron=$(mktemp)
     
-    # Keep existing cron jobs
+    # Keep existing cron jobs (prevent overwriting)
     crontab -l 2>/dev/null > "$temp_cron" || echo "# Workplace Backups" > "$temp_cron"
     
-    # Add new jobs
-    cat >> "$temp_cron" << EOF
+    # Add new jobs only if not already present
+    if ! grep -q "host-backup.sh" "$temp_cron"; then
+        cat >> "$temp_cron" << EOF
 
 # Backups automáticos - Workplace App
 # PostgreSQL: Diario a las 2 AM
@@ -167,13 +170,14 @@ install_crontab() {
 # Limpieza: Diario a las 5 AM
 0 5 * * * /opt/workplace/scripts/backup/host-backup.sh cleanup >> /var/log/workplace-backups.log 2>&1
 EOF
+    fi
     
     # Install new crontab safely
     if (crontab -l 2>/dev/null; cat "$temp_cron") | crontab -; then
-        log " Crontab instalado (preservando jobs existentes)"
-        log " Revisar con: crontab -l"
+        log "✅ Crontab instalado (preservando jobs existentes)"
+        log "📋 Revisar con: crontab -l"
     else
-        error " Falló instalación de crontab"
+        error "❌ Falló instalación de crontab"
     fi
     
     rm -f "$temp_cron"
@@ -181,6 +185,17 @@ EOF
 
 # Main execution
 main() {
+    # Check for lock file (prevent duplicates)
+    LOCK_FILE="/tmp/workplace_backup.lock"
+    if [ -f "$LOCK_FILE" ]; then
+        warn "Backup ya en ejecución, saliendo..."
+        exit 1
+    fi
+    
+    # Set up lock file and cleanup
+    trap 'rm -f "$LOCK_FILE"' EXIT
+    touch "$LOCK_FILE"
+    
     case "${1:-}" in
         "postgres")
             setup_backup_dir
