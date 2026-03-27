@@ -40,8 +40,8 @@ tls:
   stores:
     default:
       defaultCertificate:
-        certFile: "/etc/ssl/certs/default.crt"
-        keyFile: "/etc/ssl/private/default.key"
+        certFile: "/ssl-certs/default.crt"
+        keyFile: "/ssl-certs/default.key"
 
 certificatesResolvers:
   letsencrypt:
