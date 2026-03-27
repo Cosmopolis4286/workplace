@@ -36,7 +36,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_letsencrypt:/letsencrypt
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
-      - ./traefik/ssl:/ssl-certs:ro
     networks:
       - public_network
       - private_network
