@@ -84,6 +84,7 @@ services:
     volumes:
       - uploads_data:/app/uploads
     networks:
+      - public_network
       - private_network
     cpus: "0.5"
     mem_limit: 512m
