@@ -109,7 +109,7 @@ services:
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.backend.priority=100"
       - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT}"
-      - "traefik.http.routers.backend.middlewares=cors-api@file,rate-limit@file"
+      - "traefik.http.routers.backend.middlewares=security-headers@file,cors-api@file,rate-limit@file"
     logging:
       driver: "json-file"
       options:
@@ -218,7 +218,7 @@ services:
       --appendfsync everysec
       --no-appendfsync-on-rewrite yes
       --maxmemory 128mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy volatile-lru
       --rename-command FLUSHALL ""
       --rename-command FLUSHDB ""
       --rename-command CONFIG ""
