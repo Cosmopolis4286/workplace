@@ -92,10 +92,12 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async logout(@CurrentUser() user: any) {
-    const expiresIn = this.config.get('JWT_EXPIRES_IN', '15m');
-    const ttlSeconds = this.parseTtlToSeconds(expiresIn);
-    await this.authService.logout(user.id, user.jti, ttlSeconds);
+  async logout(
+    @CurrentUser() user: any,
+    @Body('refreshToken') refreshToken?: string
+  ) {
+    // Revoca refresh tokens en DB (no necesita Redis blacklist)
+    await this.authService.logout(user.id, refreshToken);
     return { message: 'Sesión cerrada exitosamente' };
   }
 

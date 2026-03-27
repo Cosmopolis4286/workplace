@@ -130,11 +130,19 @@ export class AuthService {
     return { user: safeUser, ...tokens };
   }
 
-  async logout(userId: string, accessTokenJti: string, accessTokenTtl: number) {
-    // Blacklist the access token in Redis
-    await this.redis.blacklistToken(accessTokenJti, accessTokenTtl);
-    // Delete all refresh tokens for user
-    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+  async logout(userId: string, refreshToken?: string) {
+    // Revocar el refresh token específico si se proporciona
+    if (refreshToken) {
+      await this.prisma.refreshToken.updateMany({
+        where: { token: refreshToken, userId },
+        data: { revokedAt: new Date() },
+      });
+    }
+    // También revocar todos los refresh tokens del usuario (logout global)
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   async getProfile(userId: string) {
