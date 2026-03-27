@@ -140,7 +140,7 @@ done
 
 # 12. Migraciones
 log "🔄 Ejecutando migraciones..."
-$COMPOSE -f docker-compose.lite.yml exec -T backend npm run migrate:deploy || {
+$COMPOSE -f docker-compose.lite.yml exec -T backend npm run prisma:migrate:deploy || {
     warn "Migraciones fallaron"
 }
 
