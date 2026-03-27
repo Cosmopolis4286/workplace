@@ -206,7 +206,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # 🔴 Redis - Ligero y rápido
+  # 🔴 Redis - Cache y rate limiting (NO crítico para seguridad tras migración a JWT+DB)
   redis:
     image: redis:7-alpine
     restart: unless-stopped
