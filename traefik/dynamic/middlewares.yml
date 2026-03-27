@@ -34,7 +34,7 @@ http:
       rateLimit:
         average: 100
         period: "1m"
-        burst: 200
+        burst: 50
 
     # Compression
     compression:
@@ -70,8 +70,9 @@ http:
 
     # Maintenance Mode
     maintenance:
-      statusCodes:
-        - "503"
+      replacePathRegex:
+        regex: ".*"
+        replacement: "/503.html"
 
     # IP Whitelist (opcional)
     ip-whitelist:

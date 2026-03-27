@@ -8,7 +8,6 @@ http:
         average: 100
         period: "1m"
         burst: 50
-        sourceCriterion: "ip"
         
     # Aggressive Rate Limiting (for API)
     rate-limit-aggressive:
@@ -16,7 +15,6 @@ http:
         average: 50
         period: "1m"
         burst: 25
-        sourceCriterion: "ip"
         
     # Per-User Rate Limiting
     rate-limit-user:
@@ -24,4 +22,3 @@ http:
         average: 200
         period: "1m"
         burst: 100
-        sourceCriterion: "request.RemoteAddr"
