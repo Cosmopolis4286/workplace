@@ -17,7 +17,8 @@ services:
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--entrypoints.web.http.redirections.entryPoint.permanent=true"
-      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.letsencrypt.acme.email=${EMAIL:-admin@${DOMAIN:-localhost}}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--log.level=INFO"
@@ -39,6 +40,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/ssl:/etc/ssl/certs:ro
+      - ./traefik/ssl:/etc/ssl/private:ro
       - traefik_letsencrypt:/letsencrypt
       - traefik_logs:/var/log/traefik
     networks:
@@ -55,11 +58,10 @@ services:
       - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.traefik.middlewares=security-headers@file,traefik-auth,traefik-ipwhitelist"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
       - "traefik.http.services.traefik.loadbalancer.server.port=8080"
       - "traefik.http.routers.traefik.service=traefik"
       - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$l9xA8G1t$$RZsQ2L7QI8zR5c8zK8b5c/"
-      - "traefik.http.middlewares.traefik-ipwhitelist.ipwhitelist.sourcerange=127.0.0.1/32,::1/128"
     environment:
       - "DOMAIN=${DOMAIN:-localhost}"
       - "EMAIL=${EMAIL:-admin@${DOMAIN:-localhost}}"
@@ -128,7 +130,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT}"
       - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file,security-headers@file,rate-limit@file"
       - "traefik.http.services.backend.loadbalancer.healthcheck.path=/api/ready"
@@ -183,7 +184,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`, `www.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=${FRONTEND_PORT}"
       - "traefik.http.routers.frontend.middlewares=security-headers@file,compression@file,rate-limit@file"
       - "traefik.http.services.frontend.loadbalancer.healthcheck.path=/"
@@ -274,7 +274,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.grafana.entrypoints=websecure"
-      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
       - "traefik.http.routers.grafana.middlewares=security-headers@file"
     logging:

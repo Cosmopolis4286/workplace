@@ -3,7 +3,7 @@
 
 api:
   dashboard: true
-  insecure: true  # Solo para desarrollo, deshabilitar en producción
+  insecure: false  # Production: disable insecure dashboard
   debug: false
 
 entryPoints:
@@ -35,6 +35,14 @@ providers:
     directory: "/etc/traefik/dynamic"
     watch: true
 
+# Default certificate for development
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: "/etc/ssl/certs/default.crt"
+        keyFile: "/etc/ssl/private/default.key"
+
 certificatesResolvers:
   letsencrypt:
     acme:
@@ -43,10 +51,10 @@ certificatesResolvers:
       httpChallenge:
         entryPoint: "web"
       certificatesDuration: 90
+      # Production
+      caServer: "https://acme-v02.api.letsencrypt.org/directory"
       # Staging para desarrollo
-      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
-      # Producción
-      # caServer: "https://acme-v02.api.letsencrypt.org/directory"
+      # caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
 
 log:
   level: "INFO"
