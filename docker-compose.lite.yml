@@ -9,6 +9,7 @@ services:
     container_name: traefik
     command:
       - "--api.dashboard=false"  # Sin dashboard para ahorrar RAM
+      - "--api.ping=true"        # Healthcheck endpoint
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=public_network"
@@ -19,6 +20,7 @@ services:
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.traefik.address=:8080"  # Puerto interno para ping
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.letsencrypt.acme.email=${EMAIL:-admin@${DOMAIN:-localhost}}"
@@ -43,6 +45,12 @@ services:
     cpus: "0.3"
     mem_limit: 128m
     mem_reservation: 64m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # 🔧 Backend - Core API
   backend:
