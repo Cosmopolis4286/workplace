@@ -2,13 +2,15 @@
 // Plugin de Nuxt para manejar automáticamente el refresh de tokens JWT
 // Se ejecuta solo en el cliente (client-side)
 
-import { useAuthStore } from '~/stores/auth'
+import { watch, onBeforeUnmount } from 'vue'
+import { defineNuxtPlugin, useRuntimeConfig, useNuxtApp, navigateTo } from '#app'
+import type { FetchOptions } from 'ofetch'
 
 export default defineNuxtPlugin(() => {
   // Solo ejecutar en cliente
   if (process.server) return
 
-  const authStore = useAuthStore()
+  const auth = useAuth()
   const config = useRuntimeConfig()
 
   // Interceptor de errores 401 para intentar refresh automáticamente
@@ -18,49 +20,33 @@ export default defineNuxtPlugin(() => {
   globalThis.$fetch = globalThis.$fetch.create({
     async onRequest({ request, options }) {
       // Agregar access token a todas las peticiones si existe
-      const token = authStore.accessToken
-      if (token && !options.headers?.Authorization) {
-        options.headers = {
-          ...options.headers,
-          Authorization: `Bearer ${token}`
-        }
+      const token = auth.token.value
+      if (token && !options.headers?.get('Authorization')) {
+        options.headers = new Headers(options.headers)
+        options.headers.set('Authorization', `Bearer ${token}`)
       }
     },
 
     async onResponseError({ request, response, options }) {
       // Si recibimos 401 (Unauthorized), intentar refresh
       if (response.status === 401) {
-        const refreshToken = authStore.refreshToken
+        // Intentar refresh usando el composable
+        const refreshed = await auth.refreshAccessToken()
         
-        // Si no hay refresh token, redirigir a login
-        if (!refreshToken) {
-          authStore.logout()
+        // Si no se pudo refrescar, hacer logout
+        if (!refreshed) {
+          auth.logout()
           return navigateTo('/login')
         }
 
-        try {
-          // Intentar refresh
-          const { accessToken, refreshToken: newRefreshToken } = await $fetch('/api/auth/refresh', {
-            method: 'POST',
-            body: { refreshToken }
-          })
-
-          // Guardar nuevos tokens
-          authStore.setTokens(accessToken, newRefreshToken)
-
-          // Reintentar la petición original con el nuevo token
-          return $fetch(request, {
-            ...options,
-            headers: {
-              ...options.headers,
-              Authorization: `Bearer ${accessToken}`
-            }
-          })
-        } catch (refreshError) {
-          // Si el refresh falla, logout y redirigir
-          authStore.logout()
-          return navigateTo('/login')
-        }
+        // Reintentar la petición original con el nuevo token
+        return $fetch(request, {
+          ...options,
+          headers: {
+            ...options.headers,
+            Authorization: `Bearer ${auth.token.value}`
+          }
+        } as FetchOptions)
       }
     }
   })
@@ -74,26 +60,22 @@ export default defineNuxtPlugin(() => {
   const scheduleRefresh = () => {
     if (refreshTimer) clearTimeout(refreshTimer)
     
-    if (!authStore.isAuthenticated || !authStore.refreshToken) return
+    if (!auth.isAuthenticated.value) return
 
     refreshTimer = setTimeout(async () => {
       try {
-        const { accessToken, refreshToken } = await $fetch('/api/auth/refresh', {
-          method: 'POST',
-          body: { refreshToken: authStore.refreshToken }
-        })
-        authStore.setTokens(accessToken, refreshToken)
+        await auth.refreshAccessToken()
         scheduleRefresh() // Reprogramar próximo refresh
       } catch (error) {
         console.error('Auto-refresh failed:', error)
-        authStore.logout()
+        auth.logout()
         navigateTo('/login')
       }
     }, REFRESH_INTERVAL)
   }
 
   // Iniciar timer cuando el usuario está autenticado
-  watch(() => authStore.isAuthenticated, (isAuth) => {
+  watch(() => auth.isAuthenticated.value, (isAuth: boolean) => {
     if (isAuth) {
       scheduleRefresh()
     } else if (refreshTimer) {
