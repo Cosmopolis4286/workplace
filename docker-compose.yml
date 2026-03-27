@@ -407,6 +407,9 @@ services:
     volumes:
       - ./scripts/backup:/scripts:ro
       - ./backups:/opt/workplace/backups
+      - uploads_data:/source/uploads:ro
+      - grafana_data:/source/grafana:ro
+      - prometheus_data:/source/prometheus:ro
     depends_on:
       - grafana
       - prometheus
