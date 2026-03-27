@@ -22,8 +22,15 @@ docker compose --env-file .env.dev -f docker-compose.lite.dev.yml build
 echo Starting services...
 docker compose --env-file .env.dev -f docker-compose.lite.dev.yml up -d
 
-echo Waiting for services...
-timeout /t 10 /nobreak ^>nul
+echo Waiting for services to be ready...
+timeout /t 15 /nobreak >nul
+
+echo Running database migrations...
+docker compose --env-file .env.dev -f docker-compose.lite.dev.yml exec -T backend npx prisma migrate deploy
+
+if %errorlevel% neq 0 (
+    echo WARNING: Migrations may have failed or already applied
+)
 
 echo.
 echo Service status:
@@ -39,3 +46,23 @@ echo   Traefik:   http://localhost:8080
 echo.
 echo DEV environment ready!
 echo.
+
+:: Preguntar por seed
+set /p runseed="Run database seed? [Y/N] (default: N): "
+if /I "%runseed%"=="Y" (
+    echo Running seed...
+    docker compose --env-file .env.dev -f docker-compose.lite.dev.yml exec -T backend node prisma/seed.js
+    if %errorlevel% equ 0 (
+        echo Seed completed successfully
+    ) else (
+        echo WARNING: Seed may have failed or already applied
+    )
+) else (
+    echo Skipping seed
+)
+
+echo.
+echo Useful commands:
+echo   Logs:   docker compose --env-file .env.dev -f docker-compose.lite.dev.yml logs -f
+echo   Stop:   docker compose --env-file .env.dev -f docker-compose.lite.dev.yml down
+echo   Shell:  docker compose --env-file .env.dev -f docker-compose.lite.dev.yml exec backend sh
