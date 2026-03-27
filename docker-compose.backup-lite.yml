@@ -1,8 +1,6 @@
 # 📦 Docker Compose BACKUP LITE - Container ligero de backups
 # Consumo mínimo: ~50MB RAM
 
-version: '3.8'
-
 services:
   backup:
     image: alpine:3.19

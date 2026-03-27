@@ -1,8 +1,6 @@
 # 🚀 Docker Compose LITE - Optimizado para 2CPU/4GB RAM
 # Stack esencial para producción con recursos limitados
 
-version: '3.8'
-
 services:
   # 🌐 Traefik - Router SSL esencial
   traefik:

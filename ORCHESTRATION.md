@@ -84,7 +84,6 @@ docker service rollback workplace_backend
 
 ### Archivo docker-compose.yml para Swarm
 ```yaml
-version: '3.8'
 
 services:
   backend:

@@ -1,5 +1,4 @@
 # Docker Compose para Unit Tests del Backend - Ultra optimizado
-version: '3.8'
 
 services:
   # Backend para Unit Tests - versión ultra ligera

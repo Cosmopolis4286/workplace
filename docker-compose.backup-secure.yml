@@ -1,8 +1,6 @@
 # 🛡️ Docker Compose BACKUP SECURE - Sin docker.sock
 # Versión segura sin acceso root al host
 
-version: '3.8'
-
 services:
   backup:
     image: alpine:3.19
