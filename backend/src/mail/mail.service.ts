@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class MailService {
@@ -22,6 +24,17 @@ export class MailService {
     const name = process.env.MAIL_FROM_NAME || 'WorkPlace Manager';
     const addr = process.env.MAIL_USER || 'noreply@workplacemanager.com';
     return `"${name}" <${addr}>`;
+  }
+
+  private loadTemplate(templateName: string, variables: Record<string, string>): string {
+    const templatePath = path.join(__dirname, 'templates', `${templateName}.html`);
+    let template = fs.readFileSync(templatePath, 'utf-8');
+    
+    Object.entries(variables).forEach(([key, value]) => {
+      template = template.replace(new RegExp(`{{${key}}}`, 'g'), value);
+    });
+    
+    return template;
   }
 
   async sendPasswordReset(email: string, token: string, firstName: string) {
@@ -56,24 +69,16 @@ export class MailService {
   async sendEmailVerification(email: string, token: string, firstName: string) {
     const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
     try {
+      const html = this.loadTemplate('email-verification', {
+        firstName,
+        verifyUrl
+      });
+      
       await this.transporter.sendMail({
         from: this.fromAddress,
         to: email,
         subject: 'Verifica tu correo — WorkPlace Manager',
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-            <h2>Hola, ${firstName}</h2>
-            <p>Gracias por registrarte en <strong>WorkPlace Manager</strong>.</p>
-            <p>Confirma tu correo electrónico haciendo clic en el botón. El enlace expira en <strong>24 horas</strong>.</p>
-            <a href="${verifyUrl}"
-               style="display:inline-block;padding:12px 24px;background:#f97316;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
-              Verificar correo
-            </a>
-            <p style="margin-top:24px;color:#6b7280;font-size:14px">
-              Si no creaste esta cuenta, ignora este correo.
-            </p>
-          </div>
-        `,
+        html,
       });
     } catch (err) {
       this.logger.warn(
