@@ -34,7 +34,7 @@ export class UsersService {
     if (existing) throw new ConflictException('El correo ya está registrado');
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
-    const role = data.role ?? Role.COMMERCE;
+    const role = data.role ?? Role.NORMAL;
     const createRestaurant =
       role === Role.COMMERCE || role === Role.ADMIN || role === Role.FREELANCER;
 
