@@ -39,6 +39,12 @@ export class AuthService {
     const user = await this.usersService.create(dto);
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
+    
+    // Send verification email automatically
+    await this.sendVerificationEmail(user.id).catch((err) => {
+      this.logger.warn(`Failed to send verification email: ${err.message}`);
+    });
+    
     return { user, ...tokens };
   }
 
