@@ -138,16 +138,16 @@ describe('AuthController', () => {
   describe('logout', () => {
     it('should logout user successfully', async () => {
       const mockUser = { 
-        id: 'test-user-id', 
-        jti: 'test-jti' 
+        id: 'test-user-id'
       }
+      const refreshToken = 'test-refresh-token'
 
       mockAuthService.logout.mockResolvedValue(undefined)
 
-      const result = await controller.logout(mockUser)
+      const result = await controller.logout(mockUser, refreshToken)
 
       expect(result).toEqual({ message: 'Sesión cerrada exitosamente' })
-      expect(mockAuthService.logout).toHaveBeenCalledWith('test-user-id', 'test-jti', 900)
+      expect(mockAuthService.logout).toHaveBeenCalledWith('test-user-id', 'test-refresh-token')
     })
   })
 })
