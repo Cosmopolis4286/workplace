@@ -1,42 +1,21 @@
-# Dockerfile específico para E2E Tests - Ultra ligero
-FROM node:20-alpine AS test-runner
+# Dockerfile específico para E2E Tests - Basado en imagen oficial de Playwright
+FROM mcr.microsoft.com/playwright:v1.40.0-jammy
 
-# Instalar dependencias mínimas para Playwright
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    dumb-init
-
-# Solo copiar lo necesario para tests
 WORKDIR /app
+
+# Copiar archivos de dependencias
 COPY package.json ./
 COPY tests/ ./tests/
 COPY playwright.config.ts ./
 
-# Instalar dependencias de forma optimizada
-RUN corepack enable && corepack prepare pnpm@10.20.0 --activate && \
-    pnpm install
+# Instalar dependencias
+RUN npm install
 
-# Configurar Playwright para modo headless
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+# Crear directorio para reportes
+RUN mkdir -p /app/playwright-report
 
-# Exponer puerto para debug (opcional)
+# Exponer puerto para debug
 EXPOSE 9323
 
-# Usuario no root para seguridad
-RUN addgroup -S -g 1001 test && \
-    adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G test test && \
-    mkdir -p /app/playwright-report && \
-    chown -R test:test /app
-USER test
-
-# Comando por defecto: ejecutar tests
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "npx playwright test --headed=false"]
+# Comando por defecto
+CMD ["npx", "playwright", "test", "--reporter=html"]
