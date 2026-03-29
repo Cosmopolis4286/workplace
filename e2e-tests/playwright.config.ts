@@ -36,9 +36,9 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
+  webServer: process.env.CI ? undefined : {
     command: 'echo "Services should be running externally"',
     port: 3000,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
   },
 });
