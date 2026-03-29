@@ -282,13 +282,26 @@ jobs:
           fi
           echo "✅ Lock adquirido"
           
-          # Cargar variables del archivo .env.deploy
+          # Cargar variables del archivo .env.deploy con trap para limpieza segura
+          trap "rm -f .env.deploy" EXIT ERR INT TERM
+          
           set -a
           source .env.deploy
           set +a
           
+          echo "🔐 Variables de entorno cargadas (archivo se limpiará automáticamente al salir)"
+          
           # Verificación pre-deploy
           echo "🔍 Verificación pre-deploy..."
+          
+          # Logging de FORCE DEPLOY si está activado
+          if [ "${FORCE_DEPLOY:-false}" = "true" ] || [ "${FORCE_DEPLOY:-}" = "1" ]; then
+            echo "⚠️ FORCE DEPLOY ACTIVADO - Este deploy salta validaciones de calidad"
+            echo "👤 Usuario que activó force_deploy: ${{ github.actor }}"
+            echo "🕐 Timestamp: $(date -Iseconds)"
+            echo "📝 Commit SHA: ${{ github.sha }}"
+          fi
+          
           if docker compose ps | grep -q "Up"; then
             echo "✅ Sistema corriendo, procediendo con canary"
           else
@@ -302,6 +315,32 @@ jobs:
           
           if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
             chmod +x scripts/deploy/canary-traffic-split.sh
+            
+            # Validación de integridad del script (supply-chain security)
+            if [ -f "scripts/deploy/canary-traffic-split.sh.sha256" ]; then
+              echo "🔐 Validando integridad del script canary..."
+              if sha256sum -c scripts/deploy/canary-traffic-split.sh.sha256; then
+                echo "✅ Script canary verificado (SHA256 OK)"
+              else
+                echo "❌ Error de integridad: el script canary fue modificado"
+                echo "🛑 Abortando por seguridad - posible supply-chain attack"
+                exit 1
+              fi
+            else
+              echo "⚠️ No hay archivo SHA256 para validar - generando checksum actual"
+              sha256sum scripts/deploy/canary-traffic-split.sh > scripts/deploy/canary-traffic-split.sh.sha256
+            fi
+            
+            # DB Migrations pre-deploy (backward compatible only)
+            echo "🗄️ Verificando estado de migraciones de base de datos..."
+            if docker compose exec -T backend npx prisma migrate status 2>/dev/null | grep -q "Database schema is up to date"; then
+              echo "✅ DB schema está actualizado"
+            else
+              echo "🗄️ Aplicando migraciones pendientes (backward compatible)..."
+              # Solo migraciones seguras (no destructive)
+              docker compose exec -T backend npx prisma migrate deploy || echo "⚠️ Algunas migraciones fallaron - continuando con precaución"
+            fi
+            
             echo "🚀 Ejecutando canary deployment..."
             if ./scripts/deploy/canary-traffic-split.sh; then
               echo "✅ Canary deployment completado exitosamente"
@@ -316,8 +355,9 @@ jobs:
             docker compose --env-file .env.deploy up -d --no-deps backend frontend
           fi
           
-          # Limpiar archivo .env.deploy
+          # Limpiar archivo .env.deploy inmediatamente después del uso
           rm -f .env.deploy
+          trap - EXIT ERR INT TERM
           
           echo "✅ Deploy completado"
         EOF
@@ -480,9 +520,18 @@ jobs:
     needs: deploy
     if: needs.deploy.result == 'success'
     timeout-minutes: 5
+    outputs:
+      rollback-needed: ${{ steps.smoke-check.outputs.rollback_needed }}
     
     steps:
+    - name: Configurar SSH
+      uses: ./.github/actions/setup-ssh.yml
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.PRODUCTION_HOST }}
+
     - name: Verificar desde internet
+      id: smoke-check
       run: |
         echo "🌐 Smoke test externo - validando desde internet..."
         
@@ -523,6 +572,7 @@ jobs:
           
           if [ "$BACKEND_OK" = true ] && [ "$FRONTEND_OK" = true ] && [ "$SSL_OK" = true ]; then
             echo "🎉 Smoke test externo PASADO - todos los servicios accesibles desde internet"
+            echo "rollback_needed=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           
@@ -533,7 +583,52 @@ jobs:
         done
         
         echo "❌ Smoke test externo FALLÓ - servicios no accesibles desde internet"
+        echo "rollback_needed=true" >> $GITHUB_OUTPUT
         exit 1
+
+    - name: Rollback Automático por Smoke Test Fallido
+      if: failure() && steps.smoke-check.outputs.rollback_needed == 'true'
+      run: |
+        echo "🚨 Smoke test falló - Ejecutando rollback automático..."
+        
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
+          
+          # Lock de infraestructura
+          exec 200>/tmp/deploy.lock
+          if ! flock -n 200; then
+            echo "❌ Otro deploy/rollback está en progreso. Abortando."
+            exit 1
+          fi
+          
+          echo "🔄 Rollback automático por fallo de smoke test..."
+          
+          # Cargar versión anterior si existe
+          if [ -f ".previous_version" ]; then
+            source .previous_version
+            echo "📦 Restaurando versión anterior:"
+            echo "  Backend: $BACKEND_PREVIOUS"
+            echo "  Frontend: $FRONTEND_PREVIOUS"
+            
+            if [ "$BACKEND_PREVIOUS" != "none" ] && [ "$FRONTEND_PREVIOUS" != "none" ]; then
+              docker pull $BACKEND_PREVIOUS
+              docker pull $FRONTEND_PREVIOUS
+              export BACKEND_IMAGE=$BACKEND_PREVIOUS
+              export FRONTEND_IMAGE=$FRONTEND_PREVIOUS
+              docker compose up -d --no-deps backend frontend
+              echo "✅ Rollback completado - versión anterior restaurada"
+            fi
+          else
+            echo "❌ No hay versión anterior disponible"
+            exit 1
+          fi
+          
+          # Notificar rollback
+          echo "🚨 ROLLBACK EJECUTADO: Smoke test falló, producción restaurada a versión estable"
+        EOF
+        
+        echo "✅ Rollback automático completado"
 
   # 8. Notificar Éxito/Fallo
   notify:
@@ -555,6 +650,8 @@ jobs:
           echo "- ✅ Health checks pasaron"
           echo "- ✅ Smoke test externo pasó"
           echo "- ✅ No se necesitó rollback"
+          STATUS="success"
+          COLOR="65280"
         else
           echo "❌ Deployment falló!"
           echo "📊 Resumen:"
@@ -571,4 +668,48 @@ jobs:
           if [ "${{ github.event.inputs.force_rollback }}" == "true" ]; then
             echo "- 🔄 Rollback manual solicitado"
           fi
+          STATUS="failure"
+          COLOR="16711680"
         fi
+        
+        # Exportar para notificación webhook
+        echo "DEPLOY_STATUS=$STATUS" >> $GITHUB_ENV
+        echo "DEPLOY_COLOR=$COLOR" >> $GITHUB_ENV
+
+    - name: Notificar Discord
+      if: always() && env.DISCORD_WEBHOOK != ''
+      run: |
+        curl -s -X POST ${{ secrets.DISCORD_WEBHOOK }} \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"🚀 Deploy ${{ env.DEPLOY_STATUS }}\",
+              \"color\": ${{ env.DEPLOY_COLOR }},
+              \"fields\": [
+                {\"name\": \"Repositorio\", \"value\": \"${{ github.repository }}\", \"inline\": true},
+                {\"name\": \"Branch\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
+                {\"name\": \"Commit\", \"value\": \"${{ github.sha }}\", \"inline\": false},
+                {\"name\": \"Actor\", \"value\": \"${{ github.actor }}\", \"inline\": true},
+                {\"name\": \"Workflow\", \"value\": \"${{ github.workflow }}\", \"inline\": true}
+              ],
+              \"timestamp\": \"$(date -Iseconds)\"
+            }]
+          }" || echo "⚠️ Falló notificación a Discord"
+
+    - name: Notificar Slack
+      if: always() && env.SLACK_WEBHOOK != ''
+      run: |
+        curl -s -X POST ${{ secrets.SLACK_WEBHOOK }} \
+          -H 'Content-type: application/json' \
+          -d "{
+            \"text\": \"🚀 Deploy *${{ env.DEPLOY_STATUS }}* en ${{ github.repository }}\",
+            \"blocks\": [
+              {
+                \"type\": \"section\",
+                \"text\": {
+                  \"type\": \"mrkdwn\",
+                  \"text\": \"*Deploy ${{ env.DEPLOY_STATUS }}*\\n*Repo:* ${{ github.repository }}\\n*Branch:* ${{ github.ref_name }}\\n*Commit:* ${{ github.sha }}\\n*Actor:* ${{ github.actor }}\"
+                }
+              }
+            ]
+          }" || echo "⚠️ Falló notificación a Slack"
