@@ -231,22 +231,7 @@ jobs:
           -o ServerAliveInterval=30 \
           docker-compose.lite.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
         
-        scp -o StrictHostKeyChecking=no \
-          -o ConnectTimeout=10 \
-          -o ServerAliveInterval=30 \
-          nginx/nginx.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/
-        
-        scp -o StrictHostKeyChecking=no \
-          -o ConnectTimeout=10 \
-          -o ServerAliveInterval=30 \
-          nginx/conf.d/common.conf ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/nginx/conf.d/
-        
         # Copiar scripts
-        scp -o StrictHostKeyChecking=no \
-          -o ConnectTimeout=10 \
-          -o ServerAliveInterval=30 \
-          scripts/deployment/setup-nginx-prod.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deployment/
-        
         scp -o StrictHostKeyChecking=no \
           -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
@@ -258,17 +243,13 @@ jobs:
           set -euo pipefail
           cd /opt/workplace
           
-          # Configurar nginx
-          chmod +x scripts/deployment/setup-nginx-prod.sh
-          DOMAIN='${{ secrets.DOMAIN || 'localhost' }}' ./scripts/deployment/setup-nginx-prod.sh
-          
           # Verificación pre-deploy
           echo "🔍 Verificación pre-deploy..."
           if docker compose ps | grep -q "Up"; then
             echo "✅ Sistema corriendo, procediendo con canary"
           else
             echo "⚠️ Sistema no corriendo, iniciando servicios base"
-            docker compose up -d postgres redis nginx
+            docker compose up -d postgres redis traefik
             sleep 10
           fi
           
