@@ -40,7 +40,7 @@ jobs:
       uses: ./.github/actions/run-tests
       with:
         force-deploy: ${{ github.event.inputs.force_deploy }}
-        coverage-threshold: '5'
+        coverage-threshold: '50'
 
     - name: Subir Reportes de Coverage
       uses: codecov/codecov-action@v3
@@ -239,9 +239,28 @@ jobs:
           -o ServerAliveInterval=30 \
           -r scripts/deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
 
+    - name: Guardar versión anterior para rollback
+      id: save-previous
+      run: |
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
+          
+          # Guardar versión actual antes del deploy
+          echo "📦 Guardando versión actual..."
+          PREVIOUS_BACKEND=$(docker inspect --format='{{.Config.Image}}' backend 2>/dev/null || echo "none")
+          PREVIOUS_FRONTEND=$(docker inspect --format='{{.Config.Image}}' frontend 2>/dev/null || echo "none")
+          
+          echo "BACKEND_PREVIOUS=$PREVIOUS_BACKEND" > .previous_version
+          echo "FRONTEND_PREVIOUS=$PREVIOUS_FRONTEND" >> .previous_version
+          
+          echo "✅ Versión anterior guardada:"
+          cat .previous_version
+        EOF
+
     - name: Deploy de Infraestructura (Shell - lógica compleja)
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           
@@ -273,7 +292,7 @@ jobs:
 
     - name: Verificación Post-Deploy (Shell)
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           
