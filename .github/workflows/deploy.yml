@@ -1,5 +1,9 @@
 name: Production Deploy (Pipeline Híbrido)
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ main ]
@@ -224,18 +228,15 @@ jobs:
     - name: Copiar Archivos de Configuración (YAML)
       run: |
         # Copiar archivos base
-        scp -o StrictHostKeyChecking=no \
-          -o ConnectTimeout=10 \
+        scp -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
           docker-compose.lite.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
         
         # Copiar configuración de Traefik
-        scp -o StrictHostKeyChecking=no \
-          -r traefik/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
+        scp -r traefik/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
         
         # Copiar scripts
-        scp -o StrictHostKeyChecking=no \
-          -o ConnectTimeout=10 \
+        scp -o ConnectTimeout=10 \
           -o ServerAliveInterval=30 \
           -r scripts/deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
 
@@ -283,8 +284,10 @@ jobs:
             chmod +x scripts/deploy/canary-traffic-split.sh
             ./scripts/deploy/canary-traffic-split.sh
           else
-            echo "❌ Script canary no encontrado, usando rolling update"
-            docker compose up -d --force-recreate
+            echo "❌ Script canary no encontrado, usando rolling update controlado"
+            # Deploy idempotente: actualiza solo los servicios cambiados
+            docker compose pull backend frontend
+            docker compose up -d --no-deps backend frontend
           fi
           
           echo "✅ Deploy completado"
@@ -329,8 +332,22 @@ jobs:
           else
             echo "🚨 Health checks fallaron - Iniciando rollback automático..."
             
-            # Ejecutar rollback automático mejorado
-            if [ -f "scripts/deploy/rollback-enhanced.sh" ]; then
+            # Ejecutar rollback automático con versión guardada
+            if [ -f ".previous_version" ]; then
+              source .previous_version
+              echo "🔄 Rollback a versión anterior:"
+              echo "  Backend: $BACKEND_PREVIOUS"
+              echo "  Frontend: $FRONTEND_PREVIOUS"
+              
+              if [ "$BACKEND_PREVIOUS" != "none" ] && [ "$FRONTEND_PREVIOUS" != "none" ]; then
+                docker pull $BACKEND_PREVIOUS
+                docker pull $FRONTEND_PREVIOUS
+                docker compose up -d --no-deps -e BACKEND_IMAGE=$BACKEND_PREVIOUS -e FRONTEND_IMAGE=$FRONTEND_PREVIOUS backend frontend
+                echo "✅ Rollback completado a versión anterior"
+              else
+                echo "⚠️ No hay versión anterior disponible"
+              fi
+            elif [ -f "scripts/deploy/rollback-enhanced.sh" ]; then
               chmod +x scripts/deploy/rollback-enhanced.sh
               echo "🔄 Ejecutando rollback automático mejorado..."
               ./scripts/deploy/rollback-enhanced.sh
