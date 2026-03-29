@@ -208,6 +208,7 @@ jobs:
 
     - name: Configurar SSH known hosts (YAML)
       run: |
+        mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
     - name: Copiar Archivos de Configuración (YAML)
@@ -344,6 +345,7 @@ jobs:
     steps:
     - name: Configurar SSH known hosts
       run: |
+        mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
     - name: Rollback Manual
