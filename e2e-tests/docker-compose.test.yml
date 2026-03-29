@@ -114,8 +114,8 @@ services:
     networks:
       - workplace-test-network
     volumes:
-      - ./playwright-report:/app/e2e-tests/playwright-report
-    command: ["sh", "-c", "cd e2e-tests && npx playwright test --reporter=html"]
+      - ./playwright-report:/app/playwright-report
+    command: ["sh", "-c", "npx playwright test --reporter=html"]
     restart: "no"
 
 # Volúmenes para persistencia de tests
