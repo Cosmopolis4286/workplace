@@ -52,6 +52,12 @@ function setup_canary_traffic_split() {
   
   # Levantar backend canary
   log_canary "🚀 Levantando backend canary..."
+  
+  # Crear red si no existe (docker-compose la nombra como proyecto_app_network)
+  docker network inspect workplace_app_network >/dev/null 2>&1 || \
+    docker network create workplace_app_network 2>/dev/null || \
+    log_canary "⚠️ No se pudo crear red, intentando usar red existente..."
+  
   docker run -d \
     --name workplace_backend_canary \
     --network workplace_app_network \
