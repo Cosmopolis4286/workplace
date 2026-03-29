@@ -13,7 +13,8 @@ test.describe('Workplace Application', () => {
   });
 
   test('should have working API health endpoint', async ({ request }) => {
-    const response = await request.get('/api/health');
+    const apiUrl = process.env.API_URL || 'http://localhost:3001';
+    const response = await request.get(`${apiUrl}/api/health`);
     
     expect(response.status()).toBe(200);
     
@@ -93,25 +94,27 @@ test.describe('Workplace Application', () => {
 
 test.describe('API Integration', () => {
   test('should handle real API calls', async ({ request }) => {
+    const apiUrl = process.env.API_URL || 'http://localhost:3001';
     // Test actual API endpoints
-    const healthResponse = await request.get('/api/health');
+    const healthResponse = await request.get(`${apiUrl}/api/health`);
     expect(healthResponse.status()).toBe(200);
     
     // Test ready endpoint (if available)
     try {
-      const readyResponse = await request.get('/api/ready');
+      const readyResponse = await request.get(`${apiUrl}/api/ready`);
       expect(readyResponse.status()).toBe(200);
       
       const readyBody = await readyResponse.json();
       expect(readyBody).toHaveProperty('ready');
-    } catch (error) {
+    } catch (error: any) {
       // Ready endpoint might not be implemented yet
       console.log('Ready endpoint not available:', error.message);
     }
   });
 
   test('should validate API response structure', async ({ request }) => {
-    const response = await request.get('/api/health');
+    const apiUrl = process.env.API_URL || 'http://localhost:3001';
+    const response = await request.get(`${apiUrl}/api/health`);
     const body = await response.json();
     
     // Validate response structure
