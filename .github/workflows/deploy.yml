@@ -231,6 +231,10 @@ jobs:
           -o ServerAliveInterval=30 \
           docker-compose.lite.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
         
+        # Copiar configuración de Traefik
+        scp -o StrictHostKeyChecking=no \
+          -r traefik/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
+        
         # Copiar scripts
         scp -o StrictHostKeyChecking=no \
           -o ConnectTimeout=10 \
