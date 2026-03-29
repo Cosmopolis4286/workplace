@@ -282,7 +282,13 @@ jobs:
           
           if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
             chmod +x scripts/deploy/canary-traffic-split.sh
-            ./scripts/deploy/canary-traffic-split.sh
+            echo "🚀 Ejecutando canary deployment..."
+            if ./scripts/deploy/canary-traffic-split.sh; then
+              echo "✅ Canary deployment completado exitosamente"
+            else
+              echo "❌ Canary deployment falló - iniciando rollback"
+              exit 1
+            fi
           else
             echo "❌ Script canary no encontrado, usando rolling update controlado"
             # Deploy idempotente: actualiza solo los servicios cambiados
@@ -308,7 +314,7 @@ jobs:
           FRONTEND_HEALTH=false
           
           # Health check backend (desde el host, no desde dentro del container)
-          if curl -f http://localhost:3001/api/health; then
+          if curl -f --max-time 5 --retry 3 http://localhost:3001/api/health; then
             echo "✅ Backend health check OK"
             BACKEND_HEALTH=true
           else
@@ -317,7 +323,7 @@ jobs:
           fi
           
           # Health check frontend (desde el host)
-          if curl -f http://localhost:3000; then
+          if curl -f --max-time 5 --retry 3 http://localhost:3000; then
             echo "✅ Frontend health check OK"
             FRONTEND_HEALTH=true
           else
@@ -342,8 +348,20 @@ jobs:
               if [ "$BACKEND_PREVIOUS" != "none" ] && [ "$FRONTEND_PREVIOUS" != "none" ]; then
                 docker pull $BACKEND_PREVIOUS
                 docker pull $FRONTEND_PREVIOUS
-                docker compose up -d --no-deps -e BACKEND_IMAGE=$BACKEND_PREVIOUS -e FRONTEND_IMAGE=$FRONTEND_PREVIOUS backend frontend
+                export BACKEND_IMAGE=$BACKEND_PREVIOUS
+                export FRONTEND_IMAGE=$FRONTEND_PREVIOUS
+                docker compose up -d --no-deps backend frontend
                 echo "✅ Rollback completado a versión anterior"
+                
+                # Verificar rollback funcionó
+                echo "🏥 Verificando health checks post-rollback..."
+                sleep 5
+                if curl -f --max-time 5 --retry 3 http://localhost:3001/api/health && curl -f --max-time 5 --retry 3 http://localhost:3000; then
+                  echo "✅ Rollback verificado - servicios funcionando"
+                else
+                  echo "❌ Rollback falló - servicios no responden"
+                  exit 1
+                fi
               else
                 echo "⚠️ No hay versión anterior disponible"
               fi
