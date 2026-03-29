@@ -279,6 +279,7 @@ jobs:
           echo "🚀 Iniciando Canary Deployment..."
           export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
           export FRONTEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}"
+          export CURRENT_SHA="${{ github.sha }}"
           
           if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
             chmod +x scripts/deploy/canary-traffic-split.sh
