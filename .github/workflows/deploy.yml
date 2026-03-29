@@ -209,10 +209,14 @@ jobs:
     - name: Configurar SSH key
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        eval $(ssh-agent -s)
-        ssh-add ~/.ssh/id_rsa
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+        # Configurar SSH para usar esta clave
+        echo "Host *" > ~/.ssh/config
+        echo "  IdentityFile ~/.ssh/id_ed25519" >> ~/.ssh/config
+        echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+        echo "  UserKnownHostsFile /dev/null" >> ~/.ssh/config
+        chmod 600 ~/.ssh/config
 
     - name: Configurar SSH known hosts (YAML)
       run: |
@@ -354,10 +358,14 @@ jobs:
     - name: Configurar SSH key
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        eval $(ssh-agent -s)
-        ssh-add ~/.ssh/id_rsa
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+        # Configurar SSH para usar esta clave
+        echo "Host *" > ~/.ssh/config
+        echo "  IdentityFile ~/.ssh/id_ed25519" >> ~/.ssh/config
+        echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+        echo "  UserKnownHostsFile /dev/null" >> ~/.ssh/config
+        chmod 600 ~/.ssh/config
 
     - name: Configurar SSH known hosts
       run: |
