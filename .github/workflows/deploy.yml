@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       force_deploy:
-        description: 'Forzar deploy incluso si los tests fallan'
+        description: 'Forzar deploy incluso si los tests fallan - SOLO ADMIN'
         required: false
         default: false
         type: boolean
@@ -41,6 +41,7 @@ jobs:
         node-version: '20'
 
     - name: Ejecutar Tests con Coverage
+      if: ${{ !github.event.inputs.force_deploy || github.actor != 'admin' }}
       uses: ./.github/actions/run-tests
       with:
         force-deploy: ${{ github.event.inputs.force_deploy }}
@@ -140,6 +141,7 @@ jobs:
         pull: true
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
+          ${{ secrets.DOCKER_USERNAME }}/workplace-backend:stable
           ${{ steps.meta.outputs.tags }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -195,6 +197,7 @@ jobs:
         pull: true
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
+          ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:stable
           ${{ steps.meta.outputs.tags }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -210,20 +213,11 @@ jobs:
     - name: Checkout del código
       uses: actions/checkout@v4
 
-    - name: Configurar SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-        chmod 600 ~/.ssh/id_ed25519
-        # Configurar SSH para usar esta clave
-        echo "Host *" > ~/.ssh/config
-        echo "  IdentityFile ~/.ssh/id_ed25519" >> ~/.ssh/config
-        chmod 600 ~/.ssh/config
-
-    - name: Configurar SSH known hosts (YAML)
-      run: |
-        mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+    - name: Configurar SSH
+      uses: ./.github/actions/setup-ssh.yml
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.PRODUCTION_HOST }}
 
     - name: Copiar Archivos de Configuración (YAML)
       run: |
@@ -261,9 +255,37 @@ jobs:
 
     - name: Deploy de Infraestructura (Shell - lógica compleja)
       run: |
+        # Crear archivo .env temporal localmente y copiarlo al servidor
+        cat > /tmp/deploy.env << ENVEOF
+        BACKEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
+        FRONTEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
+        CURRENT_SHA=${{ github.sha }}
+        POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+        POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+        POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+        ENVEOF
+        
+        scp /tmp/deploy.env ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/.env.deploy
+        rm -f /tmp/deploy.env
+        
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
+          
+          # Lock de infraestructura - evita deploys concurrentes
+          exec 200>/tmp/deploy.lock
+          echo "🔒 Adquiriendo lock de deploy..."
+          if ! flock -n 200; then
+            echo "❌ Otro deploy está en progreso. Abortando."
+            exit 1
+          fi
+          echo "✅ Lock adquirido"
+          
+          # Cargar variables del archivo .env.deploy
+          set -a
+          source .env.deploy
+          set +a
           
           # Verificación pre-deploy
           echo "🔍 Verificación pre-deploy..."
@@ -271,19 +293,12 @@ jobs:
             echo "✅ Sistema corriendo, procediendo con canary"
           else
             echo "⚠️ Sistema no corriendo, iniciando servicios base"
-            docker compose up -d postgres redis traefik
+            docker compose --env-file .env.deploy up -d postgres redis traefik
             sleep 10
           fi
           
           # Canary deployment (lógica compleja)
           echo "🚀 Iniciando Canary Deployment..."
-          export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
-          export FRONTEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}"
-          export CURRENT_SHA="${{ github.sha }}"
-          export POSTGRES_USER="${{ secrets.POSTGRES_USER }}"
-          export POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-          export POSTGRES_DB="${{ secrets.POSTGRES_DB }}"
-          export REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}"
           
           if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
             chmod +x scripts/deploy/canary-traffic-split.sh
@@ -297,9 +312,12 @@ jobs:
           else
             echo "❌ Script canary no encontrado, usando rolling update controlado"
             # Deploy idempotente: actualiza solo los servicios cambiados
-            docker compose pull backend frontend
-            docker compose up -d --no-deps backend frontend
+            docker compose --env-file .env.deploy pull backend frontend
+            docker compose --env-file .env.deploy up -d --no-deps backend frontend
           fi
+          
+          # Limpiar archivo .env.deploy
+          rm -f .env.deploy
           
           echo "✅ Deploy completado"
         EOF
@@ -318,18 +336,20 @@ jobs:
           BACKEND_HEALTH=false
           FRONTEND_HEALTH=false
           
-          # Health check backend (desde el host, no desde dentro del container)
-          if curl -f --max-time 5 --retry 3 http://localhost:3001/api/health; then
-            echo "✅ Backend health check OK"
+          # Health check backend con validación profunda (DB, Redis, auth)
+          echo "🏥 Health check backend (deep)..."
+          if curl -fs --max-time 10 --retry 3 "http://localhost:3001/api/health?deep=true" | grep -q '"status":"healthy"'; then
+            echo "✅ Backend deep health check OK (DB, Redis, auth)"
             BACKEND_HEALTH=true
           else
-            echo "❌ Backend health check FAILED"
+            echo "❌ Backend deep health check FAILED (DB/Redis/auth issues)"
             BACKEND_HEALTH=false
           fi
           
-          # Health check frontend (desde el host)
-          if curl -f --max-time 5 --retry 3 http://localhost:3000; then
-            echo "✅ Frontend health check OK"
+          # Health check frontend con validación de API ready
+          echo "🏥 Health check frontend..."
+          if curl -fs --max-time 10 --retry 3 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
+            echo "✅ Frontend health check OK (API ready)"
             FRONTEND_HEALTH=true
           else
             echo "❌ Frontend health check FAILED"
@@ -358,10 +378,11 @@ jobs:
                 docker compose up -d --no-deps backend frontend
                 echo "✅ Rollback completado a versión anterior"
                 
-                # Verificar rollback funcionó
-                echo "🏥 Verificando health checks post-rollback..."
+                # Verificar rollback funcionó con health checks profundos
+                echo "🏥 Verificando health checks post-rollback (deep)..."
                 sleep 5
-                if curl -f --max-time 5 --retry 3 http://localhost:3001/api/health && curl -f --max-time 5 --retry 3 http://localhost:3000; then
+                if curl -fs --max-time 10 --retry 3 "http://localhost:3001/api/health?deep=true" | grep -q '"status":"healthy"' && \
+                   curl -fs --max-time 10 --retry 3 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
                   echo "✅ Rollback verificado - servicios funcionando"
                 else
                   echo "❌ Rollback falló - servicios no responden"
@@ -388,29 +409,23 @@ jobs:
           fi
         EOF
 
-  # 6. Rollback Manual (si es necesario)
+  # 6. Rollback Manual (Independiente - puede ejecutarse manualmente)
   rollback:
     name: Rollback Manual
     runs-on: ubuntu-latest
-    needs: deploy
-    if: failure() && github.event.inputs.force_rollback == 'true'
+    # Sin 'needs' - puede ejecutarse independientemente
+    if: (failure() && github.event.inputs.force_rollback == 'true') || github.event_name == 'workflow_dispatch'
     timeout-minutes: 10
     
     steps:
-    - name: Configurar SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-        chmod 600 ~/.ssh/id_ed25519
-        # Configurar SSH para usar esta clave
-        echo "Host *" > ~/.ssh/config
-        echo "  IdentityFile ~/.ssh/id_ed25519" >> ~/.ssh/config
-        chmod 600 ~/.ssh/config
+    - name: Checkout del código
+      uses: actions/checkout@v4
 
-    - name: Configurar SSH known hosts
-      run: |
-        mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+    - name: Configurar SSH
+      uses: ./.github/actions/setup-ssh.yml
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.PRODUCTION_HOST }}
 
     - name: Rollback Manual
       run: |
@@ -418,36 +433,119 @@ jobs:
           set -euo pipefail
           cd /opt/workplace
           
+          # Lock de infraestructura
+          exec 200>/tmp/deploy.lock
+          if ! flock -n 200; then
+            echo "❌ Otro deploy/rollback está en progreso. Abortando."
+            exit 1
+          fi
+          
           echo "🔄 Ejecutando rollback manual..."
           
-          # Manual rollback mejorado
+          # Cargar versión anterior si existe
+          if [ -f ".previous_version" ]; then
+            source .previous_version
+            echo "📦 Versión a restaurar:"
+            echo "  Backend: $BACKEND_PREVIOUS"
+            echo "  Frontend: $FRONTEND_PREVIOUS"
+            
+            if [ "$BACKEND_PREVIOUS" != "none" ] && [ "$FRONTEND_PREVIOUS" != "none" ]; then
+              docker pull $BACKEND_PREVIOUS
+              docker pull $FRONTEND_PREVIOUS
+              export BACKEND_IMAGE=$BACKEND_PREVIOUS
+              export FRONTEND_IMAGE=$FRONTEND_PREVIOUS
+              docker compose up -d --no-deps backend frontend
+              echo "✅ Rollback a versión anterior completado"
+              exit 0
+            fi
+          fi
+          
+          # Fallback a scripts
           if [ -f "scripts/deploy/rollback-enhanced.sh" ]; then
             chmod +x scripts/deploy/rollback-enhanced.sh
-            echo "🔄 Ejecutando rollback manual mejorado..."
             ./scripts/deploy/rollback-enhanced.sh
-            echo "✅ Rollback manual mejorado completado"
           elif [ -f "scripts/deploy/rollback.sh" ]; then
             chmod +x scripts/deploy/rollback.sh
-            echo "🔄 Ejecutando rollback manual de fallback..."
             ./scripts/deploy/rollback.sh
-            echo "✅ Rollback manual de fallback completado"
           else
-            echo "❌ No se encontró script de rollback"
+            echo "❌ No se encontró versión anterior ni script de rollback"
             exit 1
           fi
         EOF
 
-  # 7. Notificar Éxito/Fallo
+  # 7. Smoke Test Externo (validación desde internet)
+  smoke-test:
+    name: Smoke Test Externo
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: needs.deploy.result == 'success'
+    timeout-minutes: 5
+    
+    steps:
+    - name: Verificar desde internet
+      run: |
+        echo "🌐 Smoke test externo - validando desde internet..."
+        
+        DOMAIN="${{ secrets.PRODUCTION_DOMAIN }}"
+        MAX_RETRIES=12
+        RETRY_DELAY=10
+        
+        for i in $(seq 1 $MAX_RETRIES); do
+          echo "🔄 Intento $i/$MAX_RETRIES..."
+          
+          # Verificar backend API externo
+          BACKEND_OK=false
+          if curl -fs --max-time 15 "https://api.$DOMAIN/health?deep=true" 2>/dev/null | grep -q '"status":"healthy"'; then
+            echo "✅ Backend API responde correctamente"
+            BACKEND_OK=true
+          else
+            echo "⏳ Backend API no responde aún..."
+          fi
+          
+          # Verificar frontend externo
+          FRONTEND_OK=false
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://$DOMAIN" 2>/dev/null || echo "000")
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+            echo "✅ Frontend responde (HTTP $HTTP_CODE)"
+            FRONTEND_OK=true
+          else
+            echo "⏳ Frontend no responde aún (HTTP $HTTP_CODE)..."
+          fi
+          
+          # Verificar SSL/TLS
+          SSL_OK=false
+          if echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | grep -q "Verify return code: 0"; then
+            echo "✅ SSL/TLS válido"
+            SSL_OK=true
+          else
+            echo "⏳ Verificando SSL/TLS..."
+          fi
+          
+          if [ "$BACKEND_OK" = true ] && [ "$FRONTEND_OK" = true ] && [ "$SSL_OK" = true ]; then
+            echo "🎉 Smoke test externo PASADO - todos los servicios accesibles desde internet"
+            exit 0
+          fi
+          
+          if [ $i -lt $MAX_RETRIES ]; then
+            echo "⏳ Esperando $RETRY_DELAY segundos..."
+            sleep $RETRY_DELAY
+          fi
+        done
+        
+        echo "❌ Smoke test externo FALLÓ - servicios no accesibles desde internet"
+        exit 1
+
+  # 8. Notificar Éxito/Fallo
   notify:
     name: Notificar Estado del Deploy
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: [deploy, smoke-test]
     if: always()
     
     steps:
     - name: Estado del Deployment
       run: |
-        if [ "${{ needs.deploy.result }}" == "success" ]; then
+        if [ "${{ needs.deploy.result }}" == "success" ] && [ "${{ needs.smoke-test.result }}" == "success" ]; then
           echo "🎉 Deployment completado exitosamente!"
           echo "📊 Resumen:"
           echo "- ✅ Tests pasaron"
@@ -455,11 +553,17 @@ jobs:
           echo "- ✅ Imágenes construidas y publicadas"
           echo "- ✅ Infraestructura deployada"
           echo "- ✅ Health checks pasaron"
+          echo "- ✅ Smoke test externo pasó"
           echo "- ✅ No se necesitó rollback"
         else
           echo "❌ Deployment falló!"
           echo "📊 Resumen:"
-          echo "- ❌ Deployment falló"
+          if [ "${{ needs.deploy.result }}" != "success" ]; then
+            echo "- ❌ Deploy falló"
+          fi
+          if [ "${{ needs.smoke-test.result }}" != "success" ]; then
+            echo "- ❌ Smoke test externo falló"
+          fi
           echo "- 🔄 Rollback automático iniciado"
           echo "- 📋 Revisar logs para detalles"
           echo "- 🔧 Puede requerir intervención manual"
