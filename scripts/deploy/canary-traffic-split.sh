@@ -421,6 +421,9 @@ function rollback_canary() {
 # Ejecución principal
 cd /opt/workplace
 
+# Crear directorio de logs primero
+mkdir -p $LOG_DIR
+
 log_canary "🚀 Iniciando Canary Real con 10% Traffic Split..."
 
 # 1. Setup del canary
