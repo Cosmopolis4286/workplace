@@ -280,6 +280,10 @@ jobs:
           export BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}"
           export FRONTEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}"
           export CURRENT_SHA="${{ github.sha }}"
+          export POSTGRES_USER="${{ secrets.POSTGRES_USER }}"
+          export POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+          export POSTGRES_DB="${{ secrets.POSTGRES_DB }}"
+          export REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}"
           
           if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
             chmod +x scripts/deploy/canary-traffic-split.sh
