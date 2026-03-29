@@ -105,7 +105,6 @@ services:
       BASE_URL: http://test-frontend:3000
       API_URL: http://test-backend:3001
       CI: true
-      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     depends_on:
       test-backend:
         condition: service_healthy
