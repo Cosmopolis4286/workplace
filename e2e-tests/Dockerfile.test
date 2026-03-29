@@ -20,7 +20,7 @@ COPY playwright.config.ts ./
 
 # Instalar dependencias de forma optimizada
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate && \
-    pnpm install --prod
+    pnpm install
 
 # Configurar Playwright para modo headless
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
