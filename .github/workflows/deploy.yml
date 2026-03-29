@@ -214,8 +214,6 @@ jobs:
         # Configurar SSH para usar esta clave
         echo "Host *" > ~/.ssh/config
         echo "  IdentityFile ~/.ssh/id_ed25519" >> ~/.ssh/config
-        echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-        echo "  UserKnownHostsFile /dev/null" >> ~/.ssh/config
         chmod 600 ~/.ssh/config
 
     - name: Configurar SSH known hosts (YAML)
@@ -287,8 +285,8 @@ jobs:
           BACKEND_HEALTH=false
           FRONTEND_HEALTH=false
           
-          # Health check backend
-          if docker compose exec --no-TTY backend curl -f http://localhost:3001/api/health; then
+          # Health check backend (desde el host, no desde dentro del container)
+          if curl -f http://localhost:3001/api/health; then
             echo "✅ Backend health check OK"
             BACKEND_HEALTH=true
           else
@@ -296,8 +294,8 @@ jobs:
             BACKEND_HEALTH=false
           fi
           
-          # Health check frontend
-          if docker compose exec --no-TTY frontend curl -f http://localhost:3000; then
+          # Health check frontend (desde el host)
+          if curl -f http://localhost:3000; then
             echo "✅ Frontend health check OK"
             FRONTEND_HEALTH=true
           else
@@ -348,8 +346,6 @@ jobs:
         # Configurar SSH para usar esta clave
         echo "Host *" > ~/.ssh/config
         echo "  IdentityFile ~/.ssh/id_ed25519" >> ~/.ssh/config
-        echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-        echo "  UserKnownHostsFile /dev/null" >> ~/.ssh/config
         chmod 600 ~/.ssh/config
 
     - name: Configurar SSH known hosts
@@ -359,7 +355,7 @@ jobs:
 
     - name: Rollback Manual
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           
