@@ -206,6 +206,14 @@ jobs:
     - name: Checkout del código
       uses: actions/checkout@v4
 
+    - name: Configurar SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        eval $(ssh-agent -s)
+        ssh-add ~/.ssh/id_rsa
+
     - name: Configurar SSH known hosts (YAML)
       run: |
         mkdir -p ~/.ssh
@@ -343,6 +351,14 @@ jobs:
     timeout-minutes: 10
     
     steps:
+    - name: Configurar SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        eval $(ssh-agent -s)
+        ssh-add ~/.ssh/id_rsa
+
     - name: Configurar SSH known hosts
       run: |
         mkdir -p ~/.ssh
