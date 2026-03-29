@@ -33,6 +33,7 @@ EXPOSE 9323
 # Usuario no root para seguridad
 RUN addgroup -S -g 1001 test && \
     adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G test test && \
+    mkdir -p /app/playwright-report && \
     chown -R test:test /app
 USER test
 
