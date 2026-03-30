@@ -32,8 +32,8 @@ export class PlansController {
   // ─── Public (authenticated) endpoints ────────────────────────────────────────
 
   @Get('public')
-  getPublicPlans(@CurrentUser() user: any) {
-    return this.plansService.getPublicPlans(user.role);
+  getPublicPlans(@CurrentUser() user: any, @Query('categoryId') categoryId?: string) {
+    return this.plansService.getPublicPlans(user.role, categoryId);
   }
 
   @Get('my-subscription')

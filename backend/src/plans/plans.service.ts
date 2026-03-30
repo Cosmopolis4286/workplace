@@ -203,10 +203,23 @@ export class PlansService {
     return { subscription };
   }
 
-  async getPublicPlans(role?: string) {
+  async getPublicPlans(role?: string, categoryId?: string) {
     const where: any = { status: 'ACTIVE' };
+    
     if (role === 'FREELANCER') where.forFreelancer = true;
     else if (role === 'COMMERCE') where.forCommerce = true;
+    else if (role === 'NORMAL') {
+      // Para usuarios NORMAL, mostrar planes disponibles para su categoría de negocio
+      where.forNormal = true;
+      
+      // Si tiene categoría, filtrar planes específicos para esa categoría
+      if (categoryId) {
+        where.OR = [
+          { categoryIds: { has: categoryId } },
+          { categoryIds: { isEmpty: true } }, // Planes disponibles para todas las categorías
+        ];
+      }
+    }
 
     return this.prisma.plan.findMany({
       where,
