@@ -269,6 +269,14 @@ jobs:
         scp /tmp/deploy.env ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/.env.deploy
         rm -f /tmp/deploy.env
         
+        # Generar y copiar checksum del script canary (supply-chain security)
+        if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
+          sha256sum scripts/deploy/canary-traffic-split.sh > /tmp/canary-traffic-split.sh.sha256
+          scp /tmp/canary-traffic-split.sh.sha256 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/canary-traffic-split.sh.sha256
+          rm -f /tmp/canary-traffic-split.sh.sha256
+          echo "✅ Checksum del script canary copiado al servidor"
+        fi
+        
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
