@@ -178,7 +178,8 @@ async function loadPlans() {
   loadingPlans.value = true
   try {
     const role = user.value?.role ?? 'COMMERCE'
-    plans.value = await apiFetch(`/plans/public?role=${role}`)
+    const categoryParam = selectedCategory.value ? `&categoryId=${selectedCategory.value}` : ''
+    plans.value = await apiFetch(`/plans/public?role=${role}${categoryParam}`)
   } catch { /* silently ignore */ }
   finally { loadingPlans.value = false }
 }

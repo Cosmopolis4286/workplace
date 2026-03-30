@@ -964,6 +964,10 @@ model Plan {
   // Targets
   forCommerce   Boolean @default(true)
   forFreelancer Boolean @default(false)
+  forNormal     Boolean @default(false) // Planes para usuarios NORMAL
+
+  // Categorías de negocio asociadas (para filtrado en onboarding)
+  categoryIds String[] @default([])
 
   // Límites (-1 = ilimitado)
   maxProducts   Int @default(50)
@@ -1057,6 +1061,13 @@ model ExchangeRate {
   source       String?  // e.g. "BCV", "Paralelo", "Manual"
   notes        String?
   updatedBy    String?  // userId of last editor
+
+  // Auto-sync tracking fields
+  autoSync      Boolean  @default(false) // enable auto-sync for this currency
+  lastSyncAt    DateTime? // last successful sync timestamp
+  syncSource    String?  // actual source used: "BCV_SCRAPING", "BCV_API", "MANUAL"
+  syncError     String?  // last sync error message if failed
+  syncAttempts  Int      @default(0) // consecutive failed attempts
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

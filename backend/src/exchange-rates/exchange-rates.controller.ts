@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ExchangeRatesService } from './exchange-rates.service';
+import { BcvSyncService } from './bcv-sync.service';
 import { CreateExchangeRateDto } from './dto/create-exchange-rate.dto';
 import { UpdateExchangeRateDto } from './dto/update-exchange-rate.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -22,7 +23,10 @@ import { Role } from '@prisma/client';
 @Controller('exchange-rates')
 @UseGuards(JwtAuthGuard)
 export class ExchangeRatesController {
-  constructor(private readonly exchangeRatesService: ExchangeRatesService) {}
+  constructor(
+    private readonly exchangeRatesService: ExchangeRatesService,
+    private readonly bcvSyncService: BcvSyncService,
+  ) {}
 
   // ─── Public (authenticated) — needed by product/service price display ──────
 
@@ -40,6 +44,58 @@ export class ExchangeRatesController {
   convert(@Query('amount') amount: string) {
     const usd = parseFloat(amount) || 1;
     return this.exchangeRatesService.convertAmount(usd);
+  }
+
+  // ─── BCV Sync endpoints ───────────────────────────────────────────────────
+
+  @Post('sync/:code')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPERADMIN)
+  async syncCurrency(@Param('code') code: string) {
+    const result = await this.bcvSyncService.syncCurrency(code.toUpperCase());
+    return {
+      success: true,
+      code: code.toUpperCase(),
+      rate: result.rate,
+      source: result.source,
+      date: result.date,
+      confidence: result.confidence,
+    };
+  }
+
+  @Get('sync-status/:code')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async getSyncStatus(@Param('code') code: string) {
+    const status = await this.bcvSyncService.getSyncStatus(code.toUpperCase());
+    if (!status) {
+      return { error: `Currency ${code} not found` };
+    }
+    return status;
+  }
+
+  @Patch(':code/auto-sync')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPERADMIN)
+  async setAutoSync(
+    @Param('code') code: string,
+    @Body('enabled') enabled: boolean,
+  ) {
+    await this.bcvSyncService.setAutoSync(code.toUpperCase(), enabled);
+    return {
+      success: true,
+      code: code.toUpperCase(),
+      autoSync: enabled,
+    };
+  }
+
+  @Get('current-rate/:code')
+  async getCurrentRate(@Param('code') code: string) {
+    const rate = await this.bcvSyncService.getCurrentRate(code.toUpperCase());
+    if (!rate) {
+      return { error: `Could not get current rate for ${code}` };
+    }
+    return rate;
   }
 
   // ─── Admin endpoints ──────────────────────────────────────────────────────
