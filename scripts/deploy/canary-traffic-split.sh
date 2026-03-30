@@ -58,6 +58,13 @@ function setup_canary_traffic_split() {
     docker network create workplace_app_network 2>/dev/null || \
     log_canary "⚠️ No se pudo crear red, intentando usar red existente..."
   
+  # Obtener IP del contenedor postgres para conexión directa
+  POSTGRES_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker compose ps -q postgres) 2>/dev/null || echo "postgres")
+  REDIS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker compose ps -q redis) 2>/dev/null || echo "redis")
+  
+  log_canary "📍 Postgres IP: $POSTGRES_IP"
+  log_canary "📍 Redis IP: $REDIS_IP"
+  
   docker run -d \
     --name workplace_backend_canary \
     --network workplace_app_network \
@@ -70,8 +77,8 @@ function setup_canary_traffic_split() {
     --env-file /opt/workplace/.env \
     -e APP_ENV=production \
     -e PORT=3001 \
-    -e DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}" \
-    -e REDIS_HOST=redis \
+    -e DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_IP}:5432/${POSTGRES_DB}" \
+    -e REDIS_HOST=${REDIS_IP} \
     -e REDIS_PORT=6379 \
     -e REDIS_PASSWORD=${REDIS_PASSWORD} \
     ${BACKEND_IMAGE}
