@@ -388,7 +388,7 @@ export class BcvSyncService {
     // BCV typically updates after 4:30 PM Venezuela time
     const isAfterUpdateTime = venezuelaTime.getHours() >= 16 && venezuelaTime.getMinutes() >= 30;
 
-    let effectiveDate = new Date(venezuelaTime);
+    const effectiveDate = new Date(venezuelaTime);
 
     if (isAfterUpdateTime) {
       // Rate published today is for tomorrow
