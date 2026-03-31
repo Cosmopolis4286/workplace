@@ -19,33 +19,35 @@ function log_canary() {
 
 function wait_healthy() {
   local container=$1
-  local ip=$2
-  local port=${3:-3001}
-  local retries=${4:-30}
-  local timeout=${5:-2}
+  local retries=${2:-30}
+  local timeout=${3:-2}
   
-  log_canary "⏳ Esperando health check HTTP para $container en $ip:$port..."
+  log_canary "⏳ Esperando health check para $container..."
   
   for i in $(seq 1 $retries); do
-    # Verificar que el contenedor esté corriendo
-    CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' $container 2>/dev/null || echo "unknown")
-    if [ "$CONTAINER_STATUS" != "running" ]; then
-      echo "⏳ Intento $i/$retries - Contenedor $container status: $CONTAINER_STATUS"
-      sleep $timeout
-      continue
-    fi
+    # Verificar Docker HEALTHCHECK nativo (más seguro, no expone puertos)
+    local HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $container 2>/dev/null || echo "unknown")
     
-    # Verificar health check HTTP
-    if curl -fs --max-time 5 "http://$ip:$port/api/health" 2>/dev/null | grep -q '"status":"ok"\|"status":"healthy"'; then
-      echo "✅ $container está healthy (HTTP 200) ($i/$retries)"
+    if [ "$HEALTH_STATUS" == "healthy" ]; then
+      echo "✅ $container está healthy (Docker HEALTHCHECK) ($i/$retries)"
       return 0
     fi
     
-    echo "⏳ Intento $i/$retries - Esperando health check HTTP..."
+    # Fallback: verificar si el contenedor está corriendo y responde via docker exec
+    local CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' $container 2>/dev/null || echo "unknown")
+    if [ "$CONTAINER_STATUS" == "running" ]; then
+      # Health check via docker exec (seguro, no expone puertos)
+      if docker exec $container curl -fs --max-time 5 http://localhost:3001/api/health 2>/dev/null | grep -q '"status":"ok"\|"status":"healthy"'; then
+        echo "✅ $container responde a health check via docker exec ($i/$retries)"
+        return 0
+      fi
+    fi
+    
+    echo "⏳ Intento $i/$retries - Status: $HEALTH_STATUS, Container: $CONTAINER_STATUS"
     sleep $timeout
   done
   
-  log_canary "❌ $container no respondió al health check HTTP después de $retries intentos"
+  log_canary "❌ $container no alcanzó estado healthy después de $retries intentos"
   return 1
 }
 
@@ -98,17 +100,10 @@ function setup_canary_traffic_split() {
     -e REDIS_PASSWORD=${REDIS_PASSWORD} \
     ${BACKEND_IMAGE}
   
-  # Esperar que canary esté healthy
+  # Esperar que canary esté healthy (usa Docker HEALTHCHECK nativo)
   log_canary "⏳ Esperando health check del canary..."
-  # Obtener IP del canary para health check HTTP
-  CANARY_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' workplace_backend_canary 2>/dev/null || echo "")
-  if [ -z "$CANARY_IP" ]; then
-    log_canary "❌ No se pudo obtener IP del canary"
-    docker rm -f workplace_backend_canary
-    return 1
-  fi
   
-  if ! wait_healthy "workplace_backend_canary" "$CANARY_IP" 3001 60 2; then
+  if ! wait_healthy "workplace_backend_canary" 30 2; then
     log_canary "❌ Canary no alcanzó estado healthy"
     docker logs workplace_backend_canary --tail 20
     docker rm -f workplace_backend_canary
@@ -422,7 +417,8 @@ function promote_canary_to_main() {
     return 1
   fi
   
-  if wait_healthy "$NEW_BACKEND_ID" "$NEW_BACKEND_IP" 3001 60 2; then
+  # Usar Docker HEALTHCHECK nativo
+  if wait_healthy "$NEW_BACKEND_ID" 30 2; then
     log_canary "✅ Nuevo backend principal está healthy"
   else
     log_canary "❌ Nuevo backend principal no está healthy"
