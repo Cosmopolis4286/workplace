@@ -57,8 +57,8 @@ export class AuditLogger implements LoggerService {
     stack?: string
   ) {
     const msg = typeof message === 'string' ? message : JSON.stringify(message);
-    await this.prisma.systemLog.create({
-      data: { level, message: msg, context, stack },
-    });
+    const data: any = { level, message: msg, context };
+    if (stack) data.stack = stack;
+    await this.prisma.systemLog.create({ data });
   }
 }
