@@ -30,6 +30,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     await this.client.quit();
   }
 
+  async disconnect(): Promise<void> {
+    await this.client.quit();
+  }
+
   // --- Token blacklist (logout) ---
   async blacklistToken(jti: string, ttlSeconds: number): Promise<void> {
     await this.client.setex(`blacklist:${jti}`, ttlSeconds, '1');
