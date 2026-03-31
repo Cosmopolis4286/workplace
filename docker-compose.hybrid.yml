@@ -70,7 +70,7 @@ services:
       - public_network
       - private_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT:-3001}/api/ready || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${NODE_PORT:-3001}/api/ready || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3

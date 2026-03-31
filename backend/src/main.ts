@@ -5,6 +5,8 @@ import { AppModule } from './app.module';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuditService } from './audit/audit.service';
 import { AuditLogger } from './audit/audit.logger';
+import { PrismaService } from './prisma/prisma.service';
+import { RedisService } from './redis/redis.service';
 
 async function bootstrap() {
   // Instantiate a dedicated PrismaClient for the logger (pre-DI)
@@ -47,12 +49,12 @@ async function bootstrap() {
       console.log('✅ HTTP server closed');
       
       // Close database connections
-      const prismaService = app.get('PrismaService');
+      const prismaService = app.get(PrismaService);
       await prismaService.$disconnect();
       console.log('✅ Database connections closed');
       
       // Close Redis connections
-      const redisService = app.get('RedisService');
+      const redisService = app.get(RedisService);
       await redisService.disconnect();
       console.log('✅ Redis connections closed');
       
@@ -76,11 +78,11 @@ async function bootstrap() {
     server.close(async () => {
       console.log('✅ HTTP server closed');
       
-      const prismaService = app.get('PrismaService');
+      const prismaService = app.get(PrismaService);
       await prismaService.$disconnect();
       console.log('✅ Database connections closed');
       
-      const redisService = app.get('RedisService');
+      const redisService = app.get(RedisService);
       await redisService.disconnect();
       console.log('✅ Redis connections closed');
       
