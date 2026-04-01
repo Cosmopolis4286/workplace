@@ -6,14 +6,13 @@ type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 // Routes only accessible to SUPERADMIN or ADMIN
 const adminOnlyRoutes: string[] = ['/usuarios', '/permisos', '/auditoria', '/logs', '/planes', '/tasas-cambio']
 
-// Routes accessible by COMMERCE and FREELANCER only (NOT SuperAdmin/Admin)
-// Based on backend permissions: menu:*, inventory:*, services:* require commerce/freelancer role
-const commerceOnlyRoutes: string[] = ['/menu', '/inventario', '/servicios']
+// Routes only for COMMERCE and FREELANCER (NOT SuperAdmin/Admin) - menu, inventory, services, orders dashboard
+const commerceOnlyRoutes: string[] = ['/menu', '/inventario', '/servicios', '/cliente-dashboard']
 
 // Routes accessible by COMMERCE, ADMIN, SUPERADMIN AND FREELANCER (all except Normal)
 const commerceRoutes: string[] = [
   '/gastos', '/ventas', '/analytics', '/reportes',
-  '/agendamientos', '/clientes', '/delivery', '/pedidos', '/cliente-dashboard',
+  '/agendamientos', '/clientes', '/delivery', '/pedidos',
 ]
 
 // Routes available to NORMAL, FREELANCER, and COMMERCE (service requests and corridas)
