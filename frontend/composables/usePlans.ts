@@ -97,35 +97,7 @@ const totalSubs = ref(0)
 const subPage = ref(1)
 
 export function usePlans() {
-  const config = useRuntimeConfig()
-  const base = config.public.apiUrl as string
-  const { getHeaders, refreshAccessToken } = useAuth()
-
-  async function apiFetch(url: string, options: RequestInit = {}) {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> ?? {}),
-    }
-    const res = await fetch(`${base}${url}`, { ...options, headers })
-    if (res.status === 401) {
-      const refreshed = await refreshAccessToken()
-      if (refreshed) {
-        const retryHeaders = { 'Content-Type': 'application/json', ...getHeaders() }
-        const retry = await fetch(`${base}${url}`, { ...options, headers: retryHeaders })
-        if (!retry.ok) {
-          const body = await retry.json().catch(() => ({}))
-          throw new Error(body.message ?? `Error ${retry.status}`)
-        }
-        return retry.json()
-      }
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.message ?? `Error ${res.status}`)
-    }
-    return res.json()
-  }
+  const { apiFetch } = useApi()
 
   // ─── Plans ────────────────────────────────────────────────────────────────────
 

@@ -41,7 +41,7 @@ export interface UpdateCorridaStatusDto {
 }
 
 export function useCorridas() {
-  const { apiFetch } = usePlans()
+  const { apiFetch } = useApi()
   const { can } = usePermissions()
 
   // ─── Estado ─────────────────────────────────────────────────────────────────
@@ -88,7 +88,8 @@ export function useCorridas() {
    * Obtener mis corridas (como pasajero)
    */
   async function fetchMyCorridas(): Promise<Corrida[]> {
-    if (!can('corridas:create')) {
+    // Usuarios con corridas:view o corridas:create pueden ver sus propias corridas
+    if (!can('corridas:view') && !can('corridas:create')) {
       throw new Error('No tienes permiso para ver tus corridas')
     }
     loading.value = true
