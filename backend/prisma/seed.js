@@ -101,6 +101,9 @@ const PERMISSIONS = [
   { key: 'exchange_rates:view',      module: 'exchange_rates', action: 'view',          label: 'Ver Tasas de Cambio',         isSystem: true },
   { key: 'exchange_rates:manage',    module: 'exchange_rates', action: 'manage',        label: 'Gestionar Tasas de Cambio',   isSystem: true },
   { key: 'search:view',              module: 'search',         action: 'view',          label: 'Ver Búsqueda' },
+  { key: 'corridas:view',            module: 'corridas',       action: 'view',          label: 'Ver Corridas' },
+  { key: 'corridas:create',          module: 'corridas',       action: 'create',        label: 'Solicitar Corrida' },
+  { key: 'corridas:manage',          module: 'corridas',       action: 'manage',        label: 'Gestionar Corridas (Conductor)' },
 ]
 
 const COMMERCE_KEYS = [
@@ -120,6 +123,7 @@ const COMMERCE_KEYS = [
   'services:view', 'services:create', 'services:edit', 'services:delete',
   'service_requests:view',
   'search:view',
+  'corridas:view', 'corridas:create', 'corridas:manage',
 ]
 
 const ADMIN_KEYS = COMMERCE_KEYS.filter(
@@ -136,8 +140,9 @@ const ROLE_DEFAULTS = {
     ...COMMERCE_KEYS.filter(k => !k.startsWith('employees:') && !k.startsWith('branches:')),
     'catalog:view',
     'service_requests:view',
+    'corridas:view', 'corridas:create',
   ],
-  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view'],
+  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'corridas:create'],
 }
 
 async function seedPermissions() {

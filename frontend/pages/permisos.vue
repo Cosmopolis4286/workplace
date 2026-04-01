@@ -303,6 +303,7 @@ const MODULE_LABELS: Record<string, string> = {
   plans: 'Planes',
   exchange_rates: 'Tasas de Cambio',
   search: 'Búsqueda',
+  corridas: 'Corridas',
 }
 
 // All modules available for permission grouping
