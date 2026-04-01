@@ -37,14 +37,15 @@
             Nuevo permiso
           </button>
           <button
-            @click="loadMatrix"
-            :disabled="loading"
-            class="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            @click="reloadUserPermissions"
+            :disabled="reloadingPerms"
+            class="px-4 py-2 text-sm font-medium border border-green-300 rounded-lg text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+            title="Fuerza recarga de permisos para todos los usuarios (incluyéndote)"
           >
-            <svg class="w-4 h-4 inline mr-1.5" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" :class="{ 'animate-spin': reloadingPerms }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
-            Recargar
+            {{ reloadingPerms ? 'Recargando...' : 'Recargar mis permisos' }}
           </button>
           <button
             @click="saveAll"
@@ -336,6 +337,7 @@ interface PendingChange {
 }
 
 const { getHeaders, refreshAccessToken } = useAuth()
+const { reloadPermissions } = usePermissions()
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 
@@ -348,6 +350,7 @@ const plans = ref<PlanInfo[]>([])
 
 const loading = ref(false)
 const saving = ref(false)
+const reloadingPerms = ref(false)
 const error = ref<string | null>(null)
 const successMsg = ref<string | null>(null)
 
@@ -459,6 +462,20 @@ async function loadPlans() {
     const data = await apiFetch<PlanInfo[]>('/plans?includeInactive=false')
     plans.value = data
   } catch { /* non-critical */ }
+}
+
+async function reloadUserPermissions() {
+  reloadingPerms.value = true
+  error.value = null
+  try {
+    await reloadPermissions()
+    successMsg.value = 'Tus permisos han sido recargados. Los cambios están activos inmediatamente.'
+    setTimeout(() => { successMsg.value = null }, 4000)
+  } catch (e: any) {
+    error.value = e.message || 'Error recargando permisos'
+  } finally {
+    reloadingPerms.value = false
+  }
 }
 
 // ── New permission modal ───────────────────────────────────────────────────
