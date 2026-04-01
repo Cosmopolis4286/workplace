@@ -1,23 +1,62 @@
 import { ref, computed } from 'vue'
 
+// ─── Configuración ────────────────────────────────────────────────────────────
+const CACHE_KEY = 'perm_cache'
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutos en milisegundos
+
 // ─── Singleton global (compartido entre todas las instancias del composable) ──
 
 const permissionKeys = ref<string[]>([])
 const loading = ref(false)
 const initialized = ref(false)
 
+interface CacheEntry {
+  keys: string[]
+  timestamp: number
+}
+
+// ─── Cache helpers ────────────────────────────────────────────────────────────
+
+function isCacheValid(entry: CacheEntry | null): boolean {
+  if (!entry) return false
+  const age = Date.now() - entry.timestamp
+  return age < CACHE_TTL
+}
+
+function getCache(): CacheEntry | null {
+  if (!process.client) return null
+  try {
+    const cached = localStorage.getItem(CACHE_KEY)
+    if (!cached) return null
+    return JSON.parse(cached) as CacheEntry
+  } catch {
+    localStorage.removeItem(CACHE_KEY)
+    return null
+  }
+}
+
+function setCache(keys: string[]): void {
+  if (!process.client) return
+  const entry: CacheEntry = {
+    keys,
+    timestamp: Date.now(),
+  }
+  localStorage.setItem(CACHE_KEY, JSON.stringify(entry))
+}
+
+function clearCache(): void {
+  if (!process.client) return
+  localStorage.removeItem(CACHE_KEY)
+}
+
 // ─── Warm-cache: carga desde localStorage antes del primer fetch ──────────────
 
 function rehydratePermissions(): void {
   if (initialized.value || !process.client) return
-  try {
-    const cached = localStorage.getItem('perm_keys')
-    if (cached) {
-      permissionKeys.value = JSON.parse(cached) as string[]
-      initialized.value = true
-    }
-  } catch {
-    localStorage.removeItem('perm_keys')
+  const cache = getCache()
+  if (isCacheValid(cache)) {
+    permissionKeys.value = cache.keys
+    initialized.value = true
   }
 }
 
@@ -43,15 +82,17 @@ export const usePermissions = () => {
 
   // ── Fetch desde backend ───────────────────────────────────────────────────
 
-  async function fetchPermissions(): Promise<void> {
-    console.log('🔐 Iniciando carga de permisos...')
-    console.log('🔐 Autenticado:', isAuthenticated.value)
-    console.log('🔐 Token:', token.value ? 'Presente' : 'Ausente')
-    
-    if (!isAuthenticated.value || loading.value) {
-      console.log('❌ No se pueden cargar permisos: no autenticado o ya cargando')
-      return
+  async function fetchPermissions(force = false): Promise<void> {
+    if (!isAuthenticated.value || loading.value) return
+
+    // Si no forzamos, verificar si el caché aún es válido
+    if (!force && initialized.value) {
+      const cache = getCache()
+      if (isCacheValid(cache)) {
+        return // Caché válido, no hacer petición
+      }
     }
+
     loading.value = true
     try {
       const doFetch = () =>
@@ -68,24 +109,47 @@ export const usePermissions = () => {
       if (!res.ok) throw new Error('Failed to fetch permissions')
 
       const data = await res.json() as { keys: string[] }
-      console.log('🔑 Permisos cargados:', data.keys)
       permissionKeys.value = data.keys
       initialized.value = true
-
-      if (process.client) {
-        localStorage.setItem('perm_keys', JSON.stringify(data.keys))
-      }
+      setCache(data.keys)
     } catch {
-      // Graceful degradation: localStorage warm cache ya se cargó en rehydrate
+      // Graceful degradation: warm cache ya se cargó en rehydrate
     } finally {
       loading.value = false
     }
   }
 
+  /**
+   * Fuerza la recarga de permisos desde el backend, ignorando caché
+   */
+  async function reloadPermissions(): Promise<void> {
+    clearCache()
+    await fetchPermissions(true) // force = true
+  }
+
+  /**
+   * Verifica si el caché necesita actualización (para UI de "refresh disponible")
+   */
+  function needsRefresh(): boolean {
+    const cache = getCache()
+    return !isCacheValid(cache)
+  }
+
   function clearPermissions(): void {
     permissionKeys.value = []
     initialized.value = false
-    if (process.client) localStorage.removeItem('perm_keys')
+    clearCache()
+  }
+
+  // ── Auto-refresh: verificar cada minuto si el caché expiró ─────────────────
+
+  if (process.client) {
+    setInterval(() => {
+      if (isAuthenticated.value && needsRefresh()) {
+        // Caché expirado, recargar silenciosamente
+        fetchPermissions(true)
+      }
+    }, 60000) // Verificar cada minuto
   }
 
   return {
@@ -95,7 +159,9 @@ export const usePermissions = () => {
     can,
     canAny,
     canAll,
-    fetchPermissions,
+    fetchPermissions: () => fetchPermissions(false),
+    reloadPermissions,
+    needsRefresh,
     clearPermissions,
   }
 }
