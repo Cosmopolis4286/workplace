@@ -427,6 +427,7 @@ const {
 } = useCorridas()
 
 const { user } = useAuth()
+const { reloadPermissions } = usePermissions()
 const role = computed(() => user.value?.role)
 
 // ─── Estado Local ────────────────────────────────────────────────────────────
@@ -630,7 +631,10 @@ async function refreshHistory() {
 }
 
 // ─── Ciclo de Vida ───────────────────────────────────────────────────────────
-onMounted(() => {
+onMounted(async () => {
+  // Recargar permisos desde backend para obtener cambios recientes
+  await reloadPermissions()
+  
   // Determinar tab inicial según permisos
   if (!canRequestCorrida.value && canManageCorridas.value) {
     activeTab.value = 'available'
