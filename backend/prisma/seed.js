@@ -100,6 +100,7 @@ const PERMISSIONS = [
   { key: 'plans:manage',             module: 'plans',         action: 'manage',         label: 'Gestionar Planes',            isSystem: true },
   { key: 'exchange_rates:view',      module: 'exchange_rates', action: 'view',          label: 'Ver Tasas de Cambio',         isSystem: true },
   { key: 'exchange_rates:manage',    module: 'exchange_rates', action: 'manage',        label: 'Gestionar Tasas de Cambio',   isSystem: true },
+  { key: 'search:view',              module: 'search',         action: 'view',          label: 'Ver Búsqueda' },
 ]
 
 const COMMERCE_KEYS = [
@@ -117,14 +118,18 @@ const COMMERCE_KEYS = [
   'settings:view', 'settings:edit',
   'notifications:view',
   'services:view', 'services:create', 'services:edit', 'services:delete',
+  'service_requests:view',
+  'search:view',
 ]
 
 const ADMIN_KEYS = COMMERCE_KEYS.filter(
-  k => !k.startsWith('menu:') && !k.startsWith('inventory:')
+  k => !k.startsWith('menu:') && !k.startsWith('inventory:') && !k.startsWith('services:') && !k.startsWith('service_requests:')
 )
 
 const ROLE_DEFAULTS = {
-  SUPERADMIN: PERMISSIONS.map(p => p.key),
+  SUPERADMIN: PERMISSIONS.map(p => p.key).filter(k =>
+    !k.startsWith('services:') && !k.startsWith('service_requests:')
+  ),
   ADMIN: [...ADMIN_KEYS, 'users:view', 'users:manage', 'plans:view', 'exchange_rates:view'],
   COMMERCE: COMMERCE_KEYS,
   FREELANCER: [
@@ -132,7 +137,7 @@ const ROLE_DEFAULTS = {
     'catalog:view',
     'service_requests:view',
   ],
-  NORMAL: ['catalog:view', 'notifications:view'],
+  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view'],
 }
 
 async function seedPermissions() {
@@ -177,6 +182,100 @@ async function seedPermissions() {
   console.log('\n✨ Permission matrix seeded.')
 }
 
+async function seedPlans() {
+  console.log('\n📦 Seeding plans...\n')
+
+  const plans = [
+    {
+      name: 'Gratis',
+      description: 'Ideal para empezar y probar la plataforma',
+      price: 0,
+      priceAnnual: null,
+      status: 'ACTIVE',
+      isPopular: false,
+      color: '#6b7280',
+      sortOrder: 1,
+      forCommerce: true,
+      forFreelancer: true,
+      maxProducts: 20,
+      maxEmployees: 1,
+      maxBranches: 1,
+      maxOrders: 50,
+      maxStorage: 100,
+      features: ['20 productos', '1 empleado', '1 sucursal', '50 pedidos/mes', 'Soporte por email'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers'],
+    },
+    {
+      name: 'Básico',
+      description: 'Perfecto para pequeños negocios',
+      price: 299,
+      priceAnnual: 2990,
+      status: 'ACTIVE',
+      isPopular: false,
+      color: '#3b82f6',
+      sortOrder: 2,
+      forCommerce: true,
+      forFreelancer: true,
+      maxProducts: 100,
+      maxEmployees: 3,
+      maxBranches: 1,
+      maxOrders: 500,
+      maxStorage: 500,
+      features: ['100 productos', '3 empleados', '1 sucursal', '500 pedidos/mes', 'Soporte prioritario', 'Reportes básicos'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses'],
+    },
+    {
+      name: 'Pro',
+      description: 'Para negocios en crecimiento',
+      price: 599,
+      priceAnnual: 5990,
+      status: 'ACTIVE',
+      isPopular: true,
+      color: '#8b5cf6',
+      sortOrder: 3,
+      forCommerce: true,
+      forFreelancer: true,
+      maxProducts: 500,
+      maxEmployees: 10,
+      maxBranches: 3,
+      maxOrders: 2000,
+      maxStorage: 2000,
+      features: ['500 productos', '10 empleados', '3 sucursales', '2,000 pedidos/mes', 'Soporte 24/7', 'Reportes avanzados', 'Múltiples usuarios', 'API access'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments'],
+    },
+    {
+      name: 'Enterprise',
+      description: 'Solución completa para grandes empresas',
+      price: 1499,
+      priceAnnual: 14990,
+      status: 'ACTIVE',
+      isPopular: false,
+      color: '#f59e0b',
+      sortOrder: 4,
+      forCommerce: true,
+      forFreelancer: true,
+      maxProducts: -1,
+      maxEmployees: -1,
+      maxBranches: -1,
+      maxOrders: -1,
+      maxStorage: 10000,
+      features: ['Productos ilimitados', 'Empleados ilimitados', 'Sucursales ilimitadas', 'Pedidos ilimitados', 'Soporte dedicado', 'Personalización completa', 'SLA garantizado', 'Onboarding personalizado'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'inventory', 'services'],
+    },
+  ]
+
+  for (const plan of plans) {
+    await prisma.plan.upsert({
+      where: { name: plan.name },
+      create: plan,
+      update: plan,
+    })
+    console.log(`  ✅ Plan: ${plan.name} ($${plan.price})`)
+  }
+
+  console.log('\n✨ Plans seeded.')
+}
+
 async function main() {
   console.log('🌱 Seeding demo users...\n')
 
@@ -214,6 +313,7 @@ async function main() {
 
   console.log('\n✨ Seed complete.')
   await seedPermissions()
+  await seedPlans()
 }
 
 main()
