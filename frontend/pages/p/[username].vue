@@ -1091,9 +1091,8 @@ const coverPreview = ref<string | null>(null)
 
 const coverSrc = computed(() => {
   if (coverPreview.value) return coverPreview.value
-  const c = profile.value?.coverImage
-  if (!c) return null
-  return c.startsWith('http') ? c : `${apiUrl}${c}`
+  const { getAssetUrl } = useAssetUrl()
+  return getAssetUrl(profile.value?.coverImage)
 })
 
 async function onCoverFileSelected(event: Event) {
@@ -1124,10 +1123,12 @@ const apiUrl = config.public.apiUrl as string
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function avatarSrc(av: string) {
-  return av.startsWith('http') ? av : `${apiUrl}${av}`
+  const { getAssetUrl } = useAssetUrl()
+  return getAssetUrl(av) ?? ''
 }
 function mediaSrc(url: string) {
-  return url.startsWith('http') ? url : `${apiUrl}${url}`
+  const { getAssetUrl } = useAssetUrl()
+  return getAssetUrl(url) ?? ''
 }
 function formatDate(iso: string) {
   return new Intl.DateTimeFormat('es', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(iso))

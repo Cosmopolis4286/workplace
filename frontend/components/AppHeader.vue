@@ -202,9 +202,8 @@ const userInitials = computed(() => {
 })
 
 const avatarUrl = computed(() => {
-  const av = user.value?.avatar
-  if (!av) return null
-  return av.startsWith('http') ? av : `${apiUrl}${av}`
+  const { getAssetUrl } = useAssetUrl()
+  return getAssetUrl(user.value?.avatar)
 })
 
 const userEmail = computed(() => user.value?.email ?? '')
