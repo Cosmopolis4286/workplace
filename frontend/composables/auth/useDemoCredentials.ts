@@ -1,4 +1,5 @@
 import { ref, computed, onMounted, readonly } from 'vue'
+import { useAlert } from '../useAlert'
 
 /**
  * Tipos de credenciales demo disponibles
@@ -27,6 +28,7 @@ interface DemoCredentialsResponse {
 const credentials = ref<DemoCredential[]>([])
 const isLoading = ref(false)
 const error = ref<string | null>(null)
+const needsSeed = ref(false)
 
 /**
  * Cache de promesa para evitar múltiples llamadas concurrentes
@@ -68,6 +70,7 @@ export const useDemoCredentials = () => {
 
     isLoading.value = true
     error.value = null
+    needsSeed.value = false
 
     loadPromise = (async () => {
       try {
@@ -91,14 +94,30 @@ export const useDemoCredentials = () => {
         /**
          * ⚠️ Manejo de errores robusto
          */
-        error.value =
-          err?.data?.message ||
-          err?.message ||
-          'No se pudieron cargar las credenciales demo'
+        const errorMessage = err?.data?.message || err?.message || ''
 
-        // Opcional: log en dev
-        if (isDev) {
-          console.error('[DemoCredentials]', err)
+        // 🔍 Detectar si el error es porque faltan usuarios demo (seed no ejecutado)
+        if (errorMessage.includes('Demo users not found') || errorMessage.includes('Run: pnpm seed')) {
+          needsSeed.value = true
+          error.value = 'Usuarios demo no encontrados. Ejecuta: pnpm seed'
+
+          // 📝 Log informativo en consola (no error)
+          console.log('[DemoCredentials] ℹ️ Usuarios demo no disponibles. Seed requerido.')
+          console.log('[DemoCredentials] 💡 Ejecuta: docker exec backend-hybrid sh -c "cd /app/backend && npx prisma db seed"')
+
+          // 🔔 Mostrar alerta informativa al usuario
+          const { info } = useAlert()
+          info(
+            'Demo no disponible',
+            'Los usuarios de demostración no están configurados. Ejecuta el seed para usarlos.'
+          )
+        } else {
+          error.value = errorMessage || 'No se pudieron cargar las credenciales demo'
+
+          // Error genérico sí se loguea como error
+          if (isDev) {
+            console.error('[DemoCredentials] ❌', err)
+          }
         }
       } finally {
         isLoading.value = false
@@ -133,6 +152,7 @@ export const useDemoCredentials = () => {
     credentials: readonly(credentials),
     isLoading: readonly(isLoading),
     error: readonly(error),
+    needsSeed: readonly(needsSeed),
 
     /**
      * Estados derivados
