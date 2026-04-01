@@ -127,12 +127,12 @@ const COMMERCE_KEYS = [
 ]
 
 const ADMIN_KEYS = COMMERCE_KEYS.filter(
-  k => !k.startsWith('menu:') && !k.startsWith('inventory:') && !k.startsWith('services:') && !k.startsWith('service_requests:')
+  k => !k.startsWith('menu:') && !k.startsWith('inventory:') && !k.startsWith('services:') && !k.startsWith('service_requests:') && !k.startsWith('orders:')
 )
 
 const ROLE_DEFAULTS = {
   SUPERADMIN: PERMISSIONS.map(p => p.key).filter(k =>
-    !k.startsWith('services:') && !k.startsWith('service_requests:')
+    !k.startsWith('services:') && !k.startsWith('service_requests:') && !k.startsWith('orders:')
   ),
   ADMIN: [...ADMIN_KEYS, 'users:view', 'users:manage', 'plans:view', 'exchange_rates:view'],
   COMMERCE: COMMERCE_KEYS,
@@ -142,7 +142,7 @@ const ROLE_DEFAULTS = {
     'service_requests:view',
     'corridas:view', 'corridas:create',
   ],
-  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'corridas:create'],
+  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'dashboard:view', 'corridas:view', 'corridas:create'],
 }
 
 async function seedPermissions() {
