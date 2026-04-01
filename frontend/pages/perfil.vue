@@ -493,9 +493,8 @@ const isCommerce = computed(() => auth.user.value?.role === 'COMMERCE')
 
 const avatarUrl = computed(() => {
   if (avatarPreview.value) return avatarPreview.value
-  const av = auth.user.value?.avatar
-  if (!av) return null
-  return av.startsWith('http') ? av : `${apiUrl}${av}`
+  const { getAssetUrl } = useAssetUrl()
+  return getAssetUrl(auth.user.value?.avatar)
 })
 
 // Track dirty state to enable/disable Save button
