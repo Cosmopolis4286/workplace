@@ -16,9 +16,9 @@ const commerceRoutes: string[] = [
   '/agendamientos', '/clientes', '/delivery', '/pedidos', '/cliente-dashboard',
 ]
 
-// Routes available to NORMAL, FREELANCER, and COMMERCE (service requests)
-// Backend: NORMAL has service_requests:view
-const serviceRequestRoutes: string[] = ['/solicitudes-servicio']
+// Routes available to NORMAL, FREELANCER, and COMMERCE (service requests and corridas)
+// Backend: NORMAL has service_requests:view and corridas:create
+const serviceRequestRoutes: string[] = ['/solicitudes-servicio', '/corridas']
 
 // Routes only for COMMERCE and above (not FREELANCER)
 const empresaRoutes: string[] = ['/empleados', '/sucursales']
