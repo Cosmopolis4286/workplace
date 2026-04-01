@@ -6,12 +6,19 @@ type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 // Routes only accessible to SUPERADMIN or ADMIN
 const adminOnlyRoutes: string[] = ['/usuarios', '/permisos', '/auditoria', '/logs', '/planes', '/tasas-cambio']
 
-// Routes accessible by COMMERCE, ADMIN, SUPERADMIN AND FREELANCER (all except empresa)
+// Routes accessible by COMMERCE and FREELANCER only (NOT SuperAdmin/Admin)
+// Based on backend permissions: menu:*, inventory:*, services:* require commerce/freelancer role
+const commerceOnlyRoutes: string[] = ['/menu', '/inventario', '/servicios']
+
+// Routes accessible by COMMERCE, ADMIN, SUPERADMIN AND FREELANCER (all except Normal)
 const commerceRoutes: string[] = [
-  '/menu', '/inventario', '/gastos', '/ventas', '/analytics', '/reportes',
+  '/gastos', '/ventas', '/analytics', '/reportes',
   '/agendamientos', '/clientes', '/delivery', '/pedidos', '/cliente-dashboard',
-  '/servicios',
 ]
+
+// Routes available to NORMAL, FREELANCER, and COMMERCE (service requests)
+// Backend: NORMAL has service_requests:view
+const serviceRequestRoutes: string[] = ['/solicitudes-servicio']
 
 // Routes only for COMMERCE and above (not FREELANCER)
 const empresaRoutes: string[] = ['/empleados', '/sucursales']
@@ -22,8 +29,10 @@ const searchRoutes: string[] = ['/search']
 const protectedRoutes: string[] = [
   '/dashboard', '/perfil', '/configuracion', '/mi-plan',
   ...adminOnlyRoutes,
+  ...commerceOnlyRoutes,
   ...commerceRoutes,
   ...empresaRoutes,
+  ...serviceRequestRoutes,
   ...searchRoutes,
 ]
 
@@ -34,6 +43,10 @@ const COMMERCE_ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE']
 const FREELANCER_COMMERCE_ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER']
 const ADMIN_ROLES: Role[] = ['SUPERADMIN', 'ADMIN']
 const NORMAL_ROLES: Role[] = ['NORMAL', 'FREELANCER']
+// Roles that can access commerce-only routes (menu, inventory, services) - NOT SuperAdmin/Admin
+const COMMERCE_FREELANCER_ONLY: Role[] = ['COMMERCE', 'FREELANCER']
+// Roles that can access service requests (includes NORMAL)
+const SERVICE_REQUEST_ROLES: Role[] = ['COMMERCE', 'FREELANCER', 'NORMAL']
 
 export default defineNuxtRouteMiddleware((to: any) => {
   if (process.server) return
@@ -54,6 +67,16 @@ export default defineNuxtRouteMiddleware((to: any) => {
 
     if (adminOnlyRoutes.some(r => to.path.startsWith(r)) && !ADMIN_ROLES.includes(role)) {
       return navigateTo(NORMAL_ROLES.includes(role) ? '/search' : '/dashboard')
+    }
+
+    // Routes only for COMMERCE and FREELANCER (NOT SuperAdmin/Admin) - menu, inventory, services
+    if (commerceOnlyRoutes.some(r => to.path.startsWith(r)) && !COMMERCE_FREELANCER_ONLY.includes(role)) {
+      return navigateTo(role === 'NORMAL' ? '/search' : '/dashboard')
+    }
+
+    // Service requests available to COMMERCE, FREELANCER, and NORMAL
+    if (serviceRequestRoutes.some(r => to.path.startsWith(r)) && !SERVICE_REQUEST_ROLES.includes(role)) {
+      return navigateTo(ADMIN_ROLES.includes(role) ? '/dashboard' : '/search')
     }
 
     if (commerceRoutes.some(r => to.path.startsWith(r)) && !FREELANCER_COMMERCE_ROLES.includes(role)) {
