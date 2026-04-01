@@ -47,6 +47,7 @@ model User {
   catalogOrders    CatalogOrder[]
   serviceRequests  ServiceRequest[]
   notifications    Notification[]
+  userPermissions  UserPermission[]
 
   @@map("users")
 }
@@ -707,6 +708,7 @@ model Permission {
   createdAt   DateTime @default(now())
 
   rolePermissions RolePermission[]
+  userPermissions UserPermission[]
 
   @@unique([module, action])
   @@map("permissions")
@@ -723,6 +725,25 @@ model RolePermission {
 
   @@unique([role, permissionId])
   @@map("role_permissions")
+}
+
+// Permisos individuales por usuario (sobrescriben los del rol)
+model UserPermission {
+  id           String     @id @default(uuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  granted      Boolean    @default(true) // true = concedido, false = denegado explícitamente
+  reason       String?    // Razón de la asignación especial
+  expiresAt    DateTime?  // Expiración opcional
+  updatedAt    DateTime   @updatedAt
+  updatedBy    String?
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([permissionId])
+  @@map("user_permissions")
 }
 
 // ─── Audit & Logs ─────────────────────────────────────────────────────────────
