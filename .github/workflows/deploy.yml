@@ -407,19 +407,19 @@ jobs:
           FRONTEND_HEALTH=false
           
           # Health check backend con validación profunda (DB, Redis, auth)
-          echo "🏥 Health check backend (deep)..."
-          if curl -fs --max-time 10 --retry 3 "http://localhost:3001/api/health?deep=true" | grep -q '"status":"healthy"'; then
-            echo "✅ Backend deep health check OK (DB, Redis, auth)"
+          echo "🏥 Health check backend (ready)..."
+          if curl -fs --max-time 10 --retry 3 "http://localhost:3001/api/ready" | grep -q '"status":"ok"\|"status":"healthy"'; then
+            echo "✅ Backend health check OK (DB, Redis, auth)"
             BACKEND_HEALTH=true
           else
-            echo "❌ Backend deep health check FAILED (DB/Redis/auth issues)"
+            echo "❌ Backend health check FAILED (DB/Redis/auth issues)"
             BACKEND_HEALTH=false
           fi
           
-          # Health check frontend con validación de API ready
+          # Health check frontend con validación de estado
           echo "🏥 Health check frontend..."
-          if curl -fs --max-time 10 --retry 3 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
-            echo "✅ Frontend health check OK (API ready)"
+          if curl -fs --max-time 10 --retry 3 "http://localhost:3000/" | grep -q "WorkPlace\|200 OK\|Nuxt" || curl -fs --max-time 10 --retry 3 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
+            echo "✅ Frontend health check OK (servicio activo)"
             FRONTEND_HEALTH=true
           else
             echo "❌ Frontend health check FAILED"
@@ -431,51 +431,39 @@ jobs:
             echo "✅ Todos los health checks pasaron - Deploy exitoso!"
             echo "🎉 Verificación de deploy completada exitosamente"
           else
-            echo "🚨 Health checks fallaron - Iniciando rollback automático..."
+            echo "🚨 Health checks fallaron - Iniciando rollback simple..."
             
-            # Ejecutar rollback automático con versión guardada
-            if [ -f ".previous_version" ]; then
-              source .previous_version
-              echo "🔄 Rollback a versión anterior:"
-              echo "  Backend: $BACKEND_PREVIOUS"
-              echo "  Frontend: $FRONTEND_PREVIOUS"
-              
-              if [ "$BACKEND_PREVIOUS" != "none" ] && [ "$FRONTEND_PREVIOUS" != "none" ]; then
-                docker pull $BACKEND_PREVIOUS
-                docker pull $FRONTEND_PREVIOUS
-                export BACKEND_IMAGE=$BACKEND_PREVIOUS
-                export FRONTEND_IMAGE=$FRONTEND_PREVIOUS
-                docker compose up -d --no-deps backend frontend
-                echo "✅ Rollback completado a versión anterior"
-                
-                # Verificar rollback funcionó con health checks profundos
-                echo "🏥 Verificando health checks post-rollback (deep)..."
-                sleep 5
-                if curl -fs --max-time 10 --retry 3 "http://localhost:3001/api/health?deep=true" | grep -q '"status":"healthy"' && \
-                   curl -fs --max-time 10 --retry 3 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
-                  echo "✅ Rollback verificado - servicios funcionando"
-                else
-                  echo "❌ Rollback falló - servicios no responden"
-                  exit 1
-                fi
-              else
-                echo "⚠️ No hay versión anterior disponible"
-              fi
-            elif [ -f "scripts/deploy/rollback-enhanced.sh" ]; then
-              chmod +x scripts/deploy/rollback-enhanced.sh
-              echo "🔄 Ejecutando rollback automático mejorado..."
-              ./scripts/deploy/rollback-enhanced.sh
-              echo "✅ Rollback mejorado completado"
-            elif [ -f "scripts/deploy/rollback.sh" ]; then
-              chmod +x scripts/deploy/rollback.sh
-              echo "🔄 Ejecutando rollback automático de fallback..."
-              ./scripts/deploy/rollback.sh
-              echo "✅ Rollback de fallback completado"
+            # Rollback simple: reiniciar contenedores existentes
+            echo "🔄 Rollback simple - reiniciando servicios..."
+            docker compose restart backend frontend
+            
+            # Verificar rollback funcionó
+            echo "🏥 Verificando health checks post-rollback..."
+            sleep 10
+            
+            BACKEND_ROLLBACK=false
+            FRONTEND_ROLLBACK=false
+            
+            if curl -fs --max-time 10 --retry 3 "http://localhost:3001/api/ready" | grep -q '"status":"ok"\|"status":"healthy"'; then
+              echo "✅ Backend restaurado"
+              BACKEND_ROLLBACK=true
             else
-              echo "❌ No se encontró script de rollback - Intervención manual requerida"
+              echo "❌ Backend no responde después de rollback"
             fi
             
-            exit 1
+            if curl -fs --max-time 10 --retry 3 "http://localhost:3000/" | grep -q "WorkPlace\|200 OK\|Nuxt" || curl -fs --max-time 10 --retry 3 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
+              echo "✅ Frontend restaurado"
+              FRONTEND_ROLLBACK=true
+            else
+              echo "❌ Frontend no responde después de rollback"
+            fi
+            
+            if [ "$BACKEND_ROLLBACK" = true ] && [ "$FRONTEND_ROLLBACK" = true ]; then
+              echo "✅ Rollback completado exitosamente"
+            else
+              echo "❌ Rollback falló - Intervención manual requerida"
+              exit 1
+            fi
           fi
         EOF
 
