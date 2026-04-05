@@ -159,7 +159,7 @@ jobs:
         ./scripts/ci/run-e2e-optimized.sh
 
     - name: Subir Resultados de Tests E2E
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         name: playwright-report
