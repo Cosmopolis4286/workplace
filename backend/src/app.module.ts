@@ -31,11 +31,7 @@ import { HealthModule } from './health/health.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ScheduleModule.forRoot({
-      useFactory: () => ({
-        timezone: process.env.TZ || 'UTC',
-      }),
-    }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
