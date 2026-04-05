@@ -119,7 +119,7 @@ jobs:
     - name: Upload coverage reports
       uses: codecov/codecov-action@v5
       with:
-        file: ./backend/coverage/lcov.info
+        files: ./backend/coverage/lcov.info
         flags: pr-tests
         name: pr-coverage
 

@@ -45,10 +45,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Node.js and pnpm
-      uses: ./.github/workflows/scripts/setup-node-pnpm.yml
+      uses: ./.github/actions/setup-node-pnpm.yml
 
     - name: Run Backend Tests with Coverage
       run: |
@@ -92,7 +92,7 @@ jobs:
         echo "✅ All coverage requirements met!"
 
     - name: Upload Coverage Reports
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
         flags: unittests
