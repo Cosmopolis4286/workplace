@@ -243,8 +243,13 @@ jobs:
           
           # Guardar versión actual antes del deploy
           echo "📦 Guardando versión actual..."
-          PREVIOUS_BACKEND=$(docker inspect --format='{{.Config.Image}}' backend 2>/dev/null || echo "none")
-          PREVIOUS_FRONTEND=$(docker inspect --format='{{.Config.Image}}' frontend 2>/dev/null || echo "none")
+          
+          # Buscar contenedores backend (por nombre o imagen)
+          BACKEND_CONTAINER=$(docker ps -a --format '{{.Names}}:{{.Image}}' | grep -E "(backend|workplace.*backend)" | head -1 | cut -d: -f1)
+          FRONTEND_CONTAINER=$(docker ps -a --format '{{.Names}}:{{.Image}}' | grep -E "(frontend|workplace.*frontend)" | head -1 | cut -d: -f1)
+          
+          PREVIOUS_BACKEND=$(docker inspect --format='{{.Config.Image}}' $BACKEND_CONTAINER 2>/dev/null || echo "none")
+          PREVIOUS_FRONTEND=$(docker inspect --format='{{.Config.Image}}' $FRONTEND_CONTAINER 2>/dev/null || echo "none")
           
           echo "BACKEND_PREVIOUS=$PREVIOUS_BACKEND" > .previous_version
           echo "FRONTEND_PREVIOUS=$PREVIOUS_FRONTEND" >> .previous_version
