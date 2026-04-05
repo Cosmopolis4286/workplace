@@ -72,7 +72,7 @@ function setup_canary_service() {
   
   docker run -d \
     --name workplace_backend_canary \
-    --network workplace_app_network \
+    --network workplace_private_network \
     --restart unless-stopped \
     --memory 512m \
     --cpus 0.5 \
@@ -96,14 +96,6 @@ function setup_canary_service() {
     --health-timeout=10s \
     --health-retries=3 \
     --health-start-period=40s \
-    --label "traefik.enable=true" \
-    --label "traefik.http.routers.backend-canary.rule=HostRegexp(\`${DOMAIN:-localhost}\`, \`www.${DOMAIN:-localhost}\`) && PathPrefix(\`/api\`) && Headers(\`X-Canary-Test\`, \`true\`)" \
-    --label "traefik.http.routers.backend-canary.entrypoints=websecure" \
-    --label "traefik.http.routers.backend-canary.tls=true" \
-    --label "traefik.http.routers.backend-canary.tls.certresolver=letsencrypt" \
-    --label "traefik.http.routers.backend-canary.priority=90" \
-    --label "traefik.http.services.backend-canary.loadbalancer.server.port=${NODE_PORT:-3001}" \
-    --label "traefik.http.routers.backend-canary.middlewares=security-headers@file,cors-api@file,rate-limit@file" \
     ${BACKEND_IMAGE}
   
   # Esperar que canary esté healthy
@@ -120,45 +112,6 @@ function setup_canary_service() {
   fi
   
   log_canary "✅ Canary está healthy"
-}
-
-function configure_traefik_middleware() {
-  log_canary "🌐 Configurando middleware de Traefik para traffic split..."
-  
-  # Crear middleware para traffic split basado en headers
-  cat > /opt/workplace/traefik/dynamic/canary-middleware.yml << EOF
-# Canary Traffic Split Middleware
-http:
-  middlewares:
-    canary-traffic-split:
-      plugin:
-        # Si existe plugin de traffic splitting o usar chain middleware
-        chain:
-          middlewares:
-            - canary-rate-limit
-            - canary-headers
-    
-    canary-rate-limit:
-      rateLimit:
-        average: 100
-        burst: 50
-        period: "1m"
-    
-    canary-headers:
-      headers:
-        customRequestHeaders:
-          X-Canary-Request: "true"
-EOF
-  
-  # Recargar configuración de Traefik
-  log_canary "🔄 Recargando configuración de Traefik..."
-  if docker restart traefik; then
-    log_canary "✅ Traefik recargado exitosamente"
-    sleep 5  # Esperar que Traefik se inicie completamente
-  else
-    log_canary "❌ Error recargando Traefik"
-    return 1
-  fi
 }
 
 function monitor_canary_metrics() {
@@ -182,20 +135,18 @@ function monitor_canary_metrics() {
     for i in {1..10}; do
       local START_REQ=$(date +%s%N)
       
-      # 10% de requests con header canary, 90% normal
+      # 10% de requests al canary via docker exec, 90% normal
       if [ $((i % 10)) -eq 1 ]; then
-        # Request a canary (con header especial)
-        local RESPONSE=$(curl -s -w "%{http_code},%{time_total}" \
+        # Request a canary (via docker exec - testing interno)
+        local RESPONSE=$(docker exec workplace_backend_canary curl -s -w "%{http_code},%{time_total}" \
           --max-time 5 \
-          -H "X-Canary-Test: true" \
-          -H "X-Canary-Request: true" \
-          https://${DOMAIN:-localhost}/api/ready 2>/dev/null || echo "000,0.000")
+          http://localhost:${NODE_PORT:-3001}/api/ready 2>/dev/null || echo "000,0.000")
         CANARY_REQUESTS=$((CANARY_REQUESTS + 1))
         if [[ "$RESPONSE" != *"200"* ]]; then
           CANARY_ERRORS=$((CANARY_ERRORS + 1))
         fi
       else
-        # Request normal (al principal)
+        # Request normal (al principal via Traefik)
         local RESPONSE=$(curl -s -w "%{http_code},%{time_total}" \
           --max-time 5 \
           https://${DOMAIN:-localhost}/api/ready 2>/dev/null || echo "000,0.000")
@@ -401,13 +352,6 @@ function promote_canary_to_main() {
     return 1
   fi
   
-  # Limpiar configuración canary de Traefik
-  log_canary "🧹 Limpiando configuración canary de Traefik..."
-  rm -f /opt/workplace/traefik/dynamic/canary-middleware.yml
-  
-  # Recargar Traefik
-  docker restart traefik
-  
   # Limpiar contenedor temporal
   docker rm -f workplace_backend_temp 2>/dev/null || true
   
@@ -420,13 +364,7 @@ function rollback_canary() {
   # Detener canary
   docker rm -f workplace_backend_canary 2>/dev/null || true
   
-  # Limpiar configuración canary de Traefik
-  rm -f /opt/workplace/traefik/dynamic/canary-middleware.yml
-  
-  # Recargar Traefik
-  docker restart traefik
-  
-  log_canary "✅ Canary rollback completado - traffic split removido"
+  log_canary "✅ Canary rollback completado - contenedor canary removido"
 }
 
 # Ejecución principal
@@ -439,27 +377,20 @@ log_canary "🚀 Iniciando Canary Real con Traefik..."
 
 # 1. Setup del canary
 if setup_canary_service; then
-  # 2. Configurar middleware de Traefik
-  if configure_traefik_middleware; then
-    # 3. Monitorear por el tiempo definido
-    if monitor_canary_metrics; then
-      # 4. Promocionar a main si fue exitoso
-      if promote_canary_to_main; then
-        log_canary "🎉 Canary Real completado exitosamente - 100% tráfico al nuevo backend"
-        exit 0
-      else
-        log_canary "❌ Error promocionando canary - haciendo rollback"
-        rollback_canary
-        exit 1
-      fi
+  # 2. Monitorear por el tiempo definido
+  if monitor_canary_metrics; then
+    # 3. Promocionar a main si fue exitoso
+    if promote_canary_to_main; then
+      log_canary "🎉 Canary Real completado exitosamente - 100% tráfico al nuevo backend"
+      exit 0
     else
-      log_canary "❌ Métricas del canary fallaron - haciendo rollback"
+      log_canary "❌ Error promocionando canary - haciendo rollback"
       rollback_canary
       exit 1
     fi
   else
-    log_canary "❌ Error configurando middleware de Traefik - limpiando"
-    docker rm -f workplace_backend_canary 2>/dev/null || true
+    log_canary "❌ Métricas del canary fallaron - haciendo rollback"
+    rollback_canary
     exit 1
   fi
 else
