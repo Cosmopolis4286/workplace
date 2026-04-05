@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CreatePermissionDto } from './dto/create-permission.dto';
+import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
