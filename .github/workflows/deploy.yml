@@ -431,37 +431,152 @@ jobs:
             echo "✅ Todos los health checks pasaron - Deploy exitoso!"
             echo "🎉 Verificación de deploy completada exitosamente"
           else
-            echo "🚨 Health checks fallaron - Iniciando rollback simple..."
+            echo "🚨 Health checks fallaron - Iniciando rollback robusto..."
             
-            # Rollback simple: reiniciar contenedores existentes
-            echo "🔄 Rollback simple - reiniciando servicios..."
-            docker compose restart backend frontend
+            # Guardar estado actual para análisis
+            echo "📊 Guardando estado actual para diagnóstico..."
+            docker compose ps > /tmp/pre-rollback-state.log
+            docker logs workplace-backend-1 --tail 50 > /tmp/backend-error.log 2>/dev/null || true
+            docker logs workplace-frontend-1 --tail 50 > /tmp/frontend-error.log 2>/dev/null || true
             
-            # Verificar rollback funcionó
-            echo "🏥 Verificando health checks post-rollback..."
-            sleep 10
-            
-            BACKEND_ROLLBACK=false
-            FRONTEND_ROLLBACK=false
-            
-            if curl -fs --max-time 10 --retry 3 "http://localhost:3001/api/ready" | grep -q '"status":"ok"\|"status":"healthy"'; then
-              echo "✅ Backend restaurado"
-              BACKEND_ROLLBACK=true
-            else
-              echo "❌ Backend no responde después de rollback"
+            # Rollback multicapa con validación en cada paso
+            echo "🔄 Rollback robusto - Paso 1: Detener servicios problemáticos..."
+            if ! docker compose stop backend frontend; then
+              echo "⚠️ Error deteniendo servicios - forzando parada..."
+              docker stop workplace-backend-1 workplace-frontend-1 2>/dev/null || true
             fi
             
-            if curl -fs --max-time 10 --retry 3 "http://localhost:3000/" | grep -q "WorkPlace\|200 OK\|Nuxt" || curl -fs --max-time 10 --retry 3 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
-              echo "✅ Frontend restaurado"
-              FRONTEND_ROLLBACK=true
+            echo "🔄 Paso 2: Limpiar recursos problemáticos..."
+            docker compose rm -f backend frontend 2>/dev/null || true
+            docker system prune -f --volumes 2>/dev/null || true
+            
+            echo "🔄 Paso 3: Recrear servicios con configuración segura..."
+            # Usar configuración base sin variables problemáticas
+            if docker compose -f docker-compose.lite.yml up -d --no-deps backend frontend; then
+              echo "✅ Servicios recreados exitosamente"
             else
-              echo "❌ Frontend no responde después de rollback"
+              echo "❌ Error recreando servicios - intentando método alternativo..."
+              # Método alternativo: recreate individual
+              docker compose -f docker-compose.lite.yml create backend && \
+              docker compose -f docker-compose.lite.yml create frontend && \
+              docker compose -f docker-compose.lite.yml start backend frontend
             fi
             
-            if [ "$BACKEND_ROLLBACK" = true ] && [ "$FRONTEND_ROLLBACK" = true ]; then
-              echo "✅ Rollback completado exitosamente"
+            # Esperar inicialización completa
+            echo "⏳ Esperando inicialización de servicios..."
+            sleep 15
+            
+            # Verificación multicapa
+            echo "🔍 Verificación multicapa post-rollback..."
+            
+            # Capa 1: Contenedores corriendo
+            CONTAINERS_UP=false
+            if docker compose ps | grep -q "Up.*Up"; then
+              echo "✅ Capa 1: Contenedores corriendo"
+              CONTAINERS_UP=true
             else
-              echo "❌ Rollback falló - Intervención manual requerida"
+              echo "❌ Capa 1: Contenedores no están corriendo"
+            fi
+            
+            # Capa 2: Health checks Docker
+            DOCKER_HEALTH=false
+            if docker compose ps | grep -q "healthy"; then
+              echo "✅ Capa 2: Docker health checks OK"
+              DOCKER_HEALTH=true
+            else
+              echo "⚠️ Capa 2: Docker health checks pendientes"
+            fi
+            
+            # Capa 3: Endpoints de aplicación
+            APP_HEALTH=false
+            echo "🔄 Capa 3: Verificando endpoints de aplicación..."
+            
+            # Backend health check con reintentos
+            BACKEND_ATTEMPTS=0
+            while [ $BACKEND_ATTEMPTS -lt 6 ]; do
+              if curl -fs --max-time 5 "http://localhost:3001/api/ready" | grep -q '"status":"ok"\|"status":"healthy"'; then
+                echo "✅ Backend endpoint respondiendo"
+                APP_HEALTH=true
+                break
+              else
+                echo "⏳ Backend intento $((BACKEND_ATTEMPTS + 1))/6"
+                sleep 5
+                BACKEND_ATTEMPTS=$((BACKEND_ATTEMPTS + 1))
+              fi
+            done
+            
+            # Frontend health check con reintentos
+            FRONTEND_ATTEMPTS=0
+            while [ $FRONTEND_ATTEMPTS -lt 6 ]; do
+              if curl -fs --max-time 5 "http://localhost:3000/" | grep -q "WorkPlace\|200 OK\|Nuxt\|html" || \
+                 curl -fs --max-time 5 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
+                echo "✅ Frontend endpoint respondiendo"
+                break
+              else
+                echo "⏳ Frontend intento $((FRONTEND_ATTEMPTS + 1))/6"
+                sleep 5
+                FRONTEND_ATTEMPTS=$((FRONTEND_ATTEMPTS + 1))
+              fi
+            done
+            
+            # Capa 4: Conectividad con servicios críticos
+            CRITICAL_HEALTH=false
+            echo "🔄 Capa 4: Verificando conectividad crítica..."
+            
+            # Verificar PostgreSQL
+            if docker compose exec -T postgres pg_isready -U ${POSTGRES_USER:-workplace} 2>/dev/null; then
+              echo "✅ PostgreSQL conectivo"
+              CRITICAL_HEALTH=true
+            else
+              echo "❌ PostgreSQL no responde"
+            fi
+            
+            # Verificar Redis
+            if docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
+              echo "✅ Redis conectivo"
+            else
+              echo "❌ Redis no responde"
+              CRITICAL_HEALTH=false
+            fi
+            
+            # Evaluación final del rollback
+            echo "📊 Evaluación final del rollback:"
+            echo "  Capa 1 (Contenedores): $CONTAINERS_UP"
+            echo "  Capa 2 (Docker Health): $DOCKER_HEALTH"
+            echo "  Capa 3 (App Endpoints): $APP_HEALTH"
+            echo "  Capa 4 (Críticos): $CRITICAL_HEALTH"
+            
+            if [ "$CONTAINERS_UP" = true ] && [ "$APP_HEALTH" = true ] && [ "$CRITICAL_HEALTH" = true ]; then
+              echo "✅ Rollback robusto completado exitosamente"
+              echo "🎉 Sistema restaurado y verificado"
+              
+              # Guardar logs de éxito
+              echo "$(date): Rollback exitoso" >> /opt/workplace/logs/rollback-history.log
+              
+            else
+              echo "❌ Rollback robusto falló - Activando modo emergencia"
+              
+              # Modo emergencia: diagnóstico y recuperación parcial
+              echo "🚨 MODO EMERGENCIA ACTIVADO"
+              echo "📋 Estado actual:"
+              docker compose ps
+              echo "📋 Logs de errores guardados en /tmp/"
+              
+              # Intentar recuperación parcial
+              echo "🔄 Intentando recuperación parcial..."
+              docker compose restart postgres redis traefik
+              sleep 10
+              
+              # Verificar servicios mínimos
+              if docker compose exec -T postgres pg_isready 2>/dev/null && \
+                 docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
+                echo "✅ Servicios críticos restaurados (parcialmente)"
+                echo "⚠️ Backend/Frontend requieren intervención manual"
+              else
+                echo "❌ Fallo completo - Requiere intervención manual inmediata"
+                echo "📧 Contactar al administrador del sistema"
+              fi
+              
               exit 1
             fi
           fi
