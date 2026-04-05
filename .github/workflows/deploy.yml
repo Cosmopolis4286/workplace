@@ -399,7 +399,7 @@ jobs:
           cd /opt/workplace
           
           echo "🔍 Verificación post-deploy..."
-          docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" || docker compose ps
+          docker compose ps
           
           # Health checks con rollback automático
           echo "🏥 Health checks:"
