@@ -260,18 +260,35 @@ jobs:
 
     - name: Deploy de Infraestructura (Shell - lógica compleja)
       run: |
-        # Crear archivo .env temporal localmente y copiarlo al servidor
+        # Crear archivo .env.deploy con imágenes nuevas pero manteniendo variables del servidor
         cat > /tmp/deploy.env << ENVEOF
         BACKEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
         FRONTEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
         CURRENT_SHA=${{ github.sha }}
-        POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-        POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-        POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
         ENVEOF
         
-        scp /tmp/deploy.env ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/.env.deploy
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
+          
+          # Combinar variables existentes con nuevas imágenes
+          if [ -f ".env" ]; then
+            echo "📋 Usando variables existentes del .env del servidor"
+            # Copiar .env existente como base
+            cp .env .env.deploy
+            
+            # Reemplazar solo las variables de imágenes
+            sed -i '/^BACKEND_IMAGE=/d' .env.deploy
+            sed -i '/^FRONTEND_IMAGE=/d' .env.deploy
+            sed -i '/^CURRENT_SHA=/d' .env.deploy
+          else
+            echo "⚠️ No hay .env existente, creando archivo mínimo"
+            touch .env.deploy
+          fi
+        EOF
+        
+        # Agregar variables de imágenes al .env.deploy
+        cat /tmp/deploy.env | ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} 'cat >> /opt/workplace/.env.deploy'
         rm -f /tmp/deploy.env
         
         # Generar y copiar checksum del script canary (supply-chain security)
