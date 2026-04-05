@@ -85,9 +85,22 @@ jobs:
           mkdir -p /opt/workplace/versions
           mkdir -p /opt/workplace/backups/versions
           
-          # Obtener información de contenedores actuales
-          BACKEND_IMAGE=$(docker compose ps -q backend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
-          FRONTEND_IMAGE=$(docker compose ps -q frontend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
+          # Obtener información de contenedores actuales (manejar primer deploy)
+          echo "🔍 Detectando estado actual..."
+          
+          # Verificar si hay contenedores corriendo
+          if docker compose ps --format "table {{.Name}}" | grep -q "workplace"; then
+            echo "📦 Contenedores detectados - extrayendo imágenes..."
+            BACKEND_IMAGE=$(docker compose ps -q backend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
+            FRONTEND_IMAGE=$(docker compose ps -q frontend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
+            DEPLOY_STATUS="running"
+          else
+            echo "🚀 Primer deploy detectado - no hay contenedores corriendo"
+            BACKEND_IMAGE="none"
+            FRONTEND_IMAGE="none"
+            DEPLOY_STATUS="first-deploy"
+          fi
+          
           CURRENT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
           
           echo "📦 Imágenes actuales:"
