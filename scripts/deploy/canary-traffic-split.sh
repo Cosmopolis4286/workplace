@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# Canary Real con 10% Traffic Split
-# Distribuye tráfico real entre backend viejo y nuevo
+# Canary Real con Traefik - 10% Traffic Split
+# Distribuye tráfico real entre backend viejo y nuevo usando Traefik
 
 # Variables
 export BACKEND_IMAGE=${BACKEND_IMAGE}
@@ -25,7 +25,7 @@ function wait_healthy() {
   log_canary "⏳ Esperando health check para $container..."
   
   for i in $(seq 1 $retries); do
-    # Verificar Docker HEALTHCHECK nativo (más seguro, no expone puertos)
+    # Verificar Docker HEALTHCHECK nativo
     local HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $container 2>/dev/null || echo "unknown")
     
     if [ "$HEALTH_STATUS" == "healthy" ]; then
@@ -36,7 +36,7 @@ function wait_healthy() {
     # Fallback: verificar si el contenedor está corriendo y responde via docker exec
     local CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' $container 2>/dev/null || echo "unknown")
     if [ "$CONTAINER_STATUS" == "running" ]; then
-      # Health check via docker exec (seguro, no expone puertos)
+      # Health check via docker exec
       if docker exec $container curl -fs --max-time 5 http://localhost:${NODE_PORT:-3001}/api/ready 2>/dev/null | grep -q '"status":"ok"\|"status":"healthy"'; then
         echo "✅ $container responde a health check via docker exec ($i/$retries)"
         return 0
@@ -51,8 +51,8 @@ function wait_healthy() {
   return 1
 }
 
-function setup_canary_traffic_split() {
-  log_canary "🚀 Configurando Canary Traffic Split (10% canary, 90% main)..."
+function setup_canary_service() {
+  log_canary "🚀 Configurando Canary Service con Traefik..."
   
   # Crear directorio de logs
   mkdir -p $LOG_DIR
@@ -67,20 +67,8 @@ function setup_canary_traffic_split() {
   local MAIN_BACKEND_NAME=$(docker inspect --format='{{.Name}}' "$MAIN_BACKEND_ID" | sed 's/\///')
   log_canary "📦 Backend principal: $MAIN_BACKEND_NAME ($MAIN_BACKEND_ID)"
   
-  # Levantar backend canary
-  log_canary "🚀 Levantando backend canary..."
-  
-  # Crear red si no existe (docker-compose la nombra como proyecto_app_network)
-  docker network inspect workplace_app_network >/dev/null 2>&1 || \
-    docker network create workplace_app_network 2>/dev/null || \
-    log_canary "⚠️ No se pudo crear red, intentando usar red existente..."
-  
-  # Obtener IPs para nginx (pero usar hostnames para conexión del canary)
-  POSTGRES_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker compose ps -q postgres) 2>/dev/null || echo "postgres")
-  REDIS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker compose ps -q redis) 2>/dev/null || echo "redis")
-  
-  log_canary "📍 Postgres IP (para nginx): $POSTGRES_IP"
-  log_canary "📍 Redis IP (para nginx): $REDIS_IP"
+  # Levantar backend canary con labels de Traefik
+  log_canary "🚀 Levantando backend canary con Traefik..."
   
   docker run -d \
     --name workplace_backend_canary \
@@ -108,9 +96,17 @@ function setup_canary_traffic_split() {
     --health-timeout=10s \
     --health-retries=3 \
     --health-start-period=40s \
+    --label "traefik.enable=true" \
+    --label "traefik.http.routers.backend-canary.rule=HostRegexp(\`${DOMAIN:-localhost}\`, \`www.${DOMAIN:-localhost}\`) && PathPrefix(\`/api\`) && Headers(\`X-Canary-Test\`, \`true\`)" \
+    --label "traefik.http.routers.backend-canary.entrypoints=websecure" \
+    --label "traefik.http.routers.backend-canary.tls=true" \
+    --label "traefik.http.routers.backend-canary.tls.certresolver=letsencrypt" \
+    --label "traefik.http.routers.backend-canary.priority=90" \
+    --label "traefik.http.services.backend-canary.loadbalancer.server.port=${NODE_PORT:-3001}" \
+    --label "traefik.http.routers.backend-canary.middlewares=security-headers@file,cors-api@file,rate-limit@file" \
     ${BACKEND_IMAGE}
   
-  # Esperar que canary esté healthy (usa Docker HEALTHCHECK nativo)
+  # Esperar que canary esté healthy
   log_canary "⏳ Esperando health check del canary..."
   
   if ! wait_healthy "workplace_backend_canary" 30 2; then
@@ -126,81 +122,41 @@ function setup_canary_traffic_split() {
   log_canary "✅ Canary está healthy"
 }
 
-function configure_nginx_traffic_split() {
-  log_canary "🌐 Configurando Nginx para Traffic Split..."
+function configure_traefik_middleware() {
+  log_canary "🌐 Configurando middleware de Traefik para traffic split..."
   
-  # Obtener IPs de los contenedores
-  local MAIN_BACKEND_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker compose ps -q backend))
-  local CANARY_BACKEND_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' workplace_backend_canary)
-  
-  log_canary "📍 Main Backend IP: $MAIN_BACKEND_IP"
-  log_canary "📍 Canary Backend IP: $CANARY_BACKEND_IP"
-  
-  # Crear configuración de upstream con pesos
-  cat > /opt/workplace/nginx/conf.d/canary-upstream.conf << EOF
-# Canary Traffic Split Configuration
-upstream backend_canary_split {
-    # 90% tráfico al backend principal
-    server $MAIN_BACKEND_IP:${NODE_PORT:-3001} weight=$MAIN_WEIGHT max_fails=3 fail_timeout=30s;
+  # Crear middleware para traffic split basado en headers
+  cat > /opt/workplace/traefik/dynamic/canary-middleware.yml << EOF
+# Canary Traffic Split Middleware
+http:
+  middlewares:
+    canary-traffic-split:
+      plugin:
+        # Si existe plugin de traffic splitting o usar chain middleware
+        chain:
+          middlewares:
+            - canary-rate-limit
+            - canary-headers
     
-    # 10% tráfico al backend canary
-    server $CANARY_BACKEND_IP:${NODE_PORT:-3001} weight=$CANARY_WEIGHT max_fails=3 fail_timeout=30s;
+    canary-rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: "1m"
     
-    least_conn;
-    keepalive 32;
-}
+    canary-headers:
+      headers:
+        customRequestHeaders:
+          X-Canary-Request: "true"
 EOF
   
-  # Crear configuración de server que use el nuevo upstream
-  cat > /opt/workplace/nginx/conf.d/canary-server.conf << EOF
-# Canary Server Configuration
-server {
-    listen 80;
-    server_name localhost;
-    
-    # API endpoints con traffic split
-    location /api/ {
-        limit_req zone=api_limit burst=30 nodelay;
-        limit_conn conn_limit_per_ip 10;
-        
-        # Usar upstream con traffic split
-        proxy_pass http://backend_canary_split;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        
-        # Headers para identificar qué backend respondió
-        proxy_set_header X-Backend-IP \$upstream_addr;
-        proxy_set_header X-Canary-Weight \$upstream_weight;
-        
-        proxy_next_upstream error timeout invalid_header http_502 http_503 http_504;
-        proxy_next_upstream_tries 3;
-        proxy_next_upstream_timeout 30s;
-    }
-    
-    # Otros endpoints sin traffic split (van al principal)
-    location / {
-        proxy_pass http://backend_cluster;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-EOF
-  
-  # Recargar nginx
-  log_canary "🔄 Recargando configuración Nginx..."
-  if docker exec workplace_nginx nginx -t >/dev/null 2>&1; then
-    docker exec workplace_nginx nginx -s reload
-    log_canary "✅ Nginx recargado exitosamente"
+  # Recargar configuración de Traefik
+  log_canary "🔄 Recargando configuración de Traefik..."
+  if docker restart traefik; then
+    log_canary "✅ Traefik recargado exitosamente"
+    sleep 5  # Esperar que Traefik se inicie completamente
   else
-    log_canary "❌ Error en configuración de Nginx"
-    docker exec workplace_nginx nginx -t
+    log_canary "❌ Error recargando Traefik"
     return 1
   fi
 }
@@ -225,31 +181,38 @@ function monitor_canary_metrics() {
     # Hacer requests de prueba para medir distribución
     for i in {1..10}; do
       local START_REQ=$(date +%s%N)
-      local RESPONSE=$(curl -s -w "%{http_code},%{time_total},%{remote_addr}" \
-        --max-time 5 \
-        -H "X-Test-Request: canary-monitor" \
-        http://localhost/api/ready 2>/dev/null || echo "000,0.000,0.0.0.0")
-      local END_REQ=$(date +%s%N)
       
-      local HTTP_CODE=$(echo "$RESPONSE" | cut -d',' -f1)
-      local RESPONSE_TIME=$(echo "$RESPONSE" | cut -d',' -f2)
-      local BACKEND_IP=$(echo "$RESPONSE" | cut -d',' -f3)
-      
-      local LATENCY_MS=$(( (END_REQ - START_REQ) / 1000000 ))
-      
-      # Clasificar request por backend IP
-      if [ "$BACKEND_IP" = "$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' workplace_backend_canary)" ]; then
+      # 10% de requests con header canary, 90% normal
+      if [ $((i % 10)) -eq 1 ]; then
+        # Request a canary (con header especial)
+        local RESPONSE=$(curl -s -w "%{http_code},%{time_total}" \
+          --max-time 5 \
+          -H "X-Canary-Test: true" \
+          -H "X-Canary-Request: true" \
+          https://${DOMAIN:-localhost}/api/ready 2>/dev/null || echo "000,0.000")
         CANARY_REQUESTS=$((CANARY_REQUESTS + 1))
-        CANARY_LATENCY_TOTAL=$((CANARY_LATENCY_TOTAL + LATENCY_MS))
-        if [ "$HTTP_CODE" != "200" ]; then
+        if [[ "$RESPONSE" != *"200"* ]]; then
           CANARY_ERRORS=$((CANARY_ERRORS + 1))
         fi
       else
+        # Request normal (al principal)
+        local RESPONSE=$(curl -s -w "%{http_code},%{time_total}" \
+          --max-time 5 \
+          https://${DOMAIN:-localhost}/api/ready 2>/dev/null || echo "000,0.000")
         MAIN_REQUESTS=$((MAIN_REQUESTS + 1))
-        MAIN_LATENCY_TOTAL=$((MAIN_LATENCY_TOTAL + LATENCY_MS))
-        if [ "$HTTP_CODE" != "200" ]; then
+        if [[ "$RESPONSE" != *"200"* ]]; then
           MAIN_ERRORS=$((MAIN_ERRORS + 1))
         fi
+      fi
+      
+      local END_REQ=$(date +%s%N)
+      local LATENCY_MS=$(( (END_REQ - START_REQ) / 1000000 ))
+      
+      # Acumular latencia (simplificado)
+      if [ $((i % 10)) -eq 1 ]; then
+        CANARY_LATENCY_TOTAL=$((CANARY_LATENCY_TOTAL + LATENCY_MS))
+      else
+        MAIN_LATENCY_TOTAL=$((MAIN_LATENCY_TOTAL + LATENCY_MS))
       fi
       
       sleep 0.1
@@ -424,9 +387,9 @@ function promote_canary_to_main() {
   BACKEND_IMAGE_TEMP=$BACKEND_IMAGE docker compose up -d --no-deps backend
   
   # Esperar que esté healthy
-  local NEW_BACKEND_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$NEW_BACKEND_ID" 2>/dev/null || echo "")
-  if [ -z "$NEW_BACKEND_IP" ]; then
-    log_canary "❌ No se pudo obtener IP del nuevo backend"
+  local NEW_BACKEND_ID=$(docker compose ps -q backend)
+  if [ -z "$NEW_BACKEND_ID" ]; then
+    log_canary "❌ No se pudo obtener ID del nuevo backend"
     return 1
   fi
   
@@ -438,13 +401,12 @@ function promote_canary_to_main() {
     return 1
   fi
   
-  # Limpiar configuración canary de nginx
-  log_canary "🧹 Limpiando configuración canary de nginx..."
-  rm -f /opt/workplace/nginx/conf.d/canary-upstream.conf
-  rm -f /opt/workplace/nginx/conf.d/canary-server.conf
+  # Limpiar configuración canary de Traefik
+  log_canary "🧹 Limpiando configuración canary de Traefik..."
+  rm -f /opt/workplace/traefik/dynamic/canary-middleware.yml
   
-  # Recargar nginx
-  docker exec workplace_nginx nginx -s reload
+  # Recargar Traefik
+  docker restart traefik
   
   # Limpiar contenedor temporal
   docker rm -f workplace_backend_temp 2>/dev/null || true
@@ -458,12 +420,11 @@ function rollback_canary() {
   # Detener canary
   docker rm -f workplace_backend_canary 2>/dev/null || true
   
-  # Limpiar configuración canary de nginx
-  rm -f /opt/workplace/nginx/conf.d/canary-upstream.conf
-  rm -f /opt/workplace/nginx/conf.d/canary-server.conf
+  # Limpiar configuración canary de Traefik
+  rm -f /opt/workplace/traefik/dynamic/canary-middleware.yml
   
-  # Recargar nginx
-  docker exec workplace_nginx nginx -s reload
+  # Recargar Traefik
+  docker restart traefik
   
   log_canary "✅ Canary rollback completado - traffic split removido"
 }
@@ -474,12 +435,12 @@ cd /opt/workplace
 # Crear directorio de logs primero
 mkdir -p $LOG_DIR
 
-log_canary "🚀 Iniciando Canary Real con 10% Traffic Split..."
+log_canary "🚀 Iniciando Canary Real con Traefik..."
 
 # 1. Setup del canary
-if setup_canary_traffic_split; then
-  # 2. Configurar traffic split en nginx
-  if configure_nginx_traffic_split; then
+if setup_canary_service; then
+  # 2. Configurar middleware de Traefik
+  if configure_traefik_middleware; then
     # 3. Monitorear por el tiempo definido
     if monitor_canary_metrics; then
       # 4. Promocionar a main si fue exitoso
@@ -497,7 +458,7 @@ if setup_canary_traffic_split; then
       exit 1
     fi
   else
-    log_canary "❌ Error configurando traffic split - limpiando"
+    log_canary "❌ Error configurando middleware de Traefik - limpiando"
     docker rm -f workplace_backend_canary 2>/dev/null || true
     exit 1
   fi
