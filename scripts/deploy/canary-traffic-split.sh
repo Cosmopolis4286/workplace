@@ -94,6 +94,11 @@ function setup_canary_traffic_split() {
     --env-file /opt/workplace/.env \
     -e APP_ENV=production \
     -e PORT=${NODE_PORT:-3001} \
+    -e DB_HOST=${POSTGRES_IP} \
+    -e DB_PORT=5432 \
+    -e DB_USER=${POSTGRES_USER} \
+    -e DB_PASSWORD=${POSTGRES_PASSWORD} \
+    -e DB_NAME=${POSTGRES_DB} \
     -e DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_IP}:5432/${POSTGRES_DB}" \
     -e REDIS_HOST=${REDIS_IP} \
     -e REDIS_PORT=6379 \
