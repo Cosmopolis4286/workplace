@@ -33,12 +33,12 @@ jobs:
     
     steps:
     - name: Checkout del código
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Configurar Entorno de Tests
       uses: ./.github/actions/setup-tests
       with:
-        node-version: '20'
+        node-version: '24'
 
     - name: Ejecutar Tests con Coverage
       if: ${{ !github.event.inputs.force_deploy || github.actor != 'admin' }}
@@ -48,7 +48,7 @@ jobs:
         coverage-threshold: '5'
 
     - name: Subir Reportes de Coverage
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
         flags: unittests
@@ -65,12 +65,12 @@ jobs:
     
     steps:
     - name: Checkout del código
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Configurar Node.js y pnpm
       uses: ./.github/actions/setup-node-pnpm
       with:
-        node-version: '20'
+        node-version: '24'
 
     - name: Ejecutar Tests E2E
       shell: bash
@@ -211,7 +211,7 @@ jobs:
     
     steps:
     - name: Checkout del código
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Configurar SSH
       uses: ./.github/actions/setup-ssh
@@ -489,7 +489,7 @@ jobs:
     
     steps:
     - name: Checkout del código
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Configurar SSH
       uses: ./.github/actions/setup-ssh

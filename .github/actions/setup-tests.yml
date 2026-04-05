@@ -6,7 +6,7 @@ on:
       node-version:
         description: 'Node.js version'
         required: false
-        default: '20'
+        default: '24'
 
 jobs:
   setup-tests:
@@ -40,7 +40,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Node.js and pnpm
       uses: ./.github/workflows/scripts/setup-node-pnpm.yml
