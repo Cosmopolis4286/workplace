@@ -37,7 +37,7 @@ function wait_healthy() {
     local CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' $container 2>/dev/null || echo "unknown")
     if [ "$CONTAINER_STATUS" == "running" ]; then
       # Health check via docker exec (seguro, no expone puertos)
-      if docker exec $container curl -fs --max-time 5 http://localhost:3001/api/health 2>/dev/null | grep -q '"status":"ok"\|"status":"healthy"'; then
+      if docker exec $container curl -fs --max-time 5 http://localhost:${NODE_PORT:-3001}/api/ready 2>/dev/null | grep -q '"status":"ok"\|"status":"healthy"'; then
         echo "✅ $container responde a health check via docker exec ($i/$retries)"
         return 0
       fi
@@ -93,11 +93,16 @@ function setup_canary_traffic_split() {
     --log-opt max-file=3 \
     --env-file /opt/workplace/.env \
     -e APP_ENV=production \
-    -e PORT=3001 \
+    -e PORT=${NODE_PORT:-3001} \
     -e DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_IP}:5432/${POSTGRES_DB}" \
     -e REDIS_HOST=${REDIS_IP} \
     -e REDIS_PORT=6379 \
     -e REDIS_PASSWORD=${REDIS_PASSWORD} \
+    --health-cmd="curl -f http://localhost:${NODE_PORT:-3001}/api/ready || exit 1" \
+    --health-interval=30s \
+    --health-timeout=10s \
+    --health-retries=3 \
+    --health-start-period=40s \
     ${BACKEND_IMAGE}
   
   # Esperar que canary esté healthy (usa Docker HEALTHCHECK nativo)
@@ -105,7 +110,10 @@ function setup_canary_traffic_split() {
   
   if ! wait_healthy "workplace_backend_canary" 30 2; then
     log_canary "❌ Canary no alcanzó estado healthy"
-    docker logs workplace_backend_canary --tail 20
+    log_canary "📋 Logs del canary (últimos 30 líneas):"
+    docker logs workplace_backend_canary --tail 30
+    log_canary "🔍 Inspección del contenedor canary:"
+    docker inspect workplace_backend_canary --format='{{.State.Status}} {{.State.Health.Status}}'
     docker rm -f workplace_backend_canary
     return 1
   fi
@@ -128,10 +136,10 @@ function configure_nginx_traffic_split() {
 # Canary Traffic Split Configuration
 upstream backend_canary_split {
     # 90% tráfico al backend principal
-    server $MAIN_BACKEND_IP:3001 weight=$MAIN_WEIGHT max_fails=3 fail_timeout=30s;
+    server $MAIN_BACKEND_IP:${NODE_PORT:-3001} weight=$MAIN_WEIGHT max_fails=3 fail_timeout=30s;
     
     # 10% tráfico al backend canary
-    server $CANARY_BACKEND_IP:3001 weight=$CANARY_WEIGHT max_fails=3 fail_timeout=30s;
+    server $CANARY_BACKEND_IP:${NODE_PORT:-3001} weight=$CANARY_WEIGHT max_fails=3 fail_timeout=30s;
     
     least_conn;
     keepalive 32;
@@ -215,7 +223,7 @@ function monitor_canary_metrics() {
       local RESPONSE=$(curl -s -w "%{http_code},%{time_total},%{remote_addr}" \
         --max-time 5 \
         -H "X-Test-Request: canary-monitor" \
-        http://localhost/api/health 2>/dev/null || echo "000,0.000,0.0.0.0")
+        http://localhost/api/ready 2>/dev/null || echo "000,0.000,0.0.0.0")
       local END_REQ=$(date +%s%N)
       
       local HTTP_CODE=$(echo "$RESPONSE" | cut -d',' -f1)
