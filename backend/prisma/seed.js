@@ -282,6 +282,269 @@ async function seedPlans() {
   console.log('\n✨ Plans seeded.')
 }
 
+const CATEGORIES = [
+  // 🍔 Restaurant / Comida
+  {
+    name: 'Comida Rápida',
+    description: 'Hamburguesas, pizzas, hot dogs, etc.',
+    icon: '🍔',
+    color: '#ef4444',
+    sortOrder: 1,
+    subcategories: [
+      { name: 'Hamburguesas', description: 'Clásicas, gourmet, vegetarianas' },
+      { name: 'Pizzas', description: 'Napolitanas, americanas, vegetarianas' },
+      { name: 'Hot Dogs', description: 'Clásicos, gourmet' },
+      { name: 'Pollo Frito', description: 'Alitas, pechugas, combos' },
+      { name: 'Tacos', description: 'Mexicanos, de carnitas, al pastor' }
+    ]
+  },
+  {
+    name: 'Comida Saludable',
+    description: 'Ensaladas, bowls, jugos naturales',
+    icon: '🥗',
+    color: '#10b981',
+    sortOrder: 2,
+    subcategories: [
+      { name: 'Ensaladas', description: 'Verdes, César, griegas' },
+      { name: 'Bowls', description: 'Açaí, poké, buddha' },
+      { name: 'Jugos Naturales', description: 'Verdes, detox, proteicos' },
+      { name: 'Sandwiches Saludables', description: 'Integrales, vegetales' },
+      { name: 'Comida Orgánica', description: 'Libre de pesticidas, local' }
+    ]
+  },
+  {
+    name: 'Postres y Dulces',
+    description: 'Pasteles, helados, chocolates',
+    icon: '🍰',
+    color: '#ec4899',
+    sortOrder: 3,
+    subcategories: [
+      { name: 'Pasteles', description: 'De chocolate, vainilla, frutas' },
+      { name: 'Helados', description: 'Artesanales, sorbetes' },
+      { name: 'Chocolates', description: 'Belgas, suizos, locales' },
+      { name: 'Dulces Tradicionales', description: 'Cocadas, alfajores, queques' },
+      { name: 'Postres Sin Azúcar', description: 'Diabéticos, keto' }
+    ]
+  },
+  {
+    name: 'Bebidas',
+    description: 'Café, té, refrescos especiales',
+    icon: '☕',
+    color: '#8b5cf6',
+    sortOrder: 4,
+    subcategories: [
+      { name: 'Café Especial', description: 'Gourmet, de origen, cold brew' },
+      { name: 'Tés', description: 'Verdes, negros, hierbas' },
+      { name: 'Refrescos Naturales', description: 'Limonadas, aguas frescas' },
+      { name: 'Bebidas Energéticas', description: 'Naturales, sin químicos' },
+      { name: 'Malteadas', description: 'De frutas, proteicas, clásicas' }
+    ]
+  },
+  // 🛍️ Servicios
+  {
+    name: 'Belleza y Cuidado Personal',
+    description: 'Peluquería, estética, spa',
+    icon: '💅',
+    color: '#f59e0b',
+    sortOrder: 5,
+    subcategories: [
+      { name: 'Peluquería', description: 'Cortes, tintes, tratamientos' },
+      { name: 'Manicura y Pedicura', description: 'Uñas acrílicas, gel, semipermanente' },
+      { name: 'Tratamientos Faciales', description: 'Limpieza, hidratación, anti-age' },
+      { name: 'Masajes', description: 'Relajantes, terapéuticos, descontracturantes' },
+      { name: 'Spa', description: 'Paquetes completos, día de spa' }
+    ]
+  },
+  {
+    name: 'Salud y Bienestar',
+    description: 'Medicina, terapia, fitness',
+    icon: '🏥',
+    color: '#06b6d4',
+    sortOrder: 6,
+    subcategories: [
+      { name: 'Medicina General', description: 'Consultas, chequeos' },
+      { name: 'Terapias', description: 'Física, ocupacional, lenguaje' },
+      { name: 'Nutrición', description: 'Planes, consultas, coaching' },
+      { name: 'Psicología', description: 'Terapia individual, familiar, de pareja' },
+      { name: 'Entrenamiento Personal', description: 'Gimnasio, funcional, yoga' }
+    ]
+  },
+  {
+    name: 'Educación y Formación',
+    description: 'Clases particulares, cursos, talleres',
+    icon: '📚',
+    color: '#3b82f6',
+    sortOrder: 7,
+    subcategories: [
+      { name: 'Idiomas', description: 'Inglés, francés, chino, portugués' },
+      { name: 'Música', description: 'Piano, guitarra, violín, canto' },
+      { name: 'Artes', description: 'Pintura, dibujo, escultura, fotografía' },
+      { name: 'Tecnología', description: 'Programación, diseño web, ofimática' },
+      { name: 'Apoyo Escolar', description: 'Matemáticas, ciencias, historia' }
+    ]
+  },
+  {
+    name: 'Hogar y Mantenimiento',
+    description: 'Reparaciones, limpieza, jardinería',
+    icon: '🏠',
+    color: '#84cc16',
+    sortOrder: 8,
+    subcategories: [
+      { name: 'Plomería', description: 'Fugas, instalaciones, reparaciones' },
+      { name: 'Electricidad', description: 'Instalaciones, reparaciones, automatización' },
+      { name: 'Carpintería', description: 'Muebles, reparaciones, personalizaciones' },
+      { name: 'Limpieza', description: 'Doméstica, profunda, post-obra' },
+      { name: 'Jardinería', description: 'Diseño, mantenimiento, poda' }
+    ]
+  },
+  {
+    name: 'Transporte y Logística',
+    description: 'Mudanzas, delivery, transporte',
+    icon: '🚚',
+    color: '#f97316',
+    sortOrder: 9,
+    subcategories: [
+      { name: 'Mudanzas', description: 'Locales, nacionales, internacionales' },
+      { name: 'Delivery', description: 'Documentos, paquetes, comida' },
+      { name: 'Transporte de Personas', description: 'Taxi, privado, tours' },
+      { name: 'Logística', description: 'Carga, almacenamiento, distribución' },
+      { name: 'Mensajería', description: 'Urgente, programada, internacional' }
+    ]
+  },
+  {
+    name: 'Eventos y Entretenimiento',
+    description: 'Fiestas, shows, organización',
+    icon: '🎉',
+    color: '#a855f7',
+    sortOrder: 10,
+    subcategories: [
+      { name: 'Organización de Eventos', description: 'Bodas, cumpleaños, corporativos' },
+      { name: 'Música en Vivo', description: 'Bandas, DJs, solistas' },
+      { name: 'Fotografía y Video', description: 'Eventos, retratos, comerciales' },
+      { name: 'Catering', description: 'Buffet, menú personalizado, bebidas' },
+      { name: 'Decoración', description: 'Flores, temática, iluminación' }
+    ]
+  }
+]
+
+async function seedCategories() {
+  console.log('\n📂 Seeding global categories and subcategories...\n')
+
+  for (const category of CATEGORIES) {
+    // Crear categoría global (sin commerceId)
+    const existingCategory = await prisma.category.findFirst({ 
+      where: { 
+        name: category.name,
+        isGlobal: true
+      } 
+    })
+    
+    const categoryData = {
+      name: category.name,
+      description: category.description,
+      icon: category.icon,
+      color: category.color,
+      sortOrder: category.sortOrder,
+      isGlobal: true,
+      commerceId: null
+    }
+
+    let savedCategory
+    if (existingCategory) {
+      savedCategory = await prisma.category.update({
+        where: { id: existingCategory.id },
+        data: categoryData
+      })
+    } else {
+      savedCategory = await prisma.category.create({
+        data: categoryData
+      })
+    }
+
+    console.log(`  📁 ${category.icon} ${category.name} (Global)`)
+
+    // Crear subcategorías
+    if (category.subcategories && category.subcategories.length > 0) {
+      for (const sub of category.subcategories) {
+        const existingSub = await prisma.subcategory.findFirst({
+          where: { 
+            name: sub.name,
+            categoryId: savedCategory.id 
+          }
+        })
+
+        const subData = {
+          name: sub.name,
+          description: sub.description,
+          categoryId: savedCategory.id
+        }
+
+        if (existingSub) {
+          await prisma.subcategory.update({
+            where: { id: existingSub.id },
+            data: subData
+          })
+        } else {
+          await prisma.subcategory.create({
+            data: subData
+          })
+        }
+
+        console.log(`    📄 ${sub.name}`)
+      }
+    }
+  }
+
+  // También crear categorías de ejemplo para el comercio demo
+  console.log('\n🏪 Creating sample commerce-specific categories...')
+  
+  let commerce = await prisma.restaurant.findFirst({ 
+    where: { name: 'Restaurante Demo' } 
+  })
+  
+  if (commerce) {
+    const commerceCategories = [
+      { name: 'Platos del Día', description: 'Especiales diarios del chef', icon: '🍽️', color: '#dc2626' },
+      { name: 'Bebidas Caseras', description: 'Jugos y bebidas naturales', icon: '🥤', color: '#16a34a' },
+      { name: 'Postres Caseros', description: 'Dulces hechos en casa', icon: '🧁', color: '#db2777' }
+    ]
+
+    for (const cat of commerceCategories) {
+      const existing = await prisma.category.findFirst({
+        where: {
+          name: cat.name,
+          commerceId: commerce.id
+        }
+      })
+
+      const catData = {
+        name: cat.name,
+        description: cat.description,
+        icon: cat.icon,
+        color: cat.color,
+        sortOrder: 100,
+        isGlobal: false,
+        commerceId: commerce.id
+      }
+
+      if (existing) {
+        await prisma.category.update({
+          where: { id: existing.id },
+          data: catData
+        })
+      } else {
+        await prisma.category.create({
+          data: catData
+        })
+      }
+
+      console.log(`  🏪 ${cat.icon} ${cat.name} (Commerce)`)
+    }
+  }
+
+  console.log('\n✨ Categories and subcategories seeded.')
+}
+
 async function main() {
   console.log('🌱 Seeding demo users...\n')
 
@@ -320,6 +583,7 @@ async function main() {
   console.log('\n✨ Seed complete.')
   await seedPermissions()
   await seedPlans()
+  await seedCategories()
 }
 
 main()
