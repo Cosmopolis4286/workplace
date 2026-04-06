@@ -103,6 +103,25 @@ runs:
 
           # Canary deployment
           echo "Ejecutando canary deployment..."
+          
+          # Reiniciar Traefik para cargar nueva configuración y limpiar cache
+          echo "🔄 Reiniciando Traefik para aplicar nueva configuración..."
+          $COMPOSE restart traefik
+          sleep 10
+          
+          # Limpiar cache de Traefik para forzar recarga de configuración
+          echo "🧹 Limpiando cache de configuración de Traefik..."
+          docker exec traefik rm -rf /tmp/traefik/* 2>/dev/null || true
+          sleep 5
+          
+          # Verificar que Traefik esté funcionando correctamente
+          echo "🔍 Verificando estado de Traefik..."
+          if ! $COMPOSE ps traefik | grep -q "Up"; then
+            echo "❌ Traefik no está corriendo, reiniciando..."
+            $COMPOSE up -d traefik
+            sleep 15
+          fi
+          
           ./scripts/deploy/canary-traffic-split.sh \
             || { echo "Canary fallo"; exit 1; }
 
