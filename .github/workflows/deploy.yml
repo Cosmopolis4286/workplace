@@ -500,8 +500,90 @@ jobs:
           if [ "$BACKEND_HEALTH" = true ] && [ "$FRONTEND_HEALTH" = true ]; then
             echo "✅ Todos los health checks pasaron - Deploy exitoso!"
             echo "🎉 Verificación de deploy completada exitosamente"
+            
+            # Crear backup de versión actual para futuros rollbacks
+            echo "📦 Creando backup de versión actual..."
+            mkdir -p /opt/workplace/versions /opt/workplace/backups/versions /opt/workplace/logs
+            
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            VERSION_FILE="/opt/workplace/versions/current-${TIMESTAMP}.env"
+            
+            # Obtener imágenes actuales
+            BACKEND_IMAGE=$(docker inspect workplace-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "workplace-backend")
+            FRONTEND_IMAGE=$(docker inspect workplace-frontend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "workplace-frontend")
+            CURRENT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+            
+            # Crear versión de referencia
+            cat > "$VERSION_FILE" << VERSIONEOF
+# Versión actual backup - $TIMESTAMP
+BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE
+FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE
+CURRENT_SHA=$CURRENT_SHA
+BACKUP_TIMESTAMP=$TIMESTAMP
+DEPLOY_STATUS=current
+VERSIONEOF
+            
+            # Crear symlink y guardar historial
+            ln -sf "$VERSION_FILE" /opt/workplace/versions/current.env
+            echo "$TIMESTAMP:$BACKEND_IMAGE:$FRONTEND_IMAGE:$CURRENT_SHA" >> /opt/workplace/backups/versions/version_history.txt
+            touch /opt/workplace/logs/rollback-history.log
+            
+            echo "✅ Backup de versión actual creado:"
+            echo "  📁 Archivo: $VERSION_FILE"
+            echo "  🔗 Symlink: /opt/workplace/versions/current.env"
+            echo "  � Historial: $(wc -l < /opt/workplace/backups/versions/version_history.txt) versiones"
+            
           else
-            echo "🚨 Health checks fallaron - Iniciando rollback enterprise de versiones..."
+            echo "�🚨 Health checks fallaron - Verificando si es primer deploy..."
+            
+            # Verificar si es primer deploy (no hay versión estable)
+            if [ ! -f "/opt/workplace/versions/current.env" ]; then
+              echo "🚀 Primer deploy detectado - Creando backup de referencia..."
+              
+              # Crear backup de referencia para primer deploy
+              mkdir -p /opt/workplace/versions /opt/workplace/backups/versions /opt/workplace/logs
+              
+              TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+              VERSION_FILE="/opt/workplace/versions/current-${TIMESTAMP}.env"
+              
+              # Obtener imágenes actuales (incluso si health checks fallaron)
+              BACKEND_IMAGE=$(docker inspect workplace-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "workplace-backend")
+              FRONTEND_IMAGE=$(docker inspect workplace-frontend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "workplace-frontend")
+              CURRENT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+              
+              # Crear versión de referencia
+              cat > "$VERSION_FILE" << VERSIONEOF
+# Versión actual backup - $TIMESTAMP (Primer Deploy)
+BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE
+FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE
+CURRENT_SHA=$CURRENT_SHA
+BACKUP_TIMESTAMP=$TIMESTAMP
+DEPLOY_STATUS=first-deploy-health-failed
+VERSIONEOF
+              
+              # Crear symlink y guardar historial
+              ln -sf "$VERSION_FILE" /opt/workplace/versions/current.env
+              echo "$TIMESTAMP:$BACKEND_IMAGE:$FRONTEND_IMAGE:$CURRENT_SHA" >> /opt/workplace/backups/versions/version_history.txt
+              touch /opt/workplace/logs/rollback-history.log
+              
+              echo "✅ Backup de primer deploy creado:"
+              echo "  📁 Archivo: $VERSION_FILE"
+              echo "  🔗 Symlink: /opt/workplace/versions/current.env"
+              echo "  📊 Estado: Health checks fallaron pero versión guardada"
+              echo "  ⚠️ Deploy requiere intervención manual para diagnóstico"
+              
+              # Diagnóstico del primer deploy
+              echo "📊 Diagnóstico del primer deploy..."
+              docker compose ps > /tmp/first-deploy-state.log
+              docker logs workplace-backend-1 --tail 50 > /tmp/backend-first-deploy.log 2>/dev/null || true
+              docker logs workplace-frontend-1 --tail 50 > /tmp/frontend-first-deploy.log 2>/dev/null || true
+              
+              echo "🔍 Logs guardados en /tmp/ para diagnóstico manual"
+              echo "📧 Requiere intervención manual para verificar configuración"
+              exit 1
+              
+            else
+              echo "🔄 Deploy con versión estable detectada - Iniciando rollback enterprise..."
             
             # Diagnóstico y backup del estado fallido
             echo "📊 Diagnóstico del estado fallido..."
