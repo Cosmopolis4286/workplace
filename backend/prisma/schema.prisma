@@ -233,15 +233,44 @@ model RefreshToken {
 model Category {
   id           String    @id @default(uuid())
   name         String
+  description  String?
+  icon         String?
   color        String    @default("#6b7280")
-  commerceId String
-  commerce   Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  sortOrder    Int       @default(0)
+  
+  // Categoría global (opcional) - solo si es global
+  isGlobal     Boolean   @default(false)
+  
+  // Categoría de comercio específico (opcional) - solo si es de un comercio
+  commerceId   String?
+  commerce     Restaurant? @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  
   products     Product[]
+  subcategories Subcategory[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   @@unique([name, commerceId])
+  @@unique([name, isGlobal]) // Solo una categoría global con el mismo nombre
   @@map("categories")
+}
+
+model Subcategory {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  products    Product[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([name, categoryId])
+  @@map("subcategories")
 }
 
 model Product {
@@ -262,6 +291,8 @@ model Product {
   allergens       String[]
   categoryId      String
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategoryId   String?
+  subcategory     Subcategory?  @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
   commerceId    String
   commerce      Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime      @default(now())
