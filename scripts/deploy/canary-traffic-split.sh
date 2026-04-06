@@ -302,8 +302,8 @@ function evaluate_canary_success() {
   local SUCCESS=true
   local REASONS=()
   
-  # Verificar error rate
-  if (( $(echo "$canary_error_rate > $MAX_ERROR_RATE" | bc -l) )); then
+  # Verificar error rate (sin bc)
+  if (( $(echo "$canary_error_rate > $MAX_ERROR_RATE" | awk '{print ($1 > $3)}') )); then
     SUCCESS=false
     REASONS+=("Error rate alto: ${canary_error_rate}% > ${MAX_ERROR_RATE}%")
   fi
@@ -314,8 +314,8 @@ function evaluate_canary_success() {
     REASONS+=("Latencia alta: ${canary_avg_latency}ms > ${MAX_LATENCY}ms")
   fi
   
-  # Verificar que recibió tráfico
-  if (( $(echo "$canary_percentage < $MIN_TRAFFIC_RECEIVED" | bc -l) )); then
+  # Verificar que recibió tráfico (sin bc)
+  if (( $(echo "$canary_percentage < $MIN_TRAFFIC_RECEIVED" | awk '{print ($1 < $3)}') )); then
     SUCCESS=false
     REASONS+=("Tráfico bajo recibido: ${canary_percentage}% < ${MIN_TRAFFIC_RECEIVED}%")
   fi
@@ -346,7 +346,11 @@ function promote_canary_to_main() {
   
   # Renombrar canary a principal
   log_canary "🏷️ Renombrando canary a principal..."
-  docker rename workplace_backend_canary workplace_backend_temp
+  if docker ps -q -f name=workplace_backend_canary | grep -q .; then
+    docker rename workplace_backend_canary workplace_backend_temp
+  else
+    log_canary "⚠️ Contenedor canary no encontrado - usando recreación directa"
+  fi
   
   # Recrear backend con docker-compose usando la imagen canary
   log_canary "🔄 Recreando backend con imagen canary..."
