@@ -33,13 +33,41 @@ runs:
 
           if [ ! -f versions/current.env ]; then
             echo "No hay version estable disponible para rollback."
-            exit 1
+            echo "Buscando versiones anteriores..."
+            
+            # Buscar última versión en historial
+            if [ -f backups/versions/version_history.txt ] && [ -s backups/versions/version_history.txt ]; then
+              LAST_VERSION=$(tail -1 backups/versions/version_history.txt)
+              BACKEND_CURRENT_IMAGE=$(echo "$LAST_VERSION" | cut -d':' -f2)
+              FRONTEND_CURRENT_IMAGE=$(echo "$LAST_VERSION" | cut -d':' -f3)
+              BACKUP_TIMESTAMP=$(echo "$LAST_VERSION" | cut -d':' -f1)
+              echo "Versión encontrada en historial:"
+              echo "  Backend: $BACKEND_CURRENT_IMAGE"
+              echo "  Frontend: $FRONTEND_CURRENT_IMAGE"
+              echo "  Timestamp: $BACKUP_TIMESTAMP"
+            else
+              echo "No hay historial de versiones disponible."
+              echo "Usando imágenes por defecto..."
+              BACKEND_CURRENT_IMAGE="${BACKEND_IMAGE:-workplace-backend:latest}"
+              FRONTEND_CURRENT_IMAGE="${FRONTEND_IMAGE:-workplace-frontend:latest}"
+              BACKUP_TIMESTAMP="manual-$(date +%Y%m%d-%H%M%S)"
+            fi
+          else
+            set -a; source versions/current.env; set +a
+            echo "Rollback a version actual:"
+            echo "  Backend:  $BACKEND_CURRENT_IMAGE"
+            echo "  Frontend: $FRONTEND_CURRENT_IMAGE"
           fi
 
-          set -a; source versions/current.env; set +a
+          # Asegurar que las variables estén definidas
+          BACKEND_CURRENT_IMAGE="${BACKEND_CURRENT_IMAGE:-${BACKEND_IMAGE:-workplace-backend:latest}}"
+          FRONTEND_CURRENT_IMAGE="${FRONTEND_CURRENT_IMAGE:-${FRONTEND_IMAGE:-workplace-frontend:latest}}"
+          BACKUP_TIMESTAMP="${BACKUP_TIMESTAMP:-manual-$(date +%Y%m%d-%H%M%S)}"
+
           echo "Rollback a:"
           echo "  Backend:  $BACKEND_CURRENT_IMAGE"
           echo "  Frontend: $FRONTEND_CURRENT_IMAGE"
+          echo "  Timestamp: $BACKUP_TIMESTAMP"
 
           # Obtener imagenes (cache local primero, luego registry)
           for IMG in "$BACKEND_CURRENT_IMAGE" "$FRONTEND_CURRENT_IMAGE"; do
