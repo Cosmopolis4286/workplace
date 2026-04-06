@@ -28,6 +28,10 @@ runs:
           docker-compose.lite.yml \
           ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/
 
+        # Limpiar dynamic config vieja antes de copiar (elimina archivos huerfanos)
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+          'rm -f /opt/workplace/traefik/dynamic/*.yml'
+
         scp -o ConnectTimeout=10 -o ServerAliveInterval=30 -r \
           traefik/ \
           ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/
