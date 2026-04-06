@@ -20,9 +20,6 @@ describe('UsersService', () => {
         update: jest.fn(),
         delete: jest.fn(),
       } as any,
-      commerce: {
-        update: jest.fn(),
-      } as any,
       $transaction: jest.fn().mockImplementation((ops) => Promise.all(ops)),
     };
 
