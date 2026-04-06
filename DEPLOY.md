@@ -1,180 +1,144 @@
-# 🚀 Deploy Limpio - Workplace LITE (PROD)
+# Deploy - Workplace
 
-## Requisitos Previos
+El deploy se hace automáticamente via GitHub Actions al hacer push a `main`.
 
-- Servidor con Docker y Docker Compose instalados
-- 2 CPU / 4GB RAM mínimo
-- Puerto 80 y 443 abiertos
-- Dominio apuntando al servidor
+## Secrets requeridos en GitHub
 
-## Pasos para Deploy
+Ve a **Settings → Secrets and variables → Actions** y agrega:
 
-### 1. Clonar/Copiar el proyecto
+| Secret | Descripción |
+|--------|-------------|
+| `DOCKER_USERNAME` | Usuario de Docker Hub |
+| `DOCKER_PASSWORD` | Password de Docker Hub |
+| `SSH_PRIVATE_KEY` | Clave SSH privada para acceder al servidor |
+| `PRODUCTION_HOST` | IP o hostname del servidor |
+| `PRODUCTION_USER` | Usuario SSH (ej: `root`) |
+| `PRODUCTION_DOMAIN` | Dominio (ej: `playrke.com`) |
+| `ACME_EMAIL` | Email para certificados Let's Encrypt |
 
-```bash
-# En tu servidor
-sudo mkdir -p /opt
-sudo chown $USER:$USER /opt
-cd /opt
-
-# Copiar el proyecto (desde tu máquina local o git)
-git clone <tu-repo> workplace
-# O copiar archivos: scp -r ./workplace user@server:/opt/
-```
-
-### 2. Preparar el entorno
+## Preparar el servidor (primera vez)
 
 ```bash
-cd /opt/workplace
+# 1. Crear estructura
+mkdir -p /opt/workplace/{traefik/dynamic,scripts/deploy,versions,backups/versions,logs}
 
-# Copiar y editar el archivo de entorno
-cp .env.example .env
-nano .env  # Editar con tus valores
+# 2. Crear .env con los valores reales
+nano /opt/workplace/.env
 ```
 
 **Variables mínimas requeridas en `.env`:**
 ```bash
-# Dominio (ej: midominio.com)
-DOMAIN=tudominio.com
+APP_NAME=WorkPlace
+APP_ENV=production
 
-# Email para Let's Encrypt
-EMAIL=admin@tudominio.com
-
-# Base de datos
-POSTGRES_USER=workplace
-POSTGRES_PASSWORD=$(openssl rand -base64 32)
-POSTGRES_DB=workplace
-
-# Redis
-REDIS_PASSWORD=$(openssl rand -base64 32)
-
-# Puerto del backend
 NODE_PORT=3001
 FRONTEND_PORT=3000
+NITRO_HOST=0.0.0.0
+NODE_OPTIONS=--max-old-space-size=512
+
+POSTGRES_USER=workplace
+POSTGRES_PASSWORD=<password-seguro>
+POSTGRES_DB=workplace_db
+DATABASE_URL=postgresql://workplace:<password-seguro>@postgres:5432/workplace_db
+
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=<password-seguro>
+
+JWT_SECRET=<secret-seguro>
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=<secret-seguro>
+JWT_REFRESH_EXPIRES_IN=7d
+
+DOMAIN=tudominio.com
+FRONTEND_URL=https://tudominio.com
+API_URL=https://tudominio.com/api
 ```
 
-### 3. Ejecutar el deploy
+## Flujo del pipeline
+
+```
+push main
+  → tests
+  → build backend + frontend (Docker Hub)
+  → deploy al servidor (scp + SSH)
+      → migraciones Prisma
+      → rolling update backend → health check
+      → rolling update frontend → health check
+  → health check externo
+  → smoke test desde internet
+  → notificación
+```
+
+## Comandos útiles en el servidor
 
 ```bash
 cd /opt/workplace
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
-```
+COMPOSE="docker compose -f docker-compose.lite.yml"
 
-### 4. Verificar el deploy
+# Estado de servicios
+$COMPOSE ps
 
-```bash
-# Ver logs en tiempo real
-docker-compose -f docker-compose.lite.yml logs -f
+# Logs en tiempo real
+$COMPOSE logs -f backend
+$COMPOSE logs -f frontend
+$COMPOSE logs -f traefik
 
-# Ver estado de servicios
-docker-compose -f docker-compose.lite.yml ps
+# Reiniciar un servicio
+export BACKEND_IMAGE=$(docker inspect workplace-backend-1 --format='{{.Config.Image}}')
+export FRONTEND_IMAGE=$(docker inspect workplace-frontend-1 --format='{{.Config.Image}}')
+$COMPOSE restart traefik
 
-# Test de endpoints
-curl -I https://tudominio.com/api/ready
-curl -I https://tudominio.com
-```
-
-### 5. Backups (automático)
-
-Los backups se ejecutan automáticamente a las **2:00 AM** todos los días.
-
-```bash
-# Ver backups existentes
-ls -la /opt/workplace/backups/
-
-# Backup manual (opcional)
-docker-compose -f docker-compose.lite.yml exec backup /scripts/backup.sh
-```
-
-## Comandos Útiles
-
-```bash
-# Reiniciar todo
-docker-compose -f docker-compose.lite.yml restart
-
-# Ver logs de un servicio específico
-docker-compose -f docker-compose.lite.yml logs -f backend
-
-# Escalar backend (si necesitas más capacidad)
-docker-compose -f docker-compose.lite.yml up -d --scale backend=2
-
-# Actualizar imágenes
-docker-compose -f docker-compose.lite.yml pull
-docker-compose -f docker-compose.lite.yml up -d
-
-# Limpieza completa (⚠️ Elimina datos!)
-docker-compose -f docker-compose.lite.yml down -v
+# Health check manual
+$COMPOSE exec -T backend curl -sf http://localhost:3001/api/ready
+$COMPOSE exec -T frontend curl -sf http://localhost:3000/
 ```
 
 ## Troubleshooting
 
-### Let's Encrypt no emite certificados
+### Certificado SSL no emite
 ```bash
-# Verificar permisos
-ls -la traefik_letsencrypt/acme.json  # Debe ser 600
+# Verificar email en traefik.yml
+grep email /opt/workplace/traefik/traefik.yml
 
 # Ver logs de Traefik
-docker-compose -f docker-compose.lite.yml logs traefik
+docker logs traefik --tail 20
+
+# Borrar acme.json y reiniciar para solicitar certificado nuevo
+docker exec traefik rm -f /letsencrypt/acme.json
+docker compose -f docker-compose.lite.yml restart traefik
 ```
 
-### PostgreSQL no inicia
+### Backend no arranca
 ```bash
-# Verificar permisos del volumen
-docker-compose -f docker-compose.lite.yml exec postgres ls -la /var/lib/postgresql/data
-
-# Resetear (⚠️ Pierdes datos!)
-docker-compose -f docker-compose.lite.yml down -v
-rm -rf /opt/workplace/postgres_data
-./scripts/deploy.sh
+docker logs workplace-backend-1 --tail 30
 ```
 
-### Backend unhealthy
+### Rollback manual
 ```bash
-# Ver logs
-docker-compose -f docker-compose.lite.yml logs backend
-
-# Forzar healthcheck
-docker-compose -f docker-compose.lite.yml exec backend curl http://localhost:3001/api/ready
+cat /opt/workplace/versions/current.env
+# Editar BACKEND_IMAGE y FRONTEND_IMAGE con la version anterior, luego:
+source /opt/workplace/versions/current.env
+export BACKEND_IMAGE=$BACKEND_CURRENT_IMAGE
+export FRONTEND_IMAGE=$FRONTEND_CURRENT_IMAGE
+docker compose -f docker-compose.lite.yml up -d --no-deps --force-recreate backend frontend
 ```
 
-## Estructura Final
+## Estructura en el servidor
 
 ```
 /opt/workplace/
-├── docker-compose.lite.yml
-├── .env
-├── .env.example
-├── backups/           # Backups automáticos de PostgreSQL
-├── logs/              # Logs de aplicación
+├── docker-compose.lite.yml    # Copiado por el pipeline en cada deploy
+├── .env                       # Variables de entorno (NO se sobreescribe)
 ├── traefik/
-│   ├── dynamic/       # Middlewares y configuración
-│   └── ssl/           # Certificados SSL (opcional)
-├── traefik_letsencrypt/
-│   └── acme.json      # Certificados Let's Encrypt (permisos 600)
-└── scripts/
-    ├── deploy.sh
-    ├── init-traefik-permissions.sh
-    └── database/
-        └── backup.sh
+│   ├── traefik.yml            # Config estática (copiada por pipeline)
+│   └── dynamic/               # Middlewares y TLS (copiados por pipeline)
+├── scripts/deploy/
+│   └── canary-traffic-split.sh  # Script de deploy (copiado por pipeline)
+├── versions/
+│   └── current.env            # Ultima version estable desplegada
+├── backups/versions/
+│   └── version_history.txt    # Historial de deploys
+└── logs/
+    └── deploy/                # Logs de cada deploy
 ```
-
-## Seguridad
-
-- ✅ HTTPS forzado por Traefik
-- ✅ No se exponen puertos de DB/Redis
-- ✅ Backups automáticos diarios
-- ✅ Rate limiting activo
-- ✅ Headers de seguridad configurados
-- ✅ Redis sin comandos peligrosos (FLUSHALL, FLUSHDB, CONFIG)
-
-## Recursos
-
-- **RAM total usada:** ~1.6GB
-- **Margen para picos:** ~2.4GB
-- **Backups retenidos:** 7 días
-- **Logs rotados:** 3 archivos de 10MB máximo
-
----
-
-Deploy listo para producción real 🎉
