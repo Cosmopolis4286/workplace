@@ -161,13 +161,17 @@ function monitor_canary_metrics() {
           CANARY_ERRORS=$((CANARY_ERRORS + 1))
         fi
       else
-        # Request normal (al principal via Traefik)
+        # Request normal (al principal via Traefik local)
         local RESPONSE=$(curl -s -w "%{http_code},%{time_total}" \
           --max-time 5 \
-          https://${DOMAIN:-localhost}/api/ready 2>/dev/null || echo "000,0.000")
+          http://localhost/api/ready 2>/dev/null || echo "000,0.000")
         MAIN_REQUESTS=$((MAIN_REQUESTS + 1))
         if [[ "$RESPONSE" != *"200"* ]]; then
           MAIN_ERRORS=$((MAIN_ERRORS + 1))
+        else
+          # Extraer latency del response
+          local LATENCY=$(echo "$RESPONSE" | cut -d',' -f2)
+          MAIN_LATENCY_TOTAL=$((MAIN_LATENCY_TOTAL + $(echo "$LATENCY" | cut -d'.' -f1)))
         fi
       fi
       
