@@ -46,7 +46,8 @@ export const useDemoCredentials = () => {
   const isDev =
     process.dev ||
     config.public?.environment === 'development' ||
-    config.public?.APP_ENV === 'development'
+    config.public?.APP_ENV === 'development' ||
+    config.public?.useDemoCredentials === true
 
   /**
    * ✅ Indica si hay credenciales disponibles para mostrar
