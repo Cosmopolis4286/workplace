@@ -39,7 +39,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiUrl: process.env.API_URL || '/api',
-      environment: process.env.APP_ENV || 'development',
+      environment: process.env.APP_ENV || 'production',
+      useDemoCredentials: process.env.USE_DEMO === 'true',
       recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY || '',
     },
   },
