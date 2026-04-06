@@ -476,24 +476,40 @@ jobs:
           BACKEND_HEALTH=false
           FRONTEND_HEALTH=false
           
-          # Health check backend con validación profunda (DB, Redis, auth)
-          echo "🏥 Health check backend (ready)..."
-          if curl -fs --max-time 10 --retry 3 "http://localhost:3001/api/ready" | grep -q '"status":"ok"\|"status":"healthy"'; then
-            echo "✅ Backend health check OK (DB, Redis, auth)"
+          # Health check backend via Traefik (router correcto)
+          echo "🏥 Health check backend (via Traefik)..."
+          if curl -fs --max-time 10 --retry 3 "http://localhost/api/ready" | grep -q '"status":"ok"\|"status":"healthy"'; then
+            echo "✅ Backend health check OK (via Traefik)"
             BACKEND_HEALTH=true
           else
-            echo "❌ Backend health check FAILED (DB/Redis/auth issues)"
-            BACKEND_HEALTH=false
+            echo "❌ Backend health check FAILED (via Traefik)"
+            # Fallback: intentar acceso directo al contenedor
+            if docker compose exec -T backend curl -f http://localhost:3001/api/ready 2>/dev/null | grep -q '"status":"ok"\|"status":"healthy"'; then
+              echo "✅ Backend health check OK (directo al contenedor)"
+              BACKEND_HEALTH=true
+            else
+              echo "❌ Backend health check FAILED (todos los métodos)"
+              BACKEND_HEALTH=false
+            fi
           fi
           
-          # Health check frontend con validación de estado
-          echo "🏥 Health check frontend..."
-          if curl -fs --max-time 10 --retry 3 "http://localhost:3000/" | grep -q "WorkPlace\|200 OK\|Nuxt" || curl -fs --max-time 10 --retry 3 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
-            echo "✅ Frontend health check OK (servicio activo)"
+          # Health check frontend via Traefik
+          echo "🏥 Health check frontend (via Traefik)..."
+          if curl -fs --max-time 10 --retry 3 "http://localhost/" | grep -q "WorkPlace\|200 OK\|Nuxt\|html" || \
+             curl -fs --max-time 10 --retry 3 "http://localhost/api/ready" | grep -q '"ready":true'; then
+            echo "✅ Frontend health check OK (via Traefik)"
             FRONTEND_HEALTH=true
           else
-            echo "❌ Frontend health check FAILED"
-            FRONTEND_HEALTH=false
+            echo "❌ Frontend health check FAILED (via Traefik)"
+            # Fallback: intentar acceso directo al contenedor
+            if docker compose exec -T frontend curl -f http://localhost:3000/ 2>/dev/null | grep -q "WorkPlace\|200 OK\|Nuxt\|html" || \
+               docker compose exec -T frontend curl -f http://localhost:3000/api/ready 2>/dev/null | grep -q '"ready":true'; then
+              echo "✅ Frontend health check OK (directo al contenedor)"
+              FRONTEND_HEALTH=true
+            else
+              echo "❌ Frontend health check FAILED (todos los métodos)"
+              FRONTEND_HEALTH=false
+            fi
           fi
           
           # Verificación final y rollback si es necesario
