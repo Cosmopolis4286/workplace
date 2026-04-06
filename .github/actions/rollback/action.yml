@@ -53,7 +53,7 @@ runs:
 
           export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
           export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
-          $COMPOSE up -d --no-deps backend frontend
+          $COMPOSE up -d --no-deps --force-recreate backend frontend
 
           echo "Rollback completado."
           BACKUP_TIMESTAMP="${BACKUP_TIMESTAMP:-desconocido}"

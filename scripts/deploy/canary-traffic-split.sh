@@ -1,6 +1,5 @@
 #!/bin/bash
-# Deploy con rolling update: reemplaza backend y frontend uno a uno,
-# verifica que cada uno este healthy antes de continuar.
+# Rolling update: recrea Traefik, backend y frontend en orden.
 set -euo pipefail
 
 COMPOSE="docker compose -f /opt/workplace/docker-compose.lite.yml"
@@ -29,7 +28,16 @@ wait_healthy() {
     sleep 5
   done
   log "ERROR: $service no respondio despues de $retries intentos"
+  $COMPOSE logs --tail 30 "$service" || true
   return 1
+}
+
+sanitize_env() {
+  # Eliminar comentarios inline de variables criticas del .env
+  # Ejemplo: NODE_PORT=3001  # comentario  →  NODE_PORT=3001
+  sed -i 's/^\([A-Z_]*=\)\([^#]*\)#.*/\1\2/' /opt/workplace/.env
+  # Eliminar espacios al final
+  sed -i 's/[[:space:]]*$//' /opt/workplace/.env
 }
 
 cd /opt/workplace
@@ -38,9 +46,13 @@ log "=== Iniciando deploy SHA: ${CURRENT_SHA:-unknown} ==="
 log "  Backend:  ${BACKEND_IMAGE:-?}"
 log "  Frontend: ${FRONTEND_IMAGE:-?}"
 
-# Servicios base: arrancar si no corren (primer deploy)
+# Sanitizar .env para evitar comentarios inline que rompan variables
+log "Sanitizando .env..."
+sanitize_env
+
+# Servicios de datos: arrancar solo si no corren (primer deploy)
 if ! $COMPOSE ps postgres 2>/dev/null | grep -qE "running|Up"; then
-  log "Arrancando servicios base (primer deploy)..."
+  log "Primer deploy — arrancando postgres y redis..."
   $COMPOSE up -d postgres redis
   log "Esperando postgres..."
   for i in $(seq 1 30); do
@@ -48,11 +60,6 @@ if ! $COMPOSE ps postgres 2>/dev/null | grep -qE "running|Up"; then
     sleep 3
   done
 fi
-
-# Traefik: siempre recrear para aplicar traefik.yml actualizado
-log "Actualizando Traefik..."
-$COMPOSE up -d --no-deps --force-recreate traefik
-sleep 5
 
 # Migraciones
 log "Ejecutando migraciones..."
@@ -62,13 +69,33 @@ $COMPOSE run --rm --no-deps \
   && log "Migraciones OK" \
   || log "Migraciones fallaron -- continuando"
 
+# Traefik: siempre recrear para aplicar traefik.yml copiado por el pipeline
+log "Actualizando Traefik..."
+$COMPOSE up -d --no-deps --force-recreate traefik
+sleep 8
+
+# Verificar que Traefik arranco correctamente
+if ! $COMPOSE ps traefik 2>/dev/null | grep -qE "running|Up"; then
+  log "ERROR: Traefik no esta corriendo"
+  $COMPOSE logs --tail 20 traefik || true
+  exit 1
+fi
+
+# Limpiar acme.json si Traefik reporta error de email invalido en los ultimos logs
+# (indica cuenta ACME corrupta que bloquea emision de certificados)
+if $COMPOSE logs traefik --since 30s 2>/dev/null | grep -q "unable to parse email address"; then
+  log "ACME: email invalido detectado — limpiando acme.json..."
+  docker exec traefik rm -f /letsencrypt/acme.json || true
+  $COMPOSE restart traefik
+  sleep 8
+fi
+
 # Rolling update backend
 log "Actualizando backend..."
 $COMPOSE up -d --no-deps --force-recreate backend
 
 if ! wait_healthy "backend" "$NODE_PORT" "/api/ready" 30; then
   log "Backend no llego a estar healthy -- abortando"
-  $COMPOSE logs --tail 50 backend
   exit 1
 fi
 
@@ -78,7 +105,6 @@ $COMPOSE up -d --no-deps --force-recreate frontend
 
 if ! wait_healthy "frontend" "$FRONTEND_PORT" "/" 20; then
   log "Frontend no llego a estar healthy -- abortando"
-  $COMPOSE logs --tail 50 frontend
   exit 1
 fi
 
