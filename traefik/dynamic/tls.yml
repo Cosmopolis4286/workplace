@@ -28,8 +28,11 @@ tls:
       sniStrict: false
       preferServerCipherSuites: true
 
-  stores:
-    default:
-      defaultCertificate:
-        certFile: "/etc/ssl/certs/default.crt"
-        keyFile: "/etc/ssl/private/default.key"
+# ELIMINADO: Configuración de certificados manuales
+# Let's Encrypt se encargará de los certificados automáticamente
+# tls:
+#   stores:
+#     default:
+#       defaultCertificate:
+#         certFile: "/etc/ssl/certs/default.crt"
+#         keyFile: "/etc/ssl/private/default.key"
