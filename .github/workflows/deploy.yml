@@ -993,39 +993,45 @@ jobs:
         echo "DEPLOY_COLOR=$COLOR" >> $GITHUB_ENV
 
     - name: Notificar Discord
-      if: always() && secrets.DISCORD_WEBHOOK != ''
       run: |
-        curl -s -X POST ${{ secrets.DISCORD_WEBHOOK }} \
-          -H "Content-Type: application/json" \
-          -d "{
-            \"embeds\": [{
-              \"title\": \"🚀 Deploy ${{ env.DEPLOY_STATUS }}\",
-              \"color\": ${{ env.DEPLOY_COLOR }},
-              \"fields\": [
-                {\"name\": \"Repositorio\", \"value\": \"${{ github.repository }}\", \"inline\": true},
-                {\"name\": \"Branch\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
-                {\"name\": \"Commit\", \"value\": \"${{ github.sha }}\", \"inline\": false},
-                {\"name\": \"Actor\", \"value\": \"${{ github.actor }}\", \"inline\": true},
-                {\"name\": \"Workflow\", \"value\": \"${{ github.workflow }}\", \"inline\": true}
-              ],
-              \"timestamp\": \"$(date -Iseconds)\"
-            }]
+        if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
+          curl -s -X POST ${{ secrets.DISCORD_WEBHOOK }} \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"🚀 Deploy ${{ env.DEPLOY_STATUS }}\",
+                \"color\": ${{ env.DEPLOY_COLOR }},
+                \"fields\": [
+                  {\"name\": \"Repositorio\", \"value\": \"${{ github.repository }}\", \"inline\": true},
+                  {\"name\": \"Branch\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
+                  {\"name\": \"Commit\", \"value\": \"${{ github.sha }}\", \"inline\": false},
+                  {\"name\": \"Actor\", \"value\": \"${{ github.actor }}\", \"inline\": true},
+                  {\"name\": \"Workflow\", \"value\": \"${{ github.workflow }}\", \"inline\": true}
+                ],
+                \"timestamp\": \"$(date -Iseconds)\"
+              }]
           }" || echo "⚠️ Falló notificación a Discord"
+        else
+          echo "⚠️ Discord webhook no configurado"
+        fi
 
     - name: Notificar Slack
-      if: always() && secrets.SLACK_WEBHOOK != ''
       run: |
-        curl -s -X POST ${{ secrets.SLACK_WEBHOOK }} \
-          -H 'Content-type: application/json' \
-          -d "{
-            \"text\": \"🚀 Deploy *${{ env.DEPLOY_STATUS }}* en ${{ github.repository }}\",
-            \"blocks\": [
-              {
-                \"type\": \"section\",
-                \"text\": {
-                  \"type\": \"mrkdwn\",
-                  \"text\": \"*Deploy ${{ env.DEPLOY_STATUS }}*\\n*Repo:* ${{ github.repository }}\\n*Branch:* ${{ github.ref_name }}\\n*Commit:* ${{ github.sha }}\\n*Actor:* ${{ github.actor }}\"
+        if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
+          curl -s -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-type: application/json' \
+            -d "{
+              \"text\": \"🚀 Deploy *${{ env.DEPLOY_STATUS }}* en ${{ github.repository }}\",
+              \"blocks\": [
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*Deploy ${{ env.DEPLOY_STATUS }}*\\n*Repo:* ${{ github.repository }}\\n*Branch:* ${{ github.ref_name }}\\n*Commit:* ${{ github.sha }}\\n*Actor:* ${{ github.actor }}\"
+                  }
                 }
-              }
-            ]
+              ]
           }" || echo "⚠️ Falló notificación a Slack"
+        else
+          echo "⚠️ Slack webhook no configurado"
+        fi
