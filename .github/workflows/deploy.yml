@@ -161,8 +161,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     if: needs.deploy.result == 'success'
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
+    - uses: actions/checkout@v4
+
+    - uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.PRODUCTION_HOST }}
+
     - name: Verificar desde internet
       id: check
       run: |
@@ -173,8 +180,7 @@ jobs:
         fi
 
         echo "Smoke test para: $DOMAIN"
-        for i in $(seq 1 12); do
-          echo "Intento $i/12..."
+        for i in $(seq 1 18); do
           BACKEND_HTTP=$(curl -so /dev/null -w "%{http_code}" --max-time 15 \
             "https://$DOMAIN/api/ready" 2>/dev/null || echo "000")
           FRONTEND_HTTP=$(curl -so /dev/null -w "%{http_code}" --max-time 15 \
@@ -183,7 +189,7 @@ jobs:
           echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" \
             2>/dev/null | grep -q "Verify return code: 0" && SSL_OK=true
 
-          echo "  Backend: $BACKEND_HTTP | Frontend: $FRONTEND_HTTP | SSL: $SSL_OK"
+          echo "Intento $i/18 — Backend: $BACKEND_HTTP | Frontend: $FRONTEND_HTTP | SSL: $SSL_OK"
 
           if [[ "$BACKEND_HTTP" =~ ^(200|204)$ ]] && \
              [[ "$FRONTEND_HTTP" =~ ^(200|301|302)$ ]] && \
@@ -191,10 +197,22 @@ jobs:
             echo "Smoke test PASADO"
             exit 0
           fi
-          [ $i -lt 12 ] && sleep 10
+          [ $i -lt 18 ] && sleep 10
         done
 
-        echo "Smoke test FALLO (advertencia — el health-check interno ya valido los servicios)"
+        echo "Smoke test FALLO — diagnostico del servidor:"
+        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
+          "cd /opt/workplace
+           COMPOSE='docker compose -f docker-compose.lite.yml'
+           echo '=== Contenedores ==='
+           \$COMPOSE ps
+           echo '=== Routers Traefik ==='
+           curl -sf http://localhost:8080/api/http/routers 2>/dev/null \
+             | python3 -c \"import sys,json; [print(r.get('name'), r.get('status')) for r in json.load(sys.stdin)]\" || echo 'API Traefik no disponible'
+           echo '=== Logs Traefik (ultimas 10 lineas) ==='
+           docker logs traefik --tail 10 2>&1
+           echo '=== UFW puertos 80/443 ==='
+           ufw status | grep -E '80|443' || true" || true
         exit 1
 
   # ─── 7. Notificación ───────────────────────────────────────────────────────
