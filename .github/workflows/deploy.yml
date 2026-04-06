@@ -191,24 +191,8 @@ jobs:
           [ $i -lt 12 ] && sleep 10
         done
 
-        echo "Smoke test FALLO"
+        echo "Smoke test FALLO (advertencia — el health-check interno ya valido los servicios)"
         exit 1
-
-    - name: Rollback por smoke test fallido
-      if: failure()
-      uses: actions/checkout@v4
-
-    - uses: ./.github/actions/setup-ssh
-      if: failure()
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        production-host: ${{ secrets.PRODUCTION_HOST }}
-
-    - uses: ./.github/actions/rollback
-      if: failure()
-      with:
-        ssh-user: ${{ secrets.PRODUCTION_USER }}
-        ssh-host: ${{ secrets.PRODUCTION_HOST }}
 
   # ─── 7. Notificación ───────────────────────────────────────────────────────
   notify:

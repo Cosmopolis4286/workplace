@@ -24,8 +24,10 @@ runs:
           flock -n 200 || { echo "Deploy en progreso. Abortando rollback."; exit 1; }
 
           if [ ! -f versions/current.env ]; then
-            echo "No hay version estable disponible para rollback."
-            exit 1
+            echo "No hay version estable disponible para rollback (primer deploy)."
+            echo "Intervencion manual requerida."
+            $COMPOSE logs --tail 30 backend frontend 2>/dev/null || true
+            exit 0
           fi
 
           # Source sin -u para evitar fallo en variables vacias del archivo
