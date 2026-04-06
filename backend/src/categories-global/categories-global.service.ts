@@ -1,331 +1,206 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { CreateCategoryDto, UpdateCategoryDto } from '../menu/dto/category.dto'
-import { CreateSubcategoryDto, UpdateSubcategoryDto } from '../menu/dto/subcategory.dto'
+import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto'
+import { CreateSubcategoryDto, UpdateSubcategoryDto } from './dto/subcategory.dto'
 import { Category, Subcategory } from '@prisma/client'
 
 @Injectable()
 export class CategoriesGlobalService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ==================== CATEGORÍAS GLOBALES ====================
+  async findAll(params: { page: number; limit: number }) {
+    const { page, limit } = params
+    const skip = (page - 1) * limit
 
-  async findAllCategories(): Promise<Category[]> {
-    return this.prisma.category.findMany({
-      where: {
-        isGlobal: true,
-      },
-      include: {
-        subcategories: {
-          where: {
-            isActive: true,
-          },
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-      },
-      orderBy: {
-        sortOrder: 'asc',
-      },
-    })
-  }
+    const [categories, total] = await Promise.all([
+      this.prisma.category.findMany({
+        where: { isGlobal: true },
+        skip,
+        take: limit,
+        orderBy: { sortOrder: 'asc' },
+        include: { subcategories: true }
+      }),
+      this.prisma.category.count({ where: { isGlobal: true } })
+    ])
 
-  async findCategoryById(id: string): Promise<Category> {
-    const category = await this.prisma.category.findFirst({
-      where: {
-        id,
-        isGlobal: true,
-      },
-      include: {
-        subcategories: {
-          where: {
-            isActive: true,
-          },
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-      },
-    })
-
-    if (!category) {
-      throw new NotFoundException('Categoría global no encontrada')
+    return {
+      data: categories,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
     }
-
-    return category
   }
 
-  async createCategory(createCategoryDto: CreateCategoryDto): Promise<Category> {
-    const { name, ...data } = createCategoryDto
-
-    // Verificar si ya existe una categoría global con el mismo nombre
+  async createCategory(createCategoryDto: CreateCategoryDto) {
     const existingCategory = await this.prisma.category.findFirst({
-      where: {
-        name,
-        isGlobal: true,
-      },
+      where: { 
+        name: createCategoryDto.name,
+        isGlobal: true 
+      }
     })
 
     if (existingCategory) {
-      throw new ConflictException('Ya existe una categoría global con este nombre')
+      throw new ConflictException(`Ya existe una categoría global con el nombre "${createCategoryDto.name}"`)
     }
 
     return this.prisma.category.create({
       data: {
-        ...data,
-        name,
+        ...createCategoryDto,
         isGlobal: true,
-        commerceId: null, // Las categorías globales no tienen comercio
+        commerceId: null
       },
-      include: {
-        subcategories: true,
-      },
+      include: { subcategories: true }
     })
   }
 
-  async updateCategory(id: string, updateCategoryDto: UpdateCategoryDto): Promise<Category> {
-    const { name, ...data } = updateCategoryDto
-
-    // Verificar si la categoría existe y es global
+  async updateCategory(id: string, updateCategoryDto: UpdateCategoryDto) {
     const existingCategory = await this.prisma.category.findFirst({
-      where: {
-        id,
-        isGlobal: true,
-      },
+      where: { id, isGlobal: true }
     })
 
     if (!existingCategory) {
-      throw new NotFoundException('Categoría global no encontrada')
+      throw new NotFoundException(`Categoría global con ID ${id} no encontrada`)
     }
 
-    // Si se está actualizando el nombre, verificar que no exista otra categoría global con ese nombre
-    if (name && name !== existingCategory.name) {
+    if (updateCategoryDto.name && updateCategoryDto.name !== existingCategory.name) {
       const duplicateCategory = await this.prisma.category.findFirst({
-        where: {
-          name,
-          isGlobal: true,
-          id: { not: id },
-        },
+        where: { 
+          name: updateCategoryDto.name,
+          isGlobal: true 
+        }
       })
 
       if (duplicateCategory) {
-        throw new ConflictException('Ya existe una categoría global con este nombre')
+        throw new ConflictException(`Ya existe una categoría global con el nombre "${updateCategoryDto.name}"`)
       }
     }
 
     return this.prisma.category.update({
       where: { id },
-      data: {
-        ...data,
-        ...(name && { name }),
-      },
-      include: {
-        subcategories: true,
-      },
+      data: updateCategoryDto,
+      include: { subcategories: true }
     })
   }
 
-  async deleteCategory(id: string): Promise<Category> {
-    // Verificar si la categoría existe y es global
-    const existingCategory = await this.prisma.category.findFirst({
-      where: {
-        id,
-        isGlobal: true,
-      },
-      include: {
-        products: true,
-        subcategories: true,
-      },
-    })
-
-    if (!existingCategory) {
-      throw new NotFoundException('Categoría global no encontrada')
-    }
-
-    // Verificar si hay productos asociados
-    if (existingCategory.products.length > 0) {
-      throw new BadRequestException(
-        'No se puede eliminar la categoría porque tiene productos asociados. Elimine o reasigne los productos primero.',
-      )
-    }
-
-    // Eliminar subcategorías primero
-    await this.prisma.subcategory.deleteMany({
-      where: {
-        categoryId: id,
-      },
-    })
-
-    // Eliminar categoría
-    return this.prisma.category.delete({
-      where: { id },
-    })
-  }
-
-  // ==================== SUBCATEGORÍAS GLOBALES ====================
-
-  async findSubcategoriesByCategory(categoryId: string): Promise<Subcategory[]> {
-    // Verificar que la categoría exista y sea global
+  async deleteCategory(id: string) {
     const category = await this.prisma.category.findFirst({
-      where: {
-        id: categoryId,
-        isGlobal: true,
-      },
+      where: { id, isGlobal: true }
     })
 
     if (!category) {
-      throw new NotFoundException('Categoría global no encontrada')
+      throw new NotFoundException(`Categoría global con ID ${id} no encontrada`)
+    }
+
+    await this.prisma.subcategory.deleteMany({
+      where: { categoryId: id }
+    })
+
+    return this.prisma.category.delete({
+      where: { id }
+    })
+  }
+
+  async findSubcategories(categoryId: string) {
+    const category = await this.prisma.category.findFirst({
+      where: { id: categoryId, isGlobal: true }
+    })
+
+    if (!category) {
+      throw new NotFoundException(`Categoría global con ID ${categoryId} no encontrada`)
     }
 
     return this.prisma.subcategory.findMany({
-      where: {
-        categoryId,
-        isActive: true,
-      },
-      orderBy: {
-        sortOrder: 'asc',
-      },
+      where: { categoryId },
+      orderBy: { sortOrder: 'asc' }
     })
   }
 
-  async findSubcategoryById(id: string): Promise<Subcategory> {
-    const subcategory = await this.prisma.subcategory.findFirst({
-      where: {
-        id,
-        category: {
-          isGlobal: true,
-        },
-      },
-      include: {
-        category: true,
-      },
-    })
-
-    if (!subcategory) {
-      throw new NotFoundException('Subcategoría global no encontrada')
-    }
-
-    return subcategory
-  }
-
-  async createSubcategory(categoryId: string, createSubcategoryDto: CreateSubcategoryDto): Promise<Subcategory> {
-    const { name, ...data } = createSubcategoryDto
-
-    // Verificar que la categoría exista y sea global
+  async createSubcategory(categoryId: string, createSubcategoryDto: CreateSubcategoryDto) {
     const category = await this.prisma.category.findFirst({
-      where: {
-        id: categoryId,
-        isGlobal: true,
-      },
+      where: { id: categoryId, isGlobal: true }
     })
 
     if (!category) {
-      throw new NotFoundException('Categoría global no encontrada')
+      throw new NotFoundException(`Categoría global con ID ${categoryId} no encontrada`)
     }
 
-    // Verificar si ya existe una subcategoría con el mismo nombre en esta categoría
     const existingSubcategory = await this.prisma.subcategory.findFirst({
-      where: {
-        name,
-        categoryId,
-      },
+      where: { 
+        name: createSubcategoryDto.name,
+        categoryId 
+      }
     })
 
     if (existingSubcategory) {
-      throw new ConflictException('Ya existe una subcategoría con este nombre en esta categoría')
+      throw new ConflictException(`Ya existe una subcategoría con el nombre "${createSubcategoryDto.name}"`)
     }
 
     return this.prisma.subcategory.create({
       data: {
-        ...data,
-        name,
-        categoryId,
-      },
-      include: {
-        category: true,
-      },
+        ...createSubcategoryDto,
+        categoryId
+      }
     })
   }
 
-  async updateSubcategory(id: string, updateSubcategoryDto: UpdateSubcategoryDto): Promise<Subcategory> {
-    const { name, ...data } = updateSubcategoryDto
-
-    // Verificar si la subcategoría existe y pertenece a una categoría global
-    const existingSubcategory = await this.prisma.subcategory.findFirst({
-      where: {
-        id,
-        category: {
-          isGlobal: true,
-        },
-      },
+  async updateSubcategory(id: string, updateSubcategoryDto: UpdateSubcategoryDto) {
+    const existingSubcategory = await this.prisma.subcategory.findUnique({
+      where: { id },
+      include: { category: true }
     })
 
     if (!existingSubcategory) {
-      throw new NotFoundException('Subcategoría global no encontrada')
+      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`)
     }
 
-    // Si se está actualizando el nombre, verificar que no exista otra subcategoría con ese nombre en la misma categoría
-    if (name && name !== existingSubcategory.name) {
+    if (!existingSubcategory.category?.isGlobal) {
+      throw new NotFoundException(`Esta subcategoría no pertenece a una categoría global`)
+    }
+
+    if (updateSubcategoryDto.name && updateSubcategoryDto.name !== existingSubcategory.name) {
       const duplicateSubcategory = await this.prisma.subcategory.findFirst({
-        where: {
-          name,
-          categoryId: existingSubcategory.categoryId,
-          id: { not: id },
-        },
+        where: { 
+          name: updateSubcategoryDto.name,
+          categoryId: existingSubcategory.categoryId 
+        }
       })
 
       if (duplicateSubcategory) {
-        throw new ConflictException('Ya existe una subcategoría con este nombre en esta categoría')
+        throw new ConflictException(`Ya existe una subcategoría con el nombre "${updateSubcategoryDto.name}"`)
       }
     }
 
     return this.prisma.subcategory.update({
       where: { id },
-      data: {
-        ...data,
-        ...(name && { name }),
-      },
-      include: {
-        category: true,
-      },
+      data: updateSubcategoryDto
     })
   }
 
-  async deleteSubcategory(id: string): Promise<Subcategory> {
-    // Verificar si la subcategoría existe y pertenece a una categoría global
-    const existingSubcategory = await this.prisma.subcategory.findFirst({
-      where: {
-        id,
-        category: {
-          isGlobal: true,
-        },
-      },
-      include: {
-        products: true,
-      },
+  async deleteSubcategory(id: string) {
+    const subcategory = await this.prisma.subcategory.findUnique({
+      where: { id },
+      include: { category: true }
     })
 
-    if (!existingSubcategory) {
-      throw new NotFoundException('Subcategoría global no encontrada')
+    if (!subcategory) {
+      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`)
     }
 
-    // Verificar si hay productos asociados
-    if (existingSubcategory.products.length > 0) {
-      throw new BadRequestException(
-        'No se puede eliminar la subcategoría porque tiene productos asociados. Elimine o reasigne los productos primero.',
-      )
+    if (!subcategory.category?.isGlobal) {
+      throw new NotFoundException(`Esta subcategoría no pertenece a una categoría global`)
     }
 
     return this.prisma.subcategory.delete({
-      where: { id },
+      where: { id }
     })
   }
 
-  // ==================== UTILIDADES ====================
-
   async exportCategoriesToCsv(): Promise<string> {
-    const categories = await this.findAllCategories()
+    const result = await this.findAll({ page: 1, limit: 1000 })
+    const categories = result.data
     
     const csvHeaders = [
       'ID',
