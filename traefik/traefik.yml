@@ -37,7 +37,7 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "${EMAIL}"
+      email: "eiskerhernandez@gmail.com"
       storage: "/letsencrypt/acme.json"
       # TLS challenge: no depende del entrypoint HTTP, funciona en puerto 443
       tlsChallenge: {}
