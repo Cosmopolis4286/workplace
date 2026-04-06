@@ -77,34 +77,11 @@ runs:
           echo "  Backend:  $BACKEND_IMAGE"
           echo "  Frontend: $FRONTEND_IMAGE"
 
-          # Arrancar servicios base si no corren
-          if ! $COMPOSE ps 2>/dev/null | grep -q "running"; then
-            echo "Iniciando servicios base..."
-            $COMPOSE up -d postgres redis traefik
-            sleep 10
-          fi
-
-          # Limpiar canary residual
-          docker rm -f workplace_backend_canary workplace_frontend_canary 2>/dev/null || true
-
-          # Validar integridad script canary
           chmod +x scripts/deploy/canary-traffic-split.sh
-          if [ -f scripts/deploy/canary-traffic-split.sh.sha256 ]; then
-            sha256sum -c scripts/deploy/canary-traffic-split.sh.sha256 || {
-              echo "Integridad del script canary comprometida. Abortando."
-              exit 1
-            }
-          fi
 
-          # Migraciones DB
-          $COMPOSE exec -T backend npx prisma migrate deploy \
-            && echo "Migraciones OK" \
-            || echo "Migraciones fallaron — continuando"
-
-          # Canary deployment
-          echo "Ejecutando canary deployment..."
+          echo "Ejecutando deploy..."
           ./scripts/deploy/canary-traffic-split.sh \
-            || { echo "Canary fallo"; exit 1; }
+            || { echo "Deploy fallo"; exit 1; }
 
           echo "Deploy completado"
         EOF

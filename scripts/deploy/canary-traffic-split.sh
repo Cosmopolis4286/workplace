@@ -1,428 +1,80 @@
 #!/bin/bash
+# Deploy con rolling update: reemplaza backend y frontend uno a uno,
+# verifica que cada uno este healthy antes de continuar.
 set -euo pipefail
 
-# Canary Real con Traefik - 10% Traffic Split
-# Distribuye tráfico real entre backend viejo y nuevo usando Traefik
+COMPOSE="docker compose -f /opt/workplace/docker-compose.lite.yml"
+LOG_DIR="/opt/workplace/logs/deploy"
+NODE_PORT="${NODE_PORT:-3001}"
+FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 
-# Variables
-export BACKEND_IMAGE=${BACKEND_IMAGE}
-export CURRENT_SHA=${CURRENT_SHA}
-export LOG_DIR="/opt/workplace/logs/deploy"
-CANARY_WEIGHT=10  # 10% tráfico al canary
-MAIN_WEIGHT=90    # 90% tráfico al principal
-CANARY_DURATION=300  # 5 minutos de testing
+mkdir -p "$LOG_DIR"
 
-# Funciones
-function log_canary() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] CANARY: $1" | tee -a "$LOG_DIR/canary_traffic_$(date +%Y%m%d).log"
-}
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_DIR/deploy_$(date +%Y%m%d).log"; }
 
-function wait_healthy() {
-  local container=$1
-  local retries=${2:-30}
-  local timeout=${3:-2}
-  
-  log_canary "⏳ Esperando health check para $container..."
-  
-  for i in $(seq 1 $retries); do
-    # Verificar Docker HEALTHCHECK nativo
-    local HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $container 2>/dev/null || echo "unknown")
-    
-    if [ "$HEALTH_STATUS" == "healthy" ]; then
-      echo "✅ $container está healthy (Docker HEALTHCHECK) ($i/$retries)"
+wait_healthy() {
+  local service=$1
+  local port=$2
+  local endpoint=$3
+  local retries=${4:-30}
+
+  log "Esperando que $service este healthy..."
+  for i in $(seq 1 "$retries"); do
+    if $COMPOSE exec -T "$service" \
+        curl -sf --max-time 5 "http://localhost:${port}${endpoint}" >/dev/null 2>&1; then
+      log "$service OK (intento $i/$retries)"
       return 0
     fi
-    
-    # Fallback: verificar si el contenedor está corriendo y responde via docker exec
-    local CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' $container 2>/dev/null || echo "unknown")
-    if [ "$CONTAINER_STATUS" == "running" ]; then
-      # Health check via docker exec
-      if docker exec $container curl -fs --max-time 5 http://localhost:${NODE_PORT:-3001}/api/ready 2>/dev/null | grep -qE '"status":"(ok|healthy)"'; then
-        echo "✅ $container responde a health check via docker exec ($i/$retries)"
-        return 0
-      fi
-    fi
-    
-    echo "⏳ Intento $i/$retries - Status: $HEALTH_STATUS, Container: $CONTAINER_STATUS"
-    sleep $timeout
+    log "  Intento $i/$retries -- esperando..."
+    sleep 5
   done
-  
-  log_canary "❌ $container no alcanzó estado healthy después de $retries intentos"
+  log "ERROR: $service no respondio despues de $retries intentos"
   return 1
 }
 
-function setup_canary_service() {
-  log_canary "🚀 Configurando Canary Service con Traefik..."
-  
-  # Crear directorio de logs
-  mkdir -p $LOG_DIR
-  
-  # Identificar backend principal (manejar primer deploy)
-  local MAIN_BACKEND_ID=$(docker compose ps -q backend)
-  if [ -z "$MAIN_BACKEND_ID" ]; then
-    log_canary "🚀 Primer deploy detectado - no hay backend principal"
-    log_canary "🔄 Iniciando deploy directo sin canary..."
-    
-    # Deploy directo para primer deploy
-    docker compose --env-file /opt/workplace/.env.deploy up -d postgres redis traefik
-    sleep 10
-    
-    # Iniciar backend principal
-    docker compose --env-file /opt/workplace/.env.deploy up -d backend
-    sleep 15
-    
-    # Iniciar frontend
-    docker compose --env-file /opt/workplace/.env.deploy up -d frontend
-    sleep 10
-    
-    log_canary "✅ Primer deploy completado - servicios iniciados"
-    return 0
-  fi
-  
-  local MAIN_BACKEND_NAME=$(docker inspect --format='{{.Name}}' "$MAIN_BACKEND_ID" | sed 's/\///')
-  log_canary "📦 Backend principal: $MAIN_BACKEND_NAME ($MAIN_BACKEND_ID)"
-  
-  # Levantar backend canary con labels de Traefik
-  log_canary "🚀 Levantando backend canary con Traefik..."
-  
-  docker run -d \
-    --name workplace_backend_canary \
-    --network workplace_private_network \
-    --restart unless-stopped \
-    --memory 512m \
-    --cpus 0.5 \
-    --log-driver json-file \
-    --log-opt max-size=10m \
-    --log-opt max-file=3 \
-    --env-file /opt/workplace/.env \
-    -e APP_ENV=production \
-    -e PORT=${NODE_PORT:-3001} \
-    -e DB_HOST=postgres \
-    -e DB_PORT=5432 \
-    -e DB_USER=${POSTGRES_USER} \
-    -e DB_PASSWORD=${POSTGRES_PASSWORD} \
-    -e DB_NAME=${POSTGRES_DB} \
-    -e DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}" \
-    -e REDIS_HOST=redis \
-    -e REDIS_PORT=6379 \
-    -e REDIS_PASSWORD=${REDIS_PASSWORD} \
-    --health-cmd="curl -f http://localhost:${NODE_PORT:-3001}/api/ready || exit 1" \
-    --health-interval=30s \
-    --health-timeout=10s \
-    --health-retries=3 \
-    --health-start-period=40s \
-    ${BACKEND_IMAGE}
-  
-  # Esperar que canary esté healthy
-  log_canary "⏳ Esperando health check del canary..."
-  
-  if ! wait_healthy "workplace_backend_canary" 30 2; then
-    log_canary "❌ Canary no alcanzó estado healthy"
-    log_canary "📋 Logs del canary (últimos 30 líneas):"
-    docker logs workplace_backend_canary --tail 30
-    log_canary "🔍 Inspección del contenedor canary:"
-    docker inspect workplace_backend_canary --format='{{.State.Status}} {{.State.Health.Status}}'
-    docker rm -f workplace_backend_canary
-    return 1
-  fi
-  
-  log_canary "✅ Canary está healthy"
-}
-
-function monitor_canary_metrics() {
-  log_canary "📊 Iniciando monitoreo de canary por ${CANARY_DURATION}s..."
-  
-  local START_TIME=$(date +%s)
-  local END_TIME=$((START_TIME + CANARY_DURATION))
-  local CURRENT_TIME=$(date +%s)
-  
-  local CANARY_REQUESTS=0
-  local MAIN_REQUESTS=0
-  local CANARY_ERRORS=0
-  local MAIN_ERRORS=0
-  local CANARY_LATENCY_TOTAL=0
-  local MAIN_LATENCY_TOTAL=0
-  
-  log_canary "📈 Recolectando métricas de tráfico..."
-  
-  while [ "$CURRENT_TIME" -lt "$END_TIME" ]; do
-    # Hacer requests de prueba para medir distribución
-    for i in {1..10}; do
-      local START_REQ=$(date +%s%N)
-      
-      # 10% de requests al canary via docker exec, 90% normal
-      if [ $((i % 10)) -eq 1 ]; then
-        # Request a canary (via docker exec - testing interno)
-        local RESPONSE=$(docker exec workplace_backend_canary curl -s -w "%{http_code},%{time_total}" \
-          --max-time 5 \
-          http://localhost:${NODE_PORT:-3001}/api/ready 2>/dev/null || echo "000,0.000")
-        CANARY_REQUESTS=$((CANARY_REQUESTS + 1))
-        if [[ "$RESPONSE" != *"200"* ]]; then
-          CANARY_ERRORS=$((CANARY_ERRORS + 1))
-        fi
-      else
-        # Request normal (directo al contenedor principal, evita redirección HTTP→HTTPS de Traefik)
-        local MAIN_CONTAINER=$(docker compose ps -q backend 2>/dev/null | head -1)
-        local RESPONSE
-        if [ -n "$MAIN_CONTAINER" ]; then
-          RESPONSE=$(docker exec "$MAIN_CONTAINER" curl -s -w ",%{http_code},%{time_total}" \
-            --max-time 5 \
-            "http://localhost:${NODE_PORT:-3001}/api/ready" 2>/dev/null || echo ",,000,0.000")
-        else
-          RESPONSE=",,000,0.000"
-        fi
-        local HTTP_CODE=$(echo "$RESPONSE" | rev | cut -d',' -f2 | rev)
-        MAIN_REQUESTS=$((MAIN_REQUESTS + 1))
-        if [ "$HTTP_CODE" != "200" ]; then
-          MAIN_ERRORS=$((MAIN_ERRORS + 1))
-        else
-          local LATENCY=$(echo "$RESPONSE" | rev | cut -d',' -f1 | rev | cut -d'.' -f1)
-          MAIN_LATENCY_TOTAL=$((MAIN_LATENCY_TOTAL + ${LATENCY:-0}))
-        fi
-      fi
-      
-      local END_REQ=$(date +%s%N)
-      local LATENCY_MS=$(( (END_REQ - START_REQ) / 1000000 ))
-      
-      # Acumular latencia (simplificado)
-      if [ $((i % 10)) -eq 1 ]; then
-        CANARY_LATENCY_TOTAL=$((CANARY_LATENCY_TOTAL + LATENCY_MS))
-      else
-        MAIN_LATENCY_TOTAL=$((MAIN_LATENCY_TOTAL + LATENCY_MS))
-      fi
-      
-      sleep 0.1
-    done
-    
-    # Calcular y mostrar métricas parciales
-    local TOTAL_REQUESTS=$((CANARY_REQUESTS + MAIN_REQUESTS))
-    if [ "$TOTAL_REQUESTS" -gt 0 ]; then
-      local CANARY_PERCENTAGE=$((CANARY_REQUESTS * 100 / TOTAL_REQUESTS))
-      local MAIN_PERCENTAGE=$((MAIN_REQUESTS * 100 / TOTAL_REQUESTS))
-      
-      local CANARY_AVG_LATENCY=0
-      local MAIN_AVG_LATENCY=0
-      if [ "$CANARY_REQUESTS" -gt 0 ]; then
-        CANARY_AVG_LATENCY=$((CANARY_LATENCY_TOTAL / CANARY_REQUESTS))
-      fi
-      if [ "$MAIN_REQUESTS" -gt 0 ]; then
-        MAIN_AVG_LATENCY=$((MAIN_LATENCY_TOTAL / MAIN_REQUESTS))
-      fi
-      
-      local CANARY_ERROR_RATE=0
-      local MAIN_ERROR_RATE=0
-      if [ "$CANARY_REQUESTS" -gt 0 ]; then
-        CANARY_ERROR_RATE=$((CANARY_ERRORS * 100 / CANARY_REQUESTS))
-      fi
-      if [ "$MAIN_REQUESTS" -gt 0 ]; then
-        MAIN_ERROR_RATE=$((MAIN_ERRORS * 100 / MAIN_REQUESTS))
-      fi
-      
-      log_canary "📊 Métricas parciales - Canary: ${CANARY_PERCENTAGE}% (${CANARY_REQUESTS} reqs, ${CANARY_AVG_LATENCY}ms, ${CANARY_ERROR_RATE}% errores) | Main: ${MAIN_PERCENTAGE}% (${MAIN_REQUESTS} reqs, ${MAIN_AVG_LATENCY}ms, ${MAIN_ERROR_RATE}% errores)"
-    fi
-    
-    sleep 30  # Esperar 30 segundos antes de siguiente medición
-    CURRENT_TIME=$(date +%s)
-  done
-  
-  # Métricas finales
-  local FINAL_TOTAL_REQUESTS=$((CANARY_REQUESTS + MAIN_REQUESTS))
-  local FINAL_CANARY_PERCENTAGE=0
-  local FINAL_MAIN_PERCENTAGE=0
-  
-  if [ "$FINAL_TOTAL_REQUESTS" -gt 0 ]; then
-    FINAL_CANARY_PERCENTAGE=$((CANARY_REQUESTS * 100 / FINAL_TOTAL_REQUESTS))
-    FINAL_MAIN_PERCENTAGE=$((MAIN_REQUESTS * 100 / FINAL_TOTAL_REQUESTS))
-  fi
-  
-  local FINAL_CANARY_AVG_LATENCY=0
-  local FINAL_MAIN_AVG_LATENCY=0
-  if [ "$CANARY_REQUESTS" -gt 0 ]; then
-    FINAL_CANARY_AVG_LATENCY=$((CANARY_LATENCY_TOTAL / CANARY_REQUESTS))
-  fi
-  if [ "$MAIN_REQUESTS" -gt 0 ]; then
-    FINAL_MAIN_AVG_LATENCY=$((MAIN_LATENCY_TOTAL / MAIN_REQUESTS))
-  fi
-  
-  local FINAL_CANARY_ERROR_RATE=0
-  local FINAL_MAIN_ERROR_RATE=0
-  if [ "$CANARY_REQUESTS" -gt 0 ]; then
-    FINAL_CANARY_ERROR_RATE=$((CANARY_ERRORS * 100 / CANARY_REQUESTS))
-  fi
-  if [ "$MAIN_REQUESTS" -gt 0 ]; then
-    FINAL_MAIN_ERROR_RATE=$((MAIN_ERRORS * 100 / MAIN_REQUESTS))
-  fi
-  
-  # Guardar métricas finales
-  cat > $LOG_DIR/canary_traffic_metrics_$(date +%s).json << EOF
-{
-  "timestamp": "$(date -Iseconds)",
-  "sha": "$CURRENT_SHA",
-  "duration_seconds": $CANARY_DURATION,
-  "traffic_split": {
-    "canary_weight": $CANARY_WEIGHT,
-    "main_weight": $MAIN_WEIGHT
-  },
-  "requests": {
-    "total": $FINAL_TOTAL_REQUESTS,
-    "canary": $CANARY_REQUESTS,
-    "main": $MAIN_REQUESTS
-  },
-  "distribution": {
-    "canary_percentage": $FINAL_CANARY_PERCENTAGE,
-    "main_percentage": $FINAL_MAIN_PERCENTAGE
-  },
-  "performance": {
-    "canary": {
-      "avg_latency_ms": $FINAL_CANARY_AVG_LATENCY,
-      "error_rate_percent": $FINAL_CANARY_ERROR_RATE,
-      "errors": $CANARY_ERRORS
-    },
-    "main": {
-      "avg_latency_ms": $FINAL_MAIN_AVG_LATENCY,
-      "error_rate_percent": $FINAL_MAIN_ERROR_RATE,
-      "errors": $MAIN_ERRORS
-    }
-  }
-}
-EOF
-  
-  log_canary "📊 Métricas Finales del Canary:"
-  log_canary "   Total Requests: $FINAL_TOTAL_REQUESTS"
-  log_canary "   Traffic Distribution: Canary ${FINAL_CANARY_PERCENTAGE}% | Main ${FINAL_MAIN_PERCENTAGE}%"
-  log_canary "   Canary Performance: ${FINAL_CANARY_AVG_LATENCY}ms avg, ${FINAL_CANARY_ERROR_RATE}% error rate"
-  log_canary "   Main Performance: ${FINAL_MAIN_AVG_LATENCY}ms avg, ${FINAL_MAIN_ERROR_RATE}% error rate"
-  
-  # Evaluar éxito del canary
-  evaluate_canary_success "$FINAL_CANARY_ERROR_RATE" "$FINAL_CANARY_AVG_LATENCY" "$FINAL_CANARY_PERCENTAGE"
-}
-
-function evaluate_canary_success() {
-  local canary_error_rate=$1
-  local canary_avg_latency=$2
-  local canary_percentage=$3
-  
-  log_canary "🎯 Evaluando éxito del canary..."
-  
-  # Umbrales de éxito
-  local MAX_ERROR_RATE=5.0      # Máximo 5% de error rate
-  local MAX_LATENCY=800          # Máximo 800ms de latencia
-  local MIN_TRAFFIC_RECEIVED=5   # Mínimo 5% de tráfico recibido
-  
-  local SUCCESS=true
-  local REASONS=()
-  
-  # Verificar error rate (sin bc)
-  if (( $(echo "$canary_error_rate > $MAX_ERROR_RATE" | awk '{print ($1 > $3)}') )); then
-    SUCCESS=false
-    REASONS+=("Error rate alto: ${canary_error_rate}% > ${MAX_ERROR_RATE}%")
-  fi
-  
-  # Verificar latencia
-  if [ "$canary_avg_latency" -gt "$MAX_LATENCY" ]; then
-    SUCCESS=false
-    REASONS+=("Latencia alta: ${canary_avg_latency}ms > ${MAX_LATENCY}ms")
-  fi
-  
-  # Verificar que recibió tráfico (sin bc)
-  if (( $(echo "$canary_percentage < $MIN_TRAFFIC_RECEIVED" | awk '{print ($1 < $3)}') )); then
-    SUCCESS=false
-    REASONS+=("Tráfico bajo recibido: ${canary_percentage}% < ${MIN_TRAFFIC_RECEIVED}%")
-  fi
-  
-  # Resultado
-  if [ "$SUCCESS" = "true" ]; then
-    log_canary "✅ Canary EXITOSO - Métricas dentro de umbrales"
-    return 0
-  else
-    log_canary "❌ Canary FALLÓ - Razones:"
-    for reason in "${REASONS[@]}"; do
-      log_canary "   - $reason"
-    done
-    return 1
-  fi
-}
-
-function promote_canary_to_main() {
-  log_canary "🚀 Promocionando Canary a Main..."
-  
-  # Detener backend principal
-  local MAIN_BACKEND_ID=$(docker compose ps -q backend)
-  if [ -n "$MAIN_BACKEND_ID" ]; then
-    log_canary "🛑 Deteniendo backend principal..."
-    docker stop "$MAIN_BACKEND_ID"
-    docker rm "$MAIN_BACKEND_ID"
-  fi
-  
-  # Renombrar canary a principal
-  log_canary "🏷️ Renombrando canary a principal..."
-  if docker ps -q -f name=workplace_backend_canary | grep -q .; then
-    docker rename workplace_backend_canary workplace_backend_temp
-  else
-    log_canary "⚠️ Contenedor canary no encontrado - usando recreación directa"
-  fi
-  
-  # Recrear backend con docker-compose usando la imagen canary
-  log_canary "🔄 Recreando backend con imagen canary..."
-  BACKEND_IMAGE_TEMP=$BACKEND_IMAGE docker compose up -d --no-deps backend
-  
-  # Esperar que esté healthy
-  local NEW_BACKEND_ID=$(docker compose ps -q backend)
-  if [ -z "$NEW_BACKEND_ID" ]; then
-    log_canary "❌ No se pudo obtener ID del nuevo backend"
-    return 1
-  fi
-  
-  # Usar Docker HEALTHCHECK nativo
-  if wait_healthy "$NEW_BACKEND_ID" 30 2; then
-    log_canary "✅ Nuevo backend principal está healthy"
-  else
-    log_canary "❌ Nuevo backend principal no está healthy"
-    return 1
-  fi
-  
-  # Limpiar contenedor temporal
-  docker rm -f workplace_backend_temp 2>/dev/null || true
-  
-  log_canary "✅ Canary promocionado a main exitosamente"
-}
-
-function rollback_canary() {
-  log_canary "🔄 Rollback del Canary..."
-  
-  # Detener canary
-  docker rm -f workplace_backend_canary 2>/dev/null || true
-  
-  log_canary "✅ Canary rollback completado - contenedor canary removido"
-}
-
-# Ejecución principal
 cd /opt/workplace
 
-# Crear directorio de logs primero
-mkdir -p $LOG_DIR
+log "=== Iniciando deploy SHA: ${CURRENT_SHA:-unknown} ==="
+log "  Backend:  ${BACKEND_IMAGE:-?}"
+log "  Frontend: ${FRONTEND_IMAGE:-?}"
 
-log_canary "🚀 Iniciando Canary Real con Traefik..."
+# Servicios base: solo arrancar si no estan corriendo
+if ! $COMPOSE ps postgres 2>/dev/null | grep -qE "running|Up"; then
+  log "Arrancando servicios base (primer deploy)..."
+  $COMPOSE up -d postgres redis traefik
+  log "Esperando postgres..."
+  for i in $(seq 1 30); do
+    $COMPOSE exec -T postgres pg_isready -U "${POSTGRES_USER:-app}" >/dev/null 2>&1 && break || true
+    sleep 3
+  done
+fi
 
-# 1. Setup del canary
-if setup_canary_service; then
-  # 2. Monitorear por el tiempo definido
-  if monitor_canary_metrics; then
-    # 3. Promocionar a main si fue exitoso
-    if promote_canary_to_main; then
-      log_canary "🎉 Canary Real completado exitosamente - 100% tráfico al nuevo backend"
-      exit 0
-    else
-      log_canary "❌ Error promocionando canary - haciendo rollback"
-      rollback_canary
-      exit 1
-    fi
-  else
-    log_canary "❌ Métricas del canary fallaron - haciendo rollback"
-    rollback_canary
-    exit 1
-  fi
-else
-  log_canary "❌ Error configurando canary"
+# Migraciones
+log "Ejecutando migraciones..."
+$COMPOSE run --rm --no-deps \
+  -e DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}" \
+  backend npx prisma migrate deploy \
+  && log "Migraciones OK" \
+  || log "Migraciones fallaron -- continuando"
+
+# Rolling update backend
+log "Actualizando backend..."
+$COMPOSE up -d --no-deps --force-recreate backend
+
+if ! wait_healthy "backend" "$NODE_PORT" "/api/ready" 30; then
+  log "Backend no llego a estar healthy -- abortando"
+  $COMPOSE logs --tail 50 backend
   exit 1
 fi
+
+# Rolling update frontend
+log "Actualizando frontend..."
+$COMPOSE up -d --no-deps --force-recreate frontend
+
+if ! wait_healthy "frontend" "$FRONTEND_PORT" "/" 20; then
+  log "Frontend no llego a estar healthy -- abortando"
+  $COMPOSE logs --tail 50 frontend
+  exit 1
+fi
+
+log "=== Deploy completado exitosamente ==="
