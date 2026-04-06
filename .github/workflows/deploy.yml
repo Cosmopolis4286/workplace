@@ -131,6 +131,8 @@ jobs:
         ssh-user: ${{ secrets.PRODUCTION_USER }}
         ssh-host: ${{ secrets.PRODUCTION_HOST }}
         current-sha: ${{ github.sha }}
+        backend-image: ${{ env.BACKEND_IMAGE }}
+        frontend-image: ${{ env.FRONTEND_IMAGE }}
 
   # ─── 5. Rollback manual ────────────────────────────────────────────────────
   rollback:
