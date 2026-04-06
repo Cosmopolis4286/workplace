@@ -1054,8 +1054,30 @@ jobs:
               echo "✅ Rollback completado - versión anterior restaurada"
             fi
           else
-            echo "❌ No hay versión anterior disponible"
-            exit 1
+            echo "⚠️ No hay versión anterior - es primer deploy o no hay backup"
+            echo "🔄 Intentando fallback a versión stable..."
+            
+            # Fallback a versión stable tag
+            STABLE_BACKEND="${{ secrets.DOCKER_USERNAME }}/workplace-backend:stable"
+            STABLE_FRONTEND="${{ secrets.DOCKER_USERNAME }}/workplace-frontend:stable"
+            
+            echo "🔐 Login en Docker Hub..."
+            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+            
+            echo "📦 Pull de imágenes stable:"
+            echo "  Backend: $STABLE_BACKEND"
+            echo "  Frontend: $STABLE_FRONTEND"
+            
+            if docker pull "$STABLE_BACKEND" && docker pull "$STABLE_FRONTEND"; then
+              export BACKEND_IMAGE="$STABLE_BACKEND"
+              export FRONTEND_IMAGE="$STABLE_FRONTEND"
+              docker compose up -d --no-deps backend frontend
+              echo "✅ Fallback a stable completado - versión estable desplegada"
+            else
+              echo "❌ No hay versión stable disponible - deploy fallido"
+              echo "🚨 Se requiere intervención manual"
+              exit 1
+            fi
           fi
           
           # Notificar rollback
