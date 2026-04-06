@@ -124,6 +124,10 @@ jobs:
           # Crear symlink a versión actual
           ln -sf "$VERSION_FILE" /opt/workplace/versions/current.env
           
+          # Crear directorios si no existen
+          mkdir -p /opt/workplace/backups/versions
+          touch /opt/workplace/backups/versions/version_history.txt
+          
           # Guardar en archivo de versiones anteriores (máximo 5)
           echo "$TIMESTAMP:$BACKEND_IMAGE:$FRONTEND_IMAGE:$CURRENT_SHA" >> /opt/workplace/backups/versions/version_history.txt
           
