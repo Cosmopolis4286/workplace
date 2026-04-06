@@ -107,7 +107,6 @@ POSTGRES_DB=workplace
 REDIS_PASSWORD=redis_secure_password
 NODE_PORT=3001
 FRONTEND_PORT=3000
-DOCKER_USER=tu-usuario-docker
 ```
 
 ## 🔄 Flujo de Deploy Mejorado
