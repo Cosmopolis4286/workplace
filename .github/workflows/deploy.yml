@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: ./.github/actions/setup-tests
       with:
@@ -52,7 +52,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: ./.github/actions/setup-node-pnpm
       with:
@@ -78,7 +78,7 @@ jobs:
     needs: [test, e2e-tests]
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - uses: ./.github/actions/build-image
       with:
         service: backend
@@ -94,7 +94,7 @@ jobs:
     needs: [test, e2e-tests]
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - uses: ./.github/actions/build-image
       with:
         service: frontend
@@ -111,7 +111,7 @@ jobs:
     needs: [build-backend, build-frontend]
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: ./.github/actions/setup-ssh
       with:
@@ -140,7 +140,7 @@ jobs:
     if: needs.deploy.result == 'failure' && github.event.inputs.force_rollback == 'true'
     timeout-minutes: 10
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: ./.github/actions/setup-ssh
       with:
@@ -217,7 +217,7 @@ jobs:
     needs: [deploy, smoke-test]
     if: always()
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: ./.github/actions/notify
       with:
