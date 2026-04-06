@@ -41,7 +41,7 @@ jobs:
         node-version: '24'
 
     - name: Ejecutar Tests con Coverage
-      if: ${{ github.event.inputs.force_deploy != 'true' || github.actor != 'admin' }}
+      if: ${{ (github.event.inputs.force_deploy || 'false') != 'true' || github.actor != 'admin' }}
       uses: ./.github/actions/run-tests
       with:
         force-deploy: ${{ github.event.inputs.force_deploy }}
@@ -402,7 +402,7 @@ jobs:
             echo "📝 Commit SHA: ${{ github.sha }}"
           fi
           
-          if docker compose ps | grep -q "Up"; then
+          if docker compose ps --status running | grep -q "running"; then
             echo "✅ Sistema corriendo, procediendo con canary"
           else
             echo "⚠️ Sistema no corriendo, iniciando servicios base"
@@ -590,7 +590,9 @@ jobs:
               # Cargar última versión estable
               echo "🔄 Cargando última versión estable..."
               if [ -f "/opt/workplace/versions/current.env" ]; then
+                set -a
                 source /opt/workplace/versions/current.env
+                set +a
                 echo "📦 Versión a restaurar:"
                 echo "  Backend: $BACKEND_CURRENT_IMAGE"
                 echo "  Frontend: $FRONTEND_CURRENT_IMAGE"
@@ -656,7 +658,7 @@ jobs:
                   
                   # Paso 2: Limpiar completamente
                   echo "🧹 Limpieza completa de recursos..."
-                  docker system prune -f --volumes || true
+                  docker system prune -f || true
                   
                   # Paso 3: Restaurar con imágenes verificadas
                   echo "🔄 Restaurando servicios con versión estable..."
@@ -767,7 +769,7 @@ jobs:
   rollback:
     name: Rollback Manual
     runs-on: ubuntu-latest
-    # Sin 'needs' - puede ejecutarse independientemente
+    needs: deploy
     if: ${{ (needs.deploy.result == 'failure' && github.event.inputs.force_rollback == 'true') || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 10
     
