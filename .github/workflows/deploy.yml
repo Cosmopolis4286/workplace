@@ -41,7 +41,7 @@ jobs:
         node-version: '24'
 
     - name: Ejecutar Tests con Coverage
-      if: ${{ !github.event.inputs.force_deploy || github.actor != 'admin' }}
+      if: ${{ github.event.inputs.force_deploy != 'true' || github.actor != 'admin' }}
       uses: ./.github/actions/run-tests
       with:
         force-deploy: ${{ github.event.inputs.force_deploy }}
@@ -89,7 +89,7 @@ jobs:
           echo "🔍 Detectando estado actual..."
           
           # Verificar si hay contenedores corriendo
-          if docker compose ps --format "table {{.Name}}" | grep -q "workplace"; then
+          if docker compose ps | grep -q "workplace"; then
             echo "📦 Contenedores detectados - extrayendo imágenes..."
             BACKEND_IMAGE=$(docker compose ps -q backend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
             FRONTEND_IMAGE=$(docker compose ps -q frontend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
@@ -514,14 +514,12 @@ jobs:
             CURRENT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
             
             # Crear versión de referencia
-            cat > "$VERSION_FILE" << VERSIONEOF
-# Versión actual backup - $TIMESTAMP
-BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE
-FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE
-CURRENT_SHA=$CURRENT_SHA
-BACKUP_TIMESTAMP=$TIMESTAMP
-DEPLOY_STATUS=current
-VERSIONEOF
+            echo "# Versión actual backup - $TIMESTAMP" > "$VERSION_FILE"
+            echo "BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE" >> "$VERSION_FILE"
+            echo "FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE" >> "$VERSION_FILE"
+            echo "CURRENT_SHA=$CURRENT_SHA" >> "$VERSION_FILE"
+            echo "BACKUP_TIMESTAMP=$TIMESTAMP" >> "$VERSION_FILE"
+            echo "DEPLOY_STATUS=current" >> "$VERSION_FILE"
             
             # Crear symlink y guardar historial
             ln -sf "$VERSION_FILE" /opt/workplace/versions/current.env
@@ -531,10 +529,10 @@ VERSIONEOF
             echo "✅ Backup de versión actual creado:"
             echo "  📁 Archivo: $VERSION_FILE"
             echo "  🔗 Symlink: /opt/workplace/versions/current.env"
-            echo "  � Historial: $(wc -l < /opt/workplace/backups/versions/version_history.txt) versiones"
+            echo "  📊 Historial: $(wc -l < /opt/workplace/backups/versions/version_history.txt) versiones"
             
           else
-            echo "�🚨 Health checks fallaron - Verificando si es primer deploy..."
+            echo "🚨 Health checks fallaron - Verificando si es primer deploy..."
             
             # Verificar si es primer deploy (no hay versión estable)
             if [ ! -f "/opt/workplace/versions/current.env" ]; then
@@ -552,14 +550,12 @@ VERSIONEOF
               CURRENT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
               
               # Crear versión de referencia
-              cat > "$VERSION_FILE" << VERSIONEOF
-# Versión actual backup - $TIMESTAMP (Primer Deploy)
-BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE
-FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE
-CURRENT_SHA=$CURRENT_SHA
-BACKUP_TIMESTAMP=$TIMESTAMP
-DEPLOY_STATUS=first-deploy-health-failed
-VERSIONEOF
+              echo "# Versión actual backup - $TIMESTAMP (Primer Deploy)" > "$VERSION_FILE"
+              echo "BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE" >> "$VERSION_FILE"
+              echo "FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE" >> "$VERSION_FILE"
+              echo "CURRENT_SHA=$CURRENT_SHA" >> "$VERSION_FILE"
+              echo "BACKUP_TIMESTAMP=$TIMESTAMP" >> "$VERSION_FILE"
+              echo "DEPLOY_STATUS=first-deploy-health-failed" >> "$VERSION_FILE"
               
               # Crear symlink y guardar historial
               ln -sf "$VERSION_FILE" /opt/workplace/versions/current.env
@@ -584,192 +580,195 @@ VERSIONEOF
               
             else
               echo "🔄 Deploy con versión estable detectada - Iniciando rollback enterprise..."
-            
-            # Diagnóstico y backup del estado fallido
-            echo "📊 Diagnóstico del estado fallido..."
-            docker compose ps > /tmp/failed-deploy-state.log
-            docker logs workplace-backend-1 --tail 100 > /tmp/backend-failed.log 2>/dev/null || true
-            docker logs workplace-frontend-1 --tail 100 > /tmp/frontend-failed.log 2>/dev/null || true
-            
-            # Cargar última versión estable
-            echo "🔄 Cargando última versión estable..."
-            if [ -f "/opt/workplace/versions/current.env" ]; then
-              source /opt/workplace/versions/current.env
-              echo "📦 Versión a restaurar:"
-              echo "  Backend: $BACKEND_CURRENT_IMAGE"
-              echo "  Frontend: $FRONTEND_CURRENT_IMAGE"
-              echo "  SHA: $CURRENT_SHA"
-              echo "  Timestamp: $BACKUP_TIMESTAMP"
               
-              # Verificar que las imágenes existen localmente
-              BACKEND_AVAILABLE=false
-              FRONTEND_AVAILABLE=false
+              # Diagnóstico y backup del estado fallido
+              echo "📊 Diagnóstico del estado fallido..."
+              docker compose ps > /tmp/failed-deploy-state.log
+              docker logs workplace-backend-1 --tail 100 > /tmp/backend-failed.log 2>/dev/null || true
+              docker logs workplace-frontend-1 --tail 100 > /tmp/frontend-failed.log 2>/dev/null || true
               
-              if docker image inspect "$BACKEND_CURRENT_IMAGE" >/dev/null 2>&1; then
-                echo "✅ Imagen backend disponible localmente"
-                BACKEND_AVAILABLE=true
-              elif [ -f "/opt/workplace/backups/versions/backend-${BACKUP_TIMESTAMP}.tar" ]; then
-                echo "📦 Cargando backup de imagen backend..."
-                if docker load -i "/opt/workplace/backups/versions/backend-${BACKUP_TIMESTAMP}.tar" >/dev/null 2>&1; then
-                  echo "✅ Backup backend cargado exitosamente"
+              # Cargar última versión estable
+              echo "🔄 Cargando última versión estable..."
+              if [ -f "/opt/workplace/versions/current.env" ]; then
+                source /opt/workplace/versions/current.env
+                echo "📦 Versión a restaurar:"
+                echo "  Backend: $BACKEND_CURRENT_IMAGE"
+                echo "  Frontend: $FRONTEND_CURRENT_IMAGE"
+                echo "  SHA: $CURRENT_SHA"
+                echo "  Timestamp: $BACKUP_TIMESTAMP"
+                
+                # Verificar que las imágenes existen localmente
+                BACKEND_AVAILABLE=false
+                FRONTEND_AVAILABLE=false
+                
+                if docker image inspect "$BACKEND_CURRENT_IMAGE" >/dev/null 2>&1; then
+                  echo "✅ Imagen backend disponible localmente"
                   BACKEND_AVAILABLE=true
-                else
-                  echo "❌ Error cargando backup backend"
-                fi
-              else
-                echo "🔍 Intentando descargar desde registry..."
-                if docker pull "$BACKEND_CURRENT_IMAGE" >/dev/null 2>&1; then
-                  echo "✅ Backend descargado del registry"
-                  BACKEND_AVAILABLE=true
-                else
-                  echo "❌ Backend no disponible en registry"
-                fi
-              fi
-              
-              if docker image inspect "$FRONTEND_CURRENT_IMAGE" >/dev/null 2>&1; then
-                echo "✅ Imagen frontend disponible localmente"
-                FRONTEND_AVAILABLE=true
-              elif [ -f "/opt/workplace/backups/versions/frontend-${BACKUP_TIMESTAMP}.tar" ]; then
-                echo "📦 Cargando backup de imagen frontend..."
-                if docker load -i "/opt/workplace/backups/versions/frontend-${BACKUP_TIMESTAMP}.tar" >/dev/null 2>&1; then
-                  echo "✅ Backup frontend cargado exitosamente"
-                  FRONTEND_AVAILABLE=true
-                else
-                  echo "❌ Error cargando backup frontend"
-                fi
-              else
-                echo "🔍 Intentando descargar desde registry..."
-                if docker pull "$FRONTEND_CURRENT_IMAGE" >/dev/null 2>&1; then
-                  echo "✅ Frontend descargado del registry"
-                  FRONTEND_AVAILABLE=true
-                else
-                  echo "❌ Frontend no disponible en registry"
-                fi
-              fi
-              
-              if [ "$BACKEND_AVAILABLE" = true ] && [ "$FRONTEND_AVAILABLE" = true ]; then
-                echo "� Ejecutando rollback enterprise..."
-                
-                # Paso 1: Detener servicios fallidos
-                echo "🛑 Deteniendo servicios fallidos..."
-                docker compose stop backend frontend || true
-                docker compose rm -f backend frontend || true
-                
-                # Paso 2: Limpiar completamente
-                echo "🧹 Limpieza completa de recursos..."
-                docker system prune -f --volumes || true
-                
-                # Paso 3: Restaurar con imágenes verificadas
-                echo "🔄 Restaurando servicios con versión estable..."
-                export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
-                export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
-                
-                if docker compose -f docker-compose.lite.yml up -d --no-deps backend frontend; then
-                  echo "✅ Servicios restaurados con versión estable"
-                  
-                  # Paso 4: Verificación enterprise
-                  echo "🔍 Verificación enterprise post-rollback..."
-                  sleep 20
-                  
-                  ROLLBACK_SUCCESS=false
-                  
-                  # Verificación completa con reintentos
-                  for i in {1..6}; do
-                    echo "🔄 Verificación intento $i/6..."
-                    
-                    # Backend health check
-                    BACKEND_OK=false
-                    if curl -fs --max-time 5 "http://localhost:3001/api/ready" | grep -q '"status":"ok"\|"status":"healthy"'; then
-                      echo "✅ Backend restaurado y funcional"
-                      BACKEND_OK=true
-                    fi
-                    
-                    # Frontend health check  
-                    FRONTEND_OK=false
-                    if curl -fs --max-time 5 "http://localhost:3000/" | grep -q "WorkPlace\|200 OK\|Nuxt\|html" || \
-                       curl -fs --max-time 5 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
-                      echo "✅ Frontend restaurado y funcional"
-                      FRONTEND_OK=true
-                    fi
-                    
-                    # Conectividad crítica
-                    CRITICAL_OK=false
-                    if docker compose exec -T postgres pg_isready -U ${POSTGRES_USER:-workplace} 2>/dev/null && \
-                       docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
-                      echo "✅ Servicios críticos conectivos"
-                      CRITICAL_OK=true
-                    fi
-                    
-                    if [ "$BACKEND_OK" = true ] && [ "$FRONTEND_OK" = true ] && [ "$CRITICAL_OK" = true ]; then
-                      echo "🎉 Rollback enterprise completado exitosamente"
-                      ROLLBACK_SUCCESS=true
-                      break
-                    else
-                      echo "⏳ Esperando siguiente intento..."
-                      sleep 10
-                    fi
-                  done
-                  
-                  if [ "$ROLLBACK_SUCCESS" = true ]; then
-                    # Guardar registro de rollback exitoso
-                    echo "$(date '+%Y-%m-%d %H:%M:%S'): ROLLBACK_EXITOSO: $BACKUP_TIMESTAMP -> $CURRENT_SHA" >> /opt/workplace/logs/rollback-history.log
-                    
-                    # Notificación de éxito
-                    echo "✅ Rollback enterprise completado:"
-                    echo "  📦 Versión restaurada: $BACKUP_TIMESTAMP"
-                    echo "  🔄 SHA: $CURRENT_SHA"
-                    echo "  ⏱️  Tiempo total: $((SECONDS - START_TIME))s"
-                    echo "  📊 Logs guardados en /tmp/"
-                    
+                elif [ -f "/opt/workplace/backups/versions/backend-${BACKUP_TIMESTAMP}.tar" ]; then
+                  echo "📦 Cargando backup de imagen backend..."
+                  if docker load -i "/opt/workplace/backups/versions/backend-${BACKUP_TIMESTAMP}.tar" >/dev/null 2>&1; then
+                    echo "✅ Backup backend cargado exitosamente"
+                    BACKEND_AVAILABLE=true
                   else
-                    echo "❌ Rollback enterprise falló - Activando modo emergencia"
+                    echo "❌ Error cargando backup backend"
+                  fi
+                else
+                  echo "🔍 Intentando descargar desde registry..."
+                  if docker pull "$BACKEND_CURRENT_IMAGE" >/dev/null 2>&1; then
+                    echo "✅ Backend descargado del registry"
+                    BACKEND_AVAILABLE=true
+                  else
+                    echo "❌ Backend no disponible en registry"
+                  fi
+                fi
+                
+                if docker image inspect "$FRONTEND_CURRENT_IMAGE" >/dev/null 2>&1; then
+                  echo "✅ Imagen frontend disponible localmente"
+                  FRONTEND_AVAILABLE=true
+                elif [ -f "/opt/workplace/backups/versions/frontend-${BACKUP_TIMESTAMP}.tar" ]; then
+                  echo "📦 Cargando backup de imagen frontend..."
+                  if docker load -i "/opt/workplace/backups/versions/frontend-${BACKUP_TIMESTAMP}.tar" >/dev/null 2>&1; then
+                    echo "✅ Backup frontend cargado exitosamente"
+                    FRONTEND_AVAILABLE=true
+                  else
+                    echo "❌ Error cargando backup frontend"
+                  fi
+                else
+                  echo "🔍 Intentando descargar desde registry..."
+                  if docker pull "$FRONTEND_CURRENT_IMAGE" >/dev/null 2>&1; then
+                    echo "✅ Frontend descargado del registry"
+                    FRONTEND_AVAILABLE=true
+                  else
+                    echo "❌ Frontend no disponible en registry"
+                  fi
+                fi
+                
+                if [ "$BACKEND_AVAILABLE" = true ] && [ "$FRONTEND_AVAILABLE" = true ]; then
+                  echo "🔄 Ejecutando rollback enterprise..."
+                  
+                  # Iniciar timer para rollback
+                  START_TIME=$SECONDS
+                  
+                  # Paso 1: Detener servicios fallidos
+                  echo "🛑 Deteniendo servicios fallidos..."
+                  docker compose stop backend frontend || true
+                  docker compose rm -f backend frontend || true
+                  
+                  # Paso 2: Limpiar completamente
+                  echo "🧹 Limpieza completa de recursos..."
+                  docker system prune -f --volumes || true
+                  
+                  # Paso 3: Restaurar con imágenes verificadas
+                  echo "🔄 Restaurando servicios con versión estable..."
+                  export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
+                  export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
+                  
+                  if docker compose -f docker-compose.lite.yml up -d --no-deps backend frontend; then
+                    echo "✅ Servicios restaurados con versión estable"
                     
-                    # Modo emergencia con diagnóstico completo
-                    echo "🚨 MODO EMERGENCIA ACTIVADO"
-                    echo "📋 Estado actual:"
-                    docker compose ps
-                    echo "📋 Logs de fallo:"
-                    ls -la /tmp/*failed*.log
+                    # Paso 4: Verificación enterprise
+                    echo "🔍 Verificación enterprise post-rollback..."
+                    sleep 20
                     
-                    # Intentar recuperación mínima
-                    echo "🔄 Recuperación de emergencia..."
-                    docker compose restart postgres redis traefik
+                    ROLLBACK_SUCCESS=false
                     
-                    if docker compose exec -T postgres pg_isready 2>/dev/null && \
-                       docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
-                      echo "✅ Servicios críticos recuperados"
-                      echo "⚠️ Backend/Frontend requieren intervención manual"
+                    # Verificación completa con reintentos
+                    for i in {1..6}; do
+                      echo "🔄 Verificación intento $i/6..."
+                      
+                      # Backend health check
+                      BACKEND_OK=false
+                      if curl -fs --max-time 5 "http://localhost:3001/api/ready" | grep -q '"status":"ok"\|"status":"healthy"'; then
+                        echo "✅ Backend restaurado y funcional"
+                        BACKEND_OK=true
+                      fi
+                      
+                      # Frontend health check  
+                      FRONTEND_OK=false
+                      if curl -fs --max-time 5 "http://localhost:3000/" | grep -q "WorkPlace\|200 OK\|Nuxt\|html" || \
+                         curl -fs --max-time 5 "http://localhost:3000/api/ready" | grep -q '"ready":true'; then
+                        echo "✅ Frontend restaurado y funcional"
+                        FRONTEND_OK=true
+                      fi
+                      
+                      # Conectividad crítica
+                      CRITICAL_OK=false
+                      if docker compose exec -T postgres pg_isready -U ${POSTGRES_USER:-workplace} 2>/dev/null && \
+                         docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
+                        echo "✅ Servicios críticos conectivos"
+                        CRITICAL_OK=true
+                      fi
+                      
+                      if [ "$BACKEND_OK" = true ] && [ "$FRONTEND_OK" = true ] && [ "$CRITICAL_OK" = true ]; then
+                        echo "🎉 Rollback enterprise completado exitosamente"
+                        ROLLBACK_SUCCESS=true
+                        break
+                      else
+                        echo "⏳ Esperando siguiente intento..."
+                        sleep 10
+                      fi
+                    done
+                    
+                    if [ "$ROLLBACK_SUCCESS" = true ]; then
+                      # Guardar registro de rollback exitoso
+                      echo "$(date '+%Y-%m-%d %H:%M:%S'): ROLLBACK_EXITOSO: $BACKUP_TIMESTAMP -> $CURRENT_SHA" >> /opt/workplace/logs/rollback-history.log
+                      
+                      # Notificación de éxito
+                      echo "✅ Rollback enterprise completado:"
+                      echo "  📦 Versión restaurada: $BACKUP_TIMESTAMP"
+                      echo "  🔄 SHA: $CURRENT_SHA"
+                      echo "  ⏱️  Tiempo total: $((SECONDS - START_TIME))s"
+                      echo "  📊 Logs guardados en /tmp/"
+                      
                     else
-                      echo "❌ Fallo completo del sistema"
-                      echo "📧 Contactar administración inmediata"
+                      echo "❌ Rollback enterprise falló - Activando modo emergencia"
+                      
+                      # Modo emergencia con diagnóstico completo
+                      echo "🚨 MODO EMERGENCIA ACTIVADO"
+                      echo "📋 Estado actual:"
+                      docker compose ps
+                      echo "📋 Logs de fallo:"
+                      ls -la /tmp/*failed*.log
+                      
+                      # Intentar recuperación mínima
+                      echo "🔄 Recuperación de emergencia..."
+                      docker compose restart postgres redis traefik
+                      
+                      if docker compose exec -T postgres pg_isready 2>/dev/null && \
+                         docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
+                        echo "✅ Servicios críticos recuperados"
+                        echo "⚠️ Backend/Frontend requieren intervención manual"
+                      else
+                        echo "❌ Fallo completo del sistema"
+                        echo "📧 Contactar administración inmediata"
+                      fi
+                      
+                      exit 1
                     fi
-                    
+                  else
+                    echo "❌ Error recreando servicios con versión estable"
                     exit 1
                   fi
                 else
-                  echo "❌ Error recreando servicios con versión estable"
+                  echo "❌ Imágenes de versión estable no disponibles"
+                  echo "📋 Backend disponible: $BACKEND_AVAILABLE"
+                  echo "📋 Frontend disponible: $FRONTEND_AVAILABLE"
                   exit 1
                 fi
               else
-                echo "❌ Imágenes de versión estable no disponibles"
-                echo "📋 Backend disponible: $BACKEND_AVAILABLE"
-                echo "📋 Frontend disponible: $FRONTEND_AVAILABLE"
+                echo "❌ No hay versión estable para rollback"
+                echo "📁 Archivo /opt/workplace/versions/current.env no encontrado"
                 exit 1
               fi
-            else
-              echo "❌ No hay versión estable para rollback"
-              echo "📁 Archivo /opt/workplace/versions/current.env no encontrado"
-              exit 1
             fi
           fi
-        EOF
 
   # 6. Rollback Manual (Independiente - puede ejecutarse manualmente)
   rollback:
     name: Rollback Manual
     runs-on: ubuntu-latest
     # Sin 'needs' - puede ejecutarse independientemente
-    if: (failure() && github.event.inputs.force_rollback == 'true') || github.event_name == 'workflow_dispatch'
+    if: ${{ (needs.deploy.result == 'failure' && github.event.inputs.force_rollback == 'true') || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 10
     
     steps:
@@ -992,7 +991,7 @@ VERSIONEOF
         echo "DEPLOY_COLOR=$COLOR" >> $GITHUB_ENV
 
     - name: Notificar Discord
-      if: always() && env.DISCORD_WEBHOOK != ''
+      if: always() && secrets.DISCORD_WEBHOOK != ''
       run: |
         curl -s -X POST ${{ secrets.DISCORD_WEBHOOK }} \
           -H "Content-Type: application/json" \
@@ -1012,7 +1011,7 @@ VERSIONEOF
           }" || echo "⚠️ Falló notificación a Discord"
 
     - name: Notificar Slack
-      if: always() && env.SLACK_WEBHOOK != ''
+      if: always() && secrets.SLACK_WEBHOOK != ''
       run: |
         curl -s -X POST ${{ secrets.SLACK_WEBHOOK }} \
           -H 'Content-type: application/json' \
