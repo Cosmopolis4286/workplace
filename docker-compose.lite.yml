@@ -86,7 +86,7 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=HostRegexp(`{host:(${DOMAIN:-localhost}|www.${DOMAIN:-localhost})}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.rule=Host(`${DOMAIN:-localhost}`, `www.${DOMAIN:-localhost}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
@@ -132,7 +132,7 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=HostRegexp(`{host:(${DOMAIN:-localhost}|www.${DOMAIN:-localhost})}`)"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`, `www.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
