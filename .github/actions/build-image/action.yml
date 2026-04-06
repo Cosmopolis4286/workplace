@@ -1,0 +1,45 @@
+name: 'Build and Push Docker Image'
+description: 'Construye y publica una imagen Docker en Docker Hub'
+
+inputs:
+  service:
+    description: 'Nombre del servicio (backend | frontend)'
+    required: true
+  dockerfile:
+    description: 'Ruta al Dockerfile'
+    required: true
+  image-name:
+    description: 'Nombre completo de la imagen (usuario/repo-servicio)'
+    required: true
+  image-tag:
+    description: 'Tag principal de la imagen'
+    required: true
+  docker-username:
+    description: 'Docker Hub username'
+    required: true
+  docker-password:
+    description: 'Docker Hub password'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@v4
+
+    - uses: docker/login-action@v4
+      with:
+        username: ${{ inputs.docker-username }}
+        password: ${{ inputs.docker-password }}
+
+    - name: Build y push ${{ inputs.service }}
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ${{ inputs.dockerfile }}
+        target: production
+        push: true
+        tags: |
+          ${{ inputs.image-name }}:${{ inputs.image-tag }}
+          ${{ inputs.image-name }}:stable
+        cache-from: type=gha,scope=${{ inputs.service }}
+        cache-to: type=gha,mode=max,scope=${{ inputs.service }}

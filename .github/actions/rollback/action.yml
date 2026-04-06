@@ -1,0 +1,58 @@
+name: 'Rollback Production'
+description: 'Restaura la ultima version estable en el servidor de produccion'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH del servidor'
+    required: true
+  ssh-host:
+    description: 'Host del servidor de produccion'
+    required: true
+  docker-username:
+    description: 'Docker Hub username (para pull si imagen no esta en cache)'
+    required: false
+    default: ''
+  docker-password:
+    description: 'Docker Hub password'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Ejecutar rollback
+      shell: bash
+      run: |
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+
+          exec 200>/tmp/deploy.lock
+          flock -n 200 || { echo "Deploy en progreso. Abortando rollback."; exit 1; }
+
+          if [ ! -f versions/current.env ]; then
+            echo "No hay version estable disponible para rollback."
+            exit 1
+          fi
+
+          set -a; source versions/current.env; set +a
+          echo "Rollback a:"
+          echo "  Backend:  $BACKEND_CURRENT_IMAGE"
+          echo "  Frontend: $FRONTEND_CURRENT_IMAGE"
+
+          # Obtener imagenes (cache local primero, luego registry)
+          for IMG in "$BACKEND_CURRENT_IMAGE" "$FRONTEND_CURRENT_IMAGE"; do
+            if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+              echo "Descargando $IMG..."
+              docker pull "$IMG" || { echo "No se pudo obtener $IMG"; exit 1; }
+            fi
+          done
+
+          export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
+          export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
+          $COMPOSE up -d --no-deps backend frontend
+
+          echo "Rollback completado."
+          echo "$(date '+%Y-%m-%d %H:%M:%S'): ROLLBACK MANUAL OK $BACKUP_TIMESTAMP" >> logs/rollback-history.log
+        EOF
