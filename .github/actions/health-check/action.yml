@@ -11,6 +11,12 @@ inputs:
   current-sha:
     description: 'SHA del commit actual'
     required: true
+  backend-image:
+    description: 'Imagen Docker del backend con tag'
+    required: true
+  frontend-image:
+    description: 'Imagen Docker del frontend con tag'
+    required: true
 
 runs:
   using: composite
@@ -18,7 +24,8 @@ runs:
     - name: Health check y rollback automatico
       shell: bash
       run: |
-        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} << 'EOF'
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+          "export BACKEND_IMAGE='${{ inputs.backend-image }}'; export FRONTEND_IMAGE='${{ inputs.frontend-image }}'; bash -s" << 'EOF'
           set -euo pipefail
           cd /opt/workplace
           COMPOSE="docker compose -f docker-compose.lite.yml"
