@@ -38,9 +38,7 @@ services:
 
   # 🔧 Backend - Core API
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile.prod
+    image: ${BACKEND_IMAGE}
     restart: unless-stopped
     init: true
     read_only: true
@@ -104,9 +102,7 @@ services:
 
   # 🎨 Frontend - Nuxt optimizado
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile.prod
+    image: ${FRONTEND_IMAGE}
     restart: unless-stopped
     init: true
     read_only: true
