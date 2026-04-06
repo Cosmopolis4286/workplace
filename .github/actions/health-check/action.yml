@@ -25,8 +25,13 @@ runs:
           NODE_PORT=$(grep -E '^NODE_PORT=' .env | cut -d= -f2 | tr -d '"' || echo "3001")
           FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env | cut -d= -f2 | tr -d '"' || echo "3000")
 
-          echo "Estado de contenedores:"
+          echo "=== Estado de contenedores ==="
           $COMPOSE ps
+
+          echo "=== Routers Traefik activos ==="
+          curl -sf http://localhost:8080/api/http/routers 2>/dev/null \
+            | grep -o '"name":"[^"]*"' | head -20 \
+            || echo "(API Traefik no disponible via localhost:8080)"
 
           # Health check backend
           BACKEND_RESP=$($COMPOSE exec -T backend \
