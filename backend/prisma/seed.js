@@ -91,6 +91,15 @@ const PERMISSIONS = [
   { key: 'services:delete',          module: 'services',      action: 'delete',         label: 'Eliminar Servicios' },
   { key: 'service_requests:view',    module: 'service_requests', action: 'view',        label: 'Ver Solicitudes de Servicio' },
   { key: 'catalog:view',             module: 'catalog',       action: 'view',           label: 'Ver Catálogo (marketplace)' },
+  // 🌍 Categorías y Subcategorías Globales (solo superadmin/admin)
+  { key: 'categories_global:view',   module: 'categories_global', action: 'view_categories',   label: 'Ver Categorías Globales', isSystem: true },
+  { key: 'categories_global:create', module: 'categories_global', action: 'create_categories', label: 'Crear Categorías Globales', isSystem: true },
+  { key: 'categories_global:edit',   module: 'categories_global', action: 'edit_categories',   label: 'Editar Categorías Globales', isSystem: true },
+  { key: 'categories_global:delete', module: 'categories_global', action: 'delete_categories', label: 'Eliminar Categorías Globales', isSystem: true },
+  { key: 'subcategories_global:view',   module: 'categories_global', action: 'view_subcategories',   label: 'Ver Subcategorías Globales', isSystem: true },
+  { key: 'subcategories_global:create', module: 'categories_global', action: 'create_subcategories', label: 'Crear Subcategorías Globales', isSystem: true },
+  { key: 'subcategories_global:edit',   module: 'categories_global', action: 'edit_subcategories',   label: 'Editar Subcategorías Globales', isSystem: true },
+  { key: 'subcategories_global:delete', module: 'categories_global', action: 'delete_subcategories', label: 'Eliminar Subcategorías Globales', isSystem: true },
   { key: 'users:view',               module: 'users',         action: 'view',           label: 'Ver Usuarios',                isSystem: true },
   { key: 'users:manage',             module: 'users',         action: 'manage',         label: 'Gestionar Usuarios',          isSystem: true },
   { key: 'permissions:manage',       module: 'permissions',   action: 'manage',         label: 'Gestionar Matriz de Permisos', isSystem: true },
@@ -134,7 +143,20 @@ const ROLE_DEFAULTS = {
   SUPERADMIN: PERMISSIONS.map(p => p.key).filter(k =>
     !k.startsWith('services:') && !k.startsWith('service_requests:') && !k.startsWith('orders:')
   ),
-  ADMIN: [...ADMIN_KEYS, 'users:view', 'users:manage', 'plans:view', 'exchange_rates:view'],
+  ADMIN: [
+    ...ADMIN_KEYS, 
+    'users:view', 'users:manage', 
+    'plans:view', 'exchange_rates:view',
+    // Permisos para categorías globales
+    'categories_global:view', 
+    'categories_global:create', 
+    'categories_global:edit', 
+    'categories_global:delete',
+    'subcategories_global:view',
+    'subcategories_global:create',
+    'subcategories_global:edit',
+    'subcategories_global:delete'
+  ],
   COMMERCE: COMMERCE_KEYS,
   FREELANCER: [
     ...COMMERCE_KEYS.filter(k => !k.startsWith('employees:') && !k.startsWith('branches:')),
