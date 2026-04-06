@@ -125,6 +125,7 @@ jobs:
         backend-image: ${{ env.BACKEND_IMAGE }}
         frontend-image: ${{ env.FRONTEND_IMAGE }}
         current-sha: ${{ github.sha }}
+        acme-email: ${{ secrets.ACME_EMAIL }}
 
     - uses: ./.github/actions/health-check
       with:
