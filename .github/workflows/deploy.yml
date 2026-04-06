@@ -937,14 +937,14 @@ jobs:
       id: smoke-check
       run: |
         echo "🌐 Smoke test externo - validando desde internet..."
-        
-        # Configurar dominio con fallback
+
         DOMAIN="${{ secrets.PRODUCTION_DOMAIN }}"
         if [ -z "$DOMAIN" ]; then
-          echo "⚠️ PRODUCTION_DOMAIN no configurado, usando localhost"
-          DOMAIN="localhost"
+          echo "⚠️ PRODUCTION_DOMAIN no configurado como secret — omitiendo smoke test externo"
+          echo "rollback_needed=false" >> $GITHUB_OUTPUT
+          exit 0
         fi
-        
+
         echo "🔍 Dominio configurado: $DOMAIN"
         
         MAX_RETRIES=12
