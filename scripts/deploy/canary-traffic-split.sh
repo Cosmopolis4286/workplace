@@ -38,16 +38,21 @@ log "=== Iniciando deploy SHA: ${CURRENT_SHA:-unknown} ==="
 log "  Backend:  ${BACKEND_IMAGE:-?}"
 log "  Frontend: ${FRONTEND_IMAGE:-?}"
 
-# Servicios base: solo arrancar si no estan corriendo
+# Servicios base: arrancar si no corren (primer deploy)
 if ! $COMPOSE ps postgres 2>/dev/null | grep -qE "running|Up"; then
   log "Arrancando servicios base (primer deploy)..."
-  $COMPOSE up -d postgres redis traefik
+  $COMPOSE up -d postgres redis
   log "Esperando postgres..."
   for i in $(seq 1 30); do
     $COMPOSE exec -T postgres pg_isready -U "${POSTGRES_USER:-app}" >/dev/null 2>&1 && break || true
     sleep 3
   done
 fi
+
+# Traefik: siempre recrear para aplicar traefik.yml actualizado
+log "Actualizando Traefik..."
+$COMPOSE up -d --no-deps --force-recreate traefik
+sleep 5
 
 # Migraciones
 log "Ejecutando migraciones..."
