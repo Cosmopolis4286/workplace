@@ -1,0 +1,111 @@
+name: 'Post-Deploy Health Check'
+description: 'Verifica salud de los servicios y hace rollback automatico si fallan'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH del servidor'
+    required: true
+  ssh-host:
+    description: 'Host del servidor de produccion'
+    required: true
+  current-sha:
+    description: 'SHA del commit actual'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Health check y rollback automatico
+      shell: bash
+      run: |
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+          NODE_PORT=$(grep -E '^NODE_PORT=' .env | cut -d= -f2 | tr -d '"' || echo "3001")
+          FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env | cut -d= -f2 | tr -d '"' || echo "3000")
+
+          echo "Estado de contenedores:"
+          $COMPOSE ps
+
+          # Health check backend
+          BACKEND_RESP=$($COMPOSE exec -T backend \
+            curl -sf --max-time 10 "http://localhost:${NODE_PORT}/api/ready" 2>/dev/null || echo "")
+          if echo "$BACKEND_RESP" | grep -qE '"status":"(ok|healthy)"'; then
+            echo "Backend OK"
+            BACKEND_OK=true
+          else
+            echo "Backend FAILED — respuesta: ${BACKEND_RESP:-vacia}"
+            BACKEND_OK=false
+          fi
+
+          # Health check frontend
+          FRONT_HTTP=$($COMPOSE exec -T frontend \
+            curl -so /dev/null -w "%{http_code}" --max-time 10 \
+            "http://localhost:${FRONTEND_PORT}/" 2>/dev/null || echo "000")
+          if [[ "$FRONT_HTTP" =~ ^(200|301|302)$ ]]; then
+            echo "Frontend OK (HTTP $FRONT_HTTP)"
+            FRONTEND_OK=true
+          else
+            echo "Frontend FAILED (HTTP $FRONT_HTTP)"
+            FRONTEND_OK=false
+          fi
+
+          # Resultado
+          if [ "$BACKEND_OK" = true ] && [ "$FRONTEND_OK" = true ]; then
+            echo "Deploy exitoso — guardando version estable..."
+            mkdir -p versions backups/versions logs
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            VFILE="versions/current-${TIMESTAMP}.env"
+            B_IMG=$(docker inspect workplace-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
+            F_IMG=$(docker inspect workplace-frontend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
+            printf 'BACKEND_CURRENT_IMAGE=%s\nFRONTEND_CURRENT_IMAGE=%s\nCURRENT_SHA=%s\nBACKUP_TIMESTAMP=%s\n' \
+              "$B_IMG" "$F_IMG" "${{ inputs.current-sha }}" "$TIMESTAMP" > "$VFILE"
+            ln -sf "$VFILE" versions/current.env
+            echo "${TIMESTAMP}:${B_IMG}:${F_IMG}:${{ inputs.current-sha }}" >> backups/versions/version_history.txt
+            tail -10 backups/versions/version_history.txt > /tmp/vh.tmp && mv /tmp/vh.tmp backups/versions/version_history.txt
+            touch logs/rollback-history.log
+            echo "Version guardada: $VFILE"
+            exit 0
+          fi
+
+          # Health checks fallaron — rollback
+          echo "Health checks fallaron — iniciando rollback..."
+
+          if [ ! -f versions/current.env ]; then
+            echo "Primer deploy sin version estable. Intervencion manual requerida."
+            $COMPOSE logs --tail 50 backend frontend || true
+            exit 1
+          fi
+
+          set -a; source versions/current.env; set +a
+          echo "Restaurando: backend=$BACKEND_CURRENT_IMAGE frontend=$FRONTEND_CURRENT_IMAGE"
+
+          for IMG in "$BACKEND_CURRENT_IMAGE" "$FRONTEND_CURRENT_IMAGE"; do
+            docker image inspect "$IMG" >/dev/null 2>&1 || docker pull "$IMG" \
+              || { echo "No se pudo obtener imagen: $IMG"; exit 1; }
+          done
+
+          $COMPOSE stop backend frontend
+          $COMPOSE rm -f backend frontend
+          docker container prune -f || true
+          export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
+          export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
+          $COMPOSE up -d --no-deps backend frontend
+
+          sleep 20
+          for i in $(seq 1 6); do
+            RB=$($COMPOSE exec -T backend curl -sf --max-time 5 \
+              "http://localhost:${NODE_PORT}/api/ready" 2>/dev/null || echo "")
+            if echo "$RB" | grep -qE '"status":"(ok|healthy)"'; then
+              echo "Rollback exitoso (intento $i)"
+              echo "$(date '+%Y-%m-%d %H:%M:%S'): ROLLBACK OK $BACKUP_TIMESTAMP" >> logs/rollback-history.log
+              exit 0
+            fi
+            echo "Intento rollback $i/6..."
+            sleep 10
+          done
+
+          echo "Rollback fallo. Intervencion manual requerida."
+          exit 1
+        EOF

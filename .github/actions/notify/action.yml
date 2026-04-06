@@ -1,0 +1,58 @@
+name: 'Notify Deploy Status'
+description: 'Envia notificacion de estado del deploy a Discord y Slack'
+
+inputs:
+  status:
+    description: 'Estado del deploy (success | failure)'
+    required: true
+  repository:
+    description: 'Nombre del repositorio'
+    required: true
+  branch:
+    description: 'Nombre del branch'
+    required: true
+  sha:
+    description: 'SHA del commit'
+    required: true
+  actor:
+    description: 'Usuario que disparó el deploy'
+    required: true
+  discord-webhook:
+    description: 'Discord webhook URL'
+    required: false
+    default: ''
+  slack-webhook:
+    description: 'Slack webhook URL'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Notificar Discord
+      shell: bash
+      run: |
+        [ -z "${{ inputs.discord-webhook }}" ] && exit 0
+        COLOR=$([[ "${{ inputs.status }}" = "success" ]] && echo "65280" || echo "16711680")
+        curl -sf -X POST "${{ inputs.discord-webhook }}" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"Deploy ${{ inputs.status }} — ${{ inputs.repository }}\",
+              \"color\": ${COLOR},
+              \"fields\": [
+                {\"name\": \"Branch\", \"value\": \"${{ inputs.branch }}\", \"inline\": true},
+                {\"name\": \"Actor\", \"value\": \"${{ inputs.actor }}\", \"inline\": true},
+                {\"name\": \"SHA\", \"value\": \"${{ inputs.sha }}\", \"inline\": false}
+              ]
+            }]
+          }" || echo "Discord webhook fallo (no critico)"
+
+    - name: Notificar Slack
+      shell: bash
+      run: |
+        [ -z "${{ inputs.slack-webhook }}" ] && exit 0
+        curl -sf -X POST "${{ inputs.slack-webhook }}" \
+          -H "Content-Type: application/json" \
+          -d "{\"text\": \"Deploy *${{ inputs.status }}* — ${{ inputs.repository }} (${{ inputs.branch }}) by ${{ inputs.actor }}\"}" \
+          || echo "Slack webhook fallo (no critico)"

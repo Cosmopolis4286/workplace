@@ -1,0 +1,110 @@
+name: 'Deploy to Production Server'
+description: 'Copia archivos de configuracion, prepara .env.deploy y ejecuta canary deployment'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH del servidor'
+    required: true
+  ssh-host:
+    description: 'Host del servidor de produccion'
+    required: true
+  backend-image:
+    description: 'Imagen Docker del backend con tag'
+    required: true
+  frontend-image:
+    description: 'Imagen Docker del frontend con tag'
+    required: true
+  current-sha:
+    description: 'SHA del commit actual'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Copiar archivos de configuracion
+      shell: bash
+      run: |
+        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 \
+          docker-compose.lite.yml \
+          ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/
+
+        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 -r \
+          traefik/ \
+          ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/
+
+        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 -r \
+          scripts/deploy/ \
+          ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/scripts/
+
+    - name: Preparar .env.deploy
+      shell: bash
+      run: |
+        printf 'BACKEND_IMAGE=%s\nFRONTEND_IMAGE=%s\nCURRENT_SHA=%s\n' \
+          "${{ inputs.backend-image }}" \
+          "${{ inputs.frontend-image }}" \
+          "${{ inputs.current-sha }}" \
+        | ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+            'set -e; cd /opt/workplace
+             cp .env .env.deploy
+             sed -i "/^BACKEND_IMAGE=/d;/^FRONTEND_IMAGE=/d;/^CURRENT_SHA=/d" .env.deploy
+             cat >> .env.deploy'
+
+    - name: Generar checksum canary
+      shell: bash
+      run: |
+        sha256sum scripts/deploy/canary-traffic-split.sh \
+          | ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+              'cat > /opt/workplace/scripts/deploy/canary-traffic-split.sh.sha256'
+
+    - name: Ejecutar deploy en servidor
+      shell: bash
+      run: |
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} << 'EOF'
+          set -euo pipefail
+          cd /opt/workplace
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+
+          exec 200>/tmp/deploy.lock
+          if ! flock -n 200; then
+            echo "Otro deploy en progreso. Abortando."
+            exit 1
+          fi
+
+          trap "rm -f .env.deploy" EXIT
+          set -a; source .env.deploy; set +a
+
+          echo "Iniciando deploy SHA: $CURRENT_SHA"
+          echo "  Backend:  $BACKEND_IMAGE"
+          echo "  Frontend: $FRONTEND_IMAGE"
+
+          # Arrancar servicios base si no corren
+          if ! $COMPOSE ps 2>/dev/null | grep -q "running"; then
+            echo "Iniciando servicios base..."
+            $COMPOSE up -d postgres redis traefik
+            sleep 10
+          fi
+
+          # Limpiar canary residual
+          docker rm -f workplace_backend_canary workplace_frontend_canary 2>/dev/null || true
+
+          # Validar integridad script canary
+          chmod +x scripts/deploy/canary-traffic-split.sh
+          if [ -f scripts/deploy/canary-traffic-split.sh.sha256 ]; then
+            sha256sum -c scripts/deploy/canary-traffic-split.sh.sha256 || {
+              echo "Integridad del script canary comprometida. Abortando."
+              exit 1
+            }
+          fi
+
+          # Migraciones DB
+          $COMPOSE exec -T backend npx prisma migrate deploy \
+            && echo "Migraciones OK" \
+            || echo "Migraciones fallaron — continuando"
+
+          # Canary deployment
+          echo "Ejecutando canary deployment..."
+          ./scripts/deploy/canary-traffic-split.sh \
+            || { echo "Canary fallo"; exit 1; }
+
+          echo "Deploy completado"
+        EOF
