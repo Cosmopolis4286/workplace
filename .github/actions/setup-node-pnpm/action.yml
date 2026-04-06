@@ -17,16 +17,22 @@ runs:
   steps:
     - name: Setup Node.js
       uses: actions/setup-node@v5
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       with:
         node-version: ${{ inputs.node-version }}
 
     - name: Install pnpm
       uses: pnpm/action-setup@v4
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       with:
         version: ${{ inputs.pnpm-version }}
 
     - name: Cache pnpm dependencies
       uses: actions/cache@v4
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       with:
         path: |
           ~/.pnpm-store
