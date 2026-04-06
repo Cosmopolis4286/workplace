@@ -1,12 +1,11 @@
-# 🚀 Traefik Configuration - Enterprise Level
-# Reemplaza NGINX + Certbot + Scripts SSL
-
 api:
-  dashboard: true
-  insecure: false  # Production: disable insecure dashboard
-  debug: false
+  dashboard: false
+
+ping:
+  entryPoint: "traefik"
 
 entryPoints:
+  # Puerto 80: sirve ACME HTTP challenge, luego redirige todo lo demás a HTTPS
   web:
     address: ":80"
     http:
@@ -15,73 +14,35 @@ entryPoints:
           to: websecure
           scheme: https
           permanent: true
-  
+
+  # Puerto 443: tráfico HTTPS
   websecure:
     address: ":443"
-    http:
-      tls:
-        options: "modern"
-      middlewares:
-        - security-headers@file
+
+  # Puerto 8080: solo para healthcheck interno (no expuesto a internet)
+  traefik:
+    address: ":8080"
 
 providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
-    network: "app_network"
+    network: "workplace_public_network"
     watch: true
-  
   file:
     directory: "/etc/traefik/dynamic"
     watch: true
 
-# Default certificate for development
-tls:
-  stores:
-    default:
-      defaultCertificate:
-        certFile: "/ssl-certs/default.crt"
-        keyFile: "/ssl-certs/default.key"
-
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "${EMAIL:-admin@${DOMAIN}}"
+      email: "${EMAIL}"
       storage: "/letsencrypt/acme.json"
-      httpChallenge:
-        entryPoint: "web"
-      certificatesDuration: 90
-      # Production
-      caServer: "https://acme-v02.api.letsencrypt.org/directory"
-      # Staging para desarrollo
-      # caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
+      # TLS challenge: no depende del entrypoint HTTP, funciona en puerto 443
+      tlsChallenge: {}
 
 log:
-  level: "INFO"
-  format: "json"
-  filePath: "/var/log/traefik/traefik.log"
+  level: "WARN"
 
-accessLog:
-  format: "json"
-  filePath: "/var/log/traefik/access.log"
-  bufferingSize: 100
-  fields:
-    names:
-      ClientUsername: "drop"
-    defaultMode: "keep"
-
-metrics:
-  prometheus:
-    addEntryPointsLabels: true
-    addServicesLabels: true
-    manualRouting: true
-
-ping:
-  entryPoint: "web"
-
-# Middlewares globales
-experimental:
-  plugins:
-    traefik-plugin-rewritebody:
-      moduleName: "github.com/traefik/plugin-rewritebody"
-      version: "v1.1.0"
+serversTransport:
+  insecureSkipVerify: false

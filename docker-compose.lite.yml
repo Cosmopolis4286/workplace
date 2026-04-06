@@ -9,26 +9,8 @@ services:
     init: true
     container_name: traefik
     command:
-      - "--api.dashboard=false"
-      - "--ping=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=public_network"
-      - "--providers.file=true"
-      - "--providers.file.directory=/etc/traefik/dynamic"
-      - "--providers.file.watch=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      - "--entrypoints.traefik.address=:8080"  # Puerto interno para ping
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=${EMAIL:-admin@${DOMAIN:-localhost}}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--log.level=ERROR"  # Solo errores críticos
-      - "--accesslog=false"  # Sin access logs para ahorrar I/O
-      - "--serversTransport.insecureSkipVerify=false"
+      # Usar archivo de configuración estático
+      - "--configFile=/etc/traefik/traefik.yml"
     ports:
       - "80:80"
       - "443:443"
@@ -36,13 +18,14 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_letsencrypt:/letsencrypt
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
     networks:
       - public_network
       - private_network
     environment:
       - "DOMAIN=${DOMAIN:-localhost}"
-      - "EMAIL=${EMAIL:-admin@${DOMAIN:-localhost}}"
+      - "EMAIL=${EMAIL:-admin@localhost}"
     cpus: "0.3"
     mem_limit: 128m
     mem_reservation: 64m
@@ -107,6 +90,9 @@ services:
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend.tls.options=modern@file"
+      - "traefik.http.routers.backend.tls.domains[0].main=${DOMAIN:-localhost}"
+      - "traefik.http.routers.backend.tls.domains[0].sans=www.${DOMAIN:-localhost}"
       - "traefik.http.routers.backend.priority=100"
       - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT}"
       - "traefik.http.routers.backend.middlewares=security-headers@file,cors-api@file,rate-limit@file"
@@ -150,6 +136,9 @@ services:
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend.tls.options=modern@file"
+      - "traefik.http.routers.frontend.tls.domains[0].main=${DOMAIN:-localhost}"
+      - "traefik.http.routers.frontend.tls.domains[0].sans=www.${DOMAIN:-localhost}"
       - "traefik.http.routers.frontend.priority=50"
       - "traefik.http.services.frontend.loadbalancer.server.port=${FRONTEND_PORT:-3000}"
       - "traefik.http.routers.frontend.middlewares=security-headers@file,compression@file"
