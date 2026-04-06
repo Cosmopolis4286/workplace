@@ -1,4 +1,4 @@
-name: Production Deploy (Pipeline Híbrido)
+name: Production Deploy
 
 concurrency:
   group: production-deploy
@@ -6,155 +6,74 @@ concurrency:
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
     inputs:
       force_deploy:
-        description: 'Forzar deploy incluso si los tests fallan - SOLO ADMIN'
+        description: 'Forzar deploy saltando tests (solo admin)'
         required: false
         default: false
         type: boolean
       force_rollback:
-        description: 'Forzar rollback si el deployment falla'
+        description: 'Ejecutar rollback manual si el deploy falla'
         required: false
         default: false
         type: boolean
 
 env:
-  REGISTRY: docker.io
-  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/workplace
+  BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
+  FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
+  COMPOSE: docker compose -f docker-compose.lite.yml
 
 jobs:
-  # 1. Tests Unitarios con Coverage (YAML para setup + Shell para lógica)
+  # ─── 1. Tests unitarios ────────────────────────────────────────────────────
   test:
-    name: Ejecutar Tests con Coverage
+    name: Tests con Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Configurar Entorno de Tests
+    - name: Configurar entorno de tests
       uses: ./.github/actions/setup-tests
       with:
         node-version: '22'
 
-    - name: Ejecutar Tests con Coverage
-      if: ${{ github.event.inputs.force_deploy != 'true' || github.actor != 'admin' }}
+    - name: Ejecutar tests
+      if: github.event.inputs.force_deploy != 'true' || github.actor != 'admin'
       uses: ./.github/actions/run-tests
       with:
         force-deploy: ${{ github.event.inputs.force_deploy }}
         coverage-threshold: '5'
 
-    - name: Subir Reportes de Coverage
+    - name: Subir coverage a Codecov
       uses: codecov/codecov-action@v5
       with:
         files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
         flags: unittests
-        name: codecov-umbrella
         fail_ci_if_error: false
 
-  # 1.5. Backup de Versión Actual (Enterprise)
-  backup-current:
-    name: Backup Pre-Test (Metadata)
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    timeout-minutes: 5
-    
-    steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
-      
-    - name: Configurar SSH
-      uses: ./.github/actions/setup-ssh
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        production-host: ${{ secrets.PRODUCTION_HOST }}
-    
-    - name: Backup Pre-Test (Metadata Ligero)
-      run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          cd /opt/workplace
-          
-          echo "🔄 Backup Pre-Test - Solo metadata..."
-          
-          # Crear directorio de versiones si no existe
-          mkdir -p /opt/workplace/versions
-          mkdir -p /opt/workplace/backups/versions
-          
-          # Obtener información de contenedores actuales
-          echo "🔍 Detectando estado actual..."
-          
-          if docker compose ps | grep -q "workplace"; then
-            echo "📦 Contenedores detectados - extrayendo metadata..."
-            BACKEND_IMAGE=$(docker compose ps -q backend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
-            FRONTEND_IMAGE=$(docker compose ps -q frontend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
-            DEPLOY_STATUS="running"
-          else
-            echo "🚀 Primer deploy detectado - no hay contenedores corriendo"
-            BACKEND_IMAGE="none"
-            FRONTEND_IMAGE="none"
-            DEPLOY_STATUS="first-deploy"
-          fi
-          
-          CURRENT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-          
-          echo "� Metadata actual:"
-          echo "  Backend: $BACKEND_IMAGE"
-          echo "  Frontend: $FRONTEND_IMAGE"
-          echo "  SHA: $CURRENT_SHA"
-          echo "  Status: $DEPLOY_STATUS"
-          
-          # Guardar metadata pre-test con timestamp
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          PRETEST_FILE="/opt/workplace/versions/pretest-${TIMESTAMP}.env"
-          
-          # Crear archivo de metadata pre-test (solo referencias, no imágenes)
-          echo "# Pre-Test Metadata - $TIMESTAMP" > "$PRETEST_FILE"
-          echo "PRETEST_BACKEND_IMAGE=$BACKEND_IMAGE" >> "$PRETEST_FILE"
-          echo "PRETEST_FRONTEND_IMAGE=$FRONTEND_IMAGE" >> "$PRETEST_FILE"
-          echo "PRETEST_SHA=$CURRENT_SHA" >> "$PRETEST_FILE"
-          echo "PRETEST_TIMESTAMP=$TIMESTAMP" >> "$PRETEST_FILE"
-          echo "PRETEST_STATUS=$DEPLOY_STATUS" >> "$PRETEST_FILE"
-          
-          # Crear symlink a metadata pre-test
-          ln -sf "$PRETEST_FILE" /opt/workplace/versions/pretest.env
-          
-          echo "✅ Backup Pre-Test completado"
-          echo "📁 Archivo: $PRETEST_FILE"
-          echo "🎯 Listo para ejecutar tests E2E"
-        EOF
-
-  # 2. Tests E2E (YAML para setup + Shell para lógica)
+  # ─── 2. Tests E2E ──────────────────────────────────────────────────────────
   e2e-tests:
-    name: Ejecutar Tests E2E
+    name: Tests E2E
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 20
-    
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Configurar Node.js y pnpm
       uses: ./.github/actions/setup-node-pnpm
       with:
         node-version: '22'
 
-    - name: Ejecutar Tests E2E
-      shell: bash
+    - name: Ejecutar tests E2E
       run: |
-        echo "🧪 Running E2E tests with optimized environment..."
-        
-        # Usar script ultra-optimizado
         chmod +x scripts/ci/run-e2e-optimized.sh
         ./scripts/ci/run-e2e-optimized.sh
 
-    - name: Subir Resultados de Tests E2E
+    - name: Subir reporte Playwright
       uses: actions/upload-artifact@v4
       if: always()
       with:
@@ -162,220 +81,71 @@ jobs:
         path: e2e-tests/playwright-report/
         retention-days: 30
 
-  # 2.5. Backup Post-Test (Completo - Solo si tests pasan)
-  backup-post-test:
-    name: Backup Post-Test (Completo)
-    runs-on: ubuntu-latest
-    needs: e2e-tests
-    if: github.ref == 'refs/heads/main' && success()
-    timeout-minutes: 10
-    
-    steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
-      
-    - name: Configurar SSH
-      uses: ./.github/actions/setup-ssh
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        production-host: ${{ secrets.PRODUCTION_HOST }}
-    
-    - name: Backup Post-Test (Imágenes Completas)
-      run: |
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          cd /opt/workplace
-          
-          echo "🎉 Tests E2E pasaron - Ejecutando backup completo..."
-          
-          # Cargar metadata del pre-test
-          if [ -f "/opt/workplace/versions/pretest.env" ]; then
-            source /opt/workplace/versions/pretest.env
-            echo "📋 Cargando metadata del pre-test:"
-            echo "  Backend: $PRETEST_BACKEND_IMAGE"
-            echo "  Frontend: $PRETEST_FRONTEND_IMAGE"
-            echo "  SHA: $PRETEST_SHA"
-          else
-            echo "⚠️ No se encontró metadata del pre-test"
-            PRETEST_BACKEND_IMAGE="unknown"
-            PRETEST_FRONTEND_IMAGE="unknown"
-            PRETEST_SHA="unknown"
-          fi
-          
-          # Obtener imágenes actuales post-deploy
-          echo "🔍 Obteniendo imágenes post-deploy..."
-          if docker compose ps | grep -q "workplace"; then
-            POST_BACKEND_IMAGE=$(docker compose ps -q backend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
-            POST_FRONTEND_IMAGE=$(docker compose ps -q frontend | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
-            DEPLOY_STATUS="success"
-          else
-            echo "⚠️ No hay contenedores corriendo después del deploy"
-            POST_BACKEND_IMAGE="unknown"
-            POST_FRONTEND_IMAGE="unknown"
-            DEPLOY_STATUS="failed"
-          fi
-          
-          # Guardar backup completo con timestamp
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          BACKUP_FILE="/opt/workplace/versions/backup-${TIMESTAMP}.env"
-          
-          # Crear archivo de backup completo
-          echo "# Backup Completo Post-Test - $TIMESTAMP" > "$BACKUP_FILE"
-          echo "PRETEST_BACKEND_IMAGE=$PRETEST_BACKEND_IMAGE" >> "$BACKUP_FILE"
-          echo "PRETEST_FRONTEND_IMAGE=$PRETEST_FRONTEND_IMAGE" >> "$BACKUP_FILE"
-          echo "PRETEST_SHA=$PRETEST_SHA" >> "$BACKUP_FILE"
-          echo "POST_BACKEND_IMAGE=$POST_BACKEND_IMAGE" >> "$BACKUP_FILE"
-          echo "POST_FRONTEND_IMAGE=$POST_FRONTEND_IMAGE" >> "$BACKUP_FILE"
-          echo "CURRENT_SHA=${{ github.sha }}" >> "$BACKUP_FILE"
-          echo "BACKUP_TIMESTAMP=$TIMESTAMP" >> "$BACKUP_FILE"
-          echo "DEPLOY_STATUS=$DEPLOY_STATUS" >> "$BACKUP_FILE"
-          
-          # Crear symlink a backup actual
-          ln -sf "$BACKUP_FILE" /opt/workplace/versions/current.env
-          
-          # Backup de imágenes locales (solo si deploy fue exitoso)
-          if [ "$DEPLOY_STATUS" = "success" ]; then
-            echo "📦 Creando backup de imágenes post-deploy..."
-            docker save "$POST_BACKEND_IMAGE" -o "/opt/workplace/backups/versions/backend-${TIMESTAMP}.tar" 2>/dev/null || true
-            docker save "$POST_FRONTEND_IMAGE" -o "/opt/workplace/backups/versions/frontend-${TIMESTAMP}.tar" 2>/dev/null || true
-            
-            # Limpiar backups antiguos (más de 7 días)
-            find /opt/workplace/backups/versions -name "*.tar" -mtime +7 -delete 2>/dev/null || true
-            find /opt/workplace/versions -name "*.env" -mtime +7 -delete 2>/dev/null || true
-          fi
-          
-          # Actualizar historial de versiones
-          echo "$TIMESTAMP:$PRETEST_BACKEND_IMAGE:$PRETEST_FRONTEND_IMAGE:$PRETEST_SHA:$POST_BACKEND_IMAGE:$POST_FRONTEND_IMAGE:${{ github.sha }}" >> /opt/workplace/backups/versions/version_history.txt
-          
-          # Mantener solo últimas 10 versiones en historial
-          tail -10 /opt/workplace/backups/versions/version_history.txt > /tmp/version_history.tmp && \
-          mv /tmp/version_history.tmp /opt/workplace/backups/versions/version_history.txt
-          
-          echo "✅ Backup Post-Test completado"
-          echo "📁 Archivo: $BACKUP_FILE"
-          echo "📊 Estado: $DEPLOY_STATUS"
-          echo "🎯 Deploy validado y respaldado"
-        EOF
-
-  # 3. Construir Imágenes Docker (YAML - estándar)
+  # ─── 3. Build imágenes Docker (paralelo) ───────────────────────────────────
   build-backend:
-    name: Construir Imagen Backend
+    name: Build Backend
     runs-on: ubuntu-latest
     needs: [test, e2e-tests]
     timeout-minutes: 15
-    
     outputs:
-      image-tag: ${{ steps.set-tag.outputs.tag }}
-      image-name: ${{ steps.set-tag.outputs.name }}
-
+      image: ${{ env.BACKEND_IMAGE }}
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
-
-    - name: Configurar Docker Buildx
-      uses: docker/setup-buildx-action@v4
-
-    - name: Iniciar sesión en Docker Hub
-      uses: docker/login-action@v4
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v4
+    - uses: docker/login-action@v4
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Establecer tag de imagen
-      id: set-tag
-      run: |
-        echo "tag=main-${{ github.sha }}" >> $GITHUB_OUTPUT
-        echo "name=${{ secrets.DOCKER_USERNAME }}/workplace-backend" >> $GITHUB_OUTPUT
-
-    - name: Extraer metadatos
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ secrets.DOCKER_USERNAME }}/workplace-backend
-        tags: |
-          type=ref,event=branch
-          type=sha,prefix={{branch}}-
-          type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
-      
-    - name: Construir y publicar backend
+    - name: Build y push backend
       uses: docker/build-push-action@v6
       with:
         context: .
         file: ./backend/Dockerfile.prod
         target: production
         push: true
-        pull: true
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
+          ${{ env.BACKEND_IMAGE }}
           ${{ secrets.DOCKER_USERNAME }}/workplace-backend:stable
-          ${{ steps.meta.outputs.tags }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
   build-frontend:
-    name: Construir Imagen Frontend
+    name: Build Frontend
     runs-on: ubuntu-latest
     needs: [test, e2e-tests]
     timeout-minutes: 15
-    
     outputs:
-      image-tag: ${{ steps.set-tag.outputs.tag }}
-      image-name: ${{ steps.set-tag.outputs.name }}
-
+      image: ${{ env.FRONTEND_IMAGE }}
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
-
-    - name: Configurar Docker Buildx
-      uses: docker/setup-buildx-action@v4
-
-    - name: Iniciar sesión en Docker Hub
-      uses: docker/login-action@v4
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v4
+    - uses: docker/login-action@v4
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Establecer tag de imagen
-      id: set-tag
-      run: |
-        echo "tag=main-${{ github.sha }}" >> $GITHUB_OUTPUT
-        echo "name=${{ secrets.DOCKER_USERNAME }}/workplace-frontend" >> $GITHUB_OUTPUT
-
-    - name: Extraer metadatos
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend
-        tags: |
-          type=ref,event=branch
-          type=sha,prefix={{branch}}-
-          type=raw,value=main-{{date 'YYYYMMDD-HHmmss'}}
-      
-    - name: Construir y publicar frontend
+    - name: Build y push frontend
       uses: docker/build-push-action@v6
       with:
         context: .
         file: ./frontend/Dockerfile.prod
         target: production
         push: true
-        pull: true
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
+          ${{ env.FRONTEND_IMAGE }}
           ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:stable
-          ${{ steps.meta.outputs.tags }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-  # 4. Deploy a Producción (YAML para setup + Shell para lógica compleja)
+  # ─── 4. Deploy a producción ────────────────────────────────────────────────
   deploy:
     name: Deploy a Producción
     runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend, backup-current]
+    needs: [build-backend, build-frontend]
     timeout-minutes: 30
-    
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Configurar SSH
       uses: ./.github/actions/setup-ssh
@@ -383,483 +153,200 @@ jobs:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.PRODUCTION_HOST }}
 
-    - name: Copiar Archivos de Configuración (YAML)
+    - name: Copiar archivos de configuración
       run: |
-        # Copiar archivos base
-        scp -o ConnectTimeout=10 \
-          -o ServerAliveInterval=30 \
-          docker-compose.lite.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
-        
-        # Copiar configuración de Traefik
-        scp -o ConnectTimeout=10 \
-          -o ServerAliveInterval=30 \
-          -r traefik/ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
-        
-        # Copiar scripts
-        scp -o ConnectTimeout=10 \
-          -o ServerAliveInterval=30 \
-          -r scripts/deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/
+        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 \
+          docker-compose.lite.yml \
+          ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
 
-    - name: Deploy de Infraestructura (Shell - lógica compleja)
+        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 -r \
+          traefik/ \
+          ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/
+
+        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 -r \
+          scripts/deploy/ \
+          ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/
+
+    - name: Preparar .env.deploy en el servidor
       run: |
-        # Crear archivo .env.deploy con imágenes nuevas pero manteniendo variables del servidor
-        cat > /tmp/deploy.env << ENVEOF
-        BACKEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/workplace-backend:main-${{ github.sha }}
-        FRONTEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/workplace-frontend:main-${{ github.sha }}
-        CURRENT_SHA=${{ github.sha }}
-        ENVEOF
-        
+        # Inyectar solo las variables de imagen — el resto viene del .env del servidor
+        printf 'BACKEND_IMAGE=%s\nFRONTEND_IMAGE=%s\nCURRENT_SHA=%s\n' \
+          "${{ env.BACKEND_IMAGE }}" \
+          "${{ env.FRONTEND_IMAGE }}" \
+          "${{ github.sha }}" \
+        | ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
+            'set -e; cd /opt/workplace
+             cp .env .env.deploy
+             sed -i "/^BACKEND_IMAGE=/d;/^FRONTEND_IMAGE=/d;/^CURRENT_SHA=/d" .env.deploy
+             cat >> .env.deploy'
+
+    - name: Generar checksum del script canary
+      run: |
+        sha256sum scripts/deploy/canary-traffic-split.sh \
+          | ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
+              'cat > /opt/workplace/scripts/deploy/canary-traffic-split.sh.sha256'
+
+    - name: Ejecutar deploy
+      run: |
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
-          
-          # Combinar variables existentes con nuevas imágenes
-          if [ -f ".env" ]; then
-            echo "📋 Usando variables existentes del .env del servidor"
-            # Copiar .env existente como base
-            cp .env .env.deploy
-            
-            # Reemplazar solo las variables de imágenes
-            sed -i '/^BACKEND_IMAGE=/d' .env.deploy
-            sed -i '/^FRONTEND_IMAGE=/d' .env.deploy
-            sed -i '/^CURRENT_SHA=/d' .env.deploy
-          else
-            echo "⚠️ No hay .env existente, creando archivo mínimo"
-            touch .env.deploy
-          fi
-        EOF
-        
-        # Agregar variables de imágenes al .env.deploy
-        cat /tmp/deploy.env | ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} 'cat >> /opt/workplace/.env.deploy'
-        rm -f /tmp/deploy.env
-        
-        # Generar y copiar checksum del script canary (supply-chain security)
-        if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
-          sha256sum scripts/deploy/canary-traffic-split.sh > /tmp/canary-traffic-split.sh.sha256
-          scp /tmp/canary-traffic-split.sh.sha256 ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/opt/workplace/scripts/deploy/canary-traffic-split.sh.sha256
-          rm -f /tmp/canary-traffic-split.sh.sha256
-          echo "✅ Checksum del script canary copiado al servidor"
-        fi
-        
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          set -euo pipefail
-          cd /opt/workplace
-          
-          # Lock de infraestructura - evita deploys concurrentes
+
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+
+          # Lock — evita deploys concurrentes
           exec 200>/tmp/deploy.lock
-          echo "🔒 Adquiriendo lock de deploy..."
           if ! flock -n 200; then
-            echo "❌ Otro deploy está en progreso. Abortando."
+            echo "❌ Otro deploy en progreso. Abortando."
             exit 1
           fi
-          echo "✅ Lock adquirido"
-          
-          # Cargar variables del archivo .env.deploy con trap para limpieza segura
-          trap "rm -f .env.deploy" EXIT ERR INT TERM
-          
-          set -a
-          source .env.deploy
-          set +a
-          
-          echo "🔐 Variables de entorno cargadas (archivo se limpiará automáticamente al salir)"
-          
-          # Verificación pre-deploy
-          echo "🔍 Verificación pre-deploy..."
-          
-          # Logging de FORCE DEPLOY si está activado
-          if [ "${FORCE_DEPLOY:-false}" = "true" ] || [ "${FORCE_DEPLOY:-}" = "1" ]; then
-            echo "⚠️ FORCE DEPLOY ACTIVADO - Este deploy salta validaciones de calidad"
-            echo "👤 Usuario que activó force_deploy: ${{ github.actor }}"
-            echo "🕐 Timestamp: $(date -Iseconds)"
-            echo "📝 Commit SHA: ${{ github.sha }}"
-          fi
-          
-          if docker compose ps --status running | grep -q "running"; then
-            echo "✅ Sistema corriendo, procediendo con canary"
-          else
-            echo "⚠️ Sistema no corriendo, iniciando servicios base"
-            docker compose --env-file .env.deploy up -d postgres redis traefik
+
+          # Cargar variables y limpiar al salir
+          trap "rm -f .env.deploy" EXIT
+          set -a; source .env.deploy; set +a
+
+          echo "🚀 Iniciando deploy — SHA: $CURRENT_SHA"
+          echo "   Backend:  $BACKEND_IMAGE"
+          echo "   Frontend: $FRONTEND_IMAGE"
+
+          # Arrancar servicios base si no están corriendo
+          if ! $COMPOSE ps --status running 2>/dev/null | grep -q "running"; then
+            echo "⚠️ Servicios base no corriendo — iniciando..."
+            $COMPOSE up -d postgres redis traefik
             sleep 10
           fi
-          
-          # Canary deployment (lógica compleja)
-          echo "🚀 Iniciando Canary Deployment..."
-          
-          # Cleanup de containers canary existentes (idempotencia)
-          echo "🧹 Limpiando containers canary existentes..."
-          docker rm -f workplace_backend_canary workplace_frontend_canary 2>/dev/null || echo "✅ No hay containers canary para limpiar"
-          
-          if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
-            chmod +x scripts/deploy/canary-traffic-split.sh
-            
-            # Validación de integridad del script (supply-chain security)
-            if [ -f "scripts/deploy/canary-traffic-split.sh.sha256" ]; then
-              echo "🔐 Validando integridad del script canary..."
-              if sha256sum -c scripts/deploy/canary-traffic-split.sh.sha256; then
-                echo "✅ Script canary verificado (SHA256 OK)"
-              else
-                echo "❌ Error de integridad: el script canary fue modificado"
-                echo "🛑 Abortando por seguridad - posible supply-chain attack"
-                exit 1
-              fi
-            else
-              echo "⚠️ No hay archivo SHA256 para validar - generando checksum actual"
-              sha256sum scripts/deploy/canary-traffic-split.sh > scripts/deploy/canary-traffic-split.sh.sha256
-            fi
-            
-            # DB Migrations pre-deploy (backward compatible only)
-            echo "🗄️ Verificando estado de migraciones de base de datos..."
-            if docker compose exec -T backend npx prisma migrate status 2>/dev/null | grep -q "Database schema is up to date"; then
-              echo "✅ DB schema está actualizado"
-            else
-              echo "🗄️ Aplicando migraciones pendientes (backward compatible)..."
-              # Solo migraciones seguras (no destructive)
-              docker compose exec -T backend npx prisma migrate deploy || echo "⚠️ Algunas migraciones fallaron - continuando con precaución"
-            fi
-            
-            echo "🚀 Ejecutando canary deployment..."
-            if ./scripts/deploy/canary-traffic-split.sh; then
-              echo "✅ Canary deployment completado exitosamente"
-            else
-              echo "❌ Canary deployment falló - iniciando rollback"
+
+          # Limpiar canary residual
+          docker rm -f workplace_backend_canary workplace_frontend_canary 2>/dev/null || true
+
+          # Validar integridad del script canary
+          chmod +x scripts/deploy/canary-traffic-split.sh
+          if [ -f scripts/deploy/canary-traffic-split.sh.sha256 ]; then
+            sha256sum -c scripts/deploy/canary-traffic-split.sh.sha256 || {
+              echo "❌ Integridad del script canary comprometida — abortando"
               exit 1
-            fi
-          else
-            echo "❌ Script canary no encontrado, usando rolling update controlado"
-            # Deploy idempotente: actualiza solo los servicios cambiados
-            docker compose --env-file .env.deploy pull backend frontend
-            docker compose --env-file .env.deploy up -d --no-deps backend frontend
+            }
           fi
-          
-          # Limpiar archivo .env.deploy inmediatamente después del uso
-          rm -f .env.deploy
-          trap - EXIT ERR INT TERM
-          
+
+          # Migraciones DB
+          echo "🗄️ Verificando migraciones..."
+          $COMPOSE exec -T backend npx prisma migrate deploy \
+            && echo "✅ Migraciones aplicadas" \
+            || echo "⚠️ Migraciones fallaron — continuando"
+
+          # Canary deployment
+          echo "🚀 Ejecutando canary deployment..."
+          ./scripts/deploy/canary-traffic-split.sh \
+            || { echo "❌ Canary falló"; exit 1; }
+
           echo "✅ Deploy completado"
         EOF
 
-    - name: Verificación Post-Deploy (Shell)
+    - name: Verificación post-deploy
       run: |
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
-          
-          echo "🔍 Verificación post-deploy..."
-          docker compose ps
-          
-          # Health checks con rollback automático
-          echo "🏥 Health checks:"
-          BACKEND_HEALTH=false
-          FRONTEND_HEALTH=false
 
-          # Leer puertos del .env del servidor (con fallback a defaults)
-          NODE_PORT=$(grep -E '^NODE_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "3001")
-          FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "3000")
-          echo "🔍 Puertos detectados: backend=$NODE_PORT frontend=$FRONTEND_PORT"
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+          NODE_PORT=$(grep -E '^NODE_PORT=' .env | cut -d= -f2 | tr -d '"' || echo "3001")
+          FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env | cut -d= -f2 | tr -d '"' || echo "3000")
 
-          # Health check backend — directo al contenedor (evita redirección HTTP→HTTPS de Traefik)
-          echo "🏥 Health check backend (directo al contenedor)..."
-          BACKEND_RESP=$(docker compose exec -T backend curl -sf --max-time 10 "http://localhost:${NODE_PORT}/api/ready" 2>/dev/null || echo "")
+          echo "🔍 Estado de contenedores:"
+          $COMPOSE ps
+
+          echo "🏥 Health checks (directo a contenedores)..."
+
+          # Backend
+          BACKEND_RESP=$($COMPOSE exec -T backend \
+            curl -sf --max-time 10 "http://localhost:${NODE_PORT}/api/ready" 2>/dev/null || echo "")
           if echo "$BACKEND_RESP" | grep -qE '"status":"(ok|healthy)"'; then
-            echo "✅ Backend health check OK"
-            BACKEND_HEALTH=true
+            echo "✅ Backend OK"
+            BACKEND_OK=true
           else
-            echo "❌ Backend health check FAILED — respuesta: ${BACKEND_RESP:-<vacía>}"
-            BACKEND_HEALTH=false
+            echo "❌ Backend FAILED — respuesta: ${BACKEND_RESP:-<vacía>}"
+            BACKEND_OK=false
           fi
 
-          # Health check frontend — directo al contenedor
-          echo "🏥 Health check frontend (directo al contenedor)..."
-          FRONTEND_HTTP=$(docker compose exec -T frontend curl -so /dev/null -w "%{http_code}" --max-time 10 "http://localhost:${FRONTEND_PORT}/" 2>/dev/null || echo "000")
-          if [ "$FRONTEND_HTTP" = "200" ] || [ "$FRONTEND_HTTP" = "301" ] || [ "$FRONTEND_HTTP" = "302" ]; then
-            echo "✅ Frontend health check OK (HTTP $FRONTEND_HTTP)"
-            FRONTEND_HEALTH=true
+          # Frontend
+          FRONT_HTTP=$($COMPOSE exec -T frontend \
+            curl -so /dev/null -w "%{http_code}" --max-time 10 "http://localhost:${FRONTEND_PORT}/" 2>/dev/null || echo "000")
+          if [[ "$FRONT_HTTP" =~ ^(200|301|302)$ ]]; then
+            echo "✅ Frontend OK (HTTP $FRONT_HTTP)"
+            FRONTEND_OK=true
           else
-            echo "❌ Frontend health check FAILED (HTTP $FRONTEND_HTTP)"
-            FRONTEND_HEALTH=false
+            echo "❌ Frontend FAILED (HTTP $FRONT_HTTP)"
+            FRONTEND_OK=false
           fi
-          
-          # Verificación final y rollback si es necesario
-          if [ "$BACKEND_HEALTH" = true ] && [ "$FRONTEND_HEALTH" = true ]; then
-            echo "✅ Todos los health checks pasaron - Deploy exitoso!"
-            echo "🎉 Verificación de deploy completada exitosamente"
-            
-            # Crear backup de versión actual para futuros rollbacks
-            echo "📦 Creando backup de versión actual..."
-            mkdir -p /opt/workplace/versions /opt/workplace/backups/versions /opt/workplace/logs
-            
+
+          if [ "$BACKEND_OK" = true ] && [ "$FRONTEND_OK" = true ]; then
+            echo "🎉 Deploy exitoso — guardando versión estable..."
+            mkdir -p versions backups/versions logs
             TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-            VERSION_FILE="/opt/workplace/versions/current-${TIMESTAMP}.env"
-            
-            # Obtener imágenes actuales
-            BACKEND_IMAGE=$(docker inspect workplace-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "workplace-backend")
-            FRONTEND_IMAGE=$(docker inspect workplace-frontend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "workplace-frontend")
-            CURRENT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-            
-            # Crear versión de referencia
-            echo "# Versión actual backup - $TIMESTAMP" > "$VERSION_FILE"
-            echo "BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE" >> "$VERSION_FILE"
-            echo "FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE" >> "$VERSION_FILE"
-            echo "CURRENT_SHA=$CURRENT_SHA" >> "$VERSION_FILE"
-            echo "BACKUP_TIMESTAMP=$TIMESTAMP" >> "$VERSION_FILE"
-            echo "DEPLOY_STATUS=current" >> "$VERSION_FILE"
-            
-            # Crear symlink y guardar historial
-            ln -sf "$VERSION_FILE" /opt/workplace/versions/current.env
-            echo "$TIMESTAMP:$BACKEND_IMAGE:$FRONTEND_IMAGE:$CURRENT_SHA" >> /opt/workplace/backups/versions/version_history.txt
-            touch /opt/workplace/logs/rollback-history.log
-            
-            echo "✅ Backup de versión actual creado:"
-            echo "  📁 Archivo: $VERSION_FILE"
-            echo "  🔗 Symlink: /opt/workplace/versions/current.env"
-            echo "  📊 Historial: $(wc -l < /opt/workplace/backups/versions/version_history.txt) versiones"
-            
+            VFILE="versions/current-${TIMESTAMP}.env"
+            BACKEND_IMAGE=$(docker inspect workplace-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
+            FRONTEND_IMAGE=$(docker inspect workplace-frontend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "unknown")
+            printf 'BACKEND_CURRENT_IMAGE=%s\nFRONTEND_CURRENT_IMAGE=%s\nCURRENT_SHA=%s\nBACKUP_TIMESTAMP=%s\n' \
+              "$BACKEND_IMAGE" "$FRONTEND_IMAGE" "$CURRENT_SHA" "$TIMESTAMP" > "$VFILE"
+            ln -sf "$VFILE" versions/current.env
+            echo "${TIMESTAMP}:${BACKEND_IMAGE}:${FRONTEND_IMAGE}:${CURRENT_SHA}" >> backups/versions/version_history.txt
+            tail -10 backups/versions/version_history.txt > /tmp/vh.tmp && mv /tmp/vh.tmp backups/versions/version_history.txt
+            touch logs/rollback-history.log
+            echo "Version saved: $VFILE"
           else
-            echo "🚨 Health checks fallaron - Verificando si es primer deploy..."
-            
-            # Verificar si es primer deploy (no hay versión estable)
-            if [ ! -f "/opt/workplace/versions/current.env" ]; then
-              echo "🚀 Primer deploy detectado - Creando backup de referencia..."
-              
-              # Crear backup de referencia para primer deploy
-              mkdir -p /opt/workplace/versions /opt/workplace/backups/versions /opt/workplace/logs
-              
-              TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-              VERSION_FILE="/opt/workplace/versions/current-${TIMESTAMP}.env"
-              
-              # Obtener imágenes actuales (incluso si health checks fallaron)
-              BACKEND_IMAGE=$(docker inspect workplace-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "workplace-backend")
-              FRONTEND_IMAGE=$(docker inspect workplace-frontend-1 --format='{{.Config.Image}}' 2>/dev/null || echo "workplace-frontend")
-              CURRENT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-              
-              # Crear versión de referencia
-              echo "# Versión actual backup - $TIMESTAMP (Primer Deploy)" > "$VERSION_FILE"
-              echo "BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE" >> "$VERSION_FILE"
-              echo "FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE" >> "$VERSION_FILE"
-              echo "CURRENT_SHA=$CURRENT_SHA" >> "$VERSION_FILE"
-              echo "BACKUP_TIMESTAMP=$TIMESTAMP" >> "$VERSION_FILE"
-              echo "DEPLOY_STATUS=first-deploy-health-failed" >> "$VERSION_FILE"
-              
-              # Crear symlink y guardar historial
-              ln -sf "$VERSION_FILE" /opt/workplace/versions/current.env
-              echo "$TIMESTAMP:$BACKEND_IMAGE:$FRONTEND_IMAGE:$CURRENT_SHA" >> /opt/workplace/backups/versions/version_history.txt
-              touch /opt/workplace/logs/rollback-history.log
-              
-              echo "✅ Backup de primer deploy creado:"
-              echo "  📁 Archivo: $VERSION_FILE"
-              echo "  🔗 Symlink: /opt/workplace/versions/current.env"
-              echo "  📊 Estado: Health checks fallaron pero versión guardada"
-              echo "  ⚠️ Deploy requiere intervención manual para diagnóstico"
-              
-              # Diagnóstico del primer deploy
-              echo "📊 Diagnóstico del primer deploy..."
-              docker compose ps > /tmp/first-deploy-state.log
-              docker logs workplace-backend-1 --tail 50 > /tmp/backend-first-deploy.log 2>/dev/null || true
-              docker logs workplace-frontend-1 --tail 50 > /tmp/frontend-first-deploy.log 2>/dev/null || true
-              
-              echo "🔍 Logs guardados en /tmp/ para diagnóstico manual"
-              echo "📧 Requiere intervención manual para verificar configuración"
+            echo "🚨 Health checks fallaron — iniciando rollback..."
+
+            if [ ! -f versions/current.env ]; then
+              echo "❌ Primer deploy sin versión estable — intervención manual requerida"
+              $COMPOSE logs --tail 50 backend frontend || true
               exit 1
-              
-            else
-              echo "🔄 Deploy con versión estable detectada - Iniciando rollback enterprise..."
-              
-              # Diagnóstico y backup del estado fallido
-              echo "📊 Diagnóstico del estado fallido..."
-              docker compose ps > /tmp/failed-deploy-state.log
-              docker logs workplace-backend-1 --tail 100 > /tmp/backend-failed.log 2>/dev/null || true
-              docker logs workplace-frontend-1 --tail 100 > /tmp/frontend-failed.log 2>/dev/null || true
-              
-              # Cargar última versión estable
-              echo "🔄 Cargando última versión estable..."
-              if [ -f "/opt/workplace/versions/current.env" ]; then
-                set -a
-                source /opt/workplace/versions/current.env
-                set +a
-                echo "📦 Versión a restaurar:"
-                echo "  Backend: $BACKEND_CURRENT_IMAGE"
-                echo "  Frontend: $FRONTEND_CURRENT_IMAGE"
-                echo "  SHA: $CURRENT_SHA"
-                echo "  Timestamp: $BACKUP_TIMESTAMP"
-                
-                # Verificar que las imágenes existen localmente
-                BACKEND_AVAILABLE=false
-                FRONTEND_AVAILABLE=false
-                
-                if docker image inspect "$BACKEND_CURRENT_IMAGE" >/dev/null 2>&1; then
-                  echo "✅ Imagen backend disponible localmente"
-                  BACKEND_AVAILABLE=true
-                elif [ -f "/opt/workplace/backups/versions/backend-${BACKUP_TIMESTAMP}.tar" ]; then
-                  echo "📦 Cargando backup de imagen backend..."
-                  if docker load -i "/opt/workplace/backups/versions/backend-${BACKUP_TIMESTAMP}.tar" >/dev/null 2>&1; then
-                    echo "✅ Backup backend cargado exitosamente"
-                    BACKEND_AVAILABLE=true
-                  else
-                    echo "❌ Error cargando backup backend"
-                  fi
-                else
-                  echo "🔍 Intentando descargar desde registry..."
-                  if docker pull "$BACKEND_CURRENT_IMAGE" >/dev/null 2>&1; then
-                    echo "✅ Backend descargado del registry"
-                    BACKEND_AVAILABLE=true
-                  else
-                    echo "❌ Backend no disponible en registry"
-                  fi
-                fi
-                
-                if docker image inspect "$FRONTEND_CURRENT_IMAGE" >/dev/null 2>&1; then
-                  echo "✅ Imagen frontend disponible localmente"
-                  FRONTEND_AVAILABLE=true
-                elif [ -f "/opt/workplace/backups/versions/frontend-${BACKUP_TIMESTAMP}.tar" ]; then
-                  echo "📦 Cargando backup de imagen frontend..."
-                  if docker load -i "/opt/workplace/backups/versions/frontend-${BACKUP_TIMESTAMP}.tar" >/dev/null 2>&1; then
-                    echo "✅ Backup frontend cargado exitosamente"
-                    FRONTEND_AVAILABLE=true
-                  else
-                    echo "❌ Error cargando backup frontend"
-                  fi
-                else
-                  echo "🔍 Intentando descargar desde registry..."
-                  if docker pull "$FRONTEND_CURRENT_IMAGE" >/dev/null 2>&1; then
-                    echo "✅ Frontend descargado del registry"
-                    FRONTEND_AVAILABLE=true
-                  else
-                    echo "❌ Frontend no disponible en registry"
-                  fi
-                fi
-                
-                if [ "$BACKEND_AVAILABLE" = true ] && [ "$FRONTEND_AVAILABLE" = true ]; then
-                  echo "🔄 Ejecutando rollback enterprise..."
-                  
-                  # Iniciar timer para rollback
-                  START_TIME=$SECONDS
-                  
-                  # Paso 1: Detener servicios fallidos
-                  echo "🛑 Deteniendo servicios fallidos..."
-                  docker compose stop backend frontend || true
-                  docker compose rm -f backend frontend || true
-                  
-                  # Paso 2: Limpiar contenedores parados (no imágenes)
-                  echo "🧹 Limpieza de contenedores parados..."
-                  docker container prune -f || true
-                  
-                  # Paso 3: Restaurar con imágenes verificadas
-                  echo "🔄 Restaurando servicios con versión estable..."
-                  export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
-                  export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
-                  
-                  if docker compose -f docker-compose.lite.yml up -d --no-deps backend frontend; then
-                    echo "✅ Servicios restaurados con versión estable"
-                    
-                    # Paso 4: Verificación enterprise
-                    echo "🔍 Verificación enterprise post-rollback..."
-                    sleep 20
-                    
-                    ROLLBACK_SUCCESS=false
-                    
-                    # Verificación completa con reintentos
-                    for i in {1..6}; do
-                      echo "🔄 Verificación intento $i/6..."
-                      
-                      # Backend health check — directo al contenedor
-                      BACKEND_OK=false
-                      RB_BACKEND=$(docker compose exec -T backend curl -sf --max-time 5 "http://localhost:${NODE_PORT:-3001}/api/ready" 2>/dev/null || echo "")
-                      if echo "$RB_BACKEND" | grep -qE '"status":"(ok|healthy)"'; then
-                        echo "✅ Backend restaurado y funcional"
-                        BACKEND_OK=true
-                      fi
-
-                      # Frontend health check — directo al contenedor
-                      FRONTEND_OK=false
-                      RB_FRONT_HTTP=$(docker compose exec -T frontend curl -so /dev/null -w "%{http_code}" --max-time 5 "http://localhost:${FRONTEND_PORT:-3000}/" 2>/dev/null || echo "000")
-                      if [ "$RB_FRONT_HTTP" = "200" ] || [ "$RB_FRONT_HTTP" = "301" ] || [ "$RB_FRONT_HTTP" = "302" ]; then
-                        echo "✅ Frontend restaurado y funcional"
-                        FRONTEND_OK=true
-                      fi
-                      
-                      # Conectividad crítica
-                      CRITICAL_OK=false
-                      if docker compose exec -T postgres pg_isready -U ${POSTGRES_USER:-workplace} 2>/dev/null && \
-                         docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
-                        echo "✅ Servicios críticos conectivos"
-                        CRITICAL_OK=true
-                      fi
-                      
-                      if [ "$BACKEND_OK" = true ] && [ "$FRONTEND_OK" = true ] && [ "$CRITICAL_OK" = true ]; then
-                        echo "🎉 Rollback enterprise completado exitosamente"
-                        ROLLBACK_SUCCESS=true
-                        break
-                      else
-                        echo "⏳ Esperando siguiente intento..."
-                        sleep 10
-                      fi
-                    done
-                    
-                    if [ "$ROLLBACK_SUCCESS" = true ]; then
-                      # Guardar registro de rollback exitoso
-                      echo "$(date '+%Y-%m-%d %H:%M:%S'): ROLLBACK_EXITOSO: $BACKUP_TIMESTAMP -> $CURRENT_SHA" >> /opt/workplace/logs/rollback-history.log
-                      
-                      # Notificación de éxito
-                      echo "✅ Rollback enterprise completado:"
-                      echo "  📦 Versión restaurada: $BACKUP_TIMESTAMP"
-                      echo "  🔄 SHA: $CURRENT_SHA"
-                      echo "  ⏱️  Tiempo total: $((SECONDS - START_TIME))s"
-                      echo "  📊 Logs guardados en /tmp/"
-                      
-                    else
-                      echo "❌ Rollback enterprise falló - Activando modo emergencia"
-                      
-                      # Modo emergencia con diagnóstico completo
-                      echo "🚨 MODO EMERGENCIA ACTIVADO"
-                      echo "📋 Estado actual:"
-                      docker compose ps
-                      echo "📋 Logs de fallo:"
-                      ls -la /tmp/*failed*.log
-                      
-                      # Intentar recuperación mínima
-                      echo "🔄 Recuperación de emergencia..."
-                      docker compose restart postgres redis traefik
-                      
-                      if docker compose exec -T postgres pg_isready 2>/dev/null && \
-                         docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
-                        echo "✅ Servicios críticos recuperados"
-                        echo "⚠️ Backend/Frontend requieren intervención manual"
-                      else
-                        echo "❌ Fallo completo del sistema"
-                        echo "📧 Contactar administración inmediata"
-                      fi
-                      
-                      exit 1
-                    fi
-                  else
-                    echo "❌ Error recreando servicios con versión estable"
-                    exit 1
-                  fi
-                else
-                  echo "❌ Imágenes de versión estable no disponibles"
-                  echo "📋 Backend disponible: $BACKEND_AVAILABLE"
-                  echo "📋 Frontend disponible: $FRONTEND_AVAILABLE"
-                  exit 1
-                fi
-              else
-                echo "❌ No hay versión estable para rollback"
-                echo "📁 Archivo /opt/workplace/versions/current.env no encontrado"
-                exit 1
-              fi
             fi
-          fi
 
-  # 6. Rollback Manual (Independiente - puede ejecutarse manualmente)
+            set -a; source versions/current.env; set +a
+            echo "🔄 Restaurando: backend=$BACKEND_CURRENT_IMAGE frontend=$FRONTEND_CURRENT_IMAGE"
+
+            # Obtener imagen disponible (local o registry)
+            for IMG_VAR in BACKEND_CURRENT_IMAGE FRONTEND_CURRENT_IMAGE; do
+              IMG="${!IMG_VAR}"
+              if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+                docker pull "$IMG" || { echo "❌ No se pudo obtener $IMG"; exit 1; }
+              fi
+            done
+
+            $COMPOSE stop backend frontend
+            $COMPOSE rm -f backend frontend
+            docker container prune -f || true
+            export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
+            export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
+            $COMPOSE up -d --no-deps backend frontend
+
+            # Verificar rollback
+            sleep 20
+            for i in $(seq 1 6); do
+              RB=$($COMPOSE exec -T backend curl -sf --max-time 5 "http://localhost:${NODE_PORT}/api/ready" 2>/dev/null || echo "")
+              if echo "$RB" | grep -qE '"status":"(ok|healthy)"'; then
+                echo "✅ Rollback exitoso (intento $i)"
+                echo "$(date '+%Y-%m-%d %H:%M:%S'): ROLLBACK OK $BACKUP_TIMESTAMP -> ${{ github.sha }}" >> logs/rollback-history.log
+                exit 0
+              fi
+              echo "⏳ Intento $i/6..."
+              sleep 10
+            done
+
+            echo "❌ Rollback falló — intervención manual requerida"
+            exit 1
+          fi
+        EOF
+
+  # ─── 5. Rollback manual ────────────────────────────────────────────────────
   rollback:
     name: Rollback Manual
     runs-on: ubuntu-latest
     needs: deploy
     if: needs.deploy.result == 'failure' && github.event.inputs.force_rollback == 'true'
     timeout-minutes: 10
-    
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Configurar SSH
       uses: ./.github/actions/setup-ssh
@@ -867,53 +354,37 @@ jobs:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.PRODUCTION_HOST }}
 
-    - name: Rollback Manual
+    - name: Ejecutar rollback manual
       run: |
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
-          
-          # Lock de infraestructura
+
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+
           exec 200>/tmp/deploy.lock
-          if ! flock -n 200; then
-            echo "❌ Otro deploy/rollback está en progreso. Abortando."
+          flock -n 200 || { echo "❌ Deploy en progreso"; exit 1; }
+
+          if [ ! -f versions/current.env ]; then
+            echo "❌ No hay versión estable disponible para rollback"
             exit 1
           fi
-          
-          echo "🔄 Ejecutando rollback manual..."
-          
-          # Cargar versión anterior si existe
-          if [ -f ".previous_version" ]; then
-            source .previous_version
-            echo "📦 Versión a restaurar:"
-            echo "  Backend: $BACKEND_PREVIOUS"
-            echo "  Frontend: $FRONTEND_PREVIOUS"
-            
-            if [ "$BACKEND_PREVIOUS" != "none" ] && [ "$FRONTEND_PREVIOUS" != "none" ]; then
-              docker pull $BACKEND_PREVIOUS
-              docker pull $FRONTEND_PREVIOUS
-              export BACKEND_IMAGE=$BACKEND_PREVIOUS
-              export FRONTEND_IMAGE=$FRONTEND_PREVIOUS
-              docker compose up -d --no-deps backend frontend
-              echo "✅ Rollback a versión anterior completado"
-              exit 0
-            fi
-          fi
-          
-          # Fallback a scripts
-          if [ -f "scripts/deploy/rollback-enhanced.sh" ]; then
-            chmod +x scripts/deploy/rollback-enhanced.sh
-            ./scripts/deploy/rollback-enhanced.sh
-          elif [ -f "scripts/deploy/rollback.sh" ]; then
-            chmod +x scripts/deploy/rollback.sh
-            ./scripts/deploy/rollback.sh
-          else
-            echo "❌ No se encontró versión anterior ni script de rollback"
-            exit 1
-          fi
+
+          set -a; source versions/current.env; set +a
+          echo "🔄 Rollback a: backend=$BACKEND_CURRENT_IMAGE frontend=$FRONTEND_CURRENT_IMAGE"
+
+          for IMG in "$BACKEND_CURRENT_IMAGE" "$FRONTEND_CURRENT_IMAGE"; do
+            docker image inspect "$IMG" >/dev/null 2>&1 || docker pull "$IMG"
+          done
+
+          export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
+          export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
+          $COMPOSE up -d --no-deps backend frontend
+
+          echo "✅ Rollback manual completado"
         EOF
 
-  # 7. Smoke Test Externo (validación desde internet)
+  # ─── 6. Smoke test externo ─────────────────────────────────────────────────
   smoke-test:
     name: Smoke Test Externo
     runs-on: ubuntu-latest
@@ -921,265 +392,130 @@ jobs:
     if: needs.deploy.result == 'success'
     timeout-minutes: 5
     outputs:
-      rollback-needed: ${{ steps.smoke-check.outputs.rollback_needed }}
-    
+      rollback-needed: ${{ steps.check.outputs.rollback_needed }}
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
-      
-    - name: Configurar SSH
+    - name: Verificar desde internet
+      id: check
+      run: |
+        DOMAIN="${{ secrets.PRODUCTION_DOMAIN }}"
+        if [ -z "$DOMAIN" ]; then
+          echo "⚠️ PRODUCTION_DOMAIN no configurado — omitiendo smoke test"
+          echo "rollback_needed=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "🌐 Smoke test para: $DOMAIN"
+        MAX_RETRIES=12
+        RETRY_DELAY=10
+
+        for i in $(seq 1 $MAX_RETRIES); do
+          echo "🔄 Intento $i/$MAX_RETRIES..."
+
+          BACKEND_HTTP=$(curl -so /dev/null -w "%{http_code}" --max-time 15 \
+            "https://$DOMAIN/api/ready" 2>/dev/null || echo "000")
+          FRONTEND_HTTP=$(curl -so /dev/null -w "%{http_code}" --max-time 15 \
+            "https://$DOMAIN" 2>/dev/null || echo "000")
+          SSL_OK=false
+          if echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" \
+              2>/dev/null | grep -q "Verify return code: 0"; then
+            SSL_OK=true
+          fi
+
+          echo "  Backend: $BACKEND_HTTP | Frontend: $FRONTEND_HTTP | SSL: $SSL_OK"
+
+          if [[ "$BACKEND_HTTP" =~ ^(200|204)$ ]] && \
+             [[ "$FRONTEND_HTTP" =~ ^(200|301|302)$ ]] && \
+             [ "$SSL_OK" = true ]; then
+            echo "🎉 Smoke test PASADO"
+            echo "rollback_needed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          [ $i -lt $MAX_RETRIES ] && sleep $RETRY_DELAY
+        done
+
+        echo "❌ Smoke test FALLÓ"
+        echo "rollback_needed=true" >> $GITHUB_OUTPUT
+        exit 1
+
+    - name: Configurar SSH para rollback
+      if: failure()
       uses: ./.github/actions/setup-ssh
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.PRODUCTION_HOST }}
 
-    - name: Verificar desde internet
-      id: smoke-check
+    - name: Ejecutar rollback por smoke test
+      if: failure()
       run: |
-        echo "🌐 Smoke test externo - validando desde internet..."
-
-        DOMAIN="${{ secrets.PRODUCTION_DOMAIN }}"
-        if [ -z "$DOMAIN" ]; then
-          echo "⚠️ PRODUCTION_DOMAIN no configurado como secret — omitiendo smoke test externo"
-          echo "rollback_needed=false" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-
-        echo "🔍 Dominio configurado: $DOMAIN"
-        
-        MAX_RETRIES=12
-        RETRY_DELAY=10
-        
-        for i in $(seq 1 $MAX_RETRIES); do
-          echo "🔄 Intento $i/$MAX_RETRIES..."
-          
-          # Verificar backend API externo
-          BACKEND_OK=false
-          BACKEND_URL="https://api.$DOMAIN/health?deep=true"
-          echo "🔍 Verificando backend: $BACKEND_URL"
-          
-          if curl -fs --max-time 15 "$BACKEND_URL" 2>/dev/null | grep -q '"status":"healthy"'; then
-            echo "✅ Backend API responde correctamente"
-            BACKEND_OK=true
-          else
-            echo "⏳ Backend API no responde aún..."
-          fi
-          
-          # Verificar frontend externo
-          FRONTEND_OK=false
-          FRONTEND_URL="https://$DOMAIN"
-          echo "🔍 Verificando frontend: $FRONTEND_URL"
-          
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$FRONTEND_URL" 2>/dev/null || echo "000")
-          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
-            echo "✅ Frontend responde (HTTP $HTTP_CODE)"
-            FRONTEND_OK=true
-          else
-            echo "⏳ Frontend no responde aún (HTTP $HTTP_CODE)..."
-          fi
-          
-          # Verificar SSL/TLS
-          SSL_OK=false
-          if [ "$DOMAIN" != "localhost" ]; then
-            echo "🔍 Verificando SSL/TLS para: $DOMAIN:443"
-            if echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | grep -q "Verify return code: 0"; then
-              echo "✅ SSL/TLS válido"
-              SSL_OK=true
-            else
-              echo "⏳ Verificando SSL/TLS..."
-            fi
-          else
-            echo "⏭ Omitiendo verificación SSL/TLS (localhost)"
-            SSL_OK=true
-          fi
-          
-          if [ "$BACKEND_OK" = true ] && [ "$FRONTEND_OK" = true ] && [ "$SSL_OK" = true ]; then
-            echo "🎉 Smoke test externo PASADO - todos los servicios accesibles desde internet"
-            echo "rollback_needed=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          if [ $i -lt $MAX_RETRIES ]; then
-            echo "⏳ Esperando $RETRY_DELAY segundos..."
-            sleep $RETRY_DELAY
-          fi
-        done
-        
-        echo "❌ Smoke test externo FALLÓ - servicios no accesibles desde internet"
-        echo "rollback_needed=true" >> $GITHUB_OUTPUT
-        exit 1
-
-    - name: Rollback Automático por Smoke Test Fallido
-      if: failure() && steps.smoke-check.outputs.rollback_needed == 'true'
-      run: |
-        echo "🚨 Smoke test falló - Ejecutando rollback automático..."
-        
         ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           set -euo pipefail
           cd /opt/workplace
-          
-          # Lock de infraestructura
-          exec 200>/tmp/deploy.lock
-          if ! flock -n 200; then
-            echo "❌ Otro deploy/rollback está en progreso. Abortando."
-            exit 1
-          fi
-          
-          echo "🔄 Rollback automático por fallo de smoke test..."
-          
-          # Cargar versión anterior si existe
-          if [ -f ".previous_version" ]; then
-            source .previous_version
-            echo "📦 Restaurando versión anterior:"
-            echo "  Backend: $BACKEND_PREVIOUS"
-            echo "  Frontend: $FRONTEND_PREVIOUS"
-            
-            if [ "$BACKEND_PREVIOUS" != "none" ] && [ "$FRONTEND_PREVIOUS" != "none" ]; then
-              # Usar nombres completos con registry
-              FULL_BACKEND_IMAGE="${BACKEND_PREVIOUS}"
-              FULL_FRONTEND_IMAGE="${FRONTEND_PREVIOUS}"
-              
-              # Si no incluye registry, agregarlo
-              if [[ "$BACKEND_PREVIOUS" != *"/"* ]]; then
-                FULL_BACKEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/$BACKEND_PREVIOUS"
-              fi
-              if [[ "$FRONTEND_PREVIOUS" != *"/"* ]]; then
-                FULL_FRONTEND_IMAGE="${{ secrets.DOCKER_USERNAME }}/$FRONTEND_PREVIOUS"
-              fi
-              
-              echo "🔐 Login en Docker Hub..."
-              echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-              
-              echo "📦 Pull de imágenes:"
-              echo "  Backend: $FULL_BACKEND_IMAGE"
-              echo "  Frontend: $FULL_FRONTEND_IMAGE"
-              
-              docker pull "$FULL_BACKEND_IMAGE"
-              docker pull "$FULL_FRONTEND_IMAGE"
-              export BACKEND_IMAGE="$FULL_BACKEND_IMAGE"
-              export FRONTEND_IMAGE="$FULL_FRONTEND_IMAGE"
-              docker compose up -d --no-deps backend frontend
-              echo "✅ Rollback completado - versión anterior restaurada"
-            fi
-          else
-            echo "⚠️ No hay versión anterior - es primer deploy o no hay backup"
-            echo "🔄 Intentando fallback a versión stable..."
-            
-            # Fallback a versión stable tag
-            STABLE_BACKEND="${{ secrets.DOCKER_USERNAME }}/workplace-backend:stable"
-            STABLE_FRONTEND="${{ secrets.DOCKER_USERNAME }}/workplace-frontend:stable"
-            
-            echo "🔐 Login en Docker Hub..."
-            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-            
-            echo "📦 Pull de imágenes stable:"
-            echo "  Backend: $STABLE_BACKEND"
-            echo "  Frontend: $STABLE_FRONTEND"
-            
-            if docker pull "$STABLE_BACKEND" && docker pull "$STABLE_FRONTEND"; then
-              export BACKEND_IMAGE="$STABLE_BACKEND"
-              export FRONTEND_IMAGE="$STABLE_FRONTEND"
-              docker compose up -d --no-deps backend frontend
-              echo "✅ Fallback a stable completado - versión estable desplegada"
-            else
-              echo "❌ No hay versión stable disponible - deploy fallido"
-              echo "🚨 Se requiere intervención manual"
-              exit 1
-            fi
-          fi
-          
-          # Notificar rollback
-          echo "🚨 ROLLBACK EJECUTADO: Smoke test falló, producción restaurada a versión estable"
-        EOF
-        
-        echo "✅ Rollback automático completado"
 
-  # 8. Notificar Éxito/Fallo
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+
+          exec 200>/tmp/deploy.lock
+          flock -n 200 || { echo "❌ Deploy en progreso"; exit 1; }
+
+          [ -f versions/current.env ] || { echo "❌ Sin versión estable"; exit 1; }
+
+          set -a; source versions/current.env; set +a
+
+          echo "${{ secrets.DOCKER_PASSWORD }}" \
+            | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+          docker pull "$BACKEND_CURRENT_IMAGE"
+          docker pull "$FRONTEND_CURRENT_IMAGE"
+          export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
+          export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
+          $COMPOSE up -d --no-deps backend frontend
+
+          echo "✅ Rollback por smoke test completado"
+        EOF
+
+  # ─── 7. Notificación ───────────────────────────────────────────────────────
   notify:
-    name: Notificar Estado del Deploy
+    name: Notificar Estado
     runs-on: ubuntu-latest
     needs: [deploy, smoke-test]
     if: always()
-    
     steps:
-    - name: Estado del Deployment
+    - name: Evaluar resultado
       run: |
-        if [ "${{ needs.deploy.result }}" == "success" ] && [ "${{ needs.smoke-test.result }}" == "success" ]; then
-          echo "🎉 Deployment completado exitosamente!"
-          echo "📊 Resumen:"
-          echo "- ✅ Tests pasaron"
-          echo "- ✅ Tests E2E pasaron" 
-          echo "- ✅ Imágenes construidas y publicadas"
-          echo "- ✅ Infraestructura deployada"
-          echo "- ✅ Health checks pasaron"
-          echo "- ✅ Smoke test externo pasó"
-          echo "- ✅ No se necesitó rollback"
-          STATUS="success"
-          COLOR="65280"
+        if [ "${{ needs.deploy.result }}" = "success" ] && \
+           [ "${{ needs.smoke-test.result }}" != "failure" ]; then
+          echo "DEPLOY_STATUS=success" >> $GITHUB_ENV
+          echo "DEPLOY_COLOR=65280" >> $GITHUB_ENV
+          echo "🎉 Deploy exitoso"
         else
-          echo "❌ Deployment falló!"
-          echo "📊 Resumen:"
-          if [ "${{ needs.deploy.result }}" != "success" ]; then
-            echo "- ❌ Deploy falló"
-          fi
-          if [ "${{ needs.smoke-test.result }}" != "success" ]; then
-            echo "- ❌ Smoke test externo falló"
-          fi
-          echo "- 🔄 Rollback automático iniciado"
-          echo "- 📋 Revisar logs para detalles"
-          echo "- 🔧 Puede requerir intervención manual"
-          
-          if [ "${{ github.event.inputs.force_rollback }}" == "true" ]; then
-            echo "- 🔄 Rollback manual solicitado"
-          fi
-          STATUS="failure"
-          COLOR="16711680"
+          echo "DEPLOY_STATUS=failure" >> $GITHUB_ENV
+          echo "DEPLOY_COLOR=16711680" >> $GITHUB_ENV
+          echo "❌ Deploy falló (deploy=${{ needs.deploy.result }} smoke=${{ needs.smoke-test.result }})"
         fi
-        
-        # Exportar para notificación webhook
-        echo "DEPLOY_STATUS=$STATUS" >> $GITHUB_ENV
-        echo "DEPLOY_COLOR=$COLOR" >> $GITHUB_ENV
 
     - name: Notificar Discord
+      if: env.DEPLOY_STATUS != ''
       run: |
-        if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
-          curl -s -X POST ${{ secrets.DISCORD_WEBHOOK }} \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"embeds\": [{
-                \"title\": \"🚀 Deploy ${{ env.DEPLOY_STATUS }}\",
-                \"color\": ${{ env.DEPLOY_COLOR }},
-                \"fields\": [
-                  {\"name\": \"Repositorio\", \"value\": \"${{ github.repository }}\", \"inline\": true},
-                  {\"name\": \"Branch\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
-                  {\"name\": \"Commit\", \"value\": \"${{ github.sha }}\", \"inline\": false},
-                  {\"name\": \"Actor\", \"value\": \"${{ github.actor }}\", \"inline\": true},
-                  {\"name\": \"Workflow\", \"value\": \"${{ github.workflow }}\", \"inline\": true}
-                ],
-                \"timestamp\": \"$(date -Iseconds)\"
-              }]
-          }" || echo "⚠️ Falló notificación a Discord"
-        else
-          echo "⚠️ Discord webhook no configurado"
-        fi
+        [ -z "${{ secrets.DISCORD_WEBHOOK }}" ] && exit 0
+        curl -sf -X POST "${{ secrets.DISCORD_WEBHOOK }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "embeds": [{
+              "title": "🚀 Deploy ${{ env.DEPLOY_STATUS }} — ${{ github.repository }}",
+              "color": ${{ env.DEPLOY_COLOR }},
+              "fields": [
+                {"name": "Branch", "value": "${{ github.ref_name }}", "inline": true},
+                {"name": "Actor", "value": "${{ github.actor }}", "inline": true},
+                {"name": "SHA", "value": "${{ github.sha }}", "inline": false}
+              ]
+            }]
+          }' || echo "⚠️ Discord webhook falló"
 
     - name: Notificar Slack
+      if: env.DEPLOY_STATUS != ''
       run: |
-        if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
-          curl -s -X POST ${{ secrets.SLACK_WEBHOOK }} \
-            -H 'Content-type: application/json' \
-            -d "{
-              \"text\": \"🚀 Deploy *${{ env.DEPLOY_STATUS }}* en ${{ github.repository }}\",
-              \"blocks\": [
-                {
-                  \"type\": \"section\",
-                  \"text\": {
-                    \"type\": \"mrkdwn\",
-                    \"text\": \"*Deploy ${{ env.DEPLOY_STATUS }}*\\n*Repo:* ${{ github.repository }}\\n*Branch:* ${{ github.ref_name }}\\n*Commit:* ${{ github.sha }}\\n*Actor:* ${{ github.actor }}\"
-                  }
-                }
-              ]
-          }" || echo "⚠️ Falló notificación a Slack"
-        else
-          echo "⚠️ Slack webhook no configurado"
-        fi
+        [ -z "${{ secrets.SLACK_WEBHOOK }}" ] && exit 0
+        curl -sf -X POST "${{ secrets.SLACK_WEBHOOK }}" \
+          -H "Content-Type: application/json" \
+          -d "{\"text\": \"Deploy *${{ env.DEPLOY_STATUS }}* — ${{ github.repository }} (${{ github.ref_name }}) by ${{ github.actor }}\"}" \
+          || echo "⚠️ Slack webhook falló"
