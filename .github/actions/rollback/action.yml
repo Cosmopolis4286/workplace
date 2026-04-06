@@ -28,6 +28,13 @@ runs:
           cd /opt/workplace
           COMPOSE="docker compose -f docker-compose.lite.yml"
 
+          # Definir variables con fallbacks robustos ANTES de usarlas
+          export BACKEND_IMAGE="${BACKEND_IMAGE:-workplace-backend:latest}"
+          export FRONTEND_IMAGE="${FRONTEND_IMAGE:-workplace-frontend:latest}"
+          export BACKEND_CURRENT_IMAGE="${BACKEND_CURRENT_IMAGE:-$BACKEND_IMAGE}"
+          export FRONTEND_CURRENT_IMAGE="${FRONTEND_CURRENT_IMAGE:-$FRONTEND_IMAGE}"
+          export BACKUP_TIMESTAMP="${BACKUP_TIMESTAMP:-manual-$(date +%Y%m%d-%H%M%S)}"
+
           exec 200>/tmp/deploy.lock
           flock -n 200 || { echo "Deploy en progreso. Abortando rollback."; exit 1; }
 
