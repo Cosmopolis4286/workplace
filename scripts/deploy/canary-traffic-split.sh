@@ -57,11 +57,26 @@ function setup_canary_service() {
   # Crear directorio de logs
   mkdir -p $LOG_DIR
   
-  # Identificar backend principal
+  # Identificar backend principal (manejar primer deploy)
   local MAIN_BACKEND_ID=$(docker compose ps -q backend)
   if [ -z "$MAIN_BACKEND_ID" ]; then
-    log_canary "❌ No se encontró backend principal"
-    return 1
+    log_canary "🚀 Primer deploy detectado - no hay backend principal"
+    log_canary "🔄 Iniciando deploy directo sin canary..."
+    
+    # Deploy directo para primer deploy
+    docker compose --env-file /opt/workplace/.env.deploy up -d postgres redis traefik
+    sleep 10
+    
+    # Iniciar backend principal
+    docker compose --env-file /opt/workplace/.env.deploy up -d backend
+    sleep 15
+    
+    # Iniciar frontend
+    docker compose --env-file /opt/workplace/.env.deploy up -d frontend
+    sleep 10
+    
+    log_canary "✅ Primer deploy completado - servicios iniciados"
+    return 0
   fi
   
   local MAIN_BACKEND_NAME=$(docker inspect --format='{{.Name}}' "$MAIN_BACKEND_ID" | sed 's/\///')
