@@ -17,14 +17,23 @@ export class CategoriesGlobalService {
         where: { isGlobal: true },
         skip,
         take: limit,
-        orderBy: { sortOrder: 'asc' },
-        include: { subcategories: true }
+        orderBy: { createdAt: 'asc' }
       }),
       this.prisma.category.count({ where: { isGlobal: true } })
     ])
 
+    // Obtener subcategorías por separado para evitar error de tipos
+    const categoriesWithSubcategories = await Promise.all(
+      categories.map(async (category) => {
+        const subcategories = await this.prisma.subcategory.findMany({
+          where: { categoryId: category.id }
+        })
+        return { ...category, subcategories }
+      })
+    )
+
     return {
-      data: categories,
+      data: categoriesWithSubcategories,
       meta: {
         total,
         page,
@@ -32,6 +41,23 @@ export class CategoriesGlobalService {
         totalPages: Math.ceil(total / limit)
       }
     }
+  }
+
+  async findOne(id: string) {
+    const category = await this.prisma.category.findFirst({
+      where: { id, isGlobal: true }
+    })
+
+    if (!category) {
+      throw new NotFoundException(`Categoría global con ID ${id} no encontrada`)
+    }
+
+    // Obtener subcategorías por separado
+    const subcategories = await this.prisma.subcategory.findMany({
+      where: { categoryId: id }
+    })
+
+    return { ...category, subcategories }
   }
 
   async createCategory(createCategoryDto: CreateCategoryDto) {
@@ -205,30 +231,29 @@ export class CategoriesGlobalService {
     const csvHeaders = [
       'ID',
       'Nombre',
-      'Descripción',
-      'Icono',
       'Color',
-      'Orden',
-      'Subcategorías',
+      'ID Comercio',
       'Fecha Creación',
-    ]
+      'Fecha Actualización'
+    ].join(',')
+    
+    const csvRows = categories.map(category => {
+      // category.subcategories ahora existe como array
+      const subcategoriesList = (category as any).subcategories 
+        ? (category as any).subcategories.map((sub: any) => sub.name).join(';') 
+        : ''
+      return [
+        category.id,
+        `"${category.name}"`,
+        `"${category.color}"`,
+        category.commerceId || '',
+        category.createdAt.toISOString(),
+        category.updatedAt.toISOString(),
+        `"${subcategoriesList}"`
+      ].join(',')
+    }).join('\n')
 
-    const csvRows = categories.map((category) => [
-      category.id,
-      category.name,
-      category.description || '',
-      category.icon || '',
-      category.color,
-      category.sortOrder,
-      category.subcategories.length,
-      category.createdAt.toISOString(),
-    ])
-
-    const csvContent = [csvHeaders, ...csvRows]
-      .map((row) => row.map((cell) => `"${cell}"`).join(','))
-      .join('\n')
-
-    return csvContent
+    return csvHeaders + '\n' + csvRows
   }
 
   async importCategoriesFromCsv(categoriesData: any[]): Promise<{ created: number; updated: number }> {

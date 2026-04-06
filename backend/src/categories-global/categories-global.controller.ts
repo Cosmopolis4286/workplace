@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpStatus,
   HttpCode,
+  NotFoundException
 } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger'
 import { CategoriesGlobalService } from './categories-global.service'
@@ -87,7 +88,7 @@ export class CategoriesGlobalController {
   @ApiResponse({ status: 200, description: 'Subcategorías encontradas' })
   @RequirePermission('subcategories_global:view')
   async findSubcategoriesByCategory(@Param('categoryId') categoryId: string) {
-    return this.categoriesGlobalService.findSubcategoriesByCategory(categoryId)
+    return this.categoriesGlobalService.findSubcategories(categoryId)
   }
 
   @Get('subcategories/:id')
@@ -96,7 +97,12 @@ export class CategoriesGlobalController {
   @ApiResponse({ status: 404, description: 'Subcategoría global no encontrada' })
   @RequirePermission('subcategories_global:view')
   async findSubcategoryById(@Param('id') id: string) {
-    return this.categoriesGlobalService.findSubcategoryById(id)
+    const subcategories = await this.categoriesGlobalService.findSubcategories('dummy')
+    const subcategory = subcategories.find(sub => sub.id === id)
+    if (!subcategory) {
+      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`)
+    }
+    return subcategory
   }
 
   @Post(':categoryId/subcategories')
