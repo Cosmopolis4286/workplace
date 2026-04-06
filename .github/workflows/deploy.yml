@@ -487,6 +487,10 @@ jobs:
           # Canary deployment (lógica compleja)
           echo "🚀 Iniciando Canary Deployment..."
           
+          # Cleanup de containers canary existentes (idempotencia)
+          echo "🧹 Limpiando containers canary existentes..."
+          docker rm -f workplace_backend_canary workplace_frontend_canary 2>/dev/null || echo "✅ No hay containers canary para limpiar"
+          
           if [ -f "scripts/deploy/canary-traffic-split.sh" ]; then
             chmod +x scripts/deploy/canary-traffic-split.sh
             
@@ -930,6 +934,9 @@ jobs:
       rollback-needed: ${{ steps.smoke-check.outputs.rollback_needed }}
     
     steps:
+    - name: Checkout del código
+      uses: actions/checkout@v5
+      
     - name: Configurar SSH
       uses: ./.github/actions/setup-ssh
       with:
