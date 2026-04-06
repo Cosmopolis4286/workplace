@@ -1,5 +1,4 @@
-# 🔒 TLS Configuration - Modern Security
-
+# TLS Options - configuración de protocolos y cifrados
 tls:
   options:
     modern:
@@ -12,8 +11,7 @@ tls:
         - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
         - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
       sniStrict: true
-      preferServerCipherSuites: true
-    
+
     intermediate:
       minVersion: "VersionTLS12"
       cipherSuites:
@@ -26,13 +24,3 @@ tls:
         - "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
         - "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA"
       sniStrict: false
-      preferServerCipherSuites: true
-
-# ELIMINADO: Configuración de certificados manuales
-# Let's Encrypt se encargará de los certificados automáticamente
-# tls:
-#   stores:
-#     default:
-#       defaultCertificate:
-#         certFile: "/etc/ssl/certs/default.crt"
-#         keyFile: "/etc/ssl/private/default.key"
