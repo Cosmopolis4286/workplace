@@ -112,14 +112,13 @@ jobs:
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
           VERSION_FILE="/opt/workplace/versions/current-${TIMESTAMP}.env"
           
-          cat > "$VERSION_FILE" << VERSIONEOF
-          # Versión actual backup - $TIMESTAMP
-          BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE
-          FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE
-          CURRENT_SHA=$CURRENT_SHA
-          BACKUP_TIMESTAMP=$TIMESTAMP
-          DEPLOY_STATUS=current
-          VERSIONEOF
+          # Crear archivo de versión
+          echo "# Versión actual backup - $TIMESTAMP" > "$VERSION_FILE"
+          echo "BACKEND_CURRENT_IMAGE=$BACKEND_IMAGE" >> "$VERSION_FILE"
+          echo "FRONTEND_CURRENT_IMAGE=$FRONTEND_IMAGE" >> "$VERSION_FILE"
+          echo "CURRENT_SHA=$CURRENT_SHA" >> "$VERSION_FILE"
+          echo "BACKUP_TIMESTAMP=$TIMESTAMP" >> "$VERSION_FILE"
+          echo "DEPLOY_STATUS=current" >> "$VERSION_FILE"
           
           # Crear symlink a versión actual
           ln -sf "$VERSION_FILE" /opt/workplace/versions/current.env
