@@ -37,7 +37,7 @@ function wait_healthy() {
     local CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' $container 2>/dev/null || echo "unknown")
     if [ "$CONTAINER_STATUS" == "running" ]; then
       # Health check via docker exec
-      if docker exec $container curl -fs --max-time 5 http://localhost:${NODE_PORT:-3001}/api/ready 2>/dev/null | grep -q '"status":"ok"\|"status":"healthy"'; then
+      if docker exec $container curl -fs --max-time 5 http://localhost:${NODE_PORT:-3001}/api/ready 2>/dev/null | grep -qE '"status":"(ok|healthy)"'; then
         echo "✅ $container responde a health check via docker exec ($i/$retries)"
         return 0
       fi
@@ -161,17 +161,23 @@ function monitor_canary_metrics() {
           CANARY_ERRORS=$((CANARY_ERRORS + 1))
         fi
       else
-        # Request normal (al principal via Traefik local)
-        local RESPONSE=$(curl -s -w "%{http_code},%{time_total}" \
-          --max-time 5 \
-          http://localhost/api/ready 2>/dev/null || echo "000,0.000")
+        # Request normal (directo al contenedor principal, evita redirección HTTP→HTTPS de Traefik)
+        local MAIN_CONTAINER=$(docker compose ps -q backend 2>/dev/null | head -1)
+        local RESPONSE
+        if [ -n "$MAIN_CONTAINER" ]; then
+          RESPONSE=$(docker exec "$MAIN_CONTAINER" curl -s -w ",%{http_code},%{time_total}" \
+            --max-time 5 \
+            "http://localhost:${NODE_PORT:-3001}/api/ready" 2>/dev/null || echo ",,000,0.000")
+        else
+          RESPONSE=",,000,0.000"
+        fi
+        local HTTP_CODE=$(echo "$RESPONSE" | rev | cut -d',' -f2 | rev)
         MAIN_REQUESTS=$((MAIN_REQUESTS + 1))
-        if [[ "$RESPONSE" != *"200"* ]]; then
+        if [ "$HTTP_CODE" != "200" ]; then
           MAIN_ERRORS=$((MAIN_ERRORS + 1))
         else
-          # Extraer latency del response
-          local LATENCY=$(echo "$RESPONSE" | cut -d',' -f2)
-          MAIN_LATENCY_TOTAL=$((MAIN_LATENCY_TOTAL + $(echo "$LATENCY" | cut -d'.' -f1)))
+          local LATENCY=$(echo "$RESPONSE" | rev | cut -d',' -f1 | rev | cut -d'.' -f1)
+          MAIN_LATENCY_TOTAL=$((MAIN_LATENCY_TOTAL + ${LATENCY:-0}))
         fi
       fi
       
