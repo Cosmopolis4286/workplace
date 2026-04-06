@@ -74,7 +74,7 @@ runs:
       shell: bash
       run: |
         ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} << 'EOF'
-          set -euo pipefail
+          set -eo pipefail
           cd /opt/workplace
           COMPOSE="docker compose -f docker-compose.lite.yml"
 
@@ -86,6 +86,13 @@ runs:
 
           trap "rm -f .env.deploy" EXIT
           set -a; source .env.deploy; set +a
+          BACKEND_IMAGE="${BACKEND_IMAGE:-}"
+          FRONTEND_IMAGE="${FRONTEND_IMAGE:-}"
+          CURRENT_SHA="${CURRENT_SHA:-}"
+          if [ -z "$BACKEND_IMAGE" ] || [ -z "$FRONTEND_IMAGE" ]; then
+            echo "ERROR: BACKEND_IMAGE o FRONTEND_IMAGE no definidas en .env.deploy"
+            exit 1
+          fi
 
           echo "Iniciando deploy SHA: $CURRENT_SHA"
           echo "  Backend:  $BACKEND_IMAGE"
