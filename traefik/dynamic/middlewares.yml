@@ -58,6 +58,8 @@ http:
           - "/api"
 
     # CORS para API
+    # Nota: Traefik no expande variables en config dinamica.
+    # Los origenes se configuran via labels en docker-compose.lite.yml
     cors-api:
       headers:
         accessControlAllowCredentials: true
@@ -71,34 +73,5 @@ http:
           - "PUT"
           - "DELETE"
           - "OPTIONS"
-        accessControlAllowOriginList:
-          - "https://${DOMAIN:-localhost}"
-          - "https://www.${DOMAIN:-localhost}"
-
-    # Maintenance Mode
-    maintenance:
-      replacePathRegex:
-        regex: ".*"
-        replacement: "/503.html"
-
-    # IP Whitelist (opcional)
-    ip-whitelist:
-      ipWhiteList:
-        sourceRange:
-          - "127.0.0.1/32"
-          - "10.0.0.0/8"
-          - "172.16.0.0/12"
-          - "192.168.0.0/16"
-
-    # Authentication para dashboard
-    dashboard-auth:
-      basicAuth:
-        users:
-          - "admin:$apr1$c2VjcmV0$hash123"  # htpasswd -nb admin password
-
-    # Error Pages
-    error-pages:
-      errors:
-        status:
-          - "400-599"
-        query: "/{status}.html"
+        accessControlAllowOriginListRegex:
+          - "^https://(www\\.)?playrke\\.com$"
