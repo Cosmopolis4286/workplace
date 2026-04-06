@@ -188,6 +188,24 @@
               </div>
             </div>
 
+            <!-- Categoría — solo COMMERCE y FREELANCER -->
+            <div v-if="isCommerceOrFreelancer" class="md:col-span-2">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Categoría de negocio
+                <span class="ml-1 text-xs font-normal text-gray-400">(afecta los módulos disponibles)</span>
+              </label>
+              <select
+                v-model="profileForm.categoryId"
+                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300 bg-white"
+              >
+                <option value="">Sin categoría</option>
+                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                  {{ cat.icon }} {{ cat.name }}
+                </option>
+              </select>
+              <p v-if="loadingCategories" class="mt-1 text-xs text-gray-400">Cargando categorías...</p>
+            </div>
+
             <!-- Username — solo COMMERCE y FREELANCER -->
             <div v-if="isCommerce || auth.user.value?.role === 'FREELANCER'">
               <label class="block text-sm font-semibold text-gray-700 mb-2">
@@ -407,7 +425,7 @@ const successMsg = ref('')
 const errorMsg = ref('')
 let successTimer: ReturnType<typeof setTimeout> | null = null
 
-const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '' })
+const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '', categoryId: '' })
 const passwordForm = ref({ current: '', new: '', confirm: '' })
 const showPasswords = ref({ current: false, new: false, confirm: false })
 
@@ -490,6 +508,21 @@ const ROLE_STYLES: Record<string, { label: string; badge: string }> = {
 const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role ?? 'NORMAL'] ?? ROLE_STYLES.NORMAL)
 // Solo COMMERCE tiene restaurante asociado y perfil público
 const isCommerce = computed(() => auth.user.value?.role === 'COMMERCE')
+const isCommerceOrFreelancer = computed(() => ['COMMERCE', 'FREELANCER'].includes(auth.user.value?.role ?? ''))
+
+// Categories
+const categories = ref<{ id: string; name: string; icon: string }[]>([])
+const loadingCategories = ref(false)
+async function fetchCategories() {
+  if (!isCommerceOrFreelancer.value) return
+  loadingCategories.value = true
+  try {
+    const data = await $fetch<any[]>(`${apiUrl}/users/categories`)
+    categories.value = data
+  } catch { /* ignore */ } finally {
+    loadingCategories.value = false
+  }
+}
 
 const avatarUrl = computed(() => {
   if (avatarPreview.value) return avatarPreview.value
@@ -506,7 +539,8 @@ const profileDirty = computed(() => {
     profileForm.value.lastName !== (u.lastName ?? '') ||
     profileForm.value.email !== (u.email ?? '') ||
     profileForm.value.phone !== (u.phone ?? '') ||
-    profileForm.value.username !== (u.username ?? '')
+    profileForm.value.username !== (u.username ?? '') ||
+    profileForm.value.categoryId !== ((u as any).categoryId ?? '')
   )
 })
 
@@ -553,6 +587,7 @@ function syncFormFromUser() {
     email: u.email ?? '',
     phone: u.phone ?? '',
     username: u.username ?? '',
+    categoryId: (u as any).categoryId ?? '',
   }
   usernameStatus.value = 'idle'
 }
@@ -638,7 +673,8 @@ async function saveProfile() {
       email: profileForm.value.email,
       phone: profileForm.value.phone || undefined,
       username: profileForm.value.username || undefined,
-    })
+      categoryId: profileForm.value.categoryId || undefined,
+    } as any)
     usernameStatus.value = 'idle'
     showSuccess('Perfil actualizado correctamente')
   } catch (err) {
@@ -674,6 +710,7 @@ onMounted(async () => {
     loadingProfile.value = false
   }
   syncFormFromUser()
+  fetchCategories()
 })
 
 // Sync form if user changes after fetch

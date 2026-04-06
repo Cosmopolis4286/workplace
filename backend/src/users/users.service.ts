@@ -362,6 +362,7 @@ export class UsersService {
         ...(dto.phone !== undefined && { phone: dto.phone || null }),
         ...(dto.username !== undefined && { username: dto.username || null }),
         ...(usernameChanged && { usernameUpdatedAt: new Date() }),
+        ...((dto as any).categoryId !== undefined && { categoryId: (dto as any).categoryId || null }),
       },
       include: { commerce: true },
     });

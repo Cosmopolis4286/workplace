@@ -2,6 +2,7 @@ import {
   IsEmail,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   MinLength,
@@ -38,4 +39,8 @@ export class UpdateProfileDto {
       'El username solo puede contener letras minúsculas, números, puntos, guiones y guiones bajos',
   })
   username?: string;
+
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
 }

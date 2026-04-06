@@ -140,8 +140,11 @@ const handleRecoverPassword = async () => {
 
   isLoading.value = true
   try {
-    // TODO: call /api/auth/recover-password
-    await new Promise(resolve => setTimeout(resolve, 1400))
+    const config = useRuntimeConfig()
+    await $fetch(`${config.public.apiUrl}/auth/forgot-password`, {
+      method: 'POST',
+      body: { email: form.email },
+    })
     emailSent.value = true
   } catch {
     errors.email = 'Error al enviar el correo. Inténtalo de nuevo.'
@@ -153,8 +156,11 @@ const handleRecoverPassword = async () => {
 const resendEmail = async () => {
   isResending.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 1200))
-    // Could show a toast here
+    const config = useRuntimeConfig()
+    await $fetch(`${config.public.apiUrl}/auth/forgot-password`, {
+      method: 'POST',
+      body: { email: form.email },
+    })
   } finally {
     isResending.value = false
   }
