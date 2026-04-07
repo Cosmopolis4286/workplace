@@ -28,6 +28,7 @@ import { PlansModule } from './plans/plans.module';
 import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
 import { HealthModule } from './health/health.module';
 import { CategoriesGlobalModule } from './categories-global/categories-global.module';
+import { CorridasModule } from './corridas/corridas.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { CategoriesGlobalModule } from './categories-global/categories-global.mo
     ExchangeRatesModule,
     HealthModule,
     CategoriesGlobalModule,
+    CorridasModule,
   ],
 })
 export class AppModule {}

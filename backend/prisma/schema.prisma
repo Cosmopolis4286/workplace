@@ -48,6 +48,8 @@ model User {
   serviceRequests  ServiceRequest[]
   notifications    Notification[]
   userPermissions  UserPermission[]
+  corridasAsPassenger Corrida[]     @relation("PassengerCorridas")
+  corridasAsDriver    Corrida[]     @relation("DriverCorridas")
 
   @@map("users")
 }
@@ -1098,6 +1100,54 @@ model EmailVerificationToken {
 
   @@index([userId])
   @@map("email_verification_tokens")
+}
+
+// ─── Corridas (Rides) ─────────────────────────────────────────────────────────
+
+enum CorridaStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CorridaVehicleType {
+  MOTO
+  AUTO
+}
+
+model Corrida {
+  id             String             @id @default(uuid())
+  origin         String
+  destination    String
+  originLat      Float?
+  originLng      Float?
+  destinationLat Float?
+  destinationLng Float?
+  status         CorridaStatus      @default(PENDING)
+  vehicleType    CorridaVehicleType @default(MOTO)
+  price          Float?
+  distance       Float?
+  duration       Int?               // minutes
+  notes          String?
+  acceptedAt     DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+
+  passengerId    String
+  passenger      User               @relation("PassengerCorridas", fields: [passengerId], references: [id], onDelete: Cascade)
+  driverId       String?
+  driver         User?              @relation("DriverCorridas", fields: [driverId], references: [id], onDelete: SetNull)
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([passengerId])
+  @@index([driverId])
+  @@index([status])
+  @@map("corridas")
 }
 
 // ─── Exchange Rates ───────────────────────────────────────────────────────────
