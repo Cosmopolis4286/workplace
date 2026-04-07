@@ -40,6 +40,10 @@ wait_for_service "$REDIS_HOST" "$REDIS_PORT" "$REDIS_RETRIES" "Redis"
 
 cd /app/backend
 
+# Correr migraciones (idempotente - seguro en prod y test)
+echo "🗄️  Aplicando migraciones de base de datos..."
+node_modules/.bin/prisma migrate deploy
+
 # Iniciar aplicación
 echo "🚀 Iniciando aplicación backend..."
 exec node dist/src/main.js
