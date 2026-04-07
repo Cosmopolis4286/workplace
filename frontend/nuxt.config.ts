@@ -36,6 +36,10 @@ export default defineNuxtConfig({
 
   ssr: false,
 
+  experimental: {
+    appManifest: false,
+  },
+
   runtimeConfig: {
     public: {
       apiUrl: process.env.API_URL || '/api',
