@@ -50,35 +50,19 @@ runs:
           scripts/deploy/ \
           ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/scripts/
 
-    - name: Preparar .env.deploy
-      shell: bash
-      run: |
-        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
-          "set -e
-           cd /opt/workplace
-           cp .env .env.deploy
-           sed -i '/^BACKEND_IMAGE=/d;/^FRONTEND_IMAGE=/d;/^CURRENT_SHA=/d' .env.deploy
-           printf 'BACKEND_IMAGE=%s\nFRONTEND_IMAGE=%s\nCURRENT_SHA=%s\n' \
-             '${{ inputs.backend-image }}' \
-             '${{ inputs.frontend-image }}' \
-             '${{ inputs.current-sha }}' >> .env.deploy
-           echo '=== .env.deploy vars de imagen ==='
-           grep -E '^(BACKEND|FRONTEND|CURRENT)' .env.deploy"
-
-    - name: Generar checksum canary
-      shell: bash
-      run: |
-        sha256sum scripts/deploy/canary-traffic-split.sh \
-          | ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
-              'cat > /opt/workplace/scripts/deploy/canary-traffic-split.sh.sha256'
-
     - name: Ejecutar deploy en servidor
       shell: bash
+      env:
+        BACKEND_IMAGE: ${{ inputs.backend-image }}
+        FRONTEND_IMAGE: ${{ inputs.frontend-image }}
+        CURRENT_SHA: ${{ inputs.current-sha }}
       run: |
-        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} << 'EOF'
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+          "export BACKEND_IMAGE='${BACKEND_IMAGE}' \
+                  FRONTEND_IMAGE='${FRONTEND_IMAGE}' \
+                  CURRENT_SHA='${CURRENT_SHA}'; bash -s" << 'ENDSSH'
           set -eo pipefail
           cd /opt/workplace
-          COMPOSE="docker compose -f docker-compose.lite.yml"
 
           exec 200>/tmp/deploy.lock
           if ! flock -n 200; then
@@ -86,25 +70,16 @@ runs:
             exit 1
           fi
 
-          trap "rm -f .env.deploy" EXIT
-          set -a; source .env.deploy; set +a
-          BACKEND_IMAGE="${BACKEND_IMAGE:-}"
-          FRONTEND_IMAGE="${FRONTEND_IMAGE:-}"
-          CURRENT_SHA="${CURRENT_SHA:-}"
-          if [ -z "$BACKEND_IMAGE" ] || [ -z "$FRONTEND_IMAGE" ]; then
-            echo "ERROR: BACKEND_IMAGE o FRONTEND_IMAGE no definidas en .env.deploy"
-            exit 1
-          fi
+          # Cargar .env del servidor (DB, Redis, JWT, etc.)
+          set -a; source .env; set +a
 
           echo "Iniciando deploy SHA: $CURRENT_SHA"
           echo "  Backend:  $BACKEND_IMAGE"
           echo "  Frontend: $FRONTEND_IMAGE"
 
           chmod +x scripts/deploy/canary-traffic-split.sh
-
-          echo "Ejecutando deploy..."
           ./scripts/deploy/canary-traffic-split.sh \
             || { echo "Deploy fallo"; exit 1; }
 
           echo "Deploy completado"
-        EOF
+        ENDSSH
