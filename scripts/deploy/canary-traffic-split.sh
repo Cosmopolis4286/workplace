@@ -42,6 +42,11 @@ sanitize_env() {
 
 cd /opt/workplace
 
+# Cargar vars del servidor si no vienen del entorno (compatibilidad)
+if [ -z "${POSTGRES_USER:-}" ] && [ -f .env ]; then
+  set -a; source .env; set +a
+fi
+
 log "=== Iniciando deploy SHA: ${CURRENT_SHA:-unknown} ==="
 log "  Backend:  ${BACKEND_IMAGE:-?}"
 log "  Frontend: ${FRONTEND_IMAGE:-?}"
