@@ -1,3 +1,4 @@
+import './config/env'; // valida variables de entorno antes de arrancar
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
