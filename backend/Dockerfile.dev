@@ -30,4 +30,6 @@ RUN pnpm prisma:generate
 
 EXPOSE 3001
 
-CMD ["pnpm", "dev"]
+# Regenerar Prisma client y correr migraciones en cada arranque para
+# que el volumen montado siempre tenga el cliente actualizado con el schema actual
+CMD ["sh", "-c", "pnpm prisma:generate && pnpm prisma migrate deploy && pnpm dev"]
