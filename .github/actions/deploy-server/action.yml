@@ -53,15 +53,17 @@ runs:
     - name: Preparar .env.deploy
       shell: bash
       run: |
-        printf 'BACKEND_IMAGE=%s\nFRONTEND_IMAGE=%s\nCURRENT_SHA=%s\n' \
-          "${{ inputs.backend-image }}" \
-          "${{ inputs.frontend-image }}" \
-          "${{ inputs.current-sha }}" \
-        | ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
-            'set -e; cd /opt/workplace
-             cp .env .env.deploy
-             sed -i "/^BACKEND_IMAGE=/d;/^FRONTEND_IMAGE=/d;/^CURRENT_SHA=/d" .env.deploy
-             cat >> .env.deploy'
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+          "set -e
+           cd /opt/workplace
+           cp .env .env.deploy
+           sed -i '/^BACKEND_IMAGE=/d;/^FRONTEND_IMAGE=/d;/^CURRENT_SHA=/d' .env.deploy
+           printf 'BACKEND_IMAGE=%s\nFRONTEND_IMAGE=%s\nCURRENT_SHA=%s\n' \
+             '${{ inputs.backend-image }}' \
+             '${{ inputs.frontend-image }}' \
+             '${{ inputs.current-sha }}' >> .env.deploy
+           echo '=== .env.deploy vars de imagen ==='
+           grep -E '^(BACKEND|FRONTEND|CURRENT)' .env.deploy"
 
     - name: Generar checksum canary
       shell: bash
