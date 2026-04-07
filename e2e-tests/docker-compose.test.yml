@@ -9,10 +9,17 @@ services:
       target: production  # Solo runtime, sin build tools
     environment:
       APP_ENV: test
+      NODE_ENV: test
       DATABASE_URL: postgresql://test:test@postgres:5432/test_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: test-password
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: test-secret
-      JWT_REFRESH_SECRET: test-refresh-secret
+      JWT_SECRET: test-secret-key-for-e2e-tests
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: test-refresh-secret-key-for-e2e-tests
+      JWT_REFRESH_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:3000
       GOOGLE_CLIENT_ID: test-client-id
       GOOGLE_CLIENT_SECRET: test-client-secret
       PORT: 3001
