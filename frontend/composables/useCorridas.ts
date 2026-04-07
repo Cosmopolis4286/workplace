@@ -41,7 +41,7 @@ export interface UpdateCorridaStatusDto {
 }
 
 export function useCorridas() {
-  const { apiFetch } = useApi()
+  const { get, post, patch } = useApi()
   const { can } = usePermissions()
 
   // ─── Estado ─────────────────────────────────────────────────────────────────
@@ -57,7 +57,9 @@ export function useCorridas() {
   }
 
   function handleError(e: any) {
-    error.value = e?.message || 'Error desconocido'
+    const msg = e?.message
+    // NestJS puede devolver message como string[] en errores de validación
+    error.value = Array.isArray(msg) ? msg.join(', ') : (typeof msg === 'string' ? msg : 'Error desconocido')
     console.error('Corridas error:', e)
   }
 
@@ -73,7 +75,7 @@ export function useCorridas() {
     loading.value = true
     clearError()
     try {
-      const data = await apiFetch<Corrida[]>('/corridas/available')
+      const data = await get<Corrida[]>('/corridas/available')
       corridas.value = data
       return data
     } catch (e: any) {
@@ -95,7 +97,7 @@ export function useCorridas() {
     loading.value = true
     clearError()
     try {
-      const data = await apiFetch<Corrida[]>('/corridas/mine')
+      const data = await get<Corrida[]>('/corridas/mine')
       myCorridas.value = data
       return data
     } catch (e: any) {
@@ -116,7 +118,7 @@ export function useCorridas() {
     loading.value = true
     clearError()
     try {
-      const data = await apiFetch<Corrida[]>('/corridas/driver')
+      const data = await get<Corrida[]>('/corridas/driver')
       corridas.value = data
       return data
     } catch (e: any) {
@@ -137,10 +139,7 @@ export function useCorridas() {
     loading.value = true
     clearError()
     try {
-      const data = await apiFetch<Corrida>('/corridas', {
-        method: 'POST',
-        body: dto,
-      })
+      const data = await post<Corrida>('/corridas', dto)
       myCorridas.value.unshift(data)
       activeCorrida.value = data
       return data
@@ -162,9 +161,7 @@ export function useCorridas() {
     loading.value = true
     clearError()
     try {
-      const data = await apiFetch<Corrida>(`/corridas/${corridaId}/accept`, {
-        method: 'POST',
-      })
+      const data = await post<Corrida>(`/corridas/${corridaId}/accept`, {})
       const idx = corridas.value.findIndex(c => c.id === corridaId)
       if (idx >= 0) corridas.value[idx] = data
       activeCorrida.value = data
@@ -190,10 +187,7 @@ export function useCorridas() {
     loading.value = true
     clearError()
     try {
-      const data = await apiFetch<Corrida>(`/corridas/${corridaId}/status`, {
-        method: 'PATCH',
-        body: { status },
-      })
+      const data = await patch<Corrida>(`/corridas/${corridaId}/status`, { status })
       // Actualizar en todas las listas
       const idx1 = corridas.value.findIndex(c => c.id === corridaId)
       if (idx1 >= 0) corridas.value[idx1] = data
@@ -218,9 +212,7 @@ export function useCorridas() {
     loading.value = true
     clearError()
     try {
-      await apiFetch(`/corridas/${corridaId}/cancel`, {
-        method: 'POST',
-      })
+      await post(`/corridas/${corridaId}/cancel`, {})
       // Actualizar estado localmente
       const idx1 = corridas.value.findIndex(c => c.id === corridaId)
       if (idx1 >= 0) corridas.value[idx1].status = 'CANCELLED'
@@ -243,7 +235,7 @@ export function useCorridas() {
   async function fetchCorridaById(corridaId: string): Promise<Corrida> {
     clearError()
     try {
-      const data = await apiFetch<Corrida>(`/corridas/${corridaId}`)
+      const data = await get<Corrida>(`/corridas/${corridaId}`)
       activeCorrida.value = data
       return data
     } catch (e: any) {
@@ -263,15 +255,12 @@ export function useCorridas() {
     vehicleType: 'MOTO' | 'AUTO'
   ): Promise<{ price: number; distance: number; duration: number }> {
     try {
-      return await apiFetch('/corridas/calculate-price', {
-        method: 'POST',
-        body: {
-          originLat,
-          originLng,
-          destinationLat,
-          destinationLng,
-          vehicleType,
-        },
+      return await post('/corridas/calculate-price', {
+        originLat,
+        originLng,
+        destinationLat,
+        destinationLng,
+        vehicleType,
       })
     } catch (e: any) {
       handleError(e)
