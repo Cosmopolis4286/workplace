@@ -193,54 +193,104 @@
         </div>
 
         <!-- Corrida activa en curso -->
-        <div v-if="activeCorrida && hasActiveCorrida" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Viaje en Progreso</h2>
-            <span :class="statusBadgeClass(activeCorrida.status)" class="px-3 py-1 rounded-full text-xs font-medium">
-              {{ statusText(activeCorrida.status) }}
-            </span>
-          </div>
+        <div v-if="activeCorrida && hasActiveCorrida" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 
-          <!-- Ruta visual -->
-          <div class="relative pl-6 space-y-4">
-            <div class="absolute left-2.5 top-3 bottom-3 w-0.5 bg-gray-200"></div>
-            <div class="flex items-start gap-3">
-              <div class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 relative z-10">A</div>
-              <div>
-                <p class="text-xs text-gray-400">Origen</p>
-                <p class="text-sm font-medium text-gray-900">{{ activeCorrida.origin }}</p>
+          <!-- Banner de búsqueda (solo PENDING) -->
+          <div v-if="activeCorrida.status === 'PENDING'" class="bg-gradient-to-r from-red-600 to-orange-500 px-6 py-5 text-white">
+            <div class="flex items-center gap-4">
+              <!-- Icono animado -->
+              <div class="relative flex-shrink-0">
+                <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg class="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                  </svg>
+                </div>
+                <span class="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full animate-ping"></span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-base">Buscando motorista...</p>
+                <p class="text-white/80 text-sm mt-0.5">Espera mientras encontramos el conductor más cercano</p>
+              </div>
+              <div class="text-right flex-shrink-0">
+                <p class="text-2xl font-bold tabular-nums">{{ elapsedTime }}</p>
+                <p class="text-white/70 text-xs">transcurrido</p>
               </div>
             </div>
-            <div class="flex items-start gap-3">
-              <div class="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 relative z-10">B</div>
-              <div>
-                <p class="text-xs text-gray-400">Destino</p>
-                <p class="text-sm font-medium text-gray-900">{{ activeCorrida.destination }}</p>
+            <!-- Barra de progreso animada -->
+            <div class="mt-4 h-1.5 bg-white/20 rounded-full overflow-hidden">
+              <div class="h-full bg-white/60 rounded-full animate-[searching_2s_ease-in-out_infinite]"
+                style="animation: searching 2s ease-in-out infinite; width: 60%">
               </div>
             </div>
           </div>
 
-          <!-- Info conductor -->
-          <div v-if="activeCorrida.driverName" class="mt-4 pt-4 border-t border-gray-100 flex items-center gap-3">
-            <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-              <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-              </svg>
-            </div>
+          <!-- Banner conductor aceptado -->
+          <div v-else-if="activeCorrida.status === 'ACCEPTED'" class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 text-white flex items-center gap-3">
+            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
             <div>
-              <p class="text-sm font-semibold text-gray-900">{{ activeCorrida.driverName }}</p>
-              <p class="text-sm text-gray-500">{{ activeCorrida.driverPhone }}</p>
+              <p class="font-semibold">¡Conductor encontrado!</p>
+              <p class="text-white/80 text-sm">El conductor está en camino a recogerte</p>
             </div>
-            <div class="ml-auto text-right">
+          </div>
+
+          <!-- Banner en progreso -->
+          <div v-else-if="activeCorrida.status === 'IN_PROGRESS'" class="bg-gradient-to-r from-green-600 to-green-500 px-6 py-4 text-white flex items-center gap-3">
+            <svg class="w-6 h-6 flex-shrink-0 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            <div>
+              <p class="font-semibold">¡En camino!</p>
+              <p class="text-white/80 text-sm">Tu viaje está en curso · {{ elapsedTime }} transcurrido</p>
+            </div>
+          </div>
+
+          <div class="p-6">
+            <!-- Ruta visual -->
+            <div class="relative pl-6 space-y-4 mb-5">
+              <div class="absolute left-2.5 top-3 bottom-3 w-0.5 bg-gray-200"></div>
+              <div class="flex items-start gap-3">
+                <div class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 relative z-10">A</div>
+                <div>
+                  <p class="text-xs text-gray-400">Origen</p>
+                  <p class="text-sm font-medium text-gray-900">{{ activeCorrida.origin }}</p>
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <div class="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 relative z-10">B</div>
+                <div>
+                  <p class="text-xs text-gray-400">Destino</p>
+                  <p class="text-sm font-medium text-gray-900">{{ activeCorrida.destination }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Info conductor si está asignado -->
+            <div v-if="activeCorrida.driverName" class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-4">
+              <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-semibold text-gray-900">{{ activeCorrida.driverName }}</p>
+                <p class="text-xs text-gray-500">{{ activeCorrida.driverPhone }}</p>
+              </div>
               <p class="text-lg font-bold text-red-600">${{ activeCorrida.price }}</p>
             </div>
-          </div>
 
-          <div v-if="activeCorrida.status === 'PENDING'" class="mt-4">
+            <div v-else class="flex justify-between items-center mb-4 text-sm text-gray-500">
+              <span>Precio estimado</span>
+              <span class="text-lg font-bold text-red-600">${{ activeCorrida.price }}</span>
+            </div>
+
+            <!-- Cancelar solo en PENDING -->
             <button
-              @click="handleCancel(activeCorrida.id)"
+              v-if="activeCorrida.status === 'PENDING'"
+              @click="corridaToCancelId = activeCorrida.id; showCancelModal = true"
               :disabled="cancelling"
-              class="w-full px-4 py-2 border border-red-300 text-red-700 rounded-xl hover:bg-red-50 disabled:opacity-50 text-sm font-medium transition-colors"
+              class="w-full px-4 py-2.5 border border-red-300 text-red-700 rounded-xl hover:bg-red-50 disabled:opacity-50 text-sm font-medium transition-colors"
             >
               {{ cancelling ? 'Cancelando...' : 'Cancelar Viaje' }}
             </button>
@@ -375,6 +425,14 @@
               <span v-if="corrida.passengerName && canManageCorridas">Pasajero: {{ corrida.passengerName }}</span>
             </div>
 
+            <!-- Cancelar (pasajero, solo PENDING) -->
+            <div v-if="!canManageCorridas && corrida.status === 'PENDING'" class="mt-3">
+              <button
+                @click="corridaToCancelId = corrida.id; showCancelModal = true"
+                class="w-full px-3 py-2 border border-red-300 text-red-700 text-sm rounded-xl hover:bg-red-50 font-medium transition-colors"
+              >Cancelar Viaje</button>
+            </div>
+
             <!-- Acciones conductor -->
             <div v-if="canManageCorridas && (corrida.status === 'ACCEPTED' || corrida.status === 'IN_PROGRESS')" class="mt-3 flex gap-2">
               <button
@@ -395,12 +453,82 @@
       </div>
 
     </div>
+
+    <!-- Toast -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition ease-out duration-300 transform"
+        enter-from-class="opacity-0 translate-y-4"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition ease-in duration-200 transform"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-4"
+      >
+        <div
+          v-if="toast.visible"
+          class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium"
+          :class="{
+            'bg-green-600': toast.type === 'success',
+            'bg-red-600': toast.type === 'error',
+            'bg-amber-500': toast.type === 'warning',
+            'bg-blue-600': toast.type === 'info',
+          }"
+        >
+          {{ toast.message }}
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Modal confirmación cancelar -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition ease-out duration-200"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition ease-in duration-150"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="showCancelModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div class="absolute inset-0 bg-black/50" @click="showCancelModal = false"></div>
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div class="flex items-center justify-center w-14 h-14 bg-red-100 rounded-full mx-auto mb-4">
+              <svg class="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 text-center mb-2">¿Cancelar el viaje?</h3>
+            <p class="text-sm text-gray-500 text-center mb-6">
+              Llevas {{ elapsedTime }} esperando. Si cancelas ahora tendrás que solicitar uno nuevo.
+            </p>
+            <div class="flex gap-3">
+              <button
+                @click="showCancelModal = false"
+                class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+              >
+                Seguir esperando
+              </button>
+              <button
+                @click="handleCancel(corridaToCancelId!)"
+                :disabled="cancelling"
+                class="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm hover:bg-red-700 disabled:opacity-50 font-medium transition-colors"
+              >
+                {{ cancelling ? 'Cancelando...' : 'Sí, cancelar' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
+
+
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, reactive } from 'vue'
 import type { PlaceSuggestion } from '~/composables/useNominatim'
+import type { Corrida } from '~/composables/useCorridas'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -421,6 +549,50 @@ const priceEstimate = ref<{ price: number; distance: number; duration: number } 
 const cancelling = ref(false)
 const acceptingId = ref<string | null>(null)
 const updatingId = ref<string | null>(null)
+const showCancelModal = ref(false)
+const corridaToCancelId = ref<string | null>(null)
+
+// Toast
+const toast = reactive({ visible: false, type: 'success' as 'success' | 'error' | 'warning' | 'info', message: '' })
+let toastTimer: ReturnType<typeof setTimeout>
+function showToast(type: typeof toast.type, message: string) {
+  clearTimeout(toastTimer)
+  toast.type = type
+  toast.message = message
+  toast.visible = true
+  toastTimer = setTimeout(() => { toast.visible = false }, 3500)
+}
+
+// Tiempo transcurrido desde la solicitud
+const elapsedTime = ref('0:00')
+let elapsedTimer: ReturnType<typeof setInterval> | null = null
+
+function startElapsedTimer() {
+  stopElapsedTimer()
+  if (!activeCorrida.value) return
+  const from = new Date(activeCorrida.value.createdAt).getTime()
+  elapsedTimer = setInterval(() => {
+    const secs = Math.floor((Date.now() - from) / 1000)
+    const m = Math.floor(secs / 60)
+    const s = secs % 60
+    elapsedTime.value = `${m}:${s.toString().padStart(2, '0')}`
+  }, 1000)
+}
+
+function stopElapsedTimer() {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null }
+}
+
+watch(activeCorrida, (val: Corrida | null) => {
+  if (val && (val.status === 'PENDING' || val.status === 'ACCEPTED' || val.status === 'IN_PROGRESS')) {
+    startElapsedTimer()
+  } else {
+    stopElapsedTimer()
+    elapsedTime.value = '0:00'
+  }
+}, { immediate: true })
+
+onUnmounted(stopElapsedTimer)
 
 // Lugares seleccionados (con coordenadas)
 const originPlace = ref<PlaceSuggestion | null>(null)
@@ -437,7 +609,7 @@ const vehicleOptions = [
 const canCalculate = computed(() => !!originPlace.value && !!destinationPlace.value)
 const canSubmit = computed(() => canCalculate.value && !!priceEstimate.value)
 
-const availableCorridas = computed(() => corridas.value.filter(c => c.status === 'PENDING'))
+const availableCorridas = computed(() => corridas.value.filter((c: Corrida) => c.status === 'PENDING'))
 const historyList = computed(() => canManageCorridas.value ? corridas.value : myCorridas.value)
 
 const subtitleText = computed(() => {
@@ -552,9 +724,18 @@ async function handleSubmitRequest() {
 
 // ─── Acciones ─────────────────────────────────────────────────────────────────
 async function handleCancel(id: string) {
-  if (!confirm('¿Cancelar este viaje?')) return
   cancelling.value = true
-  try { await cancelCorrida(id) } finally { cancelling.value = false }
+  try {
+    await cancelCorrida(id)
+    showCancelModal.value = false
+    corridaToCancelId.value = null
+    showToast('success', 'Viaje cancelado correctamente')
+    await refreshHistory()
+  } catch {
+    showToast('error', 'No se pudo cancelar el viaje')
+  } finally {
+    cancelling.value = false
+  }
 }
 
 async function handleAccept(id: string) {
@@ -588,8 +769,18 @@ async function refreshHistory() {
 // ─── Ciclo de Vida ────────────────────────────────────────────────────────────
 onMounted(async () => {
   await reloadPermissions()
-  if (!canRequestCorrida.value && canManageCorridas.value) activeTab.value = 'available'
-  refreshHistory()
+
+  // Cargar historial primero — fetchMyCorridas setea activeCorrida si hay viaje activo
+  await refreshHistory()
+
+  // Decidir tab inicial con datos ya cargados
+  if (!canRequestCorrida.value && canManageCorridas.value) {
+    activeTab.value = 'available'
+  } else if (!canRequestCorrida.value) {
+    // Tiene viaje activo — mostrar directamente Mis Viajes
+    activeTab.value = 'history'
+  }
+
   if (canManageCorridas.value) refreshAvailable()
 })
 </script>
