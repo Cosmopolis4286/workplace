@@ -99,6 +99,11 @@ export function useCorridas() {
     try {
       const data = await get<Corrida[]>('/corridas/mine')
       myCorridas.value = data
+      // Restaurar corrida activa desde el historial al cargar
+      const active = data.find(c =>
+        c.status === 'PENDING' || c.status === 'ACCEPTED' || c.status === 'IN_PROGRESS'
+      )
+      activeCorrida.value = active ?? null
       return data
     } catch (e: any) {
       handleError(e)
