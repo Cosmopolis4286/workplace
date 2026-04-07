@@ -190,7 +190,9 @@ const { credentials, isLoading, error, isAvailable, refresh } = useDemoCredentia
 
 const config = useRuntimeConfig()
 const isOpen = ref(false)
-const isDevelopment = computed(() => config.public.environment === 'development')
+const isDevelopment = computed(() =>
+  config.public.environment === 'development' || config.public.useDemoCredentials === true
+)
 const showPasswordFor = ref<string | null>(null)
 const fillingRole = ref<string | null>(null)
 
