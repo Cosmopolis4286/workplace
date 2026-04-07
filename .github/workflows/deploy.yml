@@ -63,6 +63,19 @@ jobs:
         chmod +x scripts/ci/run-e2e-optimized.sh
         ./scripts/ci/run-e2e-optimized.sh
 
+    - name: Logs de diagnóstico si falla
+      if: failure()
+      run: |
+        cd e2e-tests
+        echo "=== Estado de contenedores ==="
+        docker compose -f docker-compose.test.yml ps
+        echo "=== Logs test-backend ==="
+        docker compose -f docker-compose.test.yml logs test-backend --tail 100
+        echo "=== Logs postgres ==="
+        docker compose -f docker-compose.test.yml logs postgres --tail 30
+        echo "=== Inspect healthcheck test-backend ==="
+        docker inspect e2e-tests-test-backend-1 --format='{{json .State.Health}}' 2>/dev/null || true
+
     - name: Subir reporte Playwright
       uses: actions/upload-artifact@v4
       if: always()

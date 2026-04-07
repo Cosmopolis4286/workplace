@@ -34,22 +34,16 @@ main() {
     # Levantar entorno optimizado
     log "🌐 Setting up ultra-lightweight test environment..."
     cd e2e-tests
-    docker compose -f docker-compose.test.yml up -d
-    
-    # Esperar servicios
-    log "⏳ Waiting for services to be ready..."
-    timeout 180 bash -c '
-        until docker compose -f docker-compose.test.yml ps | grep -q "healthy"; do
-            echo "Waiting for services... $(date)"
-            sleep 5
-        done
-    '
-    
-    if [ $? -ne 0 ]; then
-        log_error "❌ Services failed to start within timeout"
-        docker compose -f docker-compose.test.yml logs
+    docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 120 || {
+        log_error "❌ Servicios fallaron al arrancar"
+        echo "=== Estado de contenedores ==="
+        docker compose -f docker-compose.test.yml ps
+        echo "=== Logs test-backend ==="
+        docker compose -f docker-compose.test.yml logs test-backend --tail 80
+        echo "=== Logs postgres ==="
+        docker compose -f docker-compose.test.yml logs postgres --tail 20
         exit 1
-    fi
+    }
     
     log_success "✅ All services ready for E2E tests"
     
