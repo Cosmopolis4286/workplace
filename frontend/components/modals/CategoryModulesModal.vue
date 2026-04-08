@@ -98,7 +98,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
+import { useAuth } from '~/composables/useAuth'
 
 const ALL_MODULES = [
   'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
@@ -131,17 +134,7 @@ const editIcon = ref('')
 const saving = ref(false)
 const error = ref<string | null>(null)
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${config.public.apiUrl}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...getHeaders(), ...(options.headers as Record<string, string> ?? {}) },
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.message ?? `Error ${res.status}`)
-  }
-  return res.json()
-}
+const { get, post, put, del } = useApi()
 
 async function load() {
   localCategories.value = await apiFetch<Cat[]>('/users/categories')
@@ -151,9 +144,10 @@ async function addCategory() {
   if (!newName.value.trim()) return
   saving.value = true; error.value = null
   try {
-    await apiFetch('/users/categories', {
-      method: 'POST',
-      body: JSON.stringify({ name: newName.value.trim(), icon: newIcon.value || undefined, allowedModules: [] }),
+    await post('/users/categories', {
+      name: newName.value.trim(),
+      icon: newIcon.value || undefined,
+      allowedModules: []
     })
     newName.value = ''; newIcon.value = ''
     await load(); emit('updated')
@@ -168,9 +162,9 @@ function startEdit(cat: Cat) {
 async function saveEdit(cat: Cat) {
   saving.value = true; error.value = null
   try {
-    await apiFetch(`/users/categories/${cat.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ name: editName.value, icon: editIcon.value || undefined }),
+    await put(`/users/categories/${cat.id}`, {
+      name: editName.value,
+      icon: editIcon.value || undefined
     })
     editingId.value = null; await load(); emit('updated')
   } catch (e: any) { error.value = e.message }
@@ -181,7 +175,7 @@ async function deleteCategory(cat: Cat) {
   if (!confirm(`¿Eliminar categoría "${cat.name}"?`)) return
   saving.value = true; error.value = null
   try {
-    await apiFetch(`/users/categories/${cat.id}`, { method: 'DELETE' })
+    await del(`/users/categories/${cat.id}`)
     await load(); emit('updated')
   } catch (e: any) { error.value = e.message }
   finally { saving.value = false }
@@ -193,10 +187,7 @@ async function toggleModule(cat: Cat, mod: string) {
   // Optimistic update
   cat.allowedModules = updated
   try {
-    await apiFetch(`/users/categories/${cat.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ allowedModules: updated }),
-    })
+    await put(`/users/categories/${cat.id}`, { allowedModules: updated })
     emit('updated')
   } catch (e: any) {
     // Revert
