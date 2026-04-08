@@ -194,8 +194,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { CatalogService } from '~/composables/useServices'
+import { ref, computed, watch } from 'vue'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
+import { useAuth } from '~/composables/useAuth'
 
 const props = defineProps<{
   modelValue: boolean
@@ -267,26 +269,22 @@ async function submit() {
 
   sending.value = true
   try {
-    const { getHeaders } = useAuth()
-    await $fetch(`${apiUrl}/services/requests`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: {
-        serviceId: props.service.id,
-        serviceName: props.service.name,
-        providerId: props.service.user.id,
-        providerName: `${props.service.user.firstName} ${props.service.user.lastName}`,
-        modality: form.value.modality,
-        preferredDate: form.value.preferredDate,
-        address: form.value.address || undefined,
-        city: form.value.city || undefined,
-        clientName: form.value.clientName,
-        clientPhone: form.value.clientPhone,
-        clientEmail: form.value.clientEmail || undefined,
-        description: form.value.description || undefined,
-        price: props.service.price,
-        priceUnit: props.service.priceUnit || undefined,
-      },
+    const { post } = useApi()
+    await post('/services/requests', {
+      serviceId: props.service.id,
+      serviceName: props.service.name,
+      providerId: props.service.user.id,
+      providerName: `${props.service.user.firstName} ${props.service.user.lastName}`,
+      modality: form.value.modality,
+      preferredDate: form.value.preferredDate,
+      address: form.value.address || undefined,
+      city: form.value.city || undefined,
+      clientName: form.value.clientName,
+      clientPhone: form.value.clientPhone,
+      clientEmail: form.value.clientEmail || undefined,
+      description: form.value.description || undefined,
+      price: props.service.price,
+      priceUnit: props.service.priceUnit || undefined,
     })
     emit('update:modelValue', false)
     emit('success')
