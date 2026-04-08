@@ -37,22 +37,45 @@
         <template v-if="step === 0">
           <h2 class="text-base font-semibold text-gray-800 mb-1">¿En qué sector está tu negocio?</h2>
           <p class="text-xs text-gray-500 mb-4">Esto define qué módulos estarán disponibles para ti.</p>
-          <div v-if="loadingCats" class="flex justify-center py-8">
-            <div class="w-6 h-6 border-2 border-workplace-red border-t-transparent rounded-full animate-spin" />
+          
+          <!-- Categories Select -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+            <div v-if="loadingCats" class="flex justify-center py-4">
+              <div class="w-6 h-6 border-2 border-workplace-red border-t-transparent rounded-full animate-spin" />
+            </div>
+            <div v-else class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+              <button
+                v-for="cat in categories"
+                :key="cat.id"
+                type="button"
+                @click="selectCategory(cat.id)"
+                class="flex items-center gap-2 px-3 py-3 rounded-xl border-2 text-left transition-all hover:border-workplace-red/40"
+                :class="selectedCategory === cat.id ? 'border-workplace-red bg-red-50' : 'border-gray-200'"
+              >
+                <span class="text-xl leading-none">{{ cat.icon || '🏢' }}</span>
+                <span class="text-sm font-medium text-gray-700 leading-tight">{{ cat.name }}</span>
+              </button>
+            </div>
           </div>
-          <div v-else class="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-            <button
-              v-for="cat in categories"
-              :key="cat.id"
-              type="button"
-              @click="selectedCategory = cat.id"
-              class="flex items-center gap-2 px-3 py-3 rounded-xl border-2 text-left transition-all hover:border-workplace-red/40"
-              :class="selectedCategory === cat.id ? 'border-workplace-red bg-red-50' : 'border-gray-200'"
-            >
-              <span class="text-xl leading-none">{{ cat.icon || '🏢' }}</span>
-              <span class="text-sm font-medium text-gray-700 leading-tight">{{ cat.name }}</span>
-            </button>
+
+          <!-- Subcategories Select -->
+          <div v-if="selectedCategory && subcategories.length > 0" class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Subcategoría (opcional)</label>
+            <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+              <button
+                v-for="sub in subcategories"
+                :key="sub.id"
+                type="button"
+                @click="selectedSubcategory = sub.id"
+                class="flex items-center gap-2 px-3 py-3 rounded-xl border-2 text-left transition-all hover:border-workplace-red/40"
+                :class="selectedSubcategory === sub.id ? 'border-workplace-red bg-red-50' : 'border-gray-200'"
+              >
+                <span class="text-sm font-medium text-gray-700 leading-tight">{{ sub.name }}</span>
+              </button>
+            </div>
           </div>
+
           <p v-if="catError" class="text-xs text-red-500 mt-2">{{ catError }}</p>
         </template>
 
@@ -146,8 +169,10 @@ const step = ref(0)
 const steps = ['Tu negocio', 'Tu plan', '¡Listo!']
 
 const categories = ref<{ id: string; name: string; icon?: string }[]>([])
+const subcategories = ref<{ id: string; name: string }[]>([])
 const plans = ref<{ id: string; name: string; description?: string; price: number; color: string; isPopular: boolean }[]>([])
 const selectedCategory = ref('')
+const selectedSubcategory = ref('')
 const selectedPlan = ref('')
 const loadingCats = ref(false)
 const loadingPlans = ref(false)
@@ -174,6 +199,17 @@ async function loadCategories() {
   finally { loadingCats.value = false }
 }
 
+async function loadSubcategories(categoryId: string) {
+  if (!categoryId) {
+    subcategories.value = []
+    selectedSubcategory.value = ''
+    return
+  }
+  try {
+    subcategories.value = await apiFetch(`/users/categories/${categoryId}/subcategories`)
+  } catch { /* silently ignore */ }
+}
+
 async function loadPlans() {
   loadingPlans.value = true
   try {
@@ -184,6 +220,12 @@ async function loadPlans() {
   finally { loadingPlans.value = false }
 }
 
+async function selectCategory(categoryId: string) {
+  selectedCategory.value = categoryId
+  selectedSubcategory.value = ''
+  await loadSubcategories(categoryId)
+}
+
 async function next() {
   saveError.value = ''
   if (step.value === 0) {
@@ -191,9 +233,13 @@ async function next() {
     catError.value = ''
     saving.value = true
     try {
+      const updateData: any = { categoryId: selectedCategory.value }
+      if (selectedSubcategory.value) {
+        updateData.subcategoryId = selectedSubcategory.value
+      }
       await apiFetch(`/users/${user.value!.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ categoryId: selectedCategory.value }),
+        method: 'PATCH',
+        body: JSON.stringify(updateData),
       })
       invalidateModules()
       await loadPlans()
@@ -204,9 +250,9 @@ async function next() {
     saving.value = true
     try {
       if (selectedPlan.value) {
-        await apiFetch('/plans/subscriptions', {
+        await apiFetch('/plans/self-subscribe', {
           method: 'POST',
-          body: JSON.stringify({ userId: user.value!.id, planId: selectedPlan.value, interval: 'MONTHLY' }),
+          body: JSON.stringify({ planId: selectedPlan.value, interval: 'MONTHLY' }),
         })
         invalidateModules()
       }

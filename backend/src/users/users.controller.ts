@@ -63,9 +63,15 @@ export class UsersController {
   // ─── Categories endpoints ──────────────────────────────────────────────────
 
   @Get('categories')
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   getCategories() {
     return this.usersService.findAllCategories();
+  }
+
+  @Get('categories/:categoryId/subcategories')
+  @UseGuards(JwtAuthGuard)
+  getSubcategories(@Param('categoryId') categoryId: string) {
+    return this.usersService.findSubcategoriesByCategory(categoryId);
   }
 
   @Post('categories')
@@ -167,6 +173,19 @@ export class UsersController {
       ADMIN_RESTRICTED_ROLES.includes(dto.role)
     ) {
       throw new ForbiddenException('No puedes asignar ese rol');
+    }
+    return this.usersService.updateUser(id, dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  async updateOwnProfile(
+    @Param('id') id: string,
+    @Body() dto: { categoryId?: string },
+    @CurrentUser() caller: { id: string; role: Role }
+  ) {
+    if (caller.id !== id) {
+      throw new ForbiddenException('Solo puedes editar tu propio perfil');
     }
     return this.usersService.updateUser(id, dto);
   }

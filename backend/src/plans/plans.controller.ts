@@ -19,7 +19,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Role, SubscriptionStatus } from '@prisma/client';
+import { Role, SubscriptionStatus, BillingInterval } from '@prisma/client';
 
 @Controller('plans')
 @UseGuards(JwtAuthGuard)
@@ -122,6 +122,24 @@ export class PlansController {
     @CurrentUser() user: any
   ) {
     return this.plansService.assignSubscription(dto, user.id);
+  }
+
+  @Post('self-subscribe')
+  @UseGuards(JwtAuthGuard)
+  selfSubscribe(
+    @Body() dto: { planId: string; interval?: string },
+    @CurrentUser() user: { id: string; role: string }
+  ) {
+    if (dto.planId && user.id) {
+      const subscriptionDto = {
+        userId: user.id,
+        planId: dto.planId,
+        interval: (dto.interval || 'MONTHLY') as BillingInterval,
+        status: 'ACTIVE' as SubscriptionStatus
+      };
+      return this.plansService.assignSubscription(subscriptionDto, user.id);
+    }
+    throw new Error('Datos inválidos para suscripción');
   }
 
   @Delete('subscriptions/:id')
