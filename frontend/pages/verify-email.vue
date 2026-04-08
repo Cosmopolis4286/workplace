@@ -128,8 +128,6 @@ import { ref, computed, onMounted } from 'vue'
 import { EnvelopeIcon, CheckIcon, ArrowPathIcon, ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 import { useApi } from '~/composables/useApi'
-import { useRoute } from 'vue-router'
-import { navigateTo } from '~/utils/navigateTo'
 
 const { currentUser } = useAuth()
 
