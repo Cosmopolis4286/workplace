@@ -340,9 +340,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from '~/stores/auth'
+import { PageHeader } from '~/components/ui/PageHeader.vue'
+import { ClipboardDocumentListIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline'
+import { useAuth } from '~/composables/useAuth'
+import { useApi } from '~/composables/useApi'
 import { useAlert } from '~/composables/useAlert'
 
 // Composables
@@ -394,16 +397,12 @@ const filteredCategories = computed(() => {
 const fetchCategories = async () => {
   try {
     loading.value = true
-    const response = await $fetch('/api/categories-global', {
-      headers: {
-        'Authorization': `Bearer ${auth.token}`
-      }
-    })
-    categories.value = response
+    const { get } = useApi()
+    const response = await get('/api/categories-global')
+    categories.value = response.data || []
+    loading.value = false
   } catch (error) {
     console.error('Error fetching categories:', error)
-    showAlert('Error al cargar categorías', 'error')
-  } finally {
     loading.value = false
   }
 }
@@ -413,24 +412,12 @@ const saveCategory = async () => {
     const data = { ...categoryForm.value }
     
     if (editingCategory.value) {
-      await $fetch(`/api/categories-global/${editingCategory.value.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${auth.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: data
-      })
+      const { put } = useApi()
+      await put(`/api/categories-global/${editingCategory.value.id}`, data)
       showAlert('Categoría actualizada', 'success')
     } else {
-      await $fetch('/api/categories-global', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${auth.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: data
-      })
+      const { post } = useApi()
+      await post('/api/categories-global', data)
       showAlert('Categoría creada', 'success')
     }
     
@@ -446,12 +433,8 @@ const deleteCategory = async (category) => {
   if (!confirm(`¿Estás seguro de eliminar la categoría "${category.name}"?`)) return
   
   try {
-    await $fetch(`/api/categories-global/${category.id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${auth.token}`
-      }
-    })
+    const { del } = useApi()
+    await del(`/api/categories-global/${category.id}`)
     showAlert('Categoría eliminada', 'success')
     await fetchCategories()
   } catch (error) {
@@ -488,24 +471,12 @@ const saveSubcategory = async () => {
     const data = { ...subcategoryForm.value }
     
     if (editingSubcategory.value) {
-      await $fetch(`/api/categories-global/subcategories/${editingSubcategory.value.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${auth.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: data
-      })
+      const { put } = useApi()
+      await put(`/api/categories-global/subcategories/${editingSubcategory.value.id}`, data)
       showAlert('Subcategoría actualizada', 'success')
     } else {
-      await $fetch(`/api/categories-global/${selectedCategory.value.id}/subcategories`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${auth.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: data
-      })
+      const { post } = useApi()
+      await post(`/api/categories-global/${selectedCategory.value.id}/subcategories`, data)
       showAlert('Subcategoría creada', 'success')
     }
     
@@ -521,12 +492,8 @@ const deleteSubcategory = async (subcategory) => {
   if (!confirm(`¿Estás seguro de eliminar la subcategoría "${subcategory.name}"?`)) return
   
   try {
-    await $fetch(`/api/categories-global/subcategories/${subcategory.id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${auth.token}`
-      }
-    })
+    const { del } = useApi()
+    await del(`/api/categories-global/subcategories/${subcategory.id}`)
     showAlert('Subcategoría eliminada', 'success')
     await fetchCategories()
   } catch (error) {
@@ -557,11 +524,8 @@ const cancelSubcategoryForm = () => {
 
 const exportCategories = async () => {
   try {
-    const csvData = await $fetch('/api/categories-global/export/csv', {
-      headers: {
-        'Authorization': `Bearer ${auth.token}`
-      }
-    })
+    const { get } = useApi()
+    const csvData = await get('/api/categories-global/export/csv')
     
     const blob = new Blob([csvData], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -604,14 +568,11 @@ const importCategories = async () => {
       }
     }
     
-    await $fetch('/api/categories-global/import/csv', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${auth.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: { categories }
-    })
+    const formData = new FormData()
+    formData.append('categories', JSON.stringify(categories))
+    
+    const { post } = useApi()
+    await post('/api/categories-global/import/csv', formData)
     
     showAlert('Categorías importadas', 'success')
     showImportModal.value = false
