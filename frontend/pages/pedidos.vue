@@ -822,6 +822,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { PageHeader } from '~/components/ui/PageHeader.vue'
+import { useApi } from '~/composables/useApi'
 import {
   ShoppingCart, Calendar, Clock, Plus, Users, BarChart3,
   DollarSign, RefreshCw, Search, CheckCircle, Package, Tag,
@@ -1073,11 +1075,8 @@ async function loadMktOrders() {
 
 async function updateMktStatus(id: string, status: MktOrderStatus) {
   try {
-    await $fetch(`${apiUrl}/catalog/orders/${id}/status`, {
-      method: 'PATCH',
-      headers: getHeaders(),
-      body: { status },
-    })
+    const { patch } = useApi()
+    await patch(`/catalog/orders/${id}/status`, { status })
     const order = mktOrders.value.find(o => o.id === id)
     if (order) order.status = status
   } catch {
