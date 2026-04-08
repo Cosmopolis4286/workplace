@@ -244,6 +244,13 @@ export class UsersService {
 
   // ─── Subcategories CRUD ───────────────────────────────────────────────────────
 
+  async findSubcategoriesByCategory(categoryId: string) {
+    return this.prisma.userSubcategory.findMany({
+      where: { categoryId },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async createSubcategory(categoryId: string, data: { name: string }) {
     const cat = await this.prisma.userCategory.findUnique({
       where: { id: categoryId },
