@@ -471,6 +471,9 @@
                     <div>
                       <span class="text-lg font-black text-blue-600">${{ formatPrice(srv.price) }}</span>
                       <span v-if="srv.priceUnit" class="text-xs text-gray-400 ml-1">/ {{ srv.priceUnit }}</span>
+                      <div v-if="defaultRate && srv.price" class="text-xs text-gray-500 mt-0.5">
+                        {{ defaultRate.symbol }} {{ (srv.price * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                      </div>
                     </div>
                     <div v-if="srv.duration" class="flex items-center gap-1 text-xs text-gray-400">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -687,6 +690,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { CatalogProduct } from '~/composables/useCatalog'
 import type { CatalogService } from '~/composables/useServices'
+import { useExchangeRates } from '~/composables/useExchangeRates'
 
 definePageMeta({ layout: 'default' })
 
@@ -718,6 +722,9 @@ const {
 const { getHeaders } = useAuth()
 
 const { user } = useAuth()
+
+// Obtener tasa de cambio para conversión
+const { defaultRate } = useExchangeRates()
 
 // ─── Estado local ─────────────────────────────────────────────────────────────
 const activeTab = ref<'productos' | 'servicios'>('productos')

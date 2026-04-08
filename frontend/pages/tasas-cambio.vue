@@ -459,6 +459,82 @@
       </div>
     </Teleport>
 
+    <!-- Set default confirm -->
+    <Teleport to="body">
+      <div
+        v-if="settingDefaultRate"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+        @click.self="settingDefaultRate = null"
+      >
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
+          <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2">Establecer como predeterminada</h3>
+          <p class="text-sm text-gray-500 mb-6">
+            ¿Establecer <strong>{{ settingDefaultRate.code }} - {{ settingDefaultRate.name }}</strong> como la moneda predeterminada del sistema?
+          </p>
+          <div class="flex gap-3">
+            <button
+              @click="settingDefaultRate = null"
+              class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              @click="confirmSetDefault"
+              :disabled="saving"
+              class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition"
+            >
+              {{ saving ? 'Estableciendo...' : 'Establecer' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Toggle status confirm -->
+    <Teleport to="body">
+      <div
+        v-if="togglingRate"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+        @click.self="togglingRate = null"
+      >
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
+          <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path v-if="togglingRate.isActive" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2">
+            {{ togglingRate.isActive ? 'Desactivar' : 'Activar' }} moneda
+          </h3>
+          <p class="text-sm text-gray-500 mb-6">
+            ¿{{ togglingRate.isActive ? 'Desactivar' : 'Activar' }} <strong>{{ togglingRate.code }} - {{ togglingRate.name }}</strong>?
+            {{ togglingRate.isActive ? 'La moneda ya no estará disponible para conversiones.' : 'La moneda estará disponible para conversiones.' }}
+          </p>
+          <div class="flex gap-3">
+            <button
+              @click="togglingRate = null"
+              class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              @click="confirmToggle"
+              :disabled="saving"
+              class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+            >
+              {{ saving ? (togglingRate.isActive ? 'Desactivando...' : 'Activando...') : (togglingRate.isActive ? 'Desactivar' : 'Activar') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Toast -->
     <Teleport to="body">
       <div
@@ -587,35 +663,21 @@ async function handleSubmit() {
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
-async function handleSetDefault(rate: ExchangeRate) {
-  saving.value = true
-  try {
-    await setDefault(rate.id)
-    await fetchStats()
-    showToast(`${rate.code} establecida como moneda predeterminada`)
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handleToggle(rate: ExchangeRate) {
-  saving.value = true
-  try {
-    await toggleStatus(rate.id)
-    showToast(`${rate.code} ${rate.isActive ? 'desactivada' : 'activada'}`)
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    saving.value = false
-  }
-}
 
 const deletingRate = ref<ExchangeRate | null>(null)
+const settingDefaultRate = ref<ExchangeRate | null>(null)
+const togglingRate = ref<ExchangeRate | null>(null)
 
 function handleDelete(rate: ExchangeRate) {
   deletingRate.value = rate
+}
+
+function handleSetDefault(rate: ExchangeRate) {
+  settingDefaultRate.value = rate
+}
+
+function handleToggle(rate: ExchangeRate) {
+  togglingRate.value = rate
 }
 
 async function confirmDelete() {
@@ -626,6 +688,35 @@ async function confirmDelete() {
     await fetchStats()
     showToast('Moneda eliminada')
     deletingRate.value = null
+  } catch (e: any) {
+    error.value = e.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function confirmSetDefault() {
+  if (!settingDefaultRate.value) return
+  saving.value = true
+  try {
+    await setDefault(settingDefaultRate.value.id)
+    await fetchStats()
+    showToast(`${settingDefaultRate.value.code} establecida como moneda predeterminada`)
+    settingDefaultRate.value = null
+  } catch (e: any) {
+    error.value = e.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function confirmToggle() {
+  if (!togglingRate.value) return
+  saving.value = true
+  try {
+    await toggleStatus(togglingRate.value.id)
+    showToast(`${togglingRate.value.code} ${togglingRate.value.isActive ? 'desactivada' : 'activada'}`)
+    togglingRate.value = null
   } catch (e: any) {
     error.value = e.message
   } finally {
