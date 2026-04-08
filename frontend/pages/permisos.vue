@@ -266,6 +266,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { PageHeader } from '~/components/ui/PageHeader.vue'
+import { ShieldCheckIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
+import { useAuth } from '~/composables/useAuth'
+import { useAlert } from '~/composables/useAlert'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -375,35 +380,13 @@ const groupedPermissions = computed(() => {
   return groups
 })
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const doFetch = () =>
-    fetch(`${apiUrl}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...getHeaders(),
-        ...(options.headers as Record<string, string> ?? {}),
-      },
-    })
-
-  let res = await doFetch()
-  if (res.status === 401) {
-    const ok = await refreshAccessToken()
-    if (!ok) throw new Error('Sesión expirada, por favor inicia sesión nuevamente')
-    res = await doFetch()
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string }
-    throw new Error(body.message ?? `Error del servidor (${res.status})`)
-  }
-  return res.json() as Promise<T>
-}
+const { get, post, patch, del } = useApi()
 
 async function loadMatrix() {
   loading.value = true
   error.value = null
   try {
-    const data = await apiFetch<PermissionRow[]>('/permissions/matrix')
+    const data = await get('/permissions/matrix')
     permissions.value = data
 
     const matrix: Record<string, Record<Role, boolean>> = {}
@@ -443,10 +426,7 @@ async function saveAll() {
   successMsg.value = null
   try {
     const count = pendingChanges.value.length
-    await apiFetch('/permissions/bulk', {
-      method: 'PATCH',
-      body: JSON.stringify({ updates: pendingChanges.value }),
-    })
+    await patch('/permissions/bulk', { updates: pendingChanges.value })
     pendingChanges.value = []
     successMsg.value = `${count} permiso(s) actualizados correctamente. Los cambios se aplican en los próximos 5 minutos (cache Redis).`
     setTimeout(() => { successMsg.value = null }, 6000)
@@ -459,7 +439,7 @@ async function saveAll() {
 
 async function loadPlans() {
   try {
-    const data = await apiFetch<PlanInfo[]>('/plans?includeInactive=false')
+    const data = await get('/plans?includeInactive=false')
     plans.value = data
   } catch { /* non-critical */ }
 }
@@ -517,15 +497,12 @@ async function saveNewPerm() {
       ? newPermForm.value.customModule.trim()
       : newPermForm.value.module
 
-    await apiFetch('/permissions', {
-      method: 'POST',
-      body: JSON.stringify({
-        key: newPermForm.value.key.trim(),
-        module,
-        action: newPermForm.value.action.trim(),
-        label: newPermForm.value.label.trim(),
-        description: newPermForm.value.description.trim() || undefined,
-      }),
+    await post('/permissions', {
+      key: newPermForm.value.key.trim(),
+      label: newPermForm.value.label.trim(),
+      description: newPermForm.value.description?.trim() || null,
+      module: module,
+      allowedRoles: newPermForm.value.allowedRoles,
     })
     showNewPermModal.value = false
     await loadMatrix()
@@ -541,7 +518,7 @@ async function saveNewPerm() {
 async function confirmDelete(perm: PermissionRow) {
   if (!confirm(`¿Eliminar el permiso "${perm.label}" (${perm.key})?\nEsta acción no se puede deshacer.`)) return
   try {
-    await apiFetch(`/permissions/${perm.id}`, { method: 'DELETE' })
+    await del(`/permissions/${perm.id}`)
     await loadMatrix()
     successMsg.value = `Permiso "${perm.key}" eliminado.`
     setTimeout(() => { successMsg.value = null }, 3000)
