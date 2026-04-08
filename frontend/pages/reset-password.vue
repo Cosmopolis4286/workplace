@@ -84,9 +84,9 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'auth' })
-
-import { ref, reactive } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { KeyIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
 import {
   LockClosedIcon,
   CheckCircleIcon,
@@ -117,11 +117,8 @@ const handleReset = async () => {
 
   isLoading.value = true
   try {
-    const config = useRuntimeConfig()
-    await $fetch(`${config.public.apiUrl}/auth/reset-password`, {
-      method: 'POST',
-      body: { token, password: form.password },
-    })
+    const { post } = useApi()
+    await post('/auth/reset-password', { token, password: form.password })
     success.value = true
   } catch (err: any) {
     tokenError.value = err?.data?.message || 'El enlace es inválido o ha expirado.'
