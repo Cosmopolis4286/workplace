@@ -137,54 +137,34 @@
             <h3 class="text-xl font-bold text-gray-900">Información Personal</h3>
           </div>
 
-          <form @submit.prevent="saveProfile" class="space-y-6">
+          <div class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
-                <input
-                  v-model="profileForm.firstName"
-                  type="text"
-                  required
-                  minlength="2"
-                  maxlength="50"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                  placeholder="Tu nombre"
-                >
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ profileForm.firstName || '—' }}
+                </div>
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Apellido</label>
-                <input
-                  v-model="profileForm.lastName"
-                  type="text"
-                  required
-                  minlength="2"
-                  maxlength="50"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                  placeholder="Tu apellido"
-                >
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ profileForm.lastName || '—' }}
+                </div>
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico</label>
-                <input
-                  v-model="profileForm.email"
-                  type="email"
-                  required
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                  placeholder="tu@email.com"
-                >
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ profileForm.email || '—' }}
+                </div>
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Teléfono</label>
-                <input
-                  v-model="profileForm.phone"
-                  type="tel"
-                  maxlength="20"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                  placeholder="+52 123 456 7890"
-                >
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ profileForm.phone || '—' }}
+                </div>
               </div>
             </div>
 
@@ -194,16 +174,19 @@
                 Categoría de negocio
                 <span class="ml-1 text-xs font-normal text-gray-400">(afecta los módulos disponibles)</span>
               </label>
-              <select
-                v-model="profileForm.categoryId"
-                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300 bg-white"
-              >
-                <option value="">Sin categoría</option>
-                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                  {{ cat.icon }} {{ cat.name }}
-                </option>
-              </select>
-              <p v-if="loadingCategories" class="mt-1 text-xs text-gray-400">Cargando categorías...</p>
+              <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                {{ getCategoryName() || 'Sin categoría' }}
+              </div>
+            </div>
+
+            <!-- Subcategoría — solo si aplica -->
+            <div v-if="isCommerceOrFreelancer && getSubcategoryName()" class="md:col-span-2">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Subcategoría de negocio
+              </label>
+              <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                {{ getSubcategoryName() }}
+              </div>
             </div>
 
             <!-- Username — solo COMMERCE y FREELANCER -->
@@ -278,25 +261,7 @@
               </p>
             </div>
 
-            <div class="flex justify-end space-x-3">
-              <button
-                type="button"
-                :disabled="savingProfile"
-                @click="resetProfileForm"
-                class="px-5 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                :disabled="savingProfile || !profileDirty || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking' || usernameStatus === 'cooldown'"
-                class="px-5 py-2.5 bg-gradient-to-r from-workplace-red to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <span v-if="savingProfile" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                {{ savingProfile ? 'Guardando...' : 'Guardar Cambios' }}
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
 
         <!-- Change Password -->
@@ -510,9 +475,11 @@ const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role ?? 'NORMAL'] 
 const isCommerce = computed(() => auth.user.value?.role === 'COMMERCE')
 const isCommerceOrFreelancer = computed(() => ['COMMERCE', 'FREELANCER'].includes(auth.user.value?.role ?? ''))
 
-// Categories
+// Categories and Subcategories
 const categories = ref<{ id: string; name: string; icon: string }[]>([])
+const subcategories = ref<{ id: string; name: string; categoryId: string }[]>([])
 const loadingCategories = ref(false)
+
 async function fetchCategories() {
   if (!isCommerceOrFreelancer.value) return
   loadingCategories.value = true
@@ -522,6 +489,28 @@ async function fetchCategories() {
   } catch { /* ignore */ } finally {
     loadingCategories.value = false
   }
+}
+
+async function fetchSubcategories() {
+  if (!isCommerceOrFreelancer.value) return
+  try {
+    const data = await $fetch<any[]>(`${apiUrl}/users/subcategories`)
+    subcategories.value = data
+  } catch { /* ignore */ }
+}
+
+function getCategoryName() {
+  const u = auth.user.value as any
+  if (!u?.categoryId) return ''
+  const category = categories.value.find(cat => cat.id === u.categoryId)
+  return category ? `${category.icon} ${category.name}` : ''
+}
+
+function getSubcategoryName() {
+  const u = auth.user.value as any
+  if (!u?.subcategoryId) return ''
+  const subcategory = subcategories.value.find(sub => sub.id === u.subcategoryId)
+  return subcategory ? subcategory.name : ''
 }
 
 const avatarUrl = computed(() => {
@@ -711,6 +700,7 @@ onMounted(async () => {
   }
   syncFormFromUser()
   fetchCategories()
+  fetchSubcategories()
 })
 
 // Sync form if user changes after fetch
