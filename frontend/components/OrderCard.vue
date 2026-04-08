@@ -19,20 +19,30 @@
       <div
         v-for="item in order.items"
         :key="item.id"
-        class="flex justify-between items-center text-xs"
+        class="flex justify-between items-start text-xs"
       >
-        <span class="text-gray-600">
+        <span class="text-gray-600 flex-1">
           <span class="font-semibold text-gray-800">{{ item.quantity }}×</span>
           {{ item.productName }}
         </span>
-        <span class="text-gray-700 font-medium">{{ formatCurrency(item.subtotal) }}</span>
+        <div class="text-right">
+          <span class="text-gray-700 font-medium">{{ formatCurrency(item.subtotal) }}</span>
+          <div v-if="defaultRate && item.subtotal" class="text-[10px] text-gray-400">
+            {{ defaultRate.symbol }} {{ (item.subtotal * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Total + type -->
     <div class="flex items-center justify-between border-t border-gray-100 pt-2 mb-3">
       <span class="text-xs text-gray-500">{{ ORDER_TYPE_LABELS[order.orderType] }}</span>
-      <span class="text-sm font-bold text-gray-900">{{ formatCurrency(order.total) }}</span>
+      <div class="text-right">
+        <span class="text-sm font-bold text-gray-900">{{ formatCurrency(order.total) }}</span>
+        <div v-if="defaultRate && order.total" class="text-[10px] text-gray-400">
+          {{ defaultRate.symbol }} {{ (order.total * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+        </div>
+      </div>
     </div>
 
     <!-- Delivery address -->
@@ -77,8 +87,10 @@ import {
   type Order,
   type OrderStatus,
 } from '~/composables/useClienteDashboard'
+import { useExchangeRates } from '~/composables/useExchangeRates'
 
 const props = defineProps<{ order: Order }>()
+const { defaultRate } = useExchangeRates()
 
 const emit = defineEmits<{
   'view-details': [order: Order]

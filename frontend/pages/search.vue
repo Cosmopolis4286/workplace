@@ -547,7 +547,12 @@
               <div class="p-5">
                 <div class="flex items-start justify-between gap-3 mb-3">
                   <h2 class="text-xl font-black text-gray-900 leading-tight">{{ selectedProduct.name }}</h2>
-                  <span class="text-2xl font-black text-red-600 flex-shrink-0">${{ formatPrice(selectedProduct.price) }}</span>
+                  <div class="text-right flex-shrink-0">
+                    <span class="text-2xl font-black text-red-600">${{ formatPrice(selectedProduct.price) }}</span>
+                    <div v-if="defaultRate && selectedProduct.price" class="text-xs text-gray-500">
+                      {{ defaultRate.symbol }} {{ (selectedProduct.price * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    </div>
+                  </div>
                 </div>
                 <p v-if="selectedProduct.description" class="text-sm text-gray-500 mb-4 leading-relaxed">{{ selectedProduct.description }}</p>
                 <div class="flex flex-wrap gap-2 mb-4">
@@ -612,6 +617,9 @@
                   <div class="text-right flex-shrink-0">
                     <span class="text-2xl font-black text-blue-600">${{ formatPrice(selectedService.price) }}</span>
                     <p v-if="selectedService.priceUnit" class="text-xs text-gray-400">/ {{ selectedService.priceUnit }}</p>
+                    <div v-if="defaultRate && selectedService.price" class="text-xs text-gray-500">
+                      {{ defaultRate.symbol }} {{ (selectedService.price * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    </div>
                   </div>
                 </div>
                 <p v-if="selectedService.description" class="text-sm text-gray-500 mb-4 leading-relaxed">{{ selectedService.description }}</p>
@@ -724,7 +732,7 @@ const { getHeaders } = useAuth()
 const { user } = useAuth()
 
 // Obtener tasa de cambio para conversión
-const { defaultRate } = useExchangeRates()
+const { defaultRate, fetchRates } = useExchangeRates()
 
 // ─── Estado local ─────────────────────────────────────────────────────────────
 const activeTab = ref<'productos' | 'servicios'>('productos')
@@ -909,6 +917,7 @@ onMounted(async () => {
   await Promise.all([
     pLoadCategories(), pLoadRestaurants(), pLoadProducts(),
     sLoadCategories(), sLoadProviders(), sLoadServices(),
+    fetchRates(), // Cargar tasas de cambio para conversión
   ])
 })
 
