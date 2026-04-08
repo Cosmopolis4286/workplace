@@ -158,6 +158,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useApi } from '~/composables/useApi'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -180,21 +181,13 @@ const saving = ref(false)
 const catError = ref('')
 const saveError = ref('')
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${config.public.apiUrl}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...getHeaders(), ...(options.headers as Record<string, string> ?? {}) },
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.message ?? `Error ${res.status}`)
-  }
-  return res.json()
-}
 
 async function loadCategories() {
   loadingCats.value = true
-  try { categories.value = await apiFetch('/users/categories') }
+  try {
+    const { get } = useApi()
+    categories.value = await get('/users/categories')
+  }
   catch { /* silently ignore */ }
   finally { loadingCats.value = false }
 }
@@ -206,16 +199,18 @@ async function loadSubcategories(categoryId: string) {
     return
   }
   try {
-    subcategories.value = await apiFetch(`/users/categories/${categoryId}/subcategories`)
+    const { get } = useApi()
+    subcategories.value = await get(`/users/categories/${categoryId}/subcategories`)
   } catch { /* silently ignore */ }
 }
 
 async function loadPlans() {
   loadingPlans.value = true
   try {
+    const { get } = useApi()
     const role = user.value?.role ?? 'COMMERCE'
     const categoryParam = selectedCategory.value ? `&categoryId=${selectedCategory.value}` : ''
-    plans.value = await apiFetch(`/plans/public?role=${role}${categoryParam}`)
+    plans.value = await get(`/plans/public?role=${role}${categoryParam}`)
   } catch { /* silently ignore */ }
   finally { loadingPlans.value = false }
 }
@@ -237,10 +232,8 @@ async function next() {
       if (selectedSubcategory.value) {
         updateData.subcategoryId = selectedSubcategory.value
       }
-      await apiFetch(`/users/${user.value!.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updateData),
-      })
+      const { patch } = useApi()
+      await patch(`/users/${user.value!.id}`, updateData)
       invalidateModules()
       await loadPlans()
       step.value++
@@ -250,9 +243,10 @@ async function next() {
     saving.value = true
     try {
       if (selectedPlan.value) {
-        await apiFetch('/plans/self-subscribe', {
-          method: 'POST',
-          body: JSON.stringify({ planId: selectedPlan.value, interval: 'MONTHLY' }),
+        const { post } = useApi()
+        await post('/plans/self-subscribe', {
+          planId: selectedPlan.value,
+          interval: 'MONTHLY'
         })
         invalidateModules()
       }

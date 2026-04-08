@@ -305,31 +305,6 @@ const selectedCat = ref<Category | null>(null)
 
 const EMOJI_SUGGESTIONS = ['🍔','🍕','☕','🥗','🍰','💻','📱','🛍️','👗','💄','🏥','💊','📚','🎬','🎵','🏠','🚗','💰','🔧','⚖️']
 
-// ─── API helper ───────────────────────────────────────────────────────────────
-
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const doFetch = () =>
-    fetch(`${apiUrl}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...getHeaders(),
-        ...(options.headers as Record<string, string> ?? {}),
-      },
-    })
-  let res = await doFetch()
-  if (res.status === 401) {
-    const ok = await refreshAccessToken()
-    if (!ok) throw new Error('Sesión expirada')
-    res = await doFetch()
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string }
-    throw new Error(Array.isArray(body.message) ? body.message[0] : (body.message ?? `Error (${res.status})`))
-  }
-  return res.json() as Promise<T>
-}
-
 // ─── Load ─────────────────────────────────────────────────────────────────────
 
 async function load() {
@@ -377,9 +352,9 @@ async function saveCat() {
   try {
     const body = { name: catModal.name.trim(), icon: catModal.icon.trim() || undefined }
     if (catModal.editing) {
-      await apiFetch(`/users/categories/${catModal.editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      await put(`/users/categories/${catModal.editing.id}`, body)
     } else {
-      await apiFetch('/users/categories', { method: 'POST', body: JSON.stringify(body) })
+      await post('/users/categories', body)
     }
     catModal.show = false
     await load()
@@ -414,9 +389,9 @@ async function saveSub() {
   try {
     const body = { name: subModal.name.trim() }
     if (subModal.editing) {
-      await apiFetch(`/users/subcategories/${subModal.editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      await put(`/users/subcategories/${subModal.editing.id}`, body)
     } else {
-      await apiFetch(`/users/categories/${selectedCat.value.id}/subcategories`, { method: 'POST', body: JSON.stringify(body) })
+      await post(`/users/categories/${selectedCat.value.id}/subcategories`, body)
     }
     subModal.show = false
     await load()
@@ -461,7 +436,7 @@ async function doDelete() {
     const path = deleteModal.type === 'cat'
       ? `/users/categories/${deleteModal.id}`
       : `/users/subcategories/${deleteModal.id}`
-    await apiFetch(path, { method: 'DELETE' })
+    await del(path)
     if (deleteModal.type === 'cat' && selectedCat.value?.id === deleteModal.id) {
       selectedCat.value = null
     }

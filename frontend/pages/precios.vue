@@ -180,9 +180,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { CheckCircleIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
 
-// Public page — no auth required
 definePageMeta({})
 
 const config = useRuntimeConfig()
@@ -209,10 +210,9 @@ const annual = ref(false)
 async function loadPlans() {
   loading.value = true
   try {
-    const res = await fetch(`${config.public.apiUrl}/plans/public`)
-    if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`)
-    const data = await res.json()
-    plans.value = Array.isArray(data) ? data : (data.data ?? [])
+    const { get } = useApi()
+    const data = await get('/plans/public')
+    plans.value = Array.isArray(data) ? data : (data as any)?.data ?? []
   } catch (e: any) {
     error.value = e.message
   } finally {

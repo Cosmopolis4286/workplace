@@ -539,32 +539,11 @@ const form = ref({
 })
 
 // API helper
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const doFetch = () =>
-    fetch(`${apiUrl}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...getHeaders(),
-        ...(options.headers as Record<string, string> ?? {}),
-      },
-    })
-  let res = await doFetch()
-  if (res.status === 401) {
-    const ok = await refreshAccessToken()
-    if (!ok) throw new Error('Sesión expirada')
-    res = await doFetch()
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string }
-    throw new Error(body.message ?? `Error (${res.status})`)
-  }
-  return res.json() as Promise<T>
-}
+const { get, post, put, del } = useApi()
 
 async function loadCategories() {
   try {
-    categories.value = await apiFetch<UserCategory[]>('/users/categories')
+    categories.value = await get<UserCategory[]>('/users/categories')
   } catch { /* silently ignore */ }
 }
 
@@ -638,7 +617,8 @@ async function save() {
         categoryId: form.value.categoryId || null,
         subcategoryId: form.value.subcategoryId || null,
       }
-      await apiFetch(`/users/${editing.value.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      const { put } = useApi()
+      await put(`/users/${editing.value.id}`, body)
     } else {
       const body: Record<string, unknown> = {
         firstName: form.value.firstName,
@@ -651,7 +631,8 @@ async function save() {
         categoryId: form.value.categoryId || undefined,
         subcategoryId: form.value.subcategoryId || undefined,
       }
-      await apiFetch('/users', { method: 'POST', body: JSON.stringify(body) })
+      const { post } = useApi()
+      await post('/users', body)
     }
     showModal.value = false
     selectedUsers.value = []
@@ -666,7 +647,8 @@ async function save() {
 
 async function toggleStatus(u: UserItem) {
   try {
-    await apiFetch(`/users/${u.id}/toggle-status`, { method: 'PATCH' })
+    const { patch } = useApi()
+    await patch(`/users/${u.id}/toggle-status`)
     u.isActive = !u.isActive
   } catch (e: unknown) {
     error.value = (e as Error).message
@@ -682,7 +664,8 @@ async function doDelete() {
   saving.value = true
   try {
     const targets = bulkDeleteTargets.value.length > 0 ? bulkDeleteTargets.value : [deleteTarget.value]
-    await Promise.all(targets.map(u => apiFetch(`/users/${u.id}`, { method: 'DELETE' })))
+    const { del } = useApi()
+    await Promise.all(targets.map(u => del(`/users/${u.id}`)))
     deleteTarget.value = null
     bulkDeleteTargets.value = []
     selectedUsers.value = []
