@@ -106,18 +106,10 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'auth' })
-
-import { ref, reactive, watch } from 'vue'
-import {
-  EnvelopeIcon,
-  KeyIcon,
-  PaperAirplaneIcon,
-  CheckCircleIcon,
-  InformationCircleIcon,
-  ArrowPathIcon,
-  ArrowLeftIcon
-} from '@heroicons/vue/24/outline'
+import { ref, computed } from 'vue'
+import { EnvelopeIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
+import { KeyIcon, PaperAirplaneIcon, CheckCircleIcon, InformationCircleIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline'
 import { useFormValidation } from '~/composables/useFormValidation'
 
 const { required, email: emailRule, validate } = useFormValidation()
@@ -140,11 +132,8 @@ const handleRecoverPassword = async () => {
 
   isLoading.value = true
   try {
-    const config = useRuntimeConfig()
-    await $fetch(`${config.public.apiUrl}/auth/forgot-password`, {
-      method: 'POST',
-      body: { email: form.email },
-    })
+    const { post } = useApi()
+    await post('/auth/forgot-password', { email: form.email })
     emailSent.value = true
   } catch {
     errors.email = 'Error al enviar el correo. Inténtalo de nuevo.'
@@ -156,11 +145,7 @@ const handleRecoverPassword = async () => {
 const resendEmail = async () => {
   isResending.value = true
   try {
-    const config = useRuntimeConfig()
-    await $fetch(`${config.public.apiUrl}/auth/forgot-password`, {
-      method: 'POST',
-      body: { email: form.email },
-    })
+    await post('/auth/forgot-password', { email: form.email })
   } finally {
     isResending.value = false
   }
