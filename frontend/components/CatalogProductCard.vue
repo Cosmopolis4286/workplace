@@ -106,6 +106,9 @@
         <div>
           <span class="text-base font-black text-red-600">${{ formatPrice(product.price) }}</span>
           <span v-if="product.unit && product.unit !== 'unidad'" class="text-xs text-gray-400 ml-1">/ {{ product.unit }}</span>
+          <div v-if="convertedPrice && defaultRate" class="text-xs text-gray-500 mt-0.5">
+            {{ defaultRate.symbol }} {{ convertedPrice.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+          </div>
         </div>
         <div class="flex items-center gap-1.5">
           <!-- Ver detalle -->
@@ -145,11 +148,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { CatalogProduct } from '~/composables/useCatalog'
+import { useExchangeRates } from '~/composables/useExchangeRates'
 
 const props = defineProps<{ product: CatalogProduct; isOwner?: boolean }>()
 defineEmits<{ view: [product: CatalogProduct]; order: [product: CatalogProduct] }>()
 
 const imgError = ref(false)
+const { defaultRate } = useExchangeRates()
 
 // Rating determinístico: basado en el ID del producto (3.8 – 5.0)
 const simulatedRating = computed(() => {
@@ -167,6 +172,12 @@ const badge = computed((): 'Nuevo' | 'Popular' | null => {
   if (code % 7 === 0) return 'Nuevo'
   if (code % 5 === 0) return 'Popular'
   return null
+})
+
+// Conversión a moneda del usuario
+const convertedPrice = computed(() => {
+  if (!defaultRate.value) return null
+  return props.product.price * defaultRate.value.rateToUsd
 })
 
 function formatPrice(price: number): string {
