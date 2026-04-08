@@ -420,12 +420,14 @@ const CATEGORIES = [
     ]
   },
   {
-    name: 'Transporte y Logística',
-    description: 'Mudanzas, delivery, transporte',
-    icon: '🚚',
+    name: 'Transporte',
+    description: 'Transporte de personas y logística',
+    icon: '�',
     color: '#f97316',
     sortOrder: 9,
     subcategories: [
+      { name: 'carros', description: 'Transporte en automóvil, taxi, privado' },
+      { name: 'motos', description: 'Transporte en motocicleta, mototaxi' },
       { name: 'Mudanzas', description: 'Locales, nacionales, internacionales' },
       { name: 'Delivery', description: 'Documentos, paquetes, comida' },
       { name: 'Transporte de Personas', description: 'Taxi, privado, tours' },
@@ -445,6 +447,48 @@ const CATEGORIES = [
       { name: 'Fotografía y Video', description: 'Eventos, retratos, comerciales' },
       { name: 'Catering', description: 'Buffet, menú personalizado, bebidas' },
       { name: 'Decoración', description: 'Flores, temática, iluminación' }
+    ]
+  },
+  {
+    name: 'Tecnología',
+    description: 'Software, hardware, servicios digitales',
+    icon: '💻',
+    color: '#0ea5e9',
+    sortOrder: 11,
+    subcategories: [
+      { name: 'Desarrollo Web', description: 'Sitios web, aplicaciones, e-commerce' },
+      { name: 'Desarrollo Móvil', description: 'Apps iOS, Android, híbridas' },
+      { name: 'Soporte Técnico', description: 'Reparación de computadoras, redes' },
+      { name: 'Ciberseguridad', description: 'Auditorías, protección, consultoría' },
+      { name: 'Inteligencia Artificial', description: 'Machine learning, automatización' }
+    ]
+  },
+  {
+    name: 'Servicios Profesionales',
+    description: 'Consultoría, legal, contabilidad',
+    icon: '💼',
+    color: '#6366f1',
+    sortOrder: 12,
+    subcategories: [
+      { name: 'Consultoría', description: 'Negocios, estrategia, gestión' },
+      { name: 'Servicios Legales', description: 'Asesoría, contratos, representación' },
+      { name: 'Contabilidad', description: 'Impuestos, auditoría, bookkeeping' },
+      { name: 'Marketing Digital', description: 'SEO, redes sociales, publicidad' },
+      { name: 'Recursos Humanos', description: 'Reclutamiento, capacitación, consultoría' }
+    ]
+  },
+  {
+    name: 'Finanzas y Seguros',
+    description: 'Servicios financieros, aseguradora',
+    icon: '🏦',
+    color: '#059669',
+    sortOrder: 13,
+    subcategories: [
+      { name: 'Asesoría Financiera', description: 'Inversiones, planificación, jubilación' },
+      { name: 'Préstamos', description: 'Personales, hipotecarios, comerciales' },
+      { name: 'Seguros', description: 'Vida, salud, auto, hogar' },
+      { name: 'Gestión de Patrimonio', description: 'Inversiones, activos, herencias' },
+      { name: 'Criptomonedas', description: 'Trading, wallet, consultoría' }
     ]
   }
 ]

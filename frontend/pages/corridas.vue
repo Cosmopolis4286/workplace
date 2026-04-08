@@ -29,7 +29,7 @@
             :class="[activeTab === 'request' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300', 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors']"
           >Solicitar Viaje</button>
           <button
-            v-if="canManageCorridas"
+            v-if="canViewAvailableCorridas"
             @click="activeTab = 'available'"
             :class="[activeTab === 'available' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300', 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors']"
           >Corridas Disponibles</button>
@@ -301,7 +301,7 @@
       <!-- ═══════════════════════════════════════════════════════════ -->
       <!--  TAB: Corridas Disponibles (conductor)                     -->
       <!-- ═══════════════════════════════════════════════════════════ -->
-      <div v-if="activeTab === 'available' && canManageCorridas" class="space-y-4">
+      <div v-if="activeTab === 'available' && canViewAvailableCorridas" class="space-y-4">
         <div class="flex justify-between items-center">
           <p class="text-gray-600">Corridas disponibles cerca de ti</p>
           <button @click="refreshAvailable" :disabled="loading"
@@ -540,7 +540,7 @@ const {
   calculatePrice, clearError,
 } = useCorridas()
 
-const { reloadPermissions } = usePermissions()
+const { reloadPermissions, userCategory, userSubcategory } = usePermissions()
 
 // ─── Estado Local ─────────────────────────────────────────────────────────────
 const activeTab = ref('request')
@@ -608,6 +608,12 @@ const vehicleOptions = [
 // ─── Computados ───────────────────────────────────────────────────────────────
 const canCalculate = computed(() => !!originPlace.value && !!destinationPlace.value)
 const canSubmit = computed(() => canCalculate.value && !!priceEstimate.value)
+
+// Verificar si el usuario tiene acceso a corridas disponibles (Transporte/carros o Transporte/motos)
+const canViewAvailableCorridas = computed(() => {
+  return userCategory.value === 'Transporte' && 
+         (userSubcategory.value === 'carros' || userSubcategory.value === 'motos')
+})
 
 const availableCorridas = computed(() => corridas.value.filter((c: Corrida) => c.status === 'PENDING'))
 const historyList = computed(() => canManageCorridas.value ? corridas.value : myCorridas.value)
@@ -774,13 +780,13 @@ onMounted(async () => {
   await refreshHistory()
 
   // Decidir tab inicial con datos ya cargados
-  if (!canRequestCorrida.value && canManageCorridas.value) {
+  if (!canRequestCorrida.value && canViewAvailableCorridas.value) {
     activeTab.value = 'available'
   } else if (!canRequestCorrida.value) {
     // Tiene viaje activo — mostrar directamente Mis Viajes
     activeTab.value = 'history'
   }
 
-  if (canManageCorridas.value) refreshAvailable()
+  if (canViewAvailableCorridas.value) refreshAvailable()
 })
 </script>

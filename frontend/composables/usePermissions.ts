@@ -7,11 +7,15 @@ const CACHE_TTL = 5 * 60 * 1000 // 5 minutos en milisegundos
 // ─── Singleton global (compartido entre todas las instancias del composable) ──
 
 const permissionKeys = ref<string[]>([])
+const userCategory = ref<string | null>(null)
+const userSubcategory = ref<string | null>(null)
 const loading = ref(false)
 const initialized = ref(false)
 
 interface CacheEntry {
   keys: string[]
+  category?: string | null
+  subcategory?: string | null
   timestamp: number
 }
 
@@ -39,6 +43,8 @@ function setCache(keys: string[]): void {
   if (!process.client) return
   const entry: CacheEntry = {
     keys,
+    category: userCategory.value,
+    subcategory: userSubcategory.value,
     timestamp: Date.now(),
   }
   localStorage.setItem(CACHE_KEY, JSON.stringify(entry))
@@ -56,6 +62,8 @@ function rehydratePermissions(): void {
   const cache = getCache()
   if (isCacheValid(cache)) {
     permissionKeys.value = cache.keys
+    userCategory.value = cache.category || null
+    userSubcategory.value = cache.subcategory || null
     initialized.value = true
   }
 }
@@ -108,8 +116,10 @@ export const usePermissions = () => {
       }
       if (!res.ok) throw new Error('Failed to fetch permissions')
 
-      const data = await res.json() as { keys: string[] }
+      const data = await res.json() as { keys: string[], category?: string | null, subcategory?: string | null }
       permissionKeys.value = data.keys
+      userCategory.value = data.category || null
+      userSubcategory.value = data.subcategory || null
       initialized.value = true
       setCache(data.keys)
     } catch {
@@ -137,6 +147,8 @@ export const usePermissions = () => {
 
   function clearPermissions(): void {
     permissionKeys.value = []
+    userCategory.value = null
+    userSubcategory.value = null
     initialized.value = false
     clearCache()
   }
@@ -154,6 +166,8 @@ export const usePermissions = () => {
 
   return {
     permissionKeys: computed(() => permissionKeys.value),
+    userCategory: computed(() => userCategory.value),
+    userSubcategory: computed(() => userSubcategory.value),
     loading: computed(() => loading.value),
     initialized: computed(() => initialized.value),
     can,
