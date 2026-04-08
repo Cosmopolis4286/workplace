@@ -1062,6 +1062,8 @@ import {
   PlusCircleIcon,
   PlayCircleIcon,
   SquaresPlusIcon,
+} from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
   CameraIcon,
 } from '@heroicons/vue/24/outline'
 import Swal from 'sweetalert2'
@@ -1405,11 +1407,8 @@ function trackSvcEvent(serviceId: string, type: 'VIEW' | 'PROFILE_VISIT' | 'REQU
       sessionStorage.setItem('_svcSid', sid)
     }
   }
-  $fetch(`${base}/track`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...useAuth().getHeaders() },
-    body: { serviceId, type, sessionId: sid },
-  }).catch(() => {})
+  const { post } = useApi()
+  post('/track', { serviceId, type, sessionId: sid }).catch(() => {})
 }
 
 function openServiceReqModal(srv: any) {
