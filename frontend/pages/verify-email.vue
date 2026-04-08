@@ -124,17 +124,12 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'auth' })
-
-import { ref, computed } from 'vue'
-import {
-  EnvelopeIcon,
-  CheckIcon,
-  ArrowPathIcon,
-  ArrowLeftIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/vue/24/outline'
+import { ref, computed, onMounted } from 'vue'
+import { EnvelopeIcon, CheckIcon, ArrowPathIcon, ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
+import { useApi } from '~/composables/useApi'
+import { useRoute } from 'vue-router'
+import { navigateTo } from '~/utils/navigateTo'
 
 const { currentUser } = useAuth()
 
@@ -152,13 +147,8 @@ const verifySteps = computed(() => [
 const resendVerification = async () => {
   isResending.value = true
   try {
-    const config = useRuntimeConfig()
-    await $fetch(`${config.public.apiUrl}/auth/send-verification`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('auth_access_token')}`
-      }
-    })
+    const { post } = useApi()
+    await post('/auth/send-verification', { email: currentUser.value?.email })
     resentSuccess.value = true
   } catch (err: any) {
     console.error('Error resending verification:', err)
@@ -177,11 +167,8 @@ onMounted(async () => {
   if (token) {
     isVerifying.value = true
     try {
-      const config = useRuntimeConfig()
-      await $fetch(`${config.public.apiUrl}/auth/verify-email`, {
-        method: 'POST',
-        body: { token }
-      })
+      const { post } = useApi()
+      await post('/auth/verify-email', { token })
       // Verification successful, redirect to login
       await navigateTo('/login?verified=true')
     } catch (err: any) {
