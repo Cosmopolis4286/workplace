@@ -20,7 +20,8 @@
 
     <!-- Filters -->
     <div class="card-premium p-4 mb-6">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <!-- Primera fila: Búsqueda y filtros principales -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
         <input
           v-model="filters.search"
           type="text"
@@ -36,14 +37,26 @@
           <option value="">Todas las acciones</option>
           <option v-for="a in ACTIONS" :key="a" :value="a">{{ a }}</option>
         </select>
-        <div class="flex gap-2">
-          <input v-model="filters.dateFrom" type="date" class="input-field text-sm flex-1" @change="load">
-          <input v-model="filters.dateTo" type="date" class="input-field text-sm flex-1" @change="load">
+      </div>
+      <!-- Segunda fila: Filtros de fecha y botón limpiar -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Fecha desde</label>
+          <input v-model="filters.dateFrom" type="date" class="input-field text-sm w-full" @change="load">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Fecha hasta</label>
+          <input v-model="filters.dateTo" type="date" class="input-field text-sm w-full" @change="load">
+        </div>
+        <div class="flex items-end">
+          <button class="text-xs text-gray-400 hover:text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 transition-colors w-full" @click="resetFilters">
+            Limpiar filtros
+          </button>
         </div>
       </div>
+      <!-- Información de resultados -->
       <div class="flex justify-between items-center mt-3">
         <span class="text-xs text-gray-500">{{ total.toLocaleString() }} registros encontrados</span>
-        <button class="text-xs text-gray-400 hover:text-gray-600" @click="resetFilters">Limpiar filtros</button>
       </div>
     </div>
 
@@ -77,7 +90,7 @@
               </tr>
             </template>
             <template v-else>
-              <tr v-for="log in logs" :key="log.id" class="hover:bg-gray-50 cursor-pointer" @click="selectedLog = log">
+              <tr v-for="log in logs" :key="log.id" class="cursor-pointer" @click="selectedLog = log">
                 <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{{ formatDateTime(log.createdAt) }}</td>
                 <td class="px-4 py-3 text-xs font-medium text-gray-900 whitespace-nowrap">{{ log.userEmail ?? '—' }}</td>
                 <td class="px-4 py-3">
