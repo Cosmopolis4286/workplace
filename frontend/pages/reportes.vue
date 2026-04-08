@@ -243,8 +243,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-
-definePageMeta({ middleware: 'auth' })
+import { PageHeader } from '~/components/ui/PageHeader.vue'
+import { DocumentChartBarIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
+import { useAuth } from '~/composables/useAuth'
 
 const config = useRuntimeConfig()
 const { getHeaders } = useAuth()
@@ -258,16 +260,12 @@ const orderStats = ref<any>(null)
 const expenseStats = ref<any>(null)
 const employeeStats = ref<any>(null)
 
-async function apiFetch(path: string) {
-  const res = await fetch(`${config.public.apiUrl}${path}`, { headers: getHeaders() })
-  if (!res.ok) throw new Error(`Error ${res.status} en ${path}`)
-  return res.json()
-}
+const { get } = useApi()
 
 async function loadOrderStats() {
   loadingOrders.value = true
   try {
-    orderStats.value = await apiFetch('/orders/stats')
+    orderStats.value = await get('/orders/stats')
   } catch (e: any) {
     globalError.value = e.message
   } finally {
@@ -278,7 +276,7 @@ async function loadOrderStats() {
 async function loadExpenseStats() {
   loadingExpenses.value = true
   try {
-    expenseStats.value = await apiFetch('/expenses/stats')
+    expenseStats.value = await get('/expenses/stats')
   } catch (e: any) {
     globalError.value = e.message
   } finally {
@@ -289,7 +287,7 @@ async function loadExpenseStats() {
 async function loadEmployeeStats() {
   loadingEmployees.value = true
   try {
-    employeeStats.value = await apiFetch('/employees/stats')
+    employeeStats.value = await get('/employees/stats')
   } catch (e: any) {
     globalError.value = e.message
   } finally {
