@@ -163,8 +163,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-
-definePageMeta({ layout: 'default' })
+import { PageHeader } from '~/components/ui/PageHeader.vue'
+import { useApi } from '~/composables/useApi'
 
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
@@ -270,11 +270,8 @@ async function fetchRequests() {
 async function updateStatus(id: string, status: string) {
   updating.value = id
   try {
-    await $fetch(`${apiUrl}/services/requests/${id}/status`, {
-      method: 'PATCH',
-      headers: { ...getHeaders(), 'Content-Type': 'application/json' },
-      body: { status },
-    })
+    const { patch } = useApi()
+    await patch(`/services/requests/${id}/status`, { status })
     const idx = requests.value.findIndex(r => r.id === id)
     if (idx !== -1) requests.value[idx].status = status as ServiceRequest['status']
   } catch (e: any) {
