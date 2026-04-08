@@ -251,6 +251,12 @@ export class UsersService {
     });
   }
 
+  async findAllSubcategories() {
+    return this.prisma.userSubcategory.findMany({
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async createSubcategory(categoryId: string, data: { name: string }) {
     const cat = await this.prisma.userCategory.findUnique({
       where: { id: categoryId },

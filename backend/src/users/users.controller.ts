@@ -74,6 +74,12 @@ export class UsersController {
     return this.usersService.findSubcategoriesByCategory(categoryId);
   }
 
+  @Get('subcategories')
+  @UseGuards(JwtAuthGuard)
+  getAllSubcategories() {
+    return this.usersService.findAllSubcategories();
+  }
+
   @Post('categories')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   createCategory(
