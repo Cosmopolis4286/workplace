@@ -1064,8 +1064,6 @@ import {
   SquaresPlusIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
-  CameraIcon,
-} from '@heroicons/vue/24/outline'
 import Swal from 'sweetalert2'
 import { useProfiles, type ProfilePost, type PostComment } from '~/composables/useProfiles'
 import { useAuth } from '~/composables/useAuth'

@@ -279,9 +279,7 @@ import { useAuth } from '~/composables/useAuth'
 
 definePageMeta({ middleware: 'auth' })
 
-const { getHeaders, refreshAccessToken } = useAuth()
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
+const { get } = useApi()
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -311,7 +309,7 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    categories.value = await apiFetch<Category[]>('/users/categories')
+    categories.value = await get<Category[]>('/users/categories')
     // Keep selectedCat in sync after reload
     if (selectedCat.value) {
       selectedCat.value = categories.value.find(c => c.id === selectedCat.value!.id) ?? null
