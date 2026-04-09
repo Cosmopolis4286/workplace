@@ -169,6 +169,7 @@
 import { ref, computed } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot } from '@headlessui/vue'
 import { XMarkIcon, PencilIcon } from '@heroicons/vue/24/outline'
+import { useUserPreferences } from '~/composables/useUserPreferences'
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_CLASSES,
@@ -178,6 +179,8 @@ import {
   type Order,
   type OrderStatus,
 } from '~/composables/useClienteDashboard'
+
+const { formatCurrency: _fmt } = useUserPreferences()
 
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
   PENDIENTE:   'Pendiente',
@@ -229,9 +232,7 @@ async function handleMarkPaid() {
   setTimeout(() => { transitioning.value = false }, 800)
 }
 
-function formatCurrency(v?: number) {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v ?? 0)
-}
+function formatCurrency(v?: number) { return _fmt.value(v ?? 0) }
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return ''

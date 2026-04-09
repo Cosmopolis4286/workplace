@@ -211,6 +211,9 @@ import {
   type PaymentMethod,
 } from '~/composables/useClienteDashboard'
 import type { Product } from '~/composables/useMenu'
+import { useUserPreferences } from '~/composables/useUserPreferences'
+
+const { formatCurrency: _fmt } = useUserPreferences()
 
 // ── Props & Emits ────────────────────────────────────────────────────────────
 
@@ -313,9 +316,7 @@ const computedTotal = computed(() =>
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatCurrency(v: number) {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v)
-}
+function formatCurrency(v: number) { return _fmt.value(v) }
 
 // ── Submit ───────────────────────────────────────────────────────────────────
 

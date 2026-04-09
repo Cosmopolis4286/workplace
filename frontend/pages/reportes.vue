@@ -247,9 +247,11 @@ import { PageHeader } from '~/components/ui/PageHeader.vue'
 import { DocumentChartBarIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
+import { useUserPreferences } from '~/composables/useUserPreferences'
 
 const config = useRuntimeConfig()
 const { getHeaders } = useAuth()
+const { formatCurrency: _fmt } = useUserPreferences()
 
 const loadingOrders = ref(false)
 const loadingExpenses = ref(false)
@@ -297,7 +299,7 @@ async function loadEmployeeStats() {
 
 function formatCurrency(value: number | undefined | null) {
   if (value === undefined || value === null) return '—'
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)
+  return _fmt.value(value)
 }
 
 function formatDate(iso: string) {

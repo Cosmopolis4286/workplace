@@ -46,11 +46,10 @@
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Moneda preferida</label>
               <select v-model="userPrefs.currency" class="input-field">
-                <option value="MXN">MXN — Peso Mexicano</option>
-                <option value="USD">USD — Dólar Estadounidense</option>
-                <option value="EUR">EUR — Euro</option>
-                <option value="COP">COP — Peso Colombiano</option>
-                <option value="ARS">ARS — Peso Argentino</option>
+                <option v-for="rate in activeRates" :key="rate.code" :value="rate.code">
+                  {{ rate.code }} — {{ rate.name }}
+                </option>
+                <option v-if="activeRates.length === 0" disabled value="">Cargando monedas...</option>
               </select>
             </div>
 
@@ -380,9 +379,10 @@
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Moneda</label>
               <select v-model="paymentForm.currency" class="input-field">
-                <option value="MXN">MXN — Peso Mexicano</option>
-                <option value="USD">USD — Dólar Estadounidense</option>
-                <option value="EUR">EUR — Euro</option>
+                <option v-for="rate in activeRates" :key="rate.code" :value="rate.code">
+                  {{ rate.code }} — {{ rate.name }}
+                </option>
+                <option v-if="activeRates.length === 0" disabled value="">Cargando monedas...</option>
               </select>
             </div>
             <div class="grid grid-cols-2 gap-4">
@@ -504,6 +504,7 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useSettings } from '~/composables/useSettings'
 import { useAuth } from '~/composables/useAuth'
+import { useUserPreferences } from '~/composables/useUserPreferences'
 
 const { user } = useAuth()
 const role = computed(() => user.value?.role ?? 'NORMAL')
@@ -519,6 +520,10 @@ const roleLabel = computed(() => {
   }
   return labels[role.value] ?? role.value
 })
+
+// ─── User preferences (singleton — shared with all formatCurrency callers) ────
+
+const { prefs: userPrefs, activeRates, fetchRates, savePreferences } = useUserPreferences()
 
 // ─── COMMERCE settings (backend) ─────────────────────────────────────────────
 
@@ -605,7 +610,6 @@ async function toggleAndSaveNotification(key: keyof typeof notifForm.value) {
 
 // ─── NORMAL / FREELANCER settings (localStorage only) ────────────────────────
 
-const LS_PREFS = 'user_preferences'
 const LS_NOTIFS = 'user_notifications'
 const LS_PRIVACY = 'user_privacy'
 
@@ -630,7 +634,7 @@ function lsSet(key: string, val: unknown) {
   if (process.client) localStorage.setItem(key, JSON.stringify(val))
 }
 
-const userPrefs = ref(lsGet(LS_PREFS, { language: 'es', currency: 'MXN', defaultSort: 'relevance', pageSize: 20 }))
+// userPrefs comes from useUserPreferences (singleton) — already declared above
 const userNotifs = ref(lsGet(LS_NOTIFS, { promotions: true, newProducts: true, priceAlerts: false, recommendations: true }))
 const userPrivacy = ref(lsGet(LS_PRIVACY, { shareActivity: false, personalizedAds: false, analyticsConsent: true }))
 
@@ -656,7 +660,7 @@ const privacyItems = [
 ]
 
 function saveUserPrefs() {
-  lsSet(LS_PREFS, userPrefs.value)
+  savePreferences({ ...userPrefs.value })
   showUserToast('Preferencias guardadas')
 }
 
@@ -685,6 +689,7 @@ function clearCache() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
+  await fetchRates()
   if (isCommerce.value) {
     await loadSettings()
     syncForms()

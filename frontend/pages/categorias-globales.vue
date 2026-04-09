@@ -1,5 +1,16 @@
 <template>
   <div class="p-6">
+    <!-- Toast -->
+    <Teleport to="body">
+      <Transition name="toast">
+        <div v-if="toast" class="fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium"
+          :class="toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'">
+          <span>{{ toast.type === 'success' ? '✓' : '✕' }}</span>
+          {{ toast.msg }}
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- Header -->
     <div class="mb-6">
       <h1 class="text-3xl font-bold text-gray-900 mb-2">🌍 Categorías Globales</h1>
@@ -46,8 +57,25 @@
       </div>
     </div>
 
+    <!-- Loading skeleton -->
+    <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div v-for="i in 6" :key="i" class="bg-white rounded-lg shadow-md p-6 border border-gray-200 animate-pulse">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 bg-gray-200 rounded-lg flex-shrink-0" />
+          <div class="flex-1 space-y-2">
+            <div class="h-4 bg-gray-200 rounded w-2/3" />
+            <div class="h-3 bg-gray-200 rounded w-1/3" />
+          </div>
+        </div>
+        <div class="space-y-2">
+          <div class="h-3 bg-gray-200 rounded" />
+          <div class="h-3 bg-gray-200 rounded w-3/4" />
+        </div>
+      </div>
+    </div>
+
     <!-- Grid de Categorías -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <div
         v-for="category in filteredCategories"
         :key="category.id"
@@ -145,7 +173,7 @@
     </div>
 
     <!-- Estado vacío -->
-    <div v-if="filteredCategories.length === 0" class="text-center py-12">
+    <div v-if="!loading && filteredCategories.length === 0" class="text-center py-12">
       <span class="text-6xl mb-4 block">📁</span>
       <h3 class="text-xl font-semibold text-gray-900 mb-2">
         {{ searchQuery ? 'No se encontraron categorías' : 'No hay categorías globales' }}
@@ -342,15 +370,19 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { PageHeader } from '~/components/ui/PageHeader.vue'
-import { ClipboardDocumentListIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
-import { useApi } from '~/composables/useApi'
-import { useAlert } from '~/composables/useAlert'
 
-// Composables
-const auth = useAuthStore()
-const { showAlert } = useAlert()
+definePageMeta({ middleware: 'auth' })
+
+const { get, post, put, del } = useApi()
+
+// Toast inline
+const toast = ref<{ msg: string; type: 'success' | 'error' } | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+function showAlert(msg: string, type: 'success' | 'error' = 'success') {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { msg, type }
+  toastTimer = setTimeout(() => { toast.value = null }, 3000)
+}
 
 // Estado
 const categories = ref([])
@@ -397,12 +429,12 @@ const filteredCategories = computed(() => {
 const fetchCategories = async () => {
   try {
     loading.value = true
-    const { get } = useApi()
-    const response = await get('/api/categories-global')
+    const response = await get<{ data: any[]; meta: any }>('/categories-global')
     categories.value = response.data || []
-    loading.value = false
-  } catch (error) {
-    console.error('Error fetching categories:', error)
+  } catch (e: any) {
+    console.error('Error fetching categories:', e)
+    showAlert(e?.message || 'Error al cargar categorías', 'error')
+  } finally {
     loading.value = false
   }
 }
@@ -410,36 +442,28 @@ const fetchCategories = async () => {
 const saveCategory = async () => {
   try {
     const data = { ...categoryForm.value }
-    
     if (editingCategory.value) {
-      const { put } = useApi()
-      await put(`/api/categories-global/${editingCategory.value.id}`, data)
+      await put(`/categories-global/${editingCategory.value.id}`, data)
       showAlert('Categoría actualizada', 'success')
     } else {
-      const { post } = useApi()
-      await post('/api/categories-global', data)
+      await post('/categories-global', data)
       showAlert('Categoría creada', 'success')
     }
-    
     cancelCategoryForm()
     await fetchCategories()
-  } catch (error) {
-    console.error('Error saving category:', error)
-    showAlert('Error al guardar categoría', 'error')
+  } catch (e: any) {
+    showAlert(e?.message || 'Error al guardar categoría', 'error')
   }
 }
 
-const deleteCategory = async (category) => {
+const deleteCategory = async (category: any) => {
   if (!confirm(`¿Estás seguro de eliminar la categoría "${category.name}"?`)) return
-  
   try {
-    const { del } = useApi()
-    await del(`/api/categories-global/${category.id}`)
+    await del(`/categories-global/${category.id}`)
     showAlert('Categoría eliminada', 'success')
     await fetchCategories()
-  } catch (error) {
-    console.error('Error deleting category:', error)
-    showAlert('Error al eliminar categoría', 'error')
+  } catch (e: any) {
+    showAlert(e?.message || 'Error al eliminar categoría', 'error')
   }
 }
 
@@ -469,36 +493,28 @@ const cancelCategoryForm = () => {
 const saveSubcategory = async () => {
   try {
     const data = { ...subcategoryForm.value }
-    
     if (editingSubcategory.value) {
-      const { put } = useApi()
-      await put(`/api/categories-global/subcategories/${editingSubcategory.value.id}`, data)
+      await put(`/categories-global/subcategories/${editingSubcategory.value.id}`, data)
       showAlert('Subcategoría actualizada', 'success')
     } else {
-      const { post } = useApi()
-      await post(`/api/categories-global/${selectedCategory.value.id}/subcategories`, data)
+      await post(`/categories-global/${selectedCategory.value.id}/subcategories`, data)
       showAlert('Subcategoría creada', 'success')
     }
-    
     cancelSubcategoryForm()
     await fetchCategories()
-  } catch (error) {
-    console.error('Error saving subcategory:', error)
-    showAlert('Error al guardar subcategoría', 'error')
+  } catch (e: any) {
+    showAlert(e?.message || 'Error al guardar subcategoría', 'error')
   }
 }
 
-const deleteSubcategory = async (subcategory) => {
+const deleteSubcategory = async (subcategory: any) => {
   if (!confirm(`¿Estás seguro de eliminar la subcategoría "${subcategory.name}"?`)) return
-  
   try {
-    const { del } = useApi()
-    await del(`/api/categories-global/subcategories/${subcategory.id}`)
+    await del(`/categories-global/subcategories/${subcategory.id}`)
     showAlert('Subcategoría eliminada', 'success')
     await fetchCategories()
-  } catch (error) {
-    console.error('Error deleting subcategory:', error)
-    showAlert('Error al eliminar subcategoría', 'error')
+  } catch (e: any) {
+    showAlert(e?.message || 'Error al eliminar subcategoría', 'error')
   }
 }
 
@@ -524,21 +540,18 @@ const cancelSubcategoryForm = () => {
 
 const exportCategories = async () => {
   try {
-    const { get } = useApi()
-    const csvData = await get('/api/categories-global/export/csv')
+    const csvData = await get('/categories-global/export/csv')
     
-    const blob = new Blob([csvData], { type: 'text/csv' })
+    const blob = new Blob([csvData as string], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'categorias-globales.csv'
     a.click()
     window.URL.revokeObjectURL(url)
-    
     showAlert('Categorías exportadas', 'success')
-  } catch (error) {
-    console.error('Error exporting categories:', error)
-    showAlert('Error al exportar categorías', 'error')
+  } catch (e: any) {
+    showAlert(e?.message || 'Error al exportar categorías', 'error')
   }
 }
 
@@ -568,19 +581,13 @@ const importCategories = async () => {
       }
     }
     
-    const formData = new FormData()
-    formData.append('categories', JSON.stringify(categories))
-    
-    const { post } = useApi()
-    await post('/api/categories-global/import/csv', formData)
-    
+    await post('/categories-global/import/csv', { categories })
     showAlert('Categorías importadas', 'success')
     showImportModal.value = false
     selectedFile.value = null
     await fetchCategories()
-  } catch (error) {
-    console.error('Error importing categories:', error)
-    showAlert('Error al importar categorías', 'error')
+  } catch (e: any) {
+    showAlert(e?.message || 'Error al importar categorías', 'error')
   }
 }
 
@@ -589,3 +596,8 @@ onMounted(() => {
   fetchCategories()
 })
 </script>
+
+<style scoped>
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(1rem); }
+</style>
