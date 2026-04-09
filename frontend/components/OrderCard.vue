@@ -88,9 +88,11 @@ import {
   type OrderStatus,
 } from '~/composables/useClienteDashboard'
 import { useExchangeRates } from '~/composables/useExchangeRates'
+import { useUserPreferences } from '~/composables/useUserPreferences'
 
 const props = defineProps<{ order: Order }>()
 const { defaultRate } = useExchangeRates()
+const { formatCurrency: _fmt } = useUserPreferences()
 
 const emit = defineEmits<{
   'view-details': [order: Order]
@@ -101,9 +103,7 @@ function handleAction(status: OrderStatus) {
   emit('status-change', props.order.id, status)
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)
-}
+function formatCurrency(value: number) { return _fmt.value(value) }
 
 function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })

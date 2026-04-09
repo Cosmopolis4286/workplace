@@ -275,11 +275,10 @@
 import { ref, reactive, onMounted } from 'vue'
 import { TagIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useAuth } from '~/composables/useAuth'
 
 definePageMeta({ middleware: 'auth' })
 
-const { get } = useApi()
+const { get, post, put, del } = useApi()
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
