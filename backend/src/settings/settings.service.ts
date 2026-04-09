@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   UpdateRestaurantInfoDto,
@@ -53,6 +53,17 @@ export class SettingsService {
   // ─── Payment settings ───────────────────────────────────────────────────────
 
   async updatePaymentSettings(userId: string, dto: UpdatePaymentSettingsDto) {
+    if (dto.currency) {
+      const rate = await this.prisma.exchangeRate.findUnique({
+        where: { code: dto.currency.toUpperCase() },
+      });
+      if (!rate || !rate.isActive) {
+        throw new BadRequestException(
+          `La moneda "${dto.currency}" no está disponible`
+        );
+      }
+      dto.currency = dto.currency.toUpperCase();
+    }
     const restaurant = await this.getRestaurant(userId);
     await this.getOrCreateSettings(restaurant.id);
     return this.prisma.restaurantSettings.update({
