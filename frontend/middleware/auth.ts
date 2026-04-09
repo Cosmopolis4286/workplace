@@ -4,7 +4,7 @@ import { useAuth } from "~/composables/useAuth"
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 
 // Routes only accessible to SUPERADMIN or ADMIN
-const adminOnlyRoutes: string[] = ['/usuarios', '/permisos', '/auditoria', '/logs', '/planes', '/tasas-cambio']
+const adminOnlyRoutes: string[] = ['/usuarios', '/categorias', '/permisos', '/auditoria', '/logs', '/planes', '/tasas-cambio']
 
 // Routes only for COMMERCE and FREELANCER (NOT SuperAdmin/Admin) - menu, inventory, services, orders dashboard
 const commerceOnlyRoutes: string[] = ['/menu', '/inventario', '/servicios', '/cliente-dashboard']

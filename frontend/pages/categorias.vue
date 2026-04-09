@@ -1,0 +1,883 @@
+<template>
+  <div>
+    <!-- Toast -->
+    <Teleport to="body">
+      <Transition name="toast">
+        <div v-if="toast" class="fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium"
+          :class="toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'">
+          <span>{{ toast.type === 'success' ? '✓' : '✕' }}</span>
+          {{ toast.msg }}
+        </div>
+      </Transition>
+    </Teleport>
+
+    <PageHeader
+      title="Categorías"
+      description="Gestiona las categorías de usuarios y del marketplace"
+      :icon="TagIcon"
+    />
+
+    <!-- Tabs -->
+    <div class="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
+      <button
+        v-if="can('users:view')"
+        @click="activeTab = 'usuarios'"
+        class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :class="activeTab === 'usuarios' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+      >
+        🏷️ Usuarios
+      </button>
+      <button
+        v-if="can('categories_global:view')"
+        @click="activeTab = 'globales'"
+        class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :class="activeTab === 'globales' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+      >
+        🌍 Marketplace
+      </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: CATEGORÍAS DE USUARIOS
+    ══════════════════════════════════════════════════════ -->
+    <div v-if="activeTab === 'usuarios'">
+      <!-- Error -->
+      <div v-if="uError" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-3">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        {{ uError }}
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Panel izquierdo: Categorías -->
+        <div class="card-premium overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-bold text-gray-800">Categorías</h2>
+            <button @click="openCatForm()" class="flex items-center gap-1.5 px-3 py-1.5 bg-workplace-red text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Nueva
+            </button>
+          </div>
+
+          <div v-if="uLoading" class="divide-y divide-gray-50">
+            <div v-for="i in 5" :key="i" class="px-5 py-4 animate-pulse flex gap-3">
+              <div class="w-8 h-8 bg-gray-200 rounded-lg flex-shrink-0" />
+              <div class="flex-1 space-y-2">
+                <div class="h-4 bg-gray-200 rounded w-2/3" />
+                <div class="h-3 bg-gray-200 rounded w-1/3" />
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="uCategories.length === 0" class="px-5 py-10 text-center text-gray-400 text-sm">
+            Sin categorías. Crea la primera.
+          </div>
+
+          <div v-else class="divide-y divide-gray-50 max-h-[60vh] overflow-y-auto">
+            <div
+              v-for="cat in uCategories"
+              :key="cat.id"
+              class="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4"
+              :class="uSelectedCat?.id === cat.id ? 'bg-red-50 border-l-workplace-red' : 'border-l-transparent'"
+              @click="uSelectedCat = cat"
+            >
+              <span class="text-2xl flex-shrink-0 w-9 text-center">{{ cat.icon || '📁' }}</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-800 truncate">{{ cat.name }}</div>
+                <div class="text-xs text-gray-400">
+                  {{ cat.subcategories.length }} subcategoría{{ cat.subcategories.length !== 1 ? 's' : '' }}
+                  · {{ cat._count.users }} usuario{{ cat._count.users !== 1 ? 's' : '' }}
+                </div>
+              </div>
+              <div class="flex gap-1 flex-shrink-0">
+                <button @click.stop="openCatForm(cat)" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+                <button @click.stop="confirmDeleteCat(cat)" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel derecho: Subcategorías -->
+        <div class="card-premium overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 class="text-sm font-bold text-gray-800">
+              Subcategorías
+              <span v-if="uSelectedCat" class="font-normal text-gray-400 ml-1">— {{ uSelectedCat.name }}</span>
+            </h2>
+            <button v-if="uSelectedCat" @click="openSubForm()" class="flex items-center gap-1.5 px-3 py-1.5 bg-workplace-red text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Nueva
+            </button>
+          </div>
+
+          <div v-if="!uSelectedCat" class="px-5 py-16 text-center text-gray-400 text-sm">
+            <svg class="w-10 h-10 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            Selecciona una categoría para ver sus subcategorías
+          </div>
+
+          <div v-else-if="uSelectedCat.subcategories.length === 0" class="px-5 py-10 text-center text-gray-400 text-sm">
+            Sin subcategorías. Crea la primera.
+          </div>
+
+          <div v-else class="divide-y divide-gray-50 max-h-[60vh] overflow-y-auto">
+            <div v-for="sub in uSelectedCat.subcategories" :key="sub.id" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
+              <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+              <span class="flex-1 text-sm text-gray-700">{{ sub.name }}</span>
+              <div class="flex gap-1">
+                <button @click="openSubForm(sub)" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+                <button @click="confirmDeleteSub(sub)" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB: CATEGORÍAS GLOBALES (MARKETPLACE)
+    ══════════════════════════════════════════════════════ -->
+    <div v-if="activeTab === 'globales'">
+      <!-- Toolbar -->
+      <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
+        <div class="flex gap-2">
+          <button @click="gShowCatModal = true" class="flex items-center gap-2 px-4 py-2 bg-workplace-red text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Nueva Categoría
+          </button>
+          <button @click="exportGlobal" class="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Exportar CSV
+          </button>
+          <button @click="gShowImport = true" class="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12"/>
+            </svg>
+            Importar CSV
+          </button>
+        </div>
+        <div class="relative">
+          <input v-model="gSearch" type="text" placeholder="Buscar..."
+            class="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red w-56"/>
+          <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Loading skeleton -->
+      <div v-if="gLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div v-for="i in 6" :key="i" class="card-premium p-5 animate-pulse">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 bg-gray-200 rounded-xl flex-shrink-0" />
+            <div class="flex-1 space-y-2">
+              <div class="h-4 bg-gray-200 rounded w-2/3" />
+              <div class="h-3 bg-gray-200 rounded w-1/3" />
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="h-3 bg-gray-200 rounded" />
+            <div class="h-3 bg-gray-200 rounded w-3/4" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="gFiltered.length === 0" class="text-center py-16">
+        <span class="text-5xl block mb-3">📁</span>
+        <p class="text-gray-500 text-sm">{{ gSearch ? 'Sin resultados para la búsqueda' : 'No hay categorías globales. Crea la primera.' }}</p>
+      </div>
+
+      <!-- Grid -->
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div v-for="cat in gFiltered" :key="cat.id" class="card-premium p-5 hover:shadow-md transition-shadow">
+          <!-- Header -->
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                :style="{ backgroundColor: cat.color + '22' }">
+                {{ cat.icon || '📁' }}
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-900 text-sm">{{ cat.name }}</h3>
+                <p class="text-xs text-gray-400">{{ cat.subcategories?.length || 0 }} subcategorías</p>
+              </div>
+            </div>
+            <div class="flex gap-1 flex-shrink-0">
+              <button @click="gEditCat(cat)" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+              </button>
+              <button @click="gConfirmDeleteCat(cat)" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Descripción -->
+          <p v-if="cat.description" class="text-xs text-gray-500 mb-3 line-clamp-2">{{ cat.description }}</p>
+
+          <!-- Color dot -->
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: cat.color }"></span>
+            <span class="text-xs text-gray-400 font-mono">{{ cat.color }}</span>
+          </div>
+
+          <!-- Subcategorías preview -->
+          <div v-if="cat.subcategories?.length > 0" class="space-y-1 mb-3">
+            <div v-for="sub in cat.subcategories.slice(0, 3)" :key="sub.id"
+              class="flex items-center justify-between px-2 py-1 bg-gray-50 rounded-lg group">
+              <span class="text-xs text-gray-600 truncate">{{ sub.name }}</span>
+              <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button @click="gEditSub(cat, sub)" class="p-0.5 text-gray-400 hover:text-blue-600 rounded transition-colors">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+                <button @click="gConfirmDeleteSub(sub)" class="p-0.5 text-gray-400 hover:text-red-600 rounded transition-colors">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <p v-if="cat.subcategories.length > 3" class="text-xs text-gray-400 text-center">+{{ cat.subcategories.length - 3 }} más</p>
+          </div>
+
+          <!-- Add subcategory -->
+          <button @click="gOpenAddSub(cat)"
+            class="w-full py-1.5 border border-dashed border-gray-200 rounded-lg text-xs text-gray-400 hover:border-workplace-red hover:text-workplace-red transition-colors">
+            + Agregar subcategoría
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         MODALES COMPARTIDOS — USUARIOS
+    ══════════════════════════════════════════════════════ -->
+
+    <!-- Modal categoría usuario -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="catModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" @click.self="catModal.show = false">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 class="font-bold text-gray-900 text-sm">{{ catModal.editing ? 'Editar categoría' : 'Nueva categoría' }}</h3>
+              <button @click="catModal.show = false"><XMarkIcon class="w-5 h-5 text-gray-400"/></button>
+            </div>
+            <form @submit.prevent="saveCat" class="p-5 space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
+                <input v-model="catModal.name" required type="text" autofocus
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Ícono (emoji)</label>
+                <div class="flex gap-2">
+                  <input v-model="catModal.icon" type="text" placeholder="🍔" maxlength="4"
+                    class="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-xl focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
+                  <div class="flex flex-wrap gap-1.5 items-center">
+                    <button v-for="e in EMOJI_SUGGESTIONS" :key="e" type="button" @click="catModal.icon = e"
+                      class="text-xl hover:scale-125 transition-transform"
+                      :class="catModal.icon === e ? 'ring-2 ring-workplace-red rounded' : ''">{{ e }}</button>
+                  </div>
+                </div>
+              </div>
+              <div v-if="catModal.error" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ catModal.error }}</div>
+              <div class="flex gap-3">
+                <button type="button" @click="catModal.show = false" class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+                <button type="submit" :disabled="catModal.saving" class="flex-1 py-2 bg-workplace-red text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+                  {{ catModal.saving ? 'Guardando...' : (catModal.editing ? 'Guardar' : 'Crear') }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Modal subcategoría usuario -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="subModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" @click.self="subModal.show = false">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 class="font-bold text-gray-900 text-sm">
+                {{ subModal.editing ? 'Editar subcategoría' : 'Nueva subcategoría' }}
+                <span class="font-normal text-gray-400 ml-1">en {{ uSelectedCat?.name }}</span>
+              </h3>
+              <button @click="subModal.show = false"><XMarkIcon class="w-5 h-5 text-gray-400"/></button>
+            </div>
+            <form @submit.prevent="saveSub" class="p-5 space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
+                <input v-model="subModal.name" required type="text" autofocus
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
+              </div>
+              <div v-if="subModal.error" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ subModal.error }}</div>
+              <div class="flex gap-3">
+                <button type="button" @click="subModal.show = false" class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+                <button type="submit" :disabled="subModal.saving" class="flex-1 py-2 bg-workplace-red text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+                  {{ subModal.saving ? 'Guardando...' : (subModal.editing ? 'Guardar' : 'Crear') }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ══════════════════════════════════════════════════════
+         MODALES COMPARTIDOS — GLOBALES
+    ══════════════════════════════════════════════════════ -->
+
+    <!-- Modal categoría global -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="gShowCatModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" @click.self="gCloseCatModal">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 class="font-bold text-gray-900 text-sm">{{ gEditingCat ? 'Editar categoría global' : 'Nueva categoría global' }}</h3>
+              <button @click="gCloseCatModal"><XMarkIcon class="w-5 h-5 text-gray-400"/></button>
+            </div>
+            <form @submit.prevent="gSaveCat" class="p-5 space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
+                <input v-model="gCatForm.name" required type="text" autofocus
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+                <textarea v-model="gCatForm.description" rows="2"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red resize-none"></textarea>
+              </div>
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Ícono</label>
+                  <input v-model="gCatForm.icon" type="text" placeholder="📁" maxlength="4"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-center text-xl focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
+                </div>
+                <div class="flex-1">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Color</label>
+                  <input v-model="gCatForm.color" type="color"
+                    class="w-full h-10 border border-gray-200 rounded-xl cursor-pointer"/>
+                </div>
+                <div class="flex-1">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Orden</label>
+                  <input v-model.number="gCatForm.sortOrder" type="number" min="0"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
+                </div>
+              </div>
+              <div v-if="gCatError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ gCatError }}</div>
+              <div class="flex gap-3">
+                <button type="button" @click="gCloseCatModal" class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+                <button type="submit" :disabled="gCatSaving" class="flex-1 py-2 bg-workplace-red text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+                  {{ gCatSaving ? 'Guardando...' : (gEditingCat ? 'Guardar' : 'Crear') }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Modal subcategoría global -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="gShowSubModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" @click.self="gCloseSubModal">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 class="font-bold text-gray-900 text-sm">
+                {{ gEditingSub ? 'Editar subcategoría' : 'Nueva subcategoría' }}
+                <span class="font-normal text-gray-400 ml-1">en {{ gSubParentName }}</span>
+              </h3>
+              <button @click="gCloseSubModal"><XMarkIcon class="w-5 h-5 text-gray-400"/></button>
+            </div>
+            <form @submit.prevent="gSaveSub" class="p-5 space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
+                <input v-model="gSubForm.name" required type="text" autofocus
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+                <input v-model="gSubForm.description" type="text"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
+              </div>
+              <div v-if="gSubError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ gSubError }}</div>
+              <div class="flex gap-3">
+                <button type="button" @click="gCloseSubModal" class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+                <button type="submit" :disabled="gSubSaving" class="flex-1 py-2 bg-workplace-red text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+                  {{ gSubSaving ? 'Guardando...' : (gEditingSub ? 'Guardar' : 'Crear') }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Modal importar CSV global -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="gShowImport" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" @click.self="gShowImport = false">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 class="font-bold text-gray-900 text-sm">Importar Categorías</h3>
+              <button @click="gShowImport = false"><XMarkIcon class="w-5 h-5 text-gray-400"/></button>
+            </div>
+            <div class="p-5 space-y-4">
+              <p class="text-xs text-gray-500">CSV con columnas: <code class="bg-gray-100 px-1 rounded">name,description,icon,color,sortOrder</code></p>
+              <input type="file" accept=".csv" @change="(e: any) => gImportFile = e.target.files[0]" class="w-full text-sm"/>
+              <div class="flex gap-3">
+                <button @click="gShowImport = false" class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+                <button @click="gImport" :disabled="!gImportFile" class="flex-1 py-2 bg-workplace-red text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">Importar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Modal confirmar eliminación (compartido) -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="deleteModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" @click.self="deleteModal.show = false">
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-bold text-gray-800 mb-1">¿Eliminar {{ deleteModal.label }}?</h3>
+            <p class="text-sm text-gray-500 mb-5">Se eliminará <strong>{{ deleteModal.name }}</strong>. Esta acción no se puede deshacer.</p>
+            <div v-if="deleteModal.error" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ deleteModal.error }}</div>
+            <div class="flex gap-3">
+              <button @click="deleteModal.show = false" class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+              <button @click="doDelete" :disabled="deleteModal.saving" class="flex-1 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+                {{ deleteModal.saving ? 'Eliminando...' : 'Eliminar' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+import { TagIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import PageHeader from '~/components/ui/PageHeader.vue'
+
+definePageMeta({ middleware: 'auth' })
+
+const { get, post, put, del } = useApi()
+const { can } = usePermissions()
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+const toast = ref<{ msg: string; type: 'success' | 'error' } | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+function showToast(msg: string, type: 'success' | 'error' = 'success') {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { msg, type }
+  toastTimer = setTimeout(() => { toast.value = null }, 3000)
+}
+
+// ─── Tab ──────────────────────────────────────────────────────────────────────
+
+const activeTab = ref<'usuarios' | 'globales'>('usuarios')
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface USub { id: string; name: string }
+interface UCat { id: string; name: string; icon?: string; subcategories: USub[]; _count: { users: number } }
+
+interface GSub { id: string; name: string; description?: string }
+interface GCat { id: string; name: string; icon?: string; color: string; description?: string; sortOrder?: number; subcategories: GSub[] }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// USUARIOS TAB
+// ══════════════════════════════════════════════════════════════════════════════
+
+const uLoading    = ref(false)
+const uError      = ref<string | null>(null)
+const uCategories = ref<UCat[]>([])
+const uSelectedCat = ref<UCat | null>(null)
+
+const EMOJI_SUGGESTIONS = ['🍔','🍕','☕','🥗','🍰','💻','📱','🛍️','👗','💄','🏥','💊','📚','🎬','🎵','🏠','🚗','💰','🔧','⚖️']
+
+async function loadUsers() {
+  uLoading.value = true
+  uError.value = null
+  try {
+    uCategories.value = await get<UCat[]>('/users/categories')
+    if (uSelectedCat.value) {
+      uSelectedCat.value = uCategories.value.find(c => c.id === uSelectedCat.value!.id) ?? null
+    }
+  } catch (e: any) {
+    uError.value = e?.message || 'Error al cargar categorías'
+  } finally {
+    uLoading.value = false
+  }
+}
+
+// Category modal
+const catModal = reactive({
+  show: false, editing: null as UCat | null,
+  name: '', icon: '', saving: false, error: null as string | null,
+})
+
+function openCatForm(cat?: UCat) {
+  catModal.editing = cat ?? null
+  catModal.name    = cat?.name ?? ''
+  catModal.icon    = cat?.icon ?? ''
+  catModal.error   = null
+  catModal.show    = true
+}
+
+async function saveCat() {
+  catModal.saving = true
+  catModal.error  = null
+  try {
+    const body = { name: catModal.name.trim(), icon: catModal.icon.trim() || undefined }
+    if (catModal.editing) {
+      await put(`/users/categories/${catModal.editing.id}`, body)
+    } else {
+      await post('/users/categories', body)
+    }
+    catModal.show = false
+    showToast(catModal.editing ? 'Categoría actualizada' : 'Categoría creada')
+    await loadUsers()
+  } catch (e: any) {
+    catModal.error = e?.message || 'Error al guardar'
+  } finally {
+    catModal.saving = false
+  }
+}
+
+// Subcategory modal
+const subModal = reactive({
+  show: false, editing: null as USub | null,
+  name: '', saving: false, error: null as string | null,
+})
+
+function openSubForm(sub?: USub) {
+  subModal.editing = sub ?? null
+  subModal.name    = sub?.name ?? ''
+  subModal.error   = null
+  subModal.show    = true
+}
+
+async function saveSub() {
+  if (!uSelectedCat.value) return
+  subModal.saving = true
+  subModal.error  = null
+  try {
+    const body = { name: subModal.name.trim() }
+    if (subModal.editing) {
+      await put(`/users/subcategories/${subModal.editing.id}`, body)
+    } else {
+      await post(`/users/categories/${uSelectedCat.value.id}/subcategories`, body)
+    }
+    subModal.show = false
+    showToast(subModal.editing ? 'Subcategoría actualizada' : 'Subcategoría creada')
+    await loadUsers()
+  } catch (e: any) {
+    subModal.error = e?.message || 'Error al guardar'
+  } finally {
+    subModal.saving = false
+  }
+}
+
+// Delete modal (shared)
+const deleteModal = reactive({
+  show: false, label: '', name: '', saving: false,
+  error: null as string | null,
+  handler: null as (() => Promise<void>) | null,
+})
+
+function confirmDeleteCat(cat: UCat) {
+  deleteModal.label   = 'categoría'
+  deleteModal.name    = cat.name
+  deleteModal.error   = null
+  deleteModal.handler = async () => {
+    await del(`/users/categories/${cat.id}`)
+    if (uSelectedCat.value?.id === cat.id) uSelectedCat.value = null
+    await loadUsers()
+  }
+  deleteModal.show = true
+}
+
+function confirmDeleteSub(sub: USub) {
+  deleteModal.label   = 'subcategoría'
+  deleteModal.name    = sub.name
+  deleteModal.error   = null
+  deleteModal.handler = async () => {
+    await del(`/users/subcategories/${sub.id}`)
+    await loadUsers()
+  }
+  deleteModal.show = true
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GLOBALES TAB
+// ══════════════════════════════════════════════════════════════════════════════
+
+const gLoading = ref(false)
+const gCategories = ref<GCat[]>([])
+const gSearch = ref('')
+
+const gFiltered = computed(() => {
+  if (!gSearch.value.trim()) return gCategories.value
+  const q = gSearch.value.toLowerCase()
+  return gCategories.value.filter(c =>
+    c.name.toLowerCase().includes(q) ||
+    c.description?.toLowerCase().includes(q) ||
+    c.subcategories?.some(s => s.name.toLowerCase().includes(q))
+  )
+})
+
+async function loadGlobal() {
+  gLoading.value = true
+  try {
+    const res = await get<{ data: GCat[] }>('/categories-global')
+    gCategories.value = res.data || []
+  } catch (e: any) {
+    showToast(e?.message || 'Error al cargar categorías globales', 'error')
+  } finally {
+    gLoading.value = false
+  }
+}
+
+// Category form
+const gShowCatModal = ref(false)
+const gEditingCat   = ref<GCat | null>(null)
+const gCatSaving    = ref(false)
+const gCatError     = ref<string | null>(null)
+const gCatForm      = reactive({ name: '', description: '', icon: '📁', color: '#6b7280', sortOrder: 0 })
+
+function gEditCat(cat: GCat) {
+  gEditingCat.value    = cat
+  gCatForm.name        = cat.name
+  gCatForm.description = cat.description || ''
+  gCatForm.icon        = cat.icon || '📁'
+  gCatForm.color       = cat.color || '#6b7280'
+  gCatForm.sortOrder   = cat.sortOrder || 0
+  gCatError.value      = null
+  gShowCatModal.value  = true
+}
+
+function gCloseCatModal() {
+  gShowCatModal.value  = false
+  gEditingCat.value    = null
+  gCatError.value      = null
+  Object.assign(gCatForm, { name: '', description: '', icon: '📁', color: '#6b7280', sortOrder: 0 })
+}
+
+async function gSaveCat() {
+  gCatSaving.value = true
+  gCatError.value  = null
+  try {
+    if (gEditingCat.value) {
+      await put(`/categories-global/${gEditingCat.value.id}`, { ...gCatForm })
+      showToast('Categoría actualizada')
+    } else {
+      await post('/categories-global', { ...gCatForm })
+      showToast('Categoría creada')
+    }
+    gCloseCatModal()
+    await loadGlobal()
+  } catch (e: any) {
+    gCatError.value = e?.message || 'Error al guardar'
+  } finally {
+    gCatSaving.value = false
+  }
+}
+
+function gConfirmDeleteCat(cat: GCat) {
+  deleteModal.label   = 'categoría global'
+  deleteModal.name    = cat.name
+  deleteModal.error   = null
+  deleteModal.handler = async () => {
+    await del(`/categories-global/${cat.id}`)
+    await loadGlobal()
+  }
+  deleteModal.show = true
+}
+
+// Subcategory form
+const gShowSubModal  = ref(false)
+const gEditingSub    = ref<GSub | null>(null)
+const gSubParentId   = ref('')
+const gSubParentName = ref('')
+const gSubSaving     = ref(false)
+const gSubError      = ref<string | null>(null)
+const gSubForm       = reactive({ name: '', description: '' })
+
+function gOpenAddSub(cat: GCat) {
+  gEditingSub.value    = null
+  gSubParentId.value   = cat.id
+  gSubParentName.value = cat.name
+  gSubForm.name        = ''
+  gSubForm.description = ''
+  gSubError.value      = null
+  gShowSubModal.value  = true
+}
+
+function gEditSub(cat: GCat, sub: GSub) {
+  gEditingSub.value    = sub
+  gSubParentId.value   = cat.id
+  gSubParentName.value = cat.name
+  gSubForm.name        = sub.name
+  gSubForm.description = sub.description || ''
+  gSubError.value      = null
+  gShowSubModal.value  = true
+}
+
+function gCloseSubModal() {
+  gShowSubModal.value  = false
+  gEditingSub.value    = null
+  gSubError.value      = null
+  gSubForm.name        = ''
+  gSubForm.description = ''
+}
+
+async function gSaveSub() {
+  gSubSaving.value = true
+  gSubError.value  = null
+  try {
+    if (gEditingSub.value) {
+      await put(`/categories-global/subcategories/${gEditingSub.value.id}`, { ...gSubForm })
+      showToast('Subcategoría actualizada')
+    } else {
+      await post(`/categories-global/${gSubParentId.value}/subcategories`, { ...gSubForm })
+      showToast('Subcategoría creada')
+    }
+    gCloseSubModal()
+    await loadGlobal()
+  } catch (e: any) {
+    gSubError.value = e?.message || 'Error al guardar'
+  } finally {
+    gSubSaving.value = false
+  }
+}
+
+function gConfirmDeleteSub(sub: GSub) {
+  deleteModal.label   = 'subcategoría global'
+  deleteModal.name    = sub.name
+  deleteModal.error   = null
+  deleteModal.handler = async () => {
+    await del(`/categories-global/subcategories/${sub.id}`)
+    await loadGlobal()
+  }
+  deleteModal.show = true
+}
+
+// Export / Import
+async function exportGlobal() {
+  try {
+    const csv = await get<string>('/categories-global/export/csv')
+    const a   = document.createElement('a')
+    a.href    = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    a.download = 'categorias-globales.csv'
+    a.click()
+    URL.revokeObjectURL(a.href)
+    showToast('Categorías exportadas')
+  } catch (e: any) {
+    showToast(e?.message || 'Error al exportar', 'error')
+  }
+}
+
+const gShowImport  = ref(false)
+const gImportFile  = ref<File | null>(null)
+
+async function gImport() {
+  if (!gImportFile.value) return
+  try {
+    const text  = await gImportFile.value.text()
+    const lines = text.split('\n').filter(l => l.trim())
+    const rows  = lines.slice(1).map(l => {
+      const v = l.split(',')
+      return { name: v[0]?.trim(), description: v[1]?.trim(), icon: v[2]?.trim() || '📁', color: v[3]?.trim() || '#6b7280', sortOrder: parseInt(v[4]) || 0 }
+    }).filter(r => r.name)
+    await post('/categories-global/import/csv', { categories: rows })
+    showToast(`${rows.length} categorías importadas`)
+    gShowImport.value = false
+    gImportFile.value = null
+    await loadGlobal()
+  } catch (e: any) {
+    showToast(e?.message || 'Error al importar', 'error')
+  }
+}
+
+// ─── Delete modal shared handler ──────────────────────────────────────────────
+
+async function doDelete() {
+  if (!deleteModal.handler) return
+  deleteModal.saving = true
+  deleteModal.error  = null
+  try {
+    await deleteModal.handler()
+    showToast('Eliminado correctamente')
+    deleteModal.show = false
+  } catch (e: any) {
+    deleteModal.error = e?.message || 'Error al eliminar'
+  } finally {
+    deleteModal.saving = false
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+onMounted(async () => {
+  // Load the tab the user has permission for, defaulting to 'usuarios'
+  if (!can('users:view') && can('categories_global:view')) {
+    activeTab.value = 'globales'
+  }
+  await Promise.all([
+    can('users:view') ? loadUsers() : Promise.resolve(),
+    can('categories_global:view') ? loadGlobal() : Promise.resolve(),
+  ])
+})
+</script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(1rem); }
+</style>

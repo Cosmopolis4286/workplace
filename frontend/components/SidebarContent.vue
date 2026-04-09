@@ -96,7 +96,7 @@
           <svg class="mr-3 h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
           Usuarios
         </NuxtLink>
-        <NuxtLink v-if="can('users:view')" to="/categorias-usuarios" @click="$emit('navigate')" class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200" :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/categorias-usuarios' }">
+        <NuxtLink v-if="can('users:view') || can('categories_global:view')" to="/categorias" @click="$emit('navigate')" class="group flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200" :class="{ 'bg-red-50 text-red-700 border-r-2 border-red-500': $route.path === '/categorias' }">
           <svg class="mr-3 h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
           Categorías
         </NuxtLink>
@@ -342,7 +342,7 @@ function autoOpenDropdowns() {
     }
   }
   if (['/perfil', '/configuracion', '/mi-plan'].includes(path)) openDropdowns.value.configuracion = true
-  if (['/usuarios', '/categorias-usuarios', '/permisos', '/auditoria', '/logs', '/planes', '/tasas-cambio'].includes(path)) return
+  if (['/usuarios', '/categorias', '/permisos', '/auditoria', '/logs', '/planes', '/tasas-cambio'].includes(path)) return
 }
 
 watch(() => route.path, () => {
