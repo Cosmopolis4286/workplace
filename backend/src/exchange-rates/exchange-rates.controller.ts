@@ -35,6 +35,12 @@ export class ExchangeRatesController {
     return this.exchangeRatesService.findAll(false);
   }
 
+  // Returns active currencies for UI selects (all authenticated users)
+  @Get('active')
+  findActive() {
+    return this.exchangeRatesService.findAll(false);
+  }
+
   @Get('default')
   findDefault() {
     return this.exchangeRatesService.findDefault();
