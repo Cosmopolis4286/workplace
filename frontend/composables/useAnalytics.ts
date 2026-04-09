@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { useAuth } from './useAuth'
+import { useUserPreferences } from './useUserPreferences'
 
 export type AnalyticsPeriod = 'today' | '7d' | 'week' | '30d' | 'quarter' | '90d' | '1y' | 'custom'
 export type CompareWith = 'previous' | 'year' | 'none'
@@ -205,9 +206,8 @@ export const useAnalytics = () => {
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
-  function formatCurrency(n: number): string {
-    return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
-  }
+  const { formatCurrency: _fmt } = useUserPreferences()
+  function formatCurrency(n: number): string { return _fmt.value(n) }
 
   function formatChange(pct: number | null): string {
     if (pct === null) return '—'

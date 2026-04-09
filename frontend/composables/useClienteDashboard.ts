@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { useAuth } from './useAuth'
+import { useUserPreferences } from './useUserPreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -322,9 +323,8 @@ export function useClienteDashboard() {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
-  function formatCurrency(value: number) {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)
-  }
+  const { formatCurrency: _fmt } = useUserPreferences()
+  function formatCurrency(value: number) { return _fmt.value(value) }
 
   function formatDate(dateString?: string) {
     if (!dateString) return '—'
