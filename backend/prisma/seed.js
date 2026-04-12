@@ -490,8 +490,417 @@ const CATEGORIES = [
       { name: 'Gestión de Patrimonio', description: 'Inversiones, activos, herencias' },
       { name: 'Criptomonedas', description: 'Trading, wallet, consultoría' }
     ]
+  },
+  // 🐾 Mascotas
+  {
+    name: 'Mascotas',
+    description: 'Veterinaria, grooming, tiendas de mascotas',
+    icon: '🐾',
+    color: '#a16207',
+    sortOrder: 14,
+    subcategories: [
+      { name: 'Veterinaria', description: 'Consultas, cirugías, emergencias' },
+      { name: 'Grooming', description: 'Baño, corte de pelo, cuidado estético' },
+      { name: 'Tienda de Mascotas', description: 'Alimentos, juguetes, accesorios' },
+      { name: 'Adopción', description: 'Perros, gatos, otros animales' },
+      { name: 'Entrenamiento', description: 'Obediencia, conducta, agility' },
+      { name: 'Paseadores', description: 'Paseo de perros, cuidado temporal' }
+    ]
+  },
+  // 🚗 Automotriz
+  {
+    name: 'Automotriz',
+    description: 'Talleres mecánicos, lavado, venta de autos',
+    icon: '🚗',
+    color: '#1f2937',
+    sortOrder: 15,
+    subcategories: [
+      { name: 'Taller Mecánico', description: 'Reparaciones, mantenimiento, diagnóstico' },
+      { name: 'Lavado y Detailing', description: 'Lavado interior/exterior, pulido, encerado' },
+      { name: 'Venta de Autos', description: 'Nuevos, usados, consignación' },
+      { name: 'Accesorios', description: 'Audio, seguridad, personalización' },
+      { name: 'Neumáticos', description: 'Venta, reparación, alineación' },
+      { name: 'Electricidad Automotriz', description: 'Baterías, alternadores, diagnóstico' }
+    ]
+  },
+  // 👕 Ropa y Moda
+  {
+    name: 'Ropa y Moda',
+    description: 'Tiendas de ropa, accesorios, calzado',
+    icon: '👕',
+    color: '#e11d48',
+    sortOrder: 16,
+    subcategories: [
+      { name: 'Ropa Casual', description: 'Camisetas, jeans, vestidos' },
+      { name: 'Ropa Formal', description: 'Trajes, vestidos de gala, smoking' },
+      { name: 'Calzado', description: 'Zapatos, zapatillas, sandalias' },
+      { name: 'Accesorios', description: 'Bolsos, joyas, relojes, gafas' },
+      { name: 'Ropa Deportiva', description: 'Gym wear, ropa técnica, outdoor' },
+      { name: 'Moda Infantil', description: 'Ropa para bebés y niños' },
+      { name: 'Ropa Interior', description: 'Lencería, pijamas, medias' }
+    ]
+  },
+  // 🧸 Juguetes y Niños
+  {
+    name: 'Juguetes y Niños',
+    description: 'Juguetes, ropa infantil, cuidado del bebé',
+    icon: '🧸',
+    color: '#f43f5e',
+    sortOrder: 17,
+    subcategories: [
+      { name: 'Juguetes Educativos', description: 'STEM, puzzles, juegos de mesa' },
+      { name: 'Juguetes Electrónicos', description: 'Videojuegos, tablets, robots' },
+      { name: 'Muñecas y Figuras', description: 'Barbie, superhéroes, coleccionables' },
+      { name: 'Cuidado del Bebé', description: 'Pañales, alimentación, higiene' },
+      { name: 'Muebles Infantiles', description: 'Cunas, sillas, cajoneras' },
+      { name: 'Paseo y Viaje', description: 'Coches, sillas de auto, portabebés' }
+    ]
+  },
+  // 📚 Libros y Papelería
+  {
+    name: 'Libros y Papelería',
+    description: 'Librerías, útiles escolares, artículos de oficina',
+    icon: '📚',
+    color: '#4338ca',
+    sortOrder: 18,
+    subcategories: [
+      { name: 'Libros Físicos', description: 'Ficción, no ficción, bestsellers' },
+      { name: 'Libros Digitales', description: 'E-books, audiolibros' },
+      { name: 'Útiles Escolares', description: 'Cuadernos, lápices, mochilas' },
+      { name: 'Arte y Dibujo', description: 'Pintura, marcadores, lienzos' },
+      { name: 'Oficina', description: 'Papel, carpetas, impresión' },
+      { name: 'Revistas y Cómics', description: 'Suscripciones, cómics, mangas' }
+    ]
+  },
+  // 🎨 Arte y Manualidades
+  {
+    name: 'Arte y Manualidades',
+    description: 'Suministros artísticos, talleres, galerías',
+    icon: '🎨',
+    color: '#7c3aed',
+    sortOrder: 19,
+    subcategories: [
+      { name: 'Pintura', description: 'Óleo, acrílico, acuarela' },
+      { name: 'Escultura', description: 'Arcilla, cerámica, modelado' },
+      { name: 'Fotografía Artística', description: 'Retratos, paisajes, eventos' },
+      { name: 'Manualidades', description: 'Scrapbooking, joyería, decoración' },
+      { name: 'Talleres', description: 'Clases de arte para niños y adultos' },
+      { name: 'Galería', description: 'Exposiciones, venta de obras' }
+    ]
+  },
+  // 🏠 Inmobiliaria
+  {
+    name: 'Inmobiliaria',
+    description: 'Bienes raíces, alquileres, construcción',
+    icon: '🏠',
+    color: '#0284c7',
+    sortOrder: 20,
+    subcategories: [
+      { name: 'Venta de Casas', description: 'Nuevas, usadas, proyectos' },
+      { name: 'Alquiler', description: 'Apartamentos, casas, locales comerciales' },
+      { name: 'Proyectos Nuevos', description: 'Preventa, planes de pago' },
+      { name: 'Gestión de Propiedades', description: 'Administración, mantenimiento' },
+      { name: 'Terrenos', description: 'Urbana, rural, industrial' },
+      { name: 'Remodelación', description: 'Renovación, ampliación, diseño' }
+    ]
+  },
+  // ✈️ Turismo y Viajes
+  {
+    name: 'Turismo y Viajes',
+    description: 'Agencias de viajes, hoteles, tours',
+    icon: '✈️',
+    color: '#0ea5e9',
+    sortOrder: 21,
+    subcategories: [
+      { name: 'Agencia de Viajes', description: 'Paquetes, boletos, reservas' },
+      { name: 'Hoteles', description: 'Hospedaje, resorts, boutique' },
+      { name: 'Tours Guiados', description: 'City tours, excursiones, aventura' },
+      { name: 'Transporte Turístico', description: 'Buses, vans, traslados' },
+      { name: 'Viajes Corporativos', description: 'Eventos, conferencias, incentivos' },
+      { name: 'Viajes de Aventura', description: 'Trekking, buceo, canopy' }
+    ]
+  },
+  // 🌱 Agricultura
+  {
+    name: 'Agricultura',
+    description: 'Productos agrícolas, maquinaria, servicios rurales',
+    icon: '🌱',
+    color: '#166534',
+    sortOrder: 22,
+    subcategories: [
+      { name: 'Productos Frescos', description: 'Frutas, verduras, hortalizas' },
+      { name: 'Ganadería', description: 'Carne, lácteos, derivados' },
+      { name: 'Maquinaria Agrícola', description: 'Tractores, herramientas, equipos' },
+      { name: 'Insumos Agrícolas', description: 'Semillas, fertilizantes, pesticidas' },
+      { name: 'Vivero', description: 'Plantas, árboles, flores' },
+      { name: 'Agroturismo', description: 'Fincas, granjas, experiencias rurales' }
+    ]
+  },
+  // 💪 Deportes
+  {
+    name: 'Deportes',
+    description: 'Gimnasios, academias, equipamiento deportivo',
+    icon: '⚽',
+    color: '#dc2626',
+    sortOrder: 23,
+    subcategories: [
+      { name: 'Gimnasio', description: 'Pesas, cardio, clases grupales' },
+      { name: 'CrossFit', description: 'Entrenamiento funcional, WODs' },
+      { name: 'Artes Marciales', description: 'Karate, judo, boxeo, MMA' },
+      { name: 'Yoga y Pilates', description: 'Flexibilidad, meditación, core' },
+      { name: 'Deportes Acuáticos', description: 'Natación, surf, buceo' },
+      { name: 'Tienda Deportiva', description: 'Equipamiento, ropa, accesorios' },
+      { name: 'Escuelas Deportivas', description: 'Fútbol, baloncesto, tenis' }
+    ]
+  },
+  // 🍷 Licores y Vinos
+  {
+    name: 'Licores y Vinos',
+    description: 'Vinerías, cervecerías, licorerías',
+    icon: '🍷',
+    color: '#7f1d1d',
+    sortOrder: 24,
+    subcategories: [
+      { name: 'Vinos', description: 'Tintos, blancos, rosados, espumantes' },
+      { name: 'Cervezas', description: 'Artesanales, industriales, importadas' },
+      { name: 'Licores', description: 'Whisky, ron, vodka, tequila' },
+      { name: 'Cócteles', description: 'Preparados, ingredientes, mixología' },
+      { name: 'Degustación', description: 'Catas, maridajes, eventos' },
+      { name: 'Tienda de Licores', description: 'Botellas, gift sets, accesorios' }
+    ]
+  },
+  // 🎮 Entretenimiento Digital
+  {
+    name: 'Entretenimiento Digital',
+    description: 'Gaming, streaming, esports',
+    icon: '🎮',
+    color: '#581c87',
+    sortOrder: 25,
+    subcategories: [
+      { name: 'Videojuegos', description: 'PC, consolas, móviles' },
+      { name: 'Esports', description: 'Torneos, equipos, streaming' },
+      { name: 'Streaming', description: 'Películas, series, música' },
+      { name: 'Realidad Virtual', description: 'VR, AR, experiencias inmersivas' },
+      { name: 'Cybercafé', description: 'Gaming center, internet, PC rental' }
+    ]
+  },
+  // 🔧 Reparación de Dispositivos
+  {
+    name: 'Reparación de Dispositivos',
+    description: 'Celulares, laptops, tablets, consolas',
+    icon: '🔧',
+    color: '#4b5563',
+    sortOrder: 26,
+    subcategories: [
+      { name: 'Reparación de Celulares', description: 'Pantallas, baterías, placas' },
+      { name: 'Reparación de Laptops', description: 'Hardware, software, upgrades' },
+      { name: 'Reparación de Tablets', description: 'iPad, Android, accesorios' },
+      { name: 'Reparación de Consolas', description: 'PlayStation, Xbox, Nintendo' },
+      { name: 'Accesorios Tech', description: 'Cargadores, cables, fundas' },
+      { name: 'Desbloqueo', description: 'Fábrica, iCloud, SIM' }
+    ]
+  },
+  // 💊 Farmacia
+  {
+    name: 'Farmacia',
+    description: 'Medicamentos, productos de salud, bienestar',
+    icon: '💊',
+    color: '#0369a1',
+    sortOrder: 27,
+    subcategories: [
+      { name: 'Medicamentos', description: 'Recetados, OTC, genéricos' },
+      { name: 'Suplementos', description: 'Vitaminas, proteínas, deportivos' },
+      { name: 'Cuidado Personal', description: 'Higiene, cuidado de piel, cabello' },
+      { name: 'Bebés', description: 'Fórmulas, pañales, cuidado infantil' },
+      { name: 'Primeros Auxilios', description: 'Botiquines, vendajes, antisépticos' },
+      { name: 'Órtesis', description: 'Soportes, muletas, audífonos' }
+    ]
+  },
+  // 📦 Logística y Courier
+  {
+    name: 'Logística y Courier',
+    description: 'Envíos, paquetería, almacenamiento',
+    icon: '📦',
+    color: '#ca8a04',
+    sortOrder: 28,
+    subcategories: [
+      { name: 'Envíos Nacionales', description: 'Terrestre, aéreo, express' },
+      { name: 'Envíos Internacionales', description: 'Importación, exportación' },
+      { name: 'Courier Express', description: 'Mismo día, 24-48 horas' },
+      { name: 'Almacenamiento', description: 'Bodegas, inventario, fulfillment' },
+      { name: 'Embalaje', description: 'Cajas, protección, etiquetado' },
+      { name: 'Rastreo', description: 'Tracking en tiempo real' }
+    ]
   }
 ]
+
+// 🏷️ Categorías de Usuarios (para clasificar usuarios en el sistema)
+const USER_CATEGORIES = [
+  {
+    name: 'Comida',
+    icon: '🍔',
+    subcategories: [
+      'Restaurante', 'Cafetería', 'Comida Rápida', 'Food Truck', 'Catering'
+    ]
+  },
+  {
+    name: 'Tecnología',
+    icon: '💻',
+    subcategories: [
+      'Desarrollo Web', 'Apps Móviles', 'Soporte IT', 'Ciberseguridad', 'Data Science'
+    ]
+  },
+  {
+    name: 'Diseño',
+    icon: '🎨',
+    subcategories: [
+      'Diseño Gráfico', 'UI/UX', 'Branding', 'Ilustración', 'Motion Graphics'
+    ]
+  },
+  {
+    name: 'Marketing',
+    icon: '📢',
+    subcategories: [
+      'Marketing Digital', 'SEO/SEM', 'Redes Sociales', 'Email Marketing', 'Content Manager'
+    ]
+  },
+  {
+    name: 'Servicios Profesionales',
+    icon: '💼',
+    subcategories: [
+      'Consultoría', 'Contabilidad', 'Legal', 'Recursos Humanos', 'Asesoría Financiera'
+    ]
+  },
+  {
+    name: 'Salud y Bienestar',
+    icon: '🏥',
+    subcategories: [
+      'Medicina General', 'Nutrición', 'Psicología', 'Fisioterapia', 'Entrenamiento Personal'
+    ]
+  },
+  {
+    name: 'Belleza',
+    icon: '💅',
+    subcategories: [
+      'Peluquería', 'Estética', 'Maquillaje', 'Manicura', 'Spa'
+    ]
+  },
+  {
+    name: 'Educación',
+    icon: '📚',
+    subcategories: [
+      'Clases Particulares', 'Idiomas', 'Preparación Exámenes', 'Talleres', 'Coaching'
+    ]
+  },
+  {
+    name: 'Hogar',
+    icon: '🏠',
+    subcategories: [
+      'Limpieza', 'Plomería', 'Electricidad', 'Carpintería', 'Jardinería'
+    ]
+  },
+  {
+    name: 'Transporte',
+    icon: '🚗',
+    subcategories: [
+      'Taxi/Remis', 'Mudanzas', 'Delivery', 'Transporte Escolar', 'Logística'
+    ]
+  },
+  {
+    name: 'Eventos',
+    icon: '🎉',
+    subcategories: [
+      'Organización', 'Fotografía', 'Video', 'DJ/Música', 'Catering Eventos'
+    ]
+  },
+  {
+    name: 'Turismo',
+    icon: '✈️',
+    subcategories: [
+      'Agencia de Viajes', 'Guía Turístico', 'Alojamiento', 'Tours', 'Excursiones'
+    ]
+  },
+  {
+    name: 'Comercio',
+    icon: '🛍️',
+    subcategories: [
+      'Retail', 'Mayorista', 'Importación', 'Exportación', 'E-commerce'
+    ]
+  },
+  {
+    name: 'Automotriz',
+    icon: '🔧',
+    subcategories: [
+      'Taller', 'Venta de Autos', 'Lavado', 'Accesorios', 'Neumáticos'
+    ]
+  },
+  {
+    name: 'Mascotas',
+    icon: '🐾',
+    subcategories: [
+      'Veterinaria', 'Grooming', 'Tienda de Mascotas', 'Adiestramiento', 'Paseadores'
+    ]
+  }
+]
+
+async function seedUserCategories() {
+  console.log('\n🏷️ Seeding user categories and subcategories...\n')
+
+  for (const category of USER_CATEGORIES) {
+    // Crear categoría de usuario
+    const existingCategory = await prisma.userCategory.findFirst({
+      where: { name: category.name }
+    })
+
+    const categoryData = {
+      name: category.name,
+      icon: category.icon,
+      allowedModules: ['dashboard', 'profile']
+    }
+
+    let savedCategory
+    if (existingCategory) {
+      savedCategory = await prisma.userCategory.update({
+        where: { id: existingCategory.id },
+        data: categoryData
+      })
+    } else {
+      savedCategory = await prisma.userCategory.create({
+        data: categoryData
+      })
+    }
+
+    console.log(`  🏷️ ${category.icon} ${category.name}`)
+
+    // Crear subcategorías
+    for (const subName of category.subcategories) {
+      const existingSub = await prisma.userSubcategory.findFirst({
+        where: {
+          name: subName,
+          categoryId: savedCategory.id
+        }
+      })
+
+      const subData = {
+        name: subName,
+        categoryId: savedCategory.id
+      }
+
+      if (existingSub) {
+        await prisma.userSubcategory.update({
+          where: { id: existingSub.id },
+          data: subData
+        })
+      } else {
+        await prisma.userSubcategory.create({ data: subData })
+      }
+
+      console.log(`    📄 ${subName}`)
+    }
+  }
+
+  console.log('\n✨ User categories seeded.')
+}
 
 async function seedCategories() {
   console.log('\n📂 Seeding global categories and subcategories...\n')
@@ -650,6 +1059,7 @@ async function main() {
   await seedPermissions()
   await seedPlans()
   await seedCategories()
+  await seedUserCategories()
 }
 
 main()
