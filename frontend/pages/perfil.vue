@@ -168,24 +168,25 @@
               </div>
             </div>
 
-            <!-- Categoría — solo COMMERCE y FREELANCER -->
-            <div v-if="isCommerceOrFreelancer" class="md:col-span-2">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">
-                Categoría de negocio
-                <span class="ml-1 text-xs font-normal text-gray-400">(afecta los módulos disponibles)</span>
-              </label>
-              <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
-                {{ getCategoryName() || 'Sin categoría' }}
+            <!-- Categoría y Subcategoría — solo COMMERCE y FREELANCER -->
+            <div v-if="isCommerceOrFreelancer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Categoría
+                  <span class="ml-1 text-xs font-normal text-gray-400">(afecta los módulos disponibles)</span>
+                </label>
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ getCategoryName() || 'Sin categoría' }}
+                </div>
               </div>
-            </div>
 
-            <!-- Subcategoría — solo si aplica -->
-            <div v-if="isCommerceOrFreelancer && getSubcategoryName()" class="md:col-span-2">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">
-                Subcategoría de negocio
-              </label>
-              <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
-                {{ getSubcategoryName() }}
+              <div v-if="getSubcategoryName()">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Subcategoría
+                </label>
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ getSubcategoryName() }}
+                </div>
               </div>
             </div>
 
