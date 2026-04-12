@@ -34,6 +34,24 @@ const DEMO_USERS = [
     lastName: 'Demo',
   },
   {
+    role: Role.FREELANCER,
+    email: 'delivery@demo.com',
+    password: 'Delivery123',
+    firstName: 'Carlos',
+    lastName: 'Delivery',
+    categoryName: 'Transporte',
+    subcategoryName: 'Delivery',
+  },
+  {
+    role: Role.FREELANCER,
+    email: 'comidarapida@demo.com',
+    password: 'Comida123',
+    firstName: 'María',
+    lastName: 'González',
+    categoryName: 'Comida',
+    subcategoryName: 'Comida Rápida',
+  },
+  {
     role: Role.NORMAL,
     email: 'normal@demo.com',
     password: 'Normal1234',
@@ -1037,6 +1055,32 @@ async function main() {
 
     const hashedPassword = await bcrypt.hash(demo.password, 12)
 
+    // Buscar categoryId y subcategoryId si se especificaron
+    let categoryId = null
+    let subcategoryId = null
+    
+    if (demo.categoryName) {
+      const category = await prisma.userCategory.findFirst({
+        where: { name: demo.categoryName }
+      })
+      if (category) {
+        categoryId = category.id
+        
+        // Buscar subcategoría si también se especificó
+        if (demo.subcategoryName) {
+          const subcategory = await prisma.userSubcategory.findFirst({
+            where: { 
+              name: demo.subcategoryName,
+              categoryId: category.id
+            }
+          })
+          if (subcategory) {
+            subcategoryId = subcategory.id
+          }
+        }
+      }
+    }
+
     const user = await prisma.user.create({
       data: {
         email: demo.email,
@@ -1044,14 +1088,17 @@ async function main() {
         firstName: demo.firstName,
         lastName: demo.lastName,
         role: demo.role,
+        categoryId: categoryId,
+        subcategoryId: subcategoryId,
         ...(demo.commerceName
           ? { commerce: { create: { name: demo.commerceName } } }
           : {}),
       },
-      include: { commerce: true },
+      include: { commerce: true, category: true, subcategory: true },
     })
 
-    console.log(`✅ [${demo.role}] Created: ${user.email}${user.commerce ? ` | Restaurant: ${user.commerce.name}` : ''}`)
+    const categoryInfo = user.category ? ` | 📦 ${user.category.name}${user.subcategory ? ' → ' + user.subcategory.name : ''}` : ''
+    console.log(`✅ [${demo.role}] Created: ${user.email}${user.commerce ? ` | Restaurant: ${user.commerce.name}` : ''}${categoryInfo}`)
     console.log(`   Password: ${demo.password}`)
   }
 
