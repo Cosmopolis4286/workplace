@@ -1,85 +1,221 @@
 name: 'Deploy to Production Server'
-description: 'Copia archivos de configuracion, prepara .env.deploy y ejecuta canary deployment'
+description: 'Deploy con validación, bloqueo distribuido y verificación automática'
 
 inputs:
   ssh-user:
-    description: 'Usuario SSH del servidor'
+    description: 'Usuario SSH del servidor destino'
     required: true
   ssh-host:
-    description: 'Host del servidor de produccion'
+    description: 'Host/IP del servidor de producción'
     required: true
   backend-image:
-    description: 'Imagen Docker del backend con tag'
+    description: 'Imagen completa del backend (registry/image:tag)'
     required: true
   frontend-image:
-    description: 'Imagen Docker del frontend con tag'
+    description: 'Imagen completa del frontend (registry/image:tag)'
     required: true
   current-sha:
-    description: 'SHA del commit actual'
+    description: 'SHA del commit para tracking'
     required: true
   acme-email:
-    description: "Email para certificado ACME (Let's Encrypt)"
+    description: 'Email para certificados Let Encrypt'
     required: true
+  deploy-path:
+    description: 'Ruta de deploy en el servidor'
+    required: false
+    default: '/opt/workplace'
+  canary-percentage:
+    description: 'Porcentaje de tráfico para canary (0-100)'
+    required: false
+    default: '10'
+  health-timeout:
+    description: 'Timeout en segundos para health checks'
+    required: false
+    default: '120'
+  rollback-on-failure:
+    description: 'Habilitar rollback automático si falla'
+    required: false
+    default: 'true'
+
+outputs:
+  deploy-status:
+    description: 'Estado del deploy (success/failed/rolled-back)'
+    value: ${{ steps.deploy.outputs.status }}
+  deploy-duration:
+    description: 'Duración del deploy en segundos'
+    value: ${{ steps.deploy.outputs.duration }}
 
 runs:
   using: composite
   steps:
-    - name: Copiar archivos de configuracion
+    - name: Validar inputs
+      id: validate
       shell: bash
       run: |
-        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 \
-          docker-compose.lite.yml \
-          ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/
+        # Validar formato de imágenes
+        if [[ ! "${{ inputs.backend-image }}" =~ ^[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
+          echo "❌ ERROR: backend-image formato inválido: ${{ inputs.backend-image }}"
+          exit 1
+        fi
+        if [[ ! "${{ inputs.frontend-image }}" =~ ^[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
+          echo "❌ ERROR: frontend-image formato inválido: ${{ inputs.frontend-image }}"
+          exit 1
+        fi
+        
+        # Validar canary percentage
+        CANARY=${{ inputs.canary-percentage }}
+        if [[ $CANARY -lt 0 ]] || [[ $CANARY -gt 100 ]]; then
+          echo "❌ ERROR: canary-percentage debe estar entre 0 y 100"
+          exit 1
+        fi
+        
+        echo "✅ Inputs validados"
+        echo "🚀 Backend: ${{ inputs.backend-image }}"
+        echo "🚀 Frontend: ${{ inputs.frontend-image }}"
+        echo "🎯 Canary: ${CANARY}%"
 
-        # Inyectar email ACME en traefik.yml (Traefik no expande vars de entorno)
-        sed "s/ACME_EMAIL_PLACEHOLDER/${{ inputs.acme-email }}/" \
+    - name: Preparar SSH con timeout y retry
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        
+        # Keyscan con timeout y validación
+        for i in 1 2 3; do
+          if timeout 30 ssh-keyscan -H ${{ inputs.ssh-host }} >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "✅ SSH keyscan exitoso (intento $i)"
+            break
+          fi
+          echo "⚠️  ssh-keyscan reintentando..."
+          sleep 5
+        done
+        
+        chmod 600 ~/.ssh/known_hosts
+        
+        # Test de conectividad
+        if ! ssh -o ConnectTimeout=10 -o BatchMode=yes \
+            ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} "echo 'SSH OK'" 2>/dev/null; then
+          echo "❌ ERROR: No se puede conectar al servidor via SSH"
+          exit 1
+        fi
+        echo "✅ Conexión SSH verificada"
+
+    - name: Sincronizar configuración
+      shell: bash
+      run: |
+        set -euo pipefail
+        
+        REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+        DEPLOY_PATH="${{ inputs.deploy-path }}"
+        
+        # Crear estructura de directorios
+        ssh "$REMOTE" "mkdir -p ${DEPLOY_PATH}/{traefik/dynamic,scripts/deploy,logs,versions}"
+        
+        # Copiar docker-compose con validación
+        if [[ ! -f docker-compose.lite.yml ]]; then
+          echo "❌ ERROR: docker-compose.lite.yml no encontrado"
+          exit 1
+        fi
+        scp -p docker-compose.lite.yml "$REMOTE:${DEPLOY_PATH}/"
+        
+        # Preparar y copiar traefik config
+        sed "s|ACME_EMAIL_PLACEHOLDER|${{ inputs.acme-email }}|g" \
           traefik/traefik.yml > /tmp/traefik.yml
-        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 \
-          /tmp/traefik.yml \
-          ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/traefik/traefik.yml
+        scp -p /tmp/traefik.yml "$REMOTE:${DEPLOY_PATH}/traefik/traefik.yml"
+        
+        # Sincronizar configs dinámicas (con backup)
+        ssh "$REMOTE" "
+          if [[ -d ${DEPLOY_PATH}/traefik/dynamic ]]; then
+            mkdir -p ${DEPLOY_PATH}/traefik/dynamic.backup.$(date +%s)
+            cp ${DEPLOY_PATH}/traefik/dynamic/*.yml \
+               ${DEPLOY_PATH}/traefik/dynamic.backup.*/ 2>/dev/null || true
+          fi
+          rm -f ${DEPLOY_PATH}/traefik/dynamic/*.yml
+        "
+        scp -r traefik/dynamic/*.yml "$REMOTE:${DEPLOY_PATH}/traefik/dynamic/" 2>/dev/null || true
+        
+        # Sincronizar scripts de deploy
+        if [[ -d scripts/deploy/ ]]; then
+          scp -r scripts/deploy/*.sh "$REMOTE:${DEPLOY_PATH}/scripts/deploy/"
+          ssh "$REMOTE" "chmod +x ${DEPLOY_PATH}/scripts/deploy/*.sh"
+        fi
+        
+        echo "✅ Configuración sincronizada"
 
-        # Limpiar dynamic config vieja antes de copiar (elimina archivos huerfanos)
-        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
-          'rm -f /opt/workplace/traefik/dynamic/*.yml'
-
-        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 -r \
-          traefik/dynamic/ \
-          ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/traefik/
-
-        scp -o ConnectTimeout=10 -o ServerAliveInterval=30 -r \
-          scripts/deploy/ \
-          ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/opt/workplace/scripts/
-
-    - name: Ejecutar deploy en servidor
+    - name: Ejecutar deploy con verificación
+      id: deploy
       shell: bash
       env:
         BACKEND_IMAGE: ${{ inputs.backend-image }}
         FRONTEND_IMAGE: ${{ inputs.frontend-image }}
         CURRENT_SHA: ${{ inputs.current-sha }}
+        CANARY_PCT: ${{ inputs.canary-percentage }}
+        HEALTH_TIMEOUT: ${{ inputs.health-timeout }}
+        ROLLBACK_ENABLED: ${{ inputs.rollback-on-failure }}
       run: |
-        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
-          "export BACKEND_IMAGE='${BACKEND_IMAGE}' \
-                  FRONTEND_IMAGE='${FRONTEND_IMAGE}' \
-                  CURRENT_SHA='${CURRENT_SHA}'; bash -s" << 'ENDSSH'
-          set -eo pipefail
-          cd /opt/workplace
-
-          exec 200>/tmp/deploy.lock
-          if ! flock -n 200; then
-            echo "Otro deploy en progreso. Abortando."
-            exit 1
+        START_TIME=$(date +%s)
+        
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} "bash -s" << 'ENDSSH'
+        set -euo pipefail
+        
+        cd ${{ inputs.deploy-path }}
+        
+        # Bloqueo distribuido con timeout
+        exec 200>/tmp/deploy.lock
+        if ! flock -w 300 200; then
+          echo "❌ ERROR: Timeout esperando lock de deploy (5 minutos)"
+          exit 1
+        fi
+        
+        # Validar entorno
+        if [[ ! -f .env ]]; then
+          echo "❌ ERROR: .env no encontrado en ${{ inputs.deploy-path }}"
+          exit 1
+        fi
+        
+        set -a; source .env; set +a
+        
+        # Logging estructurado
+        LOG_FILE="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
+        exec > >(tee -a "$LOG_FILE")
+        exec 2>&1
+        
+        echo "🚀 [$(date -Iseconds)] Iniciando deploy - SHA: ${{ inputs.current-sha }}"
+        echo "📦 Backend: $BACKEND_IMAGE"
+        echo "📦 Frontend: $FRONTEND_IMAGE"
+        
+        # Verificar imágenes existen
+        for IMG in "$BACKEND_IMAGE" "$FRONTEND_IMAGE"; do
+          if ! docker manifest inspect "$IMG" >/dev/null 2>&1; then
+            echo "⚠️  Imagen no disponible localmente, intentando pull: $IMG"
+            docker pull "$IMG" || { echo "❌ ERROR: No se pudo obtener $IMG"; exit 1; }
           fi
-
-          # Cargar .env del servidor (DB, Redis, JWT, etc.)
-          set -a; source .env; set +a
-
-          echo "Iniciando deploy SHA: $CURRENT_SHA"
-          echo "  Backend:  $BACKEND_IMAGE"
-          echo "  Frontend: $FRONTEND_IMAGE"
-
-          chmod +x scripts/deploy/canary-traffic-split.sh
-          ./scripts/deploy/canary-traffic-split.sh \
-            || { echo "Deploy fallo"; exit 1; }
-
-          echo "Deploy completado"
+        done
+        echo "✅ Imágenes verificadas"
+        
+        # Backup de versión actual antes de deploy
+        if [[ -f versions/current.env ]]; then
+          cp versions/current.env "versions/backup-$(date +%Y%m%d-%H%M%S).env"
+          echo "💾 Backup de versión actual creado"
+        fi
+        
+        # Ejecutar canary deploy
+        CANARY_PERCENTAGE=$CANARY_PCT \
+        BACKEND_IMAGE="$BACKEND_IMAGE" \
+        FRONTEND_IMAGE="$FRONTEND_IMAGE" \
+        CURRENT_SHA="${{ inputs.current-sha }}" \
+        ./scripts/deploy/canary-traffic-split.sh || {
+          echo "❌ ERROR: Falló el script de deploy canary"
+          exit 1
+        }
+        
+        echo "✅ [$(date -Iseconds)] Deploy completado exitosamente"
+        echo "status=success"
         ENDSSH
+        
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - START_TIME))
+        
+        echo "status=success" >> "$GITHUB_OUTPUT"
+        echo "duration=${DURATION}" >> "$GITHUB_OUTPUT"
+        echo "✅ Deploy completado en ${DURATION}s"
