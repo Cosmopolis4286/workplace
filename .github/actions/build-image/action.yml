@@ -150,3 +150,9 @@ runs:
         category: 'trivy-${{ inputs.service }}'
       env:
         GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
+    - name: Debug token
+      if: ${{ inputs.enable-scan == 'true' }}
+      run: |
+        echo "Token input: ${{ inputs.github-token }}"
+        echo "GitHub token: ${{ github.token }}"
+        echo "Using token: ${{ inputs.github-token || github.token }}"
