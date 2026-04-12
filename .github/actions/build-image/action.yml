@@ -142,6 +142,13 @@ runs:
         TRIVY_USERNAME: ${{ inputs.docker-username }}
         TRIVY_PASSWORD: ${{ inputs.docker-password }}
 
+    - name: Debug token
+      if: ${{ inputs.enable-scan == 'true' }}
+      shell: bash
+      run: |
+        echo "Token input: ${{ inputs.github-token }}"
+        echo "GitHub token: ${{ github.token }}"
+        echo "Using token: ${{ inputs.github-token || github.token }}"
     - name: Subir resultados de seguridad
       if: ${{ inputs.enable-scan == 'true' && !cancelled() }}
       uses: github/codeql-action/upload-sarif@v4
@@ -150,10 +157,3 @@ runs:
         category: 'trivy-${{ inputs.service }}'
       env:
         GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
-    - name: Debug token
-      if: ${{ inputs.enable-scan == 'true' }}
-      shell: bash
-      run: |
-        echo "Token input: ${{ inputs.github-token }}"
-        echo "GitHub token: ${{ github.token }}"
-        echo "Using token: ${{ inputs.github-token || github.token }}"
