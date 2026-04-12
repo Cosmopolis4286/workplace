@@ -53,15 +53,14 @@ export const useDemoCredentials = () => {
    * ✅ Indica si hay credenciales disponibles para mostrar
    */
   const isAvailable = computed(() => {
-    return isDev && credentials.value.length > 0
+    return credentials.value.length > 0
   })
 
   /**
    * 🚀 Carga credenciales demo desde backend
    */
   const loadCredentials = async (): Promise<void> => {
-    // ❌ Nunca ejecutar en producción
-    if (!isDev) return
+    // 🔥 HOTFIX: Permitir en producción si backend tiene credenciales
 
     // ⚡ Evita recargas innecesarias
     if (credentials.value.length > 0) return
@@ -115,8 +114,8 @@ export const useDemoCredentials = () => {
         } else {
           error.value = errorMessage || 'No se pudieron cargar las credenciales demo'
 
-          // Error genérico sí se loguea como error
-          if (isDev) {
+          // Solo loguear errores en desarrollo
+          if (process.dev) {
             console.error('[DemoCredentials] ❌', err)
           }
         }
@@ -138,10 +137,15 @@ export const useDemoCredentials = () => {
   }
 
   /**
-   * 🧠 Auto-load solo en cliente y en dev
+   * 🧠 Auto-load solo si USE_DEMO=true o entorno de desarrollo
    */
   onMounted(() => {
-    if (isDev) {
+    const isDemoEnabled =
+      config.public?.useDemoCredentials === true ||
+      config.public?.environment === 'development' ||
+      process.dev
+
+    if (isDemoEnabled) {
       loadCredentials()
     }
   })

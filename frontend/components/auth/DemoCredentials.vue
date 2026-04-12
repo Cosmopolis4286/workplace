@@ -1,6 +1,6 @@
 <template>
   <!-- Floating toggle button -->
-  <div v-if="isDevelopment && isAvailable" class="fixed bottom-4 right-4 z-50">
+  <div v-if="isDemoEnabled && isAvailable" class="fixed bottom-4 right-4 z-50">
     <div class="relative group">
       <div
         v-show="!isOpen"
@@ -32,7 +32,7 @@
       leave-to-class="opacity-0"
     >
       <div
-        v-if="isDevelopment && isOpen"
+        v-if="isDemoEnabled && isOpen"
         class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4"
         @click="closeModal"
       >
@@ -186,15 +186,18 @@ const emit = defineEmits<{
   'autoLogin': [{ email: string; password: string }]
 }>()
 
-const { credentials, isLoading, error, isAvailable, refresh } = useDemoCredentials()
+const { credentials, isLoading, error, isAvailable, refresh, loadCredentials } = useDemoCredentials()
 
 const config = useRuntimeConfig()
 const isOpen = ref(false)
-const isDevelopment = computed(() =>
-  config.public.environment === 'development' ||
-  config.public.APP_ENV === 'development' ||
-  config.public.useDemoCredentials === true
-)
+
+// 🔥 Solo mostrar si USE_DEMO=true o entorno de desarrollo
+const isDemoEnabled = computed(() => {
+  const env = config.public.environment || config.public.APP_ENV
+  const useDemo = config.public.useDemoCredentials === true
+  return useDemo || env === 'development' || process.dev
+})
+
 const showPasswordFor = ref<string | null>(null)
 const fillingRole = ref<string | null>(null)
 
@@ -240,7 +243,7 @@ const handleFill = async (cred: DemoCredential) => {
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
-  if (!isDevelopment.value) return
+  if (!isDemoEnabled.value) return
   if (e.key === 'Escape' && isOpen.value) { closeModal(); return }
   if (e.ctrlKey && e.key.toLowerCase() === 'd') {
     e.preventDefault()
