@@ -79,7 +79,6 @@ runs:
         file: ${{ inputs.dockerfile }}
         target: ${{ inputs.target }}
         push: true
-        load: ${{ inputs.enable-scan == 'true' }}
         platforms: linux/amd64,linux/arm64
         tags: |
           ${{ inputs.image-name }}:${{ inputs.image-tag }}
@@ -129,6 +128,9 @@ runs:
         output: 'trivy-results-${{ inputs.service }}.sarif'
         severity: 'CRITICAL,HIGH'
         exit-code: '0'
+      env:
+        TRIVY_USERNAME: ${{ inputs.docker-username }}
+        TRIVY_PASSWORD: ${{ inputs.docker-password }}
 
     - name: Subir resultados de seguridad
       if: ${{ inputs.enable-scan == 'true' && !cancelled() }}
