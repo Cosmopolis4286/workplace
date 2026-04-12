@@ -48,7 +48,7 @@ export class AuthService {
     return { user, ...tokens };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, securityContext?: any) {
     const attempts = await this.redis.getLoginAttempts(dto.email);
     if (attempts >= MAX_LOGIN_ATTEMPTS) {
       throw new ForbiddenException(
@@ -75,26 +75,58 @@ export class AuthService {
 
     const { password, ...safeUser } = user;
     const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
+    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext);
+    
+    // Crear sesión activa
+    if (securityContext) {
+      await this.createUserSession(user.id, securityContext);
+    }
 
     return { user: safeUser, ...tokens };
   }
 
-  async refreshTokens(userId: string, oldRefreshToken: string) {
+  async refreshTokens(userId: string, oldRefreshToken: string, securityContext?: any) {
     const stored = await this.prisma.refreshToken.findUnique({
       where: { token: oldRefreshToken },
     });
 
-    if (!stored || stored.userId !== userId || stored.expiresAt < new Date()) {
+    if (!stored || stored.userId !== userId || stored.expiresAt < new Date() || stored.revokedAt) {
       throw new ForbiddenException('Refresh token inválido o expirado');
     }
 
+    // Validar contexto de seguridad
+    if (securityContext && stored.ipAddress && stored.deviceInfo) {
+      if (stored.ipAddress !== securityContext.ipAddress) {
+        await this.logSecurityEvent(userId, 'REFRESH_IP_MISMATCH', {
+          expectedIp: stored.ipAddress,
+          actualIp: securityContext.ipAddress
+        });
+        throw new ForbiddenException('Sesión inválida: cambio de IP detectado');
+      }
+      
+      if (stored.deviceInfo !== securityContext.userAgent) {
+        await this.logSecurityEvent(userId, 'REFRESH_DEVICE_MISMATCH', {
+          expectedDevice: stored.deviceInfo,
+          actualDevice: securityContext.userAgent
+        });
+        // Permitir pero registrar como sospechoso
+      }
+    }
+
     // Rotate: delete old, issue new
-    await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() }
+    });
 
     const user = await this.usersService.findById(userId);
     const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
+    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext, stored.id);
+    
+    // Actualizar sesión
+    if (securityContext) {
+      await this.updateUserSession(userId, securityContext);
+    }
 
     return tokens;
   }
@@ -136,19 +168,51 @@ export class AuthService {
     return { user: safeUser, ...tokens };
   }
 
-  async logout(userId: string, refreshToken?: string) {
-    // Revocar el refresh token específico si se proporciona
+  async logout(userId: string, refreshToken?: string, securityContext?: any) {
+    // 1. Obtener JTI de los tokens activos para blacklist
+    const activeTokens = await this.prisma.refreshToken.findMany({
+      where: { userId, revokedAt: null },
+      select: { token: true }
+    });
+    
+    // 2. Blacklist los JTI de los tokens JWT activos (si se pueden extraer)
+    for (const token of activeTokens) {
+      try {
+        const decoded = this.decodeJWT(token.token);
+        if (decoded?.jti) {
+          // Blacklist por 15 minutos (tiempo de vida del access token)
+          await this.redis.blacklistToken(decoded.jti, 900);
+        }
+      } catch (error) {
+        // Ignorar errores al decodificar
+      }
+    }
+    
+    // 3. Revocar el refresh token específico si se proporciona
     if (refreshToken) {
       await this.prisma.refreshToken.updateMany({
         where: { token: refreshToken, userId },
         data: { revokedAt: new Date() },
       });
     }
-    // También revocar todos los refresh tokens del usuario (logout global)
+    
+    // 4. También revocar todos los refresh tokens del usuario (logout global)
     await this.prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    
+    // 5. Eliminar todas las sesiones activas
+    await this.clearAllUserSessions(userId);
+    
+    // 6. Registrar evento de logout
+    if (securityContext) {
+      await this.logSecurityEvent(userId, 'LOGOUT', {
+        ipAddress: securityContext.ipAddress,
+        userAgent: securityContext.userAgent,
+        deviceFingerprint: securityContext.deviceFingerprint
+      });
+    }
   }
 
   async getProfile(userId: string) {
@@ -200,10 +264,10 @@ export class AuthService {
       password: rolePasswords[user.role] || 'Demo123',
       label: `${user.firstName} ${user.lastName}`,
       description: this.getRoleDescription(user.role),
-      commerceName: user.commerce?.name ?? null,
-      categoryName: user.category?.name ?? null,
-      categoryIcon: user.category?.icon ?? '📦',
-      subcategoryName: user.subcategory?.name ?? null,
+      commerceName: null, // No hay relación directa commerce en el modelo actual
+      categoryName: null, // No hay relación directa category en el modelo actual
+      categoryIcon: '???',
+      subcategoryName: null, // No hay relación directa subcategory en el modelo actual
     }));
 
     return {
@@ -336,7 +400,7 @@ export class AuthService {
     );
 
     const refreshToken = this.jwtService.sign(
-      { sub: userId },
+      { sub: userId, jti }, // Incluir JTI también en refresh token
       {
         secret: this.config.get('JWT_REFRESH_SECRET'),
         expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
@@ -345,17 +409,172 @@ export class AuthService {
 
     return { accessToken, refreshToken };
   }
+  
+  private decodeJWT(token: string): any {
+    try {
+      const payload = token.split('.')[1];
+      return JSON.parse(Buffer.from(payload, 'base64').toString());
+    } catch {
+      return null;
+    }
+  }
 
-  private async saveRefreshToken(userId: string, token: string) {
+  private async saveRefreshToken(userId: string, token: string, securityContext?: any, replacedByTokenId?: string) {
     const expiresIn = this.config.get('JWT_REFRESH_EXPIRES_IN', '7d');
     const ms = this.parseDuration(expiresIn);
     const expiresAt = new Date(Date.now() + ms);
 
     await this.prisma.refreshToken.create({
-      data: { token, userId, expiresAt },
+      data: { 
+        token, 
+        userId, 
+        expiresAt,
+        ipAddress: securityContext?.ipAddress,
+        deviceInfo: securityContext?.userAgent,
+        replacedByTokenId
+      },
     });
   }
 
+  private async createUserSession(userId: string, securityContext: any): Promise<void> {
+    const sessionKey = `session:${userId}:${securityContext.deviceFingerprint}`;
+    const sessionData = {
+      userId,
+      deviceFingerprint: securityContext.deviceFingerprint,
+      ipAddress: securityContext.ipAddress,
+      userAgent: securityContext.userAgent,
+      createdAt: new Date(),
+      lastActivity: new Date()
+    };
+    
+    // Sesión expira en 30 minutos de inactividad
+    await this.redis.setex(sessionKey, 1800, JSON.stringify(sessionData));
+    
+    // Guardar contexto para detección de actividad sospechosa
+    const suspiciousKey = `suspicious:${userId}`;
+    await this.redis.setex(suspiciousKey, 86400, JSON.stringify({
+      ipAddress: securityContext.ipAddress,
+      deviceFingerprint: securityContext.deviceFingerprint,
+      userAgent: securityContext.userAgent
+    }));
+  }
+  
+  private async updateUserSession(userId: string, securityContext: any): Promise<void> {
+    const sessionKey = `session:${userId}:${securityContext.deviceFingerprint}`;
+    const sessionData = await this.redis.get(sessionKey);
+    
+    if (sessionData) {
+      const session = JSON.parse(sessionData);
+      session.lastActivity = new Date();
+      
+      // Extender TTL 30 minutos más
+      await this.redis.setex(sessionKey, 1800, JSON.stringify(session));
+    } else {
+      // Recrear sesión si no existe
+      await this.createUserSession(userId, securityContext);
+    }
+  }
+  
+  private async clearAllUserSessions(userId: string): Promise<void> {
+    // Buscar todas las claves de sesión del usuario
+    const pattern = `session:${userId}:*`;
+    const keys = await this.redis.keys(pattern);
+    
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+    }
+    
+    // Limpiar también el contexto sospechoso
+    await this.redis.del(`suspicious:${userId}`);
+  }
+  
+  private async logSecurityEvent(userId: string, eventType: string, details: any): Promise<void> {
+    const eventKey = `security-events:${userId}`;
+    const event = {
+      type: eventType,
+      details,
+      timestamp: new Date(),
+      severity: this.getEventSeverity(eventType)
+    };
+    
+    await this.redis.lpush(eventKey, JSON.stringify(event));
+    await this.redis.ltrim(eventKey, 0, 99); // Mantener últimos 100 eventos
+    
+    this.logger.warn(`Security event for user ${userId}: ${eventType}`, details);
+  }
+  
+  async getSecurityEvents(userId: string) {
+    const eventKey = `security-events:${userId}`;
+    const events = await this.redis.lrange(eventKey, 0, -1);
+    
+    return {
+      success: true,
+      data: events.map(event => JSON.parse(event)).reverse(), // Más recientes primero
+      count: events.length
+    };
+  }
+
+  private getEventSeverity(eventType: string): 'LOW' | 'MEDIUM' | 'HIGH' {
+    const severityMap: Record<string, 'LOW' | 'MEDIUM' | 'HIGH'> = {
+      'LOGIN_SUCCESS': 'LOW',
+      'LOGIN_FAILED': 'MEDIUM',
+      'LOGOUT': 'LOW',
+      'REFRESH_IP_MISMATCH': 'HIGH',
+      'REFRESH_DEVICE_MISMATCH': 'MEDIUM',
+      'SESSION_EXPIRED': 'MEDIUM',
+      'MULTIPLE_FAILED_LOGIN': 'HIGH',
+      'TOKEN_REUSE': 'HIGH',
+      'BRUTE_FORCE_ATTEMPT': 'HIGH'
+    };
+    
+    return severityMap[eventType] || 'LOW';
+  }
+  
+  // --- Cleanup automático de sesiones expiradas ---
+  async cleanupExpiredSessions(): Promise<void> {
+    try {
+      // Limpiar refresh tokens expirados
+      const expiredTokens = await this.prisma.refreshToken.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date()
+          }
+        }
+      });
+      
+      if (expiredTokens.count > 0) {
+        this.logger.log(`Cleaned up ${expiredTokens.count} expired refresh tokens`);
+      }
+      
+      // Limpiar sesiones de Redis expiradas (Redis lo hace automáticamente con TTL)
+      // Pero podemos limpiar claves huérfanas si es necesario
+      const sessionPattern = 'session:*';
+      const sessionKeys = await this.redis.keys(sessionPattern);
+      
+      let cleanedSessions = 0;
+      for (const key of sessionKeys) {
+        const sessionData = await this.redis.get(key);
+        if (sessionData) {
+          const session = JSON.parse(sessionData);
+          const lastActivity = new Date(session.lastActivity);
+          const inactiveMinutes = (Date.now() - lastActivity.getTime()) / (1000 * 60);
+          
+          if (inactiveMinutes > 60) { // Más de 1 hora de inactividad
+            await this.redis.del(key);
+            cleanedSessions++;
+          }
+        }
+      }
+      
+      if (cleanedSessions > 0) {
+        this.logger.log(`Cleaned up ${cleanedSessions} inactive sessions`);
+      }
+      
+    } catch (error) {
+      this.logger.error('Error during session cleanup:', error);
+    }
+  }
+  
   private parseDuration(duration: string): number {
     const match = duration.match(/^(\d+)([smhd])$/);
     if (!match) return 7 * 24 * 60 * 60 * 1000;
