@@ -2,7 +2,7 @@
 FROM node:20-alpine AS build
 
 # Dependencias para compilar Nest/Prisma
-RUN apk add --no-cache python3 make g++ git openssl-dev openssl1.1-compat \
+RUN apk add --no-cache python3 make g++ git openssl-dev libcrypto3 libssl3 \
     && corepack enable \
     && corepack prepare pnpm@9.15.0 --activate
 
@@ -36,9 +36,12 @@ FROM node:20-alpine AS production
 
 # Variables opcionales
 ENV NODE_OPTIONS="--max-old-space-size=2048"
+# Prisma: usar OpenSSL 3.x disponible en Alpine
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE=library
+ENV PRISMA_CLI_FETCH_ENGINE=libquery
 
 # Dependencias mínimas de runtime - solo lo necesario
-RUN apk add --no-cache dumb-init ca-certificates openssl libssl3 openssl1.1-compat python3 make g++ curl netcat-openbsd
+RUN apk add --no-cache dumb-init ca-certificates openssl libssl3 libcrypto3 python3 make g++ curl netcat-openbsd
 
 WORKDIR /app
 
