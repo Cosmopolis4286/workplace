@@ -261,6 +261,33 @@
               </p>
             </div>
 
+            <!-- Save Profile Button -->
+            <div class="pt-4 border-t border-gray-100">
+              <div class="flex items-center justify-between">
+                <p v-if="profileDirty" class="text-sm text-gray-500">
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg class="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    Tienes cambios sin guardar
+                  </span>
+                </p>
+                <p v-else class="text-sm text-gray-400">Sin cambios pendientes</p>
+                <button
+                  type="button"
+                  @click="saveProfile"
+                  :disabled="!profileDirty || savingProfile || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'cooldown'"
+                  class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <span v-if="savingProfile" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  {{ savingProfile ? 'Guardando...' : 'Guardar Cambios' }}
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
 
