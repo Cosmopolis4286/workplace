@@ -10,6 +10,7 @@ const DEMO_USERS = [
     password: 'SuperAdmin123',
     firstName: 'Super',
     lastName: 'Admin',
+    userType: 'APP',  // Usuario propio de la app, no demo
   },
   {
     role: Role.ADMIN,
@@ -1088,6 +1089,7 @@ async function main() {
         firstName: demo.firstName,
         lastName: demo.lastName,
         role: demo.role,
+        userType: demo.userType || 'DEMO',  // Usar el tipo definido o default 'DEMO'
         categoryId: categoryId,
         subcategoryId: subcategoryId,
         ...(demo.commerceName
