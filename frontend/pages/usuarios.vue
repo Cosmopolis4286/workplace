@@ -371,7 +371,7 @@
     <!-- Modal categorías & módulos -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <CategoryModulesModal
+        <ModalsCategoryModulesModal
           v-if="showCategoryModal"
           @close="showCategoryModal = false"
           @updated="loadCategories"
@@ -539,7 +539,7 @@ const form = ref({
 })
 
 // API helper
-const { get, post, put, del } = useApi()
+const { apiFetch, get, post, put, del } = useApi()
 
 async function loadCategories() {
   try {
