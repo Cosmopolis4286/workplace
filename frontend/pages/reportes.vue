@@ -243,7 +243,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { PageHeader } from '~/components/ui/PageHeader.vue'
+import PageHeader from '~/components/ui/PageHeader.vue'
 import { DocumentChartBarIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'

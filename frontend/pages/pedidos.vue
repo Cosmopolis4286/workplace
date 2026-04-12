@@ -822,7 +822,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { PageHeader } from '~/components/ui/PageHeader.vue'
+import PageHeader from '~/components/ui/PageHeader.vue'
 import { useApi } from '~/composables/useApi'
 import {
   ShoppingCart, Calendar, Clock, Plus, Users, BarChart3,
