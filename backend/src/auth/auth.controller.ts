@@ -99,7 +99,7 @@ export class AuthController {
   @RateLimit({
     windowMs: 5 * 60 * 1000, // 5 minutos
     maxRequests: 50, // Máximo 50 refresh tokens
-    keyGenerator: (req) => `refresh:${req.user?.userId || req.ip}` // Por usuario o IP
+    keyGenerator: (req: any) => `refresh:${(req.user as any)?.userId || req.ip}` // Por usuario o IP
   })
   async refresh(@Request() req: any, @Body() dto: RefreshDto) {
     return this.authService.refreshTokens(req.user.userId, dto.refreshToken, req.securityContext);

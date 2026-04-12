@@ -67,7 +67,8 @@ describe('AuthController', () => {
 
       mockAuthService.login.mockResolvedValue(tokens)
 
-      const result = await controller.login(loginDto)
+      const mockRequest = { securityContext: null }
+      const result = await controller.login(loginDto, mockRequest)
 
       expect(result).toEqual(tokens)
       expect(mockAuthService.login).toHaveBeenCalledWith(loginDto)
