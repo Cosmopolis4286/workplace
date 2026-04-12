@@ -47,6 +47,7 @@ WORKDIR /app
 
 # Copiar solo lo esencial desde build
 COPY --from=build /app/backend/dist ./backend/dist
+COPY --from=build /app/backend/src/mail/templates ./backend/dist/src/mail/templates
 COPY --from=build /app/scripts/deployment/init-backend-prod.sh ./scripts/deployment/init-backend-prod.sh
 COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/backend/package.json ./backend/package.json
