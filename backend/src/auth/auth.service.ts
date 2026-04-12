@@ -238,8 +238,7 @@ export class AuthService {
   async getDemoCredentials() {
     // Buscar usuarios marcados como DEMO en la BD (dinámico, no array fijo)
     const demoUsers = await this.prisma.user.findMany({
-      where: { userType: 'DEMO' },
-      include: { commerce: true, category: true, subcategory: true },
+      where: { role: 'DEMO' },
     });
 
     if (demoUsers.length === 0) {
@@ -481,7 +480,7 @@ export class AuthService {
     const keys = await this.redis.keys(pattern);
     
     if (keys.length > 0) {
-      await this.redis.del(...keys);
+      await this.redis.delMultiple(keys);
     }
     
     // Limpiar también el contexto sospechoso
