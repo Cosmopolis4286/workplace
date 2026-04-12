@@ -152,6 +152,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
     - name: Debug token
       if: ${{ inputs.enable-scan == 'true' }}
+      shell: bash
       run: |
         echo "Token input: ${{ inputs.github-token }}"
         echo "GitHub token: ${{ github.token }}"
