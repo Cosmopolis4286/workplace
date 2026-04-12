@@ -155,10 +155,18 @@ runs:
       run: |
         START_TIME=$(date +%s)
         
-        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} "bash -s" << 'ENDSSH'
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} "bash -s" << ENDSSH
         set -euo pipefail
         
         cd ${{ inputs.deploy-path }}
+        
+        # Exportar variables desde GitHub Actions
+        export BACKEND_IMAGE="${{ inputs.backend-image }}"
+        export FRONTEND_IMAGE="${{ inputs.frontend-image }}"
+        export CURRENT_SHA="${{ inputs.current-sha }}"
+        export CANARY_PCT="${{ inputs.canary-percentage }}"
+        export HEALTH_TIMEOUT="${{ inputs.health-timeout }}"
+        export ROLLBACK_ENABLED="${{ inputs.rollback-on-failure }}"
         
         # Bloqueo distribuido con timeout
         exec 200>/tmp/deploy.lock
