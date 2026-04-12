@@ -149,11 +149,18 @@ runs:
         echo "Token input: ${{ inputs.github-token }}"
         echo "GitHub token: ${{ github.token }}"
         echo "Using token: ${{ inputs.github-token || github.token }}"
-    - name: Subir resultados de seguridad
-      if: ${{ inputs.enable-scan == 'true' && !cancelled() }}
-      uses: github/codeql-action/upload-sarif@v4
+    - name: Resultados de seguridad generados
+      if: ${{ inputs.enable-scan == 'true' }}
+      shell: bash
+      run: |
+        echo "=== ESCANEO DE SEGURIDAD COMPLETADO ==="
+        echo "Archivo SARIF: trivy-results-${{ inputs.service }}.sarif"
+        echo "Para ver resultados: descarga el artifact o usa GitHub CodeQL"
+        echo "========================================"
+    - name: Subir resultados de seguridad como artifact
+      if: ${{ inputs.enable-scan == 'true' }}
+      uses: actions/upload-artifact@v4
       with:
-        sarif_file: 'trivy-results-${{ inputs.service }}.sarif'
-        category: 'trivy-${{ inputs.service }}'
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
+        name: trivy-results-${{ inputs.service }}-${{ github.run_number }}
+        path: trivy-results-${{ inputs.service }}.sarif
+        retention-days: 30
