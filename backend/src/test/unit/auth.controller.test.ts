@@ -71,7 +71,7 @@ describe('AuthController', () => {
       const result = await controller.login(loginDto, mockRequest)
 
       expect(result).toEqual(tokens)
-      expect(mockAuthService.login).toHaveBeenCalledWith(loginDto)
+      expect(mockAuthService.login).toHaveBeenCalledWith(loginDto, null)
     })
   })
 
@@ -121,7 +121,7 @@ describe('AuthController', () => {
       const result = await controller.refresh(mockRequest, refreshDto)
 
       expect(result).toEqual(newTokens)
-      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('test-user', refreshDto.refreshToken)
+      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('test-user', refreshDto.refreshToken, undefined)
     })
 
     it('should throw error when refresh token is invalid', async () => {
@@ -148,7 +148,7 @@ describe('AuthController', () => {
       const result = await controller.logout(mockUser, refreshToken)
 
       expect(result).toEqual({ message: 'Sesión cerrada exitosamente' })
-      expect(mockAuthService.logout).toHaveBeenCalledWith('test-user-id', 'test-refresh-token')
+      expect(mockAuthService.logout).toHaveBeenCalledWith('test-user-id', 'test-refresh-token', undefined)
     })
   })
 })
