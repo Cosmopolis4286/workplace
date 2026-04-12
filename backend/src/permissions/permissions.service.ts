@@ -32,7 +32,7 @@ export class PermissionsService {
     });
     const keys = records.map((r) => r.permission.key);
 
-    await this.redis.set(cacheKey(role), JSON.stringify(keys), CACHE_TTL);
+    await this.redis.setex(cacheKey(role), CACHE_TTL, JSON.stringify(keys));
     return keys;
   }
 

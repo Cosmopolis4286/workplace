@@ -343,7 +343,7 @@ export class BcvSyncService {
   // ─────────────────────────────────────────────────────────────────────────────
 
   private async cacheResult(cacheKey: string, result: BCVRateResult): Promise<void> {
-    await this.redis.set(cacheKey, JSON.stringify(result), this.CACHE_TTL);
+    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(result));
   }
 
   private async getCachedResult(cacheKey: string): Promise<BCVRateResult | null> {

@@ -45,7 +45,7 @@ export class HealthController {
     // Verificar conexión a Redis
     let redisStatus = 'disconnected';
     try {
-      await this.redisService.set('health_check', 'ok', 10);
+      await this.redisService.setex('health_check', 10, 'ok');
       const value = await this.redisService.get('health_check');
       if (value === 'ok') {
         redisStatus = 'connected';
