@@ -185,6 +185,7 @@ runs:
         
         # Logging estructurado
         LOG_FILE="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
+        mkdir -p logs
         exec > >(tee -a "$LOG_FILE")
         exec 2>&1
         
@@ -192,11 +193,18 @@ runs:
         echo "📦 Backend: $BACKEND_IMAGE"
         echo "📦 Frontend: $FRONTEND_IMAGE"
         
+        # Validar que las variables no estén vacías
+        if [[ -z "$BACKEND_IMAGE" || -z "$FRONTEND_IMAGE" ]]; then
+          echo "❌ ERROR: BACKEND_IMAGE o FRONTEND_IMAGE están vacías"
+          exit 1
+        fi
+        
         # Verificar imágenes existen
         for IMG in "$BACKEND_IMAGE" "$FRONTEND_IMAGE"; do
-          if ! docker manifest inspect "$IMG" >/dev/null 2>&1; then
-            echo "⚠️  Imagen no disponible localmente, intentando pull: $IMG"
-            docker pull "$IMG" || { echo "❌ ERROR: No se pudo obtener $IMG"; exit 1; }
+          echo "🔍 Verificando imagen: $IMG"
+          if ! docker pull "$IMG" >/dev/null 2>&1; then
+            echo "❌ ERROR: No se pudo obtener $IMG"
+            exit 1
           fi
         done
         echo "✅ Imágenes verificadas"
