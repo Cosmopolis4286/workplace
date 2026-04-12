@@ -112,6 +112,7 @@ jobs:
         image-tag: main-${{ github.sha }}
         docker-username: ${{ secrets.DOCKER_USERNAME }}
         docker-password: ${{ secrets.DOCKER_PASSWORD }}
+        github-token: ${{ secrets.WORKPLACE_PAT }}
 
   build-frontend:
     name: Build Frontend
@@ -132,6 +133,7 @@ jobs:
         image-tag: main-${{ github.sha }}
         docker-username: ${{ secrets.DOCKER_USERNAME }}
         docker-password: ${{ secrets.DOCKER_PASSWORD }}
+        github-token: ${{ secrets.WORKPLACE_PAT }}
         build-args: |
           USE_DEMO=${{ vars.USE_DEMO || 'false' }}
           APP_ENV=production

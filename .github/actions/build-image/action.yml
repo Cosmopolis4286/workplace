@@ -40,6 +40,9 @@ inputs:
     description: 'Tamaño máximo de imagen en MB'
     required: false
     default: '500'
+  github-token:
+    description: 'GitHub token con permisos de seguridad (opcional, usa github.token por defecto)'
+    required: false
 
 outputs:
   image-digest:
@@ -145,3 +148,5 @@ runs:
       with:
         sarif_file: 'trivy-results-${{ inputs.service }}.sarif'
         category: 'trivy-${{ inputs.service }}'
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
