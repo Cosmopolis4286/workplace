@@ -11,6 +11,8 @@ export interface DemoCredential {
   label: string
   description: string
   commerceName: string | null
+  categoryName?: string | null
+  subcategoryName?: string | null
 }
 
 /**
