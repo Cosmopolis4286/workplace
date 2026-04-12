@@ -1,34 +1,70 @@
 name: 'Build and Push Docker Image'
-description: 'Construye y publica una imagen Docker en Docker Hub'
+description: 'Construye, escanea y publica imagen Docker con seguridad y cache optimizada'
 
 inputs:
   service:
-    description: 'Nombre del servicio (backend | frontend)'
+    description: 'Nombre del servicio (backend/frontend)'
     required: true
   dockerfile:
-    description: 'Ruta al Dockerfile'
+    description: 'Path al Dockerfile'
     required: true
   image-name:
-    description: 'Nombre completo de la imagen (usuario/repo-servicio)'
+    description: 'Nombre de la imagen en Docker Hub'
     required: true
   image-tag:
-    description: 'Tag principal de la imagen'
+    description: 'Tag de la imagen (ej: main-abc123)'
     required: true
   docker-username:
-    description: 'Docker Hub username'
+    description: 'Docker Hub username - REQUIRED, composite actions cannot access secrets'
     required: true
   docker-password:
-    description: 'Docker Hub password'
+    description: 'Docker Hub password/token - REQUIRED, composite actions cannot access secrets'
     required: true
   build-args:
-    description: 'Build args para el Dockerfile (formato: KEY=VALUE)'
+    description: 'Build args opcionales'
     required: false
     default: ''
+  context:
+    description: 'Build context'
+    required: false
+    default: '.'
+  target:
+    description: 'Dockerfile target stage'
+    required: false
+    default: 'production'
+  enable-scan:
+    description: 'Habilitar escaneo de vulnerabilidades'
+    required: false
+    default: 'true'
+  max-image-size:
+    description: 'Tamaño máximo de imagen en MB'
+    required: false
+    default: '500'
+
+outputs:
+  image-digest:
+    description: 'Digest SHA256 de la imagen construida'
+    value: ${{ steps.build.outputs.digest }}
+  image-size:
+    description: 'Tamaño de la imagen en bytes'
+    value: ${{ steps.inspect.outputs.size }}
 
 runs:
   using: composite
   steps:
+    - name: Validar inputs
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.docker-username }}" ]] || [[ -z "${{ inputs.docker-password }}" ]]; then
+          echo "❌ ERROR: docker-username y docker-password son requeridos"
+          echo "Composite actions NO pueden acceder a secrets directamente"
+          exit 1
+        fi
+        echo "✅ Inputs validados para ${{ inputs.service }}"
+
     - uses: docker/setup-buildx-action@v4
+      with:
+        driver-opts: image=moby/buildkit:latest
 
     - uses: docker/login-action@v4
       with:
@@ -36,15 +72,67 @@ runs:
         password: ${{ inputs.docker-password }}
 
     - name: Build y push ${{ inputs.service }}
+      id: build
       uses: docker/build-push-action@v6
       with:
-        context: .
+        context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}
-        target: production
+        target: ${{ inputs.target }}
         push: true
+        load: ${{ inputs.enable-scan == 'true' }}
+        platforms: linux/amd64,linux/arm64
         tags: |
           ${{ inputs.image-name }}:${{ inputs.image-tag }}
-          ${{ inputs.image-name }}:stable
-        cache-from: type=gha,scope=${{ inputs.service }}
-        cache-to: type=gha,mode=max,scope=${{ inputs.service }}
-        build-args: ${{ inputs.build-args }}
+          ${{ inputs.image-name }}:${{ github.sha }}
+          ${{ inputs.image-name }}:latest
+        cache-from: |
+          type=gha,scope=${{ github.workflow }}-${{ inputs.service }}
+          type=registry,ref=${{ inputs.image-name }}:cache
+        cache-to: |
+          type=gha,mode=max,scope=${{ github.workflow }}-${{ inputs.service }}
+          type=registry,ref=${{ inputs.image-name }}:cache,mode=max
+        build-args: |
+          BUILDKIT_INLINE_CACHE=1
+          ${{ inputs.build-args }}
+        provenance: true
+        sbom: ${{ inputs.enable-scan == 'true' }}
+
+    - name: Inspeccionar imagen
+      id: inspect
+      shell: bash
+      run: |
+        DIGEST="${{ steps.build.outputs.digest }}"
+        echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+        
+        SIZE=$(docker manifest inspect ${{ inputs.image-name }}@${DIGEST} 2>/dev/null | \
+          jq '[.layers[].size] | add' 2>/dev/null || echo "0")
+        echo "size=${SIZE}" >> $GITHUB_OUTPUT
+        
+        SIZE_MB=$((SIZE / 1024 / 1024))
+        MAX_MB=${{ inputs.max-image-size }}
+        
+        echo "📦 Imagen: ${{ inputs.image-name }}@${DIGEST}"
+        echo "📊 Tamaño: ${SIZE_MB}MB (max: ${MAX_MB}MB)"
+        
+        if [[ $SIZE_MB -gt $MAX_MB ]]; then
+          echo "❌ ERROR: Imagen excede el tamaño máximo permitido"
+          exit 1
+        fi
+        echo "✅ Tamaño de imagen válido"
+
+    - name: Escaneo de vulnerabilidades
+      if: ${{ inputs.enable-scan == 'true' }}
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ inputs.image-name }}:${{ inputs.image-tag }}'
+        format: 'sarif'
+        output: 'trivy-results-${{ inputs.service }}.sarif'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '0'
+
+    - name: Subir resultados de seguridad
+      if: ${{ inputs.enable-scan == 'true' && !cancelled() }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results-${{ inputs.service }}.sarif'
+        category: 'trivy-${{ inputs.service }}'
