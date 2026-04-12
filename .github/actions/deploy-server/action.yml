@@ -184,7 +184,7 @@ runs:
         set -a; source .env; set +a
         
         # Logging estructurado
-        LOG_FILE="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
+        export LOG_FILE="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
         mkdir -p logs
         
         # Función de logging
