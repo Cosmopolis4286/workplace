@@ -66,14 +66,6 @@ if ! $COMPOSE ps postgres 2>/dev/null | grep -qE "running|Up"; then
   done
 fi
 
-# Migraciones
-log "Ejecutando migraciones..."
-$COMPOSE run --rm --no-deps \
-  -e DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}" \
-  backend npx prisma migrate deploy \
-  && log "Migraciones OK" \
-  || log "Migraciones fallaron -- continuando"
-
 # Traefik: siempre recrear para aplicar traefik.yml copiado por el pipeline
 log "Actualizando Traefik..."
 $COMPOSE up -d --no-deps --force-recreate traefik
@@ -103,6 +95,26 @@ if ! wait_healthy "backend" "$NODE_PORT" "/api/ready" 30; then
   log "Backend no llego a estar healthy -- abortando"
   exit 1
 fi
+
+# === MIGRACIONES (despues de backend healthy) ===
+log "Ejecutando migraciones..."
+
+# Backup opcional antes de migrar (si existe directorio de backups)
+BACKUP_DIR="/opt/workplace/backups"
+if [ -d "$BACKUP_DIR" ]; then
+  BACKUP_FILE="$BACKUP_DIR/pre-deploy-$(date +%Y%m%d_%H%M%S).sql"
+  log "Creando backup: $BACKUP_FILE"
+  $COMPOSE exec -T postgres pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" > "$BACKUP_FILE" 2>/dev/null || log "WARN: Backup falló, continuando..."
+fi
+
+# Ejecutar migraciones usando el backend recien desplegado (tiene DATABASE_URL configurada)
+if ! $COMPOSE exec -T backend npx prisma migrate deploy; then
+  log "ERROR: Migraciones fallaron — abortando deploy"
+  log "Rollback manual: docker compose -f /opt/workplace/docker-compose.lite.yml up -d --no-deps backend"
+  exit 1
+fi
+
+log "Migraciones OK"
 
 # Rolling update frontend
 log "Actualizando frontend..."
