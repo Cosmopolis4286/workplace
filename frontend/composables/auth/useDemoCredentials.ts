@@ -12,6 +12,7 @@ export interface DemoCredential {
   description: string
   commerceName: string | null
   categoryName?: string | null
+  categoryIcon?: string | null
   subcategoryName?: string | null
 }
 

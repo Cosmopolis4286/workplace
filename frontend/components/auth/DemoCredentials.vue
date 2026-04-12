@@ -116,7 +116,7 @@
                         <div class="text-xs text-gray-500 truncate">{{ cred.email }}</div>
                         <div class="text-xs text-gray-400 truncate">{{ cred.description }}</div>
                         <div v-if="cred.categoryName" class="text-xs text-emerald-600 truncate font-medium">
-                          📦 {{ cred.categoryName }}{{ cred.subcategoryName ? ' → ' + cred.subcategoryName : '' }}
+                          {{ cred.categoryIcon || '📦' }} {{ cred.categoryName }}{{ cred.subcategoryName ? ' → ' + cred.subcategoryName : '' }}
                         </div>
                         <Transition
                           enter-active-class="duration-200 ease-out"

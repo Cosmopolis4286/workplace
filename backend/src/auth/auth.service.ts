@@ -202,6 +202,7 @@ export class AuthService {
       description: this.getRoleDescription(user.role),
       commerceName: user.commerce?.name ?? null,
       categoryName: user.category?.name ?? null,
+      categoryIcon: user.category?.icon ?? '📦',
       subcategoryName: user.subcategory?.name ?? null,
     }));
 
