@@ -13,11 +13,9 @@ export interface SecurityContext {
   lastActivity: Date;
 }
 
-declare global {
-  namespace Express {
-    interface Request {
-      securityContext?: SecurityContext;
-    }
+declare module 'express' {
+  interface Request {
+    securityContext?: SecurityContext;
   }
 }
 
