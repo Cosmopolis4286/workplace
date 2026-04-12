@@ -186,33 +186,36 @@ runs:
         # Logging estructurado
         LOG_FILE="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
         mkdir -p logs
-        exec > >(tee -a "$LOG_FILE")
-        exec 2>&1
         
-        echo "🚀 [$(date -Iseconds)] Iniciando deploy - SHA: ${{ inputs.current-sha }}"
-        echo "📦 Backend: $BACKEND_IMAGE"
-        echo "📦 Frontend: $FRONTEND_IMAGE"
+        # Función de logging
+        log() {
+          echo "$1" | tee -a "$LOG_FILE"
+        }
+        
+        log "🚀 [$(date -Iseconds)] Iniciando deploy - SHA: ${{ inputs.current-sha }}"
+        log "📦 Backend: $BACKEND_IMAGE"
+        log "📦 Frontend: $FRONTEND_IMAGE"
         
         # Validar que las variables no estén vacías
         if [[ -z "$BACKEND_IMAGE" || -z "$FRONTEND_IMAGE" ]]; then
-          echo "❌ ERROR: BACKEND_IMAGE o FRONTEND_IMAGE están vacías"
+          log "❌ ERROR: BACKEND_IMAGE o FRONTEND_IMAGE están vacías"
           exit 1
         fi
         
         # Verificar imágenes existen
         for IMG in "$BACKEND_IMAGE" "$FRONTEND_IMAGE"; do
-          echo "🔍 Verificando imagen: $IMG"
+          log "🔍 Verificando imagen: $IMG"
           if ! docker pull "$IMG" >/dev/null 2>&1; then
-            echo "❌ ERROR: No se pudo obtener $IMG"
+            log "❌ ERROR: No se pudo obtener $IMG"
             exit 1
           fi
         done
-        echo "✅ Imágenes verificadas"
+        log "✅ Imágenes verificadas"
         
         # Backup de versión actual antes de deploy
         if [[ -f versions/current.env ]]; then
           cp versions/current.env "versions/backup-$(date +%Y%m%d-%H%M%S).env"
-          echo "💾 Backup de versión actual creado"
+          log "💾 Backup de versión actual creado"
         fi
         
         # Ejecutar canary deploy
@@ -221,11 +224,11 @@ runs:
         FRONTEND_IMAGE="$FRONTEND_IMAGE" \
         CURRENT_SHA="${{ inputs.current-sha }}" \
         ./scripts/deploy/canary-traffic-split.sh || {
-          echo "❌ ERROR: Falló el script de deploy canary"
+          log "❌ ERROR: Falló el script de deploy canary"
           exit 1
         }
         
-        echo "✅ [$(date -Iseconds)] Deploy completado exitosamente"
+        log "✅ [$(date -Iseconds)] Deploy completado exitosamente"
         echo "status=success"
         ENDSSH
         
