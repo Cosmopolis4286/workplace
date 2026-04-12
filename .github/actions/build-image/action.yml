@@ -156,4 +156,4 @@ runs:
         sarif_file: 'trivy-results-${{ inputs.service }}.sarif'
         category: 'trivy-${{ inputs.service }}'
       env:
-        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
+        GITHUB_TOKEN: ${{ github.token }}
