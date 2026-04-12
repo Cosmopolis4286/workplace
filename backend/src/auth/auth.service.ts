@@ -238,7 +238,7 @@ export class AuthService {
   async getDemoCredentials() {
     // Buscar usuarios marcados como DEMO en la BD (dinámico, no array fijo)
     const demoUsers = await this.prisma.user.findMany({
-      where: { role: 'DEMO' },
+      where: { userType: 'DEMO' },
     });
 
     if (demoUsers.length === 0) {
