@@ -19,6 +19,7 @@ model User {
   avatar      String?
   coverImage  String?
   role        Role     @default(NORMAL)
+  userType    UserType @default(REGULAR)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -309,6 +310,13 @@ enum Role {
   COMMERCE
   FREELANCER
   NORMAL
+}
+
+enum UserType {
+  APP      // Usuarios propios de la app (superadmin, admins del sistema)
+  DEMO     // Cuentas de demostración/test visibles en login
+  TEST     // Cuentas de testing automatizado (no visibles)
+  REGULAR  // Usuarios normales registrados
 }
 
 enum ProductStatus {

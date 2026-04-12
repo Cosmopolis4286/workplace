@@ -172,66 +172,54 @@ export class AuthService {
   }
 
   async getDemoCredentials() {
-    const demoAccounts = [
-      {
-        role: 'SUPERADMIN' as const,
-        email: 'superadmin@demo.com',
-        password: 'SuperAdmin123',
-        label: 'Super Admin',
-        description: 'Acceso total: gestiona todos los usuarios y roles',
-      },
-      {
-        role: 'ADMIN' as const,
-        email: 'admin@demo.com',
-        password: 'Admin1234',
-        label: 'Administrador',
-        description: 'Gestiona commerce, freelancer y normal',
-      },
-      {
-        role: 'COMMERCE' as const,
-        email: 'commerce@demo.com',
-        password: 'Commerce123',
-        label: 'Comercio',
-        description: 'Acceso completo al negocio y operaciones',
-      },
-      {
-        role: 'FREELANCER' as const,
-        email: 'freelancer@demo.com',
-        password: 'Freelancer1',
-        label: 'Freelancer',
-        description: 'Acceso a sus propios servicios',
-      },
-      {
-        role: 'NORMAL' as const,
-        email: 'normal@demo.com',
-        password: 'Normal1234',
-        label: 'Usuario Normal',
-        description: 'Acceso básico de usuario final',
-      },
-    ];
+    // Buscar usuarios marcados como DEMO en la BD (dinámico, no array fijo)
+    const demoUsers = await this.prisma.user.findMany({
+      where: { userType: 'DEMO' },
+      include: { commerce: true, category: true, subcategory: true },
+    });
 
-    const results = await Promise.all(
-      demoAccounts.map(async (acc) => {
-        const user = await this.usersService.findByEmail(acc.email);
-        return {
-          ...acc,
-          commerceName: user?.commerce?.name ?? null,
-          exists: !!user,
-        };
-      })
-    );
-
-    const missing = results.filter((r) => !r.exists).map((r) => r.role);
-    if (missing.length > 0) {
+    if (demoUsers.length === 0) {
       throw new ForbiddenException(
-        `Demo users not found: ${missing.join(', ')}. Run: pnpm seed`
+        'No demo users found. Run: npx prisma db seed'
       );
     }
 
+    // Mapear a formato de credenciales demo con contraseñas predefinidas
+    // Las contraseñas se asignan según el rol del usuario
+    const rolePasswords: Record<string, string> = {
+      SUPERADMIN: 'SuperAdmin123',
+      ADMIN: 'Admin1234',
+      COMMERCE: 'Commerce123',
+      FREELANCER: 'Freelancer1',
+      NORMAL: 'Normal1234',
+    };
+
+    const credentials = demoUsers.map((user) => ({
+      role: user.role,
+      email: user.email,
+      password: rolePasswords[user.role] || 'Demo123',
+      label: `${user.firstName} ${user.lastName}`,
+      description: this.getRoleDescription(user.role),
+      commerceName: user.commerce?.name ?? null,
+      categoryName: user.category?.name ?? null,
+      subcategoryName: user.subcategory?.name ?? null,
+    }));
+
     return {
       success: true,
-      data: results.map(({ exists, ...rest }) => rest),
+      data: credentials,
     };
+  }
+
+  private getRoleDescription(role: string): string {
+    const descriptions: Record<string, string> = {
+      SUPERADMIN: 'Acceso total: gestiona todos los usuarios y roles',
+      ADMIN: 'Gestiona commerce, freelancer y normal',
+      COMMERCE: 'Acceso completo al negocio y operaciones',
+      FREELANCER: 'Acceso a sus propios servicios',
+      NORMAL: 'Acceso básico de usuario final',
+    };
+    return descriptions[role] || 'Usuario demo';
   }
 
   // --- Password Reset ---
