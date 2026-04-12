@@ -1048,9 +1048,12 @@ async function main() {
     if (existing) {
       await prisma.user.update({
         where: { email: demo.email },
-        data: { role: demo.role },
+        data: { 
+          role: demo.role,
+          userType: demo.userType || 'DEMO',  // Actualizar también el userType
+        },
       })
-      console.log(`✅ [${demo.role}] Already exists (role refreshed): ${demo.email}`)
+      console.log(`✅ [${demo.role}] Already exists (role & userType refreshed): ${demo.email}`)
       continue
     }
 
