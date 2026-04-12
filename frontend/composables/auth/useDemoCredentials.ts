@@ -39,17 +39,6 @@ export const useDemoCredentials = () => {
   const config = useRuntimeConfig()
 
   /**
-   * 🔥 Detecta entorno de forma segura
-   * - Prioriza process.dev (más confiable en Nuxt)
-   * - fallback a runtime config si existe
-   */
-  const isDev =
-    process.dev ||
-    config.public?.environment === 'development' ||
-    config.public?.APP_ENV === 'development' ||
-    config.public?.useDemoCredentials === true
-
-  /**
    * ✅ Indica si hay credenciales disponibles para mostrar
    */
   const isAvailable = computed(() => {
