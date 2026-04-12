@@ -116,6 +116,10 @@ jobs:
         image-tag: main-${{ github.sha }}
         docker-username: ${{ secrets.DOCKER_USERNAME }}
         docker-password: ${{ secrets.DOCKER_PASSWORD }}
+        build-args: |
+          USE_DEMO=${{ vars.USE_DEMO || 'false' }}
+          APP_ENV=production
+          API_URL=${{ vars.API_URL || '/api' }}
 
   # ─── 4. Deploy a producción ────────────────────────────────────────────────
   deploy:
