@@ -20,6 +20,10 @@ inputs:
   docker-password:
     description: 'Docker Hub password'
     required: true
+  build-args:
+    description: 'Build args para el Dockerfile (formato: KEY=VALUE)'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -43,3 +47,4 @@ runs:
           ${{ inputs.image-name }}:stable
         cache-from: type=gha,scope=${{ inputs.service }}
         cache-to: type=gha,mode=max,scope=${{ inputs.service }}
+        build-args: ${{ inputs.build-args }}
