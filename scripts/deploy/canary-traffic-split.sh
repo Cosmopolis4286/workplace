@@ -66,10 +66,71 @@ if ! $COMPOSE ps postgres 2>/dev/null | grep -qE "running|Up"; then
   done
 fi
 
-# Traefik: siempre recrear para aplicar traefik.yml copiado por el pipeline
-log "Actualizando Traefik..."
-$COMPOSE up -d --no-deps --force-recreate traefik
-sleep 8
+# === SMART TRAEFIK UPDATE (Zero SSL Downtime) ===
+log "Verificando cambios en Traefik..."
+
+TRAEFIK_CONFIG="/opt/workplace/traefik/traefik.yml"
+TRAEFIK_BACKUP="/tmp/traefik.yml.backup"
+DYNAMIC_CONFIG="/opt/workplace/traefik/dynamic"
+DYNAMIC_BACKUP="/tmp/traefik_dynamic_backup"
+NEEDS_RECREATE=false
+
+# Función para calcular checksum de directorio
+dir_checksum() {
+  find "$1" -type f -name "*.yml" -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d' ' -f1
+}
+
+# Verificar si traefik.yml cambió (config estática requiere recreate)
+if [ -f "$TRAEFIK_CONFIG" ] && [ -f "$TRAEFIK_BACKUP" ]; then
+  if ! diff -q "$TRAEFIK_CONFIG" "$TRAEFIK_BACKUP" >/dev/null 2>&1; then
+    log "  ⚠️ traefik.yml modificado — requerirá recrear contenedor"
+    NEEDS_RECREATE=true
+  else
+    log "  ✓ traefik.yml sin cambios"
+  fi
+else
+  log "  ℹ️ Primer deploy o backup no existe"
+  NEEDS_RECREATE=true
+fi
+
+# Verificar si dynamic config cambió (config dinámica = hot reload)
+if [ -d "$DYNAMIC_CONFIG" ]; then
+  CURRENT_DYNAMIC_CHECKSUM=$(dir_checksum "$DYNAMIC_CONFIG")
+  PREVIOUS_DYNAMIC_CHECKSUM=$(cat /tmp/traefik_dynamic_checksum 2>/dev/null || echo "")
+  
+  if [ "$CURRENT_DYNAMIC_CHECKSUM" != "$PREVIOUS_DYNAMIC_CHECKSUM" ]; then
+    log "  📝 Dynamic config cambiado — Traefik recargará automáticamente"
+  else
+    log "  ✓ Dynamic config sin cambios"
+  fi
+fi
+
+# Traefik: recrear SOLO si es necesario (preserva SSL certificates en volumen)
+if [ "$NEEDS_RECREATE" = true ]; then
+  log "Actualizando Traefik (recreate necesario)..."
+  $COMPOSE up -d --no-deps --force-recreate traefik
+  sleep 8
+  
+  # Backup para próxima comparación
+  cp "$TRAEFIK_CONFIG" "$TRAEFIK_BACKUP" 2>/dev/null || true
+else
+  log "Actualizando Traefik (sin recreate — SSL preservado)..."
+  # Solo reiniciar si no está corriendo, o recargar config dinámica
+  if ! $COMPOSE ps traefik 2>/dev/null | grep -qE "running|Up"; then
+    $COMPOSE up -d --no-deps traefik
+    sleep 5
+  else
+    # Forzar recarga de config dinámica via Traefik API (si está disponible)
+    curl -sf http://localhost:8080/api/providers/file/reload 2>/dev/null || true
+    # Pequeña pausa para asegurar que Traefik procesó cambios
+    sleep 2
+  fi
+fi
+
+# Guardar checksum de dynamic config para próxima vez
+if [ -d "$DYNAMIC_CONFIG" ]; then
+  dir_checksum "$DYNAMIC_CONFIG" > /tmp/traefik_dynamic_checksum
+fi
 
 # Verificar que Traefik arranco correctamente
 if ! $COMPOSE ps traefik 2>/dev/null | grep -qE "running|Up"; then
