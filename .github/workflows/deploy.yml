@@ -203,7 +203,7 @@ jobs:
     name: Deploy a Staging
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
-    if: github.event.inputs.environment == 'staging'
+    if: github.event.inputs.environment == 'staging' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     timeout-minutes: 20
     environment: 
       name: staging
@@ -332,7 +332,7 @@ jobs:
   deploy:
     name: Deploy a Producción
     runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend, deploy-staging, smoke-test-staging]
+    needs: [build-backend, build-frontend]
     if: github.event.inputs.environment == 'production' || github.event_name == 'release'
     timeout-minutes: 25
     environment: 
@@ -555,7 +555,7 @@ jobs:
   notify:
     name: Notificar Estado
     runs-on: ubuntu-latest
-    needs: [deploy, smoke-test, rollback-auto]
+    needs: [deploy-staging, smoke-test-staging, deploy, smoke-test, rollback-auto]
     if: always()
     permissions:
       contents: read
@@ -565,15 +565,35 @@ jobs:
     - name: Determinar Estado Final
       id: status
       run: |
-        if [[ "${{ needs.deploy.result }}" == "success" && "${{ needs.smoke-test.result }}" != "failure" && "${{ needs.rollback-auto.result }}" != "success" ]]; then
+        STAGING_SUCCESS="${{ needs.deploy-staging.result == 'success' && needs.smoke-test-staging.result != 'failure' }}"
+        PROD_DEPLOYED="${{ needs.deploy.result }}"
+        PROD_SUCCESS="${{ needs.deploy.result == 'success' && needs.smoke-test.result != 'failure' }}"
+        ROLLBACK_PERFORMED="${{ needs.rollback-auto.result == 'success' }}"
+        
+        # Si se ejecutó producción y fue exitoso
+        if [[ "$PROD_SUCCESS" == "true" && "$ROLLBACK_PERFORMED" != "true" ]]; then
           echo "status=success" >> $GITHUB_OUTPUT
           echo "message=🎉 Deploy exitoso a producción" >> $GITHUB_OUTPUT
-        elif [[ "${{ needs.rollback-auto.result }}" == "success" ]]; then
+        # Si se ejecutó rollback automático
+        elif [[ "$ROLLBACK_PERFORMED" == "true" ]]; then
           echo "status=failure" >> $GITHUB_OUTPUT
-          echo "message=🚨 Deploy falló con rollback automático" >> $GITHUB_OUTPUT
+          echo "message=🚨 Deploy a producción falló - rollback automático ejecutado" >> $GITHUB_OUTPUT
+        # Si producción fue deployado pero smoke test falló (sin rollback)
+        elif [[ "$PROD_DEPLOYED" == "success" && "${{ needs.smoke-test.result }}" == "failure" ]]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ Deploy a producción falló - smoke test no pasó" >> $GITHUB_OUTPUT
+        # Si solo se ejecutó staging (push a main) y fue exitoso
+        elif [[ "$STAGING_SUCCESS" == "true" && "$PROD_DEPLOYED" == "skipped" ]]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "message=✅ Deploy a staging exitoso - esperando deploy manual a producción" >> $GITHUB_OUTPUT
+        # Si staging falló
+        elif [[ "${{ needs.deploy-staging.result }}" == "failure" || "${{ needs.smoke-test-staging.result }}" == "failure" ]]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ Deploy a staging falló" >> $GITHUB_OUTPUT
+        # Cualquier otro caso de fallo
         else
           echo "status=failure" >> $GITHUB_OUTPUT
-          echo "message=❌ Deploy falló" >> $GITHUB_OUTPUT
+          echo "message=❌ Pipeline falló" >> $GITHUB_OUTPUT
         fi
 
     - uses: ./.github/actions/notify
