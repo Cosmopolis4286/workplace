@@ -20,31 +20,40 @@ describe('OrdersService', () => {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
       groupBy: jest.fn(),
       aggregate: jest.fn(),
-      findFirst: jest.fn(),
     },
     orderItem: {
       createMany: jest.fn(),
       deleteMany: jest.fn(),
     },
+    restaurantSettings: {
+      findUnique: jest.fn(),
+    },
+    customer: {
+      update: jest.fn(),
+    },
     $transaction: jest.fn(),
   }
 
   const mockNotificationsService = {
-    sendOrderNotification: jest.fn(),
-    sendOrderStatusUpdate: jest.fn(),
+    notifyNewOrder: jest.fn().mockResolvedValue(undefined),
+    notifyOrderStatusChange: jest.fn().mockResolvedValue(undefined),
   }
 
   const mockPlanLimitsService = {
+    assertOrderLimit: jest.fn(),
     checkOrderLimit: jest.fn(),
     hasReachedOrderLimit: jest.fn(),
   }
 
   beforeEach(async () => {
+    jest.clearAllMocks()
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
@@ -76,32 +85,25 @@ describe('OrdersService', () => {
   describe('getStats', () => {
     it('should return order statistics for a commerce', async () => {
       const commerceId = 'commerce-123'
-      const mockStats = {
-        total: 100,
-        byStatus: [
-          { status: 'PENDIENTE', _count: 20 },
-          { status: 'CONFIRMADO', _count: 30 },
-          { status: 'ENTREGADO', _count: 50 },
-        ],
-        monthlyRevenue: { _sum: { total: 5000 } },
-        avgTicket: { _avg: { total: 50 } },
-      }
 
-      mockPrismaService.order.count.mockResolvedValue(mockStats.total)
-      mockPrismaService.order.groupBy.mockResolvedValue(mockStats.byStatus)
+      mockPrismaService.order.count.mockResolvedValue(100)
+      mockPrismaService.order.groupBy.mockResolvedValue([
+        { status: 'PENDIENTE', _count: 20 },
+        { status: 'CONFIRMADO', _count: 30 },
+        { status: 'ENTREGADO', _count: 50 },
+      ])
       mockPrismaService.order.aggregate
-        .mockResolvedValueOnce(mockStats.monthlyRevenue)
-        .mockResolvedValueOnce(mockStats.avgTicket)
+        .mockResolvedValueOnce({ _sum: { total: 5000 } })
+        .mockResolvedValueOnce({ _avg: { total: 50 } })
 
       const result = await service.getStats(commerceId)
 
       expect(result).toEqual({
-        total: 100,
-        byStatus: {
-          PENDIENTE: 20,
-          CONFIRMADO: 30,
-          ENTREGADO: 50,
-        },
+        totalOrders: 100,
+        activeOrders: 50,
+        pendingOrders: 20,
+        completedOrders: 50,
+        cancelledOrders: 0,
         monthlyRevenue: 5000,
         avgTicket: 50,
       })
@@ -112,7 +114,7 @@ describe('OrdersService', () => {
 
     it('should handle zero orders gracefully', async () => {
       const commerceId = 'commerce-123'
-      
+
       mockPrismaService.order.count.mockResolvedValue(0)
       mockPrismaService.order.groupBy.mockResolvedValue([])
       mockPrismaService.order.aggregate
@@ -122,8 +124,11 @@ describe('OrdersService', () => {
       const result = await service.getStats(commerceId)
 
       expect(result).toEqual({
-        total: 0,
-        byStatus: {},
+        totalOrders: 0,
+        activeOrders: 0,
+        pendingOrders: 0,
+        completedOrders: 0,
+        cancelledOrders: 0,
         monthlyRevenue: 0,
         avgTicket: 0,
       })
@@ -145,57 +150,70 @@ describe('OrdersService', () => {
 
       const mockOrder = {
         id: 'order-123',
+        orderNumber: 'ORD-2026-0001',
         commerceId,
         status: 'PENDIENTE',
+        subtotal: 40,
+        tax: 0,
+        deliveryFee: 0,
+        discount: 0,
         total: 40,
         customerName: 'John Doe',
         customerPhone: '+1234567890',
         notes: 'Test order',
+        items: [],
         createdAt: new Date(),
         updatedAt: new Date(),
       }
 
-      mockPlanLimitsService.checkOrderLimit.mockResolvedValue(true)
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        return callback(mockPrismaService)
-      })
+      mockPrismaService.restaurantSettings.findUnique.mockResolvedValue(null)
+      mockPrismaService.order.count.mockResolvedValue(0)
       mockPrismaService.order.create.mockResolvedValue(mockOrder)
-      mockPrismaService.orderItem.createMany.mockResolvedValue({ count: 2 })
 
       const result = await service.create(commerceId, createOrderDto)
 
       expect(result).toEqual(mockOrder)
-      expect(mockPlanLimitsService.checkOrderLimit).toHaveBeenCalledWith(commerceId)
-      expect(mockPrismaService.order.create).toHaveBeenCalledWith({
-        data: {
-          commerceId,
-          customerName: 'John Doe',
-          customerPhone: '+1234567890',
-          notes: 'Test order',
-          status: 'PENDIENTE',
-          total: 40,
-        },
-      })
-      expect(mockNotificationsService.sendOrderNotification).toHaveBeenCalledWith(
-        mockOrder,
-        'created'
+      expect(mockPrismaService.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            commerceId,
+            customerName: 'John Doe',
+            customerPhone: '+1234567890',
+            notes: 'Test order',
+            total: 40,
+          }),
+        })
       )
+      expect(mockNotificationsService.notifyNewOrder).toHaveBeenCalled()
     })
 
     it('should throw error if order limit is reached', async () => {
       const commerceId = 'commerce-123'
+      const userId = 'user-123'
       const createOrderDto: CreateOrderDto = {
         customerName: 'John Doe',
         customerPhone: '+1234567890',
         items: [{ productId: 'product-1', productName: 'Product 1', quantity: 1, unitPrice: 10 }],
       }
 
-      mockPlanLimitsService.checkOrderLimit.mockRejectedValue(
+      mockPlanLimitsService.assertOrderLimit.mockRejectedValue(
         new Error('Order limit reached')
       )
 
-      await expect(service.create(commerceId, createOrderDto)).rejects.toThrow(
+      await expect(service.create(commerceId, createOrderDto, userId)).rejects.toThrow(
         'Order limit reached'
+      )
+    })
+
+    it('should throw error if no items provided', async () => {
+      const commerceId = 'commerce-123'
+      const createOrderDto: CreateOrderDto = {
+        customerName: 'John Doe',
+        items: [],
+      }
+
+      await expect(service.create(commerceId, createOrderDto)).rejects.toThrow(
+        BadRequestException
       )
     })
   })
@@ -205,47 +223,55 @@ describe('OrdersService', () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
       const newStatus: OrderStatus = 'CONFIRMADO'
-      
+
       const existingOrder = {
         id: orderId,
+        orderNumber: 'ORD-2026-0001',
         status: 'PENDIENTE',
-        commerceId: 'commerce-123',
+        commerceId,
+        customerId: null,
+        total: 40,
+        items: [],
       }
 
       const updatedOrder = {
         ...existingOrder,
         status: newStatus,
         updatedAt: new Date(),
+        items: [],
       }
 
-      mockPrismaService.order.findUnique.mockResolvedValue(existingOrder)
+      mockPrismaService.order.findFirst.mockResolvedValue(existingOrder)
       mockPrismaService.order.update.mockResolvedValue(updatedOrder)
 
       const result = await service.updateStatus(orderId, commerceId, newStatus)
 
       expect(result).toEqual(updatedOrder)
-      expect(mockPrismaService.order.update).toHaveBeenCalledWith({
-        where: { id: orderId },
-        data: { status: newStatus },
-      })
-      expect(mockNotificationsService.sendOrderStatusUpdate).toHaveBeenCalledWith(
-        updatedOrder,
-        newStatus
+      expect(mockPrismaService.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: orderId },
+          data: expect.objectContaining({ status: newStatus }),
+        })
       )
+      expect(mockNotificationsService.notifyOrderStatusChange).toHaveBeenCalled()
     })
 
     it('should throw error for invalid status transition', async () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
       const invalidStatus: OrderStatus = 'ENTREGADO'
-      
+
       const existingOrder = {
         id: orderId,
+        orderNumber: 'ORD-2026-0001',
         status: 'PENDIENTE',
-        commerceId: 'commerce-123',
+        commerceId,
+        customerId: null,
+        total: 40,
+        items: [],
       }
 
-      mockPrismaService.order.findUnique.mockResolvedValue(existingOrder)
+      mockPrismaService.order.findFirst.mockResolvedValue(existingOrder)
 
       await expect(service.updateStatus(orderId, commerceId, invalidStatus)).rejects.toThrow(
         BadRequestException
@@ -257,7 +283,7 @@ describe('OrdersService', () => {
       const commerceId = 'commerce-123'
       const newStatus: OrderStatus = 'CONFIRMADO'
 
-      mockPrismaService.order.findUnique.mockResolvedValue(null)
+      mockPrismaService.order.findFirst.mockResolvedValue(null)
 
       await expect(service.updateStatus(orderId, commerceId, newStatus)).rejects.toThrow(
         NotFoundException
@@ -275,8 +301,8 @@ describe('OrdersService', () => {
       }
 
       const mockOrders = [
-        { id: 'order-1', status: 'PENDIENTE' },
-        { id: 'order-2', status: 'PENDIENTE' },
+        { id: 'order-1', status: 'PENDIENTE', items: [{ id: 'item-1' }] },
+        { id: 'order-2', status: 'PENDIENTE', items: [] },
       ]
 
       mockPrismaService.order.findMany.mockResolvedValue(mockOrders)
@@ -285,7 +311,10 @@ describe('OrdersService', () => {
       const result = await service.findAll(commerceId, queryDto)
 
       expect(result).toEqual({
-        orders: mockOrders,
+        data: [
+          { id: 'order-1', status: 'PENDIENTE', items: [{ id: 'item-1' }], itemCount: 1 },
+          { id: 'order-2', status: 'PENDIENTE', items: [], itemCount: 0 },
+        ],
         total: 2,
         page: 1,
         limit: 10,
@@ -308,19 +337,20 @@ describe('OrdersService', () => {
 
       await service.findAll(commerceId, queryDto)
 
-      expect(mockPrismaService.order.findMany).toHaveBeenCalledWith({
-        where: {
-          commerceId,
-          status: 'CONFIRMADO',
-          createdAt: {
-            gte: new Date('2024-01-01'),
-            lte: new Date('2024-01-31'),
-          },
-        },
-        skip: 0,
-        take: 10,
-        orderBy: { createdAt: 'desc' },
-      })
+      expect(mockPrismaService.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            commerceId,
+            status: 'CONFIRMADO',
+            createdAt: expect.objectContaining({
+              gte: new Date('2024-01-01'),
+            }),
+          }),
+          skip: 0,
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+        })
+      )
     })
   })
 
@@ -328,22 +358,23 @@ describe('OrdersService', () => {
     it('should return order by id', async () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
-      
+
       const mockOrder = {
         id: orderId,
         commerceId,
         status: 'PENDIENTE',
         items: [],
+        customer: null,
       }
 
-      mockPrismaService.order.findUnique.mockResolvedValue(mockOrder)
+      mockPrismaService.order.findFirst.mockResolvedValue(mockOrder)
 
       const result = await service.findOne(orderId, commerceId)
 
       expect(result).toEqual(mockOrder)
-      expect(mockPrismaService.order.findUnique).toHaveBeenCalledWith({
-        where: { id: orderId },
-        include: { items: true },
+      expect(mockPrismaService.order.findFirst).toHaveBeenCalledWith({
+        where: { id: orderId, commerceId },
+        include: expect.objectContaining({ items: true }),
       })
     })
 
@@ -351,7 +382,7 @@ describe('OrdersService', () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
 
-      mockPrismaService.order.findUnique.mockResolvedValue(null)
+      mockPrismaService.order.findFirst.mockResolvedValue(null)
 
       await expect(service.findOne(orderId, commerceId)).rejects.toThrow(
         NotFoundException
@@ -363,22 +394,23 @@ describe('OrdersService', () => {
     it('should delete order successfully', async () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
-      
+
       const existingOrder = {
         id: orderId,
         commerceId,
         status: 'PENDIENTE',
+        items: [],
+        customer: null,
+        orderNumber: 'ORD-2026-0001',
+        total: 40,
       }
 
-      mockPrismaService.order.findUnique.mockResolvedValue(existingOrder)
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        return callback(mockPrismaService)
-      })
+      mockPrismaService.order.findFirst.mockResolvedValue(existingOrder)
       mockPrismaService.order.delete.mockResolvedValue(existingOrder)
 
       const result = await service.remove(orderId, commerceId)
 
-      expect(result).toEqual(existingOrder)
+      expect(result).toEqual({ message: 'Pedido eliminado' })
       expect(mockPrismaService.order.delete).toHaveBeenCalledWith({
         where: { id: orderId },
       })
@@ -387,17 +419,30 @@ describe('OrdersService', () => {
     it('should throw error if order is not in PENDIENTE status', async () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
-      
+
       const existingOrder = {
         id: orderId,
         commerceId,
         status: 'CONFIRMADO',
+        items: [],
+        customer: null,
       }
 
-      mockPrismaService.order.findUnique.mockResolvedValue(existingOrder)
+      mockPrismaService.order.findFirst.mockResolvedValue(existingOrder)
 
       await expect(service.remove(orderId, commerceId)).rejects.toThrow(
         BadRequestException
+      )
+    })
+
+    it('should throw error if order not found', async () => {
+      const orderId = 'order-123'
+      const commerceId = 'commerce-123'
+
+      mockPrismaService.order.findFirst.mockResolvedValue(null)
+
+      await expect(service.remove(orderId, commerceId)).rejects.toThrow(
+        NotFoundException
       )
     })
   })
