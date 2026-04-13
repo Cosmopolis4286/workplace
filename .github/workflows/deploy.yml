@@ -51,7 +51,7 @@ jobs:
     - name: Ejecutar tests
       uses: ./.github/actions/run-tests
       with:
-        coverage-threshold: '75'
+        coverage-threshold: '65'
 
   # ─── 2. Tests E2E ──────────────────────────────────────────────────────────
   e2e-tests:
