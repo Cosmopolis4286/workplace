@@ -1,0 +1,397 @@
+import { Test, TestingModule } from '@nestjs/testing'
+import { NotificationsService } from '../../notifications/notifications.service'
+import { PrismaService } from '../../prisma/prisma.service'
+
+describe('NotificationsService', () => {
+  let service: NotificationsService
+  let prismaService: PrismaService
+
+  const mockPrismaService = {
+    notification: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn(),
+    },
+    user: {
+      findMany: jest.fn(),
+      update: jest.fn(),
+    },
+  }
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        NotificationsService,
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
+      ],
+    }).compile()
+
+    service = module.get<NotificationsService>(NotificationsService)
+    prismaService = module.get<PrismaService>(PrismaService)
+  })
+
+  it('should be defined', () => {
+    expect(service).toBeDefined()
+  })
+
+  describe('create', () => {
+    it('should create a notification successfully', async () => {
+      const createNotificationDto = {
+        title: 'Test Notification',
+        message: 'Test message',
+        type: 'INFO',
+        userId: 'user-123',
+      }
+
+      const mockNotification = {
+        id: 'notif-123',
+        ...createNotificationDto,
+        createdAt: new Date(),
+        read: false,
+      }
+
+      mockPrismaService.notification.create.mockResolvedValue(mockNotification)
+
+      const result = await service.create(createNotificationDto)
+
+      expect(result).toEqual(mockNotification)
+      expect(mockPrismaService.notification.create).toHaveBeenCalledWith({
+        data: createNotificationDto,
+      })
+    })
+
+    it('should create notification for multiple users', async () => {
+      const createNotificationDto = {
+        title: 'Broadcast Notification',
+        message: 'Broadcast message',
+        type: 'INFO',
+        userIds: ['user-1', 'user-2', 'user-3'],
+      }
+
+      const mockNotifications = createNotificationDto.userIds.map((userId, index) => ({
+        id: `notif-${index + 1}`,
+        title: createNotificationDto.title,
+        message: createNotificationDto.message,
+        type: createNotificationDto.type,
+        userId,
+        createdAt: new Date(),
+        read: false,
+      }))
+
+      mockPrismaService.notification.create.mockResolvedValue(mockNotifications[0])
+
+      const result = await service.create(createNotificationDto)
+
+      expect(result).toBeDefined()
+      expect(mockPrismaService.notification.create).toHaveBeenCalledTimes(3)
+    })
+  })
+
+  describe('findAll', () => {
+    it('should return paginated notifications for user', async () => {
+      const userId = 'user-123'
+      const queryDto = {
+        page: 1,
+        limit: 10,
+        unreadOnly: false,
+      }
+
+      const mockNotifications = [
+        { id: 'notif-1', title: 'Notif 1', userId, read: false },
+        { id: 'notif-2', title: 'Notif 2', userId, read: true },
+      ]
+
+      mockPrismaService.notification.findMany.mockResolvedValue(mockNotifications)
+      mockPrismaService.notification.count.mockResolvedValue(2)
+
+      const result = await service.findAll(userId, queryDto)
+
+      expect(result).toEqual({
+        notifications: mockNotifications,
+        total: 2,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      })
+    })
+
+    it('should filter unread notifications only', async () => {
+      const userId = 'user-123'
+      const queryDto = {
+        page: 1,
+        limit: 10,
+        unreadOnly: true,
+      }
+
+      const mockNotifications = [
+        { id: 'notif-1', title: 'Notif 1', userId, read: false },
+      ]
+
+      mockPrismaService.notification.findMany.mockResolvedValue(mockNotifications)
+      mockPrismaService.notification.count.mockResolvedValue(1)
+
+      const result = await service.findAll(userId, queryDto)
+
+      expect(result.notifications).toHaveLength(1)
+      expect(result.notifications[0].read).toBe(false)
+    })
+
+    it('should handle pagination correctly', async () => {
+      const userId = 'user-123'
+      const queryDto = {
+        page: 2,
+        limit: 5,
+        unreadOnly: false,
+      }
+
+      mockPrismaService.notification.findMany.mockResolvedValue([])
+      mockPrismaService.notification.count.mockResolvedValue(12)
+
+      const result = await service.findAll(userId, queryDto)
+
+      expect(result.page).toBe(2)
+      expect(result.limit).toBe(5)
+      expect(result.totalPages).toBe(3) // 12 total / 5 per page = 3 pages
+    })
+  })
+
+  describe('markAsRead', () => {
+    it('should mark notification as read', async () => {
+      const notificationId = 'notif-123'
+      const userId = 'user-123'
+
+      const mockNotification = {
+        id: notificationId,
+        title: 'Test Notification',
+        read: true,
+        updatedAt: new Date(),
+      }
+
+      mockPrismaService.notification.update.mockResolvedValue(mockNotification)
+
+      const result = await service.markAsRead(notificationId, userId)
+
+      expect(result).toEqual(mockNotification)
+      expect(mockPrismaService.notification.update).toHaveBeenCalledWith({
+        where: { id: notificationId },
+        data: { read: true },
+      })
+    })
+
+    it('should throw error if notification not found', async () => {
+      const notificationId = 'notif-123'
+      const userId = 'user-123'
+
+      mockPrismaService.notification.update.mockRejectedValue(
+        new Error('Notification not found')
+      )
+
+      await expect(service.markAsRead(notificationId, userId)).rejects.toThrow(
+        'Notification not found'
+      )
+    })
+  })
+
+  describe('markAllAsRead', () => {
+    it('should mark all notifications as read for user', async () => {
+      const userId = 'user-123'
+
+      const mockResult = {
+        count: 5,
+      }
+
+      mockPrismaService.notification.update.mockResolvedValue(mockResult)
+
+      const result = await service.markAllAsRead(userId)
+
+      expect(result).toEqual(mockResult)
+      expect(mockPrismaService.notification.update).toHaveBeenCalledWith({
+        where: { userId, read: false },
+        data: { read: true },
+      })
+    })
+  })
+
+  describe('getUnreadCount', () => {
+    it('should return unread notifications count', async () => {
+      const userId = 'user-123'
+
+      mockPrismaService.notification.count.mockResolvedValue(3)
+
+      const result = await service.getUnreadCount(userId)
+
+      expect(result).toBe(3)
+      expect(mockPrismaService.notification.count).toHaveBeenCalledWith({
+        where: { userId, read: false },
+      })
+    })
+
+    it('should return 0 for user with no notifications', async () => {
+      const userId = 'user-456'
+
+      mockPrismaService.notification.count.mockResolvedValue(0)
+
+      const result = await service.getUnreadCount(userId)
+
+      expect(result).toBe(0)
+    })
+  })
+
+  describe('sendOrderStatusUpdate', () => {
+    it('should create order status notification', async () => {
+      const order = {
+        id: 'order-123',
+        customerName: 'John Doe',
+        customerEmail: 'john@example.com',
+        status: 'CONFIRMED',
+      }
+      const newStatus = 'CONFIRMED'
+
+      const mockNotification = {
+        id: 'notif-123',
+        title: 'Order Status Updated',
+        message: `Your order #${order.id} has been ${newStatus}`,
+        type: 'ORDER_UPDATE',
+        userId: 'user-123',
+      }
+
+      mockPrismaService.notification.create.mockResolvedValue(mockNotification)
+
+      const result = await service.sendOrderStatusUpdate(order, newStatus)
+
+      expect(result).toBeDefined()
+      expect(mockPrismaService.notification.create).toHaveBeenCalledWith({
+        data: {
+          title: 'Order Status Updated',
+          message: `Your order #${order.id} has been ${newStatus}`,
+          type: 'ORDER_UPDATE',
+          userId: expect.any(String),
+        },
+      })
+    })
+
+    it('should handle different order statuses', async () => {
+      const order = {
+        id: 'order-123',
+        customerName: 'John Doe',
+        customerEmail: 'john@example.com',
+        status: 'DELIVERED',
+      }
+      const newStatus = 'DELIVERED'
+
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'notif-123' })
+
+      await service.sendOrderStatusUpdate(order, newStatus)
+
+      expect(mockPrismaService.notification.create).toHaveBeenCalledWith({
+        data: {
+          title: 'Order Status Updated',
+          message: `Your order #${order.id} has been ${newStatus}`,
+          type: 'ORDER_UPDATE',
+          userId: expect.any(String),
+        },
+      })
+    })
+  })
+
+  describe('sendPromotionalNotification', () => {
+    it('should send promotional notification to multiple users', async () => {
+      const promoDto = {
+        title: 'Special Offer!',
+        message: 'Get 20% off on all products',
+        targetSegment: 'PREMIUM',
+      }
+
+      const mockUsers = [
+        { id: 'user-1', segment: 'PREMIUM' },
+        { id: 'user-2', segment: 'PREMIUM' },
+        { id: 'user-3', segment: 'REGULAR' },
+      ]
+
+      const premiumUsers = mockUsers.filter(user => user.segment === 'PREMIUM')
+
+      mockPrismaService.user.findMany.mockResolvedValue(mockUsers)
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'notif-123' })
+
+      const result = await service.sendPromotionalNotification(promoDto)
+
+      expect(result).toBeDefined()
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
+        where: { segment: 'PREMIUM' },
+      })
+      expect(mockPrismaService.notification.create).toHaveBeenCalledTimes(2)
+    })
+
+    it('should handle no users in target segment', async () => {
+      const promoDto = {
+        title: 'Special Offer!',
+        message: 'Get 20% off on all products',
+        targetSegment: 'VIP',
+      }
+
+      mockPrismaService.user.findMany.mockResolvedValue([])
+
+      const result = await service.sendPromotionalNotification(promoDto)
+
+      expect(result).toBeDefined()
+      expect(mockPrismaService.notification.create).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('delete', () => {
+    it('should delete notification', async () => {
+      const notificationId = 'notif-123'
+      const userId = 'user-123'
+
+      const mockNotification = {
+        id: notificationId,
+        title: 'Test Notification',
+        deletedAt: new Date(),
+      }
+
+      mockPrismaService.notification.update.mockResolvedValue(mockNotification)
+
+      const result = await service.delete(notificationId, userId)
+
+      expect(result).toEqual(mockNotification)
+      expect(mockPrismaService.notification.update).toHaveBeenCalledWith({
+        where: { id: notificationId },
+        data: { deletedAt: expect.any(Date) },
+      })
+    })
+  })
+
+  describe('Error handling', () => {
+    it('should handle database errors gracefully', async () => {
+      const createNotificationDto = {
+        title: 'Test Notification',
+        message: 'Test message',
+        type: 'INFO',
+        userId: 'user-123',
+      }
+
+      mockPrismaService.notification.create.mockRejectedValue(new Error('Database error'))
+
+      await expect(service.create(createNotificationDto)).rejects.toThrow(
+        'Database error'
+      )
+    })
+
+    it('should validate required fields', async () => {
+      const invalidDto = {
+        title: '',
+        message: 'Test message',
+        type: 'INFO',
+        userId: 'user-123',
+      }
+
+      mockPrismaService.notification.create.mockRejectedValue(new Error('Title is required'))
+
+      await expect(service.create(invalidDto)).rejects.toThrow('Title is required')
+    })
+  })
+})
