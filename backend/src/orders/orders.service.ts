@@ -289,7 +289,12 @@ export class OrdersService {
   // Delete
   // ──────────────────────────────────────────────────────────────────────────
   async remove(id: string, commerceId: string) {
-    await this.findOne(id, commerceId);
+    const order = await this.findOne(id, commerceId);
+    if (order.status !== 'PENDIENTE') {
+      throw new BadRequestException(
+        'Solo se pueden eliminar pedidos en estado PENDIENTE'
+      );
+    }
     await this.prisma.order.delete({ where: { id } });
     return { message: 'Pedido eliminado' };
   }
