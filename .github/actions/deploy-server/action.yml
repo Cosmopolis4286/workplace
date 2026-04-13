@@ -190,7 +190,7 @@ runs:
           echo "ERROR: No se pudo crear directorio temporal en servidor"
           exit 1
         fi
-        log "Directorio temporal creado: $TEMP_DIR"
+        echo "Directorio temporal creado: $TEMP_DIR"
         
         # Copiar a directorio temporal
         scp_with_retry "/tmp/traefik.yml" "$REMOTE:${TEMP_DIR}/traefik.yml"
@@ -250,7 +250,8 @@ runs:
         START_TIME=$(date +%s)
         DEPLOY_PATH_HASH=$(echo "${{ inputs.deploy-path }}" | md5sum | cut -d' ' -f1)
         
-        # Ejecutar deploy con variables explícitas para seguridad
+        # Ejecutar deploy con protección completa contra fallos SSH
+        set +e
         OUTPUT=$(ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" \
           "DEPLOY_PATH='${{ inputs.deploy-path }}' \
            BACKEND_IMAGE='${{ inputs.backend-image }}' \
@@ -265,13 +266,10 @@ runs:
            bash -s" << 'ENDSSH'
         set -Eeuo pipefail
         
-        # Cleanup function para liberar recursos
+        # Cleanup function (lock se libera automáticamente cuando el proceso muere)
         cleanup() {
           local exit_code=$?
-          # Liberar lock si está adquirido
-          if [[ -n "$LOCK_FILE" ]]; then
-            flock -u 200 2>/dev/null || true
-          fi
+          # El lock se libera automáticamente al terminar el proceso
           return $exit_code
         }
         
@@ -294,17 +292,19 @@ runs:
         # Variables del deploy
         LOG_TIMESTAMP=$(date +%Y%m%d-%H%M%S)
         LOG_FILE="logs/deploy-${LOG_TIMESTAMP}.log"
-        LOCK_FILE="/tmp/deploy-${DEPLOY_PATH_HASH}.lock"
+        # NOTA: Lock es local al servidor. Para escalado multi-nodo se necesita Redis/DB lock
+        LOCK_FILE="${DEPLOY_PATH}/.deploy.lock"
         
         # Crear directorio de logs
         mkdir -p logs
         
-        # Logging robusto sin tee
+        # Logging estructurado JSON
         log() {
           local message="$1"
           local timestamp=$(date -Iseconds)
-          echo "[$timestamp] $message"
-          echo "[$timestamp] $message" >> "$LOG_FILE" 2>/dev/null || true
+          local json_log="{\"ts\":\"$timestamp\",\"msg\":\"$message\",\"level\":\"INFO\"}"
+          echo "$json_log"
+          echo "$json_log" >> "$LOG_FILE" 2>/dev/null || true
         }
         
         log "=== INICIANDO DEPLOY PRODUCTION-GRADE ==="
@@ -334,9 +334,20 @@ runs:
           exit 1
         fi
         
-        # Cargar variables de entorno
-        set -a; source .env; set +a
-        log "Entorno validado y cargado"
+        # Cargar variables de entorno de forma ultra segura (line-by-line export)
+        log "Cargando variables de entorno de forma ultra segura..."
+        if ! while IFS= read -r line; do
+          # Solo procesar líneas que parecen variables válidas
+          [[ "$line" =~ ^[A-Z0-9_]+= ]] || continue
+          # Exportar la línea completa (preserva espacios, quotes, = en valores)
+          export "$line"
+        done < .env; then
+          log "ERROR: No se pudo procesar .env de forma segura"
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          exit 1
+        fi
+        log "Entorno cargado de forma ultra segura"
         
         # Validar variables críticas
         required_vars=("NODE_PORT" "FRONTEND_PORT" "POSTGRES_USER" "POSTGRES_DB")
@@ -349,21 +360,56 @@ runs:
           fi
         done
         
+        # Verificar espacio en disco antes del deploy
+        log "Verificando espacio en disco..."
+        if ! df -h . | awk '$5+0 > 85 {print "ERROR: Espacio en disco insuficiente: " $5 " usado"; exit 1}'; then
+          log "ERROR: Espacio en disco insuficiente para deploy"
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          exit 1
+        fi
+        log "Espacio en disco verificado"
+
+        # Validar configuración de docker-compose
+        log "Validando configuración docker-compose..."
+        if ! docker compose -f docker-compose.lite.yml config >/dev/null 2>&1; then
+          log "ERROR: Configuración docker-compose inválida"
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          exit 1
+        fi
+        log "Configuración docker-compose validada"
+
         # Validar imágenes Docker (paralelo)
         log "Validando imágenes Docker en paralelo..."
         
-        # Iniciar pulls en background con timeout extendido para imágenes grandes
-        timeout 180 docker pull "$BACKEND_IMAGE" >/dev/null 2>&1 &
-        BACKEND_PID=$!
+        # Iniciar pulls en background con control fino y logging
+        pull_with_fallback() {
+          local image="$1"
+          local pid_var="$2"
+          local log_file="$3"
+          
+          # Pull con --quiet y logging detallado
+          timeout 180 docker pull --quiet "$image" >"$log_file" 2>&1 &
+          eval "$pid_var=$!"
+        }
         
-        timeout 180 docker pull "$FRONTEND_IMAGE" >/dev/null 2>&1 &
-        FRONTEND_PID=$!
+        # Archivos de log para pulls
+        BACKEND_PULL_LOG="/tmp/backend_pull_$$"
+        FRONTEND_PULL_LOG="/tmp/frontend_pull_$$"
         
-        # Esperar a que ambos terminen
+        pull_with_fallback "$BACKEND_IMAGE" "BACKEND_PID" "$BACKEND_PULL_LOG"
+        pull_with_fallback "$FRONTEND_IMAGE" "FRONTEND_PID" "$FRONTEND_PULL_LOG"
+        
+        # Esperar a que ambos terminen con control fino
         PULL_ERRORS=0
         
         if ! wait $BACKEND_PID; then
           log "ERROR: No se pudo obtener imagen backend: $BACKEND_IMAGE"
+          if [[ -s "$BACKEND_PULL_LOG" ]]; then
+            log "Detalles del error backend:"
+            tail -5 "$BACKEND_PULL_LOG" | while read line; do log "  $line"; done
+          fi
           PULL_ERRORS=$((PULL_ERRORS + 1))
         else
           log "Backend image verificada: $BACKEND_IMAGE"
@@ -371,10 +417,17 @@ runs:
         
         if ! wait $FRONTEND_PID; then
           log "ERROR: No se pudo obtener imagen frontend: $FRONTEND_IMAGE"
+          if [[ -s "$FRONTEND_PULL_LOG" ]]; then
+            log "Detalles del error frontend:"
+            tail -5 "$FRONTEND_PULL_LOG" | while read line; do log "  $line"; done
+          fi
           PULL_ERRORS=$((PULL_ERRORS + 1))
         else
           log "Frontend image verificada: $FRONTEND_IMAGE"
         fi
+        
+        # Cleanup de logs de pulls
+        rm -f "$BACKEND_PULL_LOG" "$FRONTEND_PULL_LOG"
         
         if [[ $PULL_ERRORS -gt 0 ]]; then
           echo "DEPLOY_STATUS=failed"
@@ -382,7 +435,7 @@ runs:
           exit 1
         fi
         
-        log "Imágenes Docker validadas en paralelo"
+        log "Imágenes Docker validadas en paralelo con control fino"
         
         # Backup de versión actual
         if [[ -f versions/current.env ]]; then
@@ -403,19 +456,226 @@ runs:
           exit 0
         fi
         
-        # Ejecutar deploy real
-        log "Ejecutando deploy con canary..."
+        # Ejecutar deploy con canary progresivo real
+        log "Ejecutando deploy con canary progresivo..."
         
-        CANARY_PERCENTAGE="$CANARY_PCT" \
-        BACKEND_IMAGE="$BACKEND_IMAGE" \
-        FRONTEND_IMAGE="$FRONTEND_IMAGE" \
-        CURRENT_SHA="$CURRENT_SHA" \
-        ./scripts/deploy/canary-traffic-split.sh
+        # Estrategia de canary progresivo con circuit breaker
+        CANARY_STEPS=("10" "25" "50" "100")
+        CURRENT_STEP_INDEX=0
+        FAILED_STEPS=0
         
-        log "Deploy canary completado"
+        while [[ $CURRENT_STEP_INDEX -lt ${#CANARY_STEPS[@]} ]]; do
+          STEP="${CANARY_STEPS[$CURRENT_STEP_INDEX]}"
+          log "Canary step: ${STEP}% (step $((CURRENT_STEP_INDEX + 1))/${#CANARY_STEPS[@]})"
+          
+          # Validar salida explícita del canary script
+          if ! CANARY_PERCENTAGE="$STEP" \
+          BACKEND_IMAGE="$BACKEND_IMAGE" \
+          FRONTEND_IMAGE="$FRONTEND_IMAGE" \
+          CURRENT_SHA="$CURRENT_SHA" \
+          ./scripts/deploy/canary-traffic-split.sh; then
+            log "ERROR: Canary script falló en step ${STEP}%"
+            
+            # Circuit breaker: reducir tráfico en lugar de abortar
+            if [[ $FAILED_STEPS -lt 2 && $CURRENT_STEP_INDEX -gt 0 ]]; then
+              FAILED_STEPS=$((FAILED_STEPS + 1))
+              CURRENT_STEP_INDEX=$((CURRENT_STEP_INDEX - 1))  # Retroceder un step
+              PREVIOUS_STEP="${CANARY_STEPS[$CURRENT_STEP_INDEX]}"
+              log "CIRCUIT BREAKER: Reduciendo tráfico de ${STEP}% a ${PREVIOUS_STEP}%"
+              
+              # Reintentar con tráfico reducido
+              if ! CANARY_PERCENTAGE="$PREVIOUS_STEP" \
+              BACKEND_IMAGE="$BACKEND_IMAGE" \
+              FRONTEND_IMAGE="$FRONTEND_IMAGE" \
+              CURRENT_SHA="$CURRENT_SHA" \
+              ./scripts/deploy/canary-traffic-split.sh; then
+                log "ERROR: Circuit breaker falló - abortando deploy"
+                echo "DEPLOY_STATUS=failed"
+                echo "DEPLOY_ROLLBACK_PERFORMED=false"
+                exit 1
+              fi
+            else
+              log "ERROR: Demasiados fallos - abortando deploy"
+              echo "DEPLOY_STATUS=failed"
+              echo "DEPLOY_ROLLBACK_PERFORMED=false"
+              exit 1
+            fi
+          fi
+          
+          # Validar step actual con métricas de negocio
+          log "Validando canary step ${STEP}% con métricas de negocio..."
+          sleep 10  # Esperar a que se aplique el tráfico
+          
+          # Recolectar métricas de negocio (30 segundos de medición)
+          METRICS_FILE="/tmp/canary_metrics_$$"
+          echo "0" > "$METRICS_FILE"  # success count
+          echo "0" > "${METRICS_FILE}_errors"  # error count
+          echo "0" > "${METRICS_FILE}_latency"  # total latency
+          
+          for i in {1..30}; do
+            # Medir latencia y éxito
+            START_TIME=$(date +%s%N)
+            if timeout 5 curl --retry 1 --retry-delay 1 --retry-connrefused -sf --max-time 3 \
+                "http://localhost:${NODE_PORT}/api/health" >/dev/null 2>&1; then
+              END_TIME=$(date +%s%N)
+              LATENCY=$(( (END_TIME - START_TIME) / 1000000 ))  # ms
+              echo "$LATENCY" >> "${METRICS_FILE}_latency"
+              # Incrementar success
+              CURRENT_SUCCESS=$(cat "$METRICS_FILE")
+              echo $((CURRENT_SUCCESS + 1)) > "$METRICS_FILE"
+            else
+              # Incrementar errors
+              CURRENT_ERRORS=$(cat "${METRICS_FILE}_errors")
+              echo $((CURRENT_ERRORS + 1)) > "${METRICS_FILE}_errors"
+            fi
+            sleep 1
+          done
+          
+          # Calcular métricas
+          TOTAL_REQUESTS=$(cat "$METRICS_FILE")
+          TOTAL_ERRORS=$(cat "${METRICS_FILE}_errors")
+          SUCCESS_RATE=$(( TOTAL_REQUESTS * 100 / (TOTAL_REQUESTS + TOTAL_ERRORS) ))
+          
+          # Calcular latencia promedio
+          if [[ -s "${METRICS_FILE}_latency" ]]; then
+            AVG_LATENCY=$(awk '{sum+=$1} END {print int(sum/NR)}' "${METRICS_FILE}_latency")
+          else
+            AVG_LATENCY=9999
+          fi
+          
+          log "Métricas canary ${STEP}%: Success=${SUCCESS_RATE}%, Latency=${AVG_LATENCY}ms, Errors=${TOTAL_ERRORS}"
+          
+          # Validar umbrales de negocio
+          ERROR_RATE=$(( 100 - SUCCESS_RATE ))
+          if [[ $ERROR_RATE -gt 5 ]]; then
+            log "ERROR: Error rate ${ERROR_RATE}% > 5% - step ${STEP}% fallado"
+            echo "DEPLOY_STATUS=failed"
+            echo "DEPLOY_ROLLBACK_PERFORMED=false"
+            echo "DEPLOY_ERROR_RATE=${ERROR_RATE}"
+            echo "DEPLOY_AVG_LATENCY=${AVG_LATENCY}"
+            exit 1
+          fi
+          
+          if [[ $AVG_LATENCY -gt 1000 ]]; then
+            log "ERROR: Latency ${AVG_LATENCY}ms > 1000ms - step ${STEP}% fallado"
+            echo "DEPLOY_STATUS=failed"
+            echo "DEPLOY_ROLLBACK_PERFORMED=false"
+            echo "DEPLOY_ERROR_RATE=${ERROR_RATE}"
+            echo "DEPLOY_AVG_LATENCY=${AVG_LATENCY}"
+            exit 1
+          fi
+          
+          log "Canary step ${STEP}% validado exitosamente (Error rate: ${ERROR_RATE}%, Latency: ${AVG_LATENCY}ms)"
+          
+          # Cleanup métricas
+          rm -f "$METRICS_FILE" "${METRICS_FILE}_errors" "${METRICS_FILE}_latency"
+          
+          # Reset contador de fallos y avanzar al siguiente step
+          FAILED_STEPS=0
+          CURRENT_STEP_INDEX=$((CURRENT_STEP_INDEX + 1))
+          
+          # Si es el último paso, salir del loop
+          if [[ "$STEP" == "100" ]]; then
+            break
+          fi
+        done
         
+        log "Deploy canary progresivo completado"
+        
+        # Validar que el deploy realmente cambió tráfico
+        log "Validando que el deploy cambió el tráfico..."
+        
+        # Validación fuerte de Traefik con dominio, headers y balanceo
+        log "Validando configuración Traefik con routing real..."
+        
+        # Obtener dominio desde variables de entorno o usar localhost como fallback
+        DOMAIN="${DOMAIN:-localhost}"
+        
+        # 1. Validar routing con dominio real
+        if timeout 10 curl --retry 2 --retry-delay 1 --retry-connrefused -sf --max-time 5 \
+            -H "Host: $DOMAIN" \
+            "http://localhost:80/" >/dev/null 2>&1; then
+          log "Traefik routing con dominio verificado: $DOMAIN"
+        else
+          log "ERROR: Traefik routing con dominio falló"
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          exit 1
+        fi
+        
+        # 2. Validar headers de Traefik
+        TRAEFIK_HEADERS=$(timeout 10 curl --retry 2 --retry-delay 1 --retry-connrefused -sf --max-time 5 \
+            -I -H "Host: $DOMAIN" \
+            "http://localhost:80/" 2>/dev/null || echo "")
+        
+        if echo "$TRAEFIK_HEADERS" | grep -q "Server: Traefik"; then
+          log "Headers Traefik verificados"
+        else
+          log "WARNING: Headers Traefik no detectados - posible proxy reverso"
+        fi
+        
+        # 3. Validar balanceo de carga (múltiples peticiones)
+        BALANCE_CHECK_FILE="/tmp/traefik_balance_$$"
+        for i in {1..5}; do
+          timeout 5 curl --retry 1 --retry-delay 1 --retry-connrefused -sf --max-time 3 \
+            -H "Host: $DOMAIN" \
+            "http://localhost:80/api/health" >> "$BALANCE_CHECK_FILE" 2>&1 &
+        done
+        wait
+        
+        # Verificar que todas las peticiones tuvieron éxito
+        SUCCESSFUL_REQUESTS=$(grep -c "200\|healthy" "$BALANCE_CHECK_FILE" 2>/dev/null || echo "0")
+        if [[ $SUCCESSFUL_REQUESTS -ge 4 ]]; then
+          log "Balanceo de carga Traefik verificado: $SUCCESSFUL_REQUESTS/5 peticiones exitosas"
+        else
+          log "WARNING: Balanceo de carga puede tener problemas: $SUCCESSFUL_REQUESTS/5 peticiones exitosas"
+        fi
+        
+        # 4. Validar endpoints específicos del backend
+        if timeout 10 curl --retry 2 --retry-delay 1 --retry-connrefused -sf --max-time 5 \
+            -H "Host: $DOMAIN" \
+            "http://localhost:80/api/health" >/dev/null 2>&1; then
+          log "Endpoint backend a través de Traefik verificado"
+        else
+          log "ERROR: Endpoint backend no accesible a través de Traefik"
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          exit 1
+        fi
+        
+        # Cleanup
+        rm -f "$BALANCE_CHECK_FILE"
+        
+        log "Validación Traefik completada exitosamente"
+        
+        # Verificar que los contenedores están corriendo
+        RUNNING_CONTAINERS=$(docker ps --filter "label=com.docker.compose.project=workplace" --format '{{.Names}}' | wc -l)
+        if [[ $RUNNING_CONTAINERS -lt 2 ]]; then
+          log "ERROR: Menos de 2 contenedores corriendo después del deploy"
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          exit 1
+        fi
+        log "Contenedores verificados: $RUNNING_CONTAINERS corriendo"
+        
+        # Verificar estado de servicios Docker antes de health checks
+        log "Verificando estado de servicios Docker..."
+        UNHEALTHY_CONTAINERS=$(docker ps --filter "health=unhealthy" --format '{{.Names}}' 2>/dev/null | wc -l)
+        if [[ $UNHEALTHY_CONTAINERS -gt 0 ]]; then
+          log "ERROR: $UNHEALTHY_CONTAINERS contenedores en estado unhealthy"
+          docker ps --filter "health=unhealthy" --format '  - {{.Names}}: {{.Status}}'
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          exit 1
+        fi
+        log "Servicios Docker verificados: 0 contenedores unhealthy"
+
         # Health checks robustos
         log "Iniciando health checks..."
+        
+        # Obtener puertos dinámicamente (ANTES de usarlos)
+        NODE_PORT="${NODE_PORT:-3001}"
+        FRONTEND_PORT="${FRONTEND_PORT:-3000}"
         
         # Validar HEALTH_RETRIES para evitar división por cero
         if [[ "$HEALTH_RETRIES" -le 0 ]]; then
@@ -430,72 +690,77 @@ runs:
         fi
         log "Usando intervalos de ${SLEEP_INTERVAL}s (timeout: ${HEALTH_TIMEOUT}s, retries: ${HEALTH_RETRIES})"
         
-        # Obtener puertos dinámicamente
-        NODE_PORT="${NODE_PORT:-3001}"
-        FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+        # Health check mejorado para canary (paralelo con archivos para evitar race conditions)
         
-        # Health check mejorado para canary
-        backend_healthy=false
-        frontend_healthy=false
-        
-        # Health check para backend (con validación real de canary)
-        for attempt in $(seq 1 "${HEALTH_RETRIES}"); do
-          log "Health check backend - intento $attempt/${HEALTH_RETRIES}"
+        # Funciones de health check que escriben resultados a archivos
+        check_backend() {
+          local attempt=1
+          local backend_result_file="/tmp/backend_health_$$"
           
-          # Health check básico
-          if timeout 10 curl -sf --max-time 5 \
-              "http://localhost:${NODE_PORT}/api/ready" >/dev/null 2>&1; then
+          while [[ $attempt -le "${HEALTH_RETRIES}" ]]; do
+            log "Health check backend - intento $attempt/${HEALTH_RETRIES}"
             
-            # Validación real de canary: verificar SHA/version en headers
-            CANARY_RESPONSE=$(timeout 10 curl -sf --max-time 5 \
-                -H "X-Canary-Validation: true" \
-                "http://localhost:${NODE_PORT}/api/health" 2>/dev/null || echo "")
-            
-            # Validar SHA en respuesta (si el endpoint lo soporta)
-            if echo "$CANARY_RESPONSE" | grep -q "${CURRENT_SHA}"; then
-              log "Backend health check PASSED (SHA ${CURRENT_SHA} verificado en canary)"
-              backend_healthy=true
-              break
-            elif echo "$CANARY_RESPONSE" | grep -q "canary"; then
-              log "Backend health check PASSED (canary traffic detectado)"
-              backend_healthy=true
-              break
-            elif [[ -n "$CANARY_RESPONSE" ]]; then
-              log "Backend responde pero SHA no verificado - reintentando"
+            # Health check básico con retry
+            if timeout 10 curl --retry 3 --retry-delay 2 --retry-connrefused -sf --max-time 5 \
+                "http://localhost:${NODE_PORT}/api/ready" >/dev/null 2>&1; then
+              
+              # Validación real de canary: verificar versión
+              CANARY_RESPONSE=$(timeout 10 curl --retry 2 --retry-delay 1 --retry-connrefused -sf --max-time 5 \
+                  -H "X-Canary-Validation: true" \
+                  "http://localhost:${NODE_PORT}/api/version" 2>/dev/null || echo "")
+              
+              # Validar SHA en respuesta (contrato estricto)
+              if echo "$CANARY_RESPONSE" | jq -r '.version' 2>/dev/null | grep -q "${CURRENT_SHA}"; then
+                log "Backend health check PASSED (SHA ${CURRENT_SHA} verificado)"
+                echo "healthy" > "$backend_result_file"
+                return 0
+              elif echo "$CANARY_RESPONSE" | grep -q "canary"; then
+                log "Backend health check PASSED (canary detectado)"
+                echo "healthy" > "$backend_result_file"
+                return 0
+              elif [[ -n "$CANARY_RESPONSE" ]]; then
+                log "Backend responde pero versión no verificable - reintentando"
+              else
+                log "ERROR: Backend no responde con versión verificable"
+                echo "unhealthy" > "$backend_result_file"
+                return 1
+              fi
             else
-              log "Backend responde pero sin validación canary - aceptando"
-              backend_healthy=true
-              break
+              log "Backend health check FAILED - intento $attempt"
             fi
-          else
-            log "Backend health check FAILED - intento $attempt"
-          fi
+            
+            if [[ $attempt -lt "${HEALTH_RETRIES}" ]]; then
+              sleep "$SLEEP_INTERVAL"
+            fi
+            ((attempt++))
+          done
           
-          if [[ $attempt -lt "${HEALTH_RETRIES}" ]]; then
-            sleep "$SLEEP_INTERVAL"
-          fi
-        done
+          echo "unhealthy" > "$backend_result_file"
+          return 1
+        }
         
-        # Health check para frontend (con validación de routing)
-        if [[ "$backend_healthy" == "true" ]]; then
-          for attempt in $(seq 1 "${HEALTH_RETRIES}"); do
+        check_frontend() {
+          local attempt=1
+          local frontend_result_file="/tmp/frontend_health_$$"
+          
+          while [[ $attempt -le "${HEALTH_RETRIES}" ]]; do
             log "Health check frontend - intento $attempt/${HEALTH_RETRIES}"
             
-            # Health check básico
-            if timeout 10 curl -sf --max-time 5 \
+            # Health check básico con retry
+            if timeout 10 curl --retry 3 --retry-delay 2 --retry-connrefused -sf --max-time 5 \
                 "http://localhost:${FRONTEND_PORT}/" >/dev/null 2>&1; then
               
-              # Validación de routing a través de Traefik (si está disponible)
-              if timeout 10 curl -sf --max-time 5 \
+              # Validación de routing a través de Traefik (requerido)
+              if timeout 10 curl --retry 2 --retry-delay 1 --retry-connrefused -sf --max-time 5 \
                   -H "Host: localhost" \
                   "http://localhost:80/" >/dev/null 2>&1; then
                 log "Frontend health check PASSED (routing Traefik verificado)"
-                frontend_healthy=true
-                break
+                echo "healthy" > "$frontend_result_file"
+                return 0
               else
-                log "Frontend responde pero routing Traefik no verificado - aceptando igual"
-                frontend_healthy=true
-                break
+                log "ERROR: Frontend routing Traefik no verificado"
+                echo "unhealthy" > "$frontend_result_file"
+                return 1
               fi
             else
               log "Frontend health check FAILED - intento $attempt"
@@ -504,8 +769,39 @@ runs:
             if [[ $attempt -lt "${HEALTH_RETRIES}" ]]; then
               sleep "$SLEEP_INTERVAL"
             fi
+            ((attempt++))
           done
+          
+          echo "unhealthy" > "$frontend_result_file"
+          return 1
+        }
+        
+        # Ejecutar health checks en paralelo
+        check_backend &
+        BACKEND_CHECK_PID=$!
+        
+        # Esperar un poco antes de iniciar frontend check
+        sleep 2
+        check_frontend &
+        FRONTEND_CHECK_PID=$!
+        
+        # Esperar a que ambos terminen y leer resultados
+        wait $BACKEND_CHECK_PID $FRONTEND_CHECK_PID
+        
+        # Leer resultados desde archivos (thread-safe)
+        backend_healthy=false
+        frontend_healthy=false
+        
+        if [[ -f "/tmp/backend_health_$$" ]] && [[ "$(cat /tmp/backend_health_$$)" == "healthy" ]]; then
+          backend_healthy=true
         fi
+        
+        if [[ -f "/tmp/frontend_health_$$" ]] && [[ "$(cat /tmp/frontend_health_$$)" == "healthy" ]]; then
+          frontend_healthy=true
+        fi
+        
+        # Cleanup de archivos temporales
+        rm -f "/tmp/backend_health_$$" "/tmp/frontend_health_$$"
         
         # Evaluación final de health checks
         if [[ "$backend_healthy" == "true" && "$frontend_healthy" == "true" ]]; then
@@ -520,6 +816,11 @@ runs:
         EOF
           ln -sf "versions/current-${LOG_TIMESTAMP}.env" versions/current.env
           
+          # Cleanup de imágenes viejas (solo si deploy exitoso, conservando rollback)
+          log "Realizando cleanup de imágenes Docker viejas..."
+          docker image prune -af --filter "until=168h" >/dev/null 2>&1 || true
+          log "Cleanup de imágenes completado (conservando imágenes de 7 días para rollback)"
+          
           echo "DEPLOY_STATUS=success"
           echo "DEPLOY_ROLLBACK_PERFORMED=false"
           echo "DEPLOY_HEALTH_STATUS=healthy"
@@ -533,8 +834,13 @@ runs:
           if [[ "$ROLLBACK_ENABLED" == "true" && -f versions/current.env ]]; then
             log "Iniciando rollback automático..."
             
-            # Cargar versión anterior con error handling (consolidado)
-            if ! set -a; source versions/current.env; set +a; then
+            # Cargar versión anterior con parsing ultra seguro
+            if ! while IFS= read -r line; do
+              # Solo procesar líneas que parecen variables válidas
+              [[ "$line" =~ ^[A-Z0-9_]+= ]] || continue
+              # Exportar la línea completa (preserva espacios, quotes, = en valores)
+              export "$line"
+            done < versions/current.env; then
               log "ERROR: No se pudo cargar versión previa (archivo corrupto)"
               echo "DEPLOY_STATUS=rollback-failed"
               echo "DEPLOY_ROLLBACK_PERFORMED=true"
@@ -619,9 +925,6 @@ runs:
         
         ENDSSH
         )
-        
-        # Capturar salida del SSH (con set +e para evitar terminación prematura)
-        set +e
         SSH_EXIT_CODE=$?
         set -e
         
