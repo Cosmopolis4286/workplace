@@ -1,18 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { AnalyticsController } from '../../analytics/analytics.controller'
 import { AnalyticsService } from '../../analytics/analytics.service'
+import { PermissionsService } from '../../permissions/permissions.service'
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
 
 describe('AnalyticsController', () => {
   let controller: AnalyticsController
   let service: AnalyticsService
 
   const mockAnalyticsService = {
-    getSalesAnalytics: jest.fn(),
-    getCustomerAnalytics: jest.fn(),
-    getProductAnalytics: jest.fn(),
-    getRevenueAnalytics: jest.fn(),
-    getTopProducts: jest.fn(),
-    getDashboardStats: jest.fn(),
+    getOverview: jest.fn(),
+  }
+
+  const mockPermissionsService = {
+    hasPermission: jest.fn().mockResolvedValue(true),
   }
 
   beforeEach(async () => {
@@ -23,8 +25,17 @@ describe('AnalyticsController', () => {
           provide: AnalyticsService,
           useValue: mockAnalyticsService,
         },
+        {
+          provide: PermissionsService,
+          useValue: mockPermissionsService,
+        },
       ],
-    }).compile()
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionsGuard)
+      .useValue({ canActivate: () => true })
+      .compile()
 
     controller = module.get<AnalyticsController>(AnalyticsController)
     service = module.get<AnalyticsService>(AnalyticsService)
@@ -34,118 +45,79 @@ describe('AnalyticsController', () => {
     expect(controller).toBeDefined()
   })
 
-  describe('getSalesAnalytics', () => {
-    it('should return sales analytics', async () => {
-      const commerceId = 'commerce-123'
-      const queryDto = { period: 'today' }
+  describe('getOverview', () => {
+    it('should return analytics overview', async () => {
+      const userId = 'user-123'
+      const queryDto = { period: '30d' as const, compareWith: 'previous' as const }
 
       const expectedResult = {
-        totalSales: 1000,
-        averageOrder: 100,
-        ordersCount: 10,
+        period: '30d',
+        compareWith: 'previous',
+        dateRange: {
+          from: expect.any(String),
+          to: expect.any(String),
+        },
+        previousDateRange: {
+          from: expect.any(String),
+          to: expect.any(String),
+        },
+        kpis: {
+          totalRevenue: expect.any(Number),
+          totalRevenueChange: expect.any(Number),
+          totalOrders: expect.any(Number),
+          totalOrdersChange: expect.any(Number),
+          avgTicket: expect.any(Number),
+          avgTicketChange: expect.any(Number),
+          newCustomers: expect.any(Number),
+          newCustomersChange: expect.any(Number),
+        },
+        revenueTrend: {
+          labels: expect.any(Array),
+          values: expect.any(Array),
+        },
+        ordersByHour: {
+          labels: expect.any(Array),
+          values: expect.any(Array),
+        },
+        topProducts: {
+          labels: expect.any(Array),
+          values: expect.any(Array),
+          revenue: expect.any(Array),
+        },
+        customerSegments: {
+          labels: expect.any(Array),
+          values: expect.any(Array),
+        },
+        performance: {
+          operational: {
+            avgPrepTime: expect.any(Number),
+            avgDeliveryTime: expect.any(Number),
+            cancellationRate: expect.any(Number),
+            cancellations: expect.any(Number),
+            totalInPeriod: expect.any(Number),
+          },
+          growth: {
+            newCustomers: expect.any(Number),
+            retentionRate: expect.any(Number),
+            clv: expect.any(Number),
+            orderFrequency: expect.any(Number),
+            totalCustomers: expect.any(Number),
+          },
+          financial: {
+            grossMargin: expect.any(Number),
+            avgTicket: expect.any(Number),
+            totalRevenue: expect.any(Number),
+            totalOrders: expect.any(Number),
+          },
+        },
       }
 
-      mockAnalyticsService.getSalesAnalytics.mockResolvedValue(expectedResult)
+      mockAnalyticsService.getOverview.mockResolvedValue(expectedResult)
 
-      const result = await controller.getSalesAnalytics(commerceId, queryDto)
-
-      expect(result).toEqual(expectedResult)
-      expect(service.getSalesAnalytics).toHaveBeenCalledWith(commerceId, queryDto)
-    })
-  })
-
-  describe('getCustomerAnalytics', () => {
-    it('should return customer analytics', async () => {
-      const commerceId = 'commerce-123'
-      const queryDto = { period: 'today' }
-
-      const expectedResult = {
-        totalCustomers: 50,
-        customers: [],
-      }
-
-      mockAnalyticsService.getCustomerAnalytics.mockResolvedValue(expectedResult)
-
-      const result = await controller.getCustomerAnalytics(commerceId, queryDto)
+      const result = await controller.getOverview({ id: userId } as any, queryDto)
 
       expect(result).toEqual(expectedResult)
-      expect(service.getCustomerAnalytics).toHaveBeenCalledWith(commerceId, queryDto)
-    })
-  })
-
-  describe('getProductAnalytics', () => {
-    it('should return product analytics', async () => {
-      const commerceId = 'commerce-123'
-      const queryDto = { period: 'today' }
-
-      const expectedResult = {
-        totalProducts: 20,
-        products: [],
-      }
-
-      mockAnalyticsService.getProductAnalytics.mockResolvedValue(expectedResult)
-
-      const result = await controller.getProductAnalytics(commerceId, queryDto)
-
-      expect(result).toEqual(expectedResult)
-      expect(service.getProductAnalytics).toHaveBeenCalledWith(commerceId, queryDto)
-    })
-  })
-
-  describe('getRevenueAnalytics', () => {
-    it('should return revenue analytics', async () => {
-      const commerceId = 'commerce-123'
-      const queryDto = { period: 'today' }
-
-      const expectedResult = {
-        totalRevenue: 1000,
-        dailyRevenue: [],
-      }
-
-      mockAnalyticsService.getRevenueAnalytics.mockResolvedValue(expectedResult)
-
-      const result = await controller.getRevenueAnalytics(commerceId, queryDto)
-
-      expect(result).toEqual(expectedResult)
-      expect(service.getRevenueAnalytics).toHaveBeenCalledWith(commerceId, queryDto)
-    })
-  })
-
-  describe('getTopProducts', () => {
-    it('should return top products', async () => {
-      const commerceId = 'commerce-123'
-      const queryDto = { period: 'today', limit: 10 }
-
-      const expectedResult = [
-        { productId: '1', productName: 'Product 1', totalSold: 100 },
-      ]
-
-      mockAnalyticsService.getTopProducts.mockResolvedValue(expectedResult)
-
-      const result = await controller.getTopProducts(commerceId, queryDto)
-
-      expect(result).toEqual(expectedResult)
-      expect(service.getTopProducts).toHaveBeenCalledWith(commerceId, queryDto)
-    })
-  })
-
-  describe('getDashboardStats', () => {
-    it('should return dashboard stats', async () => {
-      const commerceId = 'commerce-123'
-
-      const expectedResult = {
-        sales: { totalSales: 1000 },
-        customers: { totalCustomers: 50 },
-        products: { totalProducts: 20 },
-        revenue: { totalRevenue: 1000 },
-      }
-
-      mockAnalyticsService.getDashboardStats.mockResolvedValue(expectedResult)
-
-      const result = await controller.getDashboardStats(commerceId)
-
-      expect(result).toEqual(expectedResult)
-      expect(service.getDashboardStats).toHaveBeenCalledWith(commerceId)
+      expect(service.getOverview).toHaveBeenCalledWith(userId, queryDto)
     })
   })
 })
