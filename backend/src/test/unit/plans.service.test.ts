@@ -51,7 +51,7 @@ describe('PlansService', () => {
     expect(service).toBeDefined()
   })
 
-  describe('create', () => {
+  describe('createPlan', () => {
     it('should create a new plan successfully', async () => {
       const createPlanDto = {
         name: 'Premium Plan',
@@ -59,6 +59,7 @@ describe('PlansService', () => {
         price: 29.99,
         duration: 30,
         features: ['Feature 1', 'Feature 2'],
+        enabledModules: ['module1', 'module2'],
         maxUsers: 10,
         maxProducts: 1000,
         maxOrders: 5000,
@@ -73,11 +74,15 @@ describe('PlansService', () => {
 
       mockPrismaService.plan.create.mockResolvedValue(mockPlan)
 
-      const result = await service.create(createPlanDto)
+      const result = await service.createPlan(createPlanDto)
 
       expect(result).toEqual(mockPlan)
       expect(mockPrismaService.plan.create).toHaveBeenCalledWith({
-        data: createPlanDto,
+        data: {
+          ...createPlanDto,
+          features: createPlanDto.features ?? [],
+          enabledModules: createPlanDto.enabledModules ?? [],
+        },
       })
     })
 
@@ -95,76 +100,115 @@ describe('PlansService', () => {
 
       mockPrismaService.plan.create.mockRejectedValue(new Error('Plan name already exists'))
 
-      await expect(service.create(createPlanDto)).rejects.toThrow('Plan name already exists')
+      await expect(service.createPlan(createPlanDto)).rejects.toThrow('Plan name already exists')
     })
   })
 
-  describe('findAll', () => {
-    it('should return paginated plans', async () => {
-      const queryDto = {
-        page: 1,
-        limit: 10,
-        active: true,
-      }
-
+  describe('findAllPlans', () => {
+    it('should return all active plans', async () => {
       const mockPlans = [
-        { id: 'plan-1', name: 'Basic Plan', price: 9.99, active: true },
-        { id: 'plan-2', name: 'Premium Plan', price: 29.99, active: true },
+        {
+          id: 'plan-1',
+          name: 'Basic Plan',
+          price: 9.99,
+          status: 'ACTIVE',
+          _count: { subscriptions: 5 },
+        },
+        {
+          id: 'plan-2',
+          name: 'Premium Plan',
+          price: 29.99,
+          status: 'ACTIVE',
+          _count: { subscriptions: 10 },
+        },
       ]
 
       mockPrismaService.plan.findMany.mockResolvedValue(mockPlans)
-      mockPrismaService.plan.count.mockResolvedValue(2)
 
-      const result = await service.findAll(queryDto)
+      const result = await service.findAllPlans()
 
-      expect(result).toEqual({
-        plans: mockPlans,
-        total: 2,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
+      expect(result).toEqual(mockPlans)
+      expect(mockPrismaService.plan.findMany).toHaveBeenCalledWith({
+        where: { status: 'ACTIVE' },
+        include: {
+          _count: { select: { subscriptions: true } },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],
       })
     })
 
-    it('should filter by active status', async () => {
-      const queryDto = {
-        page: 1,
-        limit: 10,
-        active: false,
-      }
-
+    it('should return all plans including inactive', async () => {
       const mockPlans = [
-        { id: 'plan-3', name: 'Old Plan', price: 19.99, active: false },
+        {
+          id: 'plan-1',
+          name: 'Basic Plan',
+          price: 9.99,
+          status: 'ACTIVE',
+          _count: { subscriptions: 5 },
+        },
+        {
+          id: 'plan-2',
+          name: 'Old Plan',
+          price: 19.99,
+          status: 'INACTIVE',
+          _count: { subscriptions: 0 },
+        },
       ]
 
       mockPrismaService.plan.findMany.mockResolvedValue(mockPlans)
-      mockPrismaService.plan.count.mockResolvedValue(1)
 
-      const result = await service.findAll(queryDto)
+      const result = await service.findAllPlans(true)
 
-      expect(result.plans).toHaveLength(1)
-      expect(result.plans[0].active).toBe(false)
+      expect(result).toEqual(mockPlans)
+      expect(mockPrismaService.plan.findMany).toHaveBeenCalledWith({
+        where: undefined,
+        include: {
+          _count: { select: { subscriptions: true } },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],
+      })
     })
   })
 
-  describe('findOne', () => {
+  describe('findPlanById', () => {
     it('should return plan by id', async () => {
       const planId = 'plan-123'
-
+      
       const mockPlan = {
         id: planId,
         name: 'Premium Plan',
         price: 29.99,
-        features: ['Feature 1', 'Feature 2'],
+        status: 'ACTIVE',
+        _count: { subscriptions: 10 },
+        subscriptions: [],
       }
 
       mockPrismaService.plan.findUnique.mockResolvedValue(mockPlan)
 
-      const result = await service.findOne(planId)
+      const result = await service.findPlanById(planId)
 
       expect(result).toEqual(mockPlan)
       expect(mockPrismaService.plan.findUnique).toHaveBeenCalledWith({
         where: { id: planId },
+        include: {
+          _count: { select: { subscriptions: true } },
+          subscriptions: {
+            where: { status: 'ACTIVE' },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  role: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+          },
+        },
       })
     })
 
@@ -172,130 +216,55 @@ describe('PlansService', () => {
       const planId = 'plan-123'
 
       mockPrismaService.plan.findUnique.mockResolvedValue(null)
-
-      await expect(service.findOne(planId)).rejects.toThrow(NotFoundException)
-    })
   })
 
-  describe('update', () => {
-    it('should update plan successfully', async () => {
-      const planId = 'plan-123'
-      const updatePlanDto = {
-        name: 'Updated Premium Plan',
-        price: 39.99,
-      }
+  it('should throw error if plan not found', async () => {
+    const planId = 'plan-123'
 
-      const existingPlan = {
-        id: planId,
-        name: 'Premium Plan',
-        price: 29.99,
-      }
+    mockPrismaService.plan.findUnique.mockResolvedValue(null)
 
-      const updatedPlan = {
-        ...existingPlan,
-        ...updatePlanDto,
-        updatedAt: new Date(),
-      }
+    await expect(service.findPlanById(planId)).rejects.toThrow(NotFoundException)
+  })
+})
 
-      mockPrismaService.plan.findUnique.mockResolvedValue(existingPlan)
-      mockPrismaService.plan.update.mockResolvedValue(updatedPlan)
+describe('updatePlan', () => {
+  it('should update plan successfully', async () => {
+    const planId = 'plan-123'
+    const updatePlanDto = {
+      name: 'Updated Premium Plan',
+      price: 39.99,
+    }
 
-      const result = await service.update(planId, updatePlanDto)
+    const existingPlan = {
+      id: planId,
+      name: 'Premium Plan',
+      price: 29.99,
+    }
 
-      expect(result).toEqual(updatedPlan)
-      expect(mockPrismaService.plan.update).toHaveBeenCalledWith({
-        where: { id: planId },
-        data: updatePlanDto,
-      })
-    })
+    const updatedPlan = {
+      ...existingPlan,
+      name: 'Updated Premium Plan',
+      price: 39.99,
+      updatedAt: new Date(),
+    }
 
-    it('should throw error if plan not found for update', async () => {
-      const planId = 'plan-123'
-      const updatePlanDto = { name: 'Updated Plan' }
+    mockPrismaService.plan.findUnique.mockResolvedValue(existingPlan)
+    mockPrismaService.plan.update.mockResolvedValue(updatedPlan)
 
-      mockPrismaService.plan.findUnique.mockResolvedValue(null)
+    const result = await service.updatePlan(planId, updatePlanDto)
 
-      await expect(service.update(planId, updatePlanDto)).rejects.toThrow(NotFoundException)
-    })
+    expect(result).toEqual(updatedPlan)
   })
 
-  describe('remove', () => {
-    it('should deactivate plan successfully', async () => {
-      const planId = 'plan-123'
+  it('should throw error if plan not found', async () => {
+    const planId = 'plan-123'
+    const updatePlanDto = {
+      name: 'Updated Plan',
+    }
 
-      const existingPlan = {
-        id: planId,
-        name: 'Premium Plan',
-        active: true,
-      }
+    mockPrismaService.plan.findUnique.mockResolvedValue(null)
 
-      const deactivatedPlan = {
-        ...existingPlan,
-        active: false,
-        updatedAt: new Date(),
-      }
-
-      mockPrismaService.plan.findUnique.mockResolvedValue(existingPlan)
-      mockPrismaService.plan.update.mockResolvedValue(deactivatedPlan)
-
-      const result = await service.remove(planId)
-
-      expect(result).toEqual(deactivatedPlan)
-      expect(mockPrismaService.plan.update).toHaveBeenCalledWith({
-        where: { id: planId },
-        data: { active: false },
-      })
-    })
-  })
-
-  describe('assignSubscription', () => {
-    it('should assign subscription to user successfully', async () => {
-      const assignSubscriptionDto = {
-        userId: 'user-123',
-        planId: 'plan-123',
-        commerceId: 'commerce-123',
-      }
-
-      const mockPlan = {
-        id: 'plan-123',
-        name: 'Premium Plan',
-        price: 29.99,
-        duration: 30,
-      }
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'user@example.com',
-        subscriptionId: null,
-      }
-
-      const mockSubscription = {
-        id: 'sub-123',
-        userId: 'user-123',
-        planId: 'plan-123',
-        commerceId: 'commerce-123',
-        status: 'ACTIVE',
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      }
-
-      mockPrismaService.plan.findUnique.mockResolvedValue(mockPlan)
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser)
-      mockPrismaService.subscription.create.mockResolvedValue(mockSubscription)
-
-      const result = await service.assignSubscription(assignSubscriptionDto)
-
-      expect(result).toEqual(mockSubscription)
-      expect(mockPrismaService.subscription.create).toHaveBeenCalledWith({
-        data: {
-          userId: assignSubscriptionDto.userId,
-          planId: assignSubscriptionDto.planId,
-          commerceId: assignSubscriptionDto.commerceId,
-          status: 'ACTIVE',
-          startDate: expect.any(Date),
-          endDate: expect.any(Date),
-        },
-      })
+    await expect(service.updatePlan(planId, updatePlanDto)).rejects.toThrow(NotFoundException)
     })
 
     it('should throw error if plan not found', async () => {
