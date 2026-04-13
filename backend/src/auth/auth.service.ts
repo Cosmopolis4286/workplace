@@ -239,6 +239,7 @@ export class AuthService {
     // Buscar usuarios marcados como DEMO en la BD (dinámico, no array fijo)
     const demoUsers = await this.prisma.user.findMany({
       where: { userType: 'DEMO' },
+      include: { commerce: true, category: true, subcategory: true },
     });
 
     if (demoUsers.length === 0) {
@@ -247,26 +248,26 @@ export class AuthService {
       );
     }
 
-    // Mapear a formato de credenciales demo con contraseñas predefinidas
-    // Las contraseñas se asignan según el rol del usuario
-    const rolePasswords: Record<string, string> = {
-      SUPERADMIN: 'SuperAdmin123',
-      ADMIN: 'Admin1234',
-      COMMERCE: 'Commerce123',
-      FREELANCER: 'Freelancer1',
-      NORMAL: 'Normal1234',
+    // Contraseñas mapeadas por email (fuente de verdad: prisma/seed.js)
+    const emailPasswords: Record<string, string> = {
+      'admin@demo.com': 'Admin1234',
+      'commerce@demo.com': 'Commerce123',
+      'freelancer@demo.com': 'Freelancer1',
+      'delivery@demo.com': 'Delivery123',
+      'comidarapida@demo.com': 'Comida123',
+      'normal@demo.com': 'Normal1234',
     };
 
     const credentials = demoUsers.map((user) => ({
       role: user.role,
       email: user.email,
-      password: rolePasswords[user.role] || 'Demo123',
+      password: emailPasswords[user.email] ?? 'Demo123',
       label: `${user.firstName} ${user.lastName}`,
       description: this.getRoleDescription(user.role),
-      commerceName: null, // No hay relación directa commerce en el modelo actual
-      categoryName: null, // No hay relación directa category en el modelo actual
-      categoryIcon: '???',
-      subcategoryName: null, // No hay relación directa subcategory en el modelo actual
+      commerceName: (user as any).commerce?.name ?? null,
+      categoryName: (user as any).category?.name ?? null,
+      categoryIcon: (user as any).category?.icon ?? null,
+      subcategoryName: (user as any).subcategory?.name ?? null,
     }));
 
     return {
