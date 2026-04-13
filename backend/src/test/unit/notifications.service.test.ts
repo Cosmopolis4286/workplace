@@ -61,6 +61,9 @@ describe('NotificationsService', () => {
         commerceId,
         ...dto,
         read: false,
+        icon: 'ShoppingBagIcon',
+        color: 'blue',
+        metadata: undefined,
         createdAt: new Date(),
       }
 
@@ -75,7 +78,10 @@ describe('NotificationsService', () => {
           type: dto.type,
           title: dto.title,
           message: dto.message,
-          read: false,
+          icon: 'ShoppingBagIcon',
+          color: 'blue',
+          link: '/cliente-dashboard',
+          metadata: { orderNumber: 'ORD-001', total: 150.5 },
         },
       })
     })
@@ -91,10 +97,13 @@ describe('NotificationsService', () => {
       }
 
       const mockNotification = {
-        id: 'notif-456',
+        id: 'notif-123',
         userId,
         ...dto,
         read: false,
+        icon: 'BellIcon',
+        color: 'gray',
+        metadata: undefined,
         createdAt: new Date(),
       }
 
@@ -109,7 +118,10 @@ describe('NotificationsService', () => {
           type: dto.type,
           title: dto.title,
           message: dto.message,
-          read: false,
+          icon: 'BellIcon',
+          color: 'gray',
+          link: undefined,
+          metadata: undefined,
         },
       })
     })
