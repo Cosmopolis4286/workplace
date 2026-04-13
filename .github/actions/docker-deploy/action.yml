@@ -1,0 +1,77 @@
+name: 'Docker Deploy'
+description: 'Ejecuta deploy de containers Docker en servidor remoto'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH'
+    required: true
+  ssh-host:
+    description: 'Host del servidor'
+    required: true
+  deploy-path:
+    description: 'Ruta en servidor'
+    required: false
+    default: '/opt/workplace'
+  backend-image:
+    description: 'Imagen backend'
+    required: true
+  frontend-image:
+    description: 'Imagen frontend'
+    required: true
+  current-sha:
+    description: 'SHA del commit'
+    required: true
+
+outputs:
+  status:
+    description: 'Estado del deploy'
+    value: ${{ steps.deploy.outputs.status }}
+  duration:
+    description: 'Duración en segundos'
+    value: ${{ steps.deploy.outputs.duration }}
+
+runs:
+  using: composite
+  steps:
+    - name: Deploy
+      id: deploy
+      shell: bash
+      run: |
+        START=$(date +%s)
+        
+        ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" << 'EOF'
+          set -euo pipefail
+          cd "${{ inputs.deploy-path }}"
+          
+          # Backup versión actual
+          if [[ -f versions/current.env ]]; then
+            cp versions/current.env "versions/backup-$(date +%s).env"
+          fi
+          
+          # Pull imágenes
+          docker pull "${{ inputs.backend-image }}"
+          docker pull "${{ inputs.frontend-image }}"
+          
+          # Deploy
+          export BACKEND_IMAGE="${{ inputs.backend-image }}"
+          export FRONTEND_IMAGE="${{ inputs.frontend-image }}"
+          docker compose -f docker-compose.lite.yml up -d --no-deps --force-recreate backend frontend
+          
+          # Guardar versión
+          mkdir -p versions
+          cat > versions/current.env << ENVS
+        BACKEND_CURRENT_IMAGE=${{ inputs.backend-image }}
+        FRONTEND_CURRENT_IMAGE=${{ inputs.frontend-image }}
+        DEPLOY_SHA=${{ inputs.current-sha }}
+        DEPLOY_DATE=$(date -Iseconds)
+        ENVS
+          
+          echo "✅ Deploy exitoso"
+        EOF
+        
+        END=$(date +%s)
+        DURATION=$((END - START))
+        
+        echo "status=success" >> $GITHUB_OUTPUT
+        echo "duration=$DURATION" >> $GITHUB_OUTPUT
+        echo "✅ Deploy completado en ${DURATION}s"

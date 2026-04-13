@@ -1,0 +1,56 @@
+name: 'Sync to Server'
+description: 'Sincroniza archivos de configuración al servidor via SCP'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH'
+    required: true
+  ssh-host:
+    description: 'Host del servidor'
+    required: true
+  deploy-path:
+    description: 'Ruta destino en servidor'
+    required: false
+    default: '/opt/workplace'
+
+runs:
+  using: composite
+  steps:
+    - name: Validar inputs
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.ssh-user }}" || -z "${{ inputs.ssh-host }}" ]]; then
+          echo "❌ ERROR: ssh-user y ssh-host requeridos"
+          exit 1
+        fi
+        echo "✅ Sync: ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:${{ inputs.deploy-path }}"
+
+    - name: Crear directorios
+      shell: bash
+      run: |
+        ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" \
+          "mkdir -p ${{ inputs.deploy-path }}/{traefik/dynamic,scripts/deploy,logs,versions}"
+
+    - name: Sincronizar archivos
+      shell: bash
+      run: |
+        REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+        PATH="${{ inputs.deploy-path }}"
+        
+        # Docker compose
+        if [[ -f docker-compose.lite.yml ]]; then
+          scp docker-compose.lite.yml "$REMOTE:$PATH/"
+        fi
+        
+        # Traefik configs
+        if [[ -d traefik ]]; then
+          scp -r traefik/* "$REMOTE:$PATH/traefik/" 2>/dev/null || true
+        fi
+        
+        # Scripts
+        if [[ -d scripts/deploy ]]; then
+          scp -r scripts/deploy/*.sh "$REMOTE:$PATH/scripts/deploy/"
+          ssh "$REMOTE" "chmod +x $PATH/scripts/deploy/*.sh"
+        fi
+        
+        echo "✅ Sincronización completada"
