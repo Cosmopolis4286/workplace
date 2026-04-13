@@ -250,12 +250,13 @@ export class AuthService {
 
     // Contraseñas mapeadas por email (fuente de verdad: prisma/seed.js)
     const emailPasswords: Record<string, string> = {
-      'admin@demo.com': 'Admin1234',
-      'commerce@demo.com': 'Commerce123',
-      'freelancer@demo.com': 'Freelancer1',
-      'delivery@demo.com': 'Delivery123',
-      'comidarapida@demo.com': 'Comida123',
-      'normal@demo.com': 'Normal1234',
+      'superadmin@demo.com': 'S4p3rAdm1n!#2026',
+      'admin@demo.com': 'Adm1n@Sec#2026',
+      'commerce@demo.com': 'C0mm3rc3!Biz#26',
+      'freelancer@demo.com': 'Fr33lanc3r!#2026',
+      'delivery@demo.com': 'D3l1v3ry@Fast#26',
+      'comidarapida@demo.com': 'C0m1d4R4p!d4#26',
+      'normal@demo.com': 'N0rm4lUs3r!#2026',
     };
 
     const credentials = demoUsers.map((user) => ({
