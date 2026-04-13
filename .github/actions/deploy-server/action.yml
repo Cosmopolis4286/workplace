@@ -184,10 +184,10 @@ runs:
         set -a; source .env; set +a
         
         # Logging estructurado
-        export LOG_FILE="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
+        LOG_FILE="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
         mkdir -p logs
         
-        # Función de logging
+        # Función de logging con path absoluto
         log() {
           echo "$1" | tee -a "$LOG_FILE"
         }
