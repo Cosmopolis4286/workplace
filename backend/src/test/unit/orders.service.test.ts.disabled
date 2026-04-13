@@ -203,6 +203,7 @@ describe('OrdersService', () => {
   describe('updateStatus', () => {
     it('should update order status successfully', async () => {
       const orderId = 'order-123'
+      const commerceId = 'commerce-123'
       const newStatus: OrderStatus = 'CONFIRMADO'
       
       const existingOrder = {
@@ -220,7 +221,7 @@ describe('OrdersService', () => {
       mockPrismaService.order.findUnique.mockResolvedValue(existingOrder)
       mockPrismaService.order.update.mockResolvedValue(updatedOrder)
 
-      const result = await service.updateStatus(orderId, newStatus)
+      const result = await service.updateStatus(orderId, commerceId, newStatus)
 
       expect(result).toEqual(updatedOrder)
       expect(mockPrismaService.order.update).toHaveBeenCalledWith({
@@ -235,6 +236,7 @@ describe('OrdersService', () => {
 
     it('should throw error for invalid status transition', async () => {
       const orderId = 'order-123'
+      const commerceId = 'commerce-123'
       const invalidStatus: OrderStatus = 'ENTREGADO'
       
       const existingOrder = {
@@ -245,18 +247,19 @@ describe('OrdersService', () => {
 
       mockPrismaService.order.findUnique.mockResolvedValue(existingOrder)
 
-      await expect(service.updateStatus(orderId, invalidStatus)).rejects.toThrow(
+      await expect(service.updateStatus(orderId, commerceId, invalidStatus)).rejects.toThrow(
         BadRequestException
       )
     })
 
     it('should throw error if order not found', async () => {
       const orderId = 'order-123'
+      const commerceId = 'commerce-123'
       const newStatus: OrderStatus = 'CONFIRMADO'
 
       mockPrismaService.order.findUnique.mockResolvedValue(null)
 
-      await expect(service.updateStatus(orderId, newStatus)).rejects.toThrow(
+      await expect(service.updateStatus(orderId, commerceId, newStatus)).rejects.toThrow(
         NotFoundException
       )
     })
