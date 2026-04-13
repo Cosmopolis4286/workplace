@@ -12,9 +12,23 @@ module.exports = {
     '!src/**/*.test.ts',
     '!src/main.ts',
     '!src/**/*.d.ts',
+    '!src/test/**',
+    '!src/config/**',
+    '!src/common/decorators/**',
+    '!src/common/middleware/**',
+    '!src/common/guards/**',
+    '!src/common/interceptors/**',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
+  coverageThreshold: {
+    global: {
+      branches: 60,
+      functions: 65,
+      lines: 65,
+      statements: 65,
+    },
+  },
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

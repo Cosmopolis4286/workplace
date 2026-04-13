@@ -17,7 +17,7 @@ runs:
   using: 'composite'
   steps:
     - name: Cache pnpm dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v3
       with:
         path: |
           ~/.pnpm-store
@@ -28,15 +28,14 @@ runs:
           ${{ runner.os }}-pnpm-
     
     - name: Install pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v3
       with:
         version: 8
     
     - name: Install dependencies
       shell: bash
       run: |
-        cd backend && pnpm install --frozen-lockfile
-        cd ../frontend && pnpm install --frozen-lockfile
+        pnpm install --frozen-lockfile
 
     - name: Generate Prisma Client
       shell: bash
@@ -95,7 +94,7 @@ runs:
         echo "✅ All coverage requirements met!"
 
     - name: Upload Coverage Reports
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v4
       with:
         files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
         flags: unittests
