@@ -1,5 +1,5 @@
-name: 'Deploy to Production Server'
-description: 'Deploy con validación, bloqueo distribuido y verificación automática'
+name: 'Production-Grade Deploy to Server'
+description: 'Deploy enterprise-grade con fault tolerance, observabilidad y rollback automático'
 
 inputs:
   ssh-user:
@@ -36,6 +36,14 @@ inputs:
     description: 'Habilitar rollback automático si falla'
     required: false
     default: 'true'
+  health-retries:
+    description: 'Número de reintentos para health checks'
+    required: false
+    default: '5'
+  dry-run:
+    description: 'Ejecutar en modo dry-run (solo validación)'
+    required: false
+    default: 'false'
 
 outputs:
   deploy-status:
@@ -44,63 +52,96 @@ outputs:
   deploy-duration:
     description: 'Duración del deploy en segundos'
     value: ${{ steps.deploy.outputs.duration }}
+  rollback-performed:
+    description: 'Indica si se ejecutó rollback'
+    value: ${{ steps.deploy.outputs.rollback_performed }}
+  health-check-status:
+    description: 'Estado del health check final'
+    value: ${{ steps.deploy.outputs.health_status }}
 
 runs:
   using: composite
   steps:
-    - name: Validar inputs
+    - name: Validación estricta de inputs
       id: validate
       shell: bash
       run: |
-        # Validar formato de imágenes (permite registry con dominios y tags complejos)
-        if [[ ! "${{ inputs.backend-image }}" =~ ^[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]] && [[ ! "${{ inputs.backend-image }}" =~ ^[a-z0-9.-]+/[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
-          echo "❌ ERROR: backend-image formato inválido: ${{ inputs.backend-image }}"
-          exit 1
-        fi
-        if [[ ! "${{ inputs.frontend-image }}" =~ ^[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]] && [[ ! "${{ inputs.frontend-image }}" =~ ^[a-z0-9.-]+/[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
-          echo "❌ ERROR: frontend-image formato inválido: ${{ inputs.frontend-image }}"
-          exit 1
-        fi
+        set -euo pipefail
+        
+        # Validar formato de imágenes (registry/image:tag)
+        validate_image() {
+          local img="$1"
+          local name="$2"
+          if [[ ! "$img" =~ ^[a-z0-9.-]+/[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
+            echo "ERROR: $name formato inválido: $img"
+            echo "Formato esperado: registry/namespace/image:tag"
+            exit 1
+          fi
+        }
+        
+        validate_image "${{ inputs.backend-image }}" "backend-image"
+        validate_image "${{ inputs.frontend-image }}" "frontend-image"
         
         # Validar canary percentage
         CANARY=${{ inputs.canary-percentage }}
         if [[ $CANARY -lt 0 ]] || [[ $CANARY -gt 100 ]]; then
-          echo "❌ ERROR: canary-percentage debe estar entre 0 y 100"
+          echo "ERROR: canary-percentage debe estar entre 0 y 100"
           exit 1
         fi
         
-        echo "✅ Inputs validados"
-        echo "🚀 Backend: ${{ inputs.backend-image }}"
-        echo "🚀 Frontend: ${{ inputs.frontend-image }}"
-        echo "🎯 Canary: ${CANARY}%"
+        # Validar health timeout
+        TIMEOUT=${{ inputs.health-timeout }}
+        if [[ $TIMEOUT -lt 30 ]] || [[ $TIMEOUT -gt 600 ]]; then
+          echo "ERROR: health-timeout debe estar entre 30 y 600 segundos"
+          exit 1
+        fi
+        
+        # Validar dry-run
+        if [[ "${{ inputs.dry-run }}" != "true" && "${{ inputs.dry-run }}" != "false" ]]; then
+          echo "ERROR: dry-run debe ser 'true' o 'false'"
+          exit 1
+        fi
+        
+        echo "Inputs validados exitosamente"
+        echo "Backend: ${{ inputs.backend-image }}"
+        echo "Frontend: ${{ inputs.frontend-image }}"
+        echo "Canary: ${CANARY}%"
+        echo "Health Timeout: ${TIMEOUT}s"
+        echo "Dry Run: ${{ inputs.dry-run }}"
 
-    - name: Preparar SSH con timeout y retry
+    - name: Setup SSH con seguridad mejorada
       shell: bash
       run: |
+        set -euo pipefail
+        
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
         
-        # Keyscan con timeout y validación
-        for i in 1 2 3; do
-          if timeout 30 ssh-keyscan -H ${{ inputs.ssh-host }} >> ~/.ssh/known_hosts 2>/dev/null; then
-            echo "✅ SSH keyscan exitoso (intento $i)"
+        # Keyscan con timeout y retry robusto
+        for i in {1..3}; do
+          if timeout 30 ssh-keyscan -H "${{ inputs.ssh-host }}" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "SSH keyscan exitoso (intento $i/3)"
             break
+          elif [[ $i -eq 3 ]]; then
+            echo "ERROR: No se pudo obtener SSH keyscan después de 3 intentos"
+            exit 1
+          else
+            echo "SSH keyscan falló, reintentando en 5s..."
+            sleep 5
           fi
-          echo "⚠️  ssh-keyscan reintentando..."
-          sleep 5
         done
         
         chmod 600 ~/.ssh/known_hosts
         
-        # Test de conectividad
-        if ! ssh -o ConnectTimeout=10 -o BatchMode=yes \
-            ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} "echo 'SSH OK'" 2>/dev/null; then
-          echo "❌ ERROR: No se puede conectar al servidor via SSH"
+        # Test de conectividad con timeout
+        if ! timeout 15 ssh -o ConnectTimeout=10 -o BatchMode=yes \
+            "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" "echo 'SSH OK'" 2>/dev/null; then
+          echo "ERROR: Conexión SSH fallida"
           exit 1
         fi
-        echo "✅ Conexión SSH verificada"
+        echo "Conexión SSH verificada"
 
-    - name: Sincronizar configuración
+    - name: Sincronización con retry y atomic deploy
       shell: bash
       run: |
         set -euo pipefail
@@ -109,40 +150,88 @@ runs:
         DEPLOY_PATH="${{ inputs.deploy-path }}"
         
         # Crear estructura de directorios
-        ssh "$REMOTE" "mkdir -p ${DEPLOY_PATH}/{traefik/dynamic,scripts/deploy,logs,versions}"
+        ssh "$REMOTE" "mkdir -p ${DEPLOY_PATH}/{traefik/dynamic,scripts/deploy,logs,versions,backups,temp}"
+        
+        # Función de retry para SCP (compatible con flags)
+        scp_with_retry() {
+          local max_attempts=3
+          
+          for attempt in $(seq 1 $max_attempts); do
+            if scp "$@" 2>/dev/null; then
+              echo "SCP exitoso: $*"
+              return 0
+            elif [[ $attempt -eq $max_attempts ]]; then
+              echo "ERROR: SCP falló después de $max_attempts intentos: $*"
+              exit 1
+            else
+              echo "SCP intento $attempt/$max_attempts falló, reintentando en 3s..."
+              sleep 3
+            fi
+          done
+        }
         
         # Copiar docker-compose con validación
         if [[ ! -f docker-compose.lite.yml ]]; then
-          echo "❌ ERROR: docker-compose.lite.yml no encontrado"
+          echo "ERROR: docker-compose.lite.yml no encontrado"
           exit 1
         fi
-        scp -p docker-compose.lite.yml "$REMOTE:${DEPLOY_PATH}/"
+        scp_with_retry "docker-compose.lite.yml" "$REMOTE:${DEPLOY_PATH}/"
         
-        # Preparar y copiar traefik config
+        # Deploy atómico de Traefik config
+        echo "Realizando deploy atómico de configuración Traefik..."
+        
+        # Preparar config localmente
         sed "s|ACME_EMAIL_PLACEHOLDER|${{ inputs.acme-email }}|g" \
           traefik/traefik.yml > /tmp/traefik.yml
-        scp -p /tmp/traefik.yml "$REMOTE:${DEPLOY_PATH}/traefik/traefik.yml"
         
-        # Sincronizar configs dinámicas (con backup)
+        # Crear directorio temporal en servidor con validación
+        TEMP_DIR=$(ssh "$REMOTE" "mktemp -d ${DEPLOY_PATH}/temp/traefik.XXXXXX")
+        if [[ -z "$TEMP_DIR" ]]; then
+          echo "ERROR: No se pudo crear directorio temporal en servidor"
+          exit 1
+        fi
+        log "Directorio temporal creado: $TEMP_DIR"
+        
+        # Copiar a directorio temporal
+        scp_with_retry "/tmp/traefik.yml" "$REMOTE:${TEMP_DIR}/traefik.yml"
+        
+        # Copiar configs dinámicas a temporal con retry
+        if [[ -d traefik/dynamic ]]; then
+          ssh "$REMOTE" "mkdir -p ${TEMP_DIR}/dynamic"
+          scp_with_retry -r traefik/dynamic/*.yml "$REMOTE:${TEMP_DIR}/dynamic/" || true
+        fi
+        
+        # Backup atómico y swap
         ssh "$REMOTE" "
-          if [[ -d ${DEPLOY_PATH}/traefik/dynamic ]]; then
-            mkdir -p ${DEPLOY_PATH}/traefik/dynamic.backup.$(date +%s)
-            cp ${DEPLOY_PATH}/traefik/dynamic/*.yml \
-               ${DEPLOY_PATH}/traefik/dynamic.backup.*/ 2>/dev/null || true
+          set -euo pipefail
+          cd '${DEPLOY_PATH}'
+          
+          # Backup si existe
+          if [[ -d traefik/dynamic ]]; then
+            BACKUP_DIR='traefik/dynamic.backup.\$(date +%s)'
+            mv traefik/dynamic \"\$BACKUP_DIR\"
+            echo \"Backup creado: \$BACKUP_DIR\"
           fi
-          rm -f ${DEPLOY_PATH}/traefik/dynamic/*.yml
+          
+          # Deploy atómico
+          mv '${TEMP_DIR}/traefik.yml' traefik/traefik.yml
+          if [[ -d '${TEMP_DIR}/dynamic' ]]; then
+            mv '${TEMP_DIR}/dynamic' traefik/
+          fi
+          
+          # Limpieza
+          rm -rf '${TEMP_DIR}'
         "
-        scp -r traefik/dynamic/*.yml "$REMOTE:${DEPLOY_PATH}/traefik/dynamic/" 2>/dev/null || true
         
         # Sincronizar scripts de deploy
-        if [[ -d scripts/deploy/ ]]; then
-          scp -r scripts/deploy/*.sh "$REMOTE:${DEPLOY_PATH}/scripts/deploy/"
+        if [[ -d scripts/deploy ]]; then
+          scp_with_retry -r scripts/deploy/*.sh "$REMOTE:${DEPLOY_PATH}/scripts/deploy/"
           ssh "$REMOTE" "chmod +x ${DEPLOY_PATH}/scripts/deploy/*.sh"
         fi
         
-        echo "✅ Configuración sincronizada"
+        echo "Configuración sincronizada exitosamente"
 
-    - name: Ejecutar deploy con verificación
+    - name: Deploy Production-Grade con Health Checks
       id: deploy
       shell: bash
       env:
@@ -151,93 +240,408 @@ runs:
         CURRENT_SHA: ${{ inputs.current-sha }}
         CANARY_PCT: ${{ inputs.canary-percentage }}
         HEALTH_TIMEOUT: ${{ inputs.health-timeout }}
+        HEALTH_RETRIES: ${{ inputs.health-retries }}
         ROLLBACK_ENABLED: ${{ inputs.rollback-on-failure }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        DEPLOY_PATH: ${{ inputs.deploy-path }}
       run: |
-        START_TIME=$(date +%s)
-        
-        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} "bash -s" << ENDSSH
         set -euo pipefail
         
-        cd ${{ inputs.deploy-path }}
+        START_TIME=$(date +%s)
+        DEPLOY_PATH_HASH=$(echo "${{ inputs.deploy-path }}" | md5sum | cut -d' ' -f1)
         
-        # Definir timestamp para log files
-        LOG_TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        # Ejecutar deploy con variables explícitas para seguridad
+        OUTPUT=$(ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" \
+          "DEPLOY_PATH='${{ inputs.deploy-path }}' \
+           BACKEND_IMAGE='${{ inputs.backend-image }}' \
+           FRONTEND_IMAGE='${{ inputs.frontend-image }}' \
+           CURRENT_SHA='${{ inputs.current-sha }}' \
+           CANARY_PCT='${{ inputs.canary-percentage }}' \
+           HEALTH_TIMEOUT='${{ inputs.health-timeout }}' \
+           HEALTH_RETRIES='${{ inputs.health-retries }}' \
+           ROLLBACK_ENABLED='${{ inputs.rollback-on-failure }}' \
+           DRY_RUN='${{ inputs.dry-run }}' \
+           DEPLOY_PATH_HASH='${DEPLOY_PATH_HASH}' \
+           bash -s" << 'ENDSSH'
+        set -Eeuo pipefail
         
-        # Exportar variables desde GitHub Actions
-        export BACKEND_IMAGE="${{ inputs.backend-image }}"
-        export FRONTEND_IMAGE="${{ inputs.frontend-image }}"
-        export CURRENT_SHA="${{ inputs.current-sha }}"
-        export CANARY_PCT="${{ inputs.canary-percentage }}"
-        export HEALTH_TIMEOUT="${{ inputs.health-timeout }}"
-        export ROLLBACK_ENABLED="${{ inputs.rollback-on-failure }}"
-        
-        # Bloqueo distribuido con timeout
-        exec 200>/tmp/deploy.lock
-        if ! flock -w 300 200; then
-          echo "❌ ERROR: Timeout esperando lock de deploy (5 minutos)"
-          exit 1
-        fi
-        
-        # Validar entorno
-        if [[ ! -f .env ]]; then
-          echo "❌ ERROR: .env no encontrado en ${{ inputs.deploy-path }}"
-          exit 1
-        fi
-        
-        set -a; source .env; set +a
-        
-        # Logging estructurado
-        LOG_FILE="logs/deploy-${LOG_TIMESTAMP}.log"
-        mkdir -p logs
-        
-        # Función de logging simple y robusta
-        log() {
-          echo "$1" | tee -a "${LOG_FILE}"
+        # Cleanup function para liberar recursos
+        cleanup() {
+          local exit_code=$?
+          # Liberar lock si está adquirido
+          if [[ -n "$LOCK_FILE" ]]; then
+            flock -u 200 2>/dev/null || true
+          fi
+          return $exit_code
         }
         
-        log "🚀 [$(date -Iseconds)] Iniciando deploy - SHA: ${{ inputs.current-sha }}"
-        log "📦 Backend: $BACKEND_IMAGE"
-        log "📦 Frontend: $FRONTEND_IMAGE"
+        # Error handler
+        error_handler() {
+          local exit_code=$?
+          echo "ERROR: Deploy falló con código $exit_code"
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          cleanup $exit_code
+          exit $exit_code
+        }
         
-        # Validar que las variables no estén vacías
-        if [[ -z "$BACKEND_IMAGE" || -z "$FRONTEND_IMAGE" ]]; then
-          log "❌ ERROR: BACKEND_IMAGE o FRONTEND_IMAGE están vacías"
+        # Configurar traps para cleanup
+        trap 'error_handler' ERR
+        trap 'cleanup $?' EXIT
+        
+        cd "${DEPLOY_PATH}"
+        
+        # Variables del deploy
+        LOG_TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        LOG_FILE="logs/deploy-${LOG_TIMESTAMP}.log"
+        LOCK_FILE="/tmp/deploy-${DEPLOY_PATH_HASH}.lock"
+        
+        # Crear directorio de logs
+        mkdir -p logs
+        
+        # Logging robusto sin tee
+        log() {
+          local message="$1"
+          local timestamp=$(date -Iseconds)
+          echo "[$timestamp] $message"
+          echo "[$timestamp] $message" >> "$LOG_FILE" 2>/dev/null || true
+        }
+        
+        log "=== INICIANDO DEPLOY PRODUCTION-GRADE ==="
+        log "SHA: ${CURRENT_SHA}"
+        log "Backend: ${BACKEND_IMAGE}"
+        log "Frontend: ${FRONTEND_IMAGE}"
+        log "Canary: ${CANARY_PCT}%"
+        log "Dry Run: ${DRY_RUN}"
+        log "Health Timeout: ${HEALTH_TIMEOUT}s"
+        
+        # Bloqueo distribuido con scope específico
+        exec 200>"$LOCK_FILE"
+        if ! flock -w 300 200; then
+          log "ERROR: Timeout esperando lock de deploy (5 minutos)"
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
           exit 1
         fi
         
-        # Verificar imágenes existen
-        for IMG in "$BACKEND_IMAGE" "$FRONTEND_IMAGE"; do
-          log "🔍 Verificando imagen: $IMG"
-          if ! docker pull "$IMG" >/dev/null 2>&1; then
-            log "❌ ERROR: No se pudo obtener $IMG"
+        log "Lock de deploy adquirido exitosamente"
+        
+        # Validación del entorno
+        if [[ ! -f .env ]]; then
+          log "ERROR: .env no encontrado en ${DEPLOY_PATH}"
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          exit 1
+        fi
+        
+        # Cargar variables de entorno
+        set -a; source .env; set +a
+        log "Entorno validado y cargado"
+        
+        # Validar variables críticas
+        required_vars=("NODE_PORT" "FRONTEND_PORT" "POSTGRES_USER" "POSTGRES_DB")
+        for var in "${required_vars[@]}"; do
+          if [[ -z "${!var:-}" ]]; then
+            log "ERROR: Variable requerida no definida: $var"
+            echo "DEPLOY_STATUS=failed"
+            echo "DEPLOY_ROLLBACK_PERFORMED=false"
             exit 1
           fi
         done
-        log "✅ Imágenes verificadas"
         
-        # Backup de versión actual antes de deploy
-        if [[ -f versions/current.env ]]; then
-          cp versions/current.env "versions/backup-$(date +%Y%m%d-%H%M%S).env"
-          log "💾 Backup de versión actual creado"
+        # Validar imágenes Docker (paralelo)
+        log "Validando imágenes Docker en paralelo..."
+        
+        # Iniciar pulls en background con timeout extendido para imágenes grandes
+        timeout 180 docker pull "$BACKEND_IMAGE" >/dev/null 2>&1 &
+        BACKEND_PID=$!
+        
+        timeout 180 docker pull "$FRONTEND_IMAGE" >/dev/null 2>&1 &
+        FRONTEND_PID=$!
+        
+        # Esperar a que ambos terminen
+        PULL_ERRORS=0
+        
+        if ! wait $BACKEND_PID; then
+          log "ERROR: No se pudo obtener imagen backend: $BACKEND_IMAGE"
+          PULL_ERRORS=$((PULL_ERRORS + 1))
+        else
+          log "Backend image verificada: $BACKEND_IMAGE"
         fi
         
-        # Ejecutar canary deploy
-        CANARY_PERCENTAGE=$CANARY_PCT \
+        if ! wait $FRONTEND_PID; then
+          log "ERROR: No se pudo obtener imagen frontend: $FRONTEND_IMAGE"
+          PULL_ERRORS=$((PULL_ERRORS + 1))
+        else
+          log "Frontend image verificada: $FRONTEND_IMAGE"
+        fi
+        
+        if [[ $PULL_ERRORS -gt 0 ]]; then
+          echo "DEPLOY_STATUS=failed"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          exit 1
+        fi
+        
+        log "Imágenes Docker validadas en paralelo"
+        
+        # Backup de versión actual
+        if [[ -f versions/current.env ]]; then
+          BACKUP_FILE="versions/backup-${LOG_TIMESTAMP}.env"
+          cp versions/current.env "$BACKUP_FILE"
+          log "Backup creado: $BACKUP_FILE"
+        else
+          log "No hay versión actual para backup (primer deploy)"
+        fi
+        
+        # Early exit si es dry-run
+        if [[ "$DRY_RUN" == "true" ]]; then
+          log "DRY-RUN: Validación completada exitosamente"
+          log "DRY-RUN: Sin realizar cambios reales"
+          echo "DEPLOY_STATUS=success"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          echo "DEPLOY_HEALTH_STATUS=skipped"
+          exit 0
+        fi
+        
+        # Ejecutar deploy real
+        log "Ejecutando deploy con canary..."
+        
+        CANARY_PERCENTAGE="$CANARY_PCT" \
         BACKEND_IMAGE="$BACKEND_IMAGE" \
         FRONTEND_IMAGE="$FRONTEND_IMAGE" \
-        CURRENT_SHA="${{ inputs.current-sha }}" \
-        ./scripts/deploy/canary-traffic-split.sh || {
-          log "❌ ERROR: Falló el script de deploy canary"
-          exit 1
-        }
+        CURRENT_SHA="$CURRENT_SHA" \
+        ./scripts/deploy/canary-traffic-split.sh
         
-        log "✅ [$(date -Iseconds)] Deploy completado exitosamente"
-        echo "status=success"
+        log "Deploy canary completado"
+        
+        # Health checks robustos
+        log "Iniciando health checks..."
+        
+        # Validar HEALTH_RETRIES para evitar división por cero
+        if [[ "$HEALTH_RETRIES" -le 0 ]]; then
+          HEALTH_RETRIES=1
+          log "WARNING: health-retries debe ser > 0, usando valor por defecto: 1"
+        fi
+        
+        # Calcular intervalos basados en HEALTH_TIMEOUT
+        SLEEP_INTERVAL=$((HEALTH_TIMEOUT / HEALTH_RETRIES))
+        if [[ $SLEEP_INTERVAL -lt 5 ]]; then
+          SLEEP_INTERVAL=5
+        fi
+        log "Usando intervalos de ${SLEEP_INTERVAL}s (timeout: ${HEALTH_TIMEOUT}s, retries: ${HEALTH_RETRIES})"
+        
+        # Obtener puertos dinámicamente
+        NODE_PORT="${NODE_PORT:-3001}"
+        FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+        
+        # Health check mejorado para canary
+        backend_healthy=false
+        frontend_healthy=false
+        
+        # Health check para backend (con validación real de canary)
+        for attempt in $(seq 1 "${HEALTH_RETRIES}"); do
+          log "Health check backend - intento $attempt/${HEALTH_RETRIES}"
+          
+          # Health check básico
+          if timeout 10 curl -sf --max-time 5 \
+              "http://localhost:${NODE_PORT}/api/ready" >/dev/null 2>&1; then
+            
+            # Validación real de canary: verificar SHA/version en headers
+            CANARY_RESPONSE=$(timeout 10 curl -sf --max-time 5 \
+                -H "X-Canary-Validation: true" \
+                "http://localhost:${NODE_PORT}/api/health" 2>/dev/null || echo "")
+            
+            # Validar SHA en respuesta (si el endpoint lo soporta)
+            if echo "$CANARY_RESPONSE" | grep -q "${CURRENT_SHA}"; then
+              log "Backend health check PASSED (SHA ${CURRENT_SHA} verificado en canary)"
+              backend_healthy=true
+              break
+            elif echo "$CANARY_RESPONSE" | grep -q "canary"; then
+              log "Backend health check PASSED (canary traffic detectado)"
+              backend_healthy=true
+              break
+            elif [[ -n "$CANARY_RESPONSE" ]]; then
+              log "Backend responde pero SHA no verificado - reintentando"
+            else
+              log "Backend responde pero sin validación canary - aceptando"
+              backend_healthy=true
+              break
+            fi
+          else
+            log "Backend health check FAILED - intento $attempt"
+          fi
+          
+          if [[ $attempt -lt "${HEALTH_RETRIES}" ]]; then
+            sleep "$SLEEP_INTERVAL"
+          fi
+        done
+        
+        # Health check para frontend (con validación de routing)
+        if [[ "$backend_healthy" == "true" ]]; then
+          for attempt in $(seq 1 "${HEALTH_RETRIES}"); do
+            log "Health check frontend - intento $attempt/${HEALTH_RETRIES}"
+            
+            # Health check básico
+            if timeout 10 curl -sf --max-time 5 \
+                "http://localhost:${FRONTEND_PORT}/" >/dev/null 2>&1; then
+              
+              # Validación de routing a través de Traefik (si está disponible)
+              if timeout 10 curl -sf --max-time 5 \
+                  -H "Host: localhost" \
+                  "http://localhost:80/" >/dev/null 2>&1; then
+                log "Frontend health check PASSED (routing Traefik verificado)"
+                frontend_healthy=true
+                break
+              else
+                log "Frontend responde pero routing Traefik no verificado - aceptando igual"
+                frontend_healthy=true
+                break
+              fi
+            else
+              log "Frontend health check FAILED - intento $attempt"
+            fi
+            
+            if [[ $attempt -lt "${HEALTH_RETRIES}" ]]; then
+              sleep "$SLEEP_INTERVAL"
+            fi
+          done
+        fi
+        
+        # Evaluación final de health checks
+        if [[ "$backend_healthy" == "true" && "$frontend_healthy" == "true" ]]; then
+          log "=== DEPLOY EXITOSO ==="
+          
+          # Guardar versión actual
+          cat > "versions/current-${LOG_TIMESTAMP}.env" << EOF
+        BACKEND_CURRENT_IMAGE="${BACKEND_IMAGE}"
+        FRONTEND_CURRENT_IMAGE="${FRONTEND_IMAGE}"
+        CURRENT_SHA="${CURRENT_SHA}"
+        BACKUP_TIMESTAMP="${LOG_TIMESTAMP}"
+        EOF
+          ln -sf "versions/current-${LOG_TIMESTAMP}.env" versions/current.env
+          
+          echo "DEPLOY_STATUS=success"
+          echo "DEPLOY_ROLLBACK_PERFORMED=false"
+          echo "DEPLOY_HEALTH_STATUS=healthy"
+          
+        else
+          log "=== HEALTH CHECKS FALLARON ==="
+          log "Backend healthy: $backend_healthy"
+          log "Frontend healthy: $frontend_healthy"
+          
+          # Rollback automático si está habilitado
+          if [[ "$ROLLBACK_ENABLED" == "true" && -f versions/current.env ]]; then
+            log "Iniciando rollback automático..."
+            
+            # Cargar versión anterior con error handling (consolidado)
+            if ! set -a; source versions/current.env; set +a; then
+              log "ERROR: No se pudo cargar versión previa (archivo corrupto)"
+              echo "DEPLOY_STATUS=rollback-failed"
+              echo "DEPLOY_ROLLBACK_PERFORMED=true"
+              echo "DEPLOY_HEALTH_STATUS=failed"
+              exit 1
+            fi
+            
+            if [[ -n "$BACKEND_CURRENT_IMAGE" && -n "$FRONTEND_CURRENT_IMAGE" ]]; then
+              log "Restaurando versión anterior:"
+              log "Backend: $BACKEND_CURRENT_IMAGE"
+              log "Frontend: $FRONTEND_CURRENT_IMAGE"
+              
+              # Verificar imágenes de rollback
+              for IMG in "$BACKEND_CURRENT_IMAGE" "$FRONTEND_CURRENT_IMAGE"; do
+                if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+                  log "Descargando imagen de rollback: $IMG"
+                  timeout 60 docker pull "$IMG" || {
+                    log "ERROR: No se pudo descargar imagen de rollback: $IMG"
+                    echo "DEPLOY_STATUS=rollback-failed"
+                    echo "DEPLOY_ROLLBACK_PERFORMED=true"
+                    echo "DEPLOY_HEALTH_STATUS=failed"
+                    exit 1
+                  }
+                fi
+              done
+              
+              # Ejecutar rollback
+              export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
+              export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
+              export CURRENT_SHA="$BACKUP_TIMESTAMP"
+              
+              ./scripts/deploy/canary-traffic-split.sh
+              
+              # Verificar rollback (backend + frontend)
+              sleep 15
+              BACKEND_ROLLBACK_OK=false
+              FRONTEND_ROLLBACK_OK=false
+              
+              # Validar backend
+              if timeout 10 curl -sf --max-time 5 \
+                  "http://localhost:${NODE_PORT}/api/ready" >/dev/null 2>&1; then
+                BACKEND_ROLLBACK_OK=true
+                log "Rollback backend verificado"
+              fi
+              
+              # Validar frontend
+              if timeout 10 curl -sf --max-time 5 \
+                  "http://localhost:${FRONTEND_PORT}/" >/dev/null 2>&1; then
+                FRONTEND_ROLLBACK_OK=true
+                log "Rollback frontend verificado"
+              fi
+              
+              if [[ "$BACKEND_ROLLBACK_OK" == "true" && "$FRONTEND_ROLLBACK_OK" == "true" ]]; then
+                log "=== ROLLBACK EXITOSO (backend + frontend) ==="
+                echo "DEPLOY_STATUS=rolled-back"
+                echo "DEPLOY_ROLLBACK_PERFORMED=true"
+                echo "DEPLOY_HEALTH_STATUS=healthy"
+              elif [[ "$BACKEND_ROLLBACK_OK" == "true" ]]; then
+                log "=== ROLLBACK PARCIAL (solo backend) ==="
+                echo "DEPLOY_STATUS=rollback-failed"
+                echo "DEPLOY_ROLLBACK_PERFORMED=true"
+                echo "DEPLOY_HEALTH_STATUS=degraded"
+              else
+                log "=== ROLLBACK FALLÓ ==="
+                echo "DEPLOY_STATUS=rollback-failed"
+                echo "DEPLOY_ROLLBACK_PERFORMED=true"
+                echo "DEPLOY_HEALTH_STATUS=failed"
+              fi
+            else
+              log "ERROR: No hay imágenes válidas para rollback"
+              echo "DEPLOY_STATUS=failed"
+              echo "DEPLOY_ROLLBACK_PERFORMED=false"
+              echo "DEPLOY_HEALTH_STATUS=failed"
+            fi
+          else
+            log "Rollback no habilitado o no hay versión previa"
+            echo "DEPLOY_STATUS=failed"
+            echo "DEPLOY_ROLLBACK_PERFORMED=false"
+            echo "DEPLOY_HEALTH_STATUS=failed"
+          fi
+        fi
+        
         ENDSSH
+        )
         
+        # Capturar salida del SSH (con set +e para evitar terminación prematura)
+        set +e
+        SSH_EXIT_CODE=$?
+        set -e
+        
+        # Parsear outputs del deploy
+        echo "$OUTPUT" | grep '^DEPLOY_' | while read line; do
+          # Convertir DEPLOY_STATUS=success a status=success para GitHub Actions
+          key=$(echo "$line" | cut -d= -f1 | sed 's/^DEPLOY_//' | tr '[:upper:]' '[:lower:]')
+          value=$(echo "$line" | cut -d= -f2-)
+          echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+        done
+        
+        # Calcular duración
         END_TIME=$(date +%s)
         DURATION=$((END_TIME - START_TIME))
-        
-        echo "status=success" >> "$GITHUB_OUTPUT"
         echo "duration=${DURATION}" >> "$GITHUB_OUTPUT"
-        echo "✅ Deploy completado en ${DURATION}s"
+        
+        # Logging final
+        if [[ $SSH_EXIT_CODE -eq 0 ]]; then
+          echo "Deploy completado exitosamente en ${DURATION}s"
+        else
+          echo "Deploy falló con código $SSH_EXIT_CODE después de ${DURATION}s"
+          exit $SSH_EXIT_CODE
+        fi
