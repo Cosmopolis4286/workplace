@@ -21,6 +21,14 @@ inputs:
   current-sha:
     description: 'SHA del commit'
     required: true
+  domain:
+    description: 'Dominio de la aplicación'
+    required: false
+    default: ''
+  acme-email:
+    description: 'Email para certificados ACME'
+    required: false
+    default: ''
 
 outputs:
   status:
@@ -57,6 +65,16 @@ runs:
           export FRONTEND_IMAGE="${{ inputs.frontend-image }}"
           docker compose -f docker-compose.lite.yml up -d --no-deps --force-recreate backend frontend
           
+          # Escribir .env con dominio si se proporcionó
+          if [[ -n "${{ inputs.domain }}" ]]; then
+            cat > .env << ENVFILE
+        DOMAIN=${{ inputs.domain }}
+        ACME_EMAIL=${{ inputs.acme-email }}
+        BACKEND_IMAGE=${{ inputs.backend-image }}
+        FRONTEND_IMAGE=${{ inputs.frontend-image }}
+        ENVFILE
+          fi
+
           # Guardar versión
           mkdir -p versions
           cat > versions/current.env << ENVS
