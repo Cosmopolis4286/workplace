@@ -1,5 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-# Fixed secrets validation - using proper GitHub Actions syntax
+# Deploy Pipeline - Orquestador principal
+# Todas las operaciones complejas están en actions reutilizables
 name: Production Deploy
 
 concurrency:
@@ -32,7 +33,6 @@ env:
   DOCKER_REGISTRY: ${{ secrets.DOCKER_USERNAME }}
   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/workplace-backend:${{ github.event_name == 'release' && github.event.release.tag_name || format('main-{0}', github.sha) }}
   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:${{ github.event_name == 'release' && github.event.release.tag_name || format('main-{0}', github.sha) }}
-  DEPLOY_TIMEOUT: '25'
 
 permissions:
   contents: read
@@ -40,122 +40,92 @@ permissions:
   security-events: write
 
 jobs:
-  # ─── 0. Validación de Secrets ───────────────────────────────────────────────
-  validate-secrets:
-    name: Validar Secrets Requeridos
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 0. VALIDACIÓN DE ENTORNO
+  # ═══════════════════════════════════════════════════════════════════════════
+  validate:
+    name: Validar Secrets
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      staging-ready: ${{ steps.validate.outputs.staging-ready }}
+      production-ready: ${{ steps.validate.outputs.production-ready }}
+      base-valid: ${{ steps.validate.outputs.base-secrets-valid }}
     steps:
-    - name: Validar secrets requeridos
-      run: |
-        echo "🔍 Validando secrets requeridos..."
-        
-        # Validar DOCKER_USERNAME
-        if [[ -z "${{ secrets.DOCKER_USERNAME }}" ]]; then
-          echo "❌ Secret DOCKER_USERNAME no configurado"
-          exit 1
-        fi
-        
-        # Validar DOCKER_PASSWORD
-        if [[ -z "${{ secrets.DOCKER_PASSWORD }}" ]]; then
-          echo "❌ Secret DOCKER_PASSWORD no configurado"
-          exit 1
-        fi
-        
-        # Validar SSH_PRIVATE_KEY
-        if [[ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]]; then
-          echo "❌ Secret SSH_PRIVATE_KEY no configurado"
-          exit 1
-        fi
-        
-        echo "✅ Todos los secrets requeridos están configurados"
-        echo "📋 DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}"
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/validate-environment
+      id: validate
+      with:
+        docker-username: ${{ secrets.DOCKER_USERNAME }}
+        docker-password: ${{ secrets.DOCKER_PASSWORD }}
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        staging-host: ${{ secrets.STAGING_HOST }}
+        staging-user: ${{ secrets.STAGING_USER }}
+        production-host: ${{ secrets.PRODUCTION_HOST }}
+        production-user: ${{ secrets.PRODUCTION_USER }}
+        production-domain: ${{ vars.PRODUCTION_DOMAIN }}
 
-  # ─── 1. Tests unitarios ────────────────────────────────────────────────────
-  test:
-    name: Tests con Coverage
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 1. TESTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  test-unit:
+    name: Tests Unitarios
     runs-on: ubuntu-latest
-    needs: validate-secrets
+    needs: validate
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-
-    - name: Cache dependencies
-      uses: actions/cache@v4
+    - uses: actions/cache@v4
       with:
-        path: |
-          ~/.pnpm-store
-          node_modules
+        path: ~/.pnpm-store, node_modules
         key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-
-
     - uses: ./.github/actions/setup-tests
       with:
         node-version: '22'
-
-    - name: Ejecutar tests
-      uses: ./.github/actions/run-tests
+    - uses: ./.github/actions/run-tests
       with:
         coverage-threshold: '5'
 
-  # ─── 2. Tests E2E ──────────────────────────────────────────────────────────
-  e2e-tests:
+  test-e2e:
     name: Tests E2E
     runs-on: ubuntu-latest
-    needs: [validate-secrets, test]
+    needs: [validate, test-unit]
     if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     timeout-minutes: 15
-    permissions:
-      contents: read
     steps:
     - uses: actions/checkout@v4
-
-    - name: Cache E2E dependencies
-      uses: actions/cache@v4
+    - uses: actions/cache@v4
       with:
-        path: |
-          ~/.pnpm-store
-          e2e-tests/node_modules
+        path: ~/.pnpm-store, e2e-tests/node_modules
         key: ${{ runner.os }}-e2e-pnpm-${{ hashFiles('e2e-tests/**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-e2e-pnpm-
-
     - uses: ./.github/actions/setup-node-pnpm
       with:
         node-version: '22'
-
-    - name: Ejecutar tests E2E
+    - name: Ejecutar E2E
       run: |
         chmod +x scripts/ci/run-e2e-optimized.sh
         ./scripts/ci/run-e2e-optimized.sh
-
-    - name: Logs de diagnóstico si falla
+    - name: Diagnóstico de fallo
       if: failure()
       run: |
         cd e2e-tests
-        echo "=== Estado de contenedores ==="
         docker compose -f docker-compose.test.yml ps
-        echo "=== Logs test-backend ==="
-        docker compose -f docker-compose.test.yml logs test-backend --tail 100
-        echo "=== Logs postgres ==="
-        docker compose -f docker-compose.test.yml logs postgres --tail 30
-        echo "=== Inspect healthcheck test-backend ==="
-        docker inspect e2e-tests-test-backend-1 --format='{{json .State.Health}}' 2>/dev/null || true
-
-    - name: Subir reporte Playwright
-      uses: actions/upload-artifact@v4
+        docker compose -f docker-compose.test.yml logs test-backend --tail 50
+        docker compose -f docker-compose.test.yml logs postgres --tail 20
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: playwright-report
         path: e2e-tests/playwright-report/
         retention-days: 30
 
-  # ─── 3. Build imágenes Docker (paralelo) ───────────────────────────────────
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 2. BUILD
+  # ═══════════════════════════════════════════════════════════════════════════
   build-backend:
     name: Build Backend
     runs-on: ubuntu-latest
-    needs: [validate-secrets, test, e2e-tests]
+    needs: [validate, test-unit, test-e2e]
     timeout-minutes: 10
     permissions:
       contents: read
@@ -176,7 +146,7 @@ jobs:
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
-    needs: [validate-secrets, test, e2e-tests]
+    needs: [validate, test-unit, test-e2e]
     timeout-minutes: 10
     permissions:
       contents: read
@@ -198,32 +168,27 @@ jobs:
           APP_ENV=production
           API_URL=${{ vars.API_URL || '/api' }}
 
-  # ─── 4. Deploy a staging ────────────────────────────────────────────────────
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 3. DEPLOY STAGING
+  # ═══════════════════════════════════════════════════════════════════════════
   deploy-staging:
-    name: Deploy a Staging
+    name: Deploy Staging
     runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend]
-    if: github.event.inputs.environment == 'staging' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [validate, build-backend, build-frontend]
+    if: |
+      (github.event.inputs.environment == 'staging' || 
+       (github.event_name == 'push' && github.ref == 'refs/heads/main')) && 
+      needs.validate.outputs.staging-ready == 'true'
     timeout-minutes: 20
-    environment: 
+    environment:
       name: staging
       url: https://staging.${{ vars.PRODUCTION_DOMAIN }}
-    permissions:
-      contents: read
-      deployments: write
     steps:
     - uses: actions/checkout@v4
-
     - uses: ./.github/actions/setup-ssh
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.STAGING_HOST }}
-
-    - name: SSH Hardening
-      run: |
-        ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
-        chmod 600 ~/.ssh/known_hosts
-
     - uses: ./.github/actions/deploy-server
       with:
         ssh-user: ${{ secrets.STAGING_USER }}
@@ -232,148 +197,57 @@ jobs:
         frontend-image: ${{ env.FRONTEND_IMAGE }}
         current-sha: ${{ github.sha }}
         acme-email: ${{ secrets.ACME_EMAIL }}
-
         domain: staging.${{ vars.PRODUCTION_DOMAIN }}
 
-  # Smoke test staging
-  smoke-test-staging:
+  smoke-staging:
     name: Smoke Test Staging
     runs-on: ubuntu-latest
     needs: deploy-staging
     if: needs.deploy-staging.result == 'success'
     timeout-minutes: 10
-    permissions:
-      contents: read
     steps:
     - uses: actions/checkout@v4
-
-    - uses: ./.github/actions/setup-ssh
+    - uses: ./.github/actions/smoke-test
       with:
+        environment: staging
+        domain: staging.${{ vars.PRODUCTION_DOMAIN }}
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        production-host: ${{ secrets.STAGING_HOST }}
+        ssh-host: ${{ secrets.STAGING_HOST }}
 
-    - name: SSH Hardening
-      run: |
-        ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
-        chmod 600 ~/.ssh/known_hosts
-
-    - name: Health Check con Reintentos
-      id: check-staging
-      run: |
-        DOMAIN="staging.${{ vars.PRODUCTION_DOMAIN }}"
-        if [ -z "$DOMAIN" ]; then
-          echo "STAGING_DOMAIN no configurado - omitiendo smoke test"
-          exit 0
-        fi
-        
-        echo "Verificando staging en $DOMAIN..."
-        
-        # Verificar SSL
-        for i in {1..5}; do
-          if echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -dates >/dev/null 2>&1; then
-            echo "✅ Certificado SSL válido"
-            break
-          else
-            echo "⏳ Verificando SSL... intento $i/5"
-            [ $i -lt 5 ] && sleep 5
-          fi
-        done
-        
-        # Verificar backend con reintentos
-        for i in {1..12}; do
-          if curl -f -s --max-time 10 "https://$DOMAIN/api/health" >/dev/null; then
-            echo "✅ Backend saludable en intento $i"
-            break
-          else
-            echo "⏳ Verificando backend... intento $i/12"
-            [ $i -lt 12 ] && sleep 10
-          fi
-        done
-        
-        # Verificar frontend con reintentos
-        for i in {1..8}; do
-          if curl -f -s --max-time 10 "https://$DOMAIN/" >/dev/null; then
-            echo "✅ Frontend saludable en intento $i"
-            break
-          else
-            echo "⏳ Verificando frontend... intento $i/8"
-            [ $i -lt 8 ] && sleep 10
-          fi
-        done
-        
-        # Validación interna servicios críticos
-        echo "Validando servicios internos críticos..."
-        
-        # Verificar conexión a base de datos (si endpoint disponible)
-        if curl -f -s --max-time 5 "https://$DOMAIN/api/health/db" >/dev/null 2>&1; then
-          echo "✅ DB connection OK"
-        else
-          echo "⚠️ WARNING: No se puede validar DB connection"
-        fi
-        
-        # Verificar Redis (si endpoint disponible)
-        if curl -f -s --max-time 5 "https://$DOMAIN/api/health/redis" >/dev/null 2>&1; then
-          echo "✅ Redis connection OK"
-        else
-          echo "⚠️ WARNING: No se puede validar Redis connection"
-        fi
-        
-        # Verificar readiness state
-        if curl -f -s --max-time 5 "https://$DOMAIN/api/ready" >/dev/null; then
-          echo "✅ Application ready state OK"
-        else
-          echo "⚠️ WARNING: Application no está en ready state"
-        fi
-        
-        echo "🎉 Smoke test staging exitoso con validación interna"
-        echo "staging_url=https://$DOMAIN" >> $GITHUB_OUTPUT
-
-  # ─── 5. Deploy a producción ────────────────────────────────────────────────
-  deploy:
-    name: Deploy a Producción
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 4. DEPLOY PRODUCCIÓN
+  # ═══════════════════════════════════════════════════════════════════════════
+  deploy-prod:
+    name: Deploy Producción
     runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend]
-    if: github.event.inputs.environment == 'production' || github.event_name == 'release'
+    needs: [validate, build-backend, build-frontend]
+    if: |
+      (github.event.inputs.environment == 'production' || github.event_name == 'release') && 
+      needs.validate.outputs.production-ready == 'true'
     timeout-minutes: 25
-    environment: 
+    environment:
       name: production
       url: https://${{ vars.PRODUCTION_DOMAIN }}
-    permissions:
-      contents: read
-      deployments: write
+    outputs:
+      deployment-id: ${{ steps.gh-deploy.outputs.deployment-id }}
     steps:
     - uses: actions/checkout@v4
+    
+    - uses: ./.github/actions/github-deployment
+      id: gh-deploy
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        environment: production
+        sha: ${{ github.sha }}
+        backend-image: ${{ env.BACKEND_IMAGE }}
+        frontend-image: ${{ env.FRONTEND_IMAGE }}
+        domain: ${{ vars.PRODUCTION_DOMAIN }}
+        action: create
 
     - uses: ./.github/actions/setup-ssh
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.PRODUCTION_HOST }}
-
-    - name: SSH Hardening
-      run: |
-        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
-        chmod 600 ~/.ssh/known_hosts
-
-    - name: Create deployment
-      id: deployment
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const deployment = await github.rest.repos.createDeployment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: context.sha,
-            task: 'deploy',
-            environment: 'production',
-            description: `Deploy to production - SHA: ${context.sha.substring(0, 7)}`,
-            payload: {
-              backend_image: '${{ env.BACKEND_IMAGE }}',
-              frontend_image: '${{ env.FRONTEND_IMAGE }}',
-              sha: '${{ github.sha }}'
-            }
-          });
-          console.log('Deployment created:', deployment.data.id);
-          return deployment.data.id;
 
     - uses: ./.github/actions/deploy-server
       with:
@@ -385,217 +259,114 @@ jobs:
         acme-email: ${{ secrets.ACME_EMAIL }}
         domain: ${{ vars.PRODUCTION_DOMAIN }}
 
-    - name: Registrar Métricas
+    - name: Métricas
+      if: always()
       run: |
-        echo "📊 Deploy duration: ${{ job.status }}"
+        echo "📊 Deploy: ${{ job.status }}"
         echo "📊 SHA: ${{ github.sha }}"
         echo "📊 Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        echo "📊 Actor: ${{ github.actor }}"
 
-    - name: Update deployment status
-      if: always()
-      uses: actions/github-script@v6
+    - uses: ./.github/actions/github-deployment
+      if: always() && steps.gh-deploy.outputs.deployment-id
       with:
-        script: |
-          const deploymentId = '${{ steps.deployment.outputs.result }}';
-          const status = '${{ job.status }}' === 'success' ? 'success' : 'failure';
-          
-          await github.rest.repos.createDeploymentStatus({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            deployment_id: parseInt(deploymentId),
-            state: status,
-            environment_url: 'https://${{ vars.PRODUCTION_DOMAIN }}',
-            log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-          });
-          
-          console.log(`Deployment status updated to: ${status}`);
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        environment: production
+        sha: ${{ github.sha }}
+        deployment-id: ${{ steps.gh-deploy.outputs.deployment-id }}
+        domain: ${{ vars.PRODUCTION_DOMAIN }}
+        status: ${{ job.status == 'success' && 'success' || 'failure' }}
+        action: update
 
-  # ─── 5. Rollback manual ────────────────────────────────────────────────────
-  rollback:
-    name: Rollback Manual
+  smoke-prod:
+    name: Smoke Test Producción
     runs-on: ubuntu-latest
-    needs: deploy
-    if: github.event.inputs.force_rollback == 'true'
+    needs: deploy-prod
+    if: needs.deploy-prod.result == 'success'
     timeout-minutes: 10
-    permissions:
-      contents: read
     steps:
     - uses: actions/checkout@v4
+    - uses: ./.github/actions/smoke-test
+      with:
+        environment: production
+        domain: ${{ vars.PRODUCTION_DOMAIN }}
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        ssh-host: ${{ secrets.PRODUCTION_HOST }}
+        backend-retries: 12
 
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 5. ROLLBACK
+  # ═══════════════════════════════════════════════════════════════════════════
+  rollback-manual:
+    name: Rollback Manual
+    runs-on: ubuntu-latest
+    needs: deploy-prod
+    if: github.event.inputs.force_rollback == 'true'
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-ssh
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.PRODUCTION_HOST }}
-
-    - name: SSH Hardening
-      run: |
-        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
-        chmod 600 ~/.ssh/known_hosts
-
     - uses: ./.github/actions/rollback
       with:
         ssh-user: ${{ secrets.PRODUCTION_USER }}
         ssh-host: ${{ secrets.PRODUCTION_HOST }}
 
-  # ─── 6. Rollback automático ───────────────────────────────────────────────────
   rollback-auto:
     name: Rollback Automático
     runs-on: ubuntu-latest
-    needs: [deploy, smoke-test]
-    if: needs.smoke-test.result == 'failure'
+    needs: [deploy-prod, smoke-prod]
+    if: needs.smoke-prod.result == 'failure'
     timeout-minutes: 15
-    permissions:
-      contents: read
     steps:
     - uses: actions/checkout@v4
-
     - uses: ./.github/actions/setup-ssh
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.PRODUCTION_HOST }}
-
-    - name: SSH Hardening
-      run: |
-        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
-        chmod 600 ~/.ssh/known_hosts
-
-    - name: Rollback Automático
-      run: |
-        echo "🚨 Iniciando rollback automático debido a fallo en smoke test"
-        echo "🔄 SHA actual: ${{ github.sha }}"
-        
-        # Obtener imagen anterior del registry
-        PREVIOUS_SHA=$(git rev-parse HEAD~1)
-        echo "📦 Rollback a SHA: $PREVIOUS_SHA"
-        
-        # Ejecutar rollback action
-        # (asumimos que la action rollback maneja la lógica específica)
-        # Aquí podrías añadir lógica adicional si es necesario
-  # ─── 7. Smoke test externo ─────────────────────────────────────────────────
-  smoke-test:
-    name: Smoke Test Externo
-    runs-on: ubuntu-latest
-    needs: deploy
-    if: needs.deploy.result == 'success'
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-    - uses: actions/checkout@v4
-
-    - uses: ./.github/actions/setup-ssh
+    - uses: ./.github/actions/rollback
       with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        production-host: ${{ secrets.PRODUCTION_HOST }}
+        ssh-user: ${{ secrets.PRODUCTION_USER }}
+        ssh-host: ${{ secrets.PRODUCTION_HOST }}
 
-    - name: SSH Hardening
-      run: |
-        ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
-        chmod 600 ~/.ssh/known_hosts
-
-    - name: Health Check con Reintentos
-      id: check
-      run: |
-        DOMAIN="${{ vars.PRODUCTION_DOMAIN }}"
-        if [ -z "$DOMAIN" ]; then
-          echo "PRODUCTION_DOMAIN no configurado — omitiendo smoke test"
-          exit 0
-        fi
-
-        echo "🔍 Smoke test para: $DOMAIN"
-        
-        # Verificar SSL primero
-        for i in {1..5}; do
-          SSL_OK=false
-          if echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | grep -q "Verify return code: 0"; then
-            SSL_OK=true
-            echo "✅ SSL válido en intento $i"
-            break
-          else
-            echo "⏳ Verificando SSL... intento $i/5"
-            [ $i -lt 5 ] && sleep 5
-          fi
-        done
-        
-        # Verificar servicios con reintentos
-        for i in {1..12}; do
-          BACKEND_HTTP=$(curl -so /dev/null -w "%{http_code}" --max-time 15 \
-            "https://$DOMAIN/api/ready" 2>/dev/null || echo "000")
-          FRONTEND_HTTP=$(curl -so /dev/null -w "%{http_code}" --max-time 15 \
-            "https://$DOMAIN" 2>/dev/null || echo "000")
-
-          echo "🔍 Intento $i/12 — Backend: $BACKEND_HTTP | Frontend: $FRONTEND_HTTP | SSL: $SSL_OK"
-
-          if [[ "$BACKEND_HTTP" =~ ^(200|204)$ ]] && \
-             [[ "$FRONTEND_HTTP" =~ ^(200|301|302)$ ]] && \
-             [ "$SSL_OK" = true ]; then
-            echo "🎉 Smoke test PASADO"
-            exit 0
-          fi
-          [ $i -lt 12 ] && sleep 10
-        done
-
-        echo "❌ Smoke test FALLO — diagnóstico del servidor:"
-        ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
-          "cd /opt/workplace
-           COMPOSE='docker compose -f docker-compose.lite.yml'
-           echo '=== Contenedores ==='
-           \$COMPOSE ps
-           echo '=== Routers Traefik ==='
-           curl -sf http://localhost:8080/api/http/routers 2>/dev/null \
-             | python3 -c \"import sys,json; [print(r.get('name'), r.get('status')) for r in json.load(sys.stdin)]\" || echo 'API Traefik no disponible'
-           echo '=== Logs Traefik (ultimas 10 lineas) ==='
-           docker logs traefik --tail 10 2>&1
-           echo '=== UFW puertos 80/443 ==='
-           ufw status | grep -E '80|443' || true" || true
-        exit 1
-
-  # ─── 8. Notificación ───────────────────────────────────────────────────────
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 6. NOTIFICACIÓN
+  # ═══════════════════════════════════════════════════════════════════════════
   notify:
     name: Notificar Estado
     runs-on: ubuntu-latest
-    needs: [deploy-staging, smoke-test-staging, deploy, smoke-test, rollback-auto]
+    needs: [deploy-staging, smoke-staging, deploy-prod, smoke-prod, rollback-auto]
     if: always()
-    permissions:
-      contents: read
     steps:
     - uses: actions/checkout@v4
-
-    - name: Determinar Estado Final
+    - name: Calcular estado
       id: status
       run: |
-        STAGING_SUCCESS="${{ needs.deploy-staging.result == 'success' && needs.smoke-test-staging.result != 'failure' }}"
-        PROD_DEPLOYED="${{ needs.deploy.result }}"
-        PROD_SUCCESS="${{ needs.deploy.result == 'success' && needs.smoke-test.result != 'failure' }}"
-        ROLLBACK_PERFORMED="${{ needs.rollback-auto.result == 'success' }}"
+        STAGING_OK="${{ needs.deploy-staging.result == 'success' && needs.smoke-staging.result != 'failure' }}"
+        PROD_DEPLOYED="${{ needs.deploy-prod.result }}"
+        PROD_OK="${{ needs.deploy-prod.result == 'success' && needs.smoke-prod.result != 'failure' }}"
+        ROLLBACK="${{ needs.rollback-auto.result == 'success' }}"
         
-        # Si se ejecutó producción y fue exitoso
-        if [[ "$PROD_SUCCESS" == "true" && "$ROLLBACK_PERFORMED" != "true" ]]; then
+        if [[ "$PROD_OK" == "true" && "$ROLLBACK" != "true" ]]; then
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "message=🎉 Deploy exitoso a producción" >> $GITHUB_OUTPUT
-        # Si se ejecutó rollback automático
-        elif [[ "$ROLLBACK_PERFORMED" == "true" ]]; then
+          echo "message=🎉 Deploy a producción exitoso" >> $GITHUB_OUTPUT
+        elif [[ "$ROLLBACK" == "true" ]]; then
           echo "status=failure" >> $GITHUB_OUTPUT
-          echo "message=🚨 Deploy a producción falló - rollback automático ejecutado" >> $GITHUB_OUTPUT
-        # Si producción fue deployado pero smoke test falló (sin rollback)
-        elif [[ "$PROD_DEPLOYED" == "success" && "${{ needs.smoke-test.result }}" == "failure" ]]; then
+          echo "message=🚨 Deploy falló - rollback ejecutado" >> $GITHUB_OUTPUT
+        elif [[ "$PROD_DEPLOYED" == "success" && "${{ needs.smoke-prod.result }}" == "failure" ]]; then
           echo "status=failure" >> $GITHUB_OUTPUT
-          echo "message=❌ Deploy a producción falló - smoke test no pasó" >> $GITHUB_OUTPUT
-        # Si solo se ejecutó staging (push a main) y fue exitoso
-        elif [[ "$STAGING_SUCCESS" == "true" && "$PROD_DEPLOYED" == "skipped" ]]; then
+          echo "message=❌ Deploy falló - smoke test no pasó" >> $GITHUB_OUTPUT
+        elif [[ "$STAGING_OK" == "true" && "$PROD_DEPLOYED" == "skipped" ]]; then
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "message=✅ Deploy a staging exitoso - esperando deploy manual a producción" >> $GITHUB_OUTPUT
-        # Si staging falló
-        elif [[ "${{ needs.deploy-staging.result }}" == "failure" || "${{ needs.smoke-test-staging.result }}" == "failure" ]]; then
+          echo "message=✅ Deploy a staging exitoso" >> $GITHUB_OUTPUT
+        elif [[ "${{ needs.deploy-staging.result }}" == "failure" || "${{ needs.smoke-staging.result }}" == "failure" ]]; then
           echo "status=failure" >> $GITHUB_OUTPUT
           echo "message=❌ Deploy a staging falló" >> $GITHUB_OUTPUT
-        # Cualquier otro caso de fallo
         else
           echo "status=failure" >> $GITHUB_OUTPUT
           echo "message=❌ Pipeline falló" >> $GITHUB_OUTPUT
         fi
-
     - uses: ./.github/actions/notify
       with:
         status: ${{ steps.status.outputs.status }}

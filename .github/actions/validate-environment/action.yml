@@ -1,0 +1,112 @@
+name: 'Validate Environment Secrets'
+description: 'Valida que todos los secrets y variables necesarios estén configurados'
+
+inputs:
+  docker-username:
+    description: 'Docker username secret'
+    required: true
+  docker-password:
+    description: 'Docker password secret'
+    required: true
+  ssh-private-key:
+    description: 'SSH private key'
+    required: true
+  staging-host:
+    description: 'Staging host (optional)'
+    required: false
+    default: ''
+  staging-user:
+    description: 'Staging user (optional)'
+    required: false
+    default: ''
+  production-host:
+    description: 'Production host (optional)'
+    required: false
+    default: ''
+  production-user:
+    description: 'Production user (optional)'
+    required: false
+    default: ''
+  production-domain:
+    description: 'Production domain variable'
+    required: false
+    default: ''
+
+outputs:
+  staging-ready:
+    description: 'Whether staging secrets are configured'
+    value: ${{ steps.check-staging.outputs.ready }}
+  production-ready:
+    description: 'Whether production secrets are configured'
+    value: ${{ steps.check-production.outputs.ready }}
+  base-secrets-valid:
+    description: 'Whether base secrets (docker, ssh) are valid'
+    value: ${{ steps.validate-base.outputs.valid }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Base Secrets
+      id: validate-base
+      shell: bash
+      run: |
+        echo "🔍 Validando secrets base requeridos..."
+        
+        errors=0
+        
+        if [[ -z "${{ inputs.docker-username }}" ]]; then
+          echo "❌ Secret DOCKER_USERNAME no configurado"
+          errors=$((errors + 1))
+        fi
+        
+        if [[ -z "${{ inputs.docker-password }}" ]]; then
+          echo "❌ Secret DOCKER_PASSWORD no configurado"
+          errors=$((errors + 1))
+        fi
+        
+        if [[ -z "${{ inputs.ssh-private-key }}" ]]; then
+          echo "❌ Secret SSH_PRIVATE_KEY no configurado"
+          errors=$((errors + 1))
+        fi
+        
+        if [[ $errors -gt 0 ]]; then
+          echo "valid=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+        echo "✅ Todos los secrets base requeridos están configurados"
+        echo "valid=true" >> $GITHUB_OUTPUT
+        echo "📋 DOCKER_USERNAME: ${{ inputs.docker-username }}"
+
+    - name: Check Staging Secrets
+      id: check-staging
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.staging-host }}" && -n "${{ inputs.staging-user }}" ]]; then
+          echo "ready=true" >> $GITHUB_OUTPUT
+          echo "✅ Secrets de staging configurados"
+        else
+          echo "ready=false" >> $GITHUB_OUTPUT
+          echo "⚠️  Secrets de staging incompletos - deploy a staging se omitirá"
+        fi
+
+    - name: Check Production Secrets
+      id: check-production
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.production-host }}" && -n "${{ inputs.production-user }}" ]]; then
+          echo "ready=true" >> $GITHUB_OUTPUT
+          echo "✅ Secrets de producción configurados"
+        else
+          echo "ready=false" >> $GITHUB_OUTPUT
+          echo "⚠️  Secrets de producción incompletos - deploy a producción se omitirá"
+        fi
+
+    - name: Validate Production Domain
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.production-domain }}" ]]; then
+          echo "⚠️  WARNING: Variable PRODUCTION_DOMAIN no configurada"
+        else
+          echo "✅ PRODUCTION_DOMAIN: ${{ inputs.production-domain }}"
+        fi
