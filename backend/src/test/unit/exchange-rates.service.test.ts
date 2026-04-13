@@ -1,22 +1,27 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { ExchangeRatesService } from '../../exchange-rates/exchange-rates.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
 
 describe('ExchangeRatesService', () => {
   let service: ExchangeRatesService
-  let prismaService: PrismaService
 
   const mockPrismaService = {
     exchangeRate: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findUnique: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
     },
   }
 
   beforeEach(async () => {
+    jest.clearAllMocks()
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ExchangeRatesService,
@@ -28,382 +33,251 @@ describe('ExchangeRatesService', () => {
     }).compile()
 
     service = module.get<ExchangeRatesService>(ExchangeRatesService)
-    prismaService = module.get<PrismaService>(PrismaService)
   })
 
   it('should be defined', () => {
     expect(service).toBeDefined()
   })
 
-  describe('create', () => {
-    it('should create a new exchange rate successfully', async () => {
-      const createExchangeRateDto = {
-        fromCurrency: 'USD',
-        toCurrency: 'VES',
-        rate: 35.50,
-        source: 'BCV',
-      }
-
-      const mockExchangeRate = {
-        id: 'rate-123',
-        ...createExchangeRateDto,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-
-      mockPrismaService.exchangeRate.create.mockResolvedValue(mockExchangeRate)
-
-      const result = await service.create(createExchangeRateDto)
-
-      expect(result).toEqual(mockExchangeRate)
-      expect(mockPrismaService.exchangeRate.create).toHaveBeenCalledWith({
-        data: createExchangeRateDto,
-      })
-    })
-
-    it('should throw error for duplicate currency pair', async () => {
-      const createExchangeRateDto = {
-        fromCurrency: 'USD',
-        toCurrency: 'VES',
-        rate: 35.50,
-        source: 'BCV',
-      }
-
-      mockPrismaService.exchangeRate.create.mockRejectedValue(
-        new Error('Exchange rate for this currency pair already exists')
-      )
-
-      await expect(service.create(createExchangeRateDto)).rejects.toThrow(
-        'Exchange rate for this currency pair already exists'
-      )
-    })
-  })
-
   describe('findAll', () => {
-    it('should return paginated exchange rates', async () => {
-      const queryDto = {
-        page: 1,
-        limit: 10,
-        fromCurrency: 'USD',
-      }
-
+    it('should return all active exchange rates', async () => {
       const mockRates = [
-        { id: 'rate-1', fromCurrency: 'USD', toCurrency: 'VES', rate: 35.50 },
-        { id: 'rate-2', fromCurrency: 'USD', toCurrency: 'EUR', rate: 0.85 },
+        { id: 'rate-1', code: 'USD', name: 'Dólar', rateToUsd: 1, isActive: true, isDefault: true },
+        { id: 'rate-2', code: 'EUR', name: 'Euro', rateToUsd: 0.85, isActive: true, isDefault: false },
       ]
 
       mockPrismaService.exchangeRate.findMany.mockResolvedValue(mockRates)
 
-      const result = await service.findAll(queryDto)
+      const result = await service.findAll()
 
-      expect(result).toEqual({
-        rates: mockRates,
-        total: mockRates.length,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
+      expect(result).toEqual(mockRates)
+      expect(mockPrismaService.exchangeRate.findMany).toHaveBeenCalledWith({
+        where: { isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { code: 'asc' }],
       })
     })
 
-    it('should filter by currency', async () => {
-      const queryDto = {
-        page: 1,
-        limit: 10,
-        fromCurrency: 'USD',
-        toCurrency: 'VES',
-      }
-
+    it('should include inactive rates when requested', async () => {
       const mockRates = [
-        { id: 'rate-1', fromCurrency: 'USD', toCurrency: 'VES', rate: 35.50 },
+        { id: 'rate-1', code: 'USD', isActive: true },
+        { id: 'rate-2', code: 'VES', isActive: false },
       ]
 
       mockPrismaService.exchangeRate.findMany.mockResolvedValue(mockRates)
 
-      const result = await service.findAll(queryDto)
+      const result = await service.findAll(true)
 
-      expect(result.rates).toHaveLength(1)
-      expect(result.rates[0].fromCurrency).toBe('USD')
-      expect(result.rates[0].toCurrency).toBe('VES')
+      expect(result).toEqual(mockRates)
+      expect(mockPrismaService.exchangeRate.findMany).toHaveBeenCalledWith({
+        where: {},
+        orderBy: [{ isDefault: 'desc' }, { code: 'asc' }],
+      })
     })
   })
 
   describe('findOne', () => {
-    it('should return exchange rate by currency pair', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
-
+    it('should return exchange rate by id', async () => {
       const mockRate = {
         id: 'rate-123',
-        fromCurrency,
-        toCurrency,
-        rate: 35.50,
-        source: 'BCV',
+        code: 'USD',
+        name: 'Dólar',
+        rateToUsd: 1,
+        isActive: true,
+        isDefault: true,
       }
 
-      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(mockRate)
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(mockRate)
 
-      const result = await service.findOne(fromCurrency, toCurrency)
+      const result = await service.findOne('rate-123')
 
       expect(result).toEqual(mockRate)
-      expect(mockPrismaService.exchangeRate.findFirst).toHaveBeenCalledWith({
-        where: { fromCurrency, toCurrency },
-        orderBy: { createdAt: 'desc' },
+      expect(mockPrismaService.exchangeRate.findUnique).toHaveBeenCalledWith({
+        where: { id: 'rate-123' },
       })
     })
 
-    it('should throw error if exchange rate not found', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency: 'VES'
+    it('should throw NotFoundException if not found', async () => {
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(null)
 
-      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(null)
+      await expect(service.findOne('rate-999')).rejects.toThrow(NotFoundException)
+    })
+  })
 
-      await expect(service.findOne(fromCurrency, toCurrency)).rejects.toThrow(NotFoundException)
+  describe('create', () => {
+    const userId = 'user-123'
+    const createDto = {
+      code: 'ves',
+      name: 'Bolívar',
+      symbol: 'Bs',
+      rateToUsd: 35.5,
+    }
+
+    it('should create a new exchange rate successfully', async () => {
+      const mockRate = {
+        id: 'rate-new',
+        code: 'VES',
+        name: 'Bolívar',
+        symbol: 'Bs',
+        rateToUsd: 35.5,
+        isActive: true,
+        isDefault: false,
+        updatedBy: userId,
+      }
+
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(null)
+      mockPrismaService.exchangeRate.create.mockResolvedValue(mockRate)
+
+      const result = await service.create(createDto, userId)
+
+      expect(result).toEqual(mockRate)
+      expect(mockPrismaService.exchangeRate.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            code: 'VES',
+            updatedBy: userId,
+          }),
+        })
+      )
+    })
+
+    it('should throw ConflictException for duplicate code', async () => {
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue({ id: 'existing' })
+
+      await expect(service.create(createDto, userId)).rejects.toThrow(ConflictException)
+    })
+
+    it('should unset previous default when creating a new default', async () => {
+      const dtoWithDefault = { ...createDto, isDefault: true }
+
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(null)
+      mockPrismaService.exchangeRate.updateMany.mockResolvedValue({ count: 1 })
+      mockPrismaService.exchangeRate.create.mockResolvedValue({ id: 'new', code: 'VES', isDefault: true })
+
+      await service.create(dtoWithDefault, userId)
+
+      expect(mockPrismaService.exchangeRate.updateMany).toHaveBeenCalledWith({
+        where: { isDefault: true },
+        data: { isDefault: false },
+      })
     })
   })
 
   describe('update', () => {
+    const userId = 'user-123'
+
     it('should update exchange rate successfully', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
-      const updateExchangeRateDto = {
-        rate: 36.00,
-        source: 'BCV',
-      }
+      const existingRate = { id: 'rate-123', code: 'VES', rateToUsd: 35.5, isDefault: false }
+      const updateDto = { rateToUsd: 36.0 }
+      const updatedRate = { ...existingRate, rateToUsd: 36.0, updatedBy: userId }
 
-      const existingRate = {
-        id: 'rate-123',
-        fromCurrency,
-        toCurrency,
-        rate: 35.50,
-      }
-
-      const updatedRate = {
-        ...existingRate,
-        ...updateExchangeRateDto,
-        updatedAt: new Date(),
-      }
-
-      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(existingRate)
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(existingRate)
       mockPrismaService.exchangeRate.update.mockResolvedValue(updatedRate)
 
-      const result = await service.update(fromCurrency, toCurrency, updateExchangeRateDto)
+      const result = await service.update('rate-123', updateDto, userId)
 
       expect(result).toEqual(updatedRate)
       expect(mockPrismaService.exchangeRate.update).toHaveBeenCalledWith({
-        where: { id: existingRate.id },
-        data: updateExchangeRateDto,
+        where: { id: 'rate-123' },
+        data: expect.objectContaining({ rateToUsd: 36.0, updatedBy: userId }),
       })
     })
 
-    it('should throw error if exchange rate not found for update', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
-      const updateExchangeRateDto = { rate: 36.00 }
+    it('should throw NotFoundException if rate not found', async () => {
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(null)
 
-      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(null)
-
-      await expect(service.update(fromCurrency, toCurrency, updateExchangeRateDto)).rejects.toThrow(NotFoundException)
+      await expect(service.update('rate-999', { rateToUsd: 36 }, userId)).rejects.toThrow(
+        NotFoundException
+      )
     })
   })
 
-  describe('getLatestRate', () => {
-    it('should return latest exchange rate', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
+  describe('remove', () => {
+    it('should delete a non-default exchange rate', async () => {
+      const existingRate = { id: 'rate-123', code: 'VES', isDefault: false, isActive: true }
 
-      const mockRate = {
-        id: 'rate-123',
-        fromCurrency,
-        toCurrency,
-        rate: 35.50,
-        createdAt: new Date(),
-      }
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(existingRate)
+      mockPrismaService.exchangeRate.delete.mockResolvedValue(existingRate)
 
-      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(mockRate)
+      const result = await service.remove('rate-123')
 
-      const result = await service.getLatestRate(fromCurrency, toCurrency)
-
-      expect(result).toEqual(mockRate)
-      expect(mockPrismaService.exchangeRate.findFirst).toHaveBeenCalledWith({
-        where: { fromCurrency, toCurrency },
-        orderBy: { createdAt: 'desc' },
+      expect(result).toEqual(existingRate)
+      expect(mockPrismaService.exchangeRate.delete).toHaveBeenCalledWith({
+        where: { id: 'rate-123' },
       })
     })
 
-    it('should return null if no rate found', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
+    it('should throw BadRequestException when deleting the default rate', async () => {
+      const defaultRate = { id: 'rate-123', code: 'USD', isDefault: true, isActive: true }
 
-      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(null)
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(defaultRate)
 
-      const result = await service.getLatestRate(fromCurrency, toCurrency)
-
-      expect(result).toBeNull()
-    })
-  })
-
-  describe('convertCurrency', () => {
-    it('should convert currency successfully', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
-      const amount = 100
-
-      const mockRate = {
-        fromCurrency,
-        toCurrency,
-        rate: 35.50,
-      }
-
-      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(mockRate)
-
-      const result = await service.convertCurrency(fromCurrency, toCurrency, amount)
-
-      expect(result).toEqual({
-        originalAmount: amount,
-        originalCurrency: fromCurrency,
-        convertedAmount: 3550,
-        convertedCurrency: toCurrency,
-        rate: 35.50,
-      })
+      await expect(service.remove('rate-123')).rejects.toThrow(BadRequestException)
     })
 
-    it('should throw error if exchange rate not found for conversion', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
-      const amount = 100
+    it('should throw NotFoundException if rate not found', async () => {
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(null)
 
-      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(null)
-
-      await expect(service.convertCurrency(fromCurrency, toCurrency, amount)).rejects.toThrow(NotFoundException)
-    })
-
-    it('should handle zero amount conversion', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
-      const amount = 0
-
-      const mockRate = {
-        fromCurrency,
-        toCurrency,
-        rate: 35.50,
-      }
-
-      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(mockRate)
-
-      const result = await service.convertCurrency(fromCurrency, toCurrency, amount)
-
-      expect(result.convertedAmount).toBe(0)
-    })
-  })
-
-  describe('getRatesHistory', () => {
-    it('should return exchange rates history', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
-      const queryDto = {
-        dateFrom: '2024-01-01',
-        dateTo: '2024-01-31',
-      }
-
-      const mockHistory = [
-        { id: 'rate-1', rate: 35.00, createdAt: new Date('2024-01-01') },
-        { id: 'rate-2', rate: 35.50, createdAt: new Date('2024-01-15') },
-        { id: 'rate-3', rate: 36.00, createdAt: new Date('2024-01-31') },
-      ]
-
-      mockPrismaService.exchangeRate.findMany.mockResolvedValue(mockHistory)
-
-      const result = await service.getRatesHistory(fromCurrency, toCurrency, queryDto)
-
-      expect(result).toEqual({
-        fromCurrency,
-        toCurrency,
-        history: mockHistory,
-      })
-    })
-
-    it('should handle empty history', async () => {
-      const fromCurrency = 'USD'
-      const toCurrency = 'VES'
-      const queryDto = {
-        dateFrom: '2024-01-01',
-        dateTo: '2024-01-31',
-      }
-
-      mockPrismaService.exchangeRate.findMany.mockResolvedValue([])
-
-      const result = await service.getRatesHistory(fromCurrency, toCurrency, queryDto)
-
-      expect(result.history).toHaveLength(0)
+      await expect(service.remove('rate-999')).rejects.toThrow(NotFoundException)
     })
   })
 
   describe('getStats', () => {
-    it('should return exchange rates statistics', async () => {
-      const mockRates = [
-        { fromCurrency: 'USD', toCurrency: 'VES', rate: 35.50 },
-        { fromCurrency: 'USD', toCurrency: 'EUR', rate: 0.85 },
-        { fromCurrency: 'EUR', toCurrency: 'VES', rate: 41.76 },
-      ]
-
-      mockPrismaService.exchangeRate.findMany.mockResolvedValue(mockRates)
+    it('should return exchange rate statistics', async () => {
+      mockPrismaService.exchangeRate.count
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(2)
+      mockPrismaService.exchangeRate.findFirst.mockResolvedValue({
+        id: 'rate-1',
+        code: 'USD',
+        rateToUsd: 1,
+      })
 
       const result = await service.getStats()
 
-      expect(result).toBeDefined()
-      expect(result.totalRates).toBe(3)
-      expect(result.currencyPairs).toBe(3)
-      expect(result.lastUpdated).toBeDefined()
+      expect(result).toEqual({
+        total: 3,
+        active: 2,
+        inactive: 1,
+        defaultCurrency: 'USD',
+        defaultRate: 1,
+      })
     })
 
-    it('should handle empty rates list', async () => {
-      mockPrismaService.exchangeRate.findMany.mockResolvedValue([])
+    it('should return null defaultCurrency when no default is set', async () => {
+      mockPrismaService.exchangeRate.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(null)
 
       const result = await service.getStats()
 
-      expect(result.totalRates).toBe(0)
-      expect(result.currencyPairs).toBe(0)
+      expect(result.defaultCurrency).toBeNull()
+      expect(result.defaultRate).toBeNull()
     })
   })
 
-  describe('Error handling', () => {
-    it('should handle database errors gracefully', async () => {
-      const createExchangeRateDto = {
-        fromCurrency: 'USD',
-        toCurrency: 'VES',
-        rate: 35.50,
-        source: 'BCV',
-      }
+  describe('setDefault', () => {
+    it('should set a rate as default', async () => {
+      const userId = 'user-123'
+      const rate = { id: 'rate-123', code: 'EUR', isActive: true, isDefault: false }
+      const updatedRate = { ...rate, isDefault: true }
 
-      mockPrismaService.exchangeRate.create.mockRejectedValue(new Error('Database connection failed'))
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(rate)
+      mockPrismaService.exchangeRate.updateMany.mockResolvedValue({ count: 1 })
+      mockPrismaService.exchangeRate.update.mockResolvedValue(updatedRate)
 
-      await expect(service.create(createExchangeRateDto)).rejects.toThrow('Database connection failed')
+      const result = await service.setDefault('rate-123', userId)
+
+      expect(result).toEqual(updatedRate)
     })
 
-    it('should validate currency codes', async () => {
-      const invalidDto = {
-        fromCurrency: '',
-        toCurrency: 'VES',
-        rate: 35.50,
-        source: 'BCV',
-      }
+    it('should throw BadRequestException when setting inactive rate as default', async () => {
+      const userId = 'user-123'
+      const inactiveRate = { id: 'rate-123', code: 'VES', isActive: false, isDefault: false }
 
-      mockPrismaService.exchangeRate.create.mockRejectedValue(new Error('Invalid currency code'))
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(inactiveRate)
 
-      await expect(service.create(invalidDto)).rejects.toThrow('Invalid currency code')
-    })
-
-    it('should validate rate value', async () => {
-      const invalidDto = {
-        fromCurrency: 'USD',
-        toCurrency: 'VES',
-        rate: -1,
-        source: 'BCV',
-      }
-
-      mockPrismaService.exchangeRate.create.mockRejectedValue(new Error('Rate must be positive'))
-
-      await expect(service.create(invalidDto)).rejects.toThrow('Rate must be positive')
+      await expect(service.setDefault('rate-123', userId)).rejects.toThrow(BadRequestException)
     })
   })
 })

@@ -4,14 +4,15 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { PlanLimitsService } from '../../plans/plan-limits.service'
 import { CreateEmployeeDto } from '../../employees/dto/create-employee.dto'
 import { UpdateEmployeeDto } from '../../employees/dto/update-employee.dto'
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common'
 
 describe('EmployeesService', () => {
   let service: EmployeesService
-  let prismaService: PrismaService
-  let planLimitsService: PlanLimitsService
 
   const mockPrismaService = {
+    restaurant: {
+      findUnique: jest.fn(),
+    },
     employee: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -19,19 +20,20 @@ describe('EmployeesService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
-    },
-    user: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
+      groupBy: jest.fn(),
     },
   }
 
   const mockPlanLimitsService = {
-    checkEmployeeLimit: jest.fn(),
-    hasReachedEmployeeLimit: jest.fn(),
+    assertEmployeeLimit: jest.fn(),
   }
 
+  const commerceId = 'commerce-123'
+  const userId = 'user-123'
+
   beforeEach(async () => {
+    jest.clearAllMocks()
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmployeesService,
@@ -47,8 +49,9 @@ describe('EmployeesService', () => {
     }).compile()
 
     service = module.get<EmployeesService>(EmployeesService)
-    prismaService = module.get<PrismaService>(PrismaService)
-    planLimitsService = module.get<PlanLimitsService>(PlanLimitsService)
+
+    // Default: user always resolves to commerceId
+    mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: commerceId })
   })
 
   it('should be defined', () => {
@@ -57,349 +60,221 @@ describe('EmployeesService', () => {
 
   describe('create', () => {
     it('should create a new employee successfully', async () => {
-      const commerceId = 'commerce-123'
-      const createEmployeeDto: CreateEmployeeDto = {
+      const createDto: CreateEmployeeDto = {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        phone: '+1234567890',
-        position: 'CASHIER',
-        salary: 1500,
-        hireDate: '2024-01-01',
+        role: 'CAJERO',
       }
 
       const mockEmployee = {
         id: 'employee-123',
         commerceId,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        phone: '+1234567890',
-        position: 'CASHIER',
-        salary: 1500,
-        hireDate: new Date('2024-01-01'),
+        ...createDto,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       }
 
-      mockPlanLimitsService.checkEmployeeLimit.mockResolvedValue(true)
-      mockPrismaService.user.findUnique.mockResolvedValue(null)
+      mockPlanLimitsService.assertEmployeeLimit.mockResolvedValue(undefined)
+      mockPrismaService.employee.findUnique.mockResolvedValue(null)
       mockPrismaService.employee.create.mockResolvedValue(mockEmployee)
 
-      const result = await service.create(commerceId, createEmployeeDto)
+      const result = await service.create(userId, createDto)
 
       expect(result).toEqual(mockEmployee)
-      expect(mockPlanLimitsService.checkEmployeeLimit).toHaveBeenCalledWith(commerceId)
+      expect(mockPlanLimitsService.assertEmployeeLimit).toHaveBeenCalledWith(userId, commerceId)
       expect(mockPrismaService.employee.create).toHaveBeenCalledWith({
-        data: {
-          commerceId,
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john@example.com',
-          phone: '+1234567890',
-          position: 'CASHIER',
-          salary: 1500,
-          hireDate: new Date('2024-01-01'),
-          isActive: true,
-        },
+        data: { ...createDto, commerceId },
       })
     })
 
-    it('should throw error if employee email already exists', async () => {
-      const commerceId = 'commerce-123'
-      const createEmployeeDto: CreateEmployeeDto = {
+    it('should throw ConflictException if email already exists', async () => {
+      const createDto: CreateEmployeeDto = {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        phone: '+1234567890',
-        position: 'CASHIER',
-        salary: 1500,
+        role: 'CAJERO',
       }
 
-      mockPlanLimitsService.checkEmployeeLimit.mockResolvedValue(true)
-      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123' })
+      mockPlanLimitsService.assertEmployeeLimit.mockResolvedValue(undefined)
+      mockPrismaService.employee.findUnique.mockResolvedValue({ id: 'existing' })
 
-      await expect(service.create(commerceId, createEmployeeDto)).rejects.toThrow(
-        BadRequestException
-      )
+      await expect(service.create(userId, createDto)).rejects.toThrow(ConflictException)
     })
 
-    it('should throw error if employee limit is reached', async () => {
-      const commerceId = 'commerce-123'
-      const createEmployeeDto: CreateEmployeeDto = {
+    it('should throw if employee limit is reached', async () => {
+      const createDto: CreateEmployeeDto = {
         firstName: 'John',
         lastName: 'Doe',
-        email: 'john@example.com',
-        phone: '+1234567890',
-        position: 'CASHIER',
-        salary: 1500,
+        role: 'CAJERO',
       }
 
-      mockPlanLimitsService.checkEmployeeLimit.mockRejectedValue(
+      mockPlanLimitsService.assertEmployeeLimit.mockRejectedValue(
         new Error('Employee limit reached')
       )
 
-      await expect(service.create(commerceId, createEmployeeDto)).rejects.toThrow(
-        'Employee limit reached'
-      )
+      await expect(service.create(userId, createDto)).rejects.toThrow('Employee limit reached')
+    })
+
+    it('should throw ForbiddenException if user has no restaurant', async () => {
+      mockPrismaService.restaurant.findUnique.mockResolvedValue(null)
+
+      await expect(
+        service.create(userId, { firstName: 'A', lastName: 'B', role: 'CAJERO' })
+      ).rejects.toThrow(ForbiddenException)
     })
   })
 
   describe('findAll', () => {
-    it('should return paginated employees', async () => {
-      const commerceId = 'commerce-123'
-      const queryDto = {
-        page: 1,
-        limit: 10,
-        position: 'CASHIER',
-        isActive: true,
-      }
-
+    it('should return employees for the user commerce', async () => {
       const mockEmployees = [
-        {
-          id: 'employee-1',
-          firstName: 'John',
-          lastName: 'Doe',
-          position: 'CASHIER',
-          isActive: true,
-        },
-        {
-          id: 'employee-2',
-          firstName: 'Jane',
-          lastName: 'Smith',
-          position: 'CASHIER',
-          isActive: true,
-        },
+        { id: 'e-1', firstName: 'John', lastName: 'Doe', commerceId },
+        { id: 'e-2', firstName: 'Jane', lastName: 'Smith', commerceId },
       ]
 
       mockPrismaService.employee.findMany.mockResolvedValue(mockEmployees)
-      mockPrismaService.employee.count.mockResolvedValue(2)
 
-      const result = await service.findAll(commerceId, queryDto)
+      const result = await service.findAll(userId)
 
-      expect(result).toEqual({
-        employees: mockEmployees,
-        total: 2,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
-      })
-    })
-
-    it('should apply filters correctly', async () => {
-      const commerceId = 'commerce-123'
-      const queryDto = {
-        page: 1,
-        limit: 10,
-        position: 'MANAGER',
-        isActive: true,
-      }
-
-      mockPrismaService.employee.findMany.mockResolvedValue([])
-      mockPrismaService.employee.count.mockResolvedValue(0)
-
-      await service.findAll(commerceId, queryDto)
-
+      expect(result).toEqual(mockEmployees)
       expect(mockPrismaService.employee.findMany).toHaveBeenCalledWith({
-        where: {
-          commerceId,
-          position: 'MANAGER',
-          isActive: true,
-        },
-        skip: 0,
-        take: 10,
-        orderBy: { createdAt: 'desc' },
+        where: { commerceId },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       })
     })
   })
 
   describe('findOne', () => {
     it('should return employee by id', async () => {
-      const employeeId = 'employee-123'
-      const commerceId = 'commerce-123'
-      
       const mockEmployee = {
-        id: employeeId,
+        id: 'employee-123',
         commerceId,
         firstName: 'John',
         lastName: 'Doe',
-        position: 'CASHIER',
       }
 
       mockPrismaService.employee.findUnique.mockResolvedValue(mockEmployee)
 
-      const result = await service.findOne(employeeId, commerceId)
+      const result = await service.findOne(userId, 'employee-123')
 
       expect(result).toEqual(mockEmployee)
       expect(mockPrismaService.employee.findUnique).toHaveBeenCalledWith({
-        where: { id: employeeId },
+        where: { id: 'employee-123' },
       })
     })
 
-    it('should throw error if employee not found', async () => {
-      const employeeId = 'employee-123'
-      const commerceId = 'commerce-123'
-
+    it('should throw NotFoundException if employee not found', async () => {
       mockPrismaService.employee.findUnique.mockResolvedValue(null)
 
-      await expect(service.findOne(employeeId, commerceId)).rejects.toThrow(
-        NotFoundException
-      )
+      await expect(service.findOne(userId, 'employee-999')).rejects.toThrow(NotFoundException)
+    })
+
+    it('should throw ForbiddenException if employee belongs to different commerce', async () => {
+      mockPrismaService.employee.findUnique.mockResolvedValue({
+        id: 'employee-123',
+        commerceId: 'other-commerce',
+      })
+
+      await expect(service.findOne(userId, 'employee-123')).rejects.toThrow(ForbiddenException)
     })
   })
 
   describe('update', () => {
     it('should update employee successfully', async () => {
-      const employeeId = 'employee-123'
-      const commerceId = 'commerce-123'
-      const updateEmployeeDto: UpdateEmployeeDto = {
-        firstName: 'John Updated',
-        salary: 1600,
-      }
-
-      const existingEmployee = {
-        id: employeeId,
-        commerceId,
-        firstName: 'John',
-        lastName: 'Doe',
-        salary: 1500,
-      }
-
-      const updatedEmployee = {
-        ...existingEmployee,
-        firstName: 'John Updated',
-        salary: 1600,
-        updatedAt: new Date(),
-      }
+      const updateDto: UpdateEmployeeDto = { firstName: 'John Updated' }
+      const existingEmployee = { id: 'employee-123', commerceId, firstName: 'John' }
+      const updatedEmployee = { ...existingEmployee, firstName: 'John Updated' }
 
       mockPrismaService.employee.findUnique.mockResolvedValue(existingEmployee)
       mockPrismaService.employee.update.mockResolvedValue(updatedEmployee)
 
-      const result = await service.update(employeeId, commerceId, updateEmployeeDto)
+      const result = await service.update(userId, 'employee-123', updateDto)
 
       expect(result).toEqual(updatedEmployee)
       expect(mockPrismaService.employee.update).toHaveBeenCalledWith({
-        where: { id: employeeId },
-        data: {
-          firstName: 'John Updated',
-          salary: 1600,
-        },
+        where: { id: 'employee-123' },
+        data: updateDto,
       })
     })
 
-    it('should throw error if employee not found', async () => {
-      const employeeId = 'employee-123'
-      const commerceId = 'commerce-123'
-      const updateEmployeeDto: UpdateEmployeeDto = {
-        firstName: 'John Updated',
-      }
-
+    it('should throw NotFoundException if employee not found', async () => {
       mockPrismaService.employee.findUnique.mockResolvedValue(null)
 
-      await expect(service.update(employeeId, commerceId, updateEmployeeDto)).rejects.toThrow(
-        NotFoundException
-      )
+      await expect(
+        service.update(userId, 'employee-999', { firstName: 'X' })
+      ).rejects.toThrow(NotFoundException)
     })
   })
 
   describe('remove', () => {
-    it('should deactivate employee successfully', async () => {
-      const employeeId = 'employee-123'
-      const commerceId = 'commerce-123'
-      
-      const existingEmployee = {
-        id: employeeId,
-        commerceId,
-        firstName: 'John',
-        lastName: 'Doe',
-        isActive: true,
-      }
-
-      const deactivatedEmployee = {
-        ...existingEmployee,
-        isActive: false,
-        updatedAt: new Date(),
-      }
+    it('should delete employee successfully', async () => {
+      const existingEmployee = { id: 'employee-123', commerceId }
 
       mockPrismaService.employee.findUnique.mockResolvedValue(existingEmployee)
-      mockPrismaService.employee.update.mockResolvedValue(deactivatedEmployee)
+      mockPrismaService.employee.delete.mockResolvedValue(existingEmployee)
 
-      const result = await service.remove(employeeId, commerceId)
+      await service.remove(userId, 'employee-123')
 
-      expect(result).toEqual(deactivatedEmployee)
+      expect(mockPrismaService.employee.delete).toHaveBeenCalledWith({
+        where: { id: 'employee-123' },
+      })
+    })
+
+    it('should throw NotFoundException if employee not found', async () => {
+      mockPrismaService.employee.findUnique.mockResolvedValue(null)
+
+      await expect(service.remove(userId, 'employee-999')).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('toggleStatus', () => {
+    it('should toggle employee to inactive', async () => {
+      const activeEmployee = { id: 'employee-123', commerceId, isActive: true }
+      const inactiveEmployee = { ...activeEmployee, isActive: false }
+
+      mockPrismaService.employee.findUnique.mockResolvedValue(activeEmployee)
+      mockPrismaService.employee.update.mockResolvedValue(inactiveEmployee)
+
+      const result = await service.toggleStatus(userId, 'employee-123')
+
+      expect(result.isActive).toBe(false)
       expect(mockPrismaService.employee.update).toHaveBeenCalledWith({
-        where: { id: employeeId },
+        where: { id: 'employee-123' },
         data: { isActive: false },
       })
     })
 
-    it('should throw error if employee not found', async () => {
-      const employeeId = 'employee-123'
-      const commerceId = 'commerce-123'
+    it('should toggle employee to active', async () => {
+      const inactiveEmployee = { id: 'employee-123', commerceId, isActive: false }
+      const activeEmployee = { ...inactiveEmployee, isActive: true }
 
-      mockPrismaService.employee.findUnique.mockResolvedValue(null)
+      mockPrismaService.employee.findUnique.mockResolvedValue(inactiveEmployee)
+      mockPrismaService.employee.update.mockResolvedValue(activeEmployee)
 
-      await expect(service.remove(employeeId, commerceId)).rejects.toThrow(
-        NotFoundException
-      )
+      const result = await service.toggleStatus(userId, 'employee-123')
+
+      expect(result.isActive).toBe(true)
     })
   })
 
   describe('getStats', () => {
     it('should return employee statistics', async () => {
-      const commerceId = 'commerce-123'
-      
-      const mockStats = {
-        total: 10,
-        active: 8,
-        inactive: 2,
-        byPosition: [
-          { position: 'CASHIER', _count: 5 },
-          { position: 'MANAGER', _count: 2 },
-          { position: 'COOK', _count: 3 },
-        ],
-        totalSalary: { _sum: { salary: 12000 } },
-      }
-
       mockPrismaService.employee.count
-        .mockResolvedValueOnce(mockStats.total)
-        .mockResolvedValueOnce(mockStats.active)
-      mockPrismaService.employee.groupBy.mockResolvedValue(mockStats.byPosition)
-      mockPrismaService.employee.aggregate.mockResolvedValue(mockStats.totalSalary)
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(8)
+      mockPrismaService.employee.groupBy.mockResolvedValue([
+        { role: 'CAJERO', _count: { role: 5 } },
+        { role: 'GERENTE', _count: { role: 2 } },
+        { role: 'COCINERO', _count: { role: 3 } },
+      ])
 
-      const result = await service.getStats(commerceId)
+      const result = await service.getStats(userId)
 
       expect(result).toEqual({
         total: 10,
         active: 8,
-        inactive: 2,
-        byPosition: {
-          CASHIER: 5,
-          MANAGER: 2,
-          COOK: 3,
-        },
-        totalSalary: 12000,
-      })
-    })
-
-    it('should handle zero employees gracefully', async () => {
-      const commerceId = 'commerce-123'
-      
-      mockPrismaService.employee.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0)
-      mockPrismaService.employee.groupBy.mockResolvedValue([])
-      mockPrismaService.employee.aggregate.mockResolvedValue({ _sum: { salary: null } })
-
-      const result = await service.getStats(commerceId)
-
-      expect(result).toEqual({
-        total: 0,
-        active: 0,
-        inactive: 0,
-        byPosition: {},
-        totalSalary: 0,
+        byRole: { CAJERO: 5, GERENTE: 2, COCINERO: 3 },
       })
     })
   })
