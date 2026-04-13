@@ -64,7 +64,7 @@ jobs:
         staging-user: ${{ secrets.STAGING_USER }}
         production-host: ${{ secrets.PRODUCTION_HOST }}
         production-user: ${{ secrets.PRODUCTION_USER }}
-        production-domain: ${{ vars.PRODUCTION_DOMAIN }}
+        production-domain: ${{ secrets.PRODUCTION_DOMAIN }}
 
   # ═══════════════════════════════════════════════════════════════════════════
   # 1. TESTS
@@ -183,7 +183,6 @@ jobs:
     timeout-minutes: 20
     environment:
       name: staging
-      url: https://staging.${{ vars.PRODUCTION_DOMAIN }}
     steps:
     - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-ssh
@@ -198,7 +197,7 @@ jobs:
         frontend-image: ${{ env.FRONTEND_IMAGE }}
         current-sha: ${{ github.sha }}
         acme-email: ${{ secrets.ACME_EMAIL }}
-        domain: staging.${{ vars.PRODUCTION_DOMAIN }}
+        domain: staging.${{ secrets.PRODUCTION_DOMAIN }}
 
   smoke-staging:
     name: Smoke Test Staging
@@ -211,7 +210,7 @@ jobs:
     - uses: ./.github/actions/smoke-test
       with:
         environment: staging
-        domain: staging.${{ vars.PRODUCTION_DOMAIN }}
+        domain: staging.${{ secrets.PRODUCTION_DOMAIN }}
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         ssh-host: ${{ secrets.STAGING_HOST }}
 
@@ -230,7 +229,6 @@ jobs:
     timeout-minutes: 25
     environment:
       name: production
-      url: https://${{ vars.PRODUCTION_DOMAIN }}
     outputs:
       deployment-id: ${{ steps.gh-deploy.outputs.deployment-id }}
     steps:
@@ -244,7 +242,7 @@ jobs:
         sha: ${{ github.sha }}
         backend-image: ${{ env.BACKEND_IMAGE }}
         frontend-image: ${{ env.FRONTEND_IMAGE }}
-        domain: ${{ vars.PRODUCTION_DOMAIN }}
+        domain: ${{ secrets.PRODUCTION_DOMAIN }}
         action: create
 
     - uses: ./.github/actions/setup-ssh
@@ -260,7 +258,7 @@ jobs:
         frontend-image: ${{ env.FRONTEND_IMAGE }}
         current-sha: ${{ github.sha }}
         acme-email: ${{ secrets.ACME_EMAIL }}
-        domain: ${{ vars.PRODUCTION_DOMAIN }}
+        domain: ${{ secrets.PRODUCTION_DOMAIN }}
 
     - name: Métricas
       if: always()
@@ -276,7 +274,7 @@ jobs:
         environment: production
         sha: ${{ github.sha }}
         deployment-id: ${{ steps.gh-deploy.outputs.deployment-id }}
-        domain: ${{ vars.PRODUCTION_DOMAIN }}
+        domain: ${{ secrets.PRODUCTION_DOMAIN }}
         status: ${{ job.status == 'success' && 'success' || 'failure' }}
         action: update
 
@@ -291,7 +289,7 @@ jobs:
     - uses: ./.github/actions/smoke-test
       with:
         environment: production
-        domain: ${{ vars.PRODUCTION_DOMAIN }}
+        domain: ${{ secrets.PRODUCTION_DOMAIN }}
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         ssh-host: ${{ secrets.PRODUCTION_HOST }}
         backend-retries: 12
