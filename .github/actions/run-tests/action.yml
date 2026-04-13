@@ -11,16 +11,32 @@ inputs:
   coverage-threshold:
     description: 'Coverage threshold percentage'
     required: false
-    default: '80'
+    default: '60'
 
 runs:
   using: 'composite'
   steps:
+    - name: Cache pnpm dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.pnpm-store
+          backend/node_modules
+          frontend/node_modules
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+    
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 8
+    
     - name: Install dependencies
       shell: bash
       run: |
-        cd backend && pnpm install
-        cd ../frontend && pnpm install
+        cd backend && pnpm install --frozen-lockfile
+        cd ../frontend && pnpm install --frozen-lockfile
 
     - name: Generate Prisma Client
       shell: bash

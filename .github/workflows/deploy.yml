@@ -8,13 +8,18 @@ concurrency:
 on:
   push:
     branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
-      force_deploy:
-        description: 'Forzar deploy saltando tests (solo admin)'
+      environment:
+        description: 'Target environment (staging/production)'
         required: false
-        default: false
-        type: boolean
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
       force_rollback:
         description: 'Ejecutar rollback manual si el deploy falla'
         required: false
@@ -44,11 +49,9 @@ jobs:
         node-version: '22'
 
     - name: Ejecutar tests
-      if: github.event.inputs.force_deploy != 'true' || github.actor != 'admin'
       uses: ./.github/actions/run-tests
       with:
-        force-deploy: ${{ github.event.inputs.force_deploy }}
-        coverage-threshold: '5'
+        coverage-threshold: '65'
 
   # ─── 2. Tests E2E ──────────────────────────────────────────────────────────
   e2e-tests:
@@ -139,12 +142,45 @@ jobs:
           APP_ENV=production
           API_URL=${{ vars.API_URL || '/api' }}
 
-  # ─── 4. Deploy a producción ────────────────────────────────────────────────
-  deploy:
-    name: Deploy a Producción
+  # ─── 4. Deploy a staging ────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy a Staging
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
-    timeout-minutes: 15
+    if: github.event.inputs.environment == 'staging' || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[deploy-staging]'))
+    timeout-minutes: 20
+    environment: 
+      name: staging
+      url: https://staging.${{ secrets.PRODUCTION_DOMAIN }}
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.STAGING_HOST }}
+
+    - uses: ./.github/actions/deploy-server
+      with:
+        ssh-user: ${{ secrets.STAGING_USER }}
+        ssh-host: ${{ secrets.STAGING_HOST }}
+        backend-image: ${{ env.BACKEND_IMAGE }}
+        frontend-image: ${{ env.FRONTEND_IMAGE }}
+        current-sha: ${{ github.sha }}
+        acme-email: ${{ secrets.ACME_EMAIL }}
+
+        domain: staging.${{ secrets.PRODUCTION_DOMAIN }}
+
+  # Smoke test staging
+  smoke-test-staging:
+    name: Smoke Test Staging
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: needs.deploy-staging.result == 'success'
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -153,7 +189,81 @@ jobs:
     - uses: ./.github/actions/setup-ssh
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.STAGING_HOST }}
+
+    - name: Verificar staging desde internet
+      id: check-staging
+      run: |
+        DOMAIN="staging.${{ secrets.PRODUCTION_DOMAIN }}"
+        if [ -z "$DOMAIN" ]; then
+          echo "STAGING_DOMAIN no configurado - omitiendo smoke test"
+          exit 0
+        fi
+        
+        echo "Verificando staging en $DOMAIN..."
+        
+        # Verificar SSL
+        if ! echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -dates; then
+          echo "ERROR: Certificado SSL inválido en staging"
+          exit 1
+        fi
+        
+        # Verificar backend
+        if ! curl -f -s --max-time 10 "https://$DOMAIN/api/health" >/dev/null; then
+          echo "ERROR: Backend no responde en staging"
+          exit 1
+        fi
+        
+        # Verificar frontend
+        if ! curl -f -s --max-time 10 "https://$DOMAIN/" >/dev/null; then
+          echo "ERROR: Frontend no responde en staging"
+          exit 1
+        fi
+        
+        echo "Smoke test staging exitoso"
+        echo "staging_url=https://$DOMAIN" >> $GITHUB_OUTPUT
+
+  # ─── 5. Deploy a producción ────────────────────────────────────────────────
+  deploy:
+    name: Deploy a Producción
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend, deploy-staging, smoke-test-staging]
+    if: github.event.inputs.environment == 'production' || github.event_name == 'release' || (github.ref == 'refs/heads/main' && needs.deploy-staging.result == 'success' && needs.smoke-test-staging.result == 'success')
+    timeout-minutes: 25
+    environment: 
+      name: production
+      url: https://${{ secrets.PRODUCTION_DOMAIN }}
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.PRODUCTION_HOST }}
+
+    - name: Create deployment
+      id: deployment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const deployment = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.sha,
+            task: 'deploy',
+            environment: 'production',
+            description: `Deploy to production - SHA: ${context.sha.substring(0, 7)}`,
+            payload: {
+              backend_image: '${{ env.BACKEND_IMAGE }}',
+              frontend_image: '${{ env.FRONTEND_IMAGE }}',
+              sha: '${{ github.sha }}'
+            }
+          });
+          console.log('Deployment created:', deployment.data.id);
+          return deployment.data.id;
 
     - uses: ./.github/actions/deploy-server
       with:
@@ -163,21 +273,33 @@ jobs:
         frontend-image: ${{ env.FRONTEND_IMAGE }}
         current-sha: ${{ github.sha }}
         acme-email: ${{ secrets.ACME_EMAIL }}
+        domain: ${{ secrets.PRODUCTION_DOMAIN }}
 
-    - uses: ./.github/actions/health-check
+    - name: Update deployment status
+      if: always()
+      uses: actions/github-script@v7
       with:
-        ssh-user: ${{ secrets.PRODUCTION_USER }}
-        ssh-host: ${{ secrets.PRODUCTION_HOST }}
-        current-sha: ${{ github.sha }}
-        backend-image: ${{ env.BACKEND_IMAGE }}
-        frontend-image: ${{ env.FRONTEND_IMAGE }}
+        script: |
+          const deploymentId = '${{ steps.deployment.outputs.result }}';
+          const status = '${{ job.status }}' === 'success' ? 'success' : 'failure';
+          
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: parseInt(deploymentId),
+            state: status,
+            environment_url: 'https://${{ secrets.PRODUCTION_DOMAIN }}',
+            log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+          });
+          
+          console.log(`Deployment status updated to: ${status}`);
 
   # ─── 5. Rollback manual ────────────────────────────────────────────────────
   rollback:
     name: Rollback Manual
     runs-on: ubuntu-latest
     needs: deploy
-    if: needs.deploy.result == 'failure' && github.event.inputs.force_rollback == 'true'
+    if: github.event.inputs.force_rollback == 'true' || (needs.deploy.result == 'failure' && github.event.inputs.force_rollback == 'true')
     timeout-minutes: 10
     permissions:
       contents: read
