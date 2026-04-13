@@ -20,6 +20,10 @@ inputs:
   acme-email:
     description: 'Email para certificados'
     required: true
+  domain:
+    description: 'Dominio de la aplicación'
+    required: false
+    default: ''
   deploy-path:
     description: 'Ruta en servidor'
     required: false
@@ -51,3 +55,5 @@ runs:
         backend-image: ${{ inputs.backend-image }}
         frontend-image: ${{ inputs.frontend-image }}
         current-sha: ${{ inputs.current-sha }}
+        domain: ${{ inputs.domain }}
+        acme-email: ${{ inputs.acme-email }}
