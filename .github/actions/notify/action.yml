@@ -29,6 +29,16 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validar inputs
+      shell: bash
+      run: |
+        STATUS="${{ inputs.status }}"
+        if [[ "$STATUS" != "success" && "$STATUS" != "failure" ]]; then
+          echo "❌ ERROR: status debe ser 'success' o 'failure', recibido: '$STATUS'"
+          exit 1
+        fi
+        echo "✅ Status validado: $STATUS"
+
     - name: Notificar Discord
       shell: bash
       run: |

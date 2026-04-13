@@ -12,6 +12,19 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validar inputs
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.ssh-user }}" ]]; then
+          echo "❌ ERROR: ssh-user no puede estar vacío"
+          exit 1
+        fi
+        if [[ -z "${{ inputs.ssh-host }}" ]]; then
+          echo "❌ ERROR: ssh-host no puede estar vacío"
+          exit 1
+        fi
+        echo "✅ Inputs validados: ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+
     - name: Ejecutar rollback
       shell: bash
       run: |

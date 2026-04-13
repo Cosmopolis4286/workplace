@@ -12,6 +12,19 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validar inputs
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.ssh-private-key }}" ]]; then
+          echo "❌ ERROR: ssh-private-key no puede estar vacío"
+          exit 1
+        fi
+        if [[ -z "${{ inputs.production-host }}" ]]; then
+          echo "❌ ERROR: production-host no puede estar vacío"
+          exit 1
+        fi
+        echo "✅ Inputs de SSH validados"
+
     - name: Configurar SSH key
       shell: bash
       run: |
