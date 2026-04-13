@@ -55,6 +55,18 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Cache Docker layers
+      uses: actions/cache@v4
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ inputs.service }}-${{ hashFiles('**/Dockerfile*') }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-${{ inputs.service }}-
+          ${{ runner.os }}-buildx-sh
+
     - name: Validar inputs
       shell: bash
       run: |
@@ -90,9 +102,11 @@ runs:
         cache-from: |
           type=gha,scope=${{ github.workflow }}-${{ inputs.service }}
           type=registry,ref=${{ inputs.image-name }}:cache
+          type=local,src=/tmp/.buildx-cache
         cache-to: |
           type=gha,mode=max,scope=${{ github.workflow }}-${{ inputs.service }}
           type=registry,ref=${{ inputs.image-name }}:cache,mode=max
+          type=local,dest=/tmp/.buildx-cache
         build-args: |
           BUILDKIT_INLINE_CACHE=1
           ${{ inputs.build-args }}
