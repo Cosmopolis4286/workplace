@@ -160,6 +160,9 @@ runs:
         
         cd ${{ inputs.deploy-path }}
         
+        # Definir timestamp para log files
+        LOG_TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        
         # Exportar variables desde GitHub Actions
         export BACKEND_IMAGE="${{ inputs.backend-image }}"
         export FRONTEND_IMAGE="${{ inputs.frontend-image }}"
@@ -184,10 +187,10 @@ runs:
         set -a; source .env; set +a
         
         # Logging estructurado
-        LOG_FILE="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
+        LOG_FILE="logs/deploy-${LOG_TIMESTAMP}.log"
         mkdir -p logs
         
-        # Función de logging
+        # Función de logging simple y robusta
         log() {
           echo "$1" | tee -a "${LOG_FILE}"
         }
