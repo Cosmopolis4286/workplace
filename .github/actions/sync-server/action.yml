@@ -42,22 +42,42 @@ runs:
       shell: bash
       run: |
         REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
-        PATH="${{ inputs.deploy-path }}"
+        DEPLOY_PATH="${{ inputs.deploy-path }}"
+        
+        # Función para copiar archivos via SSH
+        copy_file() {
+          local src="$1"
+          local dst="$2"
+          ssh "$REMOTE" "mkdir -p $(dirname "$dst") && cat > $dst" < "$src"
+        }
+        
+        # Función para copiar directorios
+        copy_dir() {
+          local src_dir="$1"
+          local dst_dir="$2"
+          ssh "$REMOTE" "mkdir -p $dst_dir"
+          for f in "$src_dir"/*; do
+            [[ -f "$f" ]] && copy_file "$f" "$dst_dir/$(basename "$f")"
+          done
+        }
         
         # Docker compose
         if [[ -f docker-compose.lite.yml ]]; then
-          scp docker-compose.lite.yml "$REMOTE:$PATH/"
+          copy_file "docker-compose.lite.yml" "$DEPLOY_PATH/docker-compose.lite.yml"
+          echo "✅ docker-compose.lite.yml copiado"
         fi
         
         # Traefik configs
         if [[ -d traefik ]]; then
-          scp -r traefik/* "$REMOTE:$PATH/traefik/" 2>/dev/null || true
+          copy_dir "traefik" "$DEPLOY_PATH/traefik"
+          echo "✅ Traefik configs copiados"
         fi
         
         # Scripts
         if [[ -d scripts/deploy ]]; then
-          scp -r scripts/deploy/*.sh "$REMOTE:$PATH/scripts/deploy/"
-          ssh "$REMOTE" "chmod +x $PATH/scripts/deploy/*.sh"
+          copy_dir "scripts/deploy" "$DEPLOY_PATH/scripts/deploy"
+          ssh "$REMOTE" "chmod +x $DEPLOY_PATH/scripts/deploy/*.sh"
+          echo "✅ Scripts copiados"
         fi
         
         echo "✅ Sincronización completada"
