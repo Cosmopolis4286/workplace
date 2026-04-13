@@ -16,6 +16,13 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Instalar dependencias
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq openssh-client
+        echo "✅ OpenSSH client instalado"
+
     - name: Validar inputs
       shell: bash
       run: |
