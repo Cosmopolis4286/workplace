@@ -52,12 +52,12 @@ runs:
       id: validate
       shell: bash
       run: |
-        # Validar formato de imágenes
-        if [[ ! "${{ inputs.backend-image }}" =~ ^[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
+        # Validar formato de imágenes (permite registry con dominios y tags complejos)
+        if [[ ! "${{ inputs.backend-image }}" =~ ^[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]] && [[ ! "${{ inputs.backend-image }}" =~ ^[a-z0-9.-]+/[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
           echo "❌ ERROR: backend-image formato inválido: ${{ inputs.backend-image }}"
           exit 1
         fi
-        if [[ ! "${{ inputs.frontend-image }}" =~ ^[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
+        if [[ ! "${{ inputs.frontend-image }}" =~ ^[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]] && [[ ! "${{ inputs.frontend-image }}" =~ ^[a-z0-9.-]+/[a-z0-9._/-]+:[a-zA-Z0-9._-]+$ ]]; then
           echo "❌ ERROR: frontend-image formato inválido: ${{ inputs.frontend-image }}"
           exit 1
         fi
@@ -187,9 +187,9 @@ runs:
         LOG_FILE="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
         mkdir -p logs
         
-        # Función de logging con path absoluto
+        # Función de logging
         log() {
-          echo "$1" | tee -a "$LOG_FILE"
+          echo "$1" | tee -a "${LOG_FILE}"
         }
         
         log "🚀 [$(date -Iseconds)] Iniciando deploy - SHA: ${{ inputs.current-sha }}"
