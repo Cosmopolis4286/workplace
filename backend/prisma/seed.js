@@ -7,7 +7,7 @@ const DEMO_USERS = [
   {
     role: Role.SUPERADMIN,
     email: 'superadmin@demo.com',
-    password: 'SuperAdmin123',
+    password: 'S4p3rAdm1n!#2026',
     firstName: 'Super',
     lastName: 'Admin',
     userType: 'APP',  // Usuario propio de la app, no demo
@@ -15,14 +15,14 @@ const DEMO_USERS = [
   {
     role: Role.ADMIN,
     email: 'admin@demo.com',
-    password: 'Admin1234',
+    password: 'Adm1n@Sec#2026',
     firstName: 'Admin',
     lastName: 'Demo',
   },
   {
     role: Role.COMMERCE,
     email: 'commerce@demo.com',
-    password: 'Commerce123',
+    password: 'C0mm3rc3!Biz#26',
     firstName: 'Comercio',
     lastName: 'Demo',
     commerceName: 'Restaurante Demo',
@@ -30,14 +30,14 @@ const DEMO_USERS = [
   {
     role: Role.FREELANCER,
     email: 'freelancer@demo.com',
-    password: 'Freelancer1',
+    password: 'Fr33lanc3r!#2026',
     firstName: 'Freelancer',
     lastName: 'Demo',
   },
   {
     role: Role.FREELANCER,
     email: 'delivery@demo.com',
-    password: 'Delivery123',
+    password: 'D3l1v3ry@Fast#26',
     firstName: 'Carlos',
     lastName: 'Delivery',
     categoryName: 'Transporte',
@@ -46,7 +46,7 @@ const DEMO_USERS = [
   {
     role: Role.FREELANCER,
     email: 'comidarapida@demo.com',
-    password: 'Comida123',
+    password: 'C0m1d4R4p!d4#26',
     firstName: 'María',
     lastName: 'González',
     categoryName: 'Comida',
@@ -55,7 +55,7 @@ const DEMO_USERS = [
   {
     role: Role.NORMAL,
     email: 'normal@demo.com',
-    password: 'Normal1234',
+    password: 'N0rm4lUs3r!#2026',
     firstName: 'Usuario',
     lastName: 'Normal',
   },
@@ -1046,14 +1046,16 @@ async function main() {
     const existing = await prisma.user.findUnique({ where: { email: demo.email } })
 
     if (existing) {
+      const hashedPassword = await bcrypt.hash(demo.password, 12)
       await prisma.user.update({
         where: { email: demo.email },
-        data: { 
+        data: {
           role: demo.role,
-          userType: demo.userType || 'DEMO',  // Actualizar también el userType
+          userType: demo.userType || 'DEMO',
+          password: hashedPassword,
         },
       })
-      console.log(`✅ [${demo.role}] Already exists (role & userType refreshed): ${demo.email}`)
+      console.log(`✅ [${demo.role}] Updated (role, userType & password refreshed): ${demo.email}`)
       continue
     }
 
