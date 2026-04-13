@@ -47,14 +47,28 @@ jobs:
     steps:
     - name: Validar secrets requeridos
       run: |
-        required_secrets=("DOCKER_USERNAME" "DOCKER_PASSWORD" "SSH_PRIVATE_KEY")
-        for secret in "${required_secrets[@]}"; do
-          if [[ -z "${!secret}" ]]; then
-            echo "❌ Secret $secret no configurado"
-            exit 1
-          fi
-        done
+        echo "🔍 Validando secrets requeridos..."
+        
+        # Validar DOCKER_USERNAME
+        if [[ -z "${{ secrets.DOCKER_USERNAME }}" ]]; then
+          echo "❌ Secret DOCKER_USERNAME no configurado"
+          exit 1
+        fi
+        
+        # Validar DOCKER_PASSWORD
+        if [[ -z "${{ secrets.DOCKER_PASSWORD }}" ]]; then
+          echo "❌ Secret DOCKER_PASSWORD no configurado"
+          exit 1
+        fi
+        
+        # Validar SSH_PRIVATE_KEY
+        if [[ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]]; then
+          echo "❌ Secret SSH_PRIVATE_KEY no configurado"
+          exit 1
+        fi
+        
         echo "✅ Todos los secrets requeridos están configurados"
+        echo "📋 DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}"
 
   # ─── 1. Tests unitarios ────────────────────────────────────────────────────
   test:
