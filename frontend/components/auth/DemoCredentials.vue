@@ -48,7 +48,7 @@
         >
           <div
             v-if="isOpen"
-            class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md"
+            class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md flex flex-col max-h-[85vh]"
             @click.stop
           >
             <!-- Header -->
@@ -71,7 +71,7 @@
             </div>
 
             <!-- Content -->
-            <div class="p-4 space-y-2 max-h-[70vh] overflow-y-auto">
+            <div class="flex-1 p-4 space-y-2 overflow-y-auto min-h-0 scrollbar-custom" @click.stop>
               <!-- Loading -->
               <div v-if="isLoading" class="flex items-center justify-center py-8">
                 <div class="w-7 h-7 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
@@ -90,7 +90,7 @@
               <template v-else-if="credentials.length">
                 <div
                   v-for="cred in credentials"
-                  :key="cred.role"
+                  :key="cred.email"
                   class="group relative p-3.5 border border-gray-200/70 rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-gray-300"
                   @click="handleFill(cred)"
                 >
@@ -124,7 +124,7 @@
                           enter-to-class="opacity-100 translate-y-0"
                         >
                           <div
-                            v-if="showPasswordFor === cred.role"
+                            v-if="showPasswordFor === cred.email"
                             class="mt-1 text-xs font-mono text-orange-700 bg-orange-50 border border-orange-200 rounded px-2 py-0.5 inline-flex items-center gap-1"
                           >
                             🔑 {{ cred.password }}
@@ -136,19 +136,19 @@
                     <!-- Right: actions -->
                     <div class="flex items-center gap-1 flex-shrink-0">
                       <button
-                        :title="showPasswordFor === cred.role ? 'Ocultar' : 'Mostrar contraseña'"
+                        :title="showPasswordFor === cred.email ? 'Ocultar' : 'Mostrar contraseña'"
                         class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
-                        @click.stop="togglePassword(cred.role)"
+                        @click.stop="togglePassword(cred.email)"
                       >
-                        <SharedIcon :name="showPasswordFor === cred.role ? 'eye-slash' : 'eye'" class="w-4 h-4" />
+                        <SharedIcon :name="showPasswordFor === cred.email ? 'eye-slash' : 'eye'" class="w-4 h-4" />
                       </button>
                       <button
-                        :disabled="fillingRole === cred.role"
+                        :disabled="fillingEmail === cred.email"
                         :title="autoLogin ? 'Iniciar sesión' : 'Rellenar formulario'"
                         class="p-1.5 rounded-lg text-orange-500 hover:text-orange-700 hover:bg-orange-100 transition-all disabled:opacity-50"
                         @click.stop="handleFill(cred)"
                       >
-                        <svg v-if="fillingRole === cred.role" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <svg v-if="fillingEmail === cred.email" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
@@ -157,13 +157,13 @@
                     </div>
                   </div>
                 </div>
-
-                <!-- Footer hint -->
-                <div class="flex items-center justify-between text-xs text-gray-400 pt-1 px-1">
-                  <span>Click en una cuenta para rellenar el formulario</span>
-                  <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded font-mono text-gray-500">Ctrl+D</kbd>
-                </div>
               </template>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex items-center justify-between text-xs text-gray-400 p-4 pt-2 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+              <span class="text-gray-500">Click en una cuenta para rellenar el formulario</span>
+              <kbd class="px-2 py-1 bg-white border border-gray-200 rounded-md font-mono text-gray-600 shadow-sm">Ctrl+D</kbd>
             </div>
           </div>
         </Transition>
@@ -202,7 +202,7 @@ const isDemoEnabled = computed(() => {
 })
 
 const showPasswordFor = ref<string | null>(null)
-const fillingRole = ref<string | null>(null)
+const fillingEmail = ref<string | null>(null)
 
 const toggleModal = () => { isOpen.value = !isOpen.value }
 const closeModal = () => { isOpen.value = false }
@@ -223,26 +223,36 @@ const ROLE_BADGE: Record<string, string> = {
   NORMAL: 'bg-gray-100 text-gray-600',
 }
 
-const togglePassword = (role: string) => {
-  showPasswordFor.value = showPasswordFor.value === role ? null : role
+const togglePassword = (email: string) => {
+  showPasswordFor.value = showPasswordFor.value === email ? null : email
 }
 
 const handleFill = async (cred: DemoCredential) => {
-  if (fillingRole.value) return
+  // Prevenir múltiples ejecuciones con el mismo usuario
+  if (fillingEmail.value === cred.email) return
+  
+  // Prevenir si ya hay un proceso en curso
+  if (fillingEmail.value) return
 
-  fillingRole.value = cred.role
-  await new Promise(resolve => setTimeout(resolve, 200))
+  // Bloquear con el email único en lugar del rol
+  fillingEmail.value = cred.email
+  
+  try {
+    // Pequeña pausa para feedback visual
+    await new Promise(resolve => setTimeout(resolve, 200))
 
-  const creds = { email: cred.email, password: cred.password }
+    const creds = { email: cred.email, password: cred.password }
 
-  if (props.autoLogin) {
-    emit('autoLogin', creds)
-  } else {
-    emit('fillCredentials', creds)
-    closeModal()
+    if (props.autoLogin) {
+      emit('autoLogin', creds)
+    } else {
+      emit('fillCredentials', creds)
+      closeModal()
+    }
+  } finally {
+    // Liberar el bloqueo
+    fillingEmail.value = null
   }
-
-  fillingRole.value = null
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
@@ -257,3 +267,35 @@ const handleKeydown = (e: KeyboardEvent) => {
 onMounted(() => { document.addEventListener('keydown', handleKeydown) })
 onUnmounted(() => { document.removeEventListener('keydown', handleKeydown) })
 </script>
+
+<style scoped>
+.scrollbar-custom {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(251 146 60) rgb(254 243 199);
+}
+
+.scrollbar-custom::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: rgb(254 243 199);
+  border-radius: 4px;
+  margin: 4px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: rgb(251 146 60);
+  border-radius: 4px;
+  border: 1px solid rgb(254 215 170);
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: rgb(249 115 22);
+}
+
+.scrollbar-custom::-webkit-scrollbar-corner {
+  background: rgb(254 243 199);
+  border-radius: 4px;
+}
+</style>
