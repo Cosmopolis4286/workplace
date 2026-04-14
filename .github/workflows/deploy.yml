@@ -81,10 +81,6 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/cache@v4
-      with:
-        path: ~/.pnpm-store, node_modules
-        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
     - uses: ./.github/actions/setup-tests
       with:
         node-version: '22'
@@ -100,10 +96,6 @@ jobs:
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/cache@v4
-      with:
-        path: ~/.pnpm-store, e2e-tests/node_modules
-        key: ${{ runner.os }}-e2e-pnpm-${{ hashFiles('e2e-tests/**/pnpm-lock.yaml') }}
     - uses: ./.github/actions/setup-node-pnpm
       with:
         node-version: '22'

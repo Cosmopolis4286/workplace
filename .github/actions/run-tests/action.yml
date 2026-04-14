@@ -1,49 +1,21 @@
 name: Run Tests with Coverage
-description: Run unit tests with coverage threshold validation
+description: Ejecuta tests unitarios y de frontend con reporte de cobertura
 author: 'WorkPlace Team'
 
 inputs:
   force-deploy:
-    description: 'Force deploy even if tests fail'
+    description: 'Continuar aunque los tests fallen (no recomendado en prod)'
     required: false
-    default: false
-    type: boolean
+    default: 'false'
   coverage-threshold:
-    description: 'Coverage threshold percentage'
+    description: 'Umbral mínimo de cobertura % (referencial — jest.config.js es la fuente de verdad)'
     required: false
-    default: '60'
+    default: '5'
 
 runs:
   using: 'composite'
   steps:
-    - name: Cache pnpm dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.pnpm-store
-          backend/node_modules
-          frontend/node_modules
-        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-
-    
-    - name: Install pnpm
-      uses: pnpm/action-setup@v3
-      with:
-        version: 9
-    
-    - name: Install dependencies
-      shell: bash
-      run: |
-        pnpm install --frozen-lockfile
-
-    - name: Generate Prisma Client
-      shell: bash
-      run: |
-        cd backend
-        pnpm prisma generate
-
-    - name: Run Backend Tests with Coverage
+    - name: Tests backend con cobertura
       shell: bash
       run: |
         cd backend
@@ -51,28 +23,29 @@ runs:
       env:
         DATABASE_URL: postgresql://test:test@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379
+      continue-on-error: ${{ inputs.force-deploy == 'true' }}
 
-    - name: Run Frontend Tests with Coverage
+    - name: Tests frontend con cobertura
       shell: bash
       run: |
         cd frontend
         pnpm test:coverage
+      continue-on-error: ${{ inputs.force-deploy == 'true' }}
 
-    - name: Report Coverage
+    - name: Reporte de cobertura
       shell: bash
       run: |
-        # Jest ya aplica coverageThreshold en jest.config.js y falla el step anterior si no se cumple.
-        # Este step solo reporta el valor para visibilidad en el log.
         SUMMARY="backend/coverage/coverage-summary.json"
         if [[ -f "$SUMMARY" ]]; then
           LINES=$(node -e "const s=require('./$SUMMARY'); console.log(s.total?.lines?.pct ?? 'n/a')" 2>/dev/null || echo "n/a")
           STMTS=$(node -e "const s=require('./$SUMMARY'); console.log(s.total?.statements?.pct ?? 'n/a')" 2>/dev/null || echo "n/a")
-          echo "📊 Backend coverage — lines: ${LINES}%, statements: ${STMTS}% (umbral: ${{ inputs.coverage-threshold }}%)"
+          FUNCS=$(node -e "const s=require('./$SUMMARY'); console.log(s.total?.functions?.pct ?? 'n/a')" 2>/dev/null || echo "n/a")
+          echo "📊 Coverage — lines: ${LINES}%, statements: ${STMTS}%, functions: ${FUNCS}%"
         else
-          echo "📊 Coverage summary no disponible"
+          echo "📊 coverage-summary.json no disponible"
         fi
 
-    - name: Upload Coverage Reports
+    - name: Subir cobertura a Codecov
       uses: codecov/codecov-action@v4
       with:
         files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
@@ -80,9 +53,7 @@ runs:
         name: codecov-umbrella
         fail_ci_if_error: false
 
-    - name: Run linting
+    - name: Lint backend
       shell: bash
-      run: |
-        cd backend
-        pnpm lint:ci
+      run: cd backend && pnpm lint:ci
       continue-on-error: ${{ inputs.force-deploy == 'true' }}
