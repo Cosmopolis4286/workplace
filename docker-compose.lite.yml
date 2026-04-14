@@ -115,6 +115,7 @@ services:
     environment:
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: ${FRONTEND_PORT}
+      USE_DEMO: ${USE_DEMO:-false}
     tmpfs:
       - /tmp
       - /app/frontend/.nuxt:rw,size=50m,mode=1777

@@ -170,6 +170,7 @@ services:
       LOG_LEVEL: warn
       APP_ENV: production
       NUXT_DEBUG: false
+      USE_DEMO: ${USE_DEMO:-false}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT:-3000}/ || exit 1"]
       interval: 30s
