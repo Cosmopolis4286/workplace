@@ -227,11 +227,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate, build-backend, build-frontend, smoke-staging]
     if: |
+      always() &&
       (github.event.inputs.environment == 'production' ||
        github.event_name == 'release' ||
        (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
       needs.validate.outputs.production-ready == 'true' &&
-      needs.smoke-staging.result != 'failure'
+      needs.build-backend.result == 'success' &&
+      needs.build-frontend.result == 'success' &&
+      (needs.smoke-staging.result == 'success' || needs.smoke-staging.result == 'skipped')
     timeout-minutes: 25
     environment:
       name: production
@@ -314,8 +317,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-prod, smoke-prod]
     if: |
+      always() &&
       github.event.inputs.force_rollback == 'true' &&
-      needs.smoke-prod.result != 'failure'
+      needs.deploy-prod.result == 'success' &&
+      (needs.smoke-prod.result == 'success' || needs.smoke-prod.result == 'skipped')
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
