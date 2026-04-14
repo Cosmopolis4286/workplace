@@ -140,10 +140,43 @@ runs:
         echo ""
         echo "📦 Versión desplegada:"
         version_json=$(curl -sf --max-time 5 "https://$DOMAIN/api/version" 2>/dev/null || echo "{}")
-        echo "  $(echo "$version_json" | tr ',' '\n' | tr -d '{}"' | sed 's/^/  /')"
+        echo "  $(echo "$version_json" | tr ',' '\n' | tr -d '{"' | sed 's/^/  /')"
 
-        # ── 6. Diagnóstico SSH en caso de fallo ────
-        if [[ "$backend_ok" == "false" || "$frontend_ok" == "false" ]]; then
+        # ── 6. Verificación de Schema Prisma ────────
+        echo ""
+        echo "🔍 Verificando integridad del schema Prisma..."
+        schema_ok=true
+        
+        # Verificar que no hay errores P2022 (columnas faltantes)
+        backend_logs=$(ssh "$REMOTE" "docker logs \$(docker ps --format '{{.Names}}' | grep -i backend | head -1) --tail 50 2>&1" || echo "")
+        if echo "$backend_logs" | grep -q "P2022\|column.*does not exist\|userType"; then
+          echo "  ❌ ERROR: Schema desincronizado - campo userType faltante"
+          echo "     Prisma error P2022 detectado en logs"
+          schema_ok=false
+        fi
+        
+        # Verificar endpoint de test-db si existe
+        db_test=$(curl -sf --max-time 5 "https://$DOMAIN/api/health/db" 2>/dev/null || echo "{}")
+        if [[ "$db_test" != *"healthy"* && "$db_test" != *"{}"* ]]; then
+          echo "  ⚠️  Endpoint /api/health/db responde con error"
+          schema_ok=false
+        fi
+        
+        # Intentar operación real de lectura (findFirst en users)
+        health_detailed=$(curl -sf --max-time 10 "https://$DOMAIN/api/ready" 2>/dev/null || echo "{}")
+        if echo "$health_detailed" | grep -q "error\|Error\|failed\|FAILED"; then
+          echo "  ❌ ERROR: /api/ready reporta errores internos"
+          schema_ok=false
+        fi
+        
+        if [[ "$schema_ok" == "true" ]]; then
+          echo "  ✅ Schema Prisma verificado - sin errores de columna"
+        else
+          echo "  ⚠️  Problemas de schema detectados - revisar migraciones"
+        fi
+
+        # ── 7. Diagnóstico SSH en caso de fallo ────
+        if [[ "$backend_ok" == "false" || "$frontend_ok" == "false" || "$schema_ok" == "false" ]]; then
           echo ""
           echo "════════════════════════════════════════"
           echo "  DIAGNÓSTICO DE CONTAINERS (SSH)"
@@ -180,7 +213,7 @@ runs:
         # ── Resultado final ────────────────────────
         echo ""
         echo "════════════════════════════════════════"
-        if [[ "$backend_ok" == "true" && "$frontend_ok" == "true" ]]; then
+        if [[ "$backend_ok" == "true" && "$frontend_ok" == "true" && "$schema_ok" == "true" ]]; then
           echo "  🎉 Smoke test PASSED — ${{ inputs.environment }}"
           echo "════════════════════════════════════════"
           echo "status=success" >> $GITHUB_OUTPUT
@@ -189,6 +222,7 @@ runs:
           echo "  ❌ Smoke test FAILED — ${{ inputs.environment }}"
           [[ "$backend_ok"  != "true" ]] && echo "     • Backend no responde"
           [[ "$frontend_ok" != "true" ]] && echo "     • Frontend no responde"
+          [[ "$schema_ok"   != "true" ]] && echo "     • Schema Prisma desincronizado (ejecutar: npx prisma db push)"
           echo "════════════════════════════════════════"
           echo "status=failure" >> $GITHUB_OUTPUT
           exit 1

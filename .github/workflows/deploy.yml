@@ -186,6 +186,15 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.STAGING_HOST }}
+    
+    - uses: ./.github/actions/db-migrate
+      with:
+        ssh-user: ${{ secrets.STAGING_USER }}
+        ssh-host: ${{ secrets.STAGING_HOST }}
+        deploy-path: /opt/workplace
+        run-migrate: 'false'  # Staging usa db push manual
+        run-seed: ${{ github.event.inputs.run-seed }}
+    
     - uses: ./.github/actions/deploy-server
       with:
         ssh-user: ${{ secrets.STAGING_USER }}
@@ -194,7 +203,7 @@ jobs:
         frontend-image: ${{ env.FRONTEND_IMAGE }}
         current-sha: ${{ github.sha }}
         acme-email: ${{ secrets.ACME_EMAIL }}
-        domain: staging.${{ secrets.PRODUCTION_DOMAIN }}
+        deploy-path: /opt/workplace
 
   smoke-staging:
     name: Smoke Test Staging
@@ -251,6 +260,14 @@ jobs:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
         production-host: ${{ secrets.PRODUCTION_HOST }}
 
+    - uses: ./.github/actions/db-migrate
+      with:
+        ssh-user: ${{ secrets.PRODUCTION_USER }}
+        ssh-host: ${{ secrets.PRODUCTION_HOST }}
+        deploy-path: /opt/workplace
+        run-migrate: 'true'  # Producción aplica migraciones automáticamente
+        run-seed: ${{ github.event.inputs.run-seed }}
+
     - uses: ./.github/actions/deploy-server
       with:
         ssh-user: ${{ secrets.PRODUCTION_USER }}
@@ -259,13 +276,7 @@ jobs:
         frontend-image: ${{ env.FRONTEND_IMAGE }}
         current-sha: ${{ github.sha }}
         acme-email: ${{ secrets.ACME_EMAIL }}
-        domain: ${{ secrets.PRODUCTION_DOMAIN }}
-
-    - uses: ./.github/actions/run-seed
-      if: github.event.inputs.run-seed == 'true'
-      with:
-        ssh-user: ${{ secrets.PRODUCTION_USER }}
-        ssh-host: ${{ secrets.PRODUCTION_HOST }}
+        deploy-path: /opt/workplace
 
     - name: Métricas
       if: always()
