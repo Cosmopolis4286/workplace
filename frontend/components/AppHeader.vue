@@ -1,5 +1,10 @@
 <template>
-  <header class="bg-gradient-to-r from-white via-white to-red-50 shadow-xl border-b border-gray-200 backdrop-blur-lg sticky top-0 z-40">
+  <header
+    class="shadow-sm border-b sticky top-0 z-40 transition-colors duration-300"
+    :class="isDark
+      ? 'bg-gray-900 border-gray-700/60'
+      : 'bg-white/95 backdrop-blur-lg border-gray-200'"
+  >
     <div class="px-4 sm:px-6 lg:px-8 relative">
       <div class="flex justify-between h-16">
 
@@ -10,22 +15,16 @@
             @click="$emit('toggle-sidebar')"
             :class="[
               '-ml-2 p-3 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95',
-              sidebarOpen ? 'text-workplace-red bg-red-50' : 'text-gray-400 hover:text-workplace-red hover:bg-red-50'
+              sidebarOpen
+                ? 'text-workplace-red bg-red-50'
+                : isDark
+                  ? 'text-gray-400 hover:text-workplace-red hover:bg-white/10'
+                  : 'text-gray-400 hover:text-workplace-red hover:bg-red-50'
             ]"
             aria-label="Toggle sidebar"
           >
-            <!-- Desktop: siempre hamburguesa -->
             <Bars3Icon class="h-6 w-6 hidden lg:block" />
-            <!-- Mobile: toggle entre X y hamburguesa -->
-            <Transition
-              mode="out-in"
-              enter-active-class="transition duration-200"
-              enter-from-class="opacity-0 rotate-90"
-              enter-to-class="opacity-100 rotate-0"
-              leave-active-class="transition duration-200"
-              leave-from-class="opacity-100 rotate-0"
-              leave-to-class="opacity-0 -rotate-90"
-            >
+            <Transition mode="out-in" enter-active-class="transition duration-200" enter-from-class="opacity-0 rotate-90" enter-to-class="opacity-100 rotate-0" leave-active-class="transition duration-200" leave-from-class="opacity-100 rotate-0" leave-to-class="opacity-0 -rotate-90">
               <XMarkIcon v-if="sidebarOpen" key="close" class="h-6 w-6 lg:hidden" />
               <Bars3Icon v-else key="menu" class="h-6 w-6 lg:hidden" />
             </Transition>
@@ -41,24 +40,28 @@
             </div>
             <div class="ml-3 hidden sm:block">
               <span class="text-2xl font-black bg-gradient-to-r from-workplace-red to-red-600 bg-clip-text text-transparent">WorkPlace</span>
-              <span class="text-xl font-bold text-gray-700 ml-1">Manager</span>
+              <span class="text-xl font-bold ml-1" :class="isDark ? 'text-gray-200' : 'text-gray-700'">Manager</span>
             </div>
           </NuxtLink>
 
           <!-- Divider + Page title -->
           <div class="hidden md:flex items-center gap-2 ml-2">
-            <div class="h-6 w-px bg-gray-200"></div>
+            <div class="h-6 w-px" :class="isDark ? 'bg-gray-700' : 'bg-gray-200'"></div>
             <div class="flex items-center gap-1.5">
-              <component :is="currentPageIcon" class="h-4 w-4 text-gray-400" />
-              <span class="text-sm font-medium text-gray-600">{{ currentPageTitle }}</span>
+              <component :is="currentPageIcon" class="h-4 w-4" :class="isDark ? 'text-gray-500' : 'text-gray-400'" />
+              <span class="text-sm font-medium" :class="isDark ? 'text-gray-400' : 'text-gray-600'">{{ currentPageTitle }}</span>
             </div>
           </div>
         </div>
 
         <!-- Right side -->
         <div class="flex items-center gap-3">
-          <!-- Restaurant name badge -->
-          <div v-if="commerceName" class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-100 rounded-lg">
+          <!-- Commerce badge -->
+          <div
+            v-if="commerceName"
+            class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border"
+            :class="isDark ? 'bg-red-900/20 border-red-800/40' : 'bg-red-50 border-red-100'"
+          >
             <BuildingStorefrontIcon class="h-4 w-4 text-workplace-red" />
             <span class="text-sm font-medium text-workplace-red truncate max-w-32">{{ commerceName }}</span>
           </div>
@@ -70,22 +73,22 @@
           <div class="relative" ref="profileDropdown">
             <button
               @click="showProfileMenu = !showProfileMenu"
-              class="flex items-center gap-2 p-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-red-500 hover:bg-red-50 transition-all duration-300"
+              class="flex items-center gap-2 p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-workplace-red/40 transition-all duration-200"
+              :class="isDark ? 'hover:bg-white/10' : 'hover:bg-red-50'"
             >
-              <!-- Avatar -->
-              <div class="relative h-9 w-9 rounded-xl overflow-hidden shadow-md ring-2 ring-white flex-shrink-0">
+              <div class="relative h-9 w-9 rounded-xl overflow-hidden shadow-md ring-2 ring-workplace-red/20 flex-shrink-0">
                 <img v-if="avatarUrl" :src="avatarUrl" alt="" class="h-full w-full object-cover">
                 <div v-else class="h-full w-full bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center">
                   <span class="text-white font-bold text-sm">{{ userInitials }}</span>
                 </div>
               </div>
               <div class="hidden md:block text-left">
-                <p class="text-sm font-semibold text-gray-800 leading-tight">{{ fullName }}</p>
-                <p class="text-xs text-gray-500 leading-tight">{{ roleLabel }}</p>
+                <p class="text-sm font-semibold leading-tight" :class="isDark ? 'text-white' : 'text-gray-800'">{{ fullName }}</p>
+                <p class="text-xs leading-tight" :class="isDark ? 'text-gray-400' : 'text-gray-500'">{{ roleLabel }}</p>
               </div>
               <ChevronDownIcon
-                class="h-4 w-4 text-gray-400 transition-transform duration-300"
-                :class="showProfileMenu ? 'rotate-180 text-workplace-red' : ''"
+                class="h-4 w-4 transition-transform duration-300"
+                :class="[showProfileMenu ? 'rotate-180 text-workplace-red' : '', isDark ? 'text-gray-400' : 'text-gray-400']"
               />
             </button>
 
@@ -98,20 +101,26 @@
               leave-from-class="transform opacity-100 scale-100 translate-y-0"
               leave-to-class="transform opacity-0 scale-95 -translate-y-1"
             >
-              <div v-if="showProfileMenu" class="absolute right-0 mt-2 w-60 bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl py-2 z-50 border border-gray-100">
+              <div
+                v-if="showProfileMenu"
+                class="absolute right-0 mt-2 w-64 rounded-2xl shadow-2xl py-2 z-50 border transition-colors"
+                :class="isDark
+                  ? 'bg-gray-800 border-gray-700'
+                  : 'bg-white border-gray-100'"
+              >
                 <!-- User info -->
-                <div class="px-4 py-3 border-b border-gray-100">
+                <div class="px-4 py-3 border-b" :class="isDark ? 'border-gray-700' : 'border-gray-100'">
                   <div class="flex items-center gap-3">
-                    <div class="h-10 w-10 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
+                    <div class="h-10 w-10 rounded-xl overflow-hidden shadow-sm flex-shrink-0 ring-2 ring-workplace-red/20">
                       <img v-if="avatarUrl" :src="avatarUrl" alt="" class="h-full w-full object-cover">
                       <div v-else class="h-full w-full bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center">
                         <span class="text-white font-bold text-sm">{{ userInitials }}</span>
                       </div>
                     </div>
                     <div class="min-w-0">
-                      <p class="text-sm font-semibold text-gray-900 truncate">{{ fullName }}</p>
-                      <p class="text-xs text-gray-500 truncate">{{ userEmail }}</p>
-                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-50 text-workplace-red mt-0.5">
+                      <p class="text-sm font-semibold truncate" :class="isDark ? 'text-white' : 'text-gray-900'">{{ fullName }}</p>
+                      <p class="text-xs truncate" :class="isDark ? 'text-gray-400' : 'text-gray-500'">{{ userEmail }}</p>
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium mt-0.5 bg-workplace-red/10 text-workplace-red">
                         {{ roleLabel }}
                       </span>
                     </div>
@@ -122,7 +131,8 @@
                 <NuxtLink
                   to="/perfil"
                   @click="showProfileMenu = false"
-                  class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-workplace-red transition-all duration-200 gap-3"
+                  class="flex items-center px-4 py-2.5 text-sm transition-all duration-200 gap-3"
+                  :class="isDark ? 'text-gray-300 hover:bg-white/8 hover:text-white' : 'text-gray-700 hover:bg-red-50 hover:text-workplace-red'"
                 >
                   <UserIcon class="h-4 w-4 flex-shrink-0" />
                   Mi Perfil
@@ -130,16 +140,46 @@
                 <NuxtLink
                   to="/configuracion"
                   @click="showProfileMenu = false"
-                  class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-workplace-red transition-all duration-200 gap-3"
+                  class="flex items-center px-4 py-2.5 text-sm transition-all duration-200 gap-3"
+                  :class="isDark ? 'text-gray-300 hover:bg-white/8 hover:text-white' : 'text-gray-700 hover:bg-red-50 hover:text-workplace-red'"
                 >
                   <CogIcon class="h-4 w-4 flex-shrink-0" />
                   Configuración
                 </NuxtLink>
 
-                <div class="border-t border-gray-100 mt-1 pt-1">
+                <!-- Dark mode toggle -->
+                <div
+                  class="px-4 py-2.5 flex items-center justify-between gap-3 border-t"
+                  :class="isDark ? 'border-gray-700' : 'border-gray-100'"
+                >
+                  <div class="flex items-center gap-3 text-sm" :class="isDark ? 'text-gray-300' : 'text-gray-700'">
+                    <component
+                      :is="isDark ? MoonIcon : SunIcon"
+                      class="h-4 w-4 flex-shrink-0"
+                      :class="isDark ? 'text-workplace-red' : 'text-gray-400'"
+                    />
+                    <span>{{ isDark ? 'Modo oscuro' : 'Modo claro' }}</span>
+                  </div>
+                  <button
+                    @click="toggleColorMode"
+                    class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-workplace-red/40"
+                    :class="isDark ? 'bg-workplace-red' : 'bg-gray-200'"
+                    :aria-checked="isDark"
+                    role="switch"
+                  >
+                    <span
+                      class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out"
+                      :class="isDark ? 'translate-x-4' : 'translate-x-0'"
+                    />
+                  </button>
+                </div>
+
+                <!-- Logout -->
+                <div class="pt-1">
                   <button
                     @click="handleLogout"
-                    class="w-full flex items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-all duration-200 gap-3"
+                    class="w-full flex items-center px-4 py-2.5 text-sm text-workplace-red transition-all duration-200 gap-3"
+                    :class="isDark ? 'hover:bg-red-900/20' : 'hover:bg-red-50'"
                   >
                     <ArrowRightOnRectangleIcon class="h-4 w-4 flex-shrink-0" />
                     Cerrar Sesión
@@ -175,6 +215,8 @@ import {
   BanknotesIcon,
   Squares2X2Icon,
   BellIcon,
+  SunIcon,
+  MoonIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 
@@ -187,6 +229,10 @@ const route = useRoute()
 const { logout, user } = useAuth()
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl
+
+// ── Color mode ────────────────────────────────────────────────────────────
+const { isDark, toggle: toggleColorMode } = useColorMode()
+
 
 // ── User data ──────────────────────────────────────────────────────────────
 const fullName = computed(() => {
