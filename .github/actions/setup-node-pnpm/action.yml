@@ -1,5 +1,5 @@
 name: Setup Node.js and pnpm
-description: Setup Node.js, pnpm and cache dependencies
+description: Setup Node.js, pnpm, cache de dependencias y genera Prisma Client
 
 inputs:
   node-version:
@@ -19,16 +19,21 @@ runs:
       with:
         version: ${{ inputs.pnpm-version }}
 
-    - name: Setup Node.js
+    - name: Setup Node.js con cache pnpm
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
         cache: pnpm
 
-    - name: Install dependencies
+    - name: Instalar dependencias
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: |
+        pnpm install --frozen-lockfile
+        echo "✅ Dependencias instaladas"
 
-    - name: Generate Prisma Client
+    - name: Generar Prisma Client
       shell: bash
-      run: cd backend && pnpm prisma generate
+      run: |
+        cd backend
+        pnpm prisma generate
+        echo "✅ Prisma Client generado"

@@ -1,5 +1,5 @@
 name: 'Sync to Server'
-description: 'Sincroniza archivos de configuración al servidor via SCP'
+description: 'Sincroniza archivos de configuración al servidor via SSH'
 
 inputs:
   ssh-user:
@@ -16,68 +16,62 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Instalar dependencias
-      shell: bash
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq openssh-client
-        echo "✅ OpenSSH client instalado"
-
-    - name: Validar inputs
-      shell: bash
-      run: |
-        if [[ -z "${{ inputs.ssh-user }}" || -z "${{ inputs.ssh-host }}" ]]; then
-          echo "❌ ERROR: ssh-user y ssh-host requeridos"
-          exit 1
-        fi
-        echo "✅ Sync: ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:${{ inputs.deploy-path }}"
-
-    - name: Crear directorios
-      shell: bash
-      run: |
-        ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" \
-          "mkdir -p ${{ inputs.deploy-path }}/{traefik/dynamic,scripts/deploy,logs,versions}"
-
     - name: Sincronizar archivos
       shell: bash
       run: |
+        if [[ -z "${{ inputs.ssh-user }}" || -z "${{ inputs.ssh-host }}" ]]; then
+          echo "❌ ssh-user y ssh-host son requeridos"
+          exit 1
+        fi
+
         REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
         DEPLOY_PATH="${{ inputs.deploy-path }}"
-        
-        # Función para copiar archivos via SSH
+
+        echo "📤 Sincronizando → $REMOTE:$DEPLOY_PATH"
+
+        # Crear estructura de directorios
+        ssh "$REMOTE" "mkdir -p ${DEPLOY_PATH}/{traefik/dynamic,scripts/deploy,logs,versions,backups/versions}"
+
+        # Copiar archivo via SSH cat (sin scp, sin rsync)
         copy_file() {
-          local src="$1"
-          local dst="$2"
-          ssh "$REMOTE" "mkdir -p $(dirname "$dst") && cat > $dst" < "$src"
+          local src="$1" dst="$2"
+          if [[ ! -f "$src" ]]; then
+            echo "  ⚠️  $src no existe — omitido"
+            return 0
+          fi
+          ssh "$REMOTE" "mkdir -p $(dirname "$dst") && cat > $dst" < "$src" \
+            && echo "  ✅ $(basename "$src")" \
+            || { echo "  ❌ Error copiando $src"; return 1; }
         }
-        
-        # Función para copiar directorios
+
+        # Copiar directorio (un nivel — no recursivo)
         copy_dir() {
-          local src_dir="$1"
-          local dst_dir="$2"
+          local src_dir="$1" dst_dir="$2"
+          if [[ ! -d "$src_dir" ]]; then
+            echo "  ⚠️  $src_dir no existe — omitido"
+            return 0
+          fi
           ssh "$REMOTE" "mkdir -p $dst_dir"
+          local count=0
           for f in "$src_dir"/*; do
-            [[ -f "$f" ]] && copy_file "$f" "$dst_dir/$(basename "$f")"
+            [[ -f "$f" ]] && copy_file "$f" "$dst_dir/$(basename "$f")" && count=$((count+1))
           done
+          echo "  ✅ $src_dir ($count archivos)"
         }
-        
-        # Docker compose
-        if [[ -f docker-compose.lite.yml ]]; then
-          copy_file "docker-compose.lite.yml" "$DEPLOY_PATH/docker-compose.lite.yml"
-          echo "✅ docker-compose.lite.yml copiado"
+
+        # docker-compose
+        copy_file "docker-compose.lite.yml" "$DEPLOY_PATH/docker-compose.lite.yml"
+
+        # Traefik
+        copy_dir "traefik" "$DEPLOY_PATH/traefik"
+        if [[ -d "traefik/dynamic" ]]; then
+          copy_dir "traefik/dynamic" "$DEPLOY_PATH/traefik/dynamic"
         fi
-        
-        # Traefik configs
-        if [[ -d traefik ]]; then
-          copy_dir "traefik" "$DEPLOY_PATH/traefik"
-          echo "✅ Traefik configs copiados"
-        fi
-        
-        # Scripts
-        if [[ -d scripts/deploy ]]; then
+
+        # Scripts de deploy
+        if [[ -d "scripts/deploy" ]]; then
           copy_dir "scripts/deploy" "$DEPLOY_PATH/scripts/deploy"
-          ssh "$REMOTE" "chmod +x $DEPLOY_PATH/scripts/deploy/*.sh"
-          echo "✅ Scripts copiados"
+          ssh "$REMOTE" "find $DEPLOY_PATH/scripts/deploy -name '*.sh' -exec chmod +x {} \;"
         fi
-        
-        echo "✅ Sincronización completada"
+
+        echo "✅ Sincronización completada → $REMOTE:$DEPLOY_PATH"
