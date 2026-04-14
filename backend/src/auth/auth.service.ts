@@ -253,6 +253,7 @@ export class AuthService {
       'superadmin@demo.com': 'S4p3rAdm1n!#2026',
       'admin@demo.com': 'Adm1n@Sec#2026',
       'commerce@demo.com': 'C0mm3rc3!Biz#26',
+      'tecnologia@demo.com': 'T3ch@Biz#26',
       'freelancer@demo.com': 'Fr33lanc3r!#2026',
       'delivery@demo.com': 'D3l1v3ry@Fast#26',
       'comidarapida@demo.com': 'C0m1d4R4p!d4#26',

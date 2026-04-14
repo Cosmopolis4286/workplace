@@ -26,6 +26,18 @@ const DEMO_USERS = [
     firstName: 'Comercio',
     lastName: 'Demo',
     commerceName: 'Restaurante Demo',
+    categoryName: 'Comida',
+    subcategoryName: 'Restaurante',
+  },
+  {
+    role: Role.COMMERCE,
+    email: 'tecnologia@demo.com',
+    password: 'T3ch@Biz#26',
+    firstName: 'Tech',
+    lastName: 'Demo',
+    commerceName: 'Tech Solutions Demo',
+    categoryName: 'Tecnología',
+    subcategoryName: 'Desarrollo Web',
   },
   {
     role: Role.FREELANCER,
@@ -33,6 +45,8 @@ const DEMO_USERS = [
     password: 'Fr33lanc3r!#2026',
     firstName: 'Freelancer',
     lastName: 'Demo',
+    categoryName: 'Diseño',
+    subcategoryName: 'Diseño Gráfico',
   },
   {
     role: Role.FREELANCER,
@@ -758,6 +772,7 @@ const USER_CATEGORIES = [
   {
     name: 'Comida',
     icon: '🍔',
+    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'analytics', 'expenses'],
     subcategories: [
       'Restaurante', 'Cafetería', 'Comida Rápida', 'Food Truck', 'Catering'
     ]
@@ -765,6 +780,7 @@ const USER_CATEGORIES = [
   {
     name: 'Tecnología',
     icon: '💻',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Desarrollo Web', 'Apps Móviles', 'Soporte IT', 'Ciberseguridad', 'Data Science'
     ]
@@ -772,6 +788,7 @@ const USER_CATEGORIES = [
   {
     name: 'Diseño',
     icon: '🎨',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Diseño Gráfico', 'UI/UX', 'Branding', 'Ilustración', 'Motion Graphics'
     ]
@@ -779,6 +796,7 @@ const USER_CATEGORIES = [
   {
     name: 'Marketing',
     icon: '📢',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'analytics'],
     subcategories: [
       'Marketing Digital', 'SEO/SEM', 'Redes Sociales', 'Email Marketing', 'Content Manager'
     ]
@@ -786,6 +804,7 @@ const USER_CATEGORIES = [
   {
     name: 'Servicios Profesionales',
     icon: '💼',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Consultoría', 'Contabilidad', 'Legal', 'Recursos Humanos', 'Asesoría Financiera'
     ]
@@ -793,6 +812,7 @@ const USER_CATEGORIES = [
   {
     name: 'Salud y Bienestar',
     icon: '🏥',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Medicina General', 'Nutrición', 'Psicología', 'Fisioterapia', 'Entrenamiento Personal'
     ]
@@ -800,6 +820,7 @@ const USER_CATEGORIES = [
   {
     name: 'Belleza',
     icon: '💅',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Peluquería', 'Estética', 'Maquillaje', 'Manicura', 'Spa'
     ]
@@ -807,6 +828,7 @@ const USER_CATEGORIES = [
   {
     name: 'Educación',
     icon: '📚',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Clases Particulares', 'Idiomas', 'Preparación Exámenes', 'Talleres', 'Coaching'
     ]
@@ -814,6 +836,7 @@ const USER_CATEGORIES = [
   {
     name: 'Hogar',
     icon: '🏠',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Limpieza', 'Plomería', 'Electricidad', 'Carpintería', 'Jardinería'
     ]
@@ -821,6 +844,7 @@ const USER_CATEGORIES = [
   {
     name: 'Transporte',
     icon: '🚗',
+    allowedModules: ['dashboard', 'profile', 'services', 'delivery', 'customers'],
     subcategories: [
       'Taxi/Remis', 'Mudanzas', 'Delivery', 'Transporte Escolar', 'Logística'
     ]
@@ -828,6 +852,7 @@ const USER_CATEGORIES = [
   {
     name: 'Eventos',
     icon: '🎉',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Organización', 'Fotografía', 'Video', 'DJ/Música', 'Catering Eventos'
     ]
@@ -835,6 +860,7 @@ const USER_CATEGORIES = [
   {
     name: 'Turismo',
     icon: '✈️',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Agencia de Viajes', 'Guía Turístico', 'Alojamiento', 'Tours', 'Excursiones'
     ]
@@ -842,6 +868,7 @@ const USER_CATEGORIES = [
   {
     name: 'Comercio',
     icon: '🛍️',
+    allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'analytics', 'expenses'],
     subcategories: [
       'Retail', 'Mayorista', 'Importación', 'Exportación', 'E-commerce'
     ]
@@ -849,6 +876,7 @@ const USER_CATEGORIES = [
   {
     name: 'Automotriz',
     icon: '🔧',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Taller', 'Venta de Autos', 'Lavado', 'Accesorios', 'Neumáticos'
     ]
@@ -856,6 +884,7 @@ const USER_CATEGORIES = [
   {
     name: 'Mascotas',
     icon: '🐾',
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
     subcategories: [
       'Veterinaria', 'Grooming', 'Tienda de Mascotas', 'Adiestramiento', 'Paseadores'
     ]
@@ -874,7 +903,7 @@ async function seedUserCategories() {
     const categoryData = {
       name: category.name,
       icon: category.icon,
-      allowedModules: ['dashboard', 'profile']
+      allowedModules: category.allowedModules || ['dashboard', 'profile']
     }
 
     let savedCategory
@@ -1047,15 +1076,45 @@ async function main() {
 
     if (existing) {
       const hashedPassword = await bcrypt.hash(demo.password, 12)
+      
+      // Buscar categoryId y subcategoryId si se especificaron
+      let categoryId = null
+      let subcategoryId = null
+      
+      if (demo.categoryName) {
+        const category = await prisma.userCategory.findFirst({
+          where: { name: demo.categoryName }
+        })
+        if (category) {
+          categoryId = category.id
+          
+          // Buscar subcategoría si también se especificó
+          if (demo.subcategoryName) {
+            const subcategory = await prisma.userSubcategory.findFirst({
+              where: { 
+                name: demo.subcategoryName,
+                categoryId: category.id
+              }
+            })
+            if (subcategory) {
+              subcategoryId = subcategory.id
+            }
+          }
+        }
+      }
+
       await prisma.user.update({
         where: { email: demo.email },
         data: {
           role: demo.role,
           userType: demo.userType || 'DEMO',
           password: hashedPassword,
+          categoryId: categoryId,
+          subcategoryId: subcategoryId,
         },
       })
-      console.log(`✅ [${demo.role}] Updated (role, userType & password refreshed): ${demo.email}`)
+      const categoryInfo = categoryId ? ` | 📦 ${demo.categoryName}${demo.subcategoryName ? ' → ' + demo.subcategoryName : ''}` : ''
+      console.log(`✅ [${demo.role}] Updated (role, userType, password & category refreshed): ${demo.email}${categoryInfo}`)
       continue
     }
 
