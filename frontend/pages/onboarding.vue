@@ -162,10 +162,10 @@ import { useApi } from '~/composables/useApi'
 
 definePageMeta({ middleware: 'auth' })
 
-const config = useRuntimeConfig()
-const { user, getHeaders } = useAuth()
+const { user, updateLocalUser } = useAuth()
 const { invalidate: invalidateModules } = useModules()
 
+const STORAGE_KEY = 'onboarding_step'
 const step = ref(0)
 const steps = ['Tu negocio', 'Tu plan', '¡Listo!']
 
@@ -234,9 +234,13 @@ async function next() {
       }
       const { patch } = useApi()
       await patch(`/users/${user.value!.id}`, updateData)
+      // Actualizar el usuario en memoria/localStorage para que el middleware
+      // no vuelva a redirigir al onboarding cuando se navegue al dashboard
+      updateLocalUser({ categoryId: selectedCategory.value })
       invalidateModules()
       await loadPlans()
-      step.value++
+      step.value = 1
+      sessionStorage.setItem(STORAGE_KEY, '1')
     } catch (e: any) { saveError.value = e.message }
     finally { saving.value = false }
   } else if (step.value === 1) {
@@ -244,20 +248,46 @@ async function next() {
     try {
       if (selectedPlan.value) {
         const { post } = useApi()
+        // Ignorar errores de suscripción duplicada (el plan ya fue asignado antes)
         await post('/plans/self-subscribe', {
           planId: selectedPlan.value,
           interval: 'MONTHLY'
-        })
+        }).catch(() => {})
         invalidateModules()
       }
-      step.value++
+      step.value = 2
+      sessionStorage.setItem(STORAGE_KEY, '2')
     } catch (e: any) { saveError.value = e.message }
     finally { saving.value = false }
   }
 }
 
-function goToDashboard() { navigateTo('/dashboard') }
-function skipOnboarding() { navigateTo('/dashboard') }
+function goToDashboard() {
+  sessionStorage.removeItem(STORAGE_KEY)
+  navigateTo('/dashboard')
+}
+function skipOnboarding() {
+  sessionStorage.removeItem(STORAGE_KEY)
+  navigateTo('/dashboard')
+}
 
-onMounted(loadCategories)
+onMounted(async () => {
+  // Restaurar step si el usuario recargó la página
+  const saved = sessionStorage.getItem(STORAGE_KEY)
+  if (saved) {
+    const savedStep = parseInt(saved, 10)
+    if (!isNaN(savedStep) && savedStep > 0) {
+      step.value = savedStep
+      // Si ya pasó el paso de categoría, cargar planes directamente
+      if (savedStep >= 1) {
+        selectedCategory.value = user.value?.categoryId ?? ''
+        await loadPlans()
+      }
+      // Si ya está en el paso final, no hace falta cargar nada más
+      if (savedStep < 2) await loadCategories()
+      return
+    }
+  }
+  await loadCategories()
+})
 </script>
