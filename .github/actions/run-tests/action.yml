@@ -58,36 +58,18 @@ runs:
         cd frontend
         pnpm test:coverage
 
-    - name: Check Coverage Threshold
+    - name: Report Coverage
       shell: bash
       run: |
-        echo "🔍 Verificando coverage thresholds..."
-        THRESHOLD=${{ inputs.coverage-threshold }}
-
-        # Leer el summary JSON generado por jest --coverage (no re-ejecuta tests)
+        # Jest ya aplica coverageThreshold en jest.config.js y falla el step anterior si no se cumple.
+        # Este step solo reporta el valor para visibilidad en el log.
         SUMMARY="backend/coverage/coverage-summary.json"
         if [[ -f "$SUMMARY" ]]; then
-          BACKEND_COVERAGE=$(node -e "
-            const s = require('./${SUMMARY}');
-            const pct = s.total?.lines?.pct ?? 0;
-            console.log(pct);
-          " 2>/dev/null || echo "0")
+          LINES=$(node -e "const s=require('./$SUMMARY'); console.log(s.total?.lines?.pct ?? 'n/a')" 2>/dev/null || echo "n/a")
+          STMTS=$(node -e "const s=require('./$SUMMARY'); console.log(s.total?.statements?.pct ?? 'n/a')" 2>/dev/null || echo "n/a")
+          echo "📊 Backend coverage — lines: ${LINES}%, statements: ${STMTS}% (umbral: ${{ inputs.coverage-threshold }}%)"
         else
-          BACKEND_COVERAGE="0"
-        fi
-
-        echo "Backend coverage: ${BACKEND_COVERAGE}% (umbral: ${THRESHOLD}%)"
-
-        # Comparación con awk (sin bc)
-        BELOW=$(awk "BEGIN { print (${BACKEND_COVERAGE} < ${THRESHOLD}) ? 1 : 0 }")
-        if [[ "$BELOW" == "1" ]]; then
-          echo "❌ Backend coverage ${BACKEND_COVERAGE}% está por debajo del umbral ${THRESHOLD}%"
-          if [[ "${{ inputs.force-deploy }}" != "true" ]]; then
-            exit 1
-          fi
-          echo "⚠️ Force deploy activo - continuando pese a cobertura baja"
-        else
-          echo "✅ Coverage OK"
+          echo "📊 Coverage summary no disponible"
         fi
 
     - name: Upload Coverage Reports
