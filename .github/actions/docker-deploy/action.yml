@@ -65,14 +65,20 @@ runs:
           export FRONTEND_IMAGE="${{ inputs.frontend-image }}"
           docker compose -f docker-compose.lite.yml up -d --no-deps --force-recreate backend frontend
           
-          # Escribir .env con dominio si se proporcionó
+          # Actualizar solo las variables de deploy en .env (sin sobreescribir secretos del servidor)
           if [[ -n "${{ inputs.domain }}" ]]; then
-            cat > .env << ENVFILE
-        DOMAIN=${{ inputs.domain }}
-        ACME_EMAIL=${{ inputs.acme-email }}
-        BACKEND_IMAGE=${{ inputs.backend-image }}
-        FRONTEND_IMAGE=${{ inputs.frontend-image }}
-        ENVFILE
+            update_env() {
+              local key="$1" val="$2"
+              if grep -q "^${key}=" .env 2>/dev/null; then
+                sed -i "s|^${key}=.*|${key}=${val}|" .env
+              else
+                echo "${key}=${val}" >> .env
+              fi
+            }
+            update_env "DOMAIN"         "${{ inputs.domain }}"
+            update_env "ACME_EMAIL"     "${{ inputs.acme-email }}"
+            update_env "BACKEND_IMAGE"  "${{ inputs.backend-image }}"
+            update_env "FRONTEND_IMAGE" "${{ inputs.frontend-image }}"
           fi
 
           # Guardar versión
