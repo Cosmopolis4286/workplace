@@ -71,9 +71,9 @@ runs:
         REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
         DEPLOY_PATH="${{ inputs.deploy-path }}"
         
-        OUTPUT=$(ssh "$REMOTE" "bash -s" << 'EOF'
+        OUTPUT=$(ssh "$REMOTE" "DEPLOY_PATH='$DEPLOY_PATH' bash -s" << 'EOF'
           set -euo pipefail
-          cd "${DEPLOY_PATH}"
+          cd "$DEPLOY_PATH"
           
           COMPOSE="docker-compose -f docker-compose.lite.yml"
           LOG_FILE="logs/health-check-$(date +%Y%m%d-%H%M%S).log"

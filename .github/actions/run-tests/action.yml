@@ -17,7 +17,7 @@ runs:
   using: 'composite'
   steps:
     - name: Cache pnpm dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.pnpm-store
@@ -35,7 +35,7 @@ runs:
     - name: Install dependencies
       shell: bash
       run: |
-        pnpm install --no-frozen-lockfile
+        pnpm install --frozen-lockfile
 
     - name: Generate Prisma Client
       shell: bash
@@ -61,37 +61,34 @@ runs:
     - name: Check Coverage Threshold
       shell: bash
       run: |
-        echo "🔍 Checking coverage thresholds..."
-        
-        # Backend coverage
-        BACKEND_COVERAGE=$(cd backend && pnpm run coverage:percentage || echo "0")
-        echo "Backend coverage: ${BACKEND_COVERAGE}%"
-        
-        # Frontend coverage  
-        FRONTEND_COVERAGE=$(cd frontend && pnpm run coverage:percentage || echo "0")
-        echo "Frontend coverage: ${FRONTEND_COVERAGE}%"
-        
-        # Check thresholds
-        BACKEND_THRESHOLD=${{ inputs.coverage-threshold }}
-        FRONTEND_THRESHOLD=0  # Frontend only tests utilities, expect 0% coverage
-        
-        if (( $(echo "$BACKEND_COVERAGE < $BACKEND_THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
-          echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${BACKEND_THRESHOLD}%"
-          if [ "${{ inputs.force-deploy }}" != "true" ]; then
+        echo "🔍 Verificando coverage thresholds..."
+        THRESHOLD=${{ inputs.coverage-threshold }}
+
+        # Leer el summary JSON generado por jest --coverage (no re-ejecuta tests)
+        SUMMARY="backend/coverage/coverage-summary.json"
+        if [[ -f "$SUMMARY" ]]; then
+          BACKEND_COVERAGE=$(node -e "
+            const s = require('./${SUMMARY}');
+            const pct = s.total?.lines?.pct ?? 0;
+            console.log(pct);
+          " 2>/dev/null || echo "0")
+        else
+          BACKEND_COVERAGE="0"
+        fi
+
+        echo "Backend coverage: ${BACKEND_COVERAGE}% (umbral: ${THRESHOLD}%)"
+
+        # Comparación con awk (sin bc)
+        BELOW=$(awk "BEGIN { print (${BACKEND_COVERAGE} < ${THRESHOLD}) ? 1 : 0 }")
+        if [[ "$BELOW" == "1" ]]; then
+          echo "❌ Backend coverage ${BACKEND_COVERAGE}% está por debajo del umbral ${THRESHOLD}%"
+          if [[ "${{ inputs.force-deploy }}" != "true" ]]; then
             exit 1
           fi
-          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
+          echo "⚠️ Force deploy activo - continuando pese a cobertura baja"
+        else
+          echo "✅ Coverage OK"
         fi
-        
-        if (( $(echo "$FRONTEND_COVERAGE < $FRONTEND_THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
-          echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${FRONTEND_THRESHOLD}%"
-          if [ "${{ inputs.force-deploy }}" != "true" ]; then
-            exit 1
-          fi
-          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
-        fi
-        
-        echo "✅ All coverage requirements met!"
 
     - name: Upload Coverage Reports
       uses: codecov/codecov-action@v4

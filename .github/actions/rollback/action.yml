@@ -8,6 +8,10 @@ inputs:
   ssh-host:
     description: 'Host del servidor de produccion'
     required: true
+  deploy-path:
+    description: 'Ruta en servidor'
+    required: false
+    default: '/opt/workplace'
 
 runs:
   using: composite
@@ -28,9 +32,10 @@ runs:
     - name: Ejecutar rollback
       shell: bash
       run: |
-        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} << 'EOF'
+        ssh ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+          "DEPLOY_PATH='${{ inputs.deploy-path }}' bash -s" << 'EOF'
           set -eo pipefail
-          cd /opt/workplace
+          cd "$DEPLOY_PATH"
           COMPOSE="docker compose -f docker-compose.lite.yml"
 
           exec 200>/tmp/deploy.lock
