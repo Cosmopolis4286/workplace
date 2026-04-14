@@ -455,4 +455,96 @@ export class UsersService {
 
     return { message: 'Contraseña actualizada correctamente' };
   }
+
+  async getProfileCompletion(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        commerce: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Obtener información de categoría y subcategoría
+    const category = user.categoryId ? 
+      await this.prisma.userCategory.findUnique({ where: { id: user.categoryId } }) : null;
+    const subcategory = user.subcategoryId ? 
+      await this.prisma.userSubcategory.findUnique({ where: { id: user.subcategoryId } }) : null;
+
+    // Verificar si tiene restaurante (para categoría Comida)
+    let restaurant = null;
+    if (category?.name === 'Comida') {
+      restaurant = await this.prisma.restaurant.findUnique({ where: { userId } });
+    }
+
+    // Verificar campos básicos del perfil
+    const hasBasicInfo = !!(user.firstName && user.lastName && user.phone);
+    
+    // Verificar categoría y subcategoría
+    const hasCategory = !!(user.categoryId && category);
+    const hasSubcategory = !!(user.subcategoryId && subcategory);
+
+    // Verificaciones específicas por rol/categoría
+    let hasBusinessSetup = false;
+    let hasServicesSetup = false;
+
+    if (user.role === 'COMMERCE') {
+      if (category?.name === 'Comida') {
+        // Para categoría Comida, necesita restaurante
+        hasBusinessSetup = !!restaurant;
+      } else {
+        // Para otras categorías, necesita comercio configurado
+        hasBusinessSetup = !!user.commerce;
+      }
+    } else if (user.role === 'FREELANCER') {
+      // Freelancer necesita tener perfil completo y servicios (simulado por ahora)
+      hasServicesSetup = hasBasicInfo && hasCategory;
+    }
+
+    // Calcular porcentaje de completitud
+    const requiredFields = [
+      hasBasicInfo,
+      hasCategory,
+      user.role === 'NORMAL' ? true : hasSubcategory, // NORMAL no requiere subcategoría
+    ];
+
+    if (user.role === 'COMMERCE') {
+      requiredFields.push(hasBusinessSetup);
+    } else if (user.role === 'FREELANCER') {
+      requiredFields.push(hasServicesSetup);
+    }
+
+    const completedFields = requiredFields.filter(Boolean).length;
+    const totalFields = requiredFields.length;
+    const completionPercentage = Math.round((completedFields / totalFields) * 100);
+
+    const isComplete = completionPercentage === 100;
+
+    return {
+      isComplete,
+      completionPercentage,
+      missingFields: requiredFields
+        .map((has, index) => {
+          const fieldNames = [
+            'Información básica (nombre, apellido, teléfono)',
+            'Categoría',
+            'Subcategoría',
+            'Configuración de negocio',
+            'Configuración de servicios',
+          ];
+          return has ? null : fieldNames[index];
+        })
+        .filter(Boolean),
+      hasBasicInfo,
+      hasCategory,
+      hasSubcategory,
+      hasBusinessSetup,
+      hasServicesSetup,
+      role: user.role,
+      category: category?.name,
+    };
+  }
 }

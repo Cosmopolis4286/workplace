@@ -114,6 +114,11 @@
 </template>
 
 <script setup lang="ts">
+// Middleware para validar acceso al dashboard
+definePageMeta({
+  middleware: 'dashboard-access'
+})
+
 import { ExclamationTriangleIcon, ServerIcon } from '@heroicons/vue/24/outline'
 import { useDashboard } from '~/composables/useDashboard'
 import { useDashboardWidgets } from '~/composables/useDashboardWidgets'
