@@ -17,6 +17,10 @@ inputs:
   actor:
     description: 'Usuario que disparó el deploy'
     required: true
+  message:
+    description: 'Mensaje descriptivo del estado del deploy'
+    required: false
+    default: ''
   discord-webhook:
     description: 'Discord webhook URL'
     required: false
@@ -44,16 +48,19 @@ runs:
       run: |
         [ -z "${{ inputs.discord-webhook }}" ] && exit 0
         COLOR=$([[ "${{ inputs.status }}" = "success" ]] && echo "65280" || echo "16711680")
+        MSG="${{ inputs.message }}"
+        TITLE="${MSG:-Deploy ${{ inputs.status }} — ${{ inputs.repository }}}"
         curl -sf -X POST "${{ inputs.discord-webhook }}" \
           -H "Content-Type: application/json" \
           -d "{
             \"embeds\": [{
-              \"title\": \"Deploy ${{ inputs.status }} — ${{ inputs.repository }}\",
+              \"title\": \"${TITLE}\",
               \"color\": ${COLOR},
               \"fields\": [
+                {\"name\": \"Repo\", \"value\": \"${{ inputs.repository }}\", \"inline\": true},
                 {\"name\": \"Branch\", \"value\": \"${{ inputs.branch }}\", \"inline\": true},
                 {\"name\": \"Actor\", \"value\": \"${{ inputs.actor }}\", \"inline\": true},
-                {\"name\": \"SHA\", \"value\": \"${{ inputs.sha }}\", \"inline\": false}
+                {\"name\": \"SHA\", \"value\": \"`${{ inputs.sha }}`\", \"inline\": false}
               ]
             }]
           }" || echo "Discord webhook fallo (no critico)"
@@ -62,7 +69,9 @@ runs:
       shell: bash
       run: |
         [ -z "${{ inputs.slack-webhook }}" ] && exit 0
+        MSG="${{ inputs.message }}"
+        TEXT="${MSG:-Deploy *${{ inputs.status }}* — ${{ inputs.repository }}}"
         curl -sf -X POST "${{ inputs.slack-webhook }}" \
           -H "Content-Type: application/json" \
-          -d "{\"text\": \"Deploy *${{ inputs.status }}* — ${{ inputs.repository }} (${{ inputs.branch }}) by ${{ inputs.actor }}\"}" \
+          -d "{\"text\": \"${TEXT} (${{ inputs.branch }}) by ${{ inputs.actor }} \`${{ inputs.sha }}\`\"}" \
           || echo "Slack webhook fallo (no critico)"
