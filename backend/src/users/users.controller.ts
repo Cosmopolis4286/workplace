@@ -231,4 +231,17 @@ export class UsersController {
     }
     return this.usersService.deleteUser(id);
   }
+
+  @Get(':id/profile-completion')
+  async getProfileCompletion(
+    @Param('id') id: string,
+    @CurrentUser() caller: { id: string; role: Role }
+  ) {
+    // Solo el propio usuario o admins pueden ver esta información
+    if (caller.id !== id && !['SUPERADMIN', 'ADMIN'].includes(caller.role)) {
+      throw new ForbiddenException('No tienes permisos para ver esta información');
+    }
+
+    return this.usersService.getProfileCompletion(id);
+  }
 }
