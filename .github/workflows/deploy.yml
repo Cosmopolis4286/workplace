@@ -38,6 +38,8 @@ env:
   DOCKER_REGISTRY: ${{ secrets.DOCKER_USERNAME }}
   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/workplace-backend:${{ github.event_name == 'release' && github.event.release.tag_name || format('main-{0}', github.sha) }}
   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:${{ github.event_name == 'release' && github.event.release.tag_name || format('main-{0}', github.sha) }}
+  NODE_PORT: ${{ vars.NODE_PORT || '3001' }}
+  FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '3000' }}
 
 permissions:
   contents: read
@@ -204,6 +206,8 @@ jobs:
         current-sha: ${{ github.sha }}
         acme-email: ${{ secrets.ACME_EMAIL }}
         deploy-path: /opt/workplace
+        node-port: ${{ env.NODE_PORT }}
+        frontend-port: ${{ env.FRONTEND_PORT }}
 
   smoke-staging:
     name: Smoke Test Staging
@@ -277,6 +281,8 @@ jobs:
         current-sha: ${{ github.sha }}
         acme-email: ${{ secrets.ACME_EMAIL }}
         deploy-path: /opt/workplace
+        node-port: ${{ env.NODE_PORT }}
+        frontend-port: ${{ env.FRONTEND_PORT }}
 
     - name: Métricas
       if: always()
@@ -341,8 +347,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-prod, smoke-prod]
     if: |
-      needs.smoke-prod.result == 'failure' ||
-      (needs.deploy-prod.result == 'failure' && needs.smoke-prod.result == 'skipped')
+      always() &&
+      (needs.smoke-prod.result == 'failure' ||
+       (needs.deploy-prod.result == 'failure' && needs.smoke-prod.result == 'skipped'))
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4

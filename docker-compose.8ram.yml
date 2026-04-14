@@ -91,7 +91,7 @@ services:
       - .env
     environment:
       APP_ENV: production
-      PORT: ${NODE_PORT}
+      PORT: ${NODE_PORT:-3001}
       # Database credentials (separated for security)
       DB_HOST: pgbouncer
       DB_PORT: 6432
@@ -117,7 +117,7 @@ services:
     volumes:
       - uploads_data:/app/backend/uploads
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT}/api/ready || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT:-3001}/api/ready || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -131,7 +131,7 @@ services:
       - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT}"
+      - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT:-3001}"
       - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file,global-rate-limit@file,security-headers@file"
       - "traefik.http.services.backend.loadbalancer.healthcheck.path=/api/ready"
       - "traefik.http.services.backend.loadbalancer.healthcheck.interval=15s"
@@ -166,12 +166,12 @@ services:
     environment:
       API_URL: /api
       NITRO_HOST: 0.0.0.0
-      NITRO_PORT: ${FRONTEND_PORT}
+      NITRO_PORT: ${FRONTEND_PORT:-3000}
       LOG_LEVEL: warn
       APP_ENV: production
       NUXT_DEBUG: false
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT}/ || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_PORT:-3000}/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -186,7 +186,7 @@ services:
       - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`, `www.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.frontend.loadbalancer.server.port=${FRONTEND_PORT}"
+      - "traefik.http.services.frontend.loadbalancer.server.port=${FRONTEND_PORT:-3000}"
       - "traefik.http.routers.frontend.middlewares=global-rate-limit@file,security-headers@file,compression@file"
       - "traefik.http.services.frontend.loadbalancer.healthcheck.path=/"
       - "traefik.http.services.frontend.loadbalancer.healthcheck.interval=30s"

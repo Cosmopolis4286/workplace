@@ -28,6 +28,14 @@ inputs:
     description: 'Ruta en servidor'
     required: false
     default: '/opt/workplace'
+  node-port:
+    description: 'Puerto del backend'
+    required: false
+    default: '3001'
+  frontend-port:
+    description: 'Puerto del frontend'
+    required: false
+    default: '3000'
 
 outputs:
   deploy-status:
@@ -57,3 +65,5 @@ runs:
         current-sha: ${{ inputs.current-sha }}
         domain: ${{ inputs.domain }}
         acme-email: ${{ inputs.acme-email }}
+        node-port: ${{ inputs.node-port }}
+        frontend-port: ${{ inputs.frontend-port }}

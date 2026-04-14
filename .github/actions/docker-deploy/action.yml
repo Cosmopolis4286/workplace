@@ -29,6 +29,14 @@ inputs:
     description: 'Email para certificados ACME'
     required: false
     default: ''
+  node-port:
+    description: 'Puerto del backend'
+    required: false
+    default: '3001'
+  frontend-port:
+    description: 'Puerto del frontend'
+    required: false
+    default: '3000'
 
 outputs:
   status:
@@ -54,6 +62,8 @@ runs:
            CURRENT_SHA='${{ inputs.current-sha }}' \
            DOMAIN='${{ inputs.domain }}' \
            ACME_EMAIL='${{ inputs.acme-email }}' \
+           NODE_PORT='${{ inputs.node-port }}' \
+           FRONTEND_PORT='${{ inputs.frontend-port }}' \
            bash -s" << 'ENDSSH'
           set -euo pipefail
           cd "$DEPLOY_PATH"
@@ -62,6 +72,7 @@ runs:
           echo "🚀 Deploy iniciado: $CURRENT_SHA"
           echo "   Backend:  $BACKEND_IMAGE"
           echo "   Frontend: $FRONTEND_IMAGE"
+          echo "   Ports:    Backend=$NODE_PORT, Frontend=$FRONTEND_PORT"
 
           # Backup de la versión anterior antes de sobreescribir
           mkdir -p versions
@@ -87,7 +98,7 @@ runs:
           pull_with_retry "$FRONTEND_IMAGE"
 
           # Deploy — recrear solo backend y frontend sin tocar postgres/redis/traefik
-          export BACKEND_IMAGE FRONTEND_IMAGE
+          export BACKEND_IMAGE FRONTEND_IMAGE NODE_PORT FRONTEND_PORT
           $COMPOSE up -d --no-deps --force-recreate backend frontend
 
           # Actualizar variables de deploy en .env sin sobreescribir secretos
@@ -100,35 +111,63 @@ runs:
                 echo "${key}=${val}" >> .env
               fi
             }
-            update_env "DOMAIN"         "$DOMAIN"
-            update_env "ACME_EMAIL"     "$ACME_EMAIL"
-            update_env "BACKEND_IMAGE"  "$BACKEND_IMAGE"
-            update_env "FRONTEND_IMAGE" "$FRONTEND_IMAGE"
+            update_env "DOMAIN"          "$DOMAIN"
+            update_env "ACME_EMAIL"      "$ACME_EMAIL"
+            update_env "BACKEND_IMAGE"   "$BACKEND_IMAGE"
+            update_env "FRONTEND_IMAGE"  "$FRONTEND_IMAGE"
+            update_env "NODE_PORT"       "$NODE_PORT"
+            update_env "FRONTEND_PORT"   "$FRONTEND_PORT"
           fi
 
-          # Esperar que los containers estén running (no solo started)
-          echo "⏳ Esperando que los containers estén en estado running..."
-          for i in $(seq 1 12); do
+          # Esperar que los containers estén healthy (no solo running)
+          echo "⏳ Esperando que los containers estén healthy..."
+          HEALTHY_COUNT=0
+          for i in $(seq 1 30); do
+            # Obtener health status con docker inspect
+            BACKEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' \
+              "$(docker ps -qf name=backend | head -1)" 2>/dev/null || echo "unknown")
+            FRONTEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' \
+              "$(docker ps -qf name=frontend | head -1)" 2>/dev/null || echo "unknown")
+
+            if [[ "$BACKEND_HEALTH" == "healthy" && "$FRONTEND_HEALTH" == "healthy" ]]; then
+              ((HEALTHY_COUNT++))
+              if [[ $HEALTHY_COUNT -ge 2 ]]; then
+                echo "  ✅ Containers healthy confirmado (2 checks consecutivos)"
+                break
+              fi
+              echo "  ✅ Healthy check $HEALTHY_COUNT/2 (intento $i)"
+            else
+              HEALTHY_COUNT=0
+              echo "  ⏳ backend=$BACKEND_HEALTH frontend=$FRONTEND_HEALTH — intento $i/30"
+            fi
+
+            # Verificar si containers están en estado de error
             BACKEND_STATUS=$(docker inspect --format='{{.State.Status}}' \
               "$(docker ps -qf name=backend | head -1)" 2>/dev/null || echo "missing")
             FRONTEND_STATUS=$(docker inspect --format='{{.State.Status}}' \
               "$(docker ps -qf name=frontend | head -1)" 2>/dev/null || echo "missing")
 
-            if [[ "$BACKEND_STATUS" == "running" && "$FRONTEND_STATUS" == "running" ]]; then
-              echo "  ✅ Containers running (intento $i)"
-              break
-            fi
-
             if [[ "$BACKEND_STATUS" == "restarting" || "$FRONTEND_STATUS" == "restarting" ]]; then
               echo "  ❌ Container en estado restarting — fallo de arranque"
               echo "  Logs backend:"
-              docker logs "$(docker ps -aqf name=backend | head -1)" --tail 20 2>&1 || true
+              docker logs "$(docker ps -aqf name=backend | head -1)" --tail 30 2>&1 || true
               exit 1
             fi
 
-            echo "  ⏳ backend=$BACKEND_STATUS frontend=$FRONTEND_STATUS — intento $i/12"
-            sleep 5
+            sleep 2
           done
+
+          # Verificación final
+          BACKEND_FINAL=$(docker inspect --format='{{.State.Health.Status}}' \
+            "$(docker ps -qf name=backend | head -1)" 2>/dev/null || echo "unknown")
+          FRONTEND_FINAL=$(docker inspect --format='{{.State.Health.Status}}' \
+            "$(docker ps -qf name=frontend | head -1)" 2>/dev/null || echo "unknown")
+
+          if [[ "$BACKEND_FINAL" != "healthy" || "$FRONTEND_FINAL" != "healthy" ]]; then
+            echo "  ❌ Containers no alcanzaron estado healthy"
+            echo "     Backend: $BACKEND_FINAL, Frontend: $FRONTEND_FINAL"
+            exit 1
+          fi
 
           # Guardar versión actual
           cat > versions/current.env << ENVFILE
