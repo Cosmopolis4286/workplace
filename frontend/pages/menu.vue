@@ -126,6 +126,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+
+// Middleware to ensure only users with category "Comida" can access this page
+definePageMeta({
+  middleware: ['auth', 'menu-category']
+})
 import {
   PlusIcon,
   PencilIcon,

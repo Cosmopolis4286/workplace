@@ -1,5 +1,6 @@
 import { navigateTo, defineNuxtRouteMiddleware } from "nuxt/app"
 import { useAuth } from "~/composables/useAuth"
+import { usePermissions } from "~/composables/usePermissions"
 
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 
@@ -51,6 +52,7 @@ export default defineNuxtRouteMiddleware((to: any) => {
   if (process.server) return
 
   const { isAuthenticated, user } = useAuth()
+  const { userCategory } = usePermissions()
 
   if (protectedRoutes.some(r => to.path.startsWith(r)) && !isAuthenticated.value) {
     return navigateTo('/login')
@@ -71,6 +73,18 @@ export default defineNuxtRouteMiddleware((to: any) => {
     // Routes only for COMMERCE and FREELANCER (NOT SuperAdmin/Admin) - menu, inventory, services
     if (commerceOnlyRoutes.some(r => to.path.startsWith(r)) && !COMMERCE_FREELANCER_ONLY.includes(role)) {
       return navigateTo(role === 'NORMAL' ? '/search' : '/dashboard')
+    }
+
+    // Special restriction for menu: only users with category "Comida" can access it
+    if (to.path.startsWith('/menu') && userCategory.value !== 'Comida') {
+      if (role === 'NORMAL') {
+        return navigateTo('/search')
+      } else if (ADMIN_ROLES.includes(role)) {
+        return navigateTo('/dashboard')
+      } else {
+        // COMMERCE or FREELANCER without Comida category
+        return navigateTo('/servicios')
+      }
     }
 
     // Service requests available to COMMERCE, FREELANCER, and NORMAL
