@@ -297,7 +297,7 @@ jobs:
     name: Smoke Test Producción
     runs-on: ubuntu-latest
     needs: deploy-prod
-    if: needs.deploy-prod.result == 'success'
+    if: always() && needs.deploy-prod.result == 'success'
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
