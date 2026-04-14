@@ -225,12 +225,13 @@ jobs:
   deploy-prod:
     name: Deploy Producción
     runs-on: ubuntu-latest
-    needs: [validate, build-backend, build-frontend]
+    needs: [validate, build-backend, build-frontend, smoke-staging]
     if: |
-      (github.event.inputs.environment == 'production' || 
-       github.event_name == 'release' || 
-       (github.event_name == 'push' && github.ref == 'refs/heads/main')) && 
-      needs.validate.outputs.production-ready == 'true'
+      (github.event.inputs.environment == 'production' ||
+       github.event_name == 'release' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
+      needs.validate.outputs.production-ready == 'true' &&
+      needs.smoke-staging.result != 'failure'
     timeout-minutes: 25
     environment:
       name: production
@@ -311,8 +312,10 @@ jobs:
   rollback-manual:
     name: Rollback Manual
     runs-on: ubuntu-latest
-    needs: deploy-prod
-    if: github.event.inputs.force_rollback == 'true'
+    needs: [deploy-prod, smoke-prod]
+    if: |
+      github.event.inputs.force_rollback == 'true' &&
+      needs.smoke-prod.result != 'failure'
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
@@ -329,7 +332,9 @@ jobs:
     name: Rollback Automático
     runs-on: ubuntu-latest
     needs: [deploy-prod, smoke-prod]
-    if: needs.smoke-prod.result == 'failure'
+    if: |
+      needs.smoke-prod.result == 'failure' ||
+      (needs.deploy-prod.result == 'failure' && needs.smoke-prod.result == 'skipped')
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
@@ -348,7 +353,7 @@ jobs:
   notify:
     name: Notificar Estado
     runs-on: ubuntu-latest
-    needs: [deploy-staging, smoke-staging, deploy-prod, smoke-prod, rollback-auto]
+    needs: [deploy-staging, smoke-staging, deploy-prod, smoke-prod, rollback-auto, rollback-manual]
     if: always()
     steps:
     - uses: actions/checkout@v4
@@ -358,17 +363,24 @@ jobs:
         STAGING_OK="${{ needs.deploy-staging.result == 'success' && needs.smoke-staging.result != 'failure' }}"
         PROD_DEPLOYED="${{ needs.deploy-prod.result }}"
         PROD_OK="${{ needs.deploy-prod.result == 'success' && needs.smoke-prod.result != 'failure' }}"
-        ROLLBACK="${{ needs.rollback-auto.result == 'success' }}"
-        
-        if [[ "$PROD_OK" == "true" && "$ROLLBACK" != "true" ]]; then
+        ROLLBACK_AUTO="${{ needs.rollback-auto.result == 'success' }}"
+        ROLLBACK_MANUAL="${{ needs.rollback-manual.result == 'success' }}"
+
+        if [[ "$PROD_OK" == "true" && "$ROLLBACK_AUTO" != "true" && "$ROLLBACK_MANUAL" != "true" ]]; then
           echo "status=success" >> $GITHUB_OUTPUT
           echo "message=🎉 Deploy a producción exitoso" >> $GITHUB_OUTPUT
-        elif [[ "$ROLLBACK" == "true" ]]; then
+        elif [[ "$ROLLBACK_AUTO" == "true" ]]; then
           echo "status=failure" >> $GITHUB_OUTPUT
-          echo "message=🚨 Deploy falló - rollback ejecutado" >> $GITHUB_OUTPUT
+          echo "message=🚨 Deploy falló - rollback automático ejecutado" >> $GITHUB_OUTPUT
+        elif [[ "$ROLLBACK_MANUAL" == "true" ]]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=⏮️ Rollback manual ejecutado" >> $GITHUB_OUTPUT
+        elif [[ "$PROD_DEPLOYED" == "failure" ]]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ Deploy a producción falló" >> $GITHUB_OUTPUT
         elif [[ "$PROD_DEPLOYED" == "success" && "${{ needs.smoke-prod.result }}" == "failure" ]]; then
           echo "status=failure" >> $GITHUB_OUTPUT
-          echo "message=❌ Deploy falló - smoke test no pasó" >> $GITHUB_OUTPUT
+          echo "message=❌ Smoke test de producción falló" >> $GITHUB_OUTPUT
         elif [[ "$STAGING_OK" == "true" && "$PROD_DEPLOYED" == "skipped" ]]; then
           echo "status=success" >> $GITHUB_OUTPUT
           echo "message=✅ Deploy a staging exitoso" >> $GITHUB_OUTPUT
