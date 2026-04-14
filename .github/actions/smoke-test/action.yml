@@ -17,7 +17,7 @@ inputs:
   ssh-user:
     description: 'SSH user'
     required: false
-    default: ''
+    default: 'root'
   ssl-retries:
     description: 'Number of SSL verification retries'
     required: false
@@ -30,22 +30,10 @@ inputs:
     description: 'Number of frontend health check retries'
     required: false
     default: '8'
-  check-db:
-    description: 'Check database connection endpoint'
-    required: false
-    default: 'false'
-  check-redis:
-    description: 'Check redis connection endpoint'
-    required: false
-    default: 'false'
-  fail-on-warnings:
-    description: 'Fail if warnings are present'
-    required: false
-    default: 'false'
 
 outputs:
   status:
-    description: 'Test status (success/failure)'
+    description: 'Test status (success/failure/skipped)'
     value: ${{ steps.smoke-test.outputs.status }}
   url:
     description: 'Tested URL'
@@ -60,98 +48,148 @@ runs:
         ssh-private-key: ${{ inputs.ssh-private-key }}
         production-host: ${{ inputs.ssh-host }}
 
-    - name: SSH Hardening
-      shell: bash
-      run: |
-        ssh-keyscan -H ${{ inputs.ssh-host }} >> ~/.ssh/known_hosts
-        chmod 600 ~/.ssh/known_hosts
-
     - name: Smoke Test
       id: smoke-test
       shell: bash
       run: |
+        set -euo pipefail
         DOMAIN="${{ inputs.domain }}"
+        REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+
         if [ -z "$DOMAIN" ]; then
-          echo "❌ Domain no configurado - omitiendo smoke test"
+          echo "⚠️ Domain no configurado — smoke test omitido"
           echo "status=skipped" >> $GITHUB_OUTPUT
           exit 0
         fi
-        
-        echo "🔍 Iniciando smoke test para ${{ inputs.environment }} en $DOMAIN..."
-        
-        # Verificar SSL
-        echo "🔒 Verificando SSL..."
+
+        echo "════════════════════════════════════════"
+        echo "  Smoke Test: ${{ inputs.environment }}"
+        echo "  URL: https://$DOMAIN"
+        echo "════════════════════════════════════════"
+
+        # ── Helpers ────────────────────────────────
+        check_url() {
+          local url="$1" retries="$2" interval="${3:-10}" label="$4"
+          local i latency_ms start end http_code
+          for i in $(seq 1 "$retries"); do
+            start=$(date +%s%3N)
+            http_code=$(curl -so /dev/null -w "%{http_code}" --max-time 15 "$url" 2>/dev/null || echo "000")
+            end=$(date +%s%3N)
+            latency_ms=$((end - start))
+            if [[ "$http_code" =~ ^(200|301|302|304)$ ]]; then
+              echo "  ✅ $label — HTTP $http_code (${latency_ms}ms) en intento $i/$retries"
+              return 0
+            fi
+            echo "  ⏳ $label — HTTP $http_code (${latency_ms}ms) intento $i/$retries"
+            [ "$i" -lt "$retries" ] && sleep "$interval"
+          done
+          echo "  ❌ $label — no responde tras $retries intentos"
+          return 1
+        }
+
+        # ── 1. SSL ─────────────────────────────────
+        echo ""
+        echo "🔒 Verificando certificado SSL..."
+        ssl_ok=false
         for i in $(seq 1 ${{ inputs.ssl-retries }}); do
-          if echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -dates >/dev/null 2>&1; then
-            echo "✅ Certificado SSL válido"
+          if echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" \
+              2>/dev/null | openssl x509 -noout -dates 2>/dev/null; then
+            ssl_ok=true
             break
-          else
-            echo "⏳ Verificando SSL... intento $i/${{ inputs.ssl-retries }}"
-            [ $i -lt ${{ inputs.ssl-retries }} ] && sleep 5
           fi
+          echo "  ⏳ SSL intento $i/${{ inputs.ssl-retries }}"
+          [ "$i" -lt "${{ inputs.ssl-retries }}" ] && sleep 5
         done
-        
-        # Verificar backend con reintentos
+        [[ "$ssl_ok" == "false" ]] && echo "  ⚠️ SSL no verificado (puede estar propagándose)"
+
+        # ── 2. Backend /api/health ──────────────────
+        echo ""
         echo "🔍 Verificando backend..."
         backend_ok=false
-        for i in $(seq 1 ${{ inputs.backend-retries }}); do
-          if curl -f -s --max-time 10 "https://$DOMAIN/api/health" >/dev/null; then
-            echo "✅ Backend saludable en intento $i"
-            backend_ok=true
-            break
-          else
-            echo "⏳ Verificando backend... intento $i/${{ inputs.backend-retries }}"
-            [ $i -lt ${{ inputs.backend-retries }} ] && sleep 10
-          fi
-        done
-        
-        # Verificar frontend con reintentos
+        check_url "https://$DOMAIN/api/health" \
+          "${{ inputs.backend-retries }}" 10 "GET /api/health" && backend_ok=true || true
+
+        # ── 3. /api/ready — DB + Redis ─────────────
+        echo ""
+        echo "🩺 Verificando readiness (DB + Redis)..."
+        ready_json=$(curl -sf --max-time 10 "https://$DOMAIN/api/ready" 2>/dev/null || echo "{}")
+        ready_val=$(echo "$ready_json"  | grep -o '"ready":[^,}]*' | cut -d: -f2 | tr -d ' "' || echo "unknown")
+        db_status=$(echo "$ready_json"  | grep -o '"database":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+        redis_status=$(echo "$ready_json" | grep -o '"redis":"[^"]*"'   | cut -d'"' -f4 || echo "unknown")
+        app_status=$(echo "$ready_json"  | grep -o '"application":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+
+        echo "  Ready:       $ready_val"
+        echo "  Database:    $db_status"
+        echo "  Redis:       $redis_status"
+        echo "  Application: $app_status"
+
+        if [[ "$db_status" != "connected" || "$redis_status" != "connected" ]]; then
+          echo "  ⚠️ Servicios críticos degradados"
+        else
+          echo "  ✅ Todos los servicios internos OK"
+        fi
+
+        # ── 4. Frontend ────────────────────────────
+        echo ""
         echo "🎨 Verificando frontend..."
         frontend_ok=false
-        for i in $(seq 1 ${{ inputs.frontend-retries }}); do
-          if curl -f -s --max-time 10 "https://$DOMAIN/" >/dev/null; then
-            echo "✅ Frontend saludable en intento $i"
-            frontend_ok=true
-            break
-          else
-            echo "⏳ Verificando frontend... intento $i/${{ inputs.frontend-retries }}"
-            [ $i -lt ${{ inputs.frontend-retries }} ] && sleep 10
-          fi
-        done
-        
-        # Validación interna servicios críticos (opcional)
-        if [[ "${{ inputs.check-db }}" == "true" ]]; then
-          if curl -f -s --max-time 5 "https://$DOMAIN/api/health/db" >/dev/null 2>&1; then
-            echo "✅ DB connection OK"
-          else
-            echo "⚠️ WARNING: No se puede validar DB connection"
-          fi
+        check_url "https://$DOMAIN/" \
+          "${{ inputs.frontend-retries }}" 10 "GET /" && frontend_ok=true || true
+
+        # ── 5. /api/version ────────────────────────
+        echo ""
+        echo "📦 Versión desplegada:"
+        version_json=$(curl -sf --max-time 5 "https://$DOMAIN/api/version" 2>/dev/null || echo "{}")
+        echo "  $(echo "$version_json" | tr ',' '\n' | tr -d '{}"' | sed 's/^/  /')"
+
+        # ── 6. Diagnóstico SSH en caso de fallo ────
+        if [[ "$backend_ok" == "false" || "$frontend_ok" == "false" ]]; then
+          echo ""
+          echo "════════════════════════════════════════"
+          echo "  DIAGNÓSTICO DE CONTAINERS (SSH)"
+          echo "════════════════════════════════════════"
+          ssh "$REMOTE" bash -s << 'ENDSSH'
+            echo "── docker ps ──────────────────────────"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}" 2>/dev/null || true
+
+            echo ""
+            echo "── Últimos logs: backend ───────────────"
+            BACKEND=$(docker ps --format '{{.Names}}' | grep -i backend | head -1 || true)
+            if [[ -n "$BACKEND" ]]; then
+              docker logs "$BACKEND" --tail 30 2>&1 || true
+            else
+              echo "  Contenedor backend no encontrado"
+            fi
+
+            echo ""
+            echo "── Últimos logs: frontend ──────────────"
+            FRONTEND=$(docker ps --format '{{.Names}}' | grep -i frontend | head -1 || true)
+            if [[ -n "$FRONTEND" ]]; then
+              docker logs "$FRONTEND" --tail 15 2>&1 || true
+            else
+              echo "  Contenedor frontend no encontrado"
+            fi
+
+            echo ""
+            echo "── Uso de recursos ────────────────────"
+            docker stats --no-stream --format \
+              "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}" 2>/dev/null || true
+        ENDSSH
         fi
-        
-        if [[ "${{ inputs.check-redis }}" == "true" ]]; then
-          if curl -f -s --max-time 5 "https://$DOMAIN/api/health/redis" >/dev/null 2>&1; then
-            echo "✅ Redis connection OK"
-          else
-            echo "⚠️ WARNING: No se puede validar Redis connection"
-          fi
-        fi
-        
-        # Verificar readiness state
-        if curl -f -s --max-time 5 "https://$DOMAIN/api/ready" >/dev/null; then
-          echo "✅ Application ready state OK"
-        else
-          echo "⚠️ WARNING: Application no está en ready state"
-        fi
-        
-        # Evaluación final
+
+        # ── Resultado final ────────────────────────
+        echo ""
+        echo "════════════════════════════════════════"
         if [[ "$backend_ok" == "true" && "$frontend_ok" == "true" ]]; then
-          echo "🎉 Smoke test ${{ inputs.environment }} exitoso"
+          echo "  🎉 Smoke test PASSED — ${{ inputs.environment }}"
+          echo "════════════════════════════════════════"
           echo "status=success" >> $GITHUB_OUTPUT
           echo "url=https://$DOMAIN" >> $GITHUB_OUTPUT
         else
-          echo "❌ Smoke test ${{ inputs.environment }} falló"
-          [[ "$backend_ok" != "true" ]] && echo "   - Backend no responde"
-          [[ "$frontend_ok" != "true" ]] && echo "   - Frontend no responde"
+          echo "  ❌ Smoke test FAILED — ${{ inputs.environment }}"
+          [[ "$backend_ok"  != "true" ]] && echo "     • Backend no responde"
+          [[ "$frontend_ok" != "true" ]] && echo "     • Frontend no responde"
+          echo "════════════════════════════════════════"
           echo "status=failure" >> $GITHUB_OUTPUT
           exit 1
         fi
