@@ -1,5 +1,6 @@
-import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CategoryHelper } from '../common/helpers/category.helper';
 import {
   UpdateRestaurantInfoDto,
   UpdatePaymentSettingsDto,
@@ -9,18 +10,28 @@ import {
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly categoryHelper: CategoryHelper
+  ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private async getRestaurant(userId: string) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { userId },
-    });
-    if (!restaurant)
+    const restaurantId = await this.categoryHelper.validateRestaurantForFoodCategory(userId);
+    if (!restaurantId) {
+      // Usuario no es de categoría "Comida", no necesita configuración de restaurante
       throw new ForbiddenException(
-        'El usuario no tiene un restaurante asociado'
+        'La configuración de restaurante solo está disponible para usuarios de la categoría "Comida"'
       );
+    }
+    
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+    });
+    if (!restaurant) {
+      throw new NotFoundException('Restaurante no encontrado');
+    }
     return restaurant;
   }
 
