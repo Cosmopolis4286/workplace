@@ -130,6 +130,7 @@ export const useDemoCredentials = () => {
 
   /**
    * 🧠 Auto-load solo si USE_DEMO=true o entorno de desarrollo
+   * El valor de useDemoCredentials viene del .env del servidor (runtime)
    */
   onMounted(() => {
     const isDemoEnabled =
@@ -139,6 +140,9 @@ export const useDemoCredentials = () => {
 
     if (isDemoEnabled) {
       loadCredentials()
+    } else {
+      // Log informativo para debugging
+      console.log('[DemoCredentials] Demo no habilitado. USE_DEMO=false en .env del servidor')
     }
   })
 

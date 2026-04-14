@@ -164,9 +164,9 @@ jobs:
         docker-password: ${{ secrets.DOCKER_PASSWORD }}
         github-token: ${{ secrets.WORKPLACE_PAT }}
         build-args: |
-          USE_DEMO=${{ vars.USE_DEMO || 'false' }}
           APP_ENV=production
           API_URL=${{ vars.API_URL || '/api' }}
+          # NOTA: USE_DEMO se lee del .env del servidor en runtime
 
   # ═══════════════════════════════════════════════════════════════════════════
   # 3. DEPLOY STAGING
