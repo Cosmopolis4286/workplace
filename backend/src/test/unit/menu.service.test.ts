@@ -3,6 +3,7 @@ import { MenuService } from '../../menu/menu.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { PlanLimitsService } from '../../plans/plan-limits.service'
 import { NotificationsService } from '../../notifications/notifications.service'
+import { CategoryHelper } from '../../common/helpers/category.helper'
 import { CreateCategoryDto } from '../../menu/dto/create-category.dto'
 import { UpdateCategoryDto } from '../../menu/dto/update-category.dto'
 import { CreateProductDto } from '../../menu/dto/create-product.dto'
@@ -45,6 +46,13 @@ describe('MenuService', () => {
     notifyLowStock: jest.fn(),
   }
 
+  const mockCategoryHelper = {
+    isUserInFoodCategory: jest.fn().mockResolvedValue(true),
+    userNeedsRestaurant: jest.fn().mockResolvedValue(true),
+    getRestaurantIdForUser: jest.fn().mockResolvedValue('restaurant-123'),
+    validateRestaurantForFoodCategory: jest.fn().mockResolvedValue('restaurant-123'),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -60,6 +68,10 @@ describe('MenuService', () => {
         {
           provide: NotificationsService,
           useValue: mockNotificationsService,
+        },
+        {
+          provide: CategoryHelper,
+          useValue: mockCategoryHelper,
         },
       ],
     }).compile()
@@ -174,9 +186,9 @@ describe('MenuService', () => {
           category: { id: 'cat-123', name: 'Categoría', color: '#FF0000' },
         }
 
-        mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'restaurant-123' })
         mockPlanLimitsService.assertProductLimit.mockResolvedValue(undefined)
-        mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-123', commerceId: 'commerce-123' })
+        mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-123', commerceId: 'restaurant-123' })
         mockPrismaService.product.create.mockResolvedValue(mockProduct)
 
         const result = await service.createProduct(userId, createProductDto)
@@ -196,7 +208,7 @@ describe('MenuService', () => {
 
         const existingProduct = {
           id: productId,
-          commerceId: 'commerce-123',
+          commerceId: 'restaurant-123',
           name: 'Producto Test',
           stock: 100,
           minStock: 10,
@@ -208,7 +220,7 @@ describe('MenuService', () => {
           category: { id: 'cat-123', name: 'Categoría', color: '#FF0000' },
         }
 
-        mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'restaurant-123' })
         mockPrismaService.product.findUnique.mockResolvedValue(existingProduct)
         mockPrismaService.product.update.mockResolvedValue(updatedProduct)
 
