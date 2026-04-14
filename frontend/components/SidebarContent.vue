@@ -192,7 +192,7 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const { user } = useAuth()
-const { can } = usePermissions()
+const { can, userCategory } = usePermissions()
 const { hasModule, loadModules } = useModules()
 
 // Load effective modules on mount (no-op for ADMIN/SUPERADMIN, quick for others)
@@ -309,9 +309,16 @@ const quickAccessItems = computed(() =>
 const hasQuickAccess = computed(() => quickAccessItems.value.length > 0)
 
 // canSee: permission check AND module check (module = first segment of permission key)
+// Special case: menu requires category "Comida"
 function canSee(permission: string | null): boolean {
   if (permission === null) return true
   const module = permission.split(':')[0]
+  
+  // Special restriction for menu: only users with category "Comida" can see it
+  if (permission === 'menu:view') {
+    return can(permission) && hasModule(module) && userCategory.value === 'Comida'
+  }
+  
   return can(permission) && hasModule(module)
 }
 
