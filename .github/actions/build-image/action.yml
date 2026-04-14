@@ -1,5 +1,5 @@
 name: 'Build and Push Docker Image'
-description: 'Construye, escanea y publica imagen Docker con seguridad y cache optimizada'
+description: 'Construye, escanea y publica imagen Docker con cache y seguridad'
 
 inputs:
   service:
@@ -12,16 +12,16 @@ inputs:
     description: 'Nombre de la imagen en Docker Hub'
     required: true
   image-tag:
-    description: 'Tag de la imagen (ej: main-abc123)'
+    description: 'Tag principal de la imagen (ej: main-abc123)'
     required: true
   docker-username:
-    description: 'Docker Hub username - REQUIRED, composite actions cannot access secrets'
+    description: 'Docker Hub username'
     required: true
   docker-password:
-    description: 'Docker Hub password/token - REQUIRED, composite actions cannot access secrets'
+    description: 'Docker Hub password/token'
     required: true
   build-args:
-    description: 'Build args opcionales'
+    description: 'Build args adicionales (multilínea)'
     required: false
     default: ''
   context:
@@ -33,55 +33,47 @@ inputs:
     required: false
     default: 'production'
   enable-scan:
-    description: 'Habilitar escaneo de vulnerabilidades'
+    description: 'Habilitar escaneo de vulnerabilidades Trivy'
     required: false
     default: 'true'
   max-image-size:
-    description: 'Tamaño máximo de imagen en MB'
+    description: 'Tamaño máximo permitido de imagen en MB'
     required: false
     default: '500'
   github-token:
-    description: 'GitHub token con permisos de seguridad (opcional, usa github.token por defecto)'
+    description: 'GitHub token para subir SARIF (opcional)'
     required: false
+    default: ''
 
 outputs:
   image-digest:
-    description: 'Digest SHA256 de la imagen construida'
+    description: 'Digest SHA256 de la imagen'
     value: ${{ steps.build.outputs.digest }}
-  image-size:
-    description: 'Tamaño de la imagen en bytes'
-    value: ${{ steps.inspect.outputs.size }}
+  image-size-mb:
+    description: 'Tamaño de la imagen en MB'
+    value: ${{ steps.inspect.outputs.size_mb }}
 
 runs:
   using: composite
   steps:
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Cache Docker layers
-      uses: actions/cache@v4
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ inputs.service }}-${{ hashFiles('**/Dockerfile*') }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-${{ inputs.service }}-
-          ${{ runner.os }}-buildx-sh
-
     - name: Validar inputs
       shell: bash
       run: |
-        if [[ -z "${{ inputs.docker-username }}" ]] || [[ -z "${{ inputs.docker-password }}" ]]; then
-          echo "❌ ERROR: docker-username y docker-password son requeridos"
-          echo "Composite actions NO pueden acceder a secrets directamente"
+        if [[ -z "${{ inputs.docker-username }}" || -z "${{ inputs.docker-password }}" ]]; then
+          echo "❌ docker-username y docker-password son requeridos"
           exit 1
         fi
-        echo "✅ Inputs validados para ${{ inputs.service }}"
+        if [[ ! -f "${{ inputs.dockerfile }}" ]]; then
+          echo "❌ Dockerfile no encontrado: ${{ inputs.dockerfile }}"
+          exit 1
+        fi
+        echo "✅ Build ${{ inputs.service }}: ${{ inputs.image-name }}:${{ inputs.image-tag }}"
 
-    - uses: docker/setup-buildx-action@v4
-      with:
-        driver-opts: image=moby/buildkit:latest
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-    - uses: docker/login-action@v4
+    - name: Login a Docker Hub
+      uses: docker/login-action@v4
       with:
         username: ${{ inputs.docker-username }}
         password: ${{ inputs.docker-password }}
@@ -97,84 +89,68 @@ runs:
         platforms: linux/amd64,linux/arm64
         tags: |
           ${{ inputs.image-name }}:${{ inputs.image-tag }}
-          ${{ inputs.image-name }}:${{ github.sha }}
           ${{ inputs.image-name }}:latest
         cache-from: |
           type=gha,scope=${{ github.workflow }}-${{ inputs.service }}
           type=registry,ref=${{ inputs.image-name }}:cache
-          type=local,src=/tmp/.buildx-cache
         cache-to: |
           type=gha,mode=max,scope=${{ github.workflow }}-${{ inputs.service }}
           type=registry,ref=${{ inputs.image-name }}:cache,mode=max
-          type=local,dest=/tmp/.buildx-cache
         build-args: |
           BUILDKIT_INLINE_CACHE=1
           ${{ inputs.build-args }}
         provenance: true
         sbom: ${{ inputs.enable-scan == 'true' }}
 
-    - name: Instalar crane
-      uses: imjasonh/setup-crane@v0.3
-
     - name: Inspeccionar imagen
       id: inspect
       shell: bash
       run: |
         DIGEST="${{ steps.build.outputs.digest }}"
-        echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
-        
-        # Login a Docker Hub para crane
-        echo "${{ inputs.docker-password }}" | crane auth login docker.io -u "${{ inputs.docker-username }}" --password-stdin
-        
-        # Obtener tamaño real usando crane
-        SIZE=$(crane manifest ${{ inputs.image-name }}@${DIGEST} 2>/dev/null | \
-          jq '[.layers[].size] | add' 2>/dev/null || echo "0")
-        echo "size=${SIZE}" >> $GITHUB_OUTPUT
-        
-        SIZE_MB=$((SIZE / 1024 / 1024))
-        MAX_MB=${{ inputs.max-image-size }}
-        
-        echo "📦 Imagen: ${{ inputs.image-name }}@${DIGEST}"
-        echo "📊 Tamaño: ${SIZE_MB}MB (max: ${MAX_MB}MB)"
-        
-        if [[ $SIZE_MB -gt $MAX_MB ]]; then
-          echo "❌ ERROR: Imagen excede el tamaño máximo permitido"
+        echo "📦 ${{ inputs.image-name }}@${DIGEST}"
+
+        # Instalar crane si no está disponible
+        if ! command -v crane &>/dev/null; then
+          curl -sL https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz \
+            | tar xz -C /usr/local/bin crane 2>/dev/null || true
+        fi
+
+        SIZE_MB=0
+        if command -v crane &>/dev/null; then
+          echo "${{ inputs.docker-password }}" | \
+            crane auth login docker.io -u "${{ inputs.docker-username }}" --password-stdin 2>/dev/null || true
+          SIZE_BYTES=$(crane manifest "${{ inputs.image-name }}@${DIGEST}" 2>/dev/null \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print(sum(l.get('size',0) for l in d.get('layers',[])))" \
+            2>/dev/null || echo "0")
+          SIZE_MB=$((SIZE_BYTES / 1024 / 1024))
+        fi
+
+        echo "size_mb=${SIZE_MB}" >> $GITHUB_OUTPUT
+        echo "📊 Tamaño: ${SIZE_MB}MB (máx: ${{ inputs.max-image-size }}MB)"
+
+        if [[ $SIZE_MB -gt 0 && $SIZE_MB -gt ${{ inputs.max-image-size }} ]]; then
+          echo "❌ Imagen excede el tamaño máximo (${{ inputs.max-image-size }}MB)"
           exit 1
         fi
         echo "✅ Tamaño de imagen válido"
 
-    - name: Escaneo de vulnerabilidades
-      if: ${{ inputs.enable-scan == 'true' }}
+    - name: Escaneo de vulnerabilidades Trivy
+      if: inputs.enable-scan == 'true'
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: '${{ inputs.image-name }}:${{ inputs.image-tag }}'
         format: 'sarif'
-        output: 'trivy-results-${{ inputs.service }}.sarif'
+        output: 'trivy-${{ inputs.service }}.sarif'
         severity: 'CRITICAL,HIGH'
         exit-code: '0'
       env:
         TRIVY_USERNAME: ${{ inputs.docker-username }}
         TRIVY_PASSWORD: ${{ inputs.docker-password }}
 
-    - name: Debug token
-      if: ${{ inputs.enable-scan == 'true' }}
-      shell: bash
-      run: |
-        echo "Token input: ${{ inputs.github-token }}"
-        echo "GitHub token: ${{ github.token }}"
-        echo "Using token: ${{ inputs.github-token || github.token }}"
-    - name: Resultados de seguridad generados
-      if: ${{ inputs.enable-scan == 'true' }}
-      shell: bash
-      run: |
-        echo "=== ESCANEO DE SEGURIDAD COMPLETADO ==="
-        echo "Archivo SARIF: trivy-results-${{ inputs.service }}.sarif"
-        echo "Para ver resultados: descarga el artifact o usa GitHub CodeQL"
-        echo "========================================"
-    - name: Subir resultados de seguridad como artifact
-      if: ${{ inputs.enable-scan == 'true' }}
+    - name: Subir resultados de seguridad
+      if: inputs.enable-scan == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: trivy-results-${{ inputs.service }}-${{ github.run_number }}
-        path: trivy-results-${{ inputs.service }}.sarif
+        name: trivy-${{ inputs.service }}-${{ github.run_number }}
+        path: trivy-${{ inputs.service }}.sarif
         retention-days: 30

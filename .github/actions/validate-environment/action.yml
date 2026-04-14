@@ -28,85 +28,76 @@ inputs:
     required: false
     default: ''
   production-domain:
-    description: 'Production domain variable'
+    description: 'Production domain'
     required: false
     default: ''
 
 outputs:
   staging-ready:
-    description: 'Whether staging secrets are configured'
+    description: 'Si staging está completamente configurado'
     value: ${{ steps.check-staging.outputs.ready }}
   production-ready:
-    description: 'Whether production secrets are configured'
+    description: 'Si producción está completamente configurada'
     value: ${{ steps.check-production.outputs.ready }}
   base-secrets-valid:
-    description: 'Whether base secrets (docker, ssh) are valid'
+    description: 'Si los secrets base (docker, ssh) son válidos'
     value: ${{ steps.validate-base.outputs.valid }}
 
 runs:
   using: composite
   steps:
-    - name: Validate Base Secrets
+    - name: Validar secrets base
       id: validate-base
       shell: bash
       run: |
-        echo "🔍 Validando secrets base requeridos..."
-        
         errors=0
-        
-        if [[ -z "${{ inputs.docker-username }}" ]]; then
-          echo "❌ Secret DOCKER_USERNAME no configurado"
-          errors=$((errors + 1))
+
+        [[ -z "${{ inputs.docker-username }}" ]] && { echo "❌ DOCKER_USERNAME no configurado";  errors=$((errors+1)); }
+        [[ -z "${{ inputs.docker-password }}" ]] && { echo "❌ DOCKER_PASSWORD no configurado";  errors=$((errors+1)); }
+        [[ -z "${{ inputs.ssh-private-key }}" ]] && { echo "❌ SSH_PRIVATE_KEY no configurado"; errors=$((errors+1)); }
+
+        # Validar formato mínimo de la clave SSH (debe contener BEGIN)
+        if [[ -n "${{ inputs.ssh-private-key }}" ]] && \
+           ! echo "${{ inputs.ssh-private-key }}" | grep -q "BEGIN"; then
+          echo "❌ SSH_PRIVATE_KEY no parece una clave PEM válida"
+          errors=$((errors+1))
         fi
-        
-        if [[ -z "${{ inputs.docker-password }}" ]]; then
-          echo "❌ Secret DOCKER_PASSWORD no configurado"
-          errors=$((errors + 1))
-        fi
-        
-        if [[ -z "${{ inputs.ssh-private-key }}" ]]; then
-          echo "❌ Secret SSH_PRIVATE_KEY no configurado"
-          errors=$((errors + 1))
-        fi
-        
+
         if [[ $errors -gt 0 ]]; then
           echo "valid=false" >> $GITHUB_OUTPUT
+          echo "❌ $errors secret(s) base inválido(s)"
           exit 1
         fi
-        
-        echo "✅ Todos los secrets base requeridos están configurados"
-        echo "valid=true" >> $GITHUB_OUTPUT
-        echo "📋 DOCKER_USERNAME: ${{ inputs.docker-username }}"
 
-    - name: Check Staging Secrets
+        echo "valid=true" >> $GITHUB_OUTPUT
+        echo "✅ Secrets base válidos (docker: ${{ inputs.docker-username }})"
+
+    - name: Verificar staging
       id: check-staging
       shell: bash
       run: |
         if [[ -n "${{ inputs.staging-host }}" && -n "${{ inputs.staging-user }}" ]]; then
           echo "ready=true" >> $GITHUB_OUTPUT
-          echo "✅ Secrets de staging configurados"
+          echo "✅ Staging configurado (${{ inputs.staging-user }}@${{ inputs.staging-host }})"
         else
           echo "ready=false" >> $GITHUB_OUTPUT
-          echo "⚠️  Secrets de staging incompletos - deploy a staging se omitirá"
+          echo "⚠️  Staging no configurado — deploy a staging se omitirá"
         fi
 
-    - name: Check Production Secrets
+    - name: Verificar producción
       id: check-production
       shell: bash
       run: |
-        if [[ -n "${{ inputs.production-host }}" && -n "${{ inputs.production-user }}" ]]; then
+        missing=()
+        [[ -z "${{ inputs.production-host }}"   ]] && missing+=("PRODUCTION_HOST")
+        [[ -z "${{ inputs.production-user }}"   ]] && missing+=("PRODUCTION_USER")
+        [[ -z "${{ inputs.production-domain }}" ]] && missing+=("PRODUCTION_DOMAIN")
+
+        if [[ ${#missing[@]} -eq 0 ]]; then
           echo "ready=true" >> $GITHUB_OUTPUT
-          echo "✅ Secrets de producción configurados"
+          echo "✅ Producción configurada (${{ inputs.production-user }}@${{ inputs.production-host }}, dominio: ${{ inputs.production-domain }})"
         else
           echo "ready=false" >> $GITHUB_OUTPUT
-          echo "⚠️  Secrets de producción incompletos - deploy a producción se omitirá"
-        fi
-
-    - name: Validate Production Domain
-      shell: bash
-      run: |
-        if [[ -z "${{ inputs.production-domain }}" ]]; then
-          echo "⚠️  WARNING: Variable PRODUCTION_DOMAIN no configurada"
-        else
-          echo "✅ PRODUCTION_DOMAIN: ${{ inputs.production-domain }}"
+          echo "⚠️  Producción incompleta — faltan: ${missing[*]}"
+          echo "    Deploy a producción se omitirá"
         fi

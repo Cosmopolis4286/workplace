@@ -1,5 +1,5 @@
 name: 'Docker Deploy'
-description: 'Ejecuta deploy de containers Docker en servidor remoto'
+description: 'Pull de imágenes y recreación de containers en el servidor remoto'
 
 inputs:
   ssh-user:
@@ -13,10 +13,10 @@ inputs:
     required: false
     default: '/opt/workplace'
   backend-image:
-    description: 'Imagen backend'
+    description: 'Imagen backend (registry/image:tag)'
     required: true
   frontend-image:
-    description: 'Imagen frontend'
+    description: 'Imagen frontend (registry/image:tag)'
     required: true
   current-sha:
     description: 'SHA del commit'
@@ -32,7 +32,7 @@ inputs:
 
 outputs:
   status:
-    description: 'Estado del deploy'
+    description: 'Estado del deploy (success/failure)'
     value: ${{ steps.deploy.outputs.status }}
   duration:
     description: 'Duración en segundos'
@@ -46,27 +46,52 @@ runs:
       shell: bash
       run: |
         START=$(date +%s)
-        
-        ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" << 'EOF'
+
+        ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" \
+          "DEPLOY_PATH='${{ inputs.deploy-path }}' \
+           BACKEND_IMAGE='${{ inputs.backend-image }}' \
+           FRONTEND_IMAGE='${{ inputs.frontend-image }}' \
+           CURRENT_SHA='${{ inputs.current-sha }}' \
+           DOMAIN='${{ inputs.domain }}' \
+           ACME_EMAIL='${{ inputs.acme-email }}' \
+           bash -s" << 'ENDSSH'
           set -euo pipefail
-          cd "${{ inputs.deploy-path }}"
-          
-          # Backup versión actual
+          cd "$DEPLOY_PATH"
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+
+          echo "🚀 Deploy iniciado: $CURRENT_SHA"
+          echo "   Backend:  $BACKEND_IMAGE"
+          echo "   Frontend: $FRONTEND_IMAGE"
+
+          # Backup de la versión anterior antes de sobreescribir
+          mkdir -p versions
           if [[ -f versions/current.env ]]; then
-            cp versions/current.env "versions/backup-$(date +%s).env"
+            cp versions/current.env "versions/backup-$(date +%Y%m%d-%H%M%S).env"
+            # Mantener solo los últimos 10 backups
+            ls -t versions/backup-*.env 2>/dev/null | tail -n +11 | xargs rm -f || true
           fi
-          
-          # Pull imágenes
-          docker pull "${{ inputs.backend-image }}"
-          docker pull "${{ inputs.frontend-image }}"
-          
-          # Deploy
-          export BACKEND_IMAGE="${{ inputs.backend-image }}"
-          export FRONTEND_IMAGE="${{ inputs.frontend-image }}"
-          docker compose -f docker-compose.lite.yml up -d --no-deps --force-recreate backend frontend
-          
-          # Actualizar solo las variables de deploy en .env (sin sobreescribir secretos del servidor)
-          if [[ -n "${{ inputs.domain }}" ]]; then
+
+          # Pull imágenes con retry (3 intentos por red inestable)
+          pull_with_retry() {
+            local img="$1"
+            for i in 1 2 3; do
+              docker pull "$img" && return 0
+              echo "  ⚠️  Pull $img intento $i/3 falló"
+              [[ $i -lt 3 ]] && sleep 10
+            done
+            echo "  ❌ No se pudo pull: $img"
+            return 1
+          }
+
+          pull_with_retry "$BACKEND_IMAGE"
+          pull_with_retry "$FRONTEND_IMAGE"
+
+          # Deploy — recrear solo backend y frontend sin tocar postgres/redis/traefik
+          export BACKEND_IMAGE FRONTEND_IMAGE
+          $COMPOSE up -d --no-deps --force-recreate backend frontend
+
+          # Actualizar variables de deploy en .env sin sobreescribir secretos
+          if [[ -n "$DOMAIN" ]]; then
             update_env() {
               local key="$1" val="$2"
               if grep -q "^${key}=" .env 2>/dev/null; then
@@ -75,27 +100,49 @@ runs:
                 echo "${key}=${val}" >> .env
               fi
             }
-            update_env "DOMAIN"         "${{ inputs.domain }}"
-            update_env "ACME_EMAIL"     "${{ inputs.acme-email }}"
-            update_env "BACKEND_IMAGE"  "${{ inputs.backend-image }}"
-            update_env "FRONTEND_IMAGE" "${{ inputs.frontend-image }}"
+            update_env "DOMAIN"         "$DOMAIN"
+            update_env "ACME_EMAIL"     "$ACME_EMAIL"
+            update_env "BACKEND_IMAGE"  "$BACKEND_IMAGE"
+            update_env "FRONTEND_IMAGE" "$FRONTEND_IMAGE"
           fi
 
-          # Guardar versión
-          mkdir -p versions
-          cat > versions/current.env << ENVS
-        BACKEND_CURRENT_IMAGE=${{ inputs.backend-image }}
-        FRONTEND_CURRENT_IMAGE=${{ inputs.frontend-image }}
-        DEPLOY_SHA=${{ inputs.current-sha }}
+          # Esperar que los containers estén running (no solo started)
+          echo "⏳ Esperando que los containers estén en estado running..."
+          for i in $(seq 1 12); do
+            BACKEND_STATUS=$(docker inspect --format='{{.State.Status}}' \
+              "$(docker ps -qf name=backend | head -1)" 2>/dev/null || echo "missing")
+            FRONTEND_STATUS=$(docker inspect --format='{{.State.Status}}' \
+              "$(docker ps -qf name=frontend | head -1)" 2>/dev/null || echo "missing")
+
+            if [[ "$BACKEND_STATUS" == "running" && "$FRONTEND_STATUS" == "running" ]]; then
+              echo "  ✅ Containers running (intento $i)"
+              break
+            fi
+
+            if [[ "$BACKEND_STATUS" == "restarting" || "$FRONTEND_STATUS" == "restarting" ]]; then
+              echo "  ❌ Container en estado restarting — fallo de arranque"
+              echo "  Logs backend:"
+              docker logs "$(docker ps -aqf name=backend | head -1)" --tail 20 2>&1 || true
+              exit 1
+            fi
+
+            echo "  ⏳ backend=$BACKEND_STATUS frontend=$FRONTEND_STATUS — intento $i/12"
+            sleep 5
+          done
+
+          # Guardar versión actual
+          cat > versions/current.env << ENVFILE
+        BACKEND_CURRENT_IMAGE=${BACKEND_IMAGE}
+        FRONTEND_CURRENT_IMAGE=${FRONTEND_IMAGE}
+        DEPLOY_SHA=${CURRENT_SHA}
         DEPLOY_DATE=$(date -Iseconds)
-        ENVS
-          
-          echo "✅ Deploy exitoso"
-        EOF
-        
+        ENVFILE
+
+          echo "✅ Deploy completado"
+        ENDSSH
+
         END=$(date +%s)
         DURATION=$((END - START))
-        
         echo "status=success" >> $GITHUB_OUTPUT
         echo "duration=$DURATION" >> $GITHUB_OUTPUT
         echo "✅ Deploy completado en ${DURATION}s"
