@@ -34,8 +34,16 @@ RUN pnpm prune --prod --config.interactive=false
 # ---------- PRODUCTION ----------
 FROM node:20-alpine AS production
 
-# Variables opcionales
+# Build args para metadata de la version
+ARG GIT_SHA=unknown
+ARG APP_VERSION=1.0.0
+ARG BUILD_TIME
+
+# Variables de entorno
 ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV GIT_SHA=${GIT_SHA}
+ENV APP_VERSION=${APP_VERSION}
+ENV BUILD_TIME=${BUILD_TIME}
 # Prisma: usar OpenSSL 3.x disponible en Alpine
 ENV PRISMA_CLI_QUERY_ENGINE_TYPE=library
 ENV PRISMA_CLI_FETCH_ENGINE=libquery
