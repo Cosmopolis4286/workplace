@@ -84,7 +84,7 @@ USER app
 EXPOSE ${NODE_PORT}
 
 # Health check para verificar que el backend esté funcionando
-HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=5 \
+HEALTHCHECK --interval=15s --timeout=5s --start-period=120s --retries=5 \
   CMD curl -fs http://localhost:3001/api/health > /dev/null || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]
