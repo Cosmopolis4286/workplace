@@ -368,7 +368,7 @@
         </div>
 
         <!-- ── Configuración de Pagos ─────────────────────────────────── -->
-        <div class="card-premium p-6">
+        <div v-if="isComidaCategory" class="card-premium p-6">
           <div class="flex items-center mb-6">
             <div class="p-3 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg mr-3">
               <CurrencyDollarIcon class="h-6 w-6 text-white" />
@@ -430,7 +430,7 @@
         </div>
 
         <!-- ── Operaciones ────────────────────────────────────────────── -->
-        <div class="card-premium p-6">
+        <div v-if="isComidaCategory" class="card-premium p-6">
           <div class="flex items-center mb-6">
             <div class="p-3 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg mr-3">
               <ClockIcon class="h-6 w-6 text-white" />
@@ -504,12 +504,16 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useSettings } from '~/composables/useSettings'
 import { useAuth } from '~/composables/useAuth'
+import { usePermissions } from '~/composables/usePermissions'
 import { useUserPreferences } from '~/composables/useUserPreferences'
 
 const { user } = useAuth()
+const { userCategory } = usePermissions()
 const role = computed(() => user.value?.role ?? 'NORMAL')
 // Solo COMMERCE y FREELANCER tienen un negocio propio con configuración de backend
 const isCommerce = computed(() => ['COMMERCE', 'FREELANCER'].includes(role.value))
+// Solo usuarios de categoría "Comida" pueden ver Operaciones y Configuración de Pagos
+const isComidaCategory = computed(() => userCategory.value === 'Comida')
 const roleLabel = computed(() => {
   const labels: Record<string, string> = {
     SUPERADMIN: 'Super Administrador',
@@ -610,6 +614,7 @@ async function toggleAndSaveNotification(key: keyof typeof notifForm.value) {
 
 // ─── NORMAL / FREELANCER settings (localStorage only) ────────────────────────
 
+const LS_PREFS = 'user_preferences'
 const LS_NOTIFS = 'user_notifications'
 const LS_PRIVACY = 'user_privacy'
 
@@ -694,6 +699,19 @@ onMounted(async () => {
     await loadSettings()
     syncForms()
   }
+  
+  // Hide any alert containing restaurant configuration message for non-Comida categories
+  if (!isComidaCategory.value) {
+    setTimeout(() => {
+      const elements = document.querySelectorAll('*')
+      elements.forEach(el => {
+        const htmlEl = el as HTMLElement
+        if (htmlEl.textContent?.includes('La configuración de restaurante solo está disponible para usuarios de la categoría "Comida"')) {
+          htmlEl.style.display = 'none'
+        }
+      })
+    }, 100)
+  }
 })
 </script>
 
@@ -720,4 +738,9 @@ onMounted(async () => {
 .toast-leave-active { transition: all 0.3s ease; }
 .toast-enter-from,
 .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(1rem); }
+
+/* Hide alert about restaurant configuration for non-Comida categories */
+.alert-restaurant-config {
+  display: none !important;
+}
 </style>
