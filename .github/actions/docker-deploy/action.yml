@@ -103,6 +103,35 @@ runs:
           pull_with_retry "$BACKEND_IMAGE"
           pull_with_retry "$FRONTEND_IMAGE"
 
+          # Verificar que postgres y redis estén healthy antes de recrear backend
+          # (--no-deps omite el depends_on, así que lo hacemos explícito aquí)
+          echo "🔍 Verificando que postgres y redis estén healthy antes del deploy..."
+          for svc in postgres redis; do
+            SVC_ID=$(docker ps -qf name="$svc" | head -1)
+            if [[ -z "$SVC_ID" ]]; then
+              echo "  ❌ Container '$svc' no encontrado — asegúrate de que el stack base está levantado"
+              echo "     Ejecuta: docker compose -f docker-compose.lite.yml up -d postgres redis traefik"
+              exit 1
+            fi
+            SVC_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$SVC_ID" 2>/dev/null || echo "unknown")
+            if [[ "$SVC_HEALTH" != "healthy" ]]; then
+              echo "  ⚠️  $svc está '$SVC_HEALTH' — esperando hasta 60s..."
+              for j in $(seq 1 20); do
+                sleep 3
+                SVC_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$SVC_ID" 2>/dev/null || echo "unknown")
+                [[ "$SVC_HEALTH" == "healthy" ]] && break
+                echo "    ⏳ $svc=$SVC_HEALTH ($((j*3))s/60s)"
+              done
+              if [[ "$SVC_HEALTH" != "healthy" ]]; then
+                echo "  ❌ $svc no alcanzó estado healthy (actual: $SVC_HEALTH)"
+                echo "  Logs $svc (últimos 20):"
+                docker logs "$SVC_ID" --tail 20 2>&1 || true
+                exit 1
+              fi
+            fi
+            echo "  ✅ $svc healthy"
+          done
+
           # Deploy — recrear solo backend y frontend sin tocar postgres/redis/traefik
           export BACKEND_IMAGE FRONTEND_IMAGE NODE_PORT FRONTEND_PORT
           $COMPOSE up -d --no-deps --force-recreate backend frontend
@@ -125,43 +154,56 @@ runs:
             update_env "FRONTEND_PORT"   "$FRONTEND_PORT"
           fi
 
-          # Esperar que los containers estén healthy (no solo running)
-          # start_period=40s + hasta 3 reintentos de 30s = hasta ~130s reales
-          echo "⏳ Esperando que los containers estén healthy (máx 120s)..."
+          # Esperar que los containers estén healthy
+          # Backend: start_period=120s + 5 retries×30s = hasta ~270s posibles
+          # Loop: 90 iteraciones × 3s = 270s máx
+          echo "⏳ Esperando que los containers estén healthy (máx 270s)..."
           HEALTHY_COUNT=0
-          for i in $(seq 1 60); do
-            # Obtener health status con docker inspect
-            BACKEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' \
-              "$(docker ps -qf name=backend | head -1)" 2>/dev/null || echo "unknown")
-            FRONTEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' \
-              "$(docker ps -qf name=frontend | head -1)" 2>/dev/null || echo "unknown")
+          for i in $(seq 1 90); do
+            BACKEND_ID=$(docker ps -qf name=backend | head -1)
+            FRONTEND_ID=$(docker ps -qf name=frontend | head -1)
+
+            BACKEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$BACKEND_ID" 2>/dev/null || echo "unknown")
+            FRONTEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$FRONTEND_ID" 2>/dev/null || echo "unknown")
+            BACKEND_STATUS=$(docker inspect --format='{{.State.Status}}' "$BACKEND_ID" 2>/dev/null || echo "missing")
+            FRONTEND_STATUS=$(docker inspect --format='{{.State.Status}}' "$FRONTEND_ID" 2>/dev/null || echo "missing")
+
+            # Fallo inmediato si alguno está en restarting o exited
+            if [[ "$BACKEND_STATUS" == "restarting" || "$FRONTEND_STATUS" == "restarting" ||
+                  "$BACKEND_STATUS" == "exited"     || "$FRONTEND_STATUS" == "exited" ]]; then
+              echo "  ❌ Container en estado de fallo — backend=$BACKEND_STATUS frontend=$FRONTEND_STATUS"
+              echo ""
+              echo "── Logs backend (últimos 60) ──"
+              docker logs "$BACKEND_ID" --tail 60 2>&1 || true
+              echo ""
+              echo "── Logs frontend (últimos 30) ──"
+              docker logs "$FRONTEND_ID" --tail 30 2>&1 || true
+              echo ""
+              echo "── Logs traefik (últimos 20) ──"
+              docker logs "$(docker ps -qf name=traefik | head -1)" --tail 20 2>&1 || true
+              echo ""
+              echo "── Postgres health (diagnóstico) ──"
+              PG_ID=$(docker ps -qf name=postgres | head -1)
+              docker inspect --format='{{.State.Health.Status}}' "$PG_ID" 2>/dev/null || echo "postgres no encontrado"
+              docker logs "$PG_ID" --tail 10 2>&1 || true
+              exit 1
+            fi
 
             if [[ "$BACKEND_HEALTH" == "healthy" && "$FRONTEND_HEALTH" == "healthy" ]]; then
               ((HEALTHY_COUNT++))
               if [[ $HEALTHY_COUNT -ge 2 ]]; then
-                echo "  ✅ Containers healthy confirmado (2 checks consecutivos)"
+                echo "  ✅ Containers healthy confirmado (2 checks consecutivos) en $((i*3))s"
                 break
               fi
               echo "  ✅ Healthy check $HEALTHY_COUNT/2 (intento $i)"
             else
               HEALTHY_COUNT=0
-              echo "  ⏳ backend=$BACKEND_HEALTH frontend=$FRONTEND_HEALTH — intento $i/60"
+              if [[ $((i % 10)) -eq 0 || $i -le 5 ]]; then
+                echo "  ⏳ backend=$BACKEND_HEALTH ($BACKEND_STATUS) | frontend=$FRONTEND_HEALTH ($FRONTEND_STATUS) — $((i*3))s/270s"
+              fi
             fi
 
-            # Verificar si containers están en estado de error
-            BACKEND_STATUS=$(docker inspect --format='{{.State.Status}}' \
-              "$(docker ps -qf name=backend | head -1)" 2>/dev/null || echo "missing")
-            FRONTEND_STATUS=$(docker inspect --format='{{.State.Status}}' \
-              "$(docker ps -qf name=frontend | head -1)" 2>/dev/null || echo "missing")
-
-            if [[ "$BACKEND_STATUS" == "restarting" || "$FRONTEND_STATUS" == "restarting" ]]; then
-              echo "  ❌ Container en estado restarting — fallo de arranque"
-              echo "  Logs backend:"
-              docker logs "$(docker ps -aqf name=backend | head -1)" --tail 30 2>&1 || true
-              exit 1
-            fi
-
-            sleep 2
+            sleep 3
           done
 
           # Verificación final
@@ -171,14 +213,28 @@ runs:
             "$(docker ps -qf name=frontend | head -1)" 2>/dev/null || echo "unknown")
 
           if [[ "$BACKEND_FINAL" != "healthy" || "$FRONTEND_FINAL" != "healthy" ]]; then
-            echo "  ❌ Containers no alcanzaron estado healthy"
-            echo "     Backend: $BACKEND_FINAL, Frontend: $FRONTEND_FINAL"
+            echo "  ❌ Containers no alcanzaron estado healthy después de 270s"
+            echo "     Backend: $BACKEND_FINAL | Frontend: $FRONTEND_FINAL"
             echo ""
-            echo "── Logs backend (últimos 50) ──"
-            docker logs "$(docker ps -aqf name=backend | head -1)" --tail 50 2>&1 || true
+            echo "── Logs backend (últimos 80) ──"
+            docker logs "$(docker ps -aqf name=backend | head -1)" --tail 80 2>&1 || true
             echo ""
-            echo "── Logs frontend (últimos 50) ──"
-            docker logs "$(docker ps -aqf name=frontend | head -1)" --tail 50 2>&1 || true
+            echo "── Últimos healthchecks del backend ──"
+            docker inspect --format='{{range .State.Health.Log}}[{{.Start}}] ExitCode={{.ExitCode}} {{.Output}}{{end}}' \
+              "$(docker ps -aqf name=backend | head -1)" 2>/dev/null | tail -5 || true
+            echo ""
+            echo "── Logs frontend (últimos 30) ──"
+            docker logs "$(docker ps -aqf name=frontend | head -1)" --tail 30 2>&1 || true
+            echo ""
+            echo "── Últimos healthchecks del frontend ──"
+            docker inspect --format='{{range .State.Health.Log}}[{{.Start}}] ExitCode={{.ExitCode}} {{.Output}}{{end}}' \
+              "$(docker ps -aqf name=frontend | head -1)" 2>/dev/null | tail -3 || true
+            echo ""
+            echo "── Logs traefik (últimos 20) ──"
+            docker logs "$(docker ps -aqf name=traefik | head -1)" --tail 20 2>&1 || true
+            echo ""
+            echo "── Estado de todos los containers del stack ──"
+            docker ps -a --filter "name=workplace" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
             # Guardar versión previa para que rollback pueda revertir
             if [[ -n "$PREV_BACKEND" && -n "$PREV_FRONTEND" ]]; then
               printf 'BACKEND_CURRENT_IMAGE=%s\nFRONTEND_CURRENT_IMAGE=%s\nDEPLOY_SHA=pre-deploy\nDEPLOY_DATE=%s\n' \
