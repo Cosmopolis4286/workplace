@@ -16,8 +16,6 @@ module.exports = {
     { pattern: /(shadow-glow|card|btn|badge|nav)-?.*/ },
     // Efectos de iconos y textos
     { pattern: /(icon|gradient|glass|premium|floating|glow)-?.*/ },
-    // Dark mode clases dinámicas
-    { pattern: /dark:(bg|text|border|ring|shadow|from|to|via)-.*/, variants: ['dark'] },
   ],
 
   theme: {
