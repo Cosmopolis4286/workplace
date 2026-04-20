@@ -106,10 +106,13 @@ export default defineNuxtRouteMiddleware((to: any) => {
     }
 
     // Redirect COMMERCE/FREELANCER without category to onboarding
+    // But check if onboarding was completed first
+    const onboardingCompleted = process.client ? localStorage.getItem('onboarding_completed') : null
     if (
       (role === 'COMMERCE' || role === 'FREELANCER') &&
       !user.value.categoryId &&
-      !onboardingExcluded.some(p => to.path.startsWith(p))
+      !onboardingExcluded.some(p => to.path.startsWith(p)) &&
+      onboardingCompleted !== 'true'
     ) {
       return navigateTo('/onboarding')
     }

@@ -166,6 +166,7 @@ const { user, updateLocalUser } = useAuth()
 const { invalidate: invalidateModules } = useModules()
 
 const STORAGE_KEY = 'onboarding_step'
+const COMPLETION_KEY = 'onboarding_completed'
 const step = ref(0)
 const steps = ['Tu negocio', 'Tu plan', '¡Listo!']
 
@@ -240,7 +241,7 @@ async function next() {
       invalidateModules()
       await loadPlans()
       step.value = 1
-      sessionStorage.setItem(STORAGE_KEY, '1')
+      localStorage.setItem(STORAGE_KEY, '1')
     } catch (e: any) { saveError.value = e.message }
     finally { saving.value = false }
   } else if (step.value === 1) {
@@ -256,24 +257,52 @@ async function next() {
         invalidateModules()
       }
       step.value = 2
-      sessionStorage.setItem(STORAGE_KEY, '2')
+      localStorage.setItem(STORAGE_KEY, '2')
     } catch (e: any) { saveError.value = e.message }
     finally { saving.value = false }
   }
 }
 
-function goToDashboard() {
-  sessionStorage.removeItem(STORAGE_KEY)
-  navigateTo('/dashboard')
+async function goToDashboard() {
+  localStorage.removeItem(STORAGE_KEY)
+  localStorage.setItem(COMPLETION_KEY, 'true')
+  try {
+    // Force refresh user data to ensure latest state
+    await updateLocalUser({ 
+      categoryId: selectedCategory.value,
+      subcategoryId: selectedSubcategory.value 
+    })
+    invalidateModules()
+    await navigateTo('/dashboard')
+  } catch (error) {
+    console.error('Navigation error:', error)
+    // Fallback: force page reload
+    window.location.href = '/dashboard'
+  }
 }
-function skipOnboarding() {
-  sessionStorage.removeItem(STORAGE_KEY)
-  navigateTo('/dashboard')
+async function skipOnboarding() {
+  localStorage.removeItem(STORAGE_KEY)
+  localStorage.setItem(COMPLETION_KEY, 'true')
+  try {
+    await navigateTo('/dashboard')
+  } catch (error) {
+    console.error('Navigation error:', error)
+    // Fallback: force page reload
+    window.location.href = '/dashboard'
+  }
 }
 
 onMounted(async () => {
+  // Check if onboarding was completed
+  const isCompleted = localStorage.getItem(COMPLETION_KEY)
+  if (isCompleted === 'true') {
+    // Onboarding already completed, redirect to dashboard
+    await navigateTo('/dashboard')
+    return
+  }
+  
   // Restaurar step si el usuario recargó la página
-  const saved = sessionStorage.getItem(STORAGE_KEY)
+  const saved = localStorage.getItem(STORAGE_KEY)
   if (saved) {
     const savedStep = parseInt(saved, 10)
     if (!isNaN(savedStep) && savedStep > 0) {
