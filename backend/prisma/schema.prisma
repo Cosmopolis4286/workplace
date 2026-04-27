@@ -292,6 +292,8 @@ model Product {
   calories        Int?
   ingredients     String[]
   allergens       String[]
+  brand           String?
+  forSale         Boolean       @default(true)
   categoryId      String
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   subcategoryId   String?
@@ -888,6 +890,19 @@ model ServiceCategory {
   services     Service[]
 
   @@map("service_categories")
+}
+
+model ServiceModality {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  value     String   @unique
+  emoji     String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("service_modalities")
 }
 
 model Service {

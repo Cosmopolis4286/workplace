@@ -29,16 +29,14 @@ export class DeliveryService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private async getRestaurantId(userId: string): Promise<string> {
+  private async getCommerceId(userId: string): Promise<string> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!restaurant)
-      throw new ForbiddenException(
-        'El usuario no tiene un restaurante asociado'
-      );
-    return restaurant.id;
+
+    // Si no tiene restaurante, usar el userId como commerceId
+    return restaurant?.id ?? userId;
   }
 
   private async assertDriverOwnership(driverId: string, commerceId: string) {
@@ -67,7 +65,7 @@ export class DeliveryService {
   // ─── Stats ────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
 
@@ -154,7 +152,7 @@ export class DeliveryService {
   // ─── Drivers CRUD ─────────────────────────────────────────────────────────
 
   async findAllDrivers(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.prisma.driver.findMany({
       where: { commerceId, isActive: true },
       include: {
@@ -176,18 +174,18 @@ export class DeliveryService {
   }
 
   async createDriver(userId: string, dto: CreateDriverDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.prisma.driver.create({ data: { ...dto, commerceId } });
   }
 
   async updateDriver(userId: string, driverId: string, dto: UpdateDriverDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDriverOwnership(driverId, commerceId);
     return this.prisma.driver.update({ where: { id: driverId }, data: dto });
   }
 
   async removeDriver(userId: string, driverId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const driver = await this.assertDriverOwnership(driverId, commerceId);
     // Soft delete: mark as inactive
     return this.prisma.driver.update({
@@ -201,7 +199,7 @@ export class DeliveryService {
     driverId: string,
     status: DriverStatus
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDriverOwnership(driverId, commerceId);
     return this.prisma.driver.update({
       where: { id: driverId },
@@ -212,7 +210,7 @@ export class DeliveryService {
   // ─── Deliveries CRUD ──────────────────────────────────────────────────────
 
   async findAllDeliveries(userId: string, query: QueryDeliveriesDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const { status, driverId, dateFrom, dateTo, page = 1, limit = 50 } = query;
 
     const where: Record<string, unknown> = { commerceId };
@@ -256,7 +254,7 @@ export class DeliveryService {
   }
 
   async findOneDelivery(userId: string, deliveryId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDeliveryOwnership(deliveryId, commerceId);
     return this.prisma.delivery.findUnique({
       where: { id: deliveryId },
@@ -265,7 +263,7 @@ export class DeliveryService {
   }
 
   async createDelivery(userId: string, dto: CreateDeliveryDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
 
     if (dto.driverId) {
       const driver = await this.prisma.driver.findUnique({
@@ -313,7 +311,7 @@ export class DeliveryService {
     deliveryId: string,
     dto: UpdateDeliveryDto
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDeliveryOwnership(deliveryId, commerceId);
 
     if (dto.driverId) {
@@ -345,7 +343,7 @@ export class DeliveryService {
   }
 
   async removeDelivery(userId: string, deliveryId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDeliveryOwnership(deliveryId, commerceId);
     await this.prisma.delivery.delete({ where: { id: deliveryId } });
   }
@@ -355,7 +353,7 @@ export class DeliveryService {
     deliveryId: string,
     status: DeliveryStatus
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const delivery = await this.assertDeliveryOwnership(deliveryId, commerceId);
 
     const data: Record<string, unknown> = { status };
@@ -417,7 +415,7 @@ export class DeliveryService {
   }
 
   async assignDriver(userId: string, deliveryId: string, driverId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDeliveryOwnership(deliveryId, commerceId);
 
     const driver = await this.prisma.driver.findUnique({

@@ -8,6 +8,12 @@
       :stats="headerStats"
     >
       <template #actions>
+        <button @click="openModalitiesModal" class="mr-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center">
+          <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+          </svg>
+          Modalidades
+        </button>
         <button @click="openCreate" class="btn-primary flex items-center">
           <PlusIcon class="h-5 w-5 mr-2" />
           Nuevo Servicio
@@ -563,6 +569,95 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Modalidades management modal -->
+    <Teleport to="body">
+      <div
+        v-if="showModalitiesModal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        @click.self="showModalitiesModal = false"
+      >
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-lg font-semibold text-gray-900">Gestionar Modalidades</h2>
+            <button @click="showModalitiesModal = false" class="p-1 text-gray-400 hover:text-gray-600">
+              <XMarkIcon class="h-5 w-5" />
+            </button>
+          </div>
+
+          <!-- Nueva modalidad -->
+          <div class="mb-6 p-4 bg-gray-50 rounded-xl">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Nueva Modalidad</h3>
+            <div class="grid grid-cols-4 gap-3">
+              <input
+                v-model="newModality.name"
+                type="text"
+                placeholder="Nombre (ej: Presencial)"
+                class="col-span-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20"
+              />
+              <input
+                v-model="newModality.value"
+                type="text"
+                placeholder="Valor (ej: PRESENCIAL)"
+                class="col-span-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20"
+              />
+              <input
+                v-model="newModality.emoji"
+                type="text"
+                placeholder="Emoji (ej: 📍)"
+                maxlength="2"
+                class="col-span-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20"
+              />
+              <button
+                @click="addModality"
+                :disabled="!newModality.name || !newModality.value"
+                class="col-span-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Agregar
+              </button>
+            </div>
+          </div>
+
+          <!-- Lista de modalidades -->
+          <div class="space-y-2">
+            <div
+              v-for="modality in modalities"
+              :key="modality.id"
+              class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">{{ modality.emoji || '📋' }}</span>
+                <div>
+                  <p class="font-medium text-gray-900">{{ modality.name }}</p>
+                  <p class="text-xs text-gray-500">{{ modality.value }}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  @click="toggleModalityActive(modality)"
+                  class="px-2 py-1 text-xs font-medium rounded"
+                  :class="modality.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+                >
+                  {{ modality.isActive ? 'Activo' : 'Inactivo' }}
+                </button>
+                <button
+                  @click="deleteModality(modality.id)"
+                  class="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Eliminar"
+                >
+                  <TrashIcon class="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p class="mt-4 text-xs text-gray-500">
+            Las modalidades activas aparecerán en el formulario de solicitud de servicios.
+          </p>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -585,27 +680,33 @@ import {
   ClipboardDocumentListIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useServicios, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service } from '~/composables/useServicios'
+import { useServicios, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service, type ServiceModality } from '~/composables/useServicios'
 
 definePageMeta({ middleware: 'auth' })
 
 const {
   services,
   catalogCategories,
+  modalities,
   loading,
   error,
   stats,
   fetchServices,
   fetchCatalogCategories,
+  fetchModalities,
   createService,
   updateService,
   toggleStatus: toggleServiceStatus,
   deleteService,
+  createModality,
+  updateModality,
+  deleteModality: deleteModalityFn,
 } = useServicios()
 
 const search = ref('')
 const filterStatus = ref('')
 const showModal = ref(false)
+const showModalitiesModal = ref(false)
 const editing = ref<Service | null>(null)
 const deleteTarget = ref<Service | null>(null)
 const toggleTarget = ref<Service | null>(null)
@@ -622,6 +723,7 @@ const metricsError = ref<string | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
 const tagInput = ref('')
+const newModality = ref({ name: '', value: '', emoji: '' })
 
 const emptyForm = () => ({
   name: '',
@@ -806,6 +908,43 @@ function closeMetrics() {
   metricsTarget.value = null
   metricsData.value = null
   metricsError.value = null
+}
+
+function openModalitiesModal() {
+  showModalitiesModal.value = true
+  fetchModalities()
+}
+
+async function addModality() {
+  if (!newModality.value.name || !newModality.value.value) return
+  try {
+    await createModality({
+      name: newModality.value.name,
+      value: newModality.value.value,
+      emoji: newModality.value.emoji,
+      sortOrder: modalities.value.length,
+    })
+    newModality.value = { name: '', value: '', emoji: '' }
+  } catch (e: any) {
+    error.value = e?.data?.message ?? 'Error al crear modalidad'
+  }
+}
+
+async function toggleModalityActive(modality: ServiceModality) {
+  try {
+    await updateModality(modality.id, { isActive: !modality.isActive })
+  } catch (e: any) {
+    error.value = e?.data?.message ?? 'Error al actualizar modalidad'
+  }
+}
+
+async function deleteModality(id: string) {
+  if (!confirm('¿Estás seguro de eliminar esta modalidad?')) return
+  try {
+    await deleteModalityFn(id)
+  } catch (e: any) {
+    error.value = e?.data?.message ?? 'Error al eliminar modalidad'
+  }
 }
 
 onMounted(async () => {

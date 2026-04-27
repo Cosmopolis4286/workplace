@@ -19,16 +19,14 @@ export class BranchesService {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  private async getRestaurantId(userId: string): Promise<string> {
+  private async getCommerceId(userId: string): Promise<string> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!restaurant)
-      throw new ForbiddenException(
-        'El usuario no tiene un restaurante asociado'
-      );
-    return restaurant.id;
+
+    // Si no tiene restaurante, usar el userId como commerceId
+    return restaurant?.id ?? userId;
   }
 
   private async assertOwnership(branchId: string, commerceId: string) {
@@ -44,7 +42,7 @@ export class BranchesService {
   // ─── Stats ──────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
 
     const [total, active, byStatusRaw] = await Promise.all([
       this.prisma.branch.count({ where: { commerceId } }),
@@ -68,7 +66,7 @@ export class BranchesService {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   async findAll(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.prisma.branch.findMany({
       where: { commerceId },
       orderBy: { name: 'asc' },
@@ -76,12 +74,12 @@ export class BranchesService {
   }
 
   async findOne(userId: string, branchId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.assertOwnership(branchId, commerceId);
   }
 
   async create(userId: string, dto: CreateBranchDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.planLimits.assertBranchLimit(userId, commerceId);
 
     const exists = await this.prisma.branch.findUnique({
@@ -96,7 +94,7 @@ export class BranchesService {
   }
 
   async update(userId: string, branchId: string, dto: UpdateBranchDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(branchId, commerceId);
 
     if (dto.name) {
@@ -114,13 +112,13 @@ export class BranchesService {
   }
 
   async remove(userId: string, branchId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(branchId, commerceId);
     await this.prisma.branch.delete({ where: { id: branchId } });
   }
 
   async updateStatus(userId: string, branchId: string, status: BranchStatus) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(branchId, commerceId);
     return this.prisma.branch.update({
       where: { id: branchId },

@@ -23,16 +23,14 @@ export class AppointmentsService {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  private async getRestaurantId(userId: string): Promise<string> {
+  private async getCommerceId(userId: string): Promise<string> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!restaurant)
-      throw new ForbiddenException(
-        'El usuario no tiene un restaurante asociado'
-      );
-    return restaurant.id;
+
+    // Si no tiene restaurante, usar el userId como commerceId
+    return restaurant?.id ?? userId;
   }
 
   private async assertOwnership(appointmentId: string, commerceId: string) {
@@ -48,7 +46,7 @@ export class AppointmentsService {
   // ─── Stats ──────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
 
@@ -78,7 +76,7 @@ export class AppointmentsService {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   async findAll(userId: string, query: QueryAppointmentsDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const { status, dateFrom, dateTo, page = 1, limit = 50 } = query;
 
     const where: Record<string, unknown> = { commerceId };
@@ -114,7 +112,7 @@ export class AppointmentsService {
   }
 
   async findOne(userId: string, appointmentId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const appointment = await this.assertOwnership(appointmentId, commerceId);
     return this.prisma.appointment.findUnique({
       where: { id: appointment.id },
@@ -127,7 +125,7 @@ export class AppointmentsService {
   }
 
   async create(userId: string, dto: CreateAppointmentDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
 
     // Validate customer belongs to restaurant if provided
     if (dto.customerId) {
@@ -159,7 +157,7 @@ export class AppointmentsService {
     appointmentId: string,
     dto: UpdateAppointmentDto
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(appointmentId, commerceId);
 
     if (dto.customerId) {
@@ -187,7 +185,7 @@ export class AppointmentsService {
   }
 
   async remove(userId: string, appointmentId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(appointmentId, commerceId);
     await this.prisma.appointment.delete({ where: { id: appointmentId } });
   }
@@ -197,7 +195,7 @@ export class AppointmentsService {
     appointmentId: string,
     status: AppointmentStatus
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(appointmentId, commerceId);
     return this.prisma.appointment.update({
       where: { id: appointmentId },

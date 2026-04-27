@@ -17,11 +17,11 @@ export class CatalogService {
   ) {}
 
   async getCategories() {
-    // Return distinct category names that have at least 1 DISPONIBLE product
+    // Return distinct category names that have at least 1 DISPONIBLE product for sale
     const categories = await this.prisma.category.findMany({
       where: {
         products: {
-          some: { status: ProductStatus.DISPONIBLE },
+          some: { status: ProductStatus.DISPONIBLE, forSale: true },
         },
       },
       select: {
@@ -30,7 +30,7 @@ export class CatalogService {
         color: true,
         _count: {
           select: {
-            products: { where: { status: ProductStatus.DISPONIBLE } },
+            products: { where: { status: ProductStatus.DISPONIBLE, forSale: true } },
           },
         },
       },
@@ -51,7 +51,7 @@ export class CatalogService {
     const restaurants = await this.prisma.restaurant.findMany({
       where: {
         products: {
-          some: { status: ProductStatus.DISPONIBLE },
+          some: { status: ProductStatus.DISPONIBLE, forSale: true },
         },
       },
       select: {
@@ -60,7 +60,7 @@ export class CatalogService {
         type: true,
         _count: {
           select: {
-            products: { where: { status: ProductStatus.DISPONIBLE } },
+            products: { where: { status: ProductStatus.DISPONIBLE, forSale: true } },
           },
         },
       },
@@ -90,6 +90,7 @@ export class CatalogService {
 
     const where: Record<string, unknown> = {
       status: ProductStatus.DISPONIBLE,
+      forSale: true,
     };
 
     if (search) {
@@ -158,7 +159,7 @@ export class CatalogService {
 
   async getProduct(id: string) {
     const product = await this.prisma.product.findFirst({
-      where: { id, status: ProductStatus.DISPONIBLE },
+      where: { id, status: ProductStatus.DISPONIBLE, forSale: true },
       select: {
         id: true,
         name: true,

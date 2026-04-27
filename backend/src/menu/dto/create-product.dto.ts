@@ -82,6 +82,14 @@ export class CreateProductDto {
   @IsString({ each: true })
   allergens?: string[];
 
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  forSale?: boolean;
+
   @IsString()
   @IsNotEmpty()
   categoryId: string;

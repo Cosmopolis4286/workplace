@@ -19,16 +19,14 @@ export class EmployeesService {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  private async getRestaurantId(userId: string): Promise<string> {
+  private async getCommerceId(userId: string): Promise<string> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!restaurant)
-      throw new ForbiddenException(
-        'El usuario no tiene un restaurante asociado'
-      );
-    return restaurant.id;
+
+    // Si no tiene restaurante, usar el userId como commerceId
+    return restaurant?.id ?? userId;
   }
 
   private async assertOwnership(employeeId: string, commerceId: string) {
@@ -44,7 +42,7 @@ export class EmployeesService {
   // ─── Stats ──────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
 
     const [total, active, byRoleRaw] = await Promise.all([
       this.prisma.employee.count({ where: { commerceId } }),
@@ -66,7 +64,7 @@ export class EmployeesService {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   async findAll(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.prisma.employee.findMany({
       where: { commerceId },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
@@ -74,12 +72,12 @@ export class EmployeesService {
   }
 
   async findOne(userId: string, employeeId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.assertOwnership(employeeId, commerceId);
   }
 
   async create(userId: string, dto: CreateEmployeeDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.planLimits.assertEmployeeLimit(userId, commerceId);
 
     if (dto.email) {
@@ -98,7 +96,7 @@ export class EmployeesService {
   }
 
   async update(userId: string, employeeId: string, dto: UpdateEmployeeDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(employeeId, commerceId);
 
     if (dto.email) {
@@ -118,13 +116,13 @@ export class EmployeesService {
   }
 
   async remove(userId: string, employeeId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(employeeId, commerceId);
     await this.prisma.employee.delete({ where: { id: employeeId } });
   }
 
   async toggleStatus(userId: string, employeeId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const employee = await this.assertOwnership(employeeId, commerceId);
     return this.prisma.employee.update({
       where: { id: employeeId },
