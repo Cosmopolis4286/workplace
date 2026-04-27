@@ -213,11 +213,31 @@ const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 const { user } = useAuth()
 
-const modalityOptions = [
+const modalityOptions = ref<{ value: string; label: string; emoji: string }[]>([
   { value: 'PRESENCIAL', label: 'Presencial', emoji: '📍' },
   { value: 'REMOTO', label: 'Remoto', emoji: '💻' },
   { value: 'CUALQUIERA', label: 'Cualquiera', emoji: '🤝' },
-]
+])
+const loadingModalities = ref(false)
+
+async function fetchModalities() {
+  loadingModalities.value = true
+  try {
+    const { get } = useApi()
+    const data = await get('/services/modalities')
+    if (data && Array.isArray(data)) {
+      modalityOptions.value = data.map((m: any) => ({
+        value: m.value,
+        label: m.name,
+        emoji: m.emoji || '📋',
+      }))
+    }
+  } catch (e) {
+    console.error('Error loading modalities:', e)
+  } finally {
+    loadingModalities.value = false
+  }
+}
 
 const minDate = new Date().toISOString().split('T')[0]
 
@@ -239,6 +259,12 @@ const errorMsg = ref('')
 watch(() => props.service, () => {
   form.value = defaultForm()
   errorMsg.value = ''
+})
+
+watch(() => props.modelValue, (isOpen) => {
+  if (isOpen) {
+    fetchModalities()
+  }
 })
 
 watch(() => user.value, (u) => {

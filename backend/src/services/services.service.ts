@@ -223,6 +223,43 @@ export class ServicesService {
     await this.prisma.serviceCategory.delete({ where: { id } });
   }
 
+  // ─── Modalities (admin) ───────────────────────────────────────────────────
+
+  async getModalities() {
+    return this.prisma.serviceModality.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async getAllModalities() {
+    return this.prisma.serviceModality.findMany({
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async createModality(dto: { name: string; value: string; emoji?: string; sortOrder?: number }) {
+    return this.prisma.serviceModality.create({
+      data: {
+        name: dto.name,
+        value: dto.value,
+        emoji: dto.emoji,
+        sortOrder: dto.sortOrder ?? 0,
+      },
+    });
+  }
+
+  async updateModality(id: string, dto: Partial<{ name: string; value: string; emoji: string; sortOrder: number; isActive: boolean }>) {
+    return this.prisma.serviceModality.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async deleteModality(id: string) {
+    await this.prisma.serviceModality.delete({ where: { id } });
+  }
+
   // ─── Service Requests ─────────────────────────────────────────────────────
 
   async createServiceRequest(

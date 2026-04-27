@@ -99,22 +99,20 @@ function pct(current: number, previous: number | null): number | null {
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getRestaurantId(userId: string): Promise<string> {
+  private async getCommerceId(userId: string): Promise<string> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!restaurant)
-      throw new ForbiddenException(
-        'El usuario no tiene un restaurante asociado'
-      );
-    return restaurant.id;
+
+    // Si no tiene restaurante, usar el userId como commerceId
+    return restaurant?.id ?? userId;
   }
 
   // ─── Main analytics endpoint ──────────────────────────────────────────────
 
   async getOverview(userId: string, dto: QueryAnalyticsDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const { period = '30d', compareWith = 'previous', dateFrom, dateTo } = dto;
 
     const current = getPeriodRange(period, dateFrom, dateTo);

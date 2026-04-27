@@ -891,6 +891,35 @@ const USER_CATEGORIES = [
   }
 ]
 
+async function seedServiceModalities() {
+  console.log('\n📋 Seeding service modalities...\n')
+
+  const modalities = [
+    { name: 'Presencial', value: 'PRESENCIAL', emoji: '📍', sortOrder: 1 },
+    { name: 'Remoto', value: 'REMOTO', emoji: '💻', sortOrder: 2 },
+    { name: 'Cualquiera', value: 'CUALQUIERA', emoji: '🤝', sortOrder: 3 },
+  ]
+
+  for (const modality of modalities) {
+    const existing = await prisma.serviceModality.findFirst({
+      where: { value: modality.value }
+    })
+
+    if (existing) {
+      await prisma.serviceModality.update({
+        where: { id: existing.id },
+        data: modality
+      })
+      console.log(`  ✅ Updated modality: ${modality.name}`)
+    } else {
+      await prisma.serviceModality.create({ data: modality })
+      console.log(`  ✅ Created modality: ${modality.name}`)
+    }
+  }
+
+  console.log('\n✨ Service modalities seeded.')
+}
+
 async function seedUserCategories() {
   console.log('\n🏷️ Seeding user categories and subcategories...\n')
 
@@ -1172,6 +1201,7 @@ async function main() {
   await seedPermissions()
   await seedPlans()
   await seedCategories()
+  await seedServiceModalities()
   await seedUserCategories()
 }
 
