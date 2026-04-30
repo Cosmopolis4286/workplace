@@ -1,6 +1,6 @@
 # WorkPlace Manager
 
-Panel de gestión completo para restaurantes integrado con WorkPlace. Monorepo con frontend Nuxt 3 y backend NestJS.
+Panel de gestión completo para COMERCIOS Y SERVICIOS integrado con WorkPlace. Monorepo con frontend Nuxt 3 y backend NestJS.
 
 ## Estructura del proyecto
 

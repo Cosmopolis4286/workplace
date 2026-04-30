@@ -152,10 +152,23 @@
 
               <!-- Source -->
               <td class="px-6 py-4">
-                <span v-if="rate.source" class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
-                  {{ rate.source }}
-                </span>
-                <span v-else class="text-gray-400 text-xs">—</span>
+                <div class="flex items-center gap-1">
+                  <span v-if="rate.source" class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
+                    {{ rate.source }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">—</span>
+                  <!-- BCV Auto-sync indicator -->
+                  <span
+                    v-if="rate.code === 'VES' && rate.autoSync"
+                    class="flex items-center gap-0.5 px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs"
+                    title="Auto-sync BCV activado"
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    BCV
+                  </span>
+                </div>
               </td>
 
               <!-- Status -->
@@ -200,6 +213,18 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path v-if="rate.isActive" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                       <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+
+                  <!-- BCV Sync (only for VES) -->
+                  <button
+                    v-if="rate.code === 'VES' && rate.autoSync"
+                    @click="openModal(rate); handleManualSync()"
+                    title="Sincronizar con BCV"
+                    class="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </button>
 
@@ -390,7 +415,7 @@
             </div>
 
             <!-- Checkboxes -->
-            <div class="flex items-center gap-6">
+            <div class="flex flex-wrap items-center gap-6">
               <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
                 <input v-model="form.isActive" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                 Activa
@@ -399,6 +424,43 @@
                 <input v-model="form.isDefault" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                 Predeterminada
               </label>
+              <!-- Auto-sync option for VES currency -->
+              <label
+                v-if="form.code.toUpperCase() === 'VES'"
+                class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none"
+                title="Sincronizar automáticamente con el BCV todos los días a las 5:00 PM"
+              >
+                <input v-model="form.autoSync" type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500" />
+                <span class="flex items-center gap-1">
+                  <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Auto-sync BCV
+                </span>
+              </label>
+            </div>
+
+            <!-- Sync status info for VES -->
+            <div v-if="editingRate?.code === 'VES'" class="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-green-800">Sincronización BCV</p>
+                  <p class="text-xs text-green-600">
+                    <span v-if="editingRate.autoSync">✅ Auto-sync activado</span>
+                    <span v-else>⚠️ Auto-sync desactivado</span>
+                    <span v-if="editingRate.lastSyncAt"> · Última: {{ formatDateTime(editingRate.lastSyncAt) }}</span>
+                  </p>
+                </div>
+                <button
+                  v-if="editingRate.autoSync"
+                  type="button"
+                  @click="handleManualSync"
+                  :disabled="syncing"
+                  class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 disabled:opacity-50 transition"
+                >
+                  {{ syncing ? 'Sincronizando...' : 'Sincronizar ahora' }}
+                </button>
+              </div>
             </div>
 
             <!-- Actions -->
@@ -569,6 +631,8 @@ const {
   setDefault,
   toggleStatus,
   deleteRate,
+  toggleAutoSync,
+  manualSync,
   formatConversion,
 } = useExchangeRates()
 
@@ -579,10 +643,10 @@ const search = ref('')
 const previewAmount = ref(100)
 
 const filtered = computed(() => {
-  let list = showInactive.value ? rates.value : rates.value.filter(r => r.isActive)
+  let list = showInactive.value ? rates.value : rates.value.filter((r: ExchangeRate) => r.isActive)
   if (search.value.trim()) {
     const q = search.value.toLowerCase()
-    list = list.filter(r =>
+    list = list.filter((r: ExchangeRate) =>
       r.code.toLowerCase().includes(q) ||
       r.name.toLowerCase().includes(q) ||
       r.symbol.toLowerCase().includes(q),
@@ -608,6 +672,7 @@ const form = ref({
   notes: '',
   isActive: true,
   isDefault: false,
+  autoSync: false,
 })
 
 function openModal(rate?: ExchangeRate) {
@@ -624,9 +689,10 @@ function openModal(rate?: ExchangeRate) {
       notes: rate.notes ?? '',
       isActive: rate.isActive,
       isDefault: rate.isDefault,
+      autoSync: rate.autoSync ?? false,
     }
   } else {
-    form.value = { code: '', name: '', symbol: '', rateToUsd: null, source: '', notes: '', isActive: true, isDefault: false }
+    form.value = { code: '', name: '', symbol: '', rateToUsd: null, source: '', notes: '', isActive: true, isDefault: false, autoSync: false }
   }
   showModal.value = true
 }
@@ -645,11 +711,20 @@ async function handleSubmit() {
   }
   saving.value = true
   try {
+    const isVes = form.value.code.toUpperCase() === 'VES'
     if (editingRate.value) {
       await updateRate(editingRate.value.id, form.value)
+      // Handle autoSync toggle separately for VES
+      if (isVes && editingRate.value.autoSync !== form.value.autoSync) {
+        await toggleAutoSync(form.value.code, form.value.autoSync)
+      }
       showToast('Moneda actualizada correctamente')
     } else {
       await createRate(form.value)
+      // Enable autoSync if VES and checkbox is checked
+      if (isVes && form.value.autoSync) {
+        await toggleAutoSync(form.value.code, true)
+      }
       showToast('Moneda creada correctamente')
     }
     await fetchStats()
@@ -658,6 +733,29 @@ async function handleSubmit() {
     formError.value = e.message
   } finally {
     saving.value = false
+  }
+}
+
+// ─── BCV Sync ────────────────────────────────────────────────────────────────
+
+const syncing = ref(false)
+
+async function handleManualSync() {
+  if (!editingRate.value || editingRate.value.code !== 'VES') return
+  syncing.value = true
+  try {
+    const result = await manualSync('VES')
+    if (result.success) {
+      showToast(`✅ Sincronizado: 1 USD = ${result.rate} VES`)
+      await fetchRates(true)
+      editingRate.value = rates.value.find(r => r.code === 'VES') ?? null
+    } else {
+      formError.value = result.message || 'Error al sincronizar'
+    }
+  } catch (e: any) {
+    formError.value = e.message || 'Error al sincronizar con BCV'
+  } finally {
+    syncing.value = false
   }
 }
 
@@ -739,6 +837,10 @@ function showToast(msg: string) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString('es-VE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────

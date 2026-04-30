@@ -218,10 +218,14 @@ export class BcvSyncService {
   }
 
   private extractRateFromHTML($: cheerio.CheerioAPI): string | null {
-    // Common selectors where BCV might show USD rate
+    // BCV website selectors based on actual HTML structure
+    // Reference: <div id="dolar"><div class="centrado"><strong>487,11920000</strong></div></div>
     const selectors = [
-      '#dolar .recuadro .centrado strong',  // Classic BCV format
-      '#euro .recuadro .centrado strong',
+      '#dolar .centrado strong',              // Current BCV format (screenshot confirmed)
+      '#dolar strong',                        // Simplified selector
+      '#dolar .col-sm-6.centrado strong',     // With bootstrap grid class
+      '#euro .centrado strong',               // Euro rate (same structure)
+      '#dolar .recuadro .centrado strong',    // Legacy BCV format
       '.tipo-cambio .valor',
       '[data-currency="USD"] .rate',
       'table.tipo-cambio td:contains("USD")',

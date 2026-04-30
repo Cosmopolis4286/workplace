@@ -56,7 +56,7 @@ export class ExchangeRatesController {
 
   @Post('sync/:code')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   async syncCurrency(@Param('code') code: string) {
     const result = await this.bcvSyncService.syncCurrency(code.toUpperCase());
     return {
@@ -82,7 +82,7 @@ export class ExchangeRatesController {
 
   @Patch(':code/auto-sync')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   async setAutoSync(
     @Param('code') code: string,
     @Body('enabled') enabled: boolean,
@@ -129,14 +129,14 @@ export class ExchangeRatesController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   create(@Body() dto: CreateExchangeRateDto, @CurrentUser() user: any) {
     return this.exchangeRatesService.create(dto, user.id);
   }
 
   @Put(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   update(
     @Param('id') id: string,
     @Body() dto: UpdateExchangeRateDto,
@@ -147,21 +147,21 @@ export class ExchangeRatesController {
 
   @Patch(':id/set-default')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   setDefault(@Param('id') id: string, @CurrentUser() user: any) {
     return this.exchangeRatesService.setDefault(id, user.id);
   }
 
   @Patch(':id/toggle-status')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   toggleStatus(@Param('id') id: string, @CurrentUser() user: any) {
     return this.exchangeRatesService.toggleStatus(id, user.id);
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
   remove(@Param('id') id: string) {
     return this.exchangeRatesService.remove(id);
   }

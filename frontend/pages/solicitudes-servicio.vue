@@ -5,7 +5,7 @@
       <!-- Header -->
       <div class="mb-6">
         <h1 class="text-2xl font-black text-gray-900">Solicitudes de Servicio</h1>
-        <p class="text-sm text-gray-500 mt-0.5">Clientes interesados en tus servicios</p>
+        <p class="text-sm text-gray-500 mt-0.5">Tus solicitudes enviadas a proveedores</p>
       </div>
 
       <!-- Stats -->
@@ -69,7 +69,7 @@
           </svg>
         </div>
         <p class="text-sm font-bold text-gray-700 mb-1">Sin solicitudes</p>
-        <p class="text-xs text-gray-400">Aún no has recibido solicitudes en esta categoría</p>
+        <p class="text-xs text-gray-400">Aún no has enviado solicitudes de servicio</p>
       </div>
 
       <!-- Lista -->
@@ -137,21 +137,9 @@
                 </span>
                 <span v-else class="text-xs text-gray-400">Sin precio indicado</span>
 
-                <div class="flex gap-2">
-                  <button
-                    v-for="action in nextActions(req.status)"
-                    :key="action.status"
-                    :disabled="updating === req.id"
-                    class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                    :class="action.class"
-                    @click="updateStatus(req.id, action.status)"
-                  >
-                    {{ action.label }}
-                  </button>
-                </div>
               </div>
 
-              <p class="text-[10px] text-gray-400 mt-2">Recibida {{ timeAgo(req.createdAt) }}</p>
+              <p class="text-[10px] text-gray-400 mt-2">Enviada {{ timeAgo(req.createdAt) }}</p>
             </div>
           </div>
         </div>
@@ -221,6 +209,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const updating = ref<string | null>(null)
 const activeFilter = ref('ALL')
+const viewAs = ref<'provider' | 'client'>('client')
 
 const filtered = computed(() =>
   activeFilter.value === 'ALL'
@@ -255,7 +244,7 @@ async function fetchRequests() {
   error.value = null
   try {
     const res = await $fetch<{ data: ServiceRequest[]; total: number }>(
-      `${apiUrl}/services/requests/mine`,
+      `${apiUrl}/services/requests/mine?as=${viewAs.value}`,
       { headers: getHeaders() }
     )
     requests.value = res.data
