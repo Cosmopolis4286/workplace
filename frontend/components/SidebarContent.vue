@@ -283,17 +283,21 @@ interface NavItem { to: string; label: string; permission: string | null; icon: 
 interface NavGroup extends NavItem { items: NavItem[]; routes: string[]; key: string }
 interface QuickItem extends NavItem { gradient: string }
 
-interface NavItemExtended extends NavItem { commerceOnly?: boolean }
+interface NavItemExtended extends NavItem { commerceOnly?: boolean; normalOnly?: boolean }
 const topNavItemsDef: NavItemExtended[] = [
-  { to: '/dashboard',            label: 'Dashboard',   permission: 'dashboard:view',       icon: 'dashboard', commerceOnly: false },
-  { to: '/menu',                 label: 'Menú',        permission: 'menu:view',             icon: 'menu',      commerceOnly: true  },
-  { to: '/inventario',           label: 'Inventario',  permission: 'inventory:view',        icon: 'inventory', commerceOnly: true  },
-  { to: '/servicios',            label: 'Servicios',   permission: 'services:view',         icon: 'services',  commerceOnly: false },
-  { to: '/solicitudes-servicio', label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  commerceOnly: false },
-  { to: '/corridas',             label: 'Corridas',    permission: 'corridas:view',         icon: 'corridas',  commerceOnly: false },
+  { to: '/dashboard',            label: 'Dashboard',   permission: 'dashboard:view',       icon: 'dashboard', commerceOnly: false, normalOnly: false },
+  { to: '/menu',                 label: 'Menú',        permission: 'menu:view',             icon: 'menu',      commerceOnly: true,  normalOnly: false },
+  { to: '/inventario',           label: 'Inventario',  permission: 'inventory:view',        icon: 'inventory', commerceOnly: true,  normalOnly: false },
+  { to: '/servicios',            label: 'Servicios',   permission: 'services:view',         icon: 'services',  commerceOnly: false, normalOnly: false },
+  { to: '/solicitudes-servicio', label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  commerceOnly: false, normalOnly: false },
+  { to: '/corridas',             label: 'Corridas',    permission: 'corridas:view',         icon: 'corridas',  commerceOnly: false, normalOnly: false },
+  { to: '/mis-pedidos',          label: 'Mis Pedidos', permission: null,                      icon: 'orders',    commerceOnly: false, normalOnly: true  },
 ]
 const topNavItems = computed(() =>
-  topNavItemsDef.filter(i => !i.commerceOnly || isCommerceRole.value)
+  topNavItemsDef.filter(i => {
+    if (i.normalOnly && role.value !== 'NORMAL') return false
+    return !i.commerceOnly || isCommerceRole.value
+  })
 )
 
 const NAV_GROUPS: NavGroup[] = [
@@ -326,17 +330,23 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-const QUICK_ACCESS: QuickItem[] = [
-  { to: '/pedidos',              label: 'Pedidos',     permission: 'orders:view',           icon: 'orders',    gradient: 'bg-gradient-to-br from-workplace-red to-red-700'         },
-  { to: '/solicitudes-servicio', label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  gradient: 'bg-gradient-to-br from-red-400 to-rose-600'              },
-  { to: '/gastos',               label: 'Gastos',      permission: 'expenses:view',         icon: 'sales',     gradient: 'bg-gradient-to-br from-red-600 to-rose-800'              },
-  { to: '/servicios',            label: 'Servicios',   permission: 'services:view',         icon: 'services',  gradient: 'bg-gradient-to-br from-gray-700 to-gray-900'             },
-  { to: '/cliente-dashboard',    label: 'Mi Panel',    permission: 'orders:view',           icon: 'customers', gradient: 'bg-gradient-to-br from-rose-500 to-workplace-red'        },
-  { to: '/dashboard',            label: 'Dashboard',   permission: 'dashboard:view',        icon: 'dashboard', gradient: 'bg-gradient-to-br from-workplace-red to-red-800'         },
+interface QuickItemExtended extends QuickItem { normalOnly?: boolean }
+const QUICK_ACCESS: QuickItemExtended[] = [
+  { to: '/pedidos',              label: 'Pedidos',     permission: 'orders:view',           icon: 'orders',    gradient: 'bg-gradient-to-br from-workplace-red to-red-700',         normalOnly: false },
+  { to: '/mis-pedidos',          label: 'Pedidos',     permission: null,                    icon: 'orders',    gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',    normalOnly: true  },
+  { to: '/solicitudes-servicio', label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  gradient: 'bg-gradient-to-br from-red-400 to-rose-600',              normalOnly: false },
+  { to: '/gastos',               label: 'Gastos',      permission: 'expenses:view',         icon: 'sales',     gradient: 'bg-gradient-to-br from-red-600 to-rose-800',              normalOnly: false },
+  { to: '/servicios',            label: 'Servicios',   permission: 'services:view',         icon: 'services',  gradient: 'bg-gradient-to-br from-gray-700 to-gray-900',             normalOnly: false },
+  { to: '/cliente-dashboard',    label: 'Mi Panel',    permission: 'orders:view',           icon: 'customers', gradient: 'bg-gradient-to-br from-rose-500 to-workplace-red',        normalOnly: false },
+  { to: '/dashboard',            label: 'Dashboard',   permission: 'dashboard:view',        icon: 'dashboard', gradient: 'bg-gradient-to-br from-workplace-red to-red-800',         normalOnly: false },
 ]
 
 const quickAccessItems = computed(() =>
-  QUICK_ACCESS.filter(i => canSee(i.permission)).slice(0, 3)
+  QUICK_ACCESS.filter(i => {
+    if (i.normalOnly && role.value !== 'NORMAL') return false
+    if (!i.normalOnly && role.value === 'NORMAL') return false
+    return canSee(i.permission)
+  }).slice(0, 3)
 )
 const hasQuickAccess = computed(() => quickAccessItems.value.length > 0)
 
