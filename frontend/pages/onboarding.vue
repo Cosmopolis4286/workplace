@@ -157,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useApi } from '~/composables/useApi'
 
 definePageMeta({ middleware: 'auth' })
@@ -181,6 +181,13 @@ const loadingPlans = ref(false)
 const saving = ref(false)
 const catError = ref('')
 const saveError = ref('')
+
+// Persist selected plan to localStorage when it changes
+watch(selectedPlan, (newPlan: string) => {
+  if (newPlan) {
+    localStorage.setItem('onboarding_plan', newPlan)
+  }
+})
 
 
 async function loadCategories() {
@@ -235,13 +242,18 @@ async function next() {
       }
       const { patch } = useApi()
       await patch(`/users/${user.value!.id}`, updateData)
-      // Actualizar el usuario en memoria/localStorage para que el middleware
-      // no vuelva a redirigir al onboarding cuando se navegue al dashboard
-      updateLocalUser({ categoryId: selectedCategory.value })
+      // IMPORTANT: Fetch fresh user data from backend to ensure middleware sees updated categoryId
+      const { fetchProfile } = useAuth()
+      await fetchProfile()
       invalidateModules()
       await loadPlans()
       step.value = 1
       localStorage.setItem(STORAGE_KEY, '1')
+      // Also save selected category to localStorage for recovery on refresh
+      localStorage.setItem('onboarding_category', selectedCategory.value)
+      if (selectedSubcategory.value) {
+        localStorage.setItem('onboarding_subcategory', selectedSubcategory.value)
+      }
     } catch (e: any) { saveError.value = e.message }
     finally { saving.value = false }
   } else if (step.value === 1) {
@@ -249,34 +261,38 @@ async function next() {
     try {
       if (selectedPlan.value) {
         const { post } = useApi()
-        // Ignorar errores de suscripción duplicada (el plan ya fue asignado antes)
+        // Subscribe to selected plan
         await post('/plans/self-subscribe', {
           planId: selectedPlan.value,
           interval: 'MONTHLY'
-        }).catch(() => {})
+        })
         invalidateModules()
       }
       step.value = 2
       localStorage.setItem(STORAGE_KEY, '2')
-    } catch (e: any) { saveError.value = e.message }
+      localStorage.removeItem('onboarding_plan') // Clean up as we completed this step
+    } catch (e: any) {
+      saveError.value = e.message || 'Error al guardar el plan. Intenta de nuevo.'
+    }
     finally { saving.value = false }
   }
 }
 
 async function goToDashboard() {
   localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem('onboarding_category')
+  localStorage.removeItem('onboarding_subcategory')
+  localStorage.removeItem('onboarding_plan')
   localStorage.setItem(COMPLETION_KEY, 'true')
   try {
-    // Force refresh user data to ensure latest state
-    await updateLocalUser({ 
-      categoryId: selectedCategory.value,
-      subcategoryId: selectedSubcategory.value 
-    })
+    // IMPORTANT: Fetch fresh user data from backend to ensure middleware sees updated categoryId
+    const { fetchProfile } = useAuth()
+    await fetchProfile()
     invalidateModules()
     await navigateTo('/dashboard')
   } catch (error) {
     console.error('Navigation error:', error)
-    // Fallback: force page reload
+    // Fallback: force page reload to dashboard
     window.location.href = '/dashboard'
   }
 }
@@ -300,16 +316,25 @@ onMounted(async () => {
     await navigateTo('/dashboard')
     return
   }
-  
+
   // Restaurar step si el usuario recargó la página
   const saved = localStorage.getItem(STORAGE_KEY)
   if (saved) {
     const savedStep = parseInt(saved, 10)
     if (!isNaN(savedStep) && savedStep > 0) {
       step.value = savedStep
-      // Si ya pasó el paso de categoría, cargar planes directamente
+      // Si ya pasó el paso de categoría, restaurar desde localStorage o user
       if (savedStep >= 1) {
-        selectedCategory.value = user.value?.categoryId ?? ''
+        // Primero intentar desde localStorage, luego desde user
+        const savedCategory = localStorage.getItem('onboarding_category')
+        selectedCategory.value = savedCategory || user.value?.categoryId || ''
+        selectedSubcategory.value = localStorage.getItem('onboarding_subcategory') || ''
+        // Restore selected plan if any
+        selectedPlan.value = localStorage.getItem('onboarding_plan') || ''
+        // Cargar subcategorías si tenemos categoría
+        if (selectedCategory.value) {
+          await loadSubcategories(selectedCategory.value)
+        }
         await loadPlans()
       }
       // Si ya está en el paso final, no hace falta cargar nada más
