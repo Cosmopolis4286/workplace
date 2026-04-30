@@ -7,6 +7,7 @@ import {
   IsUrl,
   IsArray,
   IsEnum,
+  IsBoolean,
   Min,
 } from 'class-validator';
 

@@ -35,6 +35,22 @@ class PatchStatusDto {
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  @Get('mine')
+  @UseGuards(JwtAuthGuard)
+  getMyOrders(
+    @CurrentUser() user: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string
+  ) {
+    return this.ordersService.getMyOrders(
+      user.email,
+      parseInt(page ?? '1'),
+      parseInt(limit ?? '20'),
+      status
+    );
+  }
+
   @Get('stats')
   @RequirePermission('orders:view')
   getStats(@CurrentUser() user: any) {

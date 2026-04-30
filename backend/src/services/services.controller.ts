@@ -129,12 +129,14 @@ export class ServicesController {
   getMyRequests(
     @CurrentUser() user: any,
     @Query('page') page?: string,
-    @Query('limit') limit?: string
+    @Query('limit') limit?: string,
+    @Query('as') asRole?: 'provider' | 'client'
   ) {
     return this.servicesService.getMyServiceRequests(
       user.id,
       parseInt(page ?? '1'),
-      parseInt(limit ?? '20')
+      parseInt(limit ?? '20'),
+      asRole ?? 'provider'
     );
   }
 

@@ -74,6 +74,20 @@
         @status-change="handleStatusChange"
       />
 
+      <!-- My Orders Widget - Para usuarios NORMAL -->
+      <MyOrdersWidget
+        v-if="canViewWidget('myOrders')"
+        :orders="myOrders"
+        :loading="loadingMyOrders"
+      />
+
+      <!-- My Service Requests Widget - Para usuarios NORMAL -->
+      <MyServiceRequestsWidget
+        v-if="canViewWidget('myServiceRequests')"
+        :requests="myServiceRequests"
+        :loading="loadingMyServiceRequests"
+      />
+
       <!-- Quick Actions - Filtradas por rol -->
       <QuickActions :actions="quickActions" />
     </div>
@@ -131,6 +145,8 @@ import LowStockWidget from '~/components/dashboard/widgets/LowStockWidget.vue'
 import NewCustomersWidget from '~/components/dashboard/widgets/NewCustomersWidget.vue'
 import OrdersListWidget from '~/components/dashboard/widgets/OrdersListWidget.vue'
 import AnalyticsOverviewWidget from '~/components/dashboard/widgets/AnalyticsOverviewWidget.vue'
+import MyOrdersWidget from '~/components/dashboard/widgets/MyOrdersWidget.vue'
+import MyServiceRequestsWidget from '~/components/dashboard/widgets/MyServiceRequestsWidget.vue'
 import OrderDetailModal from '~/components/modals/OrderDetailModal.vue'
 
 // Dashboard data
@@ -145,8 +161,45 @@ const {
   markOrderPaid,
 } = useDashboard()
 
+// Customer-specific data (for NORMAL users)
+const myOrders = ref([])
+const myServiceRequests = ref([])
+const loadingMyOrders = ref(false)
+const loadingMyServiceRequests = ref(false)
+
+const config = useRuntimeConfig()
+const apiUrl = config.public.apiUrl as string
+const { getHeaders } = useAuth()
+
+// Load customer data
+async function loadCustomerData() {
+  // Load my orders
+  loadingMyOrders.value = true
+  try {
+    const res = await $fetch(`${apiUrl}/orders/mine`, { headers: getHeaders() })
+    myOrders.value = res.data ?? []
+  } catch (e) {
+    console.error('Error loading my orders:', e)
+  } finally {
+    loadingMyOrders.value = false
+  }
+
+  // Load my service requests
+  loadingMyServiceRequests.value = true
+  try {
+    const res = await $fetch(`${apiUrl}/services/requests/mine?as=client`, { headers: getHeaders() })
+    myServiceRequests.value = res.data ?? []
+  } catch (e) {
+    console.error('Error loading service requests:', e)
+  } finally {
+    loadingMyServiceRequests.value = false
+  }
+}
+
 // Widget visibility by role
 const { heroConfig, quickActions, canViewWidget } = useDashboardWidgets()
+const { user } = useAuth()
+const userRole = computed(() => user.value?.role)
 
 // Toast
 const toast = reactive({
@@ -212,7 +265,16 @@ let refreshTimer: ReturnType<typeof setInterval>
 
 onMounted(async () => {
   await loadDashboard()
-  refreshTimer = setInterval(loadDashboard, 60_000)
+  // Load customer-specific data for NORMAL users
+  if (userRole.value === 'NORMAL') {
+    await loadCustomerData()
+  }
+  refreshTimer = setInterval(() => {
+    loadDashboard()
+    if (userRole.value === 'NORMAL') {
+      loadCustomerData()
+    }
+  }, 60_000)
 })
 
 onUnmounted(() => {

@@ -292,9 +292,11 @@ export class ServicesService {
     return request;
   }
 
-  async getMyServiceRequests(userId: string, page = 1, limit = 20) {
+  async getMyServiceRequests(userId: string, page = 1, limit = 20, asRole: 'provider' | 'client' = 'provider') {
     const skip = (page - 1) * limit;
-    const where = { providerId: userId };
+    const where = asRole === 'client'
+      ? { requesterId: userId }
+      : { providerId: userId };
     const [data, total] = await Promise.all([
       this.prisma.serviceRequest.findMany({
         where,

@@ -286,6 +286,37 @@ export class OrdersService {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // My Orders (for customers)
+  // ──────────────────────────────────────────────────────────────────────────
+  async getMyOrders(userEmail: string, page = 1, limit = 20, status?: string) {
+    const skip = (page - 1) * limit;
+    const where: any = { customerEmail: userEmail };
+    if (status) where.status = status;
+
+    const [data, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          items: true,
+          commerce: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      data: data.map((o) => ({ ...o, itemCount: o.items.length })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // Delete
   // ──────────────────────────────────────────────────────────────────────────
   async remove(id: string, commerceId: string) {
