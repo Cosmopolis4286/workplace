@@ -34,9 +34,6 @@ export default defineNuxtRouteMiddleware(async (to: any, from: any) => {
     } else if (userRole === 'FREELANCER') {
       // Freelancer necesita configurar sus servicios
       return navigateTo('/onboarding?step=services')
-    } else if (userRole === 'NORMAL') {
-      // Usuario normal no tiene dashboard, redirigir a perfil
-      return navigateTo('/perfil')
     } else {
       // Para otros roles, redirigir a una página genérica de configuración
       return navigateTo('/onboarding')
@@ -50,9 +47,9 @@ async function validateUserSection(category: string | null, role: string | null,
     return true
   }
 
-  // Usuarios normales no tienen dashboard
+  // Usuarios normales tienen acceso a su dashboard personalizado
   if (role === 'NORMAL') {
-    return false
+    return true
   }
 
   // Si no hay categoría, no puede acceder
