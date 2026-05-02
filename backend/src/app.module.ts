@@ -30,6 +30,7 @@ import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
 import { HealthModule } from './health/health.module';
 import { CategoriesGlobalModule } from './categories-global/categories-global.module';
 import { CorridasModule } from './corridas/corridas.module';
+import { JobsModule } from './jobs/jobs.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { CorridasModule } from './corridas/corridas.module';
     HealthModule,
     CategoriesGlobalModule,
     CorridasModule,
+    JobsModule,
   ],
 })
 export class AppModule implements NestModule {

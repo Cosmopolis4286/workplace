@@ -52,6 +52,10 @@ model User {
   corridasAsPassenger Corrida[]     @relation("PassengerCorridas")
   corridasAsDriver    Corrida[]     @relation("DriverCorridas")
 
+  // Jobs / Empleos
+  jobsPosted         Job[]           @relation("UserJobs")
+  jobApplications    JobApplication[]
+
   @@map("users")
 }
 
@@ -1198,4 +1202,109 @@ model ExchangeRate {
   updatedAt    DateTime @updatedAt
 
   @@map("exchange_rates")
+}
+
+// ─── Jobs / Empleos ───────────────────────────────────────────────────────────
+
+enum JobType {
+  TIEMPO_COMPLETO
+  MEDIO_TIEMPO
+  FREELANCE
+  TEMPORAL
+  PRACTICAS
+}
+
+enum JobModality {
+  PRESENCIAL
+  REMOTO
+  HIBRIDO
+}
+
+enum JobStatus {
+  ACTIVO
+  INACTIVO
+  PAUSADO
+  CERRADO
+}
+
+enum JobApplicationStatus {
+  PENDIENTE
+  VISTO
+  EN_PROCESO
+  ACEPTADA
+  RECHAZADA
+}
+
+model JobCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  color       String   @default("#10B981")
+  icon        String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  jobs        Job[]
+
+  @@map("job_categories")
+}
+
+model Job {
+  id              String      @id @default(uuid())
+  title           String
+  description     String
+  requirements    String[]
+  benefits        String[]
+  salaryMin       Float?
+  salaryMax       Float?
+  salaryCurrency  String      @default("USD")
+  location        String?
+  type            JobType     @default(TIEMPO_COMPLETO)
+  modality        JobModality @default(PRESENCIAL)
+  experienceLevel String?     // Junior, Mid, Senior, etc.
+  tags            String[]
+  status          JobStatus   @default(ACTIVO)
+  expiresAt       DateTime?
+
+  // Relations
+  categoryId    String?
+  category        JobCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  employerId      String
+  employer        User         @relation("UserJobs", fields: [employerId], references: [id], onDelete: Cascade)
+
+  // For commerce users
+  commerceId      String?
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  applications    JobApplication[]
+
+  @@index([employerId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([type])
+  @@index([modality])
+  @@index([createdAt(sort: Desc)])
+  @@map("jobs")
+}
+
+model JobApplication {
+  id          String                @id @default(uuid())
+  jobId       String
+  job         Job                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  applicantId String
+  applicant   User                  @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  coverLetter String?
+  resumeUrl   String?
+  phone       String?
+  email       String?
+  status      JobApplicationStatus  @default(PENDIENTE)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([jobId])
+  @@index([applicantId])
+  @@index([status])
+  @@unique([jobId, applicantId])
+  @@map("job_applications")
 }

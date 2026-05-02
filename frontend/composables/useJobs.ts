@@ -1,0 +1,207 @@
+import { ref, computed } from 'vue'
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export interface JobCategory {
+  id: string
+  name: string
+  color: string
+  icon: string | null
+  description: string | null
+  jobCount: number
+}
+
+export interface JobEmployer {
+  id: string
+  firstName: string
+  lastName: string
+  username: string | null
+  avatar: string | null
+  category: { name: string } | null
+  subcategory: { name: string } | null
+}
+
+export interface Job {
+  id: string
+  title: string
+  description: string
+  requirements: string[]
+  benefits: string[]
+  salaryMin: number | null
+  salaryMax: number | null
+  salaryCurrency: string
+  location: string | null
+  type: 'TIEMPO_COMPLETO' | 'MEDIO_TIEMPO' | 'FREELANCE' | 'TEMPORAL' | 'PRACTICAS'
+  modality: 'PRESENCIAL' | 'REMOTO' | 'HIBRIDO'
+  experienceLevel: string | null
+  tags: string[]
+  status: string
+  expiresAt: string | null
+  createdAt: string
+  category: {
+    id: string
+    name: string
+    color: string
+    icon: string | null
+  } | null
+  employer: JobEmployer
+  _count?: {
+    applications: number
+  }
+}
+
+export type JobSortBy = 'relevance' | 'newest' | 'salary_asc' | 'salary_desc'
+
+export interface JobQuery {
+  search: string
+  categoryId: string | null
+  type: string | null
+  modality: string | null
+  sort: JobSortBy
+  page: number
+}
+
+// ─── Module-level singleton state ─────────────────────────────────────────────
+
+const jobs = ref<Job[]>([])
+const categories = ref<JobCategory[]>([])
+const loading = ref(false)
+const loadingCategories = ref(false)
+const error = ref<string | null>(null)
+const total = ref(0)
+const totalPages = ref(1)
+
+const query = ref<JobQuery>({
+  search: '',
+  categoryId: null,
+  type: null,
+  modality: null,
+  sort: 'relevance',
+  page: 1,
+})
+
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+
+// ─── Composable ──────────────────────────────────────────────────────────────
+
+export const useJobs = () => {
+  const config = useRuntimeConfig()
+  const apiUrl = config.public.apiUrl as string
+  const base = `${apiUrl}/jobs`
+
+  // ─── Fetch helpers ──────────────────────────────────────────────────────
+
+  async function loadCategories() {
+    loadingCategories.value = true
+    try {
+      const res = await $fetch<{ data: JobCategory[] }>(`${base}/categories`)
+      categories.value = res.data
+    } catch {
+      // silently fail
+    } finally {
+      loadingCategories.value = false
+    }
+  }
+
+  async function loadJobs() {
+    loading.value = true
+    error.value = null
+    try {
+      const q = query.value
+      const params: Record<string, string> = {
+        page: String(q.page),
+        limit: '16',
+        sort: q.sort,
+      }
+      if (q.search) params.search = q.search
+      if (q.categoryId) params.categoryId = q.categoryId
+      if (q.type) params.type = q.type
+      if (q.modality) params.modality = q.modality
+
+      const res = await $fetch<{ data: Job[]; total: number; totalPages: number }>(
+        `${base}/catalog`,
+        { params },
+      )
+      jobs.value = res.data
+      total.value = res.total
+      totalPages.value = res.totalPages
+    } catch (e: any) {
+      error.value = e?.data?.message ?? 'Error al cargar empleos'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // ─── Actions ────────────────────────────────────────────────────────────
+
+  function search(val: string) {
+    query.value.search = val
+    query.value.page = 1
+    if (searchDebounce) clearTimeout(searchDebounce)
+    searchDebounce = setTimeout(loadJobs, 350)
+  }
+
+  function filterByCategory(id: string | null) {
+    query.value.categoryId = query.value.categoryId === id ? null : id
+    query.value.page = 1
+    loadJobs()
+  }
+
+  function filterByType(type: string | null) {
+    query.value.type = query.value.type === type ? null : type
+    query.value.page = 1
+    loadJobs()
+  }
+
+  function filterByModality(modality: string | null) {
+    query.value.modality = query.value.modality === modality ? null : modality
+    query.value.page = 1
+    loadJobs()
+  }
+
+  function changeSort(sort: JobSortBy) {
+    query.value.sort = sort
+    query.value.page = 1
+    loadJobs()
+  }
+
+  function changePage(page: number) {
+    query.value.page = page
+    loadJobs()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function resetFilters() {
+    query.value = {
+      search: '',
+      categoryId: null,
+      type: null,
+      modality: null,
+      sort: 'relevance',
+      page: 1,
+    }
+    loadJobs()
+  }
+
+  // ─── Expose ─────────────────────────────────────────────────────────────
+
+  return {
+    jobs,
+    categories,
+    loading,
+    loadingCategories,
+    error,
+    total,
+    totalPages,
+    query: computed(() => query.value),
+    loadCategories,
+    loadJobs,
+    search,
+    filterByCategory,
+    filterByType,
+    filterByModality,
+    changeSort,
+    changePage,
+    resetFilters,
+  }
+}
