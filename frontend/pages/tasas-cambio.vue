@@ -711,20 +711,11 @@ async function handleSubmit() {
   }
   saving.value = true
   try {
-    const isVes = form.value.code.toUpperCase() === 'VES'
     if (editingRate.value) {
       await updateRate(editingRate.value.id, form.value)
-      // Handle autoSync toggle separately for VES
-      if (isVes && editingRate.value.autoSync !== form.value.autoSync) {
-        await toggleAutoSync(form.value.code, form.value.autoSync)
-      }
       showToast('Moneda actualizada correctamente')
     } else {
       await createRate(form.value)
-      // Enable autoSync if VES and checkbox is checked
-      if (isVes && form.value.autoSync) {
-        await toggleAutoSync(form.value.code, true)
-      }
       showToast('Moneda creada correctamente')
     }
     await fetchStats()
