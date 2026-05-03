@@ -5,7 +5,7 @@
       <!-- Header -->
       <div class="mb-6">
         <h1 class="text-2xl font-black text-gray-900">Solicitudes de Servicio</h1>
-        <p class="text-sm text-gray-500 mt-0.5">Tus solicitudes enviadas a proveedores</p>
+        <p class="text-sm text-gray-500 mt-0.5">Solicitudes recibidas de clientes</p>
       </div>
 
       <!-- Stats -->
@@ -69,7 +69,7 @@
           </svg>
         </div>
         <p class="text-sm font-bold text-gray-700 mb-1">Sin solicitudes</p>
-        <p class="text-xs text-gray-400">Aún no has enviado solicitudes de servicio</p>
+        <p class="text-xs text-gray-400">Aún no has recibido solicitudes de servicio</p>
       </div>
 
       <!-- Lista -->
@@ -209,7 +209,6 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const updating = ref<string | null>(null)
 const activeFilter = ref('ALL')
-const viewAs = ref<'provider' | 'client'>('client')
 
 const filtered = computed(() =>
   activeFilter.value === 'ALL'
@@ -244,7 +243,7 @@ async function fetchRequests() {
   error.value = null
   try {
     const res = await $fetch<{ data: ServiceRequest[]; total: number }>(
-      `${apiUrl}/services/requests/mine?as=${viewAs.value}`,
+      `${apiUrl}/services/requests/mine?as=provider`,
       { headers: getHeaders() }
     )
     requests.value = res.data
