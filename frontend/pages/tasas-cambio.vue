@@ -10,6 +10,7 @@
           </p>
         </div>
         <button
+          v-if="canManage"
           @click="openModal()"
           class="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium text-sm"
         >
@@ -193,7 +194,7 @@
                 <div class="flex items-center gap-1 justify-end">
                   <!-- Set default -->
                   <button
-                    v-if="!rate.isDefault && rate.isActive"
+                    v-if="canManage && !rate.isDefault && rate.isActive"
                     @click="handleSetDefault(rate)"
                     title="Establecer como predeterminada"
                     class="p-1.5 rounded hover:bg-yellow-50 text-gray-400 hover:text-yellow-600 transition"
@@ -205,7 +206,7 @@
 
                   <!-- Toggle status -->
                   <button
-                    v-if="!rate.isDefault"
+                    v-if="canManage && !rate.isDefault"
                     @click="handleToggle(rate)"
                     :title="rate.isActive ? 'Desactivar' : 'Activar'"
                     class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition"
@@ -216,20 +217,28 @@
                     </svg>
                   </button>
 
-                  <!-- BCV Sync (only for VES) -->
+                  <!-- BCV Sync (only for VES with autoSync, for users with manage permission) -->
                   <button
-                    v-if="rate.code === 'VES' && rate.autoSync"
-                    @click="openModal(rate); handleManualSync()"
+                    v-if="canManage && rate.code === 'VES' && rate.autoSync"
+                    @click="handleManualSyncFromTable(rate)"
+                    :disabled="syncingCode === rate.code"
                     title="Sincronizar con BCV"
-                    class="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition"
+                    class="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition disabled:opacity-50"
                   >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg
+                      class="w-4 h-4"
+                      :class="{ 'animate-spin': syncingCode === rate.code }"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </button>
 
                   <!-- Edit -->
                   <button
+                    v-if="canManage"
                     @click="openModal(rate)"
                     title="Editar"
                     class="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition"
@@ -241,7 +250,7 @@
 
                   <!-- Delete -->
                   <button
-                    v-if="!rate.isDefault"
+                    v-if="canManage && !rate.isDefault"
                     @click="handleDelete(rate)"
                     title="Eliminar"
                     class="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition"
@@ -615,8 +624,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useExchangeRates, type ExchangeRate } from '~/composables/useExchangeRates'
+import { usePermissions } from '~/composables/usePermissions'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
+
+const { can } = usePermissions()
+const canManage = computed(() => can('exchange_rates:manage'))
 
 const {
   rates,
@@ -730,16 +743,18 @@ async function handleSubmit() {
 // ─── BCV Sync ────────────────────────────────────────────────────────────────
 
 const syncing = ref(false)
+const syncingCode = ref<string | null>(null)
 
 async function handleManualSync() {
   if (!editingRate.value || editingRate.value.code !== 'VES') return
   syncing.value = true
+  formError.value = null
   try {
     const result = await manualSync('VES')
     if (result.success) {
-      showToast(`✅ Sincronizado: 1 USD = ${result.rate} VES`)
+      showToast(`Sincronizado: 1 USD = ${result.rate} VES`)
       await fetchRates(true)
-      editingRate.value = rates.value.find(r => r.code === 'VES') ?? null
+      editingRate.value = rates.value.find((r: ExchangeRate) => r.code === 'VES') ?? null
     } else {
       formError.value = result.message || 'Error al sincronizar'
     }
@@ -747,6 +762,24 @@ async function handleManualSync() {
     formError.value = e.message || 'Error al sincronizar con BCV'
   } finally {
     syncing.value = false
+  }
+}
+
+async function handleManualSyncFromTable(rate: ExchangeRate) {
+  if (syncingCode.value) return
+  syncingCode.value = rate.code
+  try {
+    const result = await manualSync(rate.code)
+    if (result.success) {
+      showToast(`Sincronizado: 1 USD = ${result.rate} ${rate.code}`)
+      await fetchRates(true)
+    } else {
+      showToast(result.message || 'Error al sincronizar')
+    }
+  } catch (e: any) {
+    showToast(e.message || 'Error al sincronizar con BCV')
+  } finally {
+    syncingCode.value = null
   }
 }
 
