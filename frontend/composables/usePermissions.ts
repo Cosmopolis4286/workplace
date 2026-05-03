@@ -1,51 +1,58 @@
 import { ref, computed } from 'vue'
 
-// ─── Configuración ────────────────────────────────────────────────────────────
-const CACHE_KEY = 'perm_cache'
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutos en milisegundos
+// ─── Config ───────────────────────────────────────────────────────────────────
+const CACHE_KEY    = 'perm_cache'
+const VERSION_KEY  = 'perm_version'   // versión del servidor para invalidar cache
+const CACHE_TTL    = 5 * 60 * 1000   // 5 minutos
+const REFRESH_INT  = 60_000          // verificar cada minuto si el cache expiró
 
-// ─── Singleton global (compartido entre todas las instancias del composable) ──
-
-const permissionKeys = ref<string[]>([])
-const userCategory = ref<string | null>(null)
-const userSubcategory = ref<string | null>(null)
-const loading = ref(false)
-const initialized = ref(false)
+// ─── Singleton ────────────────────────────────────────────────────────────────
+const permissionKeys   = ref<string[]>([])
+const userCategory     = ref<string | null>(null)
+const userSubcategory  = ref<string | null>(null)
+const loading          = ref(false)
+const initialized      = ref(false)
+// version devuelta por el servidor; cambia cuando admin modifica permisos del rol
+const serverVersion    = ref<string | null>(null)
 
 interface CacheEntry {
-  keys: string[]
-  category?: string | null
+  keys:        string[]
+  category?:   string | null
   subcategory?: string | null
-  timestamp: number
+  version?:    string | null
+  timestamp:   number
 }
 
-// ─── Cache helpers ────────────────────────────────────────────────────────────
-
-function isCacheValid(entry: CacheEntry | null): boolean {
-  if (!entry) return false
-  const age = Date.now() - entry.timestamp
-  return age < CACHE_TTL
-}
-
+// ─── Cache helpers ─────────────────────────────────────────────────────────
 function getCache(): CacheEntry | null {
   if (!process.client) return null
   try {
-    const cached = localStorage.getItem(CACHE_KEY)
-    if (!cached) return null
-    return JSON.parse(cached) as CacheEntry
+    const raw = localStorage.getItem(CACHE_KEY)
+    return raw ? (JSON.parse(raw) as CacheEntry) : null
   } catch {
     localStorage.removeItem(CACHE_KEY)
     return null
   }
 }
 
-function setCache(keys: string[]): void {
+function isCacheValid(entry: CacheEntry | null): boolean {
+  if (!entry) return false
+  const fresh = Date.now() - entry.timestamp < CACHE_TTL
+  if (!fresh) return false
+  // Invalidar si el servidor tiene una versión más nueva
+  const sv = localStorage.getItem(VERSION_KEY)
+  if (sv && entry.version !== sv) return false
+  return true
+}
+
+function setCache(keys: string[], version?: string | null): void {
   if (!process.client) return
   const entry: CacheEntry = {
     keys,
-    category: userCategory.value,
+    category:    userCategory.value,
     subcategory: userSubcategory.value,
-    timestamp: Date.now(),
+    version:     version ?? null,
+    timestamp:   Date.now(),
   }
   localStorage.setItem(CACHE_KEY, JSON.stringify(entry))
 }
@@ -55,58 +62,62 @@ function clearCache(): void {
   localStorage.removeItem(CACHE_KEY)
 }
 
-// ─── Warm-cache: carga desde localStorage antes del primer fetch ──────────────
+/**
+ * Permite que cualquier parte de la app invalide el cache localmente
+ * (ej: cuando el usuario cambia su propio perfil/plan).
+ */
+export function invalidatePermissionsCache(): void {
+  clearCache()
+  initialized.value = false
+}
 
-function rehydratePermissions(): void {
+/**
+ * Llamado desde el backend (ej: vía WebSocket o respuesta de mutation)
+ * cuando los permisos del rol cambian. Guarda la nueva versión y limpia cache.
+ */
+export function setPermissionsVersion(v: string): void {
+  if (!process.client) return
+  localStorage.setItem(VERSION_KEY, v)
+  clearCache()
+  initialized.value = false
+}
+
+// ─── Rehydrate desde cache al cargar la app ──────────────────────────────
+function rehydrate(): void {
   if (initialized.value || !process.client) return
-  const cache = getCache()
-  if (isCacheValid(cache)) {
-    permissionKeys.value = cache.keys
-    userCategory.value = cache.category || null
-    userSubcategory.value = cache.subcategory || null
-    initialized.value = true
+  const entry = getCache()
+  if (isCacheValid(entry)) {
+    permissionKeys.value  = entry!.keys
+    userCategory.value    = entry!.category   ?? null
+    userSubcategory.value = entry!.subcategory ?? null
+    serverVersion.value   = entry!.version    ?? null
+    initialized.value     = true
   }
 }
 
-rehydratePermissions()
+rehydrate()
 
-// ─── Composable ───────────────────────────────────────────────────────────────
-
+// ─── Composable ───────────────────────────────────────────────────────────
 export const usePermissions = () => {
   const { token, isAuthenticated, refreshAccessToken, getHeaders } = useAuth()
   const config = useRuntimeConfig()
   const apiUrl = config.public.apiUrl as string
 
-  // ── Checkers reactivos ────────────────────────────────────────────────────
+  // ── Checkers ─────────────────────────────────────────────────────────────
+  const can    = (permission: string)            => permissionKeys.value.includes(permission)
+  const canAny = (...permissions: string[])      => permissions.some(p  => permissionKeys.value.includes(p))
+  const canAll = (...permissions: string[])      => permissions.every(p => permissionKeys.value.includes(p))
 
-  const can = (permission: string): boolean =>
-    permissionKeys.value.includes(permission)
-
-  const canAny = (...permissions: string[]): boolean =>
-    permissions.some(p => permissionKeys.value.includes(p))
-
-  const canAll = (...permissions: string[]): boolean =>
-    permissions.every(p => permissionKeys.value.includes(p))
-
-  // ── Fetch desde backend ───────────────────────────────────────────────────
-
+  // ── Fetch ─────────────────────────────────────────────────────────────────
   async function fetchPermissions(force = false): Promise<void> {
     if (!isAuthenticated.value || loading.value) return
 
-    // Si no forzamos, verificar si el caché aún es válido
-    if (!force && initialized.value) {
-      const cache = getCache()
-      if (isCacheValid(cache)) {
-        return // Caché válido, no hacer petición
-      }
-    }
+    if (!force && initialized.value && isCacheValid(getCache())) return
 
     loading.value = true
     try {
       const doFetch = () =>
-        fetch(`${apiUrl}/permissions/me`, {
-          headers: { ...getHeaders() },
-        })
+        fetch(`${apiUrl}/permissions/me`, { headers: { ...getHeaders() } })
 
       let res = await doFetch()
       if (res.status === 401) {
@@ -114,68 +125,78 @@ export const usePermissions = () => {
         if (!ok) { clearPermissions(); return }
         res = await doFetch()
       }
-      if (!res.ok) throw new Error('Failed to fetch permissions')
+      if (!res.ok) throw new Error(`${res.status}`)
 
-      const data = await res.json() as { keys: string[], category?: string | null, subcategory?: string | null }
-      permissionKeys.value = data.keys
-      userCategory.value = data.category || null
-      userSubcategory.value = data.subcategory || null
-      initialized.value = true
-      setCache(data.keys)
+      const data = await res.json() as {
+        keys:        string[]
+        category?:   string | null
+        subcategory?: string | null
+        version?:    string | null
+      }
+
+      permissionKeys.value  = data.keys
+      userCategory.value    = data.category    ?? null
+      userSubcategory.value = data.subcategory ?? null
+      serverVersion.value   = data.version     ?? null
+      initialized.value     = true
+
+      // Persistir versión del servidor para comparación futura
+      if (data.version && process.client) {
+        localStorage.setItem(VERSION_KEY, data.version)
+      }
+
+      setCache(data.keys, data.version)
     } catch {
-      // Graceful degradation: warm cache ya se cargó en rehydrate
+      // Degradación elegante: usa cache si existe
     } finally {
       loading.value = false
     }
   }
 
-  /**
-   * Fuerza la recarga de permisos desde el backend, ignorando caché
-   */
   async function reloadPermissions(): Promise<void> {
     clearCache()
-    await fetchPermissions(true) // force = true
+    initialized.value = false
+    await fetchPermissions(true)
   }
 
-  /**
-   * Verifica si el caché necesita actualización (para UI de "refresh disponible")
-   */
   function needsRefresh(): boolean {
-    const cache = getCache()
-    return !isCacheValid(cache)
+    return !isCacheValid(getCache())
   }
 
   function clearPermissions(): void {
-    permissionKeys.value = []
-    userCategory.value = null
+    permissionKeys.value  = []
+    userCategory.value    = null
     userSubcategory.value = null
-    initialized.value = false
+    initialized.value     = false
+    serverVersion.value   = null
     clearCache()
   }
 
-  // ── Auto-refresh: verificar cada minuto si el caché expiró ─────────────────
-
-  if (process.client) {
+  // ── Auto-refresh silencioso cada minuto ───────────────────────────────────
+  if (process.client && !_autoRefreshStarted) {
+    _autoRefreshStarted = true
     setInterval(() => {
       if (isAuthenticated.value && needsRefresh()) {
-        // Caché expirado, recargar silenciosamente
         fetchPermissions(true)
       }
-    }, 60000) // Verificar cada minuto
+    }, REFRESH_INT)
   }
 
   return {
-    permissionKeys: computed(() => permissionKeys.value),
-    userCategory: computed(() => userCategory.value),
-    userSubcategory: computed(() => userSubcategory.value),
-    loading: computed(() => loading.value),
-    initialized: computed(() => initialized.value),
+    permissionKeys:   computed(() => permissionKeys.value),
+    userCategory:     computed(() => userCategory.value),
+    userSubcategory:  computed(() => userSubcategory.value),
+    loading:          computed(() => loading.value),
+    initialized:      computed(() => initialized.value),
     can,
     canAny,
     canAll,
-    fetchPermissions: () => fetchPermissions(false),
+    fetchPermissions:  ()  => fetchPermissions(false),
     reloadPermissions,
     needsRefresh,
     clearPermissions,
   }
 }
+
+// Evitar registrar múltiples setIntervals al hacer HMR
+let _autoRefreshStarted = false
