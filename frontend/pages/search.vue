@@ -942,11 +942,45 @@
           </Transition>
         </div>
       </Transition>
-      <!-- Modal pedido -->
+      <!-- Modal pedido individual -->
       <ModalsCatalogOrderModal v-model="showOrderModal" :product="orderProduct" @success="onOrderSuccess" />
 
       <!-- Modal solicitud de servicio -->
       <ModalsCatalogServiceRequestModal v-model="showServiceRequestModal" :service="serviceRequestTarget" @success="onServiceRequestSuccess" />
+
+      <!-- Carrito drawer (solo en tab productos) -->
+      <CartDrawer v-if="activeTab === 'productos'" />
+
+      <!-- Botón flotante carrito (solo en tab productos) -->
+      <Transition
+        enter-active-class="duration-300 ease-out"
+        enter-from-class="opacity-0 translate-y-4 scale-90"
+        enter-to-class="opacity-100 translate-y-0 scale-100"
+        leave-active-class="duration-200 ease-in"
+        leave-from-class="opacity-100 translate-y-0 scale-100"
+        leave-to-class="opacity-0 translate-y-4 scale-90"
+      >
+        <button
+          v-if="activeTab === 'productos' && cartTotalItems > 0"
+          class="fixed bottom-6 right-6 z-[350] flex items-center gap-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-sm px-5 py-3.5 rounded-2xl shadow-xl shadow-red-300 transition-all duration-200"
+          @click="openCart"
+        >
+          <!-- Icono carrito -->
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          <span>Ver carrito</span>
+          <!-- Badge cantidad -->
+          <span class="bg-white text-red-600 text-xs font-black w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">
+            {{ cartTotalItems > 99 ? '99+' : cartTotalItems }}
+          </span>
+          <!-- Precio total -->
+          <span class="border-l border-red-400/60 pl-3 text-red-100 font-semibold text-xs">
+            ${{ formatPrice(cartTotalPrice) }}
+          </span>
+        </button>
+      </Transition>
 
       <!-- Toast éxito pedido -->
       <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
@@ -976,11 +1010,15 @@ import type { CatalogService } from '~/composables/useServices'
 import type { Job } from '~/composables/useJobs'
 import { useJobs } from '~/composables/useJobs'
 import { useExchangeRates } from '~/composables/useExchangeRates'
+import { useCart } from '~/composables/useCart'
 
 definePageMeta({ layout: 'default' })
 
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
+
+// ─── Carrito ──────────────────────────────────────────────────────────────────
+const { totalItems: cartTotalItems, totalPrice: cartTotalPrice, openCart } = useCart()
 
 // ─── Productos ────────────────────────────────────────────────────────────────
 const {
