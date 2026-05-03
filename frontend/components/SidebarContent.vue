@@ -89,8 +89,8 @@
         </template>
       </template>
 
-      <!-- Administración -->
-      <template v-if="isAdminOrAbove">
+      <!-- Administración: visible si el usuario tiene al menos un permiso admin -->
+      <template v-if="hasAdminItems">
         <template v-if="!collapsed">
           <div class="mt-3 mb-1 px-2">
             <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Administración</span>
@@ -102,7 +102,7 @@
         <NavLink v-if="can('users:view')" to="/usuarios" label="Usuarios" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
           <template #icon><component :is="NAV_ICONS.employees" class="h-5 w-5" /></template>
         </NavLink>
-        <NavLink v-if="can('users:view') || can('categories_global:view')" to="/categorias" label="Categorías" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+        <NavLink v-if="can('categories_global:view')" to="/categorias" label="Categorías" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
           <template #icon><component :is="NAV_ICONS.menu" class="h-5 w-5" /></template>
         </NavLink>
         <NavLink v-if="can('permissions:manage')" to="/permisos" label="Permisos" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
@@ -137,9 +137,11 @@
       <NavLink v-if="can('settings:view')" to="/configuracion" label="Configuración" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.ops_group" class="h-5 w-5" /></template>
       </NavLink>
-      <NavLink v-if="can('plans:view') && ['COMMERCE','FREELANCER','ADMIN'].includes(role)" to="/mi-plan" label="Mi Plan" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+      <!-- Mi Plan: visible para commerce/freelancer (tienen plans:view pero NO son admin-only) -->
+      <NavLink v-if="can('plans:view') && !can('permissions:manage')" to="/mi-plan" label="Mi Plan" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.sales" class="h-5 w-5" /></template>
       </NavLink>
+      <!-- Ver Planes: siempre visible (página pública) -->
       <NavLink to="/precios" label="Ver Planes" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.menu" class="h-5 w-5" /></template>
       </NavLink>
@@ -194,8 +196,13 @@ const { hasModule, loadModules } = useModules()
 onMounted(() => loadModules())
 
 const role = computed(() => user.value?.role ?? 'NORMAL')
-const isAdminOrAbove  = computed(() => ['SUPERADMIN', 'ADMIN'].includes(role.value))
-const isCommerceRole  = computed(() => !isAdminOrAbove.value)
+
+// Sección Administración visible si el usuario tiene al menos un permiso admin
+const ADMIN_PERMISSIONS = [
+  'users:view', 'categories_global:view', 'permissions:manage',
+  'audit:view', 'logs:view', 'plans:view', 'exchange_rates:view',
+]
+const hasAdminItems = computed(() => ADMIN_PERMISSIONS.some(p => can(p)))
 
 const props = withDefaults(
   defineProps<{ collapsed?: boolean; dark?: boolean }>(),
@@ -296,7 +303,8 @@ const topNavItemsDef: NavItemExtended[] = [
 const topNavItems = computed(() =>
   topNavItemsDef.filter(i => {
     if (i.normalOnly && role.value !== 'NORMAL') return false
-    return !i.commerceOnly || isCommerceRole.value
+    if (!i.normalOnly && i.commerceOnly && role.value === 'NORMAL') return false
+    return true
   })
 )
 
