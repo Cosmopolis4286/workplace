@@ -23,7 +23,6 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Role, SubscriptionStatus, BillingInterval } from '@prisma/client';
 
 @Controller('plans')
-@UseGuards(JwtAuthGuard)
 export class PlansController {
   constructor(
     private readonly plansService: PlansService,
@@ -38,12 +37,16 @@ export class PlansController {
     return this.plansService.getPublicPlans(user?.role, categoryId);
   }
 
+  // ─── Authenticated user endpoints ────────────────────────────────────────
+
   @Get('my-subscription')
+  @UseGuards(JwtAuthGuard)
   getMySubscription(@CurrentUser() user: any) {
     return this.plansService.getMySubscription(user.id);
   }
 
   @Get('usage')
+  @UseGuards(JwtAuthGuard)
   async getUsage(@CurrentUser() user: any) {
     const commerce = await this.planLimitsService[
       'prisma'
@@ -53,77 +56,6 @@ export class PlansController {
     });
     if (!commerce) return { limits: null, usage: null };
     return this.planLimitsService.getUsage(user.id, commerce.id);
-  }
-
-  // ─── Admin endpoints ──────────────────────────────────────────────────────────
-
-  @Get('stats')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
-  getStats() {
-    return this.plansService.getStats();
-  }
-
-  @Get()
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
-  findAll(@Query('includeInactive') includeInactive?: string) {
-    return this.plansService.findAllPlans(includeInactive === 'true');
-  }
-
-  @Get('subscriptions')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
-  findAllSubscriptions(
-    @Query('status') status?: SubscriptionStatus,
-    @Query('planId') planId?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string
-  ) {
-    return this.plansService.findAllSubscriptions({
-      status,
-      planId,
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 20,
-    });
-  }
-
-  @Get(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
-  findOne(@Param('id') id: string) {
-    return this.plansService.findPlanById(id);
-  }
-
-  @Post()
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
-  create(@Body() dto: CreatePlanDto) {
-    return this.plansService.createPlan(dto);
-  }
-
-  @Put(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
-  update(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
-    return this.plansService.updatePlan(id, dto);
-  }
-
-  @Delete(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN)
-  remove(@Param('id') id: string) {
-    return this.plansService.deletePlan(id);
-  }
-
-  @Post('subscriptions')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
-  assignSubscription(
-    @Body() dto: AssignSubscriptionDto,
-    @CurrentUser() user: any
-  ) {
-    return this.plansService.assignSubscription(dto, user.id);
   }
 
   @Post('self-subscribe')
@@ -153,8 +85,79 @@ export class PlansController {
     return this.plansService.upgradePlan(user.id, dto);
   }
 
+  // ─── Admin endpoints ──────────────────────────────────────────────────────
+
+  @Get('stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  getStats() {
+    return this.plansService.getStats();
+  }
+
+  @Get('subscriptions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  findAllSubscriptions(
+    @Query('status') status?: SubscriptionStatus,
+    @Query('planId') planId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.plansService.findAllSubscriptions({
+      status,
+      planId,
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 20,
+    });
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  findAll(@Query('includeInactive') includeInactive?: string) {
+    return this.plansService.findAllPlans(includeInactive === 'true');
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  findOne(@Param('id') id: string) {
+    return this.plansService.findPlanById(id);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
+  create(@Body() dto: CreatePlanDto) {
+    return this.plansService.createPlan(dto);
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
+  update(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
+    return this.plansService.updatePlan(id, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
+  remove(@Param('id') id: string) {
+    return this.plansService.deletePlan(id);
+  }
+
+  @Post('subscriptions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  assignSubscription(
+    @Body() dto: AssignSubscriptionDto,
+    @CurrentUser() user: any
+  ) {
+    return this.plansService.assignSubscription(dto, user.id);
+  }
+
   @Delete('subscriptions/:id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   cancelSubscription(@Param('id') id: string) {
     return this.plansService.cancelSubscription(id);
