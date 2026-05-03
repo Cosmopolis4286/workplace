@@ -122,20 +122,44 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
             </svg>
           </button>
-          <!-- Pedir -->
-          <button
-            v-if="!isOwner"
-            class="flex items-center gap-1 text-xs font-bold text-white bg-red-600 rounded-xl px-2.5 py-1.5
-                   hover:bg-red-700 transition-all duration-200 active:scale-95 shadow-sm shadow-red-200"
-            @click.stop="$emit('order', product)"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-            </svg>
-            Pedir
-          </button>
+
+          <!-- Controles de carrito -->
+          <template v-if="!isOwner">
+            <!-- Si ya está en carrito: controles +/- inline -->
+            <div
+              v-if="cartQty > 0"
+              class="flex items-center bg-red-600 rounded-xl overflow-hidden shadow-sm shadow-red-200"
+              @click.stop
+            >
+              <button
+                class="w-7 h-7 flex items-center justify-center text-white hover:bg-red-700 transition-colors font-bold text-base"
+                @click.stop="handleDecrement"
+              >−</button>
+              <span class="w-6 text-center text-xs font-black text-white">{{ cartQty }}</span>
+              <button
+                class="w-7 h-7 flex items-center justify-center text-white hover:bg-red-700 transition-colors font-bold text-base"
+                @click.stop="handleAdd"
+              >+</button>
+            </div>
+
+            <!-- Si no está en carrito: botón añadir -->
+            <button
+              v-else
+              class="flex items-center gap-1 text-xs font-bold text-white bg-red-600 rounded-xl px-2.5 py-1.5
+                     hover:bg-red-700 transition-all duration-200 active:scale-95 shadow-sm shadow-red-200 relative overflow-hidden"
+              :class="{ 'scale-95': addedFlash }"
+              @click.stop="handleAdd"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                  d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              Añadir
+            </button>
+          </template>
+
           <span
-            v-else
+            v-if="isOwner"
             class="text-[11px] font-semibold text-gray-400 bg-gray-100 rounded-xl px-2.5 py-1.5"
             title="Este es tu producto"
           >Tu producto</span>
@@ -149,9 +173,24 @@
 import { ref, computed } from 'vue'
 import type { CatalogProduct } from '~/composables/useCatalog'
 import { useExchangeRates } from '~/composables/useExchangeRates'
+import { useCart } from '~/composables/useCart'
 
 const props = defineProps<{ product: CatalogProduct; isOwner?: boolean }>()
 defineEmits<{ view: [product: CatalogProduct]; order: [product: CatalogProduct] }>()
+
+const { addItem, increment, decrement, getQuantity } = useCart()
+const addedFlash = ref(false)
+const cartQty = computed(() => getQuantity(props.product.id))
+
+function handleAdd() {
+  addItem(props.product)
+  addedFlash.value = true
+  setTimeout(() => { addedFlash.value = false }, 300)
+}
+
+function handleDecrement() {
+  decrement(props.product.id)
+}
 
 const imgError = ref(false)
 const { defaultRate } = useExchangeRates()
