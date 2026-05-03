@@ -11,7 +11,7 @@ import {
   Request,
 } from '@nestjs/common'
 import { JobsService, type CreateJobDto, type UpdateJobDto, type JobQuery } from './jobs.service'
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import type { JobApplicationStatus } from '@prisma/client'
 
 @Controller('jobs')

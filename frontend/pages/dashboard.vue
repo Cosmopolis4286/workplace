@@ -130,7 +130,7 @@
 <script setup lang="ts">
 // Middleware para validar acceso al dashboard
 definePageMeta({
-  middleware: 'dashboard-access'
+  middleware: 'auth'
 })
 
 import { ExclamationTriangleIcon, ServerIcon } from '@heroicons/vue/24/outline'

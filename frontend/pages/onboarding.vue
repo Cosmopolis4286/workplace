@@ -284,17 +284,10 @@ async function goToDashboard() {
   localStorage.removeItem('onboarding_subcategory')
   localStorage.removeItem('onboarding_plan')
   localStorage.setItem(COMPLETION_KEY, 'true')
-  try {
-    // IMPORTANT: Fetch fresh user data from backend to ensure middleware sees updated categoryId
-    const { fetchProfile } = useAuth()
-    await fetchProfile()
-    invalidateModules()
-    await navigateTo('/dashboard')
-  } catch (error) {
-    console.error('Navigation error:', error)
-    // Fallback: force page reload to dashboard
-    window.location.href = '/dashboard'
-  }
+  const { fetchProfile } = useAuth()
+  await fetchProfile()
+  invalidateModules()
+  await navigateTo('/dashboard')
 }
 async function skipOnboarding() {
   localStorage.removeItem(STORAGE_KEY)
@@ -309,39 +302,29 @@ async function skipOnboarding() {
 }
 
 onMounted(async () => {
-  // Check if onboarding was completed
-  const isCompleted = localStorage.getItem(COMPLETION_KEY)
-  if (isCompleted === 'true') {
-    // Onboarding already completed, redirect to dashboard
+  // Si ya completó el onboarding o ya tiene categoría asignada, ir al dashboard
+  const isCompleted = localStorage.getItem(COMPLETION_KEY) === 'true'
+  if (isCompleted || user.value?.categoryId) {
+    localStorage.setItem(COMPLETION_KEY, 'true')
     await navigateTo('/dashboard')
     return
   }
 
-  // Restaurar step si el usuario recargó la página
+  // Restaurar step si el usuario recargó en medio del onboarding
   const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved) {
-    const savedStep = parseInt(saved, 10)
-    if (!isNaN(savedStep) && savedStep > 0) {
-      step.value = savedStep
-      // Si ya pasó el paso de categoría, restaurar desde localStorage o user
-      if (savedStep >= 1) {
-        // Primero intentar desde localStorage, luego desde user
-        const savedCategory = localStorage.getItem('onboarding_category')
-        selectedCategory.value = savedCategory || user.value?.categoryId || ''
-        selectedSubcategory.value = localStorage.getItem('onboarding_subcategory') || ''
-        // Restore selected plan if any
-        selectedPlan.value = localStorage.getItem('onboarding_plan') || ''
-        // Cargar subcategorías si tenemos categoría
-        if (selectedCategory.value) {
-          await loadSubcategories(selectedCategory.value)
-        }
-        await loadPlans()
-      }
-      // Si ya está en el paso final, no hace falta cargar nada más
-      if (savedStep < 2) await loadCategories()
-      return
-    }
+  const savedStep = saved ? parseInt(saved, 10) : NaN
+
+  if (!isNaN(savedStep) && savedStep >= 1) {
+    step.value = savedStep
+    const savedCategory = localStorage.getItem('onboarding_category') || ''
+    selectedCategory.value = savedCategory || user.value?.categoryId || ''
+    selectedSubcategory.value = localStorage.getItem('onboarding_subcategory') || ''
+    selectedPlan.value = localStorage.getItem('onboarding_plan') || ''
+    if (selectedCategory.value) await loadSubcategories(selectedCategory.value)
+    await Promise.all([loadCategories(), loadPlans()])
+    return
   }
+
   await loadCategories()
 })
 </script>
