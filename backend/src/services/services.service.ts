@@ -364,50 +364,85 @@ export class ServicesService {
   async getServiceMetrics(id: string, userId: string) {
     await this.assertOwner(id, userId);
 
-    const [views, profileVisits, requests, recentViews] = await Promise.all([
+    const now = new Date();
+    const days7ago  = new Date(now.getTime() - 7  * 86400_000);
+    const days30ago = new Date(now.getTime() - 30 * 86400_000);
+    const days14ago = new Date(now.getTime() - 14 * 86400_000);
+
+    const [
+      views, profileVisits, requests,
+      viewsLast7, viewsPrev7,
+      requestsLast30, recentViewEvents,
+      lastRequest,
+    ] = await Promise.all([
+      // Totales históricos
+      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.VIEW } }),
+      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.PROFILE_VISIT } }),
+      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.REQUEST } }),
+      // Vistas últimos 7 días vs 7 días anteriores (para tendencia)
       this.prisma.serviceEvent.count({
-        where: { serviceId: id, type: ServiceEventType.VIEW },
+        where: { serviceId: id, type: ServiceEventType.VIEW, createdAt: { gte: days7ago } },
       }),
       this.prisma.serviceEvent.count({
-        where: { serviceId: id, type: ServiceEventType.PROFILE_VISIT },
+        where: { serviceId: id, type: ServiceEventType.VIEW, createdAt: { gte: days14ago, lt: days7ago } },
       }),
+      // Solicitudes últimos 30 días
       this.prisma.serviceEvent.count({
-        where: { serviceId: id, type: ServiceEventType.REQUEST },
+        where: { serviceId: id, type: ServiceEventType.REQUEST, createdAt: { gte: days30ago } },
       }),
-      // Vistas de los últimos 7 días agrupadas por día
+      // Eventos de vista recientes para gráfico por día
       this.prisma.serviceEvent.findMany({
-        where: {
-          serviceId: id,
-          type: ServiceEventType.VIEW,
-          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-        },
+        where: { serviceId: id, type: ServiceEventType.VIEW, createdAt: { gte: days7ago } },
         select: { createdAt: true },
         orderBy: { createdAt: 'asc' },
       }),
+      // Última solicitud recibida
+      this.prisma.serviceRequest.findFirst({
+        where: { serviceId: id },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true, clientName: true, modality: true },
+      }),
     ]);
 
-    // Agrupa vistas por día (YYYY-MM-DD)
+    // Gráfico: 7 días con conteo por día
     const viewsByDay: Record<string, number> = {};
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const d = new Date(now.getTime() - i * 86400_000);
       viewsByDay[d.toISOString().slice(0, 10)] = 0;
     }
-    for (const ev of recentViews) {
+    for (const ev of recentViewEvents) {
       const day = ev.createdAt.toISOString().slice(0, 10);
       if (day in viewsByDay) viewsByDay[day]++;
     }
 
+    // Tendencia de vistas: variación % respecto a los 7 días anteriores
+    const viewsTrend = viewsPrev7 > 0
+      ? Math.round(((viewsLast7 - viewsPrev7) / viewsPrev7) * 100)
+      : viewsLast7 > 0 ? 100 : 0;
+
     const conversionRate = views > 0 ? Math.round((requests / views) * 100) : 0;
+    // Tasa de interés: visitas al perfil / vistas totales
+    const interestRate   = views > 0 ? Math.round((profileVisits / views) * 100) : 0;
+    // Alcance estimado: vistas únicas aproximadas (últimos 7 días)
+    const weeklyReach = viewsLast7;
 
     return {
       views,
       profileVisits,
       requests,
       conversionRate,
-      viewsByDay: Object.entries(viewsByDay).map(([date, count]) => ({
-        date,
-        count,
-      })),
+      interestRate,
+      weeklyReach,
+      viewsTrend,
+      requestsLast30,
+      lastRequest: lastRequest
+        ? {
+            date: lastRequest.createdAt,
+            clientName: lastRequest.clientName,
+            modality: lastRequest.modality,
+          }
+        : null,
+      viewsByDay: Object.entries(viewsByDay).map(([date, count]) => ({ date, count })),
     };
   }
 
