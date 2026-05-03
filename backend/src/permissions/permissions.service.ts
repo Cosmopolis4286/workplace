@@ -43,27 +43,65 @@ export class PermissionsService {
 
   // ── Frontend endpoint: permissions for the logged-in user ─────────────────
 
-  async getMyPermissions(role: Role, userId?: string): Promise<{ keys: string[]; userSpecific?: string[] }> {
+  async getMyPermissions(
+    role: Role,
+    userId?: string,
+  ): Promise<{
+    keys: string[];
+    category: string | null;
+    subcategory: string | null;
+    version: string;
+    userSpecific?: string[];
+  }> {
     const roleKeys = await this.getRolePermissions(role);
-    
-    // Si se proporciona userId, también obtener permisos individuales
+    let keys = roleKeys;
+    let userSpecific: string[] | undefined;
+
+    // Resolver categoría del usuario si se proporciona userId
+    let category: string | null = null;
+    let subcategory: string | null = null;
+
     if (userId) {
       const userKeys = await this.getUserSpecificPermissions(userId);
-      // Combinar: permisos del rol + permisos individuales concedidos - permisos individuales denegados
+      // Combinar: rol + individuales concedidos - individuales denegados
       const combined = new Set(roleKeys);
-      
       for (const up of userKeys) {
         if (up.granted) combined.add(up.permissionKey);
         else combined.delete(up.permissionKey);
       }
-      
-      return { 
-        keys: Array.from(combined),
-        userSpecific: userKeys.filter(u => u.granted).map(u => u.permissionKey)
-      };
+      keys = Array.from(combined);
+      userSpecific = userKeys.filter(u => u.granted).map(u => u.permissionKey);
+
+      // Obtener categoría/subcategoría del usuario para el sidebar y middleware
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          category:    { select: { name: true } },
+          subcategory: { select: { name: true } },
+        },
+      });
+      category    = user?.category?.name    ?? null;
+      subcategory = user?.subcategory?.name ?? null;
     }
-    
-    return { keys: roleKeys };
+
+    // version = hash del estado actual de permisos del rol (permite invalidación en cliente)
+    // Usamos el TTL restante de Redis como proxy; si no hay cache → nuevo timestamp
+    const versionKey = `permissions:version:${role}`;
+    let version = await this.redis.get(versionKey);
+    if (!version) {
+      version = Date.now().toString();
+      await this.redis.setex(versionKey, CACHE_TTL, version);
+    }
+
+    return { keys, category, subcategory, version, userSpecific };
+  }
+
+  // Llamar cuando se modifiquen permisos del rol para invalidar cache de clientes
+  async invalidateRoleVersion(role: Role): Promise<void> {
+    const newVersion = Date.now().toString();
+    await this.redis.setex(`permissions:version:${role}`, CACHE_TTL, newVersion);
+    // También invalida el cache de keys del rol
+    await this.redis.del(cacheKey(role));
   }
 
   private async getUserSpecificPermissions(userId: string): Promise<Array<{permissionKey: string; granted: boolean}>> {
@@ -143,7 +181,8 @@ export class PermissionsService {
       update: { granted, updatedBy },
     });
 
-    await this.redis.del(cacheKey(role));
+    // Invalida cache de keys y bumps la version para que los clientes re-carguen
+    await this.invalidateRoleVersion(role);
     return { success: true };
   }
 

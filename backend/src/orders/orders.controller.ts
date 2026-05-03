@@ -36,7 +36,7 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get('mine')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermission('orders:view')
   getMyOrders(
     @CurrentUser() user: any,
     @Query('page') page?: string,
