@@ -48,6 +48,11 @@ export class CreateServiceDto {
   tags?: string[];
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  modalities?: string[];
+
+  @IsOptional()
   @IsString()
   categoryId?: string;
 }
