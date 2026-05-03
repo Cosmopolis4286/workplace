@@ -241,6 +241,15 @@
                     <Edit class="w-5 h-5" />
                   </button>
                   <button
+                    @click="sendTelegramLink(client)"
+                    :disabled="telegramLinkLoading === client.id"
+                    :class="client.telegramChatId ? 'text-green-500 hover:text-green-700' : 'text-sky-500 hover:text-sky-700'"
+                    class="hover:scale-110 transition-all duration-200 disabled:opacity-50"
+                    :title="client.telegramChatId ? 'Telegram vinculado — copiar nuevo link' : 'Enviar link de Telegram'"
+                  >
+                    <Send class="w-5 h-5" />
+                  </button>
+                  <button
                     @click="confirmDelete(client)"
                     class="text-red-600 hover:text-red-900 hover:scale-110 transition-all duration-200"
                     title="Eliminar"
@@ -280,6 +289,17 @@
         </div>
       </div>
     </div>
+
+    <!-- Telegram Toast -->
+    <Transition name="slide-up">
+      <div
+        v-if="telegramToast"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-sky-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 text-sm font-medium"
+      >
+        <Send class="w-4 h-4 flex-shrink-0" />
+        <span>{{ telegramToast }}</span>
+      </div>
+    </Transition>
 
     <!-- Create / Edit Modal -->
     <Teleport to="body">
@@ -444,9 +464,10 @@ import { ref, computed, watch, onMounted } from 'vue'
 import {
   Users, Search, Plus, Edit, Trash2,
   TrendingUp, Activity, DollarSign, Star,
-  ChevronLeft, ChevronRight, X, AlertCircle,
+  ChevronLeft, ChevronRight, X, AlertCircle, Send,
 } from 'lucide-vue-next'
 import { useClientes, type Customer, type CustomerSegment } from '~/composables/useClientes'
+import { useRuntimeConfig } from '#app'
 
 const {
   customers, stats, loading, error,
@@ -603,6 +624,37 @@ async function handleToggleStatus(client: Customer) {
   await toggleStatus(client.id)
 }
 
+// ─── Telegram link ─────────────────────────────────────────────────────────
+
+const telegramLinkLoading = ref<string | null>(null)
+const telegramToast = ref<string | null>(null)
+
+async function sendTelegramLink(client: Customer) {
+  telegramLinkLoading.value = client.id
+  try {
+    const config = useRuntimeConfig()
+    const apiUrl = config.public.apiUrl as string
+    const token = useCookie('access_token').value
+    const res = await fetch(`${apiUrl}/telegram/link/${client.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    if (data.url) {
+      await navigator.clipboard.writeText(data.url)
+      telegramToast.value = `¡Link copiado! Envíaselo a ${client.name} por Telegram.`
+    } else if (data.linked) {
+      telegramToast.value = `${client.name} ya tiene Telegram vinculado ✓`
+    } else {
+      telegramToast.value = 'No se pudo generar el link. Verifica que TELEGRAM_BOT_USERNAME esté configurado.'
+    }
+  } catch {
+    telegramToast.value = 'Error al generar link de Telegram.'
+  } finally {
+    telegramLinkLoading.value = null
+    setTimeout(() => { telegramToast.value = null }, 4000)
+  }
+}
+
 // ─── Init ──────────────────────────────────────────────────────────────────
 
 onMounted(() => loadClientes())
@@ -616,5 +668,15 @@ onMounted(() => loadClientes())
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
 }
 </style>
