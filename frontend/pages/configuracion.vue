@@ -485,6 +485,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ middleware: 'auth' })
+
 import { ref, computed, watch, onMounted } from 'vue'
 import {
   CogIcon,
@@ -694,7 +696,7 @@ function clearCache() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
-  await fetchRates()
+  await fetchRates(false, true)
   if (isCommerce.value) {
     await loadSettings()
     syncForms()
