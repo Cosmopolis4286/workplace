@@ -34,7 +34,7 @@ let socketRestaurantId: string | null = null
 
 export const useNotifications = () => {
   const { $socketio } = useNuxtApp()
-  const { token, refreshTokens } = useAuth()
+  const { token, refreshAccessToken: refreshTokens } = useAuth()
   const config = useRuntimeConfig()
   const apiBase = config.public.apiUrl as string
 

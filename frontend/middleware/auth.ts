@@ -36,7 +36,8 @@ const protectedRoutes: string[] = [
   ...searchRoutes,
 ]
 
-const authRoutes: string[] = ['/login', '/register', '/recover-password', '/verify-email', '/auth/google/callback']
+const authRoutes: string[] = ['/login', '/register', '/recover-password', '/auth/google/callback']
+const guestOnlyRoutes: string[] = [...authRoutes, '/verify-email']
 const onboardingExcluded: string[] = ['/onboarding', '/login', '/register', '/recover-password', '/verify-email', '/precios']
 
 const COMMERCE_ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE']
@@ -58,7 +59,8 @@ export default defineNuxtRouteMiddleware((to: any) => {
     return navigateTo('/login')
   }
 
-  if (authRoutes.includes(to.path) && isAuthenticated.value) {
+  if (guestOnlyRoutes.includes(to.path) && isAuthenticated.value) {
+    if (to.path === '/verify-email') return
     const role = user.value?.role as Role
     return navigateTo(role === 'NORMAL' ? '/search' : '/dashboard')
   }
