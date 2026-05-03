@@ -1,205 +1,221 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-4 sm:p-6">
-    <div class="max-w-4xl mx-auto">
-
-      <!-- Header -->
-      <div class="flex items-start justify-between mb-6 gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-gray-900">Solicitudes de Servicio</h1>
-          <p class="text-sm text-gray-500 mt-0.5">
-            {{ viewAs === 'provider' ? 'Solicitudes recibidas de clientes' : 'Solicitudes que has enviado a proveedores' }}
-          </p>
-        </div>
-
+  <div>
+    <PageHeader
+      title="Solicitudes de Servicio"
+      :description="viewAs === 'provider' ? 'Solicitudes recibidas de tus clientes' : 'Solicitudes que has enviado a proveedores'"
+      :icon="ClipboardDocumentListIcon"
+      :breadcrumb="[{ label: 'Solicitudes de Servicio' }]"
+      :stats="headerStats"
+    >
+      <template #actions>
         <!-- Toggle recibidas / enviadas -->
-        <div class="flex-shrink-0 flex items-center bg-white border border-gray-200 rounded-xl p-1 gap-1">
+        <div class="flex items-center bg-white border border-gray-200 rounded-xl p-1 gap-1 shadow-sm">
           <button
-            class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-            :class="viewAs === 'provider' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
+            class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+            :class="viewAs === 'provider' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
             @click="switchView('provider')"
           >
             Recibidas
           </button>
           <button
-            class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-            :class="viewAs === 'client' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
+            class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+            :class="viewAs === 'client' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
             @click="switchView('client')"
           >
             Enviadas
           </button>
         </div>
-      </div>
+      </template>
+    </PageHeader>
 
-      <!-- Stats -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p class="text-xs text-gray-500 mb-1">Total</p>
-          <p class="text-2xl font-black text-gray-900">{{ total }}</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p class="text-xs text-gray-500 mb-1">Pendientes</p>
-          <p class="text-2xl font-black text-yellow-600">{{ countByStatus('PENDIENTE') }}</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p class="text-xs text-gray-500 mb-1">Contactados</p>
-          <p class="text-2xl font-black text-blue-600">{{ countByStatus('CONTACTADO') }}</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p class="text-xs text-gray-500 mb-1">Cerrados</p>
-          <p class="text-2xl font-black text-green-600">{{ countByStatus('CERRADO') }}</p>
-        </div>
-      </div>
+    <!-- Error banner -->
+    <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+      <p class="text-red-700 text-sm">{{ error }}</p>
+      <button class="text-red-500 hover:text-red-700" @click="error = null">
+        <XMarkIcon class="h-4 w-4" />
+      </button>
+    </div>
 
-      <!-- Filtros de estado -->
-      <div class="flex gap-2 mb-4 overflow-x-auto scrollbar-none pb-1">
-        <button
-          v-for="f in filters" :key="f.value"
-          class="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-          :class="activeFilter === f.value
-            ? 'bg-blue-600 text-white shadow-sm'
-            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'"
-          @click="activeFilter = f.value"
-        >
-          {{ f.label }}
-          <span v-if="f.value !== 'ALL'" class="ml-1 opacity-70">({{ countByStatus(f.value) }})</span>
-        </button>
-      </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-      <!-- Error -->
-      <div v-if="error" class="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4 text-sm text-red-700">{{ error }}</div>
+      <!-- Lista principal -->
+      <div class="lg:col-span-2 space-y-4">
 
-      <!-- Skeleton -->
-      <div v-if="loading" class="space-y-3">
-        <div v-for="n in 4" :key="n" class="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
-          <div class="flex items-start gap-4">
-            <div class="w-10 h-10 rounded-xl bg-gray-200 flex-shrink-0" />
-            <div class="flex-1 space-y-2">
-              <div class="h-4 bg-gray-200 rounded w-1/2" />
-              <div class="h-3 bg-gray-200 rounded w-3/4" />
-              <div class="h-3 bg-gray-200 rounded w-1/3" />
+        <!-- Filtros de estado -->
+        <div class="card p-1 flex gap-1 overflow-x-auto scrollbar-none">
+          <button
+            v-for="f in filters"
+            :key="f.value"
+            class="flex-shrink-0 flex-1 text-sm py-2 px-3 rounded-lg font-medium transition-colors whitespace-nowrap"
+            :class="activeFilter === f.value
+              ? 'bg-red-600 text-white shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
+            @click="activeFilter = f.value"
+          >
+            {{ f.label }}
+            <span
+              v-if="f.value !== 'ALL' && countByStatus(f.value) > 0"
+              class="ml-1.5 text-xs px-1.5 py-0.5 rounded-full"
+              :class="activeFilter === f.value ? 'bg-red-500/30 text-red-100' : 'bg-gray-100 text-gray-500'"
+            >
+              {{ countByStatus(f.value) }}
+            </span>
+          </button>
+        </div>
+
+        <!-- Card con la lista -->
+        <div class="card divide-y divide-gray-100">
+
+          <!-- Skeleton -->
+          <template v-if="loading">
+            <div v-for="n in 4" :key="n" class="p-4 flex items-center gap-4">
+              <div class="skeleton h-10 w-10 rounded-full flex-shrink-0" />
+              <div class="flex-1 space-y-2">
+                <div class="skeleton h-4 w-40 rounded" />
+                <div class="skeleton h-3 w-56 rounded" />
+              </div>
+              <div class="skeleton h-6 w-20 rounded" />
             </div>
-          </div>
-        </div>
-      </div>
+          </template>
 
-      <!-- Vacío -->
-      <div v-else-if="filtered.length === 0" class="bg-white rounded-2xl border border-gray-100 py-16 text-center">
-        <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <svg class="w-7 h-7 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-          </svg>
+          <!-- Empty state -->
+          <div v-else-if="filtered.length === 0" class="p-12 text-center">
+            <ClipboardDocumentListIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p class="text-gray-500 font-medium">
+              {{ viewAs === 'provider' ? 'No hay solicitudes recibidas' : 'No has enviado solicitudes' }}
+            </p>
+            <p class="text-sm text-gray-400 mt-1">
+              {{ viewAs === 'provider'
+                ? 'Cuando alguien contacte tus servicios, aparecerá aquí.'
+                : 'Explora el catálogo y solicita servicios de otros proveedores.' }}
+            </p>
+          </div>
+
+          <!-- Filas -->
+          <template v-else>
+            <div
+              v-for="req in filtered"
+              :key="req.id"
+              class="p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors group"
+            >
+              <!-- Avatar -->
+              <div
+                class="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
+                :class="viewAs === 'provider' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'"
+              >
+                {{ (viewAs === 'provider' ? req.clientName : req.providerName)[0].toUpperCase() }}
+              </div>
+
+              <!-- Info -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="font-semibold text-gray-900 text-sm">
+                    {{ viewAs === 'provider' ? req.clientName : req.providerName }}
+                  </p>
+                  <span class="text-gray-300">·</span>
+                  <p class="text-sm text-red-600 font-medium truncate">{{ req.serviceName }}</p>
+                </div>
+                <p class="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                  <span>{{ MODALITY_LABELS[req.modality] ?? req.modality }}</span>
+                  <span>{{ formatDate(req.preferredDate) }}</span>
+                  <span v-if="req.address">{{ req.address }}{{ req.city ? `, ${req.city}` : '' }}</span>
+                  <span v-if="viewAs === 'provider' && req.clientPhone">{{ req.clientPhone }}</span>
+                </p>
+                <p v-if="req.description" class="text-xs text-gray-500 mt-1.5 line-clamp-1 italic">"{{ req.description }}"</p>
+              </div>
+
+              <!-- Badge estado + precio -->
+              <div class="flex-shrink-0 text-right space-y-1.5">
+                <span class="badge block text-center" :class="STATUS_CLASSES[req.status]">
+                  {{ STATUS_LABELS[req.status] }}
+                </span>
+                <p v-if="req.price" class="text-sm font-bold text-gray-900">
+                  ${{ formatPrice(req.price) }}
+                  <span v-if="req.priceUnit" class="text-xs font-normal text-gray-400">/ {{ req.priceUnit }}</span>
+                </p>
+              </div>
+
+              <!-- Acciones hover (solo proveedor) -->
+              <div
+                v-if="viewAs === 'provider'"
+                class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <button
+                  v-for="action in nextActions(req.status)"
+                  :key="action.status"
+                  :disabled="updating === req.id"
+                  class="p-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                  :class="action.class"
+                  :title="action.label"
+                  @click="updateStatus(req.id, action.status)"
+                >
+                  <component :is="action.icon" class="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
-        <p class="text-sm font-bold text-gray-700 mb-1">Sin solicitudes</p>
-        <p class="text-xs text-gray-400">
-          {{ viewAs === 'provider' ? 'Aún no has recibido solicitudes de servicio' : 'Aún no has enviado solicitudes de servicio' }}
+
+        <!-- Tiempo -->
+        <p v-if="!loading && filtered.length > 0" class="text-xs text-gray-400 text-right px-1">
+          {{ total }} solicitud{{ total !== 1 ? 'es' : '' }} en total
         </p>
       </div>
 
-      <!-- Lista -->
-      <div v-else class="space-y-3">
-        <div
-          v-for="req in filtered"
-          :key="req.id"
-          class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow"
-        >
-          <div class="flex items-start gap-4">
-            <!-- Avatar inicial -->
-            <div
-              class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-sm"
-              :class="viewAs === 'provider' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
-            >
-              {{ (viewAs === 'provider' ? req.clientName : req.providerName)[0].toUpperCase() }}
-            </div>
+      <!-- Sidebar -->
+      <div class="space-y-4">
 
-            <div class="flex-1 min-w-0">
-              <!-- Fila superior -->
-              <div class="flex items-start justify-between gap-2 mb-1">
-                <div>
-                  <!-- Proveedor: muestra quién pidió. Cliente: muestra a quién le pidió -->
-                  <p class="text-sm font-bold text-gray-900">
-                    {{ viewAs === 'provider' ? req.clientName : req.providerName }}
-                  </p>
-                  <p class="text-xs text-blue-600 font-semibold truncate">{{ req.serviceName }}</p>
-                </div>
-                <span class="flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full" :class="STATUS_CLASSES[req.status]">
-                  {{ STATUS_LABELS[req.status] }}
-                </span>
+        <!-- Resumen por estado -->
+        <div class="card p-5">
+          <h3 class="text-sm font-semibold text-gray-700 mb-4">Resumen</h3>
+          <div class="space-y-3">
+            <div v-for="s in statusSummary" :key="s.status" class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full flex-shrink-0" :class="s.dot" />
+                <span class="text-sm text-gray-600">{{ s.label }}</span>
               </div>
-
-              <!-- Detalles -->
-              <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mb-3">
-                <span v-if="viewAs === 'provider'" class="flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-                  </svg>
-                  {{ req.clientPhone }}
-                </span>
-                <span v-if="viewAs === 'provider' && req.clientEmail" class="flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                  </svg>
-                  {{ req.clientEmail }}
-                </span>
-                <span class="flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                  </svg>
-                  {{ formatDate(req.preferredDate) }}
-                </span>
-                <span class="flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                  </svg>
-                  {{ MODALITY_LABELS[req.modality] ?? req.modality }}
-                </span>
-                <span v-if="req.address" class="flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                  </svg>
-                  {{ req.address }}{{ req.city ? `, ${req.city}` : '' }}
-                </span>
-              </div>
-
-              <!-- Descripción -->
-              <p v-if="req.description" class="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2 mb-3 line-clamp-2">
-                "{{ req.description }}"
-              </p>
-
-              <!-- Precio + Acciones -->
-              <div class="flex items-center justify-between gap-3">
-                <span v-if="req.price" class="text-sm font-black text-blue-600">
-                  ${{ formatPrice(req.price) }}<span v-if="req.priceUnit" class="text-xs font-normal text-gray-400 ml-1">/ {{ req.priceUnit }}</span>
-                </span>
-                <span v-else class="text-xs text-gray-400">Sin precio indicado</span>
-
-                <!-- Botones de acción solo en vista proveedor -->
-                <div v-if="viewAs === 'provider'" class="flex gap-2">
-                  <button
-                    v-for="action in nextActions(req.status)"
-                    :key="action.status"
-                    :disabled="updating === req.id"
-                    class="px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all disabled:opacity-50"
-                    :class="action.class"
-                    @click="updateStatus(req.id, action.status)"
-                  >
-                    {{ updating === req.id ? '...' : action.label }}
-                  </button>
-                </div>
-              </div>
-
-              <p class="text-[10px] text-gray-400 mt-2">{{ viewAs === 'provider' ? 'Recibida' : 'Enviada' }} {{ timeAgo(req.createdAt) }}</p>
+              <span class="text-sm font-bold text-gray-900">{{ s.count }}</span>
             </div>
           </div>
         </div>
-      </div>
 
+        <!-- Detalle de la última seleccionada (si hay filtro activo) -->
+        <div v-if="viewAs === 'provider' && countByStatus('PENDIENTE') > 0" class="card p-5 border-l-4 border-l-yellow-400">
+          <div class="flex items-center gap-2 mb-1">
+            <ClockIcon class="h-4 w-4 text-yellow-500" />
+            <p class="text-sm font-semibold text-gray-700">Pendientes sin atender</p>
+          </div>
+          <p class="text-2xl font-black text-yellow-600">{{ countByStatus('PENDIENTE') }}</p>
+          <p class="text-xs text-gray-400 mt-1">Responde pronto para mejorar tu conversión</p>
+        </div>
+
+        <!-- Info vista cliente -->
+        <div v-if="viewAs === 'client'" class="card p-5 border-l-4 border-l-blue-400">
+          <div class="flex items-center gap-2 mb-1">
+            <InformationCircleIcon class="h-4 w-4 text-blue-500" />
+            <p class="text-sm font-semibold text-gray-700">Solicitudes enviadas</p>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">
+            El proveedor se pondrá en contacto contigo para coordinar los detalles del servicio.
+          </p>
+        </div>
+
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import {
+  ClipboardDocumentListIcon,
+  XMarkIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  PhoneIcon,
+  InformationCircleIcon,
+} from '@heroicons/vue/24/outline'
+import PageHeader from '~/components/ui/PageHeader.vue'
 import { useApi } from '~/composables/useApi'
 
 definePageMeta({ middleware: 'auth' })
@@ -254,13 +270,13 @@ const filters = [
   { value: 'CERRADO',    label: 'Cerrados' },
 ]
 
-const requests = ref<ServiceRequest[]>([])
-const total = ref(0)
-const loading = ref(false)
-const error = ref<string | null>(null)
-const updating = ref<string | null>(null)
+const requests  = ref<ServiceRequest[]>([])
+const total     = ref(0)
+const loading   = ref(false)
+const error     = ref<string | null>(null)
+const updating  = ref<string | null>(null)
 const activeFilter = ref('ALL')
-const viewAs = ref<'provider' | 'client'>('provider')
+const viewAs    = ref<'provider' | 'client'>('provider')
 
 const filtered = computed(() =>
   activeFilter.value === 'ALL'
@@ -272,16 +288,30 @@ function countByStatus(status: string) {
   return requests.value.filter(r => r.status === status).length
 }
 
+const headerStats = computed(() => [
+  { label: 'Total', value: String(total.value) },
+  { label: 'Pendientes', value: String(countByStatus('PENDIENTE')) },
+  { label: 'Contactados', value: String(countByStatus('CONTACTADO')) },
+  { label: 'Cerrados', value: String(countByStatus('CERRADO')) },
+])
+
+const statusSummary = computed(() => [
+  { status: 'PENDIENTE',  label: 'Pendientes',  count: countByStatus('PENDIENTE'),  dot: 'bg-yellow-400' },
+  { status: 'VISTO',      label: 'Vistos',       count: countByStatus('VISTO'),      dot: 'bg-gray-400'   },
+  { status: 'CONTACTADO', label: 'Contactados',  count: countByStatus('CONTACTADO'), dot: 'bg-blue-400'   },
+  { status: 'CERRADO',    label: 'Cerrados',     count: countByStatus('CERRADO'),    dot: 'bg-green-400'  },
+])
+
 function nextActions(status: ServiceRequest['status']) {
   if (status === 'PENDIENTE') return [
-    { status: 'CONTACTADO', label: 'Marcar contactado', class: 'bg-blue-600 text-white hover:bg-blue-700' },
-    { status: 'CERRADO',    label: 'Cerrar',            class: 'bg-gray-100 text-gray-600 hover:bg-gray-200' },
+    { status: 'CONTACTADO', label: 'Marcar contactado', icon: PhoneIcon,       class: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
+    { status: 'CERRADO',    label: 'Cerrar',             icon: CheckCircleIcon, class: 'bg-gray-100 text-gray-500 hover:bg-gray-200' },
   ]
   if (status === 'VISTO') return [
-    { status: 'CONTACTADO', label: 'Marcar contactado', class: 'bg-blue-600 text-white hover:bg-blue-700' },
+    { status: 'CONTACTADO', label: 'Marcar contactado', icon: PhoneIcon,       class: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
   ]
   if (status === 'CONTACTADO') return [
-    { status: 'CERRADO', label: 'Cerrar trato', class: 'bg-green-600 text-white hover:bg-green-700' },
+    { status: 'CERRADO', label: 'Cerrar trato', icon: CheckCircleIcon, class: 'bg-green-50 text-green-600 hover:bg-green-100' },
   ]
   return []
 }
@@ -331,15 +361,6 @@ function formatDate(date: string) {
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
-}
-
-function timeAgo(date: string) {
-  const diff = Date.now() - new Date(date).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 60) return `hace ${mins} min`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `hace ${hrs}h`
-  return `hace ${Math.floor(hrs / 24)} días`
 }
 
 onMounted(fetchRequests)
