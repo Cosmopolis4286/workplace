@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TelegramService } from '../telegram/telegram.service';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
@@ -24,7 +25,8 @@ function endOfDay(d: Date) {
 export class DeliveryService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly telegram: TelegramService,
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -410,6 +412,30 @@ export class DeliveryService {
     this.notifications
       .notifyDeliveryStatusChange(commerceId, delivery.orderNumber, status)
       .catch(() => null);
+
+    if (delivery.customerPhone) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { phone: delivery.customerPhone, commerceId },
+        select: { id: true, telegramChatId: true },
+      });
+      if (customer?.telegramChatId) {
+        const statusEmoji: Record<string, string> = {
+          ASIGNADO: '🔔 Asignado a repartidor',
+          RECOGIENDO: '🏃 Repartidor en camino a recoger',
+          EN_CAMINO: '🚚 Tu pedido va en camino',
+          ENTREGADO: '🎉 ¡Pedido entregado!',
+          CANCELADO: '❌ Entrega cancelada',
+          FALLIDO: '⚠️ Entrega fallida — contáctanos',
+        };
+        const label = statusEmoji[status] ?? status;
+        this.telegram
+          .sendMessage(
+            customer.telegramChatId,
+            `📦 <b>Entrega #${delivery.orderNumber}</b>\n${label}`,
+          )
+          .catch(() => null);
+      }
+    }
 
     return updated;
   }
