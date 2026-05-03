@@ -3,9 +3,31 @@
     <div class="max-w-4xl mx-auto">
 
       <!-- Header -->
-      <div class="mb-6">
-        <h1 class="text-2xl font-black text-gray-900">Solicitudes de Servicio</h1>
-        <p class="text-sm text-gray-500 mt-0.5">Solicitudes recibidas de clientes</p>
+      <div class="flex items-start justify-between mb-6 gap-4">
+        <div>
+          <h1 class="text-2xl font-black text-gray-900">Solicitudes de Servicio</h1>
+          <p class="text-sm text-gray-500 mt-0.5">
+            {{ viewAs === 'provider' ? 'Solicitudes recibidas de clientes' : 'Solicitudes que has enviado a proveedores' }}
+          </p>
+        </div>
+
+        <!-- Toggle recibidas / enviadas -->
+        <div class="flex-shrink-0 flex items-center bg-white border border-gray-200 rounded-xl p-1 gap-1">
+          <button
+            class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+            :class="viewAs === 'provider' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
+            @click="switchView('provider')"
+          >
+            Recibidas
+          </button>
+          <button
+            class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+            :class="viewAs === 'client' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
+            @click="switchView('client')"
+          >
+            Enviadas
+          </button>
+        </div>
       </div>
 
       <!-- Stats -->
@@ -28,7 +50,7 @@
         </div>
       </div>
 
-      <!-- Filtros -->
+      <!-- Filtros de estado -->
       <div class="flex gap-2 mb-4 overflow-x-auto scrollbar-none pb-1">
         <button
           v-for="f in filters" :key="f.value"
@@ -69,7 +91,9 @@
           </svg>
         </div>
         <p class="text-sm font-bold text-gray-700 mb-1">Sin solicitudes</p>
-        <p class="text-xs text-gray-400">Aún no has recibido solicitudes de servicio</p>
+        <p class="text-xs text-gray-400">
+          {{ viewAs === 'provider' ? 'Aún no has recibido solicitudes de servicio' : 'Aún no has enviado solicitudes de servicio' }}
+        </p>
       </div>
 
       <!-- Lista -->
@@ -81,31 +105,37 @@
         >
           <div class="flex items-start gap-4">
             <!-- Avatar inicial -->
-            <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-700 font-black text-sm">
-              {{ req.clientName[0].toUpperCase() }}
+            <div
+              class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-sm"
+              :class="viewAs === 'provider' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
+            >
+              {{ (viewAs === 'provider' ? req.clientName : req.providerName)[0].toUpperCase() }}
             </div>
 
             <div class="flex-1 min-w-0">
               <!-- Fila superior -->
               <div class="flex items-start justify-between gap-2 mb-1">
                 <div>
-                  <p class="text-sm font-bold text-gray-900">{{ req.clientName }}</p>
+                  <!-- Proveedor: muestra quién pidió. Cliente: muestra a quién le pidió -->
+                  <p class="text-sm font-bold text-gray-900">
+                    {{ viewAs === 'provider' ? req.clientName : req.providerName }}
+                  </p>
                   <p class="text-xs text-blue-600 font-semibold truncate">{{ req.serviceName }}</p>
                 </div>
-                <span class="flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full" :class="statusClass(req.status)">
+                <span class="flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full" :class="STATUS_CLASSES[req.status]">
                   {{ STATUS_LABELS[req.status] }}
                 </span>
               </div>
 
               <!-- Detalles -->
               <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mb-3">
-                <span class="flex items-center gap-1">
+                <span v-if="viewAs === 'provider'" class="flex items-center gap-1">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
                   </svg>
                   {{ req.clientPhone }}
                 </span>
-                <span v-if="req.clientEmail" class="flex items-center gap-1">
+                <span v-if="viewAs === 'provider' && req.clientEmail" class="flex items-center gap-1">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                   </svg>
@@ -121,7 +151,13 @@
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                   </svg>
-                  {{ MODALITY_LABELS[req.modality] }}
+                  {{ MODALITY_LABELS[req.modality] ?? req.modality }}
+                </span>
+                <span v-if="req.address" class="flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                  </svg>
+                  {{ req.address }}{{ req.city ? `, ${req.city}` : '' }}
                 </span>
               </div>
 
@@ -131,15 +167,28 @@
               </p>
 
               <!-- Precio + Acciones -->
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between gap-3">
                 <span v-if="req.price" class="text-sm font-black text-blue-600">
                   ${{ formatPrice(req.price) }}<span v-if="req.priceUnit" class="text-xs font-normal text-gray-400 ml-1">/ {{ req.priceUnit }}</span>
                 </span>
                 <span v-else class="text-xs text-gray-400">Sin precio indicado</span>
 
+                <!-- Botones de acción solo en vista proveedor -->
+                <div v-if="viewAs === 'provider'" class="flex gap-2">
+                  <button
+                    v-for="action in nextActions(req.status)"
+                    :key="action.status"
+                    :disabled="updating === req.id"
+                    class="px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all disabled:opacity-50"
+                    :class="action.class"
+                    @click="updateStatus(req.id, action.status)"
+                  >
+                    {{ updating === req.id ? '...' : action.label }}
+                  </button>
+                </div>
               </div>
 
-              <p class="text-[10px] text-gray-400 mt-2">Enviada {{ timeAgo(req.createdAt) }}</p>
+              <p class="text-[10px] text-gray-400 mt-2">{{ viewAs === 'provider' ? 'Recibida' : 'Enviada' }} {{ timeAgo(req.createdAt) }}</p>
             </div>
           </div>
         </div>
@@ -151,8 +200,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import PageHeader from '~/components/ui/PageHeader.vue'
 import { useApi } from '~/composables/useApi'
+
+definePageMeta({ middleware: 'auth' })
 
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
@@ -161,7 +211,8 @@ const { getHeaders } = useAuth()
 interface ServiceRequest {
   id: string
   serviceName: string
-  modality: 'PRESENCIAL' | 'REMOTO' | 'CUALQUIERA'
+  providerName: string
+  modality: string
   preferredDate: string
   address?: string
   city?: string
@@ -189,10 +240,10 @@ const STATUS_CLASSES: Record<ServiceRequest['status'], string> = {
   CERRADO:    'bg-green-100 text-green-700',
 }
 
-const MODALITY_LABELS: Record<ServiceRequest['modality'], string> = {
-  PRESENCIAL: 'Presencial',
-  REMOTO:     'Remoto',
-  CUALQUIERA: 'Cualquiera',
+const MODALITY_LABELS: Record<string, string> = {
+  PRESENCIAL: '📍 Presencial',
+  REMOTO:     '💻 Remoto',
+  CUALQUIERA: '🤝 Cualquiera',
 }
 
 const filters = [
@@ -209,6 +260,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const updating = ref<string | null>(null)
 const activeFilter = ref('ALL')
+const viewAs = ref<'provider' | 'client'>('provider')
 
 const filtered = computed(() =>
   activeFilter.value === 'ALL'
@@ -220,10 +272,6 @@ function countByStatus(status: string) {
   return requests.value.filter(r => r.status === status).length
 }
 
-function statusClass(status: ServiceRequest['status']) {
-  return STATUS_CLASSES[status]
-}
-
 function nextActions(status: ServiceRequest['status']) {
   if (status === 'PENDIENTE') return [
     { status: 'CONTACTADO', label: 'Marcar contactado', class: 'bg-blue-600 text-white hover:bg-blue-700' },
@@ -233,7 +281,7 @@ function nextActions(status: ServiceRequest['status']) {
     { status: 'CONTACTADO', label: 'Marcar contactado', class: 'bg-blue-600 text-white hover:bg-blue-700' },
   ]
   if (status === 'CONTACTADO') return [
-    { status: 'CERRADO', label: 'Cerrar', class: 'bg-green-600 text-white hover:bg-green-700' },
+    { status: 'CERRADO', label: 'Cerrar trato', class: 'bg-green-600 text-white hover:bg-green-700' },
   ]
   return []
 }
@@ -241,9 +289,10 @@ function nextActions(status: ServiceRequest['status']) {
 async function fetchRequests() {
   loading.value = true
   error.value = null
+  requests.value = []
   try {
     const res = await $fetch<{ data: ServiceRequest[]; total: number }>(
-      `${apiUrl}/services/requests/mine?as=provider`,
+      `${apiUrl}/services/requests/mine?as=${viewAs.value}`,
       { headers: getHeaders() }
     )
     requests.value = res.data
@@ -253,6 +302,13 @@ async function fetchRequests() {
   } finally {
     loading.value = false
   }
+}
+
+function switchView(v: 'provider' | 'client') {
+  if (viewAs.value === v) return
+  viewAs.value = v
+  activeFilter.value = 'ALL'
+  fetchRequests()
 }
 
 async function updateStatus(id: string, status: string) {
