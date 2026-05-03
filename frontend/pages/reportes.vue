@@ -286,6 +286,13 @@
               </div>
             </template>
 
+            <!-- Sin permiso -->
+            <div v-else-if="employeeForbidden" class="py-6 text-center">
+              <LockClosedIcon class="h-8 w-8 text-gray-300 mx-auto mb-2" />
+              <p class="text-sm font-medium text-gray-500">Sin acceso</p>
+              <p class="text-xs text-gray-400 mt-1">No tienes permiso para ver el reporte de empleados</p>
+            </div>
+
             <div v-else class="py-8 text-center text-gray-400 text-sm">
               No se pudieron cargar los datos
             </div>
@@ -352,6 +359,7 @@ import {
   UsersIcon,
   CurrencyDollarIcon,
   HeartIcon,
+  LockClosedIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useApi } from '~/composables/useApi'
@@ -367,13 +375,15 @@ const loadingExpenses  = ref(false)
 const loadingEmployees = ref(false)
 const globalError      = ref<string | null>(null)
 
-const orderStats    = ref<any>(null)
-const expenseStats  = ref<any>(null)
-const employeeStats = ref<any>(null)
+const orderStats       = ref<any>(null)
+const expenseStats     = ref<any>(null)
+const employeeStats    = ref<any>(null)
+const employeeForbidden = ref(false)
 
 // ─── Computados ───────────────────────────────────────────────────────────────
 const anyLoading = computed(() => loadingOrders.value || loadingExpenses.value || loadingEmployees.value)
-const allLoaded  = computed(() => !!orderStats.value && !!expenseStats.value && !!employeeStats.value)
+// allLoaded no requiere empleados: puede no tener permiso y las otras secciones siguen siendo válidas
+const allLoaded  = computed(() => !!orderStats.value || !!expenseStats.value)
 
 const cancellationRate = computed(() => {
   const total = orderStats.value?.total ?? 0
@@ -467,24 +477,37 @@ function exportAll() {
 }
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
+function isForbidden(e: any) {
+  const status = e?.status ?? e?.statusCode ?? e?.response?.status
+  return status === 403 || status === 401
+}
+
 async function loadOrderStats() {
   loadingOrders.value = true
   try { orderStats.value = await get('/orders/stats') }
-  catch (e: any) { globalError.value = e?.data?.message ?? e.message }
+  catch (e: any) {
+    if (!isForbidden(e)) globalError.value = e?.data?.message ?? e.message
+  }
   finally { loadingOrders.value = false }
 }
 
 async function loadExpenseStats() {
   loadingExpenses.value = true
   try { expenseStats.value = await get('/expenses/stats') }
-  catch (e: any) { globalError.value = e?.data?.message ?? e.message }
+  catch (e: any) {
+    if (!isForbidden(e)) globalError.value = e?.data?.message ?? e.message
+  }
   finally { loadingExpenses.value = false }
 }
 
 async function loadEmployeeStats() {
   loadingEmployees.value = true
+  employeeForbidden.value = false
   try { employeeStats.value = await get('/employees/stats') }
-  catch (e: any) { globalError.value = e?.data?.message ?? e.message }
+  catch (e: any) {
+    if (isForbidden(e)) employeeForbidden.value = true
+    // error 403 no se muestra como error global
+  }
   finally { loadingEmployees.value = false }
 }
 
