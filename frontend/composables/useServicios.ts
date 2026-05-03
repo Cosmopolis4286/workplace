@@ -27,6 +27,7 @@ export interface Service {
   image?: string
   status: 'ACTIVO' | 'INACTIVO' | 'PAUSADO'
   tags: string[]
+  modalities: string[]
   categoryId?: string
   category?: MyServiceCategory
   requestCount?: number
