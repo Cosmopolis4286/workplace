@@ -30,6 +30,7 @@ export interface CatalogService {
   image: string | null
   status: string
   tags: string[]
+  modalities: string[]
   createdAt: string
   category: { id: string; name: string; color: string; icon: string | null } | null
   user: {
