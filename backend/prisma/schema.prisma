@@ -920,6 +920,7 @@ model Service {
   image        String?
   status       ServiceStatus   @default(ACTIVO)
   tags         String[]
+  modalities   String[]
   categoryId   String?
   category     ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   userId       String

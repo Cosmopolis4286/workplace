@@ -22,6 +22,7 @@ const SERVICE_SELECT = {
   image: true,
   status: true,
   tags: true,
+  modalities: true,
   createdAt: true,
   category: { select: { id: true, name: true, color: true, icon: true } },
   user: {
