@@ -301,6 +301,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ middleware: 'auth' })
+
 import { ref, computed, onMounted } from 'vue'
 import {
   CurrencyDollarIcon,
