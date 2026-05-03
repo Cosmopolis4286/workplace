@@ -114,10 +114,12 @@ import { ref } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 
 defineProps({ open: Boolean })
-defineEmits(['update:open'])
+const emit = defineEmits(['update:open', 'update:expanded'])
 
 const { isDark } = useColorMode()
 const hovered = ref(false)
+
+watch(hovered, (val) => emit('update:expanded', val))
 </script>
 
 <style scoped>
