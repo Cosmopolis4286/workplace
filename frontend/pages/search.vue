@@ -573,6 +573,12 @@
                       {{ srv.category.name }}
                     </span>
                   </div>
+                  <div v-if="isOwnService(srv)" class="absolute top-2 right-2">
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-blue-600 border border-blue-200 shadow-sm flex items-center gap-1">
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+                      Mi servicio
+                    </span>
+                  </div>
                 </div>
 
                 <!-- Info -->
@@ -967,6 +973,8 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { CatalogProduct } from '~/composables/useCatalog'
 import type { CatalogService } from '~/composables/useServices'
+import type { Job } from '~/composables/useJobs'
+import { useJobs } from '~/composables/useJobs'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 
 definePageMeta({ layout: 'default' })
@@ -996,6 +1004,17 @@ const {
   trackServiceEvent,
 } = useServices()
 
+// ─── Empleos ──────────────────────────────────────────────────────────────────
+const {
+  jobs: jJobs, categories: jCategories,
+  loading: jLoading, loadingCategories: jLoadingCategories,
+  error: jError, total: jTotal, totalPages: jTotalPages, query: jQuery,
+  loadCategories: jLoadCategories, loadJobs: jLoadJobs,
+  search: jSearch, filterByCategory: jFilterByCategory,
+  filterByType: jFilterByType, filterByModality: jFilterByModality,
+  changePage: jChangePage, changeSort: jChangeSort, resetFilters: jResetFilters,
+} = useJobs()
+
 const { getHeaders } = useAuth()
 
 const { user } = useAuth()
@@ -1018,6 +1037,7 @@ const serviceToast = ref(false)
 
 const pSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name'>('relevance')
 const sSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name' | 'newest'>('relevance')
+const jSelectedSort = ref<'relevance' | 'newest' | 'salary_asc' | 'salary_desc'>('relevance')
 
 const sortOptions = [
   { value: 'relevance' as const, label: 'Relevancia' },
@@ -1032,6 +1052,12 @@ const serviceSortOptions = [
   { value: 'price_desc' as const, label: 'Mayor precio' },
   { value: 'name' as const, label: 'Nombre A-Z' },
 ]
+const jobSortOptions = [
+  { value: 'relevance' as const, label: 'Relevancia' },
+  { value: 'newest' as const, label: 'Más recientes' },
+  { value: 'salary_asc' as const, label: 'Menor salario' },
+  { value: 'salary_desc' as const, label: 'Mayor salario' },
+]
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 const firstName = computed(() => user.value?.firstName || 'Usuario')
@@ -1041,6 +1067,10 @@ const pActiveRestaurantId = computed(() => pQuery.value.commerceId)
 const sCurrentPage = computed(() => sQuery.value.page)
 const sActiveCategoryId = computed(() => sQuery.value.categoryId)
 const sActiveProviderId = computed(() => sQuery.value.userId)
+const jCurrentPage = computed(() => jQuery.value.page)
+const jActiveCategoryId = computed(() => jQuery.value.categoryId)
+const jActiveType = computed(() => jQuery.value.type)
+const jActiveModality = computed(() => jQuery.value.modality)
 
 const displayCount = ref(0)
 const displayGroups = ref(0)
@@ -1070,13 +1100,16 @@ function animateCounter(target: { value: number }, end: number, duration = 700) 
   requestAnimationFrame(step)
 }
 
-watch([activeTab, pTotal, sTotal, () => pRestaurants.value.length, () => sProviders.value.length], () => {
+watch([activeTab, pTotal, sTotal, jTotal, () => pRestaurants.value.length, () => sProviders.value.length], () => {
   if (activeTab.value === 'productos') {
     animateCounter(displayCount, pTotal.value)
     animateCounter(displayGroups, pRestaurants.value.length)
-  } else {
+  } else if (activeTab.value === 'servicios') {
     animateCounter(displayCount, sTotal.value)
     animateCounter(displayGroups, sProviders.value.length)
+  } else {
+    animateCounter(displayCount, jTotal.value)
+    animateCounter(displayGroups, jJobs.value.length > 0 ? [...new Set(jJobs.value.map(j => j.employer.id))].length : 0)
   }
 }, { immediate: true })
 
@@ -1092,6 +1125,7 @@ function buildVisiblePages(cur: number, max: number) {
 }
 const pVisiblePages = computed(() => buildVisiblePages(pCurrentPage.value, pTotalPages.value))
 const sVisiblePages = computed(() => buildVisiblePages(sCurrentPage.value, sTotalPages.value))
+const jVisiblePages = computed(() => buildVisiblePages(jCurrentPage.value, jTotalPages.value))
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function avatarSrc(avatar: string) {
@@ -1109,20 +1143,22 @@ function formatPrice(price: number): string {
 }
 
 // ─── Acciones ─────────────────────────────────────────────────────────────────
-function setTab(tab: 'productos' | 'servicios') {
+function setTab(tab: 'productos' | 'servicios' | 'empleos') {
   activeTab.value = tab
   searchInput.value = ''
 }
 
 function handleSearchInput() {
   if (activeTab.value === 'productos') pSearch(searchInput.value)
-  else sSearch(searchInput.value)
+  else if (activeTab.value === 'servicios') sSearch(searchInput.value)
+  else jSearch(searchInput.value)
 }
 
 function clearSearch() {
   searchInput.value = ''
   if (activeTab.value === 'productos') pSearch('')
-  else sSearch('')
+  else if (activeTab.value === 'servicios') sSearch('')
+  else jSearch('')
 }
 
 function pClearCategory() { if (pActiveCategory.value) pFilterByCategory(pActiveCategory.value) }
@@ -1132,6 +1168,10 @@ function pApplySort(val: typeof pSelectedSort.value) { pSelectedSort.value = val
 function sClearCategory() { sFilterByCategory(null) }
 function sClearProvider() { sFilterByProvider(null) }
 function sApplySort(val: typeof sSelectedSort.value) { sSelectedSort.value = val; sChangeSort(val) }
+function jClearCategory() { jFilterByCategory(null) }
+function jClearType() { jFilterByType(null) }
+function jClearModality() { jFilterByModality(null) }
+function jApplySort(val: typeof jSelectedSort.value) { jSelectedSort.value = val; jChangeSort(val) }
 
 // Un COMMERCE no puede pedir sus propios productos; un FREELANCER/COMMERCE no puede contratar sus propios servicios
 function isOwnProduct(product: CatalogProduct): boolean {
@@ -1186,7 +1226,8 @@ onMounted(async () => {
   await Promise.all([
     pLoadCategories(), pLoadRestaurants(), pLoadProducts(),
     sLoadCategories(), sLoadProviders(), sLoadServices(),
-    fetchRates(), // Cargar tasas de cambio para conversión
+    jLoadCategories(), jLoadJobs(),
+    fetchRates(false, true),
   ])
 })
 

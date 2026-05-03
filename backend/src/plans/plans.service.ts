@@ -205,26 +205,80 @@ export class PlansService {
 
   async getPublicPlans(role?: string, categoryId?: string) {
     const where: any = { status: 'ACTIVE' };
-    
+
     if (role === 'FREELANCER') where.forFreelancer = true;
     else if (role === 'COMMERCE') where.forCommerce = true;
     else if (role === 'NORMAL') {
-      // Para usuarios NORMAL, mostrar planes disponibles para su categoría de negocio
-      where.forNormal = true;
-      
-      // Si tiene categoría, filtrar planes específicos para esa categoría
-      if (categoryId) {
-        where.OR = [
-          { categoryIds: { has: categoryId } },
-          { categoryIds: { isEmpty: true } }, // Planes disponibles para todas las categorías
-        ];
-      }
+      // NORMAL users see upgrade plans (freelancer or commerce)
+      where.OR = [{ forFreelancer: true }, { forCommerce: true }];
     }
+    // No role (public/unauthenticated): show all active plans
 
     return this.prisma.plan.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],
     });
+  }
+
+  async upgradePlan(userId: string, dto: { planId: string; categoryId: string; interval?: string }) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const plan = await this.prisma.plan.findUnique({ where: { id: dto.planId } });
+    if (!plan) throw new NotFoundException('Plan no encontrado');
+
+    // Determine target role from plan flags
+    let targetRole: 'FREELANCER' | 'COMMERCE' | null = null;
+    if (plan.forFreelancer && !plan.forCommerce) targetRole = 'FREELANCER';
+    else if (plan.forCommerce && !plan.forFreelancer) targetRole = 'COMMERCE';
+    else if (plan.forCommerce) targetRole = 'COMMERCE';
+    else if (plan.forFreelancer) targetRole = 'FREELANCER';
+
+    if (!targetRole) throw new ConflictException('El plan seleccionado no permite cambio de rol');
+
+    // Verify category exists
+    const category = await this.prisma.userCategory.findUnique({ where: { id: dto.categoryId } });
+    if (!category) throw new NotFoundException('Categoría no encontrada');
+
+    // Update user role and category atomically
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { role: targetRole as any, categoryId: dto.categoryId },
+    });
+
+    // Cancel existing active subscriptions and create new one
+    await this.prisma.subscription.updateMany({
+      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+      data: { status: 'CANCELLED' },
+    });
+
+    const startAt = new Date();
+    const endAt = new Date(startAt);
+    if (dto.interval === 'ANNUAL') endAt.setFullYear(endAt.getFullYear() + 1);
+    else endAt.setMonth(endAt.getMonth() + 1);
+
+    const subscription = await this.prisma.subscription.create({
+      data: {
+        userId,
+        planId: dto.planId,
+        status: 'ACTIVE',
+        interval: (dto.interval === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY') as any,
+        startAt,
+        endAt,
+        pricePaid: plan.price,
+        assignedBy: userId,
+      },
+      include: { plan: true },
+    });
+
+    // Return updated user profile + subscription
+    const updatedUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { commerce: true },
+    });
+    const { password: _, ...userResult } = updatedUser as any;
+
+    return { user: userResult, subscription, targetRole };
   }
 
   async getStats() {

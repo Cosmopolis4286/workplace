@@ -70,11 +70,12 @@ export function useExchangeRates() {
 
   // ─── Fetch ────────────────────────────────────────────────────────────────────
 
-  async function fetchRates(includeInactive = true) {
+  async function fetchRates(includeInactive = true, publicOnly = false) {
     loading.value = true
     error.value = null
     try {
-      const data = await apiFetch(`/exchange-rates?includeInactive=${includeInactive}`)
+      const url = publicOnly ? '/exchange-rates/active' : `/exchange-rates?includeInactive=${includeInactive}`
+      const data = await apiFetch(url)
       rates.value = data
     } catch (e: any) {
       error.value = e.message

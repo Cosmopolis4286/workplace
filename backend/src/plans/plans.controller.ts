@@ -16,6 +16,7 @@ import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -29,11 +30,12 @@ export class PlansController {
     private readonly planLimitsService: PlanLimitsService
   ) {}
 
-  // ─── Public (authenticated) endpoints ────────────────────────────────────────
+  // ─── Public — no auth required ────────────────────────────────────────────
 
   @Get('public')
+  @UseGuards(OptionalJwtAuthGuard)
   getPublicPlans(@CurrentUser() user: any, @Query('categoryId') categoryId?: string) {
-    return this.plansService.getPublicPlans(user.role, categoryId);
+    return this.plansService.getPublicPlans(user?.role, categoryId);
   }
 
   @Get('my-subscription')
@@ -140,6 +142,15 @@ export class PlansController {
       return this.plansService.assignSubscription(subscriptionDto, user.id);
     }
     throw new Error('Datos inválidos para suscripción');
+  }
+
+  @Post('upgrade')
+  @UseGuards(JwtAuthGuard)
+  upgradePlan(
+    @Body() dto: { planId: string; categoryId: string; interval?: string },
+    @CurrentUser() user: { id: string; role: string }
+  ) {
+    return this.plansService.upgradePlan(user.id, dto);
   }
 
   @Delete('subscriptions/:id')

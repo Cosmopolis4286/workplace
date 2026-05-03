@@ -134,8 +134,10 @@ export class JobsService {
   async getCatalogJobs(query: JobQuery): Promise<{ data: JobWithEmployer[]; total: number; totalPages: number }> {
     const {
       search, categoryId, type, modality, status = 'ACTIVO',
-      page = 1, limit = 16, sort = 'relevance',
+      sort = 'relevance',
     } = query
+    const page = Number(query.page) || 1
+    const limit = Number(query.limit) || 16
 
     const where: any = { status }
 

@@ -21,21 +21,19 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Role } from '@prisma/client';
 
 @Controller('exchange-rates')
-@UseGuards(JwtAuthGuard)
 export class ExchangeRatesController {
   constructor(
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly bcvSyncService: BcvSyncService,
   ) {}
 
-  // ─── Public (authenticated) — needed by product/service price display ──────
+  // ─── Truly public — no auth required ─────────────────────────────────────
 
   @Get('public')
   findAllPublic() {
     return this.exchangeRatesService.findAll(false);
   }
 
-  // Returns active currencies for UI selects (all authenticated users)
   @Get('active')
   findActive() {
     return this.exchangeRatesService.findAll(false);
@@ -55,7 +53,7 @@ export class ExchangeRatesController {
   // ─── BCV Sync endpoints ───────────────────────────────────────────────────
 
   @Post('sync/:code')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   async syncCurrency(@Param('code') code: string) {
     const result = await this.bcvSyncService.syncCurrency(code.toUpperCase());
@@ -70,7 +68,7 @@ export class ExchangeRatesController {
   }
 
   @Get('sync-status/:code')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   async getSyncStatus(@Param('code') code: string) {
     const status = await this.bcvSyncService.getSyncStatus(code.toUpperCase());
@@ -81,7 +79,7 @@ export class ExchangeRatesController {
   }
 
   @Patch(':code/auto-sync')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   async setAutoSync(
     @Param('code') code: string,
@@ -96,6 +94,7 @@ export class ExchangeRatesController {
   }
 
   @Get('current-rate/:code')
+  @UseGuards(JwtAuthGuard)
   async getCurrentRate(@Param('code') code: string) {
     const rate = await this.bcvSyncService.getCurrentRate(code.toUpperCase());
     if (!rate) {
@@ -107,35 +106,35 @@ export class ExchangeRatesController {
   // ─── Admin endpoints ──────────────────────────────────────────────────────
 
   @Get('stats')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   getStats() {
     return this.exchangeRatesService.getStats();
   }
 
   @Get()
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   findAll(@Query('includeInactive') includeInactive?: string) {
     return this.exchangeRatesService.findAll(includeInactive === 'true');
   }
 
   @Get(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   findOne(@Param('id') id: string) {
     return this.exchangeRatesService.findOne(id);
   }
 
   @Post()
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   create(@Body() dto: CreateExchangeRateDto, @CurrentUser() user: any) {
     return this.exchangeRatesService.create(dto, user.id);
   }
 
   @Put(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   update(
     @Param('id') id: string,
@@ -146,21 +145,21 @@ export class ExchangeRatesController {
   }
 
   @Patch(':id/set-default')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   setDefault(@Param('id') id: string, @CurrentUser() user: any) {
     return this.exchangeRatesService.setDefault(id, user.id);
   }
 
   @Patch(':id/toggle-status')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   toggleStatus(@Param('id') id: string, @CurrentUser() user: any) {
     return this.exchangeRatesService.toggleStatus(id, user.id);
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   remove(@Param('id') id: string) {
     return this.exchangeRatesService.remove(id);
