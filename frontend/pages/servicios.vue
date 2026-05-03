@@ -151,6 +151,17 @@
           </span>
         </div>
 
+        <!-- Modalidades -->
+        <div v-if="service.modalities?.length" class="flex flex-wrap gap-1">
+          <span
+            v-for="m in service.modalities"
+            :key="m"
+            class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium"
+          >
+            {{ { PRESENCIAL: '📍 Presencial', REMOTO: '💻 Remoto', CUALQUIERA: '🤝 Cualquiera' }[m] ?? m }}
+          </span>
+        </div>
+
         <!-- Tags -->
         <div v-if="service.tags?.length" class="flex flex-wrap gap-1">
           <span
@@ -346,6 +357,29 @@
                     Agregar
                   </button>
                 </div>
+              </div>
+
+              <!-- Modalidades -->
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-2">Modalidades que ofreces</label>
+                <div class="grid grid-cols-3 gap-2">
+                  <button
+                    v-for="opt in ALL_MODALITIES"
+                    :key="opt.value"
+                    type="button"
+                    class="flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 text-xs font-semibold transition-all"
+                    :class="form.modalities.includes(opt.value)
+                      ? 'border-red-500 bg-red-50 text-red-700'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'"
+                    @click="form.modalities.includes(opt.value)
+                      ? form.modalities.splice(form.modalities.indexOf(opt.value), 1)
+                      : form.modalities.push(opt.value)"
+                  >
+                    <span class="text-lg">{{ opt.emoji }}</span>
+                    {{ opt.label }}
+                  </button>
+                </div>
+                <p class="mt-1.5 text-xs text-gray-400">Selecciona una o más. Los clientes solo verán las que hayas activado.</p>
               </div>
 
               <!-- Image URL -->
@@ -725,6 +759,12 @@ const formError = ref<string | null>(null)
 const tagInput = ref('')
 const newModality = ref({ name: '', value: '', emoji: '' })
 
+const ALL_MODALITIES = [
+  { value: 'PRESENCIAL', label: 'Presencial', emoji: '📍' },
+  { value: 'REMOTO', label: 'Remoto', emoji: '💻' },
+  { value: 'CUALQUIERA', label: 'Cualquiera', emoji: '🤝' },
+]
+
 const emptyForm = () => ({
   name: '',
   description: '',
@@ -734,6 +774,7 @@ const emptyForm = () => ({
   image: '',
   status: 'ACTIVO' as Service['status'],
   tags: [] as string[],
+  modalities: [] as string[],
   categoryId: '',
 })
 
@@ -790,6 +831,7 @@ function openEdit(service: Service) {
     image: service.image ?? '',
     status: service.status,
     tags: [...service.tags],
+    modalities: [...(service.modalities ?? [])],
     categoryId: service.categoryId ?? '',
   }
   formError.value = null
@@ -820,6 +862,7 @@ async function handleSubmit() {
       image: form.value.image || undefined,
       status: form.value.status,
       tags: form.value.tags,
+      modalities: form.value.modalities,
       categoryId: form.value.categoryId || undefined,
     }
     if (editing.value) {

@@ -5,10 +5,10 @@
       ? 'bg-gray-950 text-white'
       : 'bg-gradient-to-br from-gray-50 via-white to-red-50 text-gray-900'"
   >
-    <AppSidebar :open="sidebarOpen" @update:open="setSidebar" />
+    <AppSidebar :open="sidebarOpen" @update:open="setSidebar" @update:expanded="sidebarExpanded = $event" />
     <div
       class="transition-all duration-[220ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-      :class="sidebarOpen ? 'lg:pl-[272px]' : 'lg:pl-16'"
+      :class="sidebarOpen || sidebarExpanded ? 'lg:pl-[272px]' : 'lg:pl-16'"
     >
       <AppHeader @toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen" />
       <main class="py-8">
@@ -25,6 +25,7 @@
 const { isDark } = useColorMode()
 
 const sidebarOpen = ref(false)
+const sidebarExpanded = ref(false)
 
 function setSidebar(val: boolean) {
   sidebarOpen.value = val
