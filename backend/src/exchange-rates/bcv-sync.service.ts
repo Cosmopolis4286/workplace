@@ -317,7 +317,6 @@ export class BcvSyncService {
         lastSyncAt: new Date(),
         syncError: null,
         syncAttempts: 0,
-        notes: `Auto-synced from ${result.source} on ${result.date} (confidence: ${result.confidence})`,
       },
     });
   }
