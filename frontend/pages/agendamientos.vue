@@ -1,189 +1,148 @@
 <template>
   <div>
-    <!-- Header -->
-    <div class="mb-8 flex justify-between items-center">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900">Agendamientos</h1>
-        <p class="mt-2 text-gray-600">Gestiona las reservas y citas del restaurante</p>
-      </div>
-      <button class="btn-primary flex items-center" @click="openCreateModal">
-        <PlusIcon class="h-5 w-5 mr-2" />
-        Nueva Reserva
-      </button>
-    </div>
-
-    <!-- Error banner -->
-    <div v-if="error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
-      <p class="text-red-700 text-sm">{{ error }}</p>
-      <button class="text-red-500 hover:text-red-700" @click="error = null">
-        <XMarkIcon class="h-5 w-5" />
-      </button>
-    </div>
-
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      <div class="card p-5">
-        <div class="flex items-center">
-          <div class="p-2 bg-primary-100 rounded-full">
-            <CalendarIcon class="h-6 w-6 text-primary-600" />
-          </div>
-          <div class="ml-3">
-            <p class="text-xs font-medium text-gray-500">Hoy</p>
-            <p class="text-xl font-bold text-gray-900">{{ stats.todayTotal }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="card p-5">
-        <div class="flex items-center">
-          <div class="p-2 bg-yellow-100 rounded-full">
-            <ClockIcon class="h-6 w-6 text-yellow-600" />
-          </div>
-          <div class="ml-3">
-            <p class="text-xs font-medium text-gray-500">Pendientes</p>
-            <p class="text-xl font-bold text-gray-900">{{ stats.pending }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="card p-5">
-        <div class="flex items-center">
-          <div class="p-2 bg-green-100 rounded-full">
-            <CheckCircleIcon class="h-6 w-6 text-green-600" />
-          </div>
-          <div class="ml-3">
-            <p class="text-xs font-medium text-gray-500">Confirmadas</p>
-            <p class="text-xl font-bold text-gray-900">{{ stats.confirmed }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="card p-5">
-        <div class="flex items-center">
-          <div class="p-2 bg-red-100 rounded-full">
-            <XCircleIcon class="h-6 w-6 text-red-600" />
-          </div>
-          <div class="ml-3">
-            <p class="text-xs font-medium text-gray-500">Canceladas</p>
-            <p class="text-xl font-bold text-gray-900">{{ stats.cancelled }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Toolbar -->
-    <div class="card p-4 mb-6">
-      <div class="flex flex-col sm:flex-row justify-between gap-4">
-        <!-- View toggle -->
-        <div class="flex space-x-2">
+    <PageHeader
+      title="Agendamientos"
+      description="Gestiona las reservas y citas del restaurante"
+      :icon="CalendarDaysIcon"
+      :breadcrumb="[{ label: 'Agendamientos' }]"
+      :stats="headerStats"
+    >
+      <template #actions>
+        <!-- Toggle vista -->
+        <div class="flex items-center bg-white border border-gray-200 rounded-xl p-1 gap-1 shadow-sm">
           <button
-            :class="['px-4 py-2 rounded-md text-sm font-medium transition-colors', viewMode === 'calendar' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']"
-            @click="viewMode = 'calendar'"
-          >
-            <CalendarDaysIcon class="h-4 w-4 inline mr-1" />
-            Calendario
-          </button>
-          <button
-            :class="['px-4 py-2 rounded-md text-sm font-medium transition-colors', viewMode === 'list' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']"
+            class="px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5"
+            :class="viewMode === 'list' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
             @click="viewMode = 'list'"
           >
-            <ListBulletIcon class="h-4 w-4 inline mr-1" />
+            <ListBulletIcon class="h-4 w-4" />
             Lista
           </button>
+          <button
+            class="px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5"
+            :class="viewMode === 'calendar' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
+            @click="viewMode = 'calendar'"
+          >
+            <CalendarIcon class="h-4 w-4" />
+            Calendario
+          </button>
         </div>
+        <button class="btn-primary flex items-center gap-2" @click="openCreateModal">
+          <PlusIcon class="h-5 w-5" />
+          Nueva Reserva
+        </button>
+      </template>
+    </PageHeader>
 
-        <!-- Filters -->
-        <div class="flex flex-wrap gap-3 items-center">
+    <!-- Error banner -->
+    <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+      <p class="text-red-700 text-sm">{{ error }}</p>
+      <button class="text-red-500 hover:text-red-700" @click="error = null">
+        <XMarkIcon class="h-4 w-4" />
+      </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card p-4 mb-6">
+      <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div class="flex flex-wrap gap-3 flex-1">
           <input
             v-model="filters.dateFrom"
             type="date"
-            class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="input-field w-auto"
             @change="applyFilters"
           />
           <input
             v-model="filters.dateTo"
             type="date"
-            class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="input-field w-auto"
             @change="applyFilters"
           />
           <select
             v-model="filters.status"
-            class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="input-field w-auto"
             @change="applyFilters"
           >
             <option value="">Todos los estados</option>
             <option v-for="(label, key) in STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
           </select>
-          <button
-            v-if="filters.status || filters.dateFrom || filters.dateTo"
-            class="text-sm text-gray-500 hover:text-gray-700 underline"
-            @click="clearFilters"
-          >
-            Limpiar
-          </button>
         </div>
+        <button
+          v-if="filters.status || filters.dateFrom || filters.dateTo"
+          class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap"
+          @click="clearFilters"
+        >
+          Limpiar filtros
+        </button>
       </div>
     </div>
 
     <!-- Loading skeleton -->
     <div v-if="loading" class="space-y-3">
-      <div v-for="i in 4" :key="i" class="card p-5 animate-pulse">
-        <div class="flex items-center space-x-4">
-          <div class="h-10 w-10 bg-gray-200 rounded-full" />
-          <div class="flex-1 space-y-2">
-            <div class="h-4 bg-gray-200 rounded w-1/3" />
-            <div class="h-3 bg-gray-200 rounded w-1/4" />
-          </div>
-          <div class="h-6 w-24 bg-gray-200 rounded-full" />
+      <div v-for="i in 4" :key="i" class="card p-4 flex items-center gap-4">
+        <div class="skeleton h-10 w-10 rounded-full flex-shrink-0" />
+        <div class="flex-1 space-y-2">
+          <div class="skeleton h-4 w-40 rounded" />
+          <div class="skeleton h-3 w-56 rounded" />
         </div>
+        <div class="skeleton h-6 w-24 rounded-full" />
       </div>
     </div>
 
     <template v-else>
-      <!-- Calendar View -->
-      <div v-if="viewMode === 'calendar'" class="card p-6 mb-6">
+
+      <!-- ── Vista Calendario ────────────────────────────────────────────────── -->
+      <div v-if="viewMode === 'calendar'" class="card p-6">
+        <!-- Nav mes -->
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-gray-900">{{ calendarTitle }}</h2>
-          <div class="flex space-x-2">
-            <button class="p-2 hover:bg-gray-100 rounded-md" @click="prevMonth">
-              <ChevronLeftIcon class="h-5 w-5" />
+          <h2 class="text-base font-semibold text-gray-900 capitalize">{{ calendarTitle }}</h2>
+          <div class="flex items-center gap-1">
+            <button class="p-2 hover:bg-gray-100 rounded-lg transition-colors" @click="prevMonth">
+              <ChevronLeftIcon class="h-5 w-5 text-gray-600" />
             </button>
-            <button class="px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 rounded-md" @click="goToToday">
-              Hoy
-            </button>
-            <button class="p-2 hover:bg-gray-100 rounded-md" @click="nextMonth">
-              <ChevronRightIcon class="h-5 w-5" />
+            <button
+              class="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              @click="goToToday"
+            >Hoy</button>
+            <button class="p-2 hover:bg-gray-100 rounded-lg transition-colors" @click="nextMonth">
+              <ChevronRightIcon class="h-5 w-5 text-gray-600" />
             </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-7 mb-2">
-          <div v-for="day in ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']" :key="day"
-               class="p-2 text-center text-xs font-semibold text-gray-500 uppercase">
-            {{ day }}
-          </div>
+        <!-- Cabecera días -->
+        <div class="grid grid-cols-7 mb-1">
+          <div
+            v-for="day in ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']"
+            :key="day"
+            class="py-2 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider"
+          >{{ day }}</div>
         </div>
 
-        <div class="grid grid-cols-7 border-t border-l border-gray-100">
+        <!-- Celdas -->
+        <div class="grid grid-cols-7 border-t border-l border-gray-100 rounded-b-xl overflow-hidden">
           <div
             v-for="cell in calendarCells"
             :key="cell.key"
+            class="min-h-[88px] p-2 border-b border-r border-gray-100 relative"
             :class="[
-              'min-h-[90px] p-2 border-b border-r border-gray-100 relative',
-              cell.isOtherMonth ? 'bg-gray-50' : 'bg-white',
-              cell.isToday ? 'ring-2 ring-inset ring-primary-400' : ''
+              cell.isOtherMonth ? 'bg-gray-50/60' : 'bg-white',
+              cell.isToday ? 'ring-2 ring-inset ring-red-400' : ''
             ]"
           >
-            <span :class="['text-xs font-medium', cell.isOtherMonth ? 'text-gray-300' : cell.isToday ? 'text-primary-600 font-bold' : 'text-gray-700']">
-              {{ cell.day }}
-            </span>
+            <span
+              class="text-xs font-medium leading-none"
+              :class="cell.isOtherMonth ? 'text-gray-300' : cell.isToday ? 'inline-flex w-5 h-5 items-center justify-center rounded-full bg-red-600 text-white font-bold text-[10px]' : 'text-gray-600'"
+            >{{ cell.day }}</span>
             <div class="mt-1 space-y-0.5">
               <button
                 v-for="appt in cell.appointments.slice(0, 3)"
                 :key="appt.id"
-                :class="['w-full text-left text-xs px-1.5 py-0.5 rounded truncate', STATUS_CLASSES[appt.status]]"
+                class="w-full text-left text-[10px] px-1.5 py-0.5 rounded truncate font-medium"
+                :class="STATUS_CLASSES[appt.status]"
                 @click="openEditModal(appt)"
-              >
-                {{ formatTime(appt.date) }} {{ appt.customerName }}
-              </button>
-              <span v-if="cell.appointments.length > 3" class="text-xs text-gray-400 pl-1">
+              >{{ formatTime(appt.date) }} {{ appt.customerName }}</button>
+              <span v-if="cell.appointments.length > 3" class="text-[10px] text-gray-400 pl-1">
                 +{{ cell.appointments.length - 3 }} más
               </span>
             </div>
@@ -191,209 +150,259 @@
         </div>
       </div>
 
-      <!-- List View -->
-      <div v-else class="space-y-4">
-        <div v-if="appointments.length === 0" class="card p-12 text-center text-gray-400">
-          <CalendarIcon class="h-12 w-12 mx-auto mb-3 opacity-40" />
-          <p class="font-medium">No hay agendamientos</p>
-          <p class="text-sm mt-1">Crea una nueva reserva para comenzar</p>
+      <!-- ── Vista Lista ──────────────────────────────────────────────────────── -->
+      <template v-else>
+
+        <!-- Empty state -->
+        <div v-if="appointments.length === 0" class="card p-12 text-center">
+          <CalendarIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
+          <p class="text-gray-500 font-medium">No hay agendamientos</p>
+          <p class="text-sm text-gray-400 mt-1">Crea una nueva reserva para comenzar</p>
+          <button class="btn-primary mt-4" @click="openCreateModal">
+            <PlusIcon class="h-4 w-4 inline mr-1.5" />
+            Nueva Reserva
+          </button>
         </div>
 
-        <template v-else>
-          <div v-for="group in groupedAppointments" :key="group.date" class="card p-5">
-            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-4">{{ group.dateLabel }}</h3>
-            <div class="space-y-3">
-              <div
-                v-for="appt in group.items"
-                :key="appt.id"
-                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <!-- Left: info -->
-                <div class="flex items-center space-x-4 min-w-0">
-                  <div class="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                    <span class="text-sm font-bold text-primary-700">{{ appt.customerName[0].toUpperCase() }}</span>
+        <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Lista agrupada por fecha -->
+          <div class="lg:col-span-2 space-y-4">
+            <div v-for="group in groupedAppointments" :key="group.date" class="card overflow-hidden">
+              <!-- Cabecera de fecha -->
+              <div class="px-5 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                <h3 class="text-xs font-semibold text-gray-500 tracking-wider">
+                  {{ group.dateLabel }}
+                </h3>
+                <span class="text-xs text-gray-400">{{ group.items.length }} reserva{{ group.items.length !== 1 ? 's' : '' }}</span>
+              </div>
+
+              <!-- Filas -->
+              <div class="divide-y divide-gray-100">
+                <div
+                  v-for="appt in group.items"
+                  :key="appt.id"
+                  class="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors group"
+                >
+                  <!-- Avatar -->
+                  <div class="flex-shrink-0 h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <span class="text-sm font-bold text-red-700">{{ appt.customerName[0].toUpperCase() }}</span>
                   </div>
-                  <div class="min-w-0">
-                    <p class="text-sm font-semibold text-gray-900 truncate">{{ appt.customerName }}</p>
-                    <p class="text-xs text-gray-500">
-                      <UsersIcon class="h-3 w-3 inline mr-1" />{{ appt.partySize }} personas
-                      <span v-if="appt.tableNumber" class="ml-2">
-                        <TableCellsIcon class="h-3 w-3 inline mr-1" />Mesa {{ appt.tableNumber }}
+
+                  <!-- Info -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <p class="text-sm font-semibold text-gray-900 truncate">{{ appt.customerName }}</p>
+                      <span class="badge flex-shrink-0" :class="STATUS_CLASSES[appt.status]">
+                        {{ STATUS_LABELS[appt.status] }}
+                      </span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3">
+                      <span class="flex items-center gap-1">
+                        <ClockIcon class="h-3 w-3" />{{ formatTime(appt.date) }}
+                      </span>
+                      <span class="flex items-center gap-1">
+                        <UsersIcon class="h-3 w-3" />{{ appt.partySize }} personas
+                      </span>
+                      <span v-if="appt.tableNumber" class="flex items-center gap-1">
+                        <TableCellsIcon class="h-3 w-3" />Mesa {{ appt.tableNumber }}
+                      </span>
+                      <span v-if="appt.customerPhone" class="flex items-center gap-1">
+                        <PhoneIcon class="h-3 w-3" />{{ appt.customerPhone }}
                       </span>
                     </p>
-                    <p class="text-xs text-gray-400 mt-0.5">
-                      <ClockIcon class="h-3 w-3 inline mr-1" />{{ formatTime(appt.date) }}
-                      <span v-if="appt.customerPhone" class="ml-2">
-                        <PhoneIcon class="h-3 w-3 inline mr-1" />{{ appt.customerPhone }}
-                      </span>
-                    </p>
+                    <p v-if="appt.notes" class="text-xs text-gray-400 italic mt-0.5 truncate">"{{ appt.notes }}"</p>
                   </div>
-                </div>
 
-                <!-- Right: status + actions -->
-                <div class="flex items-center space-x-3 flex-shrink-0">
-                  <span :class="['inline-flex px-2.5 py-1 text-xs font-medium rounded-full', STATUS_CLASSES[appt.status]]">
-                    {{ STATUS_LABELS[appt.status] }}
-                  </span>
-
-                  <!-- Quick status change -->
-                  <select
-                    :value="appt.status"
-                    class="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-primary-400"
-                    @change="handleStatusChange(appt, ($event.target as HTMLSelectElement).value as AppointmentStatus)"
-                  >
-                    <option v-for="(label, key) in STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
-                  </select>
-
-                  <button class="p-1.5 text-primary-600 hover:text-primary-800 hover:bg-primary-50 rounded" @click="openEditModal(appt)">
-                    <PencilIcon class="h-4 w-4" />
-                  </button>
-                  <button class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded" @click="handleDelete(appt)">
-                    <TrashIcon class="h-4 w-4" />
-                  </button>
+                  <!-- Acciones hover -->
+                  <div class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <select
+                      :value="appt.status"
+                      class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-red-400"
+                      @change="handleStatusChange(appt, ($event.target as HTMLSelectElement).value as AppointmentStatus)"
+                    >
+                      <option v-for="(label, key) in STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
+                    </select>
+                    <button
+                      class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Editar"
+                      @click="openEditModal(appt)"
+                    >
+                      <PencilIcon class="h-4 w-4" />
+                    </button>
+                    <button
+                      class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Eliminar"
+                      @click="handleDelete(appt)"
+                    >
+                      <TrashIcon class="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </template>
-      </div>
+
+          <!-- Sidebar resumen -->
+          <div class="space-y-4">
+            <!-- Por estado -->
+            <div class="card p-5">
+              <h3 class="text-sm font-semibold text-gray-700 mb-4">Por estado</h3>
+              <div class="space-y-3">
+                <div v-for="s in statusSummary" :key="s.key" class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full flex-shrink-0" :class="s.dot" />
+                    <span class="text-sm text-gray-600">{{ s.label }}</span>
+                  </div>
+                  <span class="text-sm font-bold text-gray-900">{{ s.count }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Próximas reservas -->
+            <div v-if="upcomingAppointments.length > 0" class="card p-5">
+              <h3 class="text-sm font-semibold text-gray-700 mb-3">Próximas reservas</h3>
+              <div class="space-y-3">
+                <div
+                  v-for="appt in upcomingAppointments"
+                  :key="appt.id"
+                  class="flex items-start gap-3 cursor-pointer hover:bg-gray-50 rounded-lg p-1 -mx-1 transition-colors"
+                  @click="openEditModal(appt)"
+                >
+                  <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-xs font-bold text-red-700">
+                    {{ appt.customerName[0].toUpperCase() }}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold text-gray-900 truncate">{{ appt.customerName }}</p>
+                    <p class="text-[10px] text-gray-400">{{ formatDateTime(appt.date) }} · {{ appt.partySize }} personas</p>
+                  </div>
+                  <span class="badge text-[10px]" :class="STATUS_CLASSES[appt.status]">
+                    {{ STATUS_LABELS[appt.status] }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hoy -->
+            <div v-if="stats.todayTotal > 0" class="card p-5 border-l-4 border-l-red-400">
+              <div class="flex items-center gap-2 mb-1">
+                <CalendarIcon class="h-4 w-4 text-red-500" />
+                <p class="text-sm font-semibold text-gray-700">Reservas hoy</p>
+              </div>
+              <p class="text-3xl font-black text-red-600">{{ stats.todayTotal }}</p>
+              <p class="text-xs text-gray-400 mt-1">{{ stats.pending }} pendiente{{ stats.pending !== 1 ? 's' : '' }} de confirmar</p>
+            </div>
+          </div>
+        </div>
+      </template>
     </template>
 
-    <!-- Create / Edit Modal -->
-    <TransitionRoot :show="showModal" as="template">
-      <Dialog class="relative z-50" @close="closeModal">
-        <TransitionChild
-          enter="ease-out duration-200" enter-from="opacity-0" enter-to="opacity-100"
-          leave="ease-in duration-150" leave-from="opacity-100" leave-to="opacity-0"
-        >
-          <div class="fixed inset-0 bg-black/40" />
-        </TransitionChild>
-
-        <div class="fixed inset-0 flex items-center justify-center p-4">
-          <TransitionChild
-            enter="ease-out duration-200" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100"
-            leave="ease-in duration-150" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95"
+    <!-- Modal crear / editar -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="ease-out duration-200"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="ease-in duration-150"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeModal">
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeModal" />
+          <Transition
+            enter-active-class="ease-out duration-200"
+            enter-from-class="opacity-0 scale-95"
+            enter-to-class="opacity-100 scale-100"
+            leave-active-class="ease-in duration-150"
+            leave-from-class="opacity-100 scale-100"
+            leave-to-class="opacity-0 scale-95"
           >
-            <DialogPanel class="w-full max-w-lg bg-white rounded-xl shadow-2xl p-6">
-              <div class="flex justify-between items-center mb-5">
-                <DialogTitle class="text-lg font-semibold text-gray-900">
+            <div v-if="showModal" class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6">
+              <div class="flex items-center justify-between mb-5">
+                <h2 class="text-lg font-semibold text-gray-900">
                   {{ editingId ? 'Editar Reserva' : 'Nueva Reserva' }}
-                </DialogTitle>
-                <button class="text-gray-400 hover:text-gray-600" @click="closeModal">
+                </h2>
+                <button class="p-1 text-gray-400 hover:text-gray-600 rounded-lg" @click="closeModal">
                   <XMarkIcon class="h-5 w-5" />
                 </button>
               </div>
 
               <form class="space-y-4" @submit.prevent="handleSubmit">
-                <!-- Customer name -->
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del cliente *</label>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Nombre del cliente <span class="text-red-500">*</span></label>
                   <input
                     v-model="form.customerName"
                     type="text"
                     required
                     maxlength="100"
                     placeholder="Ej. María García"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                    class="input-field"
                   />
                 </div>
 
-                <!-- Phone -->
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Teléfono</label>
                   <input
                     v-model="form.customerPhone"
                     type="tel"
                     maxlength="30"
-                    placeholder="+52 55 1234 5678"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                    placeholder="+58 412 000 0000"
+                    class="input-field"
                   />
                 </div>
 
-                <!-- Date & Time -->
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
-                    <input
-                      v-model="form.date"
-                      type="date"
-                      required
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                    />
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Fecha <span class="text-red-500">*</span></label>
+                    <input v-model="form.date" type="date" required class="input-field" />
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Hora *</label>
-                    <input
-                      v-model="form.time"
-                      type="time"
-                      required
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                    />
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Hora <span class="text-red-500">*</span></label>
+                    <input v-model="form.time" type="time" required class="input-field" />
                   </div>
                 </div>
 
-                <!-- Party size & Table -->
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Personas *</label>
-                    <input
-                      v-model.number="form.partySize"
-                      type="number"
-                      required
-                      min="1"
-                      max="100"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                    />
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Personas <span class="text-red-500">*</span></label>
+                    <input v-model.number="form.partySize" type="number" required min="1" max="100" class="input-field" />
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Mesa (opcional)</label>
-                    <input
-                      v-model.number="form.tableNumber"
-                      type="number"
-                      min="1"
-                      placeholder="Nº mesa"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                    />
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Mesa (opcional)</label>
+                    <input v-model.number="form.tableNumber" type="number" min="1" placeholder="Nº mesa" class="input-field" />
                   </div>
                 </div>
 
-                <!-- Status (only when editing) -->
                 <div v-if="editingId">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                  <select
-                    v-model="form.status"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                  >
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Estado</label>
+                  <select v-model="form.status" class="input-field">
                     <option v-for="(label, key) in STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
                   </select>
                 </div>
 
-                <!-- Notes -->
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Notas (opcional)</label>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Notas (opcional)</label>
                   <textarea
                     v-model="form.notes"
                     rows="2"
                     maxlength="500"
                     placeholder="Alergias, preferencias especiales..."
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm resize-none"
+                    class="input-field resize-none"
                   />
                 </div>
 
-                <!-- Actions -->
-                <div class="flex justify-end space-x-3 pt-2">
-                  <button type="button" class="btn-secondary" @click="closeModal">Cancelar</button>
-                  <button type="submit" class="btn-primary" :disabled="saving">
-                    <span v-if="saving">Guardando...</span>
-                    <span v-else>{{ editingId ? 'Guardar Cambios' : 'Crear Reserva' }}</span>
+                <div class="flex gap-3 pt-2">
+                  <button type="button" class="btn-secondary flex-1" @click="closeModal">Cancelar</button>
+                  <button type="submit" class="btn-primary flex-1" :disabled="saving">
+                    {{ saving ? 'Guardando...' : (editingId ? 'Guardar Cambios' : 'Crear Reserva') }}
                   </button>
                 </div>
               </form>
-            </DialogPanel>
-          </TransitionChild>
+            </div>
+          </Transition>
         </div>
-      </Dialog>
-    </TransitionRoot>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -403,8 +412,6 @@ import {
   PlusIcon,
   CalendarIcon,
   ClockIcon,
-  CheckCircleIcon,
-  XCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   PencilIcon,
@@ -418,7 +425,7 @@ import {
   ListBulletIcon,
   TableCellsIcon,
 } from '@heroicons/vue/24/solid'
-import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
+import PageHeader from '~/components/ui/PageHeader.vue'
 import {
   useAgendamientos,
   STATUS_LABELS,
@@ -427,6 +434,8 @@ import {
   type Appointment,
 } from '~/composables/useAgendamientos'
 import { useAlert } from '~/composables/useAlert'
+
+definePageMeta({ middleware: 'auth' })
 
 const {
   appointments,
@@ -442,15 +451,11 @@ const {
 
 const alert = useAlert()
 
-// ─── View mode ────────────────────────────────────────────────────────────────
+// ─── Vista ────────────────────────────────────────────────────────────────────
 const viewMode = ref<'calendar' | 'list'>('list')
 
-// ─── Filters ─────────────────────────────────────────────────────────────────
-const filters = ref<{ status: string; dateFrom: string; dateTo: string }>({
-  status: '',
-  dateFrom: '',
-  dateTo: '',
-})
+// ─── Filtros ──────────────────────────────────────────────────────────────────
+const filters = ref({ status: '', dateFrom: '', dateTo: '' })
 
 function applyFilters() {
   loadAgendamientos({
@@ -465,12 +470,38 @@ function clearFilters() {
   loadAgendamientos()
 }
 
-// ─── Calendar ─────────────────────────────────────────────────────────────────
+// ─── Header stats ─────────────────────────────────────────────────────────────
+const headerStats = computed(() => [
+  { label: 'Hoy',         value: String(stats.value.todayTotal) },
+  { label: 'Pendientes',  value: String(stats.value.pending) },
+  { label: 'Confirmadas', value: String(stats.value.confirmed) },
+  { label: 'Canceladas',  value: String(stats.value.cancelled) },
+])
+
+// ─── Sidebar computados ───────────────────────────────────────────────────────
+const statusSummary = computed(() => [
+  { key: 'PENDIENTE',  label: 'Pendientes',  count: stats.value.pending,   dot: 'bg-yellow-400' },
+  { key: 'CONFIRMADA', label: 'Confirmadas', count: stats.value.confirmed, dot: 'bg-green-400'  },
+  { key: 'SENTADA',    label: 'Sentadas',    count: appointments.value.filter(a => a.status === 'SENTADA').length,    dot: 'bg-blue-400'   },
+  { key: 'COMPLETADA', label: 'Completadas', count: appointments.value.filter(a => a.status === 'COMPLETADA').length, dot: 'bg-gray-400'   },
+  { key: 'CANCELADA',  label: 'Canceladas',  count: stats.value.cancelled, dot: 'bg-red-400'    },
+  { key: 'NO_SHOW',    label: 'No show',     count: appointments.value.filter(a => a.status === 'NO_SHOW').length,    dot: 'bg-orange-400' },
+])
+
+const upcomingAppointments = computed(() => {
+  const now = new Date()
+  return appointments.value
+    .filter(a => new Date(a.date) >= now && (a.status === 'PENDIENTE' || a.status === 'CONFIRMADA'))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 5)
+})
+
+// ─── Calendario ───────────────────────────────────────────────────────────────
 const calendarDate = ref(new Date())
 
 const calendarTitle = computed(() =>
   calendarDate.value.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
-    .replace(/^\w/, (c) => c.toUpperCase()),
+    .replace(/^\w/, c => c.toUpperCase())
 )
 
 function prevMonth() {
@@ -511,35 +542,26 @@ const calendarCells = computed(() => {
   const today = new Date()
   const cells = []
 
-  // Padding from previous month
   for (let i = firstDay - 1; i >= 0; i--) {
-    const day = daysInPrev - i
-    const key = `prev-${day}`
-    cells.push({ key, day, isOtherMonth: true, isToday: false, date: null, appointments: [] as Appointment[] })
+    cells.push({ key: `prev-${i}`, day: daysInPrev - i, isOtherMonth: true, isToday: false, appointments: [] as Appointment[] })
   }
-
-  // Current month days
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(year, month, day)
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    const isToday =
-      date.getFullYear() === today.getFullYear() &&
-      date.getMonth() === today.getMonth() &&
-      date.getDate() === today.getDate()
-    const dayAppts = appointments.value.filter((a) => a.date.startsWith(dateStr))
-    cells.push({ key: dateStr, day, isOtherMonth: false, isToday, date: dateStr, appointments: dayAppts })
+    const isToday = date.toDateString() === today.toDateString()
+    cells.push({
+      key: dateStr, day, isOtherMonth: false, isToday,
+      appointments: appointments.value.filter(a => a.date.startsWith(dateStr)),
+    })
   }
-
-  // Padding for next month
   const remaining = 42 - cells.length
   for (let i = 1; i <= remaining; i++) {
-    cells.push({ key: `next-${i}`, day: i, isOtherMonth: true, isToday: false, date: null, appointments: [] as Appointment[] })
+    cells.push({ key: `next-${i}`, day: i, isOtherMonth: true, isToday: false, appointments: [] as Appointment[] })
   }
-
   return cells
 })
 
-// ─── List grouping ────────────────────────────────────────────────────────────
+// ─── Lista agrupada ───────────────────────────────────────────────────────────
 const groupedAppointments = computed(() => {
   const map = new Map<string, { date: string; dateLabel: string; items: Appointment[] }>()
   for (const appt of appointments.value) {
@@ -548,10 +570,7 @@ const groupedAppointments = computed(() => {
       map.set(dateKey, {
         date: dateKey,
         dateLabel: new Date(dateKey + 'T12:00:00').toLocaleDateString('es-MX', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
         }),
         items: [],
       })
@@ -562,24 +581,28 @@ const groupedAppointments = computed(() => {
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function formatTime(isoDate: string) {
-  return new Date(isoDate).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 const showModal = ref(false)
-const saving = ref(false)
+const saving    = ref(false)
 const editingId = ref<string | null>(null)
 
 const emptyForm = () => ({
-  customerName: '',
+  customerName:  '',
   customerPhone: '',
-  date: '',
-  time: '',
-  partySize: 2,
-  tableNumber: undefined as number | undefined,
-  notes: '',
-  status: 'PENDIENTE' as AppointmentStatus,
+  date:          '',
+  time:          '',
+  partySize:     2,
+  tableNumber:   undefined as number | undefined,
+  notes:         '',
+  status:        'PENDIENTE' as AppointmentStatus,
 })
 
 const form = ref(emptyForm())
@@ -594,14 +617,14 @@ function openEditModal(appt: Appointment) {
   editingId.value = appt.id
   const d = new Date(appt.date)
   form.value = {
-    customerName: appt.customerName,
+    customerName:  appt.customerName,
     customerPhone: appt.customerPhone ?? '',
-    date: d.toISOString().slice(0, 10),
-    time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-    partySize: appt.partySize,
-    tableNumber: appt.tableNumber,
-    notes: appt.notes ?? '',
-    status: appt.status,
+    date:          d.toISOString().slice(0, 10),
+    time:          `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+    partySize:     appt.partySize,
+    tableNumber:   appt.tableNumber,
+    notes:         appt.notes ?? '',
+    status:        appt.status,
   }
   showModal.value = true
 }
@@ -614,27 +637,19 @@ function closeModal() {
 async function handleSubmit() {
   if (saving.value) return
   saving.value = true
-
-  const isoDate = `${form.value.date}T${form.value.time}:00`
-
   const payload = {
-    customerName: form.value.customerName.trim(),
+    customerName:  form.value.customerName.trim(),
     customerPhone: form.value.customerPhone?.trim() || undefined,
-    date: isoDate,
-    partySize: form.value.partySize,
-    tableNumber: form.value.tableNumber || undefined,
-    notes: form.value.notes?.trim() || undefined,
+    date:          `${form.value.date}T${form.value.time}:00`,
+    partySize:     form.value.partySize,
+    tableNumber:   form.value.tableNumber || undefined,
+    notes:         form.value.notes?.trim() || undefined,
     ...(editingId.value && { status: form.value.status }),
   }
-
   try {
-    let ok: Appointment | null
-    if (editingId.value) {
-      ok = await updateAgendamiento(editingId.value, payload)
-    } else {
-      ok = await createAgendamiento(payload)
-    }
-
+    const ok = editingId.value
+      ? await updateAgendamiento(editingId.value, payload)
+      : await createAgendamiento(payload)
     if (ok) {
       alert.success('Éxito', editingId.value ? 'Reserva actualizada correctamente' : 'Reserva creada correctamente')
       closeModal()
@@ -653,9 +668,8 @@ async function handleStatusChange(appt: Appointment, newStatus: AppointmentStatu
 async function handleDelete(appt: Appointment) {
   const result = await alert.confirm(
     'Eliminar Reserva',
-    `¿Estás seguro de que deseas eliminar la reserva de ${appt.customerName}? Esta acción no se puede deshacer.`,
-    'Eliminar',
-    'Cancelar',
+    `¿Estás seguro de eliminar la reserva de ${appt.customerName}? Esta acción no se puede deshacer.`,
+    'Eliminar', 'Cancelar',
   )
   if (result.isConfirmed) {
     const ok = await deleteAgendamiento(appt.id)
@@ -663,6 +677,5 @@ async function handleDelete(appt: Appointment) {
   }
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
 onMounted(() => loadAgendamientos())
 </script>
