@@ -4,7 +4,15 @@
       <div class="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg">
         <ExclamationTriangleIcon class="h-6 w-6 text-white" />
       </div>
-      <span v-if="count > 0" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+      <!-- Para bajo stock: más productos = peor → invertir colores -->
+      <span
+        v-if="change !== null"
+        class="text-xs font-semibold px-2 py-0.5 rounded-full"
+        :class="change > 0 ? 'bg-red-100 text-red-700' : change < 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'"
+      >
+        {{ formattedChange }}
+      </span>
+      <span v-else-if="count > 0" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
         Atención
       </span>
     </div>
@@ -25,15 +33,22 @@ import { ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 
 interface Props {
   count: number
+  change?: number | null
   loading?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  change: null,
   loading: false,
 })
 
+const formattedChange = computed(() => {
+  if (props.change === null) return ''
+  const sign = props.change >= 0 ? '+' : ''
+  return `${sign}${props.change.toFixed(1)}%`
+})
+
 const progressWidth = computed(() => {
-  // Máximo de 10 productos para la barra
   return `${Math.min(100, props.count * 10)}%`
 })
 </script>

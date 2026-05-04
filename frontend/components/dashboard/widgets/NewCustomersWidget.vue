@@ -14,7 +14,7 @@
     </div>
     <div v-if="loading" class="h-8 bg-gray-200 rounded animate-pulse mb-1" />
     <div v-else class="text-2xl font-black text-gray-900 mb-1">{{ count }}</div>
-    <p class="text-sm text-gray-500 font-medium">Clientes Nuevos Hoy</p>
+    <p class="text-sm text-gray-500 font-medium">{{ label }}</p>
     <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
       <div
         class="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-700"
@@ -31,11 +31,13 @@ interface Props {
   count: number
   change?: number | null
   loading?: boolean
+  label?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   change: null,
   loading: false,
+  label: 'Clientes Nuevos Hoy',
 })
 
 const formattedChange = computed(() => {
