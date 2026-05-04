@@ -4,6 +4,13 @@
       <div class="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
         <ShoppingCartIcon class="h-6 w-6 text-white" />
       </div>
+      <span
+        v-if="change !== null"
+        class="text-xs font-semibold px-2 py-0.5 rounded-full"
+        :class="change >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+      >
+        {{ formattedChange }}
+      </span>
     </div>
     <div v-if="loading" class="h-8 bg-gray-200 rounded animate-pulse mb-1" />
     <div v-else class="text-2xl font-black text-gray-900 mb-1">{{ count }}</div>
@@ -22,15 +29,22 @@ import { ShoppingCartIcon } from '@heroicons/vue/24/outline'
 
 interface Props {
   count: number
+  change?: number | null
   loading?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  change: null,
   loading: false,
 })
 
+const formattedChange = computed(() => {
+  if (props.change === null) return ''
+  const sign = props.change >= 0 ? '+' : ''
+  return `${sign}${props.change.toFixed(1)}%`
+})
+
 const progressWidth = computed(() => {
-  // Máximo de 20 pedidos para la barra
   return `${Math.min(100, props.count * 5)}%`
 })
 </script>

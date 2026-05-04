@@ -35,30 +35,86 @@
       </Transition>
     </Teleport>
 
-    <!-- KPIs Grid - Solo widgets que el rol puede ver -->
+    <!-- Alertas dinámicas (bajo stock, gastos vencidos, etc.) -->
+    <DashboardAlerts v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
+
+    <!-- KPIs Header: título + selector de período + botón personalizar -->
+    <div v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-semibold text-gray-600">Indicadores</h2>
+      <div class="flex items-center gap-2">
+        <!-- Selector de período -->
+        <div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
+          <button
+            v-for="p in (['7d', '30d', '90d'] as DashboardPeriod[])"
+            :key="p"
+            @click="handlePeriodChange(p)"
+            class="px-3 py-1 text-xs font-semibold rounded-md transition-colors"
+            :class="selectedPeriod === p
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'"
+          >
+            {{ PERIOD_LABELS[p] }}
+          </button>
+        </div>
+        <!-- Botón personalizar -->
+        <button
+          @click="showCustomizePanel = !showCustomizePanel"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
+          :class="showCustomizePanel
+            ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
+            : 'bg-white border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+        >
+          <AdjustmentsHorizontalIcon class="h-3.5 w-3.5" />
+          Personalizar
+        </button>
+      </div>
+    </div>
+
+    <!-- Panel de personalización -->
+    <DashboardCustomizePanel
+      :open="showCustomizePanel"
+      :kpi-items="kpiLayout"
+      :widget-name="widgetName"
+      @toggle="toggleVisibility"
+      @reset="resetLayout"
+    />
+
+    <!-- KPIs Grid - Dinámico con drag & drop -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <SalesTodayWidget
-        v-if="canViewWidget('salesToday')"
-        :sales="kpis.salesToday"
-        :change="kpis.salesTodayChange"
-        :loading="loading"
-      />
-      <ActiveOrdersWidget
-        v-if="canViewWidget('activeOrders')"
-        :count="kpis.activeOrders"
-        :loading="loading"
-      />
-      <LowStockWidget
-        v-if="canViewWidget('lowStock')"
-        :count="kpis.lowStockProducts"
-        :loading="loading"
-      />
-      <NewCustomersWidget
-        v-if="canViewWidget('newCustomers')"
-        :count="kpis.newCustomers"
-        :change="kpis.newCustomersChange"
-        :loading="loading"
-      />
+      <template v-for="item in kpiLayout" :key="item.id">
+        <DraggableWidget
+          v-if="item.visible && canViewWidget(item.id)"
+          :widget-id="item.id"
+          @drag-swap="reorder"
+        >
+          <SalesTodayWidget
+            v-if="item.id === 'salesToday'"
+            :sales="kpis.salesToday"
+            :change="kpis.salesTodayChange"
+            :label="PERIOD_SALES_LABELS[selectedPeriod]"
+            :loading="loading"
+          />
+          <ActiveOrdersWidget
+            v-else-if="item.id === 'activeOrders'"
+            :count="kpis.activeOrders"
+            :change="kpis.activeOrdersChange"
+            :loading="loading"
+          />
+          <LowStockWidget
+            v-else-if="item.id === 'lowStock'"
+            :count="kpis.lowStockProducts"
+            :change="kpis.lowStockChange"
+            :loading="loading"
+          />
+          <NewCustomersWidget
+            v-else-if="item.id === 'newCustomers'"
+            :count="kpis.newCustomers"
+            :change="kpis.newCustomersChange"
+            :label="PERIOD_CUSTOMERS_LABELS[selectedPeriod]"
+            :loading="loading"
+          />
+        </DraggableWidget>
+      </template>
     </div>
 
     <!-- Main Content Grid - Pedidos + Acciones Rápidas -->
@@ -133,11 +189,16 @@ definePageMeta({
   middleware: 'auth'
 })
 
-import { ExclamationTriangleIcon, ServerIcon } from '@heroicons/vue/24/outline'
+import { ExclamationTriangleIcon, ServerIcon, AdjustmentsHorizontalIcon } from '@heroicons/vue/24/outline'
 import { useDashboard } from '~/composables/useDashboard'
 import { useDashboardWidgets } from '~/composables/useDashboardWidgets'
+import { useDashboardPeriod, type DashboardPeriod, PERIOD_LABELS, PERIOD_SALES_LABELS, PERIOD_CUSTOMERS_LABELS } from '~/composables/useDashboardPeriod'
+import { useDashboardLayout } from '~/composables/useDashboardLayout'
 import { type Order, type OrderStatus } from '~/composables/useClienteDashboard'
 import DashboardHero from '~/components/dashboard/DashboardHero.vue'
+import DashboardAlerts from '~/components/dashboard/DashboardAlerts.vue'
+import DashboardCustomizePanel from '~/components/dashboard/DashboardCustomizePanel.vue'
+import DraggableWidget from '~/components/dashboard/DraggableWidget.vue'
 import QuickActions from '~/components/dashboard/QuickActions.vue'
 import SalesTodayWidget from '~/components/dashboard/widgets/SalesTodayWidget.vue'
 import ActiveOrdersWidget from '~/components/dashboard/widgets/ActiveOrdersWidget.vue'
@@ -160,6 +221,18 @@ const {
   updateOrderStatus,
   markOrderPaid,
 } = useDashboard()
+
+// Selector de período
+const { period: selectedPeriod, setPeriod } = useDashboardPeriod()
+
+function handlePeriodChange(p: DashboardPeriod) {
+  setPeriod(p)
+  loadDashboard(p)
+}
+
+// Layout personalizable
+const { kpiLayout, load: loadLayout, toggleVisibility, reorder, reset: resetLayout, widgetName } = useDashboardLayout()
+const showCustomizePanel = ref(false)
 
 // Customer-specific data (for NORMAL users)
 const myOrders = ref([])
@@ -264,13 +337,14 @@ async function handleMarkPaid(id: string) {
 let refreshTimer: ReturnType<typeof setInterval>
 
 onMounted(async () => {
-  await loadDashboard()
+  loadLayout()
+  await loadDashboard(selectedPeriod.value)
   // Load customer-specific data for NORMAL users
   if (userRole.value === 'NORMAL') {
     await loadCustomerData()
   }
   refreshTimer = setInterval(() => {
-    loadDashboard()
+    loadDashboard(selectedPeriod.value)
     if (userRole.value === 'NORMAL') {
       loadCustomerData()
     }
