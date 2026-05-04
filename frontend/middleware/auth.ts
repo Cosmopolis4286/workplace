@@ -77,9 +77,7 @@ const ONBOARDING_EXCLUDED: string[] = [
 ]
 
 // ─── Helper: destino de redirección por defecto según rol ─────────────────────
-function defaultDest(role: Role): string {
-  if (role === 'NORMAL') return '/search'
-  if (ADMIN_ROLES.includes(role)) return '/dashboard'
+function defaultDest(_role?: Role): string {
   return '/dashboard'
 }
 
@@ -118,11 +116,6 @@ export default defineNuxtRouteMiddleware((to: any) => {
 
   // ── 4. Usuario autenticado ────────────────────────────────────────────────
   if (!user.value) return
-
-  // ── 4a. NORMAL → no puede ir a /dashboard, redirigir a /search ───────────
-  if (path.startsWith('/dashboard') && role === 'NORMAL') {
-    return navigateTo('/search')
-  }
 
   // ── 4b. Onboarding: COMMERCE/FREELANCER sin categoría ────────────────────
   const onboardingDone = process.client

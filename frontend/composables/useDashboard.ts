@@ -48,7 +48,7 @@ const lastUpdated  = ref<Date | null>(null)
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export function useDashboard() {
-  const { token, refreshTokens } = useAuth()
+  const { token, refreshTokens, user } = useAuth()
 
   // ── Auth-aware fetch ────────────────────────────────────────────────────────
   async function apiFetch(path: string, options: RequestInit = {}) {
@@ -83,16 +83,29 @@ export function useDashboard() {
     loading.value = true
     error.value   = null
 
+    const isNormal = user.value?.role === 'NORMAL'
+
     try {
-      const [ordersRes, statsRes, analyticsRes, productsRes] = await Promise.allSettled([
+      // Usuarios NORMAL no tienen commerceId — solo cargan sus propios pedidos via /orders/mine
+      if (isNormal) {
+        kpis.value = {
+          ...kpis.value,
+          salesToday: 0, salesTodayChange: null,
+          activeOrders: 0, activeOrdersChange: null,
+          lowStockProducts: 0, lowStockChange: null,
+          newCustomers: 0, newCustomersChange: null,
+        }
+        lastUpdated.value = new Date()
+        return
+      }
+
+      const [ordersRes, statsRes, analyticsRes] = await Promise.allSettled([
         // Active orders (non-terminal statuses)
         apiFetch('/orders?status=PENDIENTE&limit=20'),
         // Order stats
         apiFetch('/orders/stats'),
         // Analytics overview para el período seleccionado
         apiFetch(`/analytics/overview?period=${period}&compareWith=previous`),
-        // Low-stock products
-        apiFetch('/menu/products?status=BAJO_STOCK&limit=1'),
       ])
 
       // Active orders — merge PENDIENTE + CONFIRMADO + PREPARANDO + LISTO + EN_ENTREGA

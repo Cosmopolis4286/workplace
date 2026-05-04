@@ -197,7 +197,7 @@ const ROLE_DEFAULTS = {
     'service_requests:view',
     'corridas:view', 'corridas:create',
   ],
-  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'dashboard:view', 'corridas:view', 'corridas:create'],
+  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view'],
 }
 
 async function seedPermissions() {
