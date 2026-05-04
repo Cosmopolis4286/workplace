@@ -1,152 +1,214 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-4 sm:p-6">
-    <div class="max-w-4xl mx-auto">
+  <div>
+    <PageHeader
+      title="Mis Pedidos"
+      description="Historial de tus compras y pedidos"
+      :icon="ShoppingBagIcon"
+      :breadcrumb="[{ label: 'Mis Pedidos' }]"
+      :stats="headerStats"
+    />
 
-      <!-- Header -->
-      <div class="mb-6">
-        <h1 class="text-2xl font-black text-gray-900">Mis Pedidos</h1>
-        <p class="text-sm text-gray-500 mt-0.5">Historial de tus compras y pedidos</p>
-      </div>
+    <!-- Error banner -->
+    <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+      <p class="text-red-700 text-sm">{{ error }}</p>
+      <button class="text-red-500 hover:text-red-700" @click="error = null">
+        <XMarkIcon class="h-4 w-4" />
+      </button>
+    </div>
 
-      <!-- Stats -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p class="text-xs text-gray-500 mb-1">Total</p>
-          <p class="text-2xl font-black text-gray-900">{{ total }}</p>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- ── Lista principal ─────────────────────────────────────────────── -->
+      <div class="lg:col-span-2 space-y-4">
+
+        <!-- Filtros de estado -->
+        <div class="card p-1 flex gap-1 overflow-x-auto scrollbar-none">
+          <button
+            v-for="f in filters"
+            :key="f.value"
+            class="flex-shrink-0 flex-1 text-sm py-2 px-3 rounded-lg font-medium transition-colors whitespace-nowrap"
+            :class="activeFilter === f.value
+              ? 'bg-red-600 text-white shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
+            @click="activeFilter = f.value"
+          >
+            {{ f.label }}
+            <span
+              v-if="f.value !== 'ALL' && countByFilter(f.value) > 0"
+              class="ml-1.5 text-xs px-1.5 py-0.5 rounded-full"
+              :class="activeFilter === f.value ? 'bg-red-500/30 text-red-100' : 'bg-gray-100 text-gray-500'"
+            >{{ countByFilter(f.value) }}</span>
+          </button>
         </div>
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p class="text-xs text-gray-500 mb-1">Pendientes</p>
-          <p class="text-2xl font-black text-yellow-600">{{ countByStatus('PENDIENTE') }}</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p class="text-xs text-gray-500 mb-1">En Proceso</p>
-          <p class="text-2xl font-black text-blue-600">{{ countByStatusProcessing() }}</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p class="text-xs text-gray-500 mb-1">Entregados</p>
-          <p class="text-2xl font-black text-green-600">{{ countByStatus('ENTREGADO') }}</p>
-        </div>
-      </div>
 
-      <!-- Filtros -->
-      <div class="flex gap-2 mb-4 overflow-x-auto scrollbar-none pb-1">
-        <button
-          v-for="f in filters" :key="f.value"
-          class="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-          :class="activeFilter === f.value
-            ? 'bg-blue-600 text-white shadow-sm'
-            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'"
-          @click="activeFilter = f.value"
-        >
-          {{ f.label }}
-          <span v-if="f.value !== 'ALL'" class="ml-1 opacity-70">({{ countByFilter(f.value) }})</span>
-        </button>
-      </div>
+        <!-- Card con la lista -->
+        <div class="card divide-y divide-gray-100">
 
-      <!-- Error -->
-      <div v-if="error" class="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4 text-sm text-red-700">{{ error }}</div>
-
-      <!-- Skeleton -->
-      <div v-if="loading" class="space-y-3">
-        <div v-for="n in 4" :key="n" class="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
-          <div class="flex items-start gap-4">
-            <div class="w-10 h-10 rounded-xl bg-gray-200 flex-shrink-0" />
-            <div class="flex-1 space-y-2">
-              <div class="h-4 bg-gray-200 rounded w-1/2" />
-              <div class="h-3 bg-gray-200 rounded w-3/4" />
-              <div class="h-3 bg-gray-200 rounded w-1/3" />
+          <!-- Skeleton -->
+          <template v-if="loading">
+            <div v-for="n in 4" :key="n" class="p-4 flex items-center gap-4">
+              <div class="skeleton h-11 w-11 rounded-xl flex-shrink-0" />
+              <div class="flex-1 space-y-2">
+                <div class="skeleton h-4 w-36 rounded" />
+                <div class="skeleton h-3 w-52 rounded" />
+                <div class="skeleton h-3 w-28 rounded" />
+              </div>
+              <div class="skeleton h-6 w-20 rounded-full" />
             </div>
+          </template>
+
+          <!-- Vacío -->
+          <div v-else-if="filtered.length === 0" class="p-12 text-center">
+            <ShoppingBagIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p class="text-gray-500 font-medium">
+              {{ activeFilter === 'ALL' ? 'Aún no has realizado ningún pedido' : 'No hay pedidos con este filtro' }}
+            </p>
           </div>
-        </div>
-      </div>
 
-      <!-- Vacío -->
-      <div v-else-if="filtered.length === 0" class="bg-white rounded-2xl border border-gray-100 py-16 text-center">
-        <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <svg class="w-7 h-7 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-          </svg>
-        </div>
-        <p class="text-sm font-bold text-gray-700 mb-1">Sin pedidos</p>
-        <p class="text-xs text-gray-400">Aún no has realizado ningún pedido</p>
-      </div>
-
-      <!-- Lista -->
-      <div v-else class="space-y-3">
-        <div
-          v-for="order in filtered"
-          :key="order.id"
-          class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow"
-        >
-          <div class="flex items-start gap-4">
-            <!-- Icono comercio -->
-            <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-700 font-black text-sm">
-              {{ order.commerce?.name?.[0]?.toUpperCase() ?? 'C' }}
-            </div>
-
-            <div class="flex-1 min-w-0">
-              <!-- Fila superior -->
-              <div class="flex items-start justify-between gap-2 mb-1">
-                <div>
-                  <p class="text-sm font-bold text-gray-900">{{ order.commerce?.name ?? 'Comercio' }}</p>
-                  <p class="text-xs text-blue-600 font-semibold truncate">{{ order.orderNumber }}</p>
+          <!-- Filas -->
+          <template v-else>
+            <div
+              v-for="order in filtered"
+              :key="order.id"
+              class="p-4 hover:bg-gray-50 transition-colors group"
+              :class="{ 'cursor-pointer': order.items?.length }"
+              @click="toggleExpand(order.id)"
+            >
+              <div class="flex items-start gap-4">
+                <!-- Avatar comercio -->
+                <div
+                  class="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-sm"
+                  :class="statusAvatarClass(order.status)"
+                >
+                  {{ order.commerce?.name?.[0]?.toUpperCase() ?? 'C' }}
                 </div>
-                <span class="flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full" :class="statusClass(order.status)">
-                  {{ STATUS_LABELS[order.status] }}
-                </span>
+
+                <!-- Info -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-start justify-between gap-2 mb-1">
+                    <div class="min-w-0">
+                      <p class="text-sm font-semibold text-gray-900 truncate">
+                        {{ order.commerce?.name ?? 'Comercio' }}
+                      </p>
+                      <p class="text-xs text-red-600 font-medium">{{ order.orderNumber }}</p>
+                    </div>
+                    <span class="badge flex-shrink-0" :class="STATUS_CLASSES[order.status]">
+                      {{ STATUS_LABELS[order.status] }}
+                    </span>
+                  </div>
+
+                  <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400 mt-1">
+                    <span class="flex items-center gap-1">
+                      <ArchiveBoxIcon class="h-3 w-3" />
+                      {{ order.itemCount }} ítem{{ order.itemCount !== 1 ? 's' : '' }}
+                    </span>
+                    <span class="flex items-center gap-1">
+                      <CurrencyDollarIcon class="h-3 w-3" />
+                      {{ formatCurrency(order.total) }}
+                    </span>
+                    <span class="flex items-center gap-1">
+                      <CalendarIcon class="h-3 w-3" />
+                      {{ formatDate(order.createdAt) }}
+                    </span>
+                    <span v-if="order.orderType" class="flex items-center gap-1">
+                      <BoltIcon class="h-3 w-3" />
+                      {{ ORDER_TYPE_LABELS[order.orderType] }}
+                    </span>
+                    <span v-if="order.deliveryAddress" class="flex items-center gap-1">
+                      <MapPinIcon class="h-3 w-3" />
+                      {{ order.deliveryAddress }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Chevron expandible -->
+                <ChevronDownIcon
+                  v-if="order.items?.length"
+                  class="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-all flex-shrink-0 mt-0.5"
+                  :class="expanded.has(order.id) ? 'rotate-180' : ''"
+                />
               </div>
 
-              <!-- Detalles -->
-              <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mb-3">
-                <span class="flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                  </svg>
-                  {{ order.itemCount }} ítems
-                </span>
-                <span class="flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                  {{ formatCurrency(order.total) }}
-                </span>
-                <span class="flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                  </svg>
-                  {{ formatDate(order.createdAt) }}
-                </span>
-                <span v-if="order.orderType" class="flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                  </svg>
-                  {{ ORDER_TYPE_LABELS[order.orderType] }}
-                </span>
+              <!-- Detalle expandible -->
+              <Transition
+                enter-active-class="duration-200 ease-out"
+                enter-from-class="opacity-0 -translate-y-1"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+              >
+                <div v-if="expanded.has(order.id) && order.items?.length" class="mt-3 ml-15 pl-[60px]">
+                  <div class="bg-gray-50 rounded-xl px-3 py-2.5 space-y-1.5">
+                    <div
+                      v-for="item in order.items"
+                      :key="item.id"
+                      class="flex items-center justify-between text-xs"
+                    >
+                      <span class="text-gray-700 truncate flex-1">
+                        <span class="font-semibold text-gray-900">{{ item.quantity }}×</span>
+                        {{ item.productName }}
+                      </span>
+                      <span class="text-gray-500 flex-shrink-0 ml-3">{{ formatCurrency(item.subtotal) }}</span>
+                    </div>
+                    <div class="border-t border-gray-200 pt-1.5 flex justify-between text-xs font-bold text-gray-900">
+                      <span>Total</span>
+                      <span>{{ formatCurrency(order.total) }}</span>
+                    </div>
+                  </div>
+                  <p class="text-[10px] text-gray-400 mt-2 px-1">
+                    Pedido realizado {{ timeAgo(order.createdAt) }}
+                  </p>
+                </div>
+              </Transition>
+            </div>
+          </template>
+        </div>
+
+        <p v-if="!loading && filtered.length > 0" class="text-xs text-gray-400 text-right px-1">
+          {{ filtered.length }} pedido{{ filtered.length !== 1 ? 's' : '' }}
+          {{ activeFilter !== 'ALL' ? 'filtrados' : 'en total' }}
+        </p>
+      </div>
+
+      <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+      <div class="space-y-4">
+
+        <!-- Resumen por estado -->
+        <div class="card p-5">
+          <h3 class="text-sm font-semibold text-gray-700 mb-4">Resumen</h3>
+          <div class="space-y-3">
+            <div v-for="s in statusSummary" :key="s.label" class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full flex-shrink-0" :class="s.dot" />
+                <span class="text-sm text-gray-600">{{ s.label }}</span>
               </div>
-
-              <!-- Items -->
-              <div v-if="order.items?.length" class="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2 mb-3">
-                <p v-for="item in order.items.slice(0, 3)" :key="item.id" class="truncate">
-                  • {{ item.quantity }}x {{ item.productName }}
-                </p>
-                <p v-if="order.items.length > 3" class="text-gray-400 mt-1">+ {{ order.items.length - 3 }} más...</p>
-              </div>
-
-              <!-- Dirección -->
-              <p v-if="order.deliveryAddress" class="text-xs text-gray-400 flex items-center gap-1 mb-2">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                </svg>
-                {{ order.deliveryAddress }}
-              </p>
-
-              <p class="text-[10px] text-gray-400 mt-2">Pedido realizado {{ timeAgo(order.createdAt) }}</p>
+              <span class="text-sm font-bold text-gray-900">{{ s.count }}</span>
             </div>
           </div>
         </div>
-      </div>
 
+        <!-- Último pedido activo -->
+        <div v-if="latestActive" class="card p-5 border-l-4 border-l-red-400">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Pedido activo</p>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="badge" :class="STATUS_CLASSES[latestActive.status]">
+              {{ STATUS_LABELS[latestActive.status] }}
+            </span>
+            <span class="text-xs text-gray-500">{{ latestActive.orderNumber }}</span>
+          </div>
+          <p class="text-sm font-semibold text-gray-900">{{ latestActive.commerce?.name ?? 'Comercio' }}</p>
+          <p class="text-xs text-gray-400 mt-1">{{ formatCurrency(latestActive.total) }} · {{ timeAgo(latestActive.createdAt) }}</p>
+        </div>
+
+        <!-- Gasto total -->
+        <div v-if="totalSpent > 0" class="card p-5">
+          <p class="text-xs text-gray-500 mb-1">Total gastado</p>
+          <p class="text-2xl font-black text-gray-900">{{ formatCurrency(totalSpent) }}</p>
+          <p class="text-xs text-gray-400 mt-1">en {{ countByStatus('ENTREGADO') }} pedido{{ countByStatus('ENTREGADO') !== 1 ? 's' : '' }} entregado{{ countByStatus('ENTREGADO') !== 1 ? 's' : '' }}</p>
+        </div>
+
+      </div>
     </div>
   </div>
 </template>
@@ -155,137 +217,175 @@
 definePageMeta({ middleware: 'auth' })
 
 import { ref, computed, onMounted } from 'vue'
+import {
+  ShoppingBagIcon,
+  XMarkIcon,
+  ArchiveBoxIcon,
+  CurrencyDollarIcon,
+  CalendarIcon,
+  BoltIcon,
+  MapPinIcon,
+  ChevronDownIcon,
+} from '@heroicons/vue/24/outline'
+import PageHeader from '~/components/ui/PageHeader.vue'
 
 const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
+const apiUrl  = config.public.apiUrl as string
 const { getHeaders } = useAuth()
 
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 interface OrderItem {
-  id: string
-  productId: string
-  productName: string
-  quantity: number
-  unitPrice: number
-  subtotal: number
-  notes?: string
+  id: string; productId: string; productName: string
+  quantity: number; unitPrice: number; subtotal: number; notes?: string
 }
 
 interface Order {
-  id: string
-  orderNumber: string
-  customerName: string
-  customerPhone?: string
-  customerEmail?: string
-  deliveryAddress?: string
+  id: string; orderNumber: string; customerName: string
+  customerPhone?: string; customerEmail?: string; deliveryAddress?: string
   status: 'PENDIENTE' | 'CONFIRMADO' | 'PREPARANDO' | 'LISTO' | 'EN_ENTREGA' | 'ENTREGADO' | 'CANCELADO'
   orderType: 'INMEDIATO' | 'PROGRAMADO'
-  paymentMethod: string
-  total: number
-  itemCount: number
-  items: OrderItem[]
-  commerce?: { id: string; name: string }
-  createdAt: string
+  paymentMethod: string; total: number; itemCount: number
+  items: OrderItem[]; commerce?: { id: string; name: string }; createdAt: string
 }
 
+// ─── Mapas ────────────────────────────────────────────────────────────────────
 const STATUS_LABELS: Record<Order['status'], string> = {
-  PENDIENTE: 'Pendiente',
-  CONFIRMADO: 'Confirmado',
-  PREPARANDO: 'Preparando',
-  LISTO: 'Listo',
-  EN_ENTREGA: 'En Entrega',
-  ENTREGADO: 'Entregado',
-  CANCELADO: 'Cancelado',
+  PENDIENTE: 'Pendiente', CONFIRMADO: 'Confirmado', PREPARANDO: 'Preparando',
+  LISTO: 'Listo', EN_ENTREGA: 'En Entrega', ENTREGADO: 'Entregado', CANCELADO: 'Cancelado',
 }
 
 const STATUS_CLASSES: Record<Order['status'], string> = {
-  PENDIENTE: 'bg-yellow-100 text-yellow-800',
+  PENDIENTE:  'bg-yellow-100 text-yellow-800',
   CONFIRMADO: 'bg-blue-100 text-blue-700',
   PREPARANDO: 'bg-orange-100 text-orange-700',
-  LISTO: 'bg-purple-100 text-purple-700',
+  LISTO:      'bg-purple-100 text-purple-700',
   EN_ENTREGA: 'bg-indigo-100 text-indigo-700',
-  ENTREGADO: 'bg-green-100 text-green-700',
-  CANCELADO: 'bg-red-100 text-red-700',
+  ENTREGADO:  'bg-green-100 text-green-700',
+  CANCELADO:  'bg-red-100 text-red-700',
 }
 
 const ORDER_TYPE_LABELS: Record<Order['orderType'], string> = {
-  INMEDIATO: 'Inmediato',
-  PROGRAMADO: 'Programado',
+  INMEDIATO: 'Inmediato', PROGRAMADO: 'Programado',
 }
+
+const PROCESSING = ['CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
 
 const filters = [
-  { value: 'ALL', label: 'Todos' },
-  { value: 'PENDIENTE', label: 'Pendientes' },
+  { value: 'ALL',        label: 'Todos'      },
+  { value: 'PENDIENTE',  label: 'Pendientes' },
   { value: 'PROCESSING', label: 'En Proceso' },
-  { value: 'ENTREGADO', label: 'Entregados' },
-  { value: 'CANCELADO', label: 'Cancelados' },
+  { value: 'ENTREGADO',  label: 'Entregados' },
+  { value: 'CANCELADO',  label: 'Cancelados' },
 ]
 
-const orders = ref<Order[]>([])
-const total = ref(0)
-const loading = ref(false)
-const error = ref<string | null>(null)
+// ─── Estado ───────────────────────────────────────────────────────────────────
+const orders      = ref<Order[]>([])
+const total       = ref(0)
+const loading     = ref(false)
+const error       = ref<string | null>(null)
 const activeFilter = ref('ALL')
+const expanded    = ref<Set<string>>(new Set())
 
+// ─── Computados ───────────────────────────────────────────────────────────────
 const filtered = computed(() => {
   if (activeFilter.value === 'ALL') return orders.value
-  if (activeFilter.value === 'PROCESSING') {
-    const processing = ['CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
-    return orders.value.filter((r: Order) => processing.includes(r.status))
-  }
-  return orders.value.filter((r: Order) => r.status === activeFilter.value)
+  if (activeFilter.value === 'PROCESSING')
+    return orders.value.filter(o => PROCESSING.includes(o.status))
+  return orders.value.filter(o => o.status === activeFilter.value)
 })
 
-function countByStatus(status: Order['status']) {
-  return orders.value.filter((r: Order) => r.status === status).length
-}
+const headerStats = computed(() => [
+  { label: 'Total',      value: String(total.value) },
+  { label: 'Pendientes', value: String(countByStatus('PENDIENTE')) },
+  { label: 'En Proceso', value: String(countByStatusProcessing()) },
+  { label: 'Entregados', value: String(countByStatus('ENTREGADO')) },
+])
 
+const statusSummary = computed(() => [
+  { label: 'Pendientes',  count: countByStatus('PENDIENTE'),  dot: 'bg-yellow-400' },
+  { label: 'En Proceso',  count: countByStatusProcessing(),   dot: 'bg-blue-400'   },
+  { label: 'Entregados',  count: countByStatus('ENTREGADO'),  dot: 'bg-green-400'  },
+  { label: 'Cancelados',  count: countByStatus('CANCELADO'),  dot: 'bg-red-400'    },
+])
+
+const latestActive = computed(() =>
+  orders.value.find(o => PROCESSING.includes(o.status) || o.status === 'PENDIENTE') ?? null
+)
+
+const totalSpent = computed(() =>
+  orders.value
+    .filter(o => o.status === 'ENTREGADO')
+    .reduce((sum, o) => sum + o.total, 0)
+)
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function countByStatus(s: Order['status']) {
+  return orders.value.filter(o => o.status === s).length
+}
 function countByStatusProcessing() {
-  const processing = ['CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
-  return orders.value.filter((r: Order) => processing.includes(r.status)).length
+  return orders.value.filter(o => PROCESSING.includes(o.status)).length
+}
+function countByFilter(v: string) {
+  if (v === 'ALL')        return total.value
+  if (v === 'PROCESSING') return countByStatusProcessing()
+  return countByStatus(v as Order['status'])
 }
 
-function countByFilter(filterValue: string) {
-  if (filterValue === 'ALL') return total.value
-  if (filterValue === 'PROCESSING') return countByStatusProcessing()
-  return countByStatus(filterValue as Order['status'])
+function statusAvatarClass(status: Order['status']) {
+  const map: Record<Order['status'], string> = {
+    PENDIENTE:  'bg-yellow-100 text-yellow-700',
+    CONFIRMADO: 'bg-blue-100 text-blue-700',
+    PREPARANDO: 'bg-orange-100 text-orange-700',
+    LISTO:      'bg-purple-100 text-purple-700',
+    EN_ENTREGA: 'bg-indigo-100 text-indigo-700',
+    ENTREGADO:  'bg-green-100 text-green-700',
+    CANCELADO:  'bg-red-100 text-red-600',
+  }
+  return map[status]
 }
 
-function statusClass(status: Order['status']) {
-  return STATUS_CLASSES[status]
+function toggleExpand(id: string) {
+  const next = new Set(expanded.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expanded.value = next
 }
 
+function formatCurrency(v: number) {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency', currency: 'COP', minimumFractionDigits: 0,
+  }).format(v)
+}
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function timeAgo(d: string) {
+  const diff = Date.now() - new Date(d).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60)  return `hace ${mins} min`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24)   return `hace ${hrs}h`
+  return `hace ${Math.floor(hrs / 24)} días`
+}
+
+// ─── Fetch ────────────────────────────────────────────────────────────────────
 async function fetchOrders() {
   loading.value = true
-  error.value = null
+  error.value   = null
   try {
     const res = await $fetch<{ data: Order[]; total: number }>(
       `${apiUrl}/orders/mine`,
       { headers: getHeaders() }
     )
     orders.value = res.data
-    total.value = res.total
+    total.value  = res.total
   } catch (e: any) {
     error.value = e?.data?.message ?? 'Error al cargar pedidos'
   } finally {
     loading.value = false
   }
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value)
-}
-
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function timeAgo(date: string) {
-  const diff = Date.now() - new Date(date).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 60) return `hace ${mins} min`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `hace ${hrs}h`
-  return `hace ${Math.floor(hrs / 24)} días`
 }
 
 onMounted(fetchOrders)
