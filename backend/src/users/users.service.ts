@@ -376,6 +376,9 @@ export class UsersService {
         ...(dto.username !== undefined && { username: dto.username || null }),
         ...(usernameChanged && { usernameUpdatedAt: new Date() }),
         ...((dto as any).categoryId !== undefined && { categoryId: (dto as any).categoryId || null }),
+        ...(dto.country !== undefined && { country: dto.country || null }),
+        ...(dto.state !== undefined && { state: dto.state || null }),
+        ...(dto.city !== undefined && { city: dto.city || null }),
       },
       include: { commerce: true },
     });

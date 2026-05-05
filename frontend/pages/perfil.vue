@@ -168,6 +168,40 @@
               </div>
             </div>
 
+            <!-- Ubicación — todos los usuarios -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">País</label>
+                <input
+                  v-model="profileForm.country"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Ej: Venezuela"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
+                >
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Estado / Provincia</label>
+                <input
+                  v-model="profileForm.state"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Ej: Miranda"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
+                >
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
+                <input
+                  v-model="profileForm.city"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Ej: Caracas"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
+                >
+              </div>
+            </div>
+
             <!-- Categoría y Subcategoría — solo COMMERCE y FREELANCER -->
             <div v-if="isCommerceOrFreelancer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -420,7 +454,7 @@ const successMsg = ref('')
 const errorMsg = ref('')
 let successTimer: ReturnType<typeof setTimeout> | null = null
 
-const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '', categoryId: '' })
+const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '', categoryId: '', country: '', state: '', city: '' })
 const passwordForm = ref({ current: '', new: '', confirm: '' })
 const showPasswords = ref({ current: false, new: false, confirm: false })
 
@@ -559,7 +593,10 @@ const profileDirty = computed(() => {
     profileForm.value.email !== (u.email ?? '') ||
     profileForm.value.phone !== (u.phone ?? '') ||
     profileForm.value.username !== (u.username ?? '') ||
-    profileForm.value.categoryId !== ((u as any).categoryId ?? '')
+    profileForm.value.categoryId !== ((u as any).categoryId ?? '') ||
+    profileForm.value.country !== (u.country ?? '') ||
+    profileForm.value.state !== (u.state ?? '') ||
+    profileForm.value.city !== (u.city ?? '')
   )
 })
 
@@ -607,6 +644,9 @@ function syncFormFromUser() {
     phone: u.phone ?? '',
     username: u.username ?? '',
     categoryId: (u as any).categoryId ?? '',
+    country: u.country ?? '',
+    state: u.state ?? '',
+    city: u.city ?? '',
   }
   usernameStatus.value = 'idle'
 }
@@ -693,6 +733,9 @@ async function saveProfile() {
       phone: profileForm.value.phone || undefined,
       username: profileForm.value.username || undefined,
       categoryId: profileForm.value.categoryId || undefined,
+      country: profileForm.value.country || undefined,
+      state: profileForm.value.state || undefined,
+      city: profileForm.value.city || undefined,
     } as any)
     usernameStatus.value = 'idle'
     showSuccess('Perfil actualizado correctamente')

@@ -21,6 +21,9 @@ interface User {
   isActive: boolean
   commerce?: Restaurant
   categoryId?: string
+  country?: string
+  state?: string
+  city?: string
 }
 
 interface AuthResponse {
@@ -49,6 +52,9 @@ interface UpdateProfilePayload {
   email?: string
   phone?: string
   username?: string
+  country?: string
+  state?: string
+  city?: string
 }
 
 interface ChangePasswordPayload {
