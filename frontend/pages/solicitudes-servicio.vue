@@ -8,8 +8,8 @@
       :stats="headerStats"
     >
       <template #actions>
-        <!-- Toggle recibidas / enviadas -->
-        <div class="flex items-center bg-white border border-gray-200 rounded-xl p-1 gap-1 shadow-sm">
+        <!-- Toggle recibidas / enviadas — solo para FREELANCER y COMMERCE (proveedores) -->
+        <div v-if="!isNormal" class="flex items-center bg-white border border-gray-200 rounded-xl p-1 gap-1 shadow-sm">
           <button
             class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
             :class="viewAs === 'provider' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
@@ -179,8 +179,8 @@
           </div>
         </div>
 
-        <!-- Detalle de la última seleccionada (si hay filtro activo) -->
-        <div v-if="viewAs === 'provider' && countByStatus('PENDIENTE') > 0" class="card p-5 border-l-4 border-l-yellow-400">
+        <!-- Pendientes sin atender — solo para proveedores -->
+        <div v-if="!isNormal && viewAs === 'provider' && countByStatus('PENDIENTE') > 0" class="card p-5 border-l-4 border-l-yellow-400">
           <div class="flex items-center gap-2 mb-1">
             <ClockIcon class="h-4 w-4 text-yellow-500" />
             <p class="text-sm font-semibold text-gray-700">Pendientes sin atender</p>
@@ -222,7 +222,9 @@ definePageMeta({ middleware: 'auth' })
 
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
-const { getHeaders } = useAuth()
+const { getHeaders, user } = useAuth()
+
+const isNormal = computed(() => user.value?.role === 'NORMAL')
 
 interface ServiceRequest {
   id: string
@@ -276,7 +278,7 @@ const loading   = ref(false)
 const error     = ref<string | null>(null)
 const updating  = ref<string | null>(null)
 const activeFilter = ref('ALL')
-const viewAs    = ref<'provider' | 'client'>('provider')
+const viewAs    = ref<'provider' | 'client'>(user.value?.role === 'NORMAL' ? 'client' : 'provider')
 
 const filtered = computed(() =>
   activeFilter.value === 'ALL'
