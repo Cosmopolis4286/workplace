@@ -163,8 +163,14 @@
               <div class="flex items-center justify-between bg-blue-50 rounded-2xl px-4 py-3">
                 <span class="text-xs font-bold text-blue-700">Precio del servicio</span>
                 <div class="text-right">
-                  <span class="text-xl font-black text-blue-600">${{ formatPrice(service?.price ?? 0) }}</span>
-                  <span v-if="service?.priceUnit" class="text-xs text-blue-400 ml-1">/ {{ service.priceUnit }}</span>
+                  <div>
+                    <span class="text-xl font-black text-blue-600">${{ formatPrice(service?.price ?? 0) }}</span>
+                    <span v-if="service?.priceUnit" class="text-xs text-blue-400 ml-1">/ {{ service.priceUnit }}</span>
+                  </div>
+                  <div v-if="convertedPrice && defaultRate" class="text-xs text-blue-400 mt-0.5">
+                    {{ defaultRate.symbol }} {{ convertedPrice.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    <span v-if="service?.priceUnit"> / {{ service.priceUnit }}</span>
+                  </div>
                 </div>
               </div>
 
@@ -198,6 +204,7 @@ import { ref, computed, watch } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
+import { useExchangeRates } from '~/composables/useExchangeRates'
 
 const props = defineProps<{
   modelValue: boolean
@@ -212,6 +219,13 @@ const emit = defineEmits<{
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 const { user } = useAuth()
+const { defaultRate } = useExchangeRates()
+
+const convertedPrice = computed(() => {
+  const price = props.service?.price
+  if (!price || !defaultRate.value) return null
+  return price * defaultRate.value.rateToUsd
+})
 
 const ALL_MODALITY_OPTIONS: Record<string, { label: string; emoji: string }> = {
   PRESENCIAL: { label: 'Presencial', emoji: '📍' },
