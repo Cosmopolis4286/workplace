@@ -597,6 +597,20 @@
                     <span class="text-xs text-gray-500 truncate">{{ srv.user.firstName }} {{ srv.user.lastName }}</span>
                   </div>
 
+                  <!-- Rating del proveedor -->
+                  <div class="flex items-center gap-1 mb-3">
+                    <div class="flex items-center gap-0.5">
+                      <template v-for="n in 5" :key="n">
+                        <svg class="w-3 h-3" :class="n <= Math.round(srv.user.rating ?? 0) ? 'text-amber-400' : 'text-gray-200'" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                      </template>
+                    </div>
+                    <span v-if="srv.user.rating" class="text-[11px] font-semibold text-gray-600">{{ srv.user.rating.toFixed(1) }}</span>
+                    <span v-else class="text-[11px] text-gray-400">Sin reseñas</span>
+                    <span v-if="srv.user.reviewsCount > 0" class="text-[10px] text-gray-400">({{ srv.user.reviewsCount }})</span>
+                  </div>
+
                   <!-- Tags -->
                   <div v-if="srv.tags.length" class="flex flex-wrap gap-1 mb-3">
                     <span v-for="tag in srv.tags.slice(0,3)" :key="tag" class="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium">{{ tag }}</span>

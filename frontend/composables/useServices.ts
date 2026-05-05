@@ -39,6 +39,8 @@ export interface CatalogService {
     lastName: string
     username: string | null
     avatar: string | null
+    rating: number | null
+    reviewsCount: number
     category: { name: string } | null
     subcategory: { name: string } | null
   }

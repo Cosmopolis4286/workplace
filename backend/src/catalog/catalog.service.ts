@@ -9,6 +9,19 @@ import { QueryCatalogDto, CatalogSortBy } from './dto/query-catalog.dto';
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
+function attachProductRating<T extends { commerce: { user: { reviewsReceived: { rating: number }[], [k: string]: any }, [k: string]: any }, [k: string]: any }>(product: T) {
+  const reviews = product.commerce.user.reviewsReceived;
+  const rating = reviews.length
+    ? Number((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(2))
+    : null;
+  const reviewsCount = reviews.length;
+  const { reviewsReceived: _, ...userWithoutReviews } = product.commerce.user;
+  return {
+    ...product,
+    commerce: { ...product.commerce, user: { ...userWithoutReviews, rating, reviewsCount } },
+  };
+}
+
 @Injectable()
 export class CatalogService {
   constructor(
@@ -140,7 +153,12 @@ export class CatalogService {
               id: true,
               name: true,
               type: true,
-              user: { select: { username: true } },
+              user: {
+                select: {
+                  username: true,
+                  reviewsReceived: { select: { rating: true } },
+                },
+              },
             },
           },
         },
@@ -149,7 +167,7 @@ export class CatalogService {
     ]);
 
     return {
-      data: products,
+      data: products.map(attachProductRating),
       total,
       page,
       limit,
@@ -180,14 +198,19 @@ export class CatalogService {
             type: true,
             address: true,
             phone: true,
-            user: { select: { username: true } },
+            user: {
+              select: {
+                username: true,
+                reviewsReceived: { select: { rating: true } },
+              },
+            },
           },
         },
       },
     });
 
     if (!product) throw new NotFoundException('Producto no encontrado');
-    return { data: product };
+    return { data: attachProductRating(product) };
   }
 
   async createOrder(dto: CreateCatalogOrderDto, requesterId?: string) {
