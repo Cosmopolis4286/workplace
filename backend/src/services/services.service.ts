@@ -34,9 +34,20 @@ const SERVICE_SELECT = {
       avatar: true,
       category: { select: { name: true } },
       subcategory: { select: { name: true } },
+      reviewsReceived: { select: { rating: true } },
     },
   },
 };
+
+function attachRating<T extends { user: { reviewsReceived: { rating: number }[], [k: string]: any }, [k: string]: any }>(item: T) {
+  const reviews = item.user.reviewsReceived;
+  const rating = reviews.length
+    ? Number((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(2))
+    : null;
+  const reviewsCount = reviews.length;
+  const { reviewsReceived: _, ...userWithoutReviews } = item.user;
+  return { ...item, user: { ...userWithoutReviews, rating, reviewsCount } };
+}
 
 @Injectable()
 export class ServicesService {
@@ -132,7 +143,7 @@ export class ServicesService {
       this.prisma.service.count({ where }),
     ]);
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data: data.map(attachRating), total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async getCatalogServiceById(id: string) {
@@ -141,7 +152,7 @@ export class ServicesService {
       select: SERVICE_SELECT,
     });
     if (!s) throw new NotFoundException('Servicio no encontrado');
-    return s;
+    return attachRating(s);
   }
 
   // ─── My Services (authenticated) ─────────────────────────────────────────

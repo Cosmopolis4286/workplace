@@ -83,16 +83,14 @@
       <!-- Rating + calorías -->
       <div class="flex items-center gap-1 mb-3">
         <div class="flex items-center gap-0.5">
-          <template v-for="(type, i) in ratingStars" :key="i">
-            <svg v-if="type === 'full'" class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-            </svg>
-            <svg v-else class="w-3 h-3 text-gray-200" viewBox="0 0 20 20" fill="currentColor">
+          <template v-for="n in 5" :key="n">
+            <svg class="w-3 h-3" :class="n <= Math.round(displayRating) ? 'text-amber-400' : 'text-gray-200'" viewBox="0 0 20 20" fill="currentColor">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
             </svg>
           </template>
         </div>
-        <span class="text-[11px] font-semibold text-gray-600">{{ simulatedRating }}</span>
+        <span class="text-[11px] font-semibold text-gray-600">{{ displayRating.toFixed(1) }}</span>
+        <span v-if="reviewsCount > 0" class="text-[10px] text-gray-400">({{ reviewsCount }})</span>
         <span v-if="product.calories" class="ml-auto flex items-center gap-0.5 text-[10px] text-gray-400">
           <svg class="w-2.5 h-2.5 text-orange-400" viewBox="0 0 24 24" fill="currentColor">
             <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/>
@@ -195,15 +193,15 @@ function handleDecrement() {
 const imgError = ref(false)
 const { defaultRate } = useExchangeRates()
 
-// Rating determinístico: basado en el ID del producto (3.8 – 5.0)
-const simulatedRating = computed(() => {
+// Rating real del proveedor, con fallback determinístico si aún no tiene reseñas
+const reviewsCount = computed(() => props.product.commerce?.user?.reviewsCount ?? 0)
+const displayRating = computed(() => {
+  const real = props.product.commerce?.user?.rating
+  if (real != null) return real
+  // fallback visual basado en ID mientras no hay reseñas
   const lastByte = parseInt(props.product.id.slice(-2), 16) || 0
-  return (3.8 + (lastByte % 13) * 0.1).toFixed(1)
+  return 3.8 + (lastByte % 13) * 0.1
 })
-
-const ratingStars = computed(() =>
-  Array.from({ length: 5 }, (_, i) => (i < Math.floor(parseFloat(simulatedRating.value)) ? 'full' : 'empty'))
-)
 
 // Badge determinístico (sin campo en DB)
 const badge = computed((): 'Nuevo' | 'Popular' | null => {
