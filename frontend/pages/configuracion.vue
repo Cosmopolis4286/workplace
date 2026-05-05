@@ -308,6 +308,20 @@
                 <input v-model="restaurantForm.email" type="email" class="input-field" placeholder="contacto@micomercio.com">
               </div>
             </div>
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">País</label>
+                <input v-model="restaurantForm.country" type="text" class="input-field" placeholder="Ej: Venezuela">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Estado / Provincia</label>
+                <input v-model="restaurantForm.state" type="text" class="input-field" placeholder="Ej: Miranda">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
+                <input v-model="restaurantForm.city" type="text" class="input-field" placeholder="Ej: Caracas">
+              </div>
+            </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Horario de Atención</label>
               <textarea
@@ -547,7 +561,7 @@ const {
   saveNotificationSettings,
 } = useSettings()
 
-const restaurantForm = ref({ name: '', type: '', address: '', phone: '', email: '', schedule: '' })
+const restaurantForm = ref({ name: '', type: '', address: '', phone: '', email: '', schedule: '', country: '', state: '', city: '' })
 const paymentForm = ref({ currency: 'MXN', tax: 16, suggestedTip: 10, paymentMethods: ['cash', 'card', 'transfer'] as string[] })
 const operationForm = ref({ avgPrepTime: 20, avgDeliveryTime: 30, deliveryFee: 35, freeDeliveryMinimum: 200 })
 const notifForm = ref({ notifyNewOrders: true, notifyLowStock: true, notifyDailyReports: false, notifyCustomerReviews: true })
@@ -575,6 +589,9 @@ function syncForms() {
       phone: restaurant.value.phone ?? '',
       email: restaurant.value.email ?? '',
       schedule: restaurant.value.schedule ?? '',
+      country: restaurant.value.country ?? '',
+      state: restaurant.value.state ?? '',
+      city: restaurant.value.city ?? '',
     }
   }
   if (settings.value) {

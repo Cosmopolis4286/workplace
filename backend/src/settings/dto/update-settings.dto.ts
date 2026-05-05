@@ -32,6 +32,18 @@ export class UpdateRestaurantInfoDto {
   @IsOptional()
   @IsString()
   schedule?: string;
+
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
 }
 
 export class UpdatePaymentSettingsDto {
