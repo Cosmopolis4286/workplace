@@ -525,14 +525,7 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import {
-  useWallets,
-  type WalletTransactionType,
-  STATUS_LABELS,
-  STATUS_CLASSES,
-  TYPE_LABELS,
-  TYPE_CLASSES,
-} from '~/composables/useWallets'
+import { useWallets, type WalletTransactionType } from '~/composables/useWallets'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -551,6 +544,10 @@ const {
   withdraw,
   transfer,
   formatMoney,
+  STATUS_LABELS,
+  STATUS_CLASSES,
+  TYPE_LABELS,
+  TYPE_CLASSES,
 } = useWallets()
 
 const isAdmin = computed(() => ['SUPERADMIN', 'ADMIN'].includes(user.value?.role ?? ''))

@@ -73,25 +73,26 @@ export interface PaymentPayload {
   description?: string
 }
 
-export const STATUS_LABELS: Record<WalletStatus, string> = {
+// Prefixed to avoid Nuxt auto-import collisions with other composables
+const WALLET_STATUS_LABELS: Record<WalletStatus, string> = {
   ACTIVE: 'Activa',
   SUSPENDED: 'Suspendida',
   CLOSED: 'Cerrada',
 }
 
-export const STATUS_CLASSES: Record<WalletStatus, string> = {
+const WALLET_STATUS_CLASSES: Record<WalletStatus, string> = {
   ACTIVE: 'bg-green-100 text-green-700',
   SUSPENDED: 'bg-yellow-100 text-yellow-700',
   CLOSED: 'bg-red-100 text-red-700',
 }
 
-export const TYPE_LABELS: Record<WalletTransactionType, string> = {
+const WALLET_TYPE_LABELS: Record<WalletTransactionType, string> = {
   CREDIT: 'Crédito',
   DEBIT: 'Débito',
   ADJUSTMENT: 'Ajuste',
 }
 
-export const TYPE_CLASSES: Record<WalletTransactionType, string> = {
+const WALLET_TYPE_CLASSES: Record<WalletTransactionType, string> = {
   CREDIT: 'bg-green-100 text-green-700',
   DEBIT: 'bg-red-100 text-red-700',
   ADJUSTMENT: 'bg-gray-100 text-gray-700',
@@ -263,9 +264,9 @@ export function useWallets() {
     fetchWallets,
     createUserWallet,
     formatMoney,
-    STATUS_LABELS,
-    STATUS_CLASSES,
-    TYPE_LABELS,
-    TYPE_CLASSES,
+    STATUS_LABELS: WALLET_STATUS_LABELS,
+    STATUS_CLASSES: WALLET_STATUS_CLASSES,
+    TYPE_LABELS: WALLET_TYPE_LABELS,
+    TYPE_CLASSES: WALLET_TYPE_CLASSES,
   }
 }
