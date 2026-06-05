@@ -32,6 +32,7 @@ import { CategoriesGlobalModule } from './categories-global/categories-global.mo
 import { CorridasModule } from './corridas/corridas.module';
 import { JobsModule } from './jobs/jobs.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { WalletsModule } from './wallets/wallets.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { TelegramModule } from './telegram/telegram.module';
     CorridasModule,
     JobsModule,
     TelegramModule,
+    WalletsModule,
   ],
 })
 export class AppModule implements NestModule {
