@@ -48,6 +48,7 @@ export class UsersService {
         role,
         ...(data.categoryId && { categoryId: data.categoryId }),
         ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
+        wallet: { create: { currency: 'USD' } },
         ...(createRestaurant && data.commerceName
           ? { commerce: { create: { name: data.commerceName } } }
           : {}),

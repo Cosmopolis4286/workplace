@@ -52,6 +52,8 @@ model User {
   catalogOrders    CatalogOrder[]
   serviceRequests  ServiceRequest[]
   notifications    Notification[]
+  wallet           Wallet?
+  walletTransactions WalletTransaction[]
   userPermissions  UserPermission[]
   corridasAsPassenger Corrida[]     @relation("PassengerCorridas")
   corridasAsDriver    Corrida[]     @relation("DriverCorridas")
@@ -527,6 +529,66 @@ model Notification {
 }
 
 // ─── Expenses ────────────────────────────────────────────────────────────────
+
+// Digital Wallets
+
+enum WalletStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+  ADJUSTMENT
+}
+
+enum WalletTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Wallet {
+  id       String       @id @default(uuid())
+  userId   String       @unique
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency String       @default("USD")
+  balance  Float        @default(0)
+  status   WalletStatus @default(ACTIVE)
+
+  transactions WalletTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id           String                  @id @default(uuid())
+  walletId     String
+  wallet       Wallet                  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         WalletTransactionType
+  status       WalletTransactionStatus @default(COMPLETED)
+  amount       Float
+  balanceAfter Float
+  description  String?
+  reference    String?
+  metadata     Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([walletId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([reference])
+  @@map("wallet_transactions")
+}
 
 enum ExpenseType {
   FIJO
@@ -1318,3 +1380,5 @@ model JobApplication {
   @@unique([jobId, applicantId])
   @@map("job_applications")
 }
+
+// ─── Wallets & Transactions ─────────────────────────────────────────────────────
