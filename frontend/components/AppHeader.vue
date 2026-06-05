@@ -146,6 +146,15 @@
                   <CogIcon class="h-4 w-4 flex-shrink-0" />
                   Configuración
                 </NuxtLink>
+                <NuxtLink
+                  to="/billetera"
+                  @click="showProfileMenu = false"
+                  class="flex items-center px-4 py-2.5 text-sm transition-all duration-200 gap-3"
+                  :class="isDark ? 'text-gray-300 hover:bg-white/8 hover:text-white' : 'text-gray-700 hover:bg-red-50 hover:text-workplace-red'"
+                >
+                  <WalletIcon class="h-4 w-4 flex-shrink-0" />
+                  Billetera
+                </NuxtLink>
 
                 <!-- Dark mode toggle -->
                 <div
@@ -217,6 +226,7 @@ import {
   BellIcon,
   SunIcon,
   MoonIcon,
+  WalletIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 
@@ -278,6 +288,7 @@ const PAGE_MAP = {
   '/analytics':        { title: 'Analíticas',       icon: ChartBarIcon },
   '/configuracion':    { title: 'Configuración',    icon: CogIcon },
   '/perfil':           { title: 'Mi Perfil',        icon: UserIcon },
+  '/billetera':        { title: 'Billetera',        icon: WalletIcon },
   '/notificaciones':   { title: 'Notificaciones',   icon: BellIcon },
   '/auditoria':        { title: 'Auditoría',        icon: ClipboardDocumentListIcon },
   '/logs':             { title: 'Logs del Sistema', icon: BellIcon },
