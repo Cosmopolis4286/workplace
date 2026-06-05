@@ -72,7 +72,7 @@ const overview = ref<AnalyticsOverview | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-export const PERIOD_LABELS: Record<AnalyticsPeriod, string> = {
+const ANALYTICS_PERIOD_LABELS: Record<AnalyticsPeriod, string> = {
   today: 'Hoy',
   week: 'Esta Semana',
   '7d': 'Últimos 7 días',

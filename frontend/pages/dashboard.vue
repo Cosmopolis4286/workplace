@@ -192,7 +192,7 @@ definePageMeta({
 import { ExclamationTriangleIcon, ServerIcon, AdjustmentsHorizontalIcon } from '@heroicons/vue/24/outline'
 import { useDashboard } from '~/composables/useDashboard'
 import { useDashboardWidgets } from '~/composables/useDashboardWidgets'
-import { useDashboardPeriod, type DashboardPeriod, PERIOD_LABELS, PERIOD_SALES_LABELS, PERIOD_CUSTOMERS_LABELS } from '~/composables/useDashboardPeriod'
+import { useDashboardPeriod, type DashboardPeriod } from '~/composables/useDashboardPeriod'
 import { useDashboardLayout } from '~/composables/useDashboardLayout'
 import { type Order, type OrderStatus } from '~/composables/useClienteDashboard'
 import DashboardHero from '~/components/dashboard/DashboardHero.vue'
@@ -223,7 +223,7 @@ const {
 } = useDashboard()
 
 // Selector de período
-const { period: selectedPeriod, setPeriod } = useDashboardPeriod()
+const { period: selectedPeriod, setPeriod, PERIOD_LABELS, PERIOD_SALES_LABELS, PERIOD_CUSTOMERS_LABELS } = useDashboardPeriod()
 
 function handlePeriodChange(p: DashboardPeriod) {
   setPeriod(p)

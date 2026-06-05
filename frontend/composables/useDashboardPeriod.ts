@@ -2,19 +2,19 @@ import { ref } from 'vue'
 
 export type DashboardPeriod = '7d' | '30d' | '90d'
 
-export const PERIOD_LABELS: Record<DashboardPeriod, string> = {
+const PERIOD_LABELS: Record<DashboardPeriod, string> = {
   '7d':  '7 días',
   '30d': '30 días',
   '90d': '90 días',
 }
 
-export const PERIOD_SALES_LABELS: Record<DashboardPeriod, string> = {
+const PERIOD_SALES_LABELS: Record<DashboardPeriod, string> = {
   '7d':  'Ventas (7d)',
   '30d': 'Ventas (30d)',
   '90d': 'Ventas (90d)',
 }
 
-export const PERIOD_CUSTOMERS_LABELS: Record<DashboardPeriod, string> = {
+const PERIOD_CUSTOMERS_LABELS: Record<DashboardPeriod, string> = {
   '7d':  'Clientes Nuevos (7d)',
   '30d': 'Clientes Nuevos (30d)',
   '90d': 'Clientes Nuevos (90d)',
