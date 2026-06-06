@@ -146,6 +146,8 @@ const PERMISSIONS = [
   { key: 'corridas:view',            module: 'corridas',       action: 'view',          label: 'Ver Corridas' },
   { key: 'corridas:create',          module: 'corridas',       action: 'create',        label: 'Solicitar Corrida' },
   { key: 'corridas:manage',          module: 'corridas',       action: 'manage',        label: 'Gestionar Corridas (Conductor)' },
+  { key: 'wallets:use',              module: 'wallets',        action: 'use',           label: 'Usar Billetera Digital' },
+  { key: 'wallets:manage',           module: 'wallets',        action: 'manage',        label: 'Gestionar Billeteras (Admin)',  isSystem: true },
 ]
 
 const COMMERCE_KEYS = [
@@ -166,6 +168,7 @@ const COMMERCE_KEYS = [
   'service_requests:view',
   'search:view',
   'corridas:view', 'corridas:create', 'corridas:manage',
+  'wallets:use',
 ]
 
 const ADMIN_KEYS = COMMERCE_KEYS.filter(
@@ -181,14 +184,15 @@ const ROLE_DEFAULTS = {
     'users:view', 'users:manage', 
     'plans:view', 'exchange_rates:view',
     // Permisos para categorías globales
-    'categories_global:view', 
-    'categories_global:create', 
-    'categories_global:edit', 
+    'categories_global:view',
+    'categories_global:create',
+    'categories_global:edit',
     'categories_global:delete',
     'subcategories_global:view',
     'subcategories_global:create',
     'subcategories_global:edit',
-    'subcategories_global:delete'
+    'subcategories_global:delete',
+    'wallets:use', 'wallets:manage',
   ],
   COMMERCE: COMMERCE_KEYS,
   FREELANCER: [

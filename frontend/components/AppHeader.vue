@@ -147,6 +147,7 @@
                   Configuración
                 </NuxtLink>
                 <NuxtLink
+                  v-if="can('wallets:use')"
                   to="/billetera"
                   @click="showProfileMenu = false"
                   class="flex items-center px-4 py-2.5 text-sm transition-all duration-200 gap-3"
@@ -237,6 +238,7 @@ defineEmits(['toggle-sidebar'])
 
 const route = useRoute()
 const { logout, user } = useAuth()
+const { can } = usePermissions()
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl
 

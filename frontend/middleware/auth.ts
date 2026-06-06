@@ -65,6 +65,9 @@ const PERMISSION_ROUTE_MAP: Record<string, string> = {
 
   // Service / corridas
   '/solicitudes-servicio': 'service_requests:view',
+
+  // Billetera
+  '/billetera': 'wallets:use',
 }
 
 // Rutas que no necesitan permiso específico pero sí autenticación

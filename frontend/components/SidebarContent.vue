@@ -299,7 +299,7 @@ const topNavItemsDef: NavItemExtended[] = [
   { to: '/servicios',            label: 'Servicios',   permission: 'services:view',         icon: 'services',  commerceOnly: false, normalOnly: false },
   { to: '/solicitudes-servicio', label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  commerceOnly: false, normalOnly: false },
   { to: '/corridas',             label: 'Corridas',    permission: 'corridas:view',         icon: 'corridas',  commerceOnly: false, normalOnly: false },
-  { to: '/billetera',             label: 'Billetera',   permission: null,                    icon: 'wallet',    commerceOnly: false, normalOnly: false },
+  { to: '/billetera',             label: 'Billetera',   permission: 'wallets:use',           icon: 'wallet',    commerceOnly: false, normalOnly: false },
   { to: '/mis-pedidos',          label: 'Mis Pedidos', permission: null,                      icon: 'orders',    commerceOnly: false, normalOnly: true  },
 ]
 const topNavItems = computed(() =>
