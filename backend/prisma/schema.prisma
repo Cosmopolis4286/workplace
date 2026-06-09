@@ -559,6 +559,12 @@ model Wallet {
   balance  Float        @default(0)
   status   WalletStatus @default(ACTIVE)
 
+  pin      String?      // bcrypt hash of 6-digit PIN
+  pinSetAt DateTime?
+
+  frozenAt   DateTime?  // set when admin freezes; null = not frozen
+  frozenBy   String?    // userId of admin who froze
+
   transactions WalletTransaction[]
 
   createdAt DateTime @default(now())
@@ -1037,10 +1043,13 @@ model ServiceRequest {
   description  String?
   price        Float?
   priceUnit    String?
-  status       ServiceRequestStatus   @default(PENDIENTE)
+  status           ServiceRequestStatus   @default(PENDIENTE)
+  providerNotes    String?
+  statusUpdatedAt  DateTime?
   requesterId  String?
   requester    User?                  @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
   @@index([serviceId])
   @@index([providerId])
@@ -1379,6 +1388,22 @@ model JobApplication {
   @@index([status])
   @@unique([jobId, applicantId])
   @@map("job_applications")
+}
+
+// ─── Search Tabs Configuration ───────────────────────────────────────────────
+
+model SearchTab {
+  id        String   @id @default(uuid())
+  key       String   @unique  // "productos" | "servicios" | "empleos" | custom
+  label     String
+  icon      String?           // SVG path string or icon name
+  color     String   @default("#EF4444")
+  isEnabled Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("search_tabs")
 }
 
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────
