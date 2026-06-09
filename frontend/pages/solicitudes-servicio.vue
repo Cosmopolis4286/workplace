@@ -96,7 +96,8 @@
             <div
               v-for="req in filtered"
               :key="req.id"
-              class="p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors group"
+              class="p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors group cursor-pointer"
+              @click="openDetail(req)"
             >
               <!-- Avatar -->
               <div
@@ -122,6 +123,11 @@
                   <span v-if="viewAs === 'provider' && req.clientPhone">{{ req.clientPhone }}</span>
                 </p>
                 <p v-if="req.description" class="text-xs text-gray-500 mt-1.5 line-clamp-1 italic">"{{ req.description }}"</p>
+                <!-- Indicador de nota del proveedor -->
+                <div v-if="req.providerNotes" class="flex items-center gap-1 mt-1.5">
+                  <DocumentTextIcon class="h-3 w-3 text-gray-400" />
+                  <span class="text-xs text-gray-400 line-clamp-1 italic">{{ req.providerNotes }}</span>
+                </div>
               </div>
 
               <!-- Badge estado + precio -->
@@ -135,30 +141,17 @@
                 </p>
               </div>
 
-              <!-- Acciones hover (solo proveedor) -->
-              <div
-                v-if="viewAs === 'provider'"
-                class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <button
-                  v-for="action in nextActions(req.status)"
-                  :key="action.status"
-                  :disabled="updating === req.id"
-                  class="p-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-                  :class="action.class"
-                  :title="action.label"
-                  @click="updateStatus(req.id, action.status)"
-                >
-                  <component :is="action.icon" class="h-4 w-4" />
-                </button>
+              <!-- Flecha de detalle -->
+              <div class="flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <ChevronRightIcon class="h-4 w-4 text-gray-400" />
               </div>
             </div>
           </template>
         </div>
 
-        <!-- Tiempo -->
+        <!-- Total -->
         <p v-if="!loading && filtered.length > 0" class="text-xs text-gray-400 text-right px-1">
-          {{ total }} solicitud{{ total !== 1 ? 'es' : '' }} en total
+          {{ total }} solicitud{{ total !== 1 ? 'es' : '' }} en total · Haz clic para ver detalles
         </p>
       </div>
 
@@ -200,8 +193,41 @@
           </p>
         </div>
 
+        <!-- Tip proveedor -->
+        <div v-if="viewAs === 'provider'" class="card p-5 bg-gradient-to-br from-red-50 to-orange-50 border border-red-100">
+          <p class="text-xs font-semibold text-red-700 mb-2">Flujo recomendado</p>
+          <ol class="space-y-1.5">
+            <li class="flex items-start gap-2 text-xs text-gray-600">
+              <span class="font-bold text-red-500 flex-shrink-0">1.</span>
+              Haz clic en la solicitud para ver los datos del cliente
+            </li>
+            <li class="flex items-start gap-2 text-xs text-gray-600">
+              <span class="font-bold text-red-500 flex-shrink-0">2.</span>
+              Contacta al cliente y marca como "Contactado"
+            </li>
+            <li class="flex items-start gap-2 text-xs text-gray-600">
+              <span class="font-bold text-red-500 flex-shrink-0">3.</span>
+              Agrega observaciones del acuerdo (fecha, precio, detalles)
+            </li>
+            <li class="flex items-start gap-2 text-xs text-gray-600">
+              <span class="font-bold text-red-500 flex-shrink-0">4.</span>
+              Cierra el trato cuando se complete el servicio
+            </li>
+          </ol>
+        </div>
+
       </div>
     </div>
+
+    <!-- Modal de detalle -->
+    <ServiceRequestDetailModal
+      v-if="selectedReq"
+      :show="!!selectedReq"
+      :req="selectedReq"
+      :is-provider="viewAs === 'provider'"
+      @close="selectedReq = null"
+      @updated="onRequestUpdated"
+    />
   </div>
 </template>
 
@@ -211,11 +237,12 @@ import {
   ClipboardDocumentListIcon,
   XMarkIcon,
   ClockIcon,
-  CheckCircleIcon,
-  PhoneIcon,
   InformationCircleIcon,
+  ChevronRightIcon,
+  DocumentTextIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import ServiceRequestDetailModal from '~/components/modals/ServiceRequestDetailModal.vue'
 import { useApi } from '~/composables/useApi'
 
 definePageMeta({ middleware: 'auth' })
@@ -240,8 +267,10 @@ interface ServiceRequest {
   description?: string
   price?: number
   priceUnit?: string
+  providerNotes?: string
   status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
   createdAt: string
+  statusUpdatedAt?: string
 }
 
 const STATUS_LABELS: Record<ServiceRequest['status'], string> = {
@@ -272,13 +301,13 @@ const filters = [
   { value: 'CERRADO',    label: 'Cerrados' },
 ]
 
-const requests  = ref<ServiceRequest[]>([])
-const total     = ref(0)
-const loading   = ref(false)
-const error     = ref<string | null>(null)
-const updating  = ref<string | null>(null)
+const requests     = ref<ServiceRequest[]>([])
+const total        = ref(0)
+const loading      = ref(false)
+const error        = ref<string | null>(null)
 const activeFilter = ref('ALL')
-const viewAs    = ref<'provider' | 'client'>(user.value?.role === 'NORMAL' ? 'client' : 'provider')
+const viewAs       = ref<'provider' | 'client'>(user.value?.role === 'NORMAL' ? 'client' : 'provider')
+const selectedReq  = ref<ServiceRequest | null>(null)
 
 const filtered = computed(() =>
   activeFilter.value === 'ALL'
@@ -304,18 +333,26 @@ const statusSummary = computed(() => [
   { status: 'CERRADO',    label: 'Cerrados',     count: countByStatus('CERRADO'),    dot: 'bg-green-400'  },
 ])
 
-function nextActions(status: ServiceRequest['status']) {
-  if (status === 'PENDIENTE') return [
-    { status: 'CONTACTADO', label: 'Marcar contactado', icon: PhoneIcon,       class: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
-    { status: 'CERRADO',    label: 'Cerrar',             icon: CheckCircleIcon, class: 'bg-gray-100 text-gray-500 hover:bg-gray-200' },
-  ]
-  if (status === 'VISTO') return [
-    { status: 'CONTACTADO', label: 'Marcar contactado', icon: PhoneIcon,       class: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
-  ]
-  if (status === 'CONTACTADO') return [
-    { status: 'CERRADO', label: 'Cerrar trato', icon: CheckCircleIcon, class: 'bg-green-50 text-green-600 hover:bg-green-100' },
-  ]
-  return []
+async function openDetail(req: ServiceRequest) {
+  selectedReq.value = req
+  // Auto-marcar VISTO cuando el proveedor abre una solicitud PENDIENTE
+  if (viewAs.value === 'provider' && req.status === 'PENDIENTE') {
+    try {
+      const { patch } = useApi()
+      await patch(`/services/requests/${req.id}/status`, { status: 'VISTO' })
+      const idx = requests.value.findIndex(r => r.id === req.id)
+      if (idx !== -1) {
+        requests.value[idx].status = 'VISTO'
+        selectedReq.value = { ...requests.value[idx] }
+      }
+    } catch { /* silently ignore */ }
+  }
+}
+
+function onRequestUpdated(updated: ServiceRequest) {
+  const idx = requests.value.findIndex(r => r.id === updated.id)
+  if (idx !== -1) requests.value[idx] = updated
+  selectedReq.value = updated
 }
 
 async function fetchRequests() {
@@ -340,21 +377,8 @@ function switchView(v: 'provider' | 'client') {
   if (viewAs.value === v) return
   viewAs.value = v
   activeFilter.value = 'ALL'
+  selectedReq.value = null
   fetchRequests()
-}
-
-async function updateStatus(id: string, status: string) {
-  updating.value = id
-  try {
-    const { patch } = useApi()
-    await patch(`/services/requests/${id}/status`, { status })
-    const idx = requests.value.findIndex(r => r.id === id)
-    if (idx !== -1) requests.value[idx].status = status as ServiceRequest['status']
-  } catch (e: any) {
-    error.value = e?.data?.message ?? 'Error al actualizar estado'
-  } finally {
-    updating.value = null
-  }
 }
 
 function formatDate(date: string) {

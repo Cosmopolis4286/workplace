@@ -140,6 +140,22 @@ export class ServicesController {
     );
   }
 
+  @Get('requests/:id')
+  @UseGuards(JwtAuthGuard)
+  getRequest(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.servicesService.getServiceRequest(id, user.id);
+  }
+
+  @Patch('requests/:id')
+  @UseGuards(JwtAuthGuard)
+  updateRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() body: { status?: string; providerNotes?: string }
+  ) {
+    return this.servicesService.updateServiceRequest(id, user.id, body);
+  }
+
   @Patch('requests/:id/status')
   @UseGuards(JwtAuthGuard)
   updateRequestStatus(
