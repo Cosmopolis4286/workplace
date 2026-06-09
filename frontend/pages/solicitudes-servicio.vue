@@ -116,29 +116,49 @@
                   <span class="text-gray-300">·</span>
                   <p class="text-sm text-red-600 font-medium truncate">{{ req.serviceName }}</p>
                 </div>
-                <p class="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                <p class="text-xs text-gray-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                   <span>{{ MODALITY_LABELS[req.modality] ?? req.modality }}</span>
-                  <span>{{ formatDate(req.preferredDate) }}</span>
-                  <span v-if="req.address">{{ req.address }}{{ req.city ? `, ${req.city}` : '' }}</span>
-                  <span v-if="viewAs === 'provider' && req.clientPhone">{{ req.clientPhone }}</span>
+                  <span class="flex items-center gap-1">
+                    <CalendarIcon class="h-3 w-3" />
+                    {{ formatDate(req.preferredDate) }}
+                  </span>
+                  <span v-if="req.address" class="flex items-center gap-1">
+                    <MapPinIcon class="h-3 w-3" />
+                    {{ req.address }}{{ req.city ? `, ${req.city}` : '' }}
+                  </span>
+                  <span v-if="viewAs === 'provider' && req.clientPhone" class="flex items-center gap-1">
+                    <PhoneIcon class="h-3 w-3" />
+                    {{ req.clientPhone }}
+                  </span>
                 </p>
                 <p v-if="req.description" class="text-xs text-gray-500 mt-1.5 line-clamp-1 italic">"{{ req.description }}"</p>
                 <!-- Indicador de nota del proveedor -->
                 <div v-if="req.providerNotes" class="flex items-center gap-1 mt-1.5">
-                  <DocumentTextIcon class="h-3 w-3 text-gray-400" />
+                  <DocumentTextIcon class="h-3 w-3 text-gray-400 flex-shrink-0" />
                   <span class="text-xs text-gray-400 line-clamp-1 italic">{{ req.providerNotes }}</span>
                 </div>
+                <!-- Tiempo relativo de la solicitud -->
+                <p class="text-[11px] text-gray-300 mt-1.5 flex items-center gap-1" :title="formatDateTime(req.createdAt)">
+                  <ClockIcon class="h-3 w-3" />
+                  {{ timeAgo(req.createdAt) }}
+                </p>
               </div>
 
               <!-- Badge estado + precio -->
               <div class="flex-shrink-0 text-right space-y-1.5">
-                <span class="badge block text-center" :class="STATUS_CLASSES[req.status]">
+                <span class="badge inline-flex items-center gap-1 justify-center" :class="STATUS_CLASSES[req.status]">
+                  <component :is="STATUS_ICONS[req.status]" class="h-3 w-3" />
                   {{ STATUS_LABELS[req.status] }}
                 </span>
-                <p v-if="req.price" class="text-sm font-bold text-gray-900">
-                  ${{ formatPrice(req.price) }}
-                  <span v-if="req.priceUnit" class="text-xs font-normal text-gray-400">/ {{ req.priceUnit }}</span>
-                </p>
+                <div v-if="req.price">
+                  <p class="text-sm font-bold text-gray-900">
+                    ${{ formatPrice(req.price) }}
+                    <span v-if="req.priceUnit" class="text-xs font-normal text-gray-400">/ {{ req.priceUnit }}</span>
+                  </p>
+                  <p v-if="defaultRate" class="text-xs font-medium text-gray-400">
+                    {{ formatConversion(req.price, defaultRate) }}{{ req.priceUnit ? ` / ${req.priceUnit}` : '' }}
+                  </p>
+                </div>
               </div>
 
               <!-- Flecha de detalle -->
@@ -240,16 +260,24 @@ import {
   InformationCircleIcon,
   ChevronRightIcon,
   DocumentTextIcon,
+  CalendarIcon,
+  MapPinIcon,
+  PhoneIcon,
+  EyeIcon,
+  PhoneArrowUpRightIcon,
+  CheckCircleIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ServiceRequestDetailModal from '~/components/modals/ServiceRequestDetailModal.vue'
 import { useApi } from '~/composables/useApi'
+import { useExchangeRates } from '~/composables/useExchangeRates'
 
 definePageMeta({ middleware: 'auth' })
 
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 const { getHeaders, user } = useAuth()
+const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
 
 const isNormal = computed(() => user.value?.role === 'NORMAL')
 
@@ -285,6 +313,13 @@ const STATUS_CLASSES: Record<ServiceRequest['status'], string> = {
   VISTO:      'bg-gray-100 text-gray-600',
   CONTACTADO: 'bg-blue-100 text-blue-700',
   CERRADO:    'bg-green-100 text-green-700',
+}
+
+const STATUS_ICONS: Record<ServiceRequest['status'], any> = {
+  PENDIENTE:  ClockIcon,
+  VISTO:      EyeIcon,
+  CONTACTADO: PhoneArrowUpRightIcon,
+  CERRADO:    CheckCircleIcon,
 }
 
 const MODALITY_LABELS: Record<string, string> = {
@@ -385,11 +420,37 @@ function formatDate(date: string) {
   return new Date(date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function formatDateTime(date: string) {
+  return new Date(date).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 function formatPrice(price: number) {
   return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
 }
 
-onMounted(fetchRequests)
+function timeAgo(date: string) {
+  const diff = Date.now() - new Date(date).getTime()
+  const sec = Math.floor(diff / 1000)
+  if (sec < 10)    return 'hace un momento'
+  if (sec < 60)    return `hace ${sec} segundo${sec !== 1 ? 's' : ''}`
+  const min = Math.floor(sec / 60)
+  if (min < 60)    return `hace ${min} minuto${min !== 1 ? 's' : ''}`
+  const hrs = Math.floor(min / 60)
+  if (hrs < 24)    return `hace ${hrs} hora${hrs !== 1 ? 's' : ''}`
+  const days = Math.floor(hrs / 24)
+  if (days < 7)    return `hace ${days} día${days !== 1 ? 's' : ''}`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 4)   return `hace ${weeks} semana${weeks !== 1 ? 's' : ''}`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `hace ${months} mes${months !== 1 ? 'es' : ''}`
+  const years = Math.floor(days / 365)
+  return `hace ${years} año${years !== 1 ? 's' : ''}`
+}
+
+onMounted(() => {
+  fetchRequests()
+  fetchRates(false, true)
+})
 </script>
 
 <style scoped>

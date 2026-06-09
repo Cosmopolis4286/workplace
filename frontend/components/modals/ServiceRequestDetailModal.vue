@@ -20,12 +20,15 @@
                 <p class="text-xs text-gray-500 mt-0.5">
                   {{ isProvider ? req.clientName : req.providerName }}
                   <span class="text-gray-300 mx-1">·</span>
-                  {{ formatDate(req.createdAt) }}
+                  <span :title="formatDateTime(req.createdAt)">{{ timeAgo(req.createdAt) }}</span>
                 </p>
               </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0 ml-3">
-              <span class="badge" :class="STATUS_CLASSES[req.status]">{{ STATUS_LABELS[req.status] }}</span>
+              <span class="badge inline-flex items-center gap-1" :class="STATUS_CLASSES[req.status]">
+                <component :is="STATUS_ICONS[req.status]" class="h-3 w-3" />
+                {{ STATUS_LABELS[req.status] }}
+              </span>
               <button class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" @click="$emit('close')">
                 <XMarkIcon class="h-5 w-5" />
               </button>
@@ -49,10 +52,14 @@
                 <div v-if="req.price">
                   <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Precio acordado</p>
                   <p class="text-sm text-gray-900 font-medium">${{ formatPrice(req.price) }}{{ req.priceUnit ? ' / ' + req.priceUnit : '' }}</p>
+                  <p v-if="defaultRate" class="text-xs text-gray-400 font-medium">
+                    {{ formatConversion(req.price, defaultRate) }}{{ req.priceUnit ? ` / ${req.priceUnit}` : '' }}
+                  </p>
                 </div>
                 <div>
                   <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Solicitud creada</p>
-                  <p class="text-sm text-gray-900 font-medium">{{ formatDateTime(req.createdAt) }}</p>
+                  <p class="text-sm text-gray-900 font-medium" :title="formatDateTime(req.createdAt)">{{ timeAgo(req.createdAt) }}</p>
+                  <p class="text-xs text-gray-400">{{ formatDateTime(req.createdAt) }}</p>
                 </div>
               </div>
 
@@ -96,9 +103,9 @@
               <!-- Timeline de estado -->
               <div>
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Estado del proceso</p>
-                <div class="flex items-center">
+                <div class="flex items-start">
                   <template v-for="(step, i) in TIMELINE" :key="step.status">
-                    <div class="flex flex-col items-center flex-1">
+                    <div class="flex flex-col items-center flex-1 min-w-0">
                       <div
                         class="h-8 w-8 rounded-full flex items-center justify-center border-2 transition-all"
                         :class="timelineClass(step.status)"
@@ -111,10 +118,19 @@
                       >
                         {{ step.label }}
                       </span>
+                      <span
+                        v-if="stepTimestamp(step.status)"
+                        class="text-[10px] text-center leading-tight mt-0.5 px-1"
+                        :class="req.status === step.status ? 'text-red-500 font-medium' : 'text-gray-400'"
+                        :title="formatDateTime(stepTimestamp(step.status)!)"
+                      >
+                        {{ timeAgo(stepTimestamp(step.status)!) }}
+                      </span>
+                      <span v-else class="text-[10px] text-center leading-tight mt-0.5 px-1 text-gray-300">—</span>
                     </div>
                     <div
                       v-if="i < TIMELINE.length - 1"
-                      class="h-0.5 flex-1 mb-5 transition-colors"
+                      class="h-0.5 flex-1 mt-4 transition-colors"
                       :class="isReached(TIMELINE[i+1].status) ? 'bg-red-400' : 'bg-gray-200'"
                     />
                   </template>
@@ -235,6 +251,7 @@ import {
   InformationCircleIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
+import { useExchangeRates } from '~/composables/useExchangeRates'
 
 interface ServiceRequest {
   id: string
@@ -259,6 +276,8 @@ interface ServiceRequest {
 const props = defineProps<{ show: boolean; req: ServiceRequest; isProvider: boolean }>()
 const emit = defineEmits<{ close: []; updated: [ServiceRequest] }>()
 
+const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
+
 const STATUS_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Cerrado',
 }
@@ -268,9 +287,14 @@ const STATUS_CLASSES: Record<string, string> = {
   CONTACTADO: 'bg-blue-100 text-blue-700',
   CERRADO: 'bg-green-100 text-green-700',
 }
+const STATUS_ICONS: Record<string, any> = {
+  PENDIENTE: ClockIcon, VISTO: EyeIcon, CONTACTADO: PhoneArrowUpRightIcon, CERRADO: CheckCircleIcon,
+}
 const MODALITY_LABELS: Record<string, string> = {
   PRESENCIAL: '📍 Presencial', REMOTO: '💻 Remoto', CUALQUIERA: '🤝 Cualquiera',
 }
+
+if (!defaultRate.value) fetchRates(false, true)
 
 const TIMELINE = [
   { status: 'PENDIENTE',  label: 'Pendiente',  icon: ClockIcon },
@@ -292,6 +316,15 @@ function timelineClass(status: string) {
   if (props.req.status === status) return 'border-red-500 bg-red-500 text-white'
   if (isReached(status)) return 'border-red-300 bg-red-100 text-red-600'
   return 'border-gray-200 bg-white text-gray-300'
+}
+
+// Timestamp a mostrar bajo cada paso del timeline.
+// PENDIENTE siempre usa la fecha de creación; el paso actual usa statusUpdatedAt
+// (no se conserva un historial por paso intermedio).
+function stepTimestamp(status: string): string | null {
+  if (status === 'PENDIENTE') return props.req.createdAt
+  if (props.req.status === status) return props.req.statusUpdatedAt ?? null
+  return null
 }
 
 const nextActions = computed(() => {
@@ -353,6 +386,24 @@ function formatDateTime(d: string) {
 }
 function formatPrice(p: number) {
   return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(p)
+}
+function timeAgo(date: string) {
+  const diff = Date.now() - new Date(date).getTime()
+  const sec = Math.floor(diff / 1000)
+  if (sec < 10)    return 'hace un momento'
+  if (sec < 60)    return `hace ${sec} segundo${sec !== 1 ? 's' : ''}`
+  const min = Math.floor(sec / 60)
+  if (min < 60)    return `hace ${min} minuto${min !== 1 ? 's' : ''}`
+  const hrs = Math.floor(min / 60)
+  if (hrs < 24)    return `hace ${hrs} hora${hrs !== 1 ? 's' : ''}`
+  const days = Math.floor(hrs / 24)
+  if (days < 7)    return `hace ${days} día${days !== 1 ? 's' : ''}`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 4)   return `hace ${weeks} semana${weeks !== 1 ? 's' : ''}`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `hace ${months} mes${months !== 1 ? 'es' : ''}`
+  const years = Math.floor(days / 365)
+  return `hace ${years} año${years !== 1 ? 's' : ''}`
 }
 </script>
 
