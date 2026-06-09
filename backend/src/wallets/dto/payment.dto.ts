@@ -1,9 +1,14 @@
-import { IsNumber, IsObject, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsNumber, IsObject, IsOptional, IsString, IsUUID, Length, Matches, Min } from 'class-validator';
 
 export class PaymentDto {
   @IsNumber()
   @Min(0.01)
   amount: number;
+
+  @IsString()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/, { message: 'El PIN debe ser de 6 dígitos numéricos' })
+  pin: string;
 
   @IsOptional()
   @IsUUID()
@@ -16,6 +21,10 @@ export class PaymentDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsUUID()
+  idempotencyKey?: string;
 
   @IsOptional()
   @IsObject()

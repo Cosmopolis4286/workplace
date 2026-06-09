@@ -1,4 +1,4 @@
-import { IsNumber, IsObject, IsOptional, IsString, Min } from 'class-validator';
+import { IsNumber, IsObject, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class DepositDto {
   @IsNumber()
@@ -12,6 +12,10 @@ export class DepositDto {
   @IsOptional()
   @IsString()
   reference?: string;
+
+  @IsOptional()
+  @IsUUID()
+  idempotencyKey?: string;
 
   @IsOptional()
   @IsObject()
