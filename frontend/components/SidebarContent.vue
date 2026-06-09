@@ -105,6 +105,13 @@
         <NavLink v-if="can('categories_global:view')" to="/categorias" label="Categorías" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
           <template #icon><component :is="NAV_ICONS.menu" class="h-5 w-5" /></template>
         </NavLink>
+        <NavLink v-if="can('search_tabs:view')" to="/search-tabs" label="Tabs de Búsqueda" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+          <template #icon>
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </template>
+        </NavLink>
         <NavLink v-if="can('permissions:manage')" to="/permisos" label="Permisos" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
           <template #icon><component :is="NAV_ICONS.requests" class="h-5 w-5" /></template>
         </NavLink>

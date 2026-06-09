@@ -18,6 +18,9 @@ export interface Wallet {
   currency: string
   balance: number
   status: WalletStatus
+  hasPin: boolean
+  frozenAt?: string | null
+  frozenBy?: string | null
   createdAt: string
   updatedAt: string
   user?: WalletUser
@@ -38,6 +41,18 @@ export interface WalletTransaction {
   createdAt: string
 }
 
+export interface WalletLimitsStatus {
+  limits: {
+    maxSingleTx: number
+    dailyDebit: number
+    monthlyDebit: number
+    maxBalance: number
+    dailyTransfers: number
+  }
+  used: { dailyDebit: number; monthlyDebit: number; dailyTransfers: number }
+  remaining: { dailyDebit: number; monthlyDebit: number; dailyTransfers: number }
+}
+
 interface Paginated<T> {
   data: T[]
   total: number
@@ -50,27 +65,33 @@ export interface DepositPayload {
   amount: number
   description?: string
   reference?: string
+  idempotencyKey?: string
   metadata?: Record<string, any>
 }
 
 export interface WithdrawPayload {
   amount: number
+  pin: string
   description?: string
   reference?: string
-  metadata?: Record<string, any>
+  idempotencyKey?: string
 }
 
 export interface TransferPayload {
   recipientUserId: string
   amount: number
+  pin: string
   description?: string
+  idempotencyKey?: string
 }
 
 export interface PaymentPayload {
   amount: number
+  pin: string
   orderId?: string
   serviceRequestId?: string
   description?: string
+  idempotencyKey?: string
 }
 
 // Prefixed to avoid Nuxt auto-import collisions with other composables
@@ -103,12 +124,13 @@ const wallet = ref<Wallet | null>(null)
 const transactions = ref<WalletTransaction[]>([])
 const transactionsMeta = ref({ total: 0, page: 1, limit: 20, totalPages: 1 })
 const wallets = ref<Wallet[]>([])
+const limitsStatus = ref<WalletLimitsStatus | null>(null)
 const loading = ref(false)
 const loadingTx = ref(false)
 const error = ref<string | null>(null)
 
 export function useWallets() {
-  const { get, post } = useApi()
+  const { get, post, patch, del } = useApi()
 
   async function fetchMyWallet() {
     loading.value = true
@@ -117,10 +139,7 @@ export function useWallets() {
       wallet.value = await get<Wallet>('/wallets/me')
       return wallet.value
     } catch (e: any) {
-      if (e?.statusCode === 404) {
-        wallet.value = null
-        return null
-      }
+      if (e?.statusCode === 404) { wallet.value = null; return null }
       error.value = e?.message ?? 'No se pudo cargar la billetera'
       return null
     } finally {
@@ -156,9 +175,35 @@ export function useWallets() {
     }
   }
 
+  async function fetchMyLimits() {
+    try {
+      limitsStatus.value = await get<WalletLimitsStatus>('/wallets/me/limits')
+      return limitsStatus.value
+    } catch { return null }
+  }
+
+  // ─── PIN management ──────────────────────────────────────────────────────────
+
+  async function setPin(pin: string) {
+    const result = await post<{ message: string }>('/wallets/me/pin', { pin })
+    if (wallet.value) wallet.value = { ...wallet.value, hasPin: true }
+    return result
+  }
+
+  async function changePin(currentPin: string, newPin: string) {
+    return patch<{ message: string }>('/wallets/me/pin', { currentPin, newPin })
+  }
+
+  async function removePin(pin: string) {
+    const result = await del<{ message: string }>('/wallets/me/pin', { pin })
+    if (wallet.value) wallet.value = { ...wallet.value, hasPin: false }
+    return result
+  }
+
+  // ─── Financial operations ────────────────────────────────────────────────────
+
   async function deposit(payload: DepositPayload) {
-    loading.value = true
-    error.value = null
+    loading.value = true; error.value = null
     try {
       const result = await post<{ wallet: Wallet; transaction: WalletTransaction }>('/wallets/me/deposit', payload)
       wallet.value = { ...wallet.value!, ...result.wallet }
@@ -166,33 +211,26 @@ export function useWallets() {
       transactionsMeta.value.total++
       return result
     } catch (e: any) {
-      error.value = e?.message ?? 'No se pudo realizar el depósito'
-      throw e
-    } finally {
-      loading.value = false
-    }
+      error.value = e?.message ?? 'No se pudo realizar el depósito'; throw e
+    } finally { loading.value = false }
   }
 
   async function withdraw(payload: WithdrawPayload) {
-    loading.value = true
-    error.value = null
+    loading.value = true; error.value = null
     try {
       const result = await post<{ wallet: Wallet; transaction: WalletTransaction }>('/wallets/me/withdraw', payload)
       wallet.value = { ...wallet.value!, ...result.wallet }
       transactions.value = [result.transaction, ...transactions.value]
       transactionsMeta.value.total++
+      await fetchMyLimits()
       return result
     } catch (e: any) {
-      error.value = e?.message ?? 'No se pudo realizar el retiro'
-      throw e
-    } finally {
-      loading.value = false
-    }
+      error.value = e?.message ?? 'No se pudo realizar el retiro'; throw e
+    } finally { loading.value = false }
   }
 
   async function transfer(payload: TransferPayload) {
-    loading.value = true
-    error.value = null
+    loading.value = true; error.value = null
     try {
       const result = await post<{
         reference: string
@@ -202,18 +240,15 @@ export function useWallets() {
       wallet.value = { ...wallet.value!, ...result.sender.wallet }
       transactions.value = [result.sender.transaction, ...transactions.value]
       transactionsMeta.value.total++
+      await fetchMyLimits()
       return result
     } catch (e: any) {
-      error.value = e?.message ?? 'No se pudo realizar la transferencia'
-      throw e
-    } finally {
-      loading.value = false
-    }
+      error.value = e?.message ?? 'No se pudo realizar la transferencia'; throw e
+    } finally { loading.value = false }
   }
 
   async function payment(payload: PaymentPayload) {
-    loading.value = true
-    error.value = null
+    loading.value = true; error.value = null
     try {
       const result = await post<{ wallet: Wallet; transaction: WalletTransaction }>('/wallets/me/payment', payload)
       wallet.value = { ...wallet.value!, ...result.wallet }
@@ -221,11 +256,8 @@ export function useWallets() {
       transactionsMeta.value.total++
       return result
     } catch (e: any) {
-      error.value = e?.message ?? 'No se pudo procesar el pago'
-      throw e
-    } finally {
-      loading.value = false
-    }
+      error.value = e?.message ?? 'No se pudo procesar el pago'; throw e
+    } finally { loading.value = false }
   }
 
   async function fetchWallets(page = 1, limit = 20) {
@@ -240,9 +272,7 @@ export function useWallets() {
 
   function formatMoney(amount: number, currency = wallet.value?.currency ?? 'USD') {
     return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 2,
+      style: 'currency', currency, minimumFractionDigits: 2,
     }).format(amount)
   }
 
@@ -251,12 +281,17 @@ export function useWallets() {
     wallets: computed(() => wallets.value),
     transactions: computed(() => transactions.value),
     transactionsMeta: computed(() => transactionsMeta.value),
+    limitsStatus: computed(() => limitsStatus.value),
     loading: computed(() => loading.value),
     loadingTx: computed(() => loadingTx.value),
     error: computed(() => error.value),
     fetchMyWallet,
     createMyWallet,
     fetchMyTransactions,
+    fetchMyLimits,
+    setPin,
+    changePin,
+    removePin,
     deposit,
     withdraw,
     transfer,
