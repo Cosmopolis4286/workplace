@@ -148,6 +148,8 @@ const PERMISSIONS = [
   { key: 'corridas:manage',          module: 'corridas',       action: 'manage',        label: 'Gestionar Corridas (Conductor)' },
   { key: 'wallets:use',              module: 'wallets',        action: 'use',           label: 'Usar Billetera Digital' },
   { key: 'wallets:manage',           module: 'wallets',        action: 'manage',        label: 'Gestionar Billeteras (Admin)',  isSystem: true },
+  { key: 'search_tabs:view',         module: 'search_tabs',    action: 'view',          label: 'Ver Tabs de Búsqueda',         isSystem: true },
+  { key: 'search_tabs:manage',       module: 'search_tabs',    action: 'manage',        label: 'Gestionar Tabs de Búsqueda',   isSystem: true },
 ]
 
 const COMMERCE_KEYS = [
@@ -193,6 +195,7 @@ const ROLE_DEFAULTS = {
     'subcategories_global:edit',
     'subcategories_global:delete',
     'wallets:use', 'wallets:manage',
+    'search_tabs:view', 'search_tabs:manage',
   ],
   COMMERCE: COMMERCE_KEYS,
   FREELANCER: [
@@ -1101,6 +1104,48 @@ async function seedCategories() {
   console.log('\n✨ Categories and subcategories seeded.')
 }
 
+async function seedSearchTabs() {
+  console.log('\n🔍 Seeding search tabs...\n')
+
+  const DEFAULT_TABS = [
+    {
+      key: 'productos',
+      label: 'Productos',
+      icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z',
+      color: '#EF4444',
+      isEnabled: true,
+      sortOrder: 0,
+    },
+    {
+      key: 'servicios',
+      label: 'Servicios',
+      icon: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+      color: '#3B82F6',
+      isEnabled: true,
+      sortOrder: 1,
+    },
+    {
+      key: 'empleos',
+      label: 'Empleos',
+      icon: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+      color: '#10B981',
+      isEnabled: true,
+      sortOrder: 2,
+    },
+  ]
+
+  for (const tab of DEFAULT_TABS) {
+    await prisma.searchTab.upsert({
+      where: { key: tab.key },
+      create: tab,
+      update: { label: tab.label, color: tab.color, sortOrder: tab.sortOrder },
+    })
+    console.log(`  🔍 ${tab.label} (${tab.key})`)
+  }
+
+  console.log('\n✨ Search tabs seeded.')
+}
+
 async function main() {
   console.log('🌱 Seeding demo users...\n')
 
@@ -1207,6 +1252,7 @@ async function main() {
   await seedCategories()
   await seedServiceModalities()
   await seedUserCategories()
+  await seedSearchTabs()
 }
 
 main()
