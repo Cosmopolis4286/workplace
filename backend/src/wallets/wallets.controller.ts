@@ -12,6 +12,7 @@ import {
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { EmailVerifiedGuard } from '../common/guards/email-verified.guard';
 import { RateLimitGuard, RateLimit } from '../common/guards/rate-limit.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -58,18 +59,21 @@ export class WalletsController {
   // ─── PIN management ──────────────────────────────────────────────────────────
 
   @Post('me/pin')
+  @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:pin:set:${(req as any).user?.id}` })
   setPin(@CurrentUser() user: any, @Body() dto: SetPinDto) {
     return this.walletsService.setPin(user.id, dto);
   }
 
   @Patch('me/pin')
+  @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:pin:change:${(req as any).user?.id}` })
   changePin(@CurrentUser() user: any, @Body() dto: ChangePinDto) {
     return this.walletsService.changePin(user.id, dto);
   }
 
   @Delete('me/pin')
+  @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 3, keyGenerator: (req) => `wallet:pin:del:${(req as any).user?.id}` })
   removePin(@CurrentUser() user: any, @Body() dto: SetPinDto) {
     return this.walletsService.removePin(user.id, dto);
@@ -78,24 +82,28 @@ export class WalletsController {
   // ─── Financial operations ─────────────────────────────────────────────────────
 
   @Post('me/deposit')
+  @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `wallet:deposit:${(req as any).user?.id}` })
   deposit(@CurrentUser() user: any, @Body() dto: DepositDto) {
     return this.walletsService.deposit(user.id, user.role, dto);
   }
 
   @Post('me/withdraw')
+  @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:withdraw:${(req as any).user?.id}` })
   withdraw(@CurrentUser() user: any, @Body() dto: WithdrawDto) {
     return this.walletsService.withdraw(user.id, user.role, dto);
   }
 
   @Post('me/transfer')
+  @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:transfer:${(req as any).user?.id}` })
   transfer(@CurrentUser() user: any, @Body() dto: TransferDto) {
     return this.walletsService.transfer(user.id, user.role, dto);
   }
 
   @Post('me/payment')
+  @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `wallet:payment:${(req as any).user?.id}` })
   payment(@CurrentUser() user: any, @Body() dto: PaymentDto) {
     return this.walletsService.payment(user.id, user.role, dto);

@@ -3,8 +3,10 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   Query,
+  Param,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -248,6 +250,21 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async getSecurityEvents(@CurrentUser() user: any) {
     return this.authService.getSecurityEvents(user.id);
+  }
+
+  // ─── Sessions / Devices ──────────────────────────────────────────────────────
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  async getSessions(@CurrentUser() user: any, @Request() req: any) {
+    return this.authService.getActiveSessions(user.id, req.securityContext);
+  }
+
+  @Delete('sessions/:id')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async revokeSession(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.authService.revokeSession(user.id, id);
   }
 
   private parseTtlToSeconds(duration: string): number {

@@ -12,12 +12,16 @@ import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 import { ChangePasswordDto } from '../auth/dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { MailService } from '../mail/mail.service';
 
 export const CURRENT_TERMS_VERSION = '2.0';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mail: MailService,
+  ) {}
 
   async create(data: {
     email: string;
@@ -336,12 +340,18 @@ export class UsersService {
   }
 
   async updateProfile(id: string, dto: UpdateProfileDto) {
+    let previousEmail: string | undefined;
     if (dto.email) {
       const existing = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });
       if (existing && existing.id !== id) {
         throw new ConflictException('El correo ya está en uso por otra cuenta');
+      }
+
+      const currentUser = await this.prisma.user.findUnique({ where: { id } });
+      if (currentUser && currentUser.email !== dto.email) {
+        previousEmail = currentUser.email;
       }
     }
 
@@ -394,6 +404,12 @@ export class UsersService {
       },
       include: { commerce: true },
     });
+
+    if (previousEmail) {
+      this.mail
+        .sendSecurityAlert(previousEmail, user.firstName, 'email_changed')
+        .catch(() => {});
+    }
 
     const { password, ...result } = user;
     return result;
@@ -467,6 +483,10 @@ export class UsersService {
       where: { id },
       data: { password: hashedPassword },
     });
+
+    this.mail
+      .sendSecurityAlert(user.email, user.firstName, 'password_changed')
+      .catch(() => {});
 
     return { message: 'Contraseña actualizada correctamente' };
   }
