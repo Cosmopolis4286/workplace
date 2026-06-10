@@ -1,7 +1,9 @@
 import { Controller, Get, Inject } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
+@SkipThrottle()
 @Controller()
 export class HealthController {
   constructor(
