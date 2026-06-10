@@ -13,6 +13,8 @@ import { ChangePasswordDto } from '../auth/dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
+export const CURRENT_TERMS_VERSION = '2.0';
+
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
@@ -27,6 +29,7 @@ export class UsersService {
     role?: Role;
     categoryId?: string;
     subcategoryId?: string;
+    acceptTerms?: boolean;
   }) {
     const existing = await this.prisma.user.findUnique({
       where: { email: data.email },
@@ -38,6 +41,7 @@ export class UsersService {
     const createRestaurant =
       role === Role.COMMERCE || role === Role.ADMIN || role === Role.FREELANCER;
 
+    const now = new Date();
     const user = await this.prisma.user.create({
       data: {
         email: data.email,
@@ -51,6 +55,13 @@ export class UsersService {
         wallet: { create: { currency: 'USD' } },
         ...(createRestaurant && data.commerceName
           ? { commerce: { create: { name: data.commerceName } } }
+          : {}),
+        ...(data.acceptTerms
+          ? {
+              termsAcceptedAt: now,
+              termsVersion: CURRENT_TERMS_VERSION,
+              privacyAcceptedAt: now,
+            }
           : {}),
       },
       include: { commerce: true, category: true, subcategory: true },

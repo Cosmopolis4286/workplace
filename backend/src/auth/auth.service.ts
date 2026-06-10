@@ -36,7 +36,7 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const user = await this.usersService.create(dto);
+    const user = await this.usersService.create({ ...dto, acceptTerms: dto.acceptTerms });
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
     

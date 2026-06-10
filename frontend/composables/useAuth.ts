@@ -39,6 +39,7 @@ interface RegisterCredentials {
   phone?: string
   commerceName: string
   password: string
+  acceptTerms: boolean
 }
 
 interface LoginCredentials {
@@ -137,6 +138,7 @@ export const useAuth = () => {
         phone: credentials.phone || undefined,
         commerceName: credentials.commerceName,
         password: credentials.password,
+        acceptTerms: credentials.acceptTerms,
       },
     })
     setSession(data)
