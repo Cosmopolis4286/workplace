@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useRuntimeConfig } from '#app'
+import { useAuth } from './useAuth'
 
 export interface SearchTab {
   id: string
@@ -19,17 +20,45 @@ const _loaded = ref(false)
 const _error = ref<string | null>(null)
 
 export function useSearchTabs() {
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { token, refreshAccessToken } = useAuth()
+
+  // ─── Auth-aware fetch ───────────────────────────────────────────────────────
+  async function apiFetch(path: string, options: RequestInit = {}) {
+    const config = useRuntimeConfig()
+    const base = config.public.apiUrl as string
+
+    const doRequest = async (tkn: string | null) =>
+      fetch(`${base}${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tkn ? { Authorization: `Bearer ${tkn}` } : {}),
+          ...(options.headers ?? {}),
+        },
+      })
+
+    let res = await doRequest(token.value)
+    if (res.status === 401) {
+      const ok = await refreshAccessToken()
+      if (!ok) throw new Error('Sesión expirada')
+      res = await doRequest(token.value)
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.message ?? `Error ${res.status}`)
+    }
+    if (res.status === 204) return null
+    return res.json()
+  }
+
+  // ─── Público: tabs habilitados para el hero de búsqueda ─────────────────────
 
   async function loadTabs(force = false) {
     if (_loaded.value && !force) return
     _loading.value = true
     _error.value = null
     try {
-      const res = await fetch(`${apiUrl}/api/search-tabs/public`)
-      if (!res.ok) throw new Error('Error al cargar tabs')
-      _tabs.value = await res.json()
+      _tabs.value = await apiFetch('/search-tabs/public')
       _loaded.value = true
     } catch (e: any) {
       _error.value = e.message
@@ -38,72 +67,35 @@ export function useSearchTabs() {
     }
   }
 
-  // ─── Admin: authenticated CRUD ──────────────────────────────────────────────
+  // ─── Admin: gestión completa ─────────────────────────────────────────────────
 
-  async function adminLoadAll(headers: Record<string, string>) {
-    const res = await fetch(`${apiUrl}/api/search-tabs`, { headers })
-    if (!res.ok) throw new Error('Error al cargar tabs')
-    return res.json() as Promise<SearchTab[]>
+  async function adminLoadAll(): Promise<SearchTab[]> {
+    return apiFetch('/search-tabs')
   }
 
   async function adminCreate(
     data: Omit<SearchTab, 'id' | 'createdAt' | 'updatedAt'>,
-    headers: Record<string, string>,
-  ) {
-    const res = await fetch(`${apiUrl}/api/search-tabs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify(data),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err.message || 'Error al crear tab')
-    }
-    return res.json() as Promise<SearchTab>
+  ): Promise<SearchTab> {
+    return apiFetch('/search-tabs', { method: 'POST', body: JSON.stringify(data) })
   }
 
   async function adminUpdate(
     id: string,
     data: Partial<Omit<SearchTab, 'id' | 'key' | 'createdAt' | 'updatedAt'>>,
-    headers: Record<string, string>,
-  ) {
-    const res = await fetch(`${apiUrl}/api/search-tabs/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify(data),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err.message || 'Error al actualizar tab')
-    }
-    return res.json() as Promise<SearchTab>
+  ): Promise<SearchTab> {
+    return apiFetch(`/search-tabs/${id}`, { method: 'PUT', body: JSON.stringify(data) })
   }
 
-  async function adminToggle(id: string, headers: Record<string, string>) {
-    const res = await fetch(`${apiUrl}/api/search-tabs/${id}/toggle`, {
-      method: 'PATCH',
-      headers,
-    })
-    if (!res.ok) throw new Error('Error al cambiar estado del tab')
-    return res.json() as Promise<SearchTab>
+  async function adminToggle(id: string): Promise<SearchTab> {
+    return apiFetch(`/search-tabs/${id}/toggle`, { method: 'PATCH' })
   }
 
-  async function adminReorder(ids: string[], headers: Record<string, string>) {
-    const res = await fetch(`${apiUrl}/api/search-tabs/reorder`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify({ ids }),
-    })
-    if (!res.ok) throw new Error('Error al reordenar tabs')
-    return res.json() as Promise<SearchTab[]>
+  async function adminReorder(ids: string[]): Promise<SearchTab[]> {
+    return apiFetch('/search-tabs/reorder', { method: 'PATCH', body: JSON.stringify({ ids }) })
   }
 
-  async function adminDelete(id: string, headers: Record<string, string>) {
-    const res = await fetch(`${apiUrl}/api/search-tabs/${id}`, {
-      method: 'DELETE',
-      headers,
-    })
-    if (!res.ok) throw new Error('Error al eliminar tab')
+  async function adminDelete(id: string): Promise<void> {
+    await apiFetch(`/search-tabs/${id}`, { method: 'DELETE' })
   }
 
   return {
