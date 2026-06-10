@@ -134,6 +134,11 @@ export default defineNuxtRouteMiddleware((to: any) => {
     return navigateTo('/onboarding')
   }
 
+  // ── 4b-2. /mi-plan: SUPERADMIN/ADMIN no adquieren planes propios ──────────
+  if (path.startsWith('/mi-plan') && ADMIN_ROLES.includes(role)) {
+    return navigateTo('/planes')
+  }
+
   // ── 4c. Restricción especial de /menu → solo categoría "Comida" ───────────
   if (path.startsWith('/menu') && initialized.value) {
     if (!can('menu:view') || userCategory.value !== 'Comida') {

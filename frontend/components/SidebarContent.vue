@@ -144,8 +144,8 @@
       <NavLink v-if="can('settings:view')" to="/configuracion" label="Configuración" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.ops_group" class="h-5 w-5" /></template>
       </NavLink>
-      <!-- Mi Plan: visible para commerce/freelancer (tienen plans:view pero NO son admin-only) -->
-      <NavLink v-if="can('plans:view') && !can('permissions:manage')" to="/mi-plan" label="Mi Plan" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+      <!-- Mi Plan: solo para comercios/freelancers que pueden tener una suscripción propia -->
+      <NavLink v-if="role === 'COMMERCE' || role === 'FREELANCER'" to="/mi-plan" label="Mi Plan" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.sales" class="h-5 w-5" /></template>
       </NavLink>
       <!-- Ver Planes: siempre visible (página pública) -->
