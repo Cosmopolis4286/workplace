@@ -82,7 +82,8 @@ describe('AuthController', () => {
         password: 'password123',
         firstName: 'New',
         lastName: 'User',
-        commerceName: 'Test Commerce'
+        commerceName: 'Test Commerce',
+        acceptTerms: true
       }
 
       const tokens = {

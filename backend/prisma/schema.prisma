@@ -35,6 +35,10 @@ model User {
 
   emailVerified   Boolean  @default(false)
 
+  termsAcceptedAt   DateTime?
+  termsVersion      String?
+  privacyAcceptedAt DateTime?
+
   commerce        Restaurant?
   profileSettings ProfileSettings?
   refreshTokens   RefreshToken[]

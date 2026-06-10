@@ -285,6 +285,7 @@ const handleSubmit = async () => {
       phone: form.phone,
       password: form.password,
       commerceName: `${form.firstName}'s Commerce`,
+      acceptTerms: form.acceptTerms,
       recaptchaToken
     })
     await navigateTo('/verify-email')
