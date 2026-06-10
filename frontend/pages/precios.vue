@@ -1,45 +1,59 @@
 <template>
-  <div class="min-h-screen bg-white">
-
-    <!-- ── Hero ────────────────────────────────────────────────────────────── -->
-    <section class="bg-gradient-to-br from-gray-900 via-red-950 to-gray-900 text-white pt-20 pb-24 px-6 text-center relative overflow-hidden">
-      <!-- Decoración de fondo -->
-      <div class="absolute inset-0 pointer-events-none">
-        <div class="absolute -top-32 -left-32 w-96 h-96 bg-red-600/20 rounded-full blur-3xl" />
-        <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-rose-600/20 rounded-full blur-3xl" />
-      </div>
-
-      <div class="relative max-w-3xl mx-auto">
-        <span class="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 text-white/90 text-xs font-semibold px-3 py-1.5 rounded-full mb-6 backdrop-blur-sm">
-          <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          Planes y Precios
-        </span>
-        <h1 class="text-4xl sm:text-5xl font-black mb-5 leading-tight tracking-tight">
-          Elige el plan perfecto<br class="hidden sm:block" /> para tu negocio
-        </h1>
-        <p class="text-gray-300 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-          Empieza gratis y escala cuando lo necesites. Sin contratos, cancela cuando quieras.
-        </p>
-
+  <div>
+    <PageHeader
+      title="Planes y Precios"
+      description="Elige el plan perfecto para tu negocio. Empieza gratis y escala cuando lo necesites."
+      :icon="CreditCardIcon"
+      :breadcrumb="[{ label: 'Planes y Precios' }]"
+    >
+      <template #actions>
         <!-- Toggle mensual / anual -->
-        <div class="inline-flex items-center gap-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-1.5">
+        <div class="inline-flex items-center gap-1 bg-white border border-gray-200 rounded-2xl p-1.5 shadow-sm">
           <button
-            :class="['px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200', !annual ? 'bg-white text-gray-900 shadow-sm' : 'text-white/70 hover:text-white']"
+            :class="['px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200', !annual ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700']"
             @click="annual = false"
           >Mensual</button>
           <button
-            :class="['px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2', annual ? 'bg-white text-gray-900 shadow-sm' : 'text-white/70 hover:text-white']"
+            :class="['px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2', annual ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700']"
             @click="annual = true"
           >
             Anual
             <span class="bg-green-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full leading-none">-20%</span>
           </button>
         </div>
+      </template>
+    </PageHeader>
+
+    <!-- ── Banner de suscripción actual (COMMERCE/FREELANCER) ───────────────── -->
+    <div v-if="canChangePlan && mySubscription && myPlan" class="mb-6">
+      <div
+        class="card flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-l-4"
+        :style="{ borderLeftColor: myPlan.color || '#ef4444' }"
+      >
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" :style="{ backgroundColor: (myPlan.color || '#ef4444') + '15' }">
+            <CreditCardIcon class="w-5 h-5" :style="{ color: myPlan.color || '#ef4444' }" />
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">
+              Tu plan actual es <strong class="text-gray-900">{{ myPlan.name }}</strong>
+              <span v-if="mySubscription.status === 'TRIAL'" class="badge bg-blue-100 text-blue-700 ml-2">Prueba</span>
+            </p>
+            <p v-if="mySubscription.endAt" class="text-xs mt-0.5" :class="(daysRemaining(mySubscription.endAt) ?? 999) <= 7 ? 'text-red-600 font-semibold' : 'text-gray-400'">
+              {{ mySubscription.status === 'TRIAL' ? 'Tu prueba termina' : 'Vence' }} el
+              {{ new Date(mySubscription.endAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) }}
+              <template v-if="daysRemaining(mySubscription.endAt) !== null">
+                ({{ daysRemaining(mySubscription.endAt) }} días restantes)
+              </template>
+            </p>
+          </div>
+        </div>
+        <NuxtLink to="/mi-plan" class="btn-secondary text-sm flex-shrink-0">Ver detalles de mi plan</NuxtLink>
       </div>
-    </section>
+    </div>
 
     <!-- ── Flujo upgrade usuario NORMAL ────────────────────────────────────── -->
-    <section v-if="isNormalUser" class="max-w-2xl mx-auto px-6 py-14">
+    <section v-if="isNormalUser" class="max-w-2xl mx-auto py-6">
 
       <!-- Banner -->
       <div class="flex items-start gap-4 bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-8">
@@ -237,16 +251,21 @@
     </section>
 
     <!-- ── Cards de planes (vista normal / no autenticado) ──────────────────── -->
-    <section v-else class="max-w-6xl mx-auto px-6 py-16">
+    <section v-else>
 
       <div v-if="error" class="mb-8 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
         <ExclamationCircleIcon class="w-5 h-5 text-red-500 flex-shrink-0" />
         <span class="text-sm text-red-700">{{ error }}</span>
       </div>
 
+      <p v-if="changePlanError" class="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3 text-sm text-red-700">
+        <ExclamationCircleIcon class="w-5 h-5 text-red-500 flex-shrink-0" />
+        {{ changePlanError }}
+      </p>
+
       <!-- Skeleton -->
       <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div v-for="i in 3" :key="i" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-pulse space-y-4">
+        <div v-for="i in 3" :key="i" class="card p-6 animate-pulse space-y-4">
           <div class="skeleton h-5 w-32 rounded" />
           <div class="skeleton h-10 w-24 rounded" />
           <div class="skeleton h-3 w-48 rounded" />
@@ -257,7 +276,7 @@
         </div>
       </div>
 
-      <div v-else-if="plans.length === 0" class="text-center py-20 text-gray-400">
+      <div v-else-if="plans.length === 0" class="card text-center py-20 text-gray-400">
         <CreditCardIcon class="w-14 h-14 mx-auto mb-4 opacity-30" />
         <p class="text-lg font-medium">No hay planes disponibles en este momento</p>
       </div>
@@ -266,16 +285,20 @@
         <div
           v-for="plan in plans"
           :key="plan.id"
-          class="relative flex flex-col rounded-2xl border-2 shadow-sm transition-all duration-200 hover:shadow-xl hover:-translate-y-1 overflow-hidden"
-          :class="plan.isPopular ? 'border-red-500 shadow-red-100/60' : 'border-gray-200 bg-white'"
+          class="relative flex flex-col card border-2 transition-all duration-200 hover:shadow-xl hover:-translate-y-1 overflow-hidden"
+          :class="myPlan?.id === plan.id ? '' : (plan.isPopular ? 'border-red-500 shadow-red-100/60' : 'border-gray-200')"
+          :style="myPlan?.id === plan.id ? { borderColor: plan.color || '#ef4444' } : {}"
         >
-          <!-- Banner popular -->
-          <div v-if="plan.isPopular" class="bg-gradient-to-r from-red-600 to-rose-500 text-white text-xs font-black text-center py-2 tracking-widest uppercase">
+          <!-- Banner popular / plan actual -->
+          <div v-if="myPlan?.id === plan.id" class="bg-gradient-to-r from-red-600 to-rose-500 text-white text-xs font-black text-center py-2 tracking-widest uppercase">
+            ✓ Tu Plan Actual
+          </div>
+          <div v-else-if="plan.isPopular" class="bg-gradient-to-r from-red-600 to-rose-500 text-white text-xs font-black text-center py-2 tracking-widest uppercase">
             ★ Más Popular
           </div>
 
           <!-- Cabecera -->
-          <div class="p-6 pb-4" :class="plan.isPopular ? 'bg-red-50/50' : 'bg-white'">
+          <div class="p-6 pb-4" :class="plan.isPopular || myPlan?.id === plan.id ? 'bg-red-50/50' : 'bg-white'">
             <div class="flex items-start justify-between mb-4">
               <div>
                 <div class="flex items-center gap-2 mb-1">
@@ -332,7 +355,24 @@
             </ul>
 
             <!-- CTA -->
+            <div v-if="myPlan?.id === plan.id" class="w-full text-center px-6 py-3 rounded-xl font-bold text-sm bg-gray-100 text-gray-500">
+              Plan actual ✓
+            </div>
+            <button
+              v-else-if="canChangePlan"
+              type="button"
+              :disabled="changingPlan === plan.id"
+              class="w-full text-center px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
+              :class="plan.isPopular
+                ? 'bg-red-600 hover:bg-red-700 text-white shadow-sm shadow-red-200'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-800'"
+              @click="changePlan(plan)"
+            >
+              <span v-if="changingPlan === plan.id" class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              {{ changingPlan === plan.id ? 'Procesando...' : 'Cambiar a este plan' }}
+            </button>
             <NuxtLink
+              v-else
               :to="isAuthenticated ? '/mi-plan' : '/register'"
               class="block w-full text-center px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200"
               :class="plan.isPopular
@@ -347,9 +387,9 @@
     </section>
 
     <!-- ── Tabla comparativa ─────────────────────────────────────────────────── -->
-    <section v-if="!isNormalUser && !loading && plans.length > 0" class="max-w-4xl mx-auto px-6 pb-16">
-      <h2 class="text-2xl font-black text-gray-900 text-center mb-8">Comparativa de planes</h2>
-      <div class="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+    <section v-if="!isNormalUser && !loading && plans.length > 0" class="mt-8">
+      <h2 class="text-xl font-black text-gray-900 mb-4">Comparativa de planes</h2>
+      <div class="card overflow-x-auto p-0">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-gray-200 bg-gray-50">
@@ -377,44 +417,42 @@
     </section>
 
     <!-- ── FAQ ──────────────────────────────────────────────────────────────── -->
-    <section class="bg-gray-50 border-t border-gray-200 py-16 px-6">
-      <div class="max-w-2xl mx-auto">
-        <h2 class="text-2xl font-black text-gray-900 text-center mb-10">Preguntas frecuentes</h2>
-        <div class="space-y-3">
-          <div
-            v-for="(faq, i) in faqs"
-            :key="i"
-            class="bg-white rounded-2xl border border-gray-200 overflow-hidden"
+    <section class="mt-8 max-w-2xl mx-auto">
+      <h2 class="text-xl font-black text-gray-900 text-center mb-6">Preguntas frecuentes</h2>
+      <div class="space-y-3">
+        <div
+          v-for="(faq, i) in faqs"
+          :key="i"
+          class="card overflow-hidden"
+        >
+          <button
+            class="w-full flex items-center justify-between px-5 py-4 text-left"
+            @click="openFaq = openFaq === i ? null : i"
           >
-            <button
-              class="w-full flex items-center justify-between px-5 py-4 text-left"
-              @click="openFaq = openFaq === i ? null : i"
-            >
-              <span class="text-sm font-semibold text-gray-900">{{ faq.q }}</span>
-              <ChevronDownIcon
-                class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200"
-                :class="openFaq === i ? 'rotate-180' : ''"
-              />
-            </button>
-            <Transition
-              enter-active-class="duration-200 ease-out"
-              enter-from-class="opacity-0 -translate-y-2"
-              enter-to-class="opacity-100 translate-y-0"
-              leave-active-class="duration-150 ease-in"
-              leave-from-class="opacity-100"
-              leave-to-class="opacity-0"
-            >
-              <div v-if="openFaq === i" class="px-5 pb-4 text-sm text-gray-600 leading-relaxed border-t border-gray-100 pt-3">
-                {{ faq.a }}
-              </div>
-            </Transition>
-          </div>
+            <span class="text-sm font-semibold text-gray-900">{{ faq.q }}</span>
+            <ChevronDownIcon
+              class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200"
+              :class="openFaq === i ? 'rotate-180' : ''"
+            />
+          </button>
+          <Transition
+            enter-active-class="duration-200 ease-out"
+            enter-from-class="opacity-0 -translate-y-2"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+          >
+            <div v-if="openFaq === i" class="px-5 pb-4 text-sm text-gray-600 leading-relaxed border-t border-gray-100 pt-3">
+              {{ faq.a }}
+            </div>
+          </Transition>
         </div>
       </div>
     </section>
 
     <!-- ── Footer CTA ────────────────────────────────────────────────────────── -->
-    <section class="bg-gradient-to-r from-red-600 to-rose-600 py-14 px-6 text-center text-white">
+    <section class="mt-8 bg-gradient-to-r from-red-600 to-rose-600 rounded-3xl py-12 px-6 text-center text-white shadow-xl">
       <h3 class="text-2xl font-black mb-2">¿Tienes preguntas?</h3>
       <p class="text-red-100 mb-6">Nuestro equipo está listo para ayudarte a elegir el plan ideal para tu negocio.</p>
       <a
@@ -436,6 +474,8 @@ import {
   CreditCardIcon, ChevronDownIcon, EnvelopeIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
+import PageHeader from '~/components/ui/PageHeader.vue'
+import { usePlans } from '~/composables/usePlans'
 
 definePageMeta({})
 
@@ -462,6 +502,7 @@ interface Category { id: string; name: string; icon?: string }
 interface Subcategory { id: string; name: string }
 
 const { user, isAuthenticated, fetchProfile, updateLocalUser } = useAuth()
+const { mySubscription, myPlan, fetchMySubscription, daysRemaining } = usePlans()
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 const plans        = ref<Plan[]>([])
@@ -473,6 +514,8 @@ const loadingPlans = ref(false)
 const error        = ref<string | null>(null)
 const annual       = ref(false)
 const openFaq      = ref<number | null>(null)
+const changingPlan   = ref<string | null>(null)
+const changePlanError = ref('')
 
 // ─── Flujo upgrade ────────────────────────────────────────────────────────────
 const upgradeSteps    = ['Tu sector', 'Tu plan', 'Confirmar']
@@ -485,6 +528,7 @@ const upgradeError    = ref('')
 const upgrading       = ref(false)
 
 const isNormalUser       = computed(() => isAuthenticated.value && user.value?.role === 'NORMAL')
+const canChangePlan      = computed(() => isAuthenticated.value && (user.value?.role === 'COMMERCE' || user.value?.role === 'FREELANCER'))
 const selectedPlanObj    = computed(() => plans.value.find(p => p.id === selectedPlan.value) ?? null)
 const selectedCategoryObj = computed(() => categories.value.find(c => c.id === selectedCategory.value) ?? null)
 
@@ -560,6 +604,27 @@ async function selectCategory(categoryId: string) {
   } catch { }
 }
 
+// ─── Cambio de plan (COMMERCE / FREELANCER) ───────────────────────────────────
+async function changePlan(plan: Plan) {
+  changePlanError.value = ''
+  const priceLabel = currentPrice(plan) === 0 ? 'Gratis' : formatPrice(currentPrice(plan)) + (annual.value ? '/año' : '/mes')
+  if (!confirm(`¿Cambiar al plan "${plan.name}" (${priceLabel})? Tu suscripción actual será reemplazada.`)) return
+
+  changingPlan.value = plan.id
+  try {
+    const { post } = useApi()
+    await post('/plans/self-subscribe', {
+      planId: plan.id,
+      interval: annual.value ? 'ANNUAL' : 'MONTHLY',
+    })
+    await fetchMySubscription()
+  } catch (e: any) {
+    changePlanError.value = e?.data?.message ?? e?.message ?? 'Error al cambiar de plan. Intenta de nuevo.'
+  } finally {
+    changingPlan.value = null
+  }
+}
+
 // ─── Flujo upgrade ────────────────────────────────────────────────────────────
 async function nextUpgradeStep() {
   upgradeError.value = ''
@@ -603,5 +668,6 @@ async function confirmUpgrade() {
 onMounted(async () => {
   await loadPlans()
   if (isNormalUser.value) loadCategories()
+  if (canChangePlan.value) fetchMySubscription()
 })
 </script>
