@@ -2,6 +2,7 @@ import './config/env'; // valida variables de entorno antes de arrancar
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuditService } from './audit/audit.service';
@@ -15,6 +16,16 @@ async function bootstrap() {
   const auditLogger = new AuditLogger(loggerPrisma);
 
   const app = await NestFactory.create(AppModule, { logger: auditLogger });
+
+  app.use(
+    helmet({
+      // API-only backend (no HTML views) — CSP/COEP can break cross-origin
+      // asset loading (avatars under /uploads) from the Nuxt frontend.
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
 
   const isDev = process.env.APP_ENV !== 'production';
   app.enableCors({

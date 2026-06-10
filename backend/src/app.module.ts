@@ -1,10 +1,12 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { SecurityContextMiddleware } from './common/middleware/security-context.middleware';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -32,7 +34,7 @@ import { CategoriesGlobalModule } from './categories-global/categories-global.mo
 import { CorridasModule } from './corridas/corridas.module';
 import { JobsModule } from './jobs/jobs.module';
 import { TelegramModule } from './telegram/telegram.module';
-import { WalletsModule } from './wallets/wallets.module';
+import { WalletsModule } from './wallets/wallets.module'
 import { SearchTabsModule } from './search-tabs/search-tabs.module';
 
 @Module({
@@ -73,6 +75,10 @@ import { SearchTabsModule } from './search-tabs/search-tabs.module';
     TelegramModule,
     WalletsModule,
     SearchTabsModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
   ],
 })
 export class AppModule implements NestModule {
