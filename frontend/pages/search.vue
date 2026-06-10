@@ -4,11 +4,8 @@
     <!-- ─── HERO ──────────────────────────────────────────────────────────── -->
     <div
       class="relative overflow-hidden px-4 py-10 sm:py-14 transition-colors duration-500"
-      :class="activeTab === 'productos'
-        ? 'bg-gradient-to-br from-red-700 via-red-600 to-red-500'
-        : activeTab === 'servicios'
-          ? 'bg-gradient-to-br from-blue-700 via-blue-500 to-indigo-500'
-          : 'bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-500'"
+      :style="activeTabData ? `background: linear-gradient(to bottom right, ${darken(activeTabData.color, 30)}, ${activeTabData.color})` : ''"
+      :class="!activeTabData ? 'bg-gradient-to-br from-red-700 via-red-600 to-red-500' : ''"
     >
       <div class="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-white/5 pointer-events-none" />
       <div class="absolute -bottom-20 -left-10 w-80 h-80 rounded-full bg-white/5 pointer-events-none" />
@@ -18,50 +15,70 @@
           {{ greeting }}, <strong class="text-white">{{ firstName }}</strong> {{ greetingEmoji }}
         </p>
         <h1 class="text-3xl sm:text-4xl font-black text-white mb-5 leading-tight">
-          {{ activeTab === 'productos' ? '¿Qué vas a pedir hoy?' : activeTab === 'servicios' ? '¿Qué servicio necesitas?' : '¿Buscas trabajo?' }}
+          {{ heroTitle }}
         </h1>
 
-        <!-- Tabs -->
+        <!-- Tabs (dynamic from API, fallback to hardcoded if not loaded) -->
         <div class="inline-flex bg-white/15 backdrop-blur-sm rounded-2xl p-1 mb-5">
-          <button
-            class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
-            :class="activeTab === 'productos' ? 'bg-white text-red-600 shadow-sm' : 'text-white hover:bg-white/10'"
-            @click="setTab('productos')"
-          >
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-              </svg>
-              Productos
-            </span>
-          </button>
-          <button
-            class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
-            :class="activeTab === 'servicios' ? 'bg-white text-blue-600 shadow-sm' : 'text-white hover:bg-white/10'"
-            @click="setTab('servicios')"
-          >
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-              </svg>
-              Servicios
-            </span>
-          </button>
-          <button
-            class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
-            :class="activeTab === 'empleos' ? 'bg-white text-emerald-600 shadow-sm' : 'text-white hover:bg-white/10'"
-            @click="setTab('empleos')"
-          >
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-              </svg>
-              Empleos
-            </span>
-          </button>
+          <template v-if="searchTabs.length > 0">
+            <button
+              v-for="tab in searchTabs"
+              :key="tab.key"
+              class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
+              :class="activeTab === tab.key ? 'bg-white shadow-sm' : 'text-white hover:bg-white/10'"
+              :style="activeTab === tab.key ? `color: ${tab.color}` : ''"
+              @click="setTab(tab.key)"
+            >
+              <span class="flex items-center gap-1.5">
+                <svg v-if="tab.icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon" />
+                </svg>
+                {{ tab.label }}
+              </span>
+            </button>
+          </template>
+          <!-- Fallback skeleton while loading -->
+          <template v-else>
+            <button
+              class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
+              :class="activeTab === 'productos' ? 'bg-white text-red-600 shadow-sm' : 'text-white hover:bg-white/10'"
+              @click="setTab('productos')"
+            >
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                </svg>
+                Productos
+              </span>
+            </button>
+            <button
+              class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
+              :class="activeTab === 'servicios' ? 'bg-white text-blue-600 shadow-sm' : 'text-white hover:bg-white/10'"
+              @click="setTab('servicios')"
+            >
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                Servicios
+              </span>
+            </button>
+            <button
+              class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
+              :class="activeTab === 'empleos' ? 'bg-white text-emerald-600 shadow-sm' : 'text-white hover:bg-white/10'"
+              @click="setTab('empleos')"
+            >
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                Empleos
+              </span>
+            </button>
+          </template>
         </div>
 
         <!-- Stats -->
@@ -1038,6 +1055,7 @@ import type { Job } from '~/composables/useJobs'
 import { useJobs } from '~/composables/useJobs'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 import { useCart } from '~/composables/useCart'
+import { useSearchTabs } from '~/composables/useSearchTabs'
 
 definePageMeta({ layout: 'default' })
 
@@ -1087,8 +1105,11 @@ const { user } = useAuth()
 // Obtener tasa de cambio para conversión
 const { defaultRate, fetchRates } = useExchangeRates()
 
+// ─── Search Tabs (dynamic from API) ──────────────────────────────────────────
+const { tabs: searchTabs, loadTabs: loadSearchTabs } = useSearchTabs()
+
 // ─── Estado local ─────────────────────────────────────────────────────────────
-const activeTab = ref<'productos' | 'servicios' | 'empleos'>('productos')
+const activeTab = ref<string>('productos')
 const searchInput = ref('')
 const selectedProduct = ref<CatalogProduct | null>(null)
 const selectedService = ref<CatalogService | null>(null)
@@ -1126,6 +1147,25 @@ const jobSortOptions = [
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 const firstName = computed(() => user.value?.firstName || 'Usuario')
+
+const activeTabData = computed(() =>
+  searchTabs.value.find(t => t.key === activeTab.value) ?? null,
+)
+
+const heroTitle = computed(() => {
+  if (activeTab.value === 'productos') return '¿Qué vas a pedir hoy?'
+  if (activeTab.value === 'servicios') return '¿Qué servicio necesitas?'
+  if (activeTab.value === 'empleos') return '¿Buscas trabajo?'
+  return activeTabData.value ? `Busca ${activeTabData.value.label.toLowerCase()}` : '¿Qué buscas hoy?'
+})
+
+function darken(hex: string, amount: number): string {
+  const n = parseInt(hex.replace('#', ''), 16)
+  const r = Math.max(0, (n >> 16) - amount)
+  const g = Math.max(0, ((n >> 8) & 0xff) - amount)
+  const b = Math.max(0, (n & 0xff) - amount)
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+}
 const pCurrentPage = computed(() => pQuery.value.page)
 const pActiveCategory = computed(() => pQuery.value.categoryName)
 const pActiveRestaurantId = computed(() => pQuery.value.commerceId)
@@ -1208,7 +1248,7 @@ function formatPrice(price: number): string {
 }
 
 // ─── Acciones ─────────────────────────────────────────────────────────────────
-function setTab(tab: 'productos' | 'servicios' | 'empleos') {
+function setTab(tab: string) {
   activeTab.value = tab
   searchInput.value = ''
 }
@@ -1289,11 +1329,16 @@ function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
 onMounted(async () => {
   window.addEventListener('scroll', handleScroll, { passive: true })
   await Promise.all([
+    loadSearchTabs(),
     pLoadCategories(), pLoadRestaurants(), pLoadProducts(),
     sLoadCategories(), sLoadProviders(), sLoadServices(),
     jLoadCategories(), jLoadJobs(),
     fetchRates(false, true),
   ])
+  // Set initial tab to first enabled tab from API (if loaded)
+  if (searchTabs.value.length > 0) {
+    activeTab.value = searchTabs.value[0].key
+  }
 })
 
 onUnmounted(() => {
