@@ -32,13 +32,17 @@ export interface CatalogProductDetail extends CatalogProduct {
   commerce: { id: string; name: string; type: string | null; address?: string; phone?: string; user?: { username: string | null; rating: number | null; reviewsCount: number } }
 }
 
+export type CatalogSortBy = 'relevance' | 'price_asc' | 'price_desc' | 'name' | 'rating_desc' | 'best_seller'
+
 export interface CatalogQuery {
   search: string
   categoryName: string
   commerceId: string
+  priceMin: number | null
+  priceMax: number | null
   page: number
   limit: number
-  sort: 'relevance' | 'price_asc' | 'price_desc' | 'name'
+  sort: CatalogSortBy
 }
 
 // ─── Singleton state ────────────────────────────────────────────────────────
@@ -56,6 +60,8 @@ const query = ref<CatalogQuery>({
   search: '',
   categoryName: '',
   commerceId: '',
+  priceMin: null,
+  priceMax: null,
   page: 1,
   limit: 20,
   sort: 'relevance',
@@ -135,6 +141,8 @@ export const useCatalog = () => {
       if (q.search) params.set('search', q.search)
       if (q.categoryName) params.set('categoryName', q.categoryName)
       if (q.commerceId) params.set('commerceId', q.commerceId)
+      if (q.priceMin !== null) params.set('priceMin', String(q.priceMin))
+      if (q.priceMax !== null) params.set('priceMax', String(q.priceMax))
       params.set('page', String(q.page))
       params.set('limit', String(q.limit))
       params.set('sort', q.sort)
@@ -189,6 +197,13 @@ export const useCatalog = () => {
     loadProducts()
   }
 
+  function filterByPriceRange(min: number | null, max: number | null) {
+    query.value.priceMin = min
+    query.value.priceMax = max
+    query.value.page = 1
+    loadProducts()
+  }
+
   function changePage(page: number) {
     query.value.page = page
     loadProducts()
@@ -202,7 +217,10 @@ export const useCatalog = () => {
   }
 
   function resetFilters() {
-    query.value = { search: '', categoryName: '', commerceId: '', page: 1, limit: 20, sort: 'relevance' }
+    query.value = {
+      search: '', categoryName: '', commerceId: '', priceMin: null, priceMax: null,
+      page: 1, limit: 20, sort: 'relevance',
+    }
     loadProducts()
   }
 
@@ -248,6 +266,7 @@ export const useCatalog = () => {
     search,
     filterByCategory,
     filterByRestaurant,
+    filterByPriceRange,
     changePage,
     changeSort,
     resetFilters,
