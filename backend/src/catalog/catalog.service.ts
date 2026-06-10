@@ -95,6 +95,8 @@ export class CatalogService {
       search,
       categoryName,
       commerceId,
+      priceMin,
+      priceMax,
       page = 1,
       limit = 20,
       sort = CatalogSortBy.RELEVANCE,
@@ -123,6 +125,20 @@ export class CatalogService {
       where.commerceId = commerceId;
     }
 
+    if (priceMin !== undefined || priceMax !== undefined) {
+      where.price = {
+        ...(priceMin !== undefined ? { gte: priceMin } : {}),
+        ...(priceMax !== undefined ? { lte: priceMax } : {}),
+      };
+    }
+
+    if (sort === CatalogSortBy.RATING_DESC) {
+      return this.getProductsSortedByRating(where, page, limit);
+    }
+    if (sort === CatalogSortBy.BEST_SELLER) {
+      return this.getProductsSortedByBestSeller(where, page, limit);
+    }
+
     let orderBy: Record<string, unknown> = { name: 'asc' };
     if (sort === CatalogSortBy.PRICE_ASC) orderBy = { price: 'asc' };
     else if (sort === CatalogSortBy.PRICE_DESC) orderBy = { price: 'desc' };
@@ -135,33 +151,7 @@ export class CatalogService {
         skip,
         take: limit,
         orderBy,
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          price: true,
-          image: true,
-          preparationTime: true,
-          calories: true,
-          unit: true,
-          status: true,
-          category: {
-            select: { id: true, name: true, color: true },
-          },
-          commerce: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-              user: {
-                select: {
-                  username: true,
-                  reviewsReceived: { select: { rating: true } },
-                },
-              },
-            },
-          },
-        },
+        select: this.productSelect,
       }),
       this.prisma.product.count({ where }),
     ]);
@@ -173,6 +163,113 @@ export class CatalogService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  private readonly productSelect = {
+    id: true,
+    name: true,
+    description: true,
+    price: true,
+    image: true,
+    preparationTime: true,
+    calories: true,
+    unit: true,
+    status: true,
+    category: {
+      select: { id: true, name: true, color: true },
+    },
+    commerce: {
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        user: {
+          select: {
+            username: true,
+            reviewsReceived: { select: { rating: true } },
+          },
+        },
+      },
+    },
+  } as const;
+
+  /**
+   * Ordena por calificación promedio del comercio (Review.targetId = Restaurant.userId).
+   * Se calcula en memoria porque el rating no es un campo persistido del producto.
+   */
+  private async getProductsSortedByRating(
+    where: Record<string, unknown>,
+    page: number,
+    limit: number
+  ) {
+    const allMatching = await this.prisma.product.findMany({
+      where,
+      select: { id: true, ...this.productSelectWithoutId },
+    });
+
+    const total = allMatching.length;
+    const ratingOf = (p: (typeof allMatching)[number]) => {
+      const reviews = p.commerce.user.reviewsReceived;
+      return reviews.length
+        ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
+        : -1; // sin reseñas va al final
+    };
+
+    const sorted = [...allMatching].sort((a, b) => ratingOf(b) - ratingOf(a));
+    const skip = (page - 1) * limit;
+    const pageItems = sorted.slice(skip, skip + limit);
+
+    return {
+      data: pageItems.map(attachProductRating),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Ordena por unidades solicitadas (suma de quantity en CatalogOrder).
+   */
+  private async getProductsSortedByBestSeller(
+    where: Record<string, unknown>,
+    page: number,
+    limit: number
+  ) {
+    const [allMatching, salesGroups] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        select: { id: true, ...this.productSelectWithoutId },
+      }),
+      this.prisma.catalogOrder.groupBy({
+        by: ['productId'],
+        _sum: { quantity: true },
+      }),
+    ]);
+
+    const salesByProduct = new Map<string, number>(
+      salesGroups.map((g) => [g.productId, g._sum.quantity ?? 0])
+    );
+
+    const total = allMatching.length;
+    const sorted = [...allMatching].sort(
+      (a, b) => (salesByProduct.get(b.id) ?? 0) - (salesByProduct.get(a.id) ?? 0)
+    );
+    const skip = (page - 1) * limit;
+    const pageItems = sorted.slice(skip, skip + limit);
+
+    return {
+      data: pageItems.map(attachProductRating),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  private get productSelectWithoutId() {
+    const { id, ...rest } = this.productSelect;
+    return rest;
   }
 
   async getProduct(id: string) {

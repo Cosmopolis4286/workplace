@@ -273,17 +273,13 @@
                 </button>
               </div>
             </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wide mb-3">Ordenar por</h3>
-              <div class="space-y-0.5">
-                <button
-                  v-for="opt in sortOptions" :key="opt.value"
-                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="pSelectedSort === opt.value ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="pApplySort(opt.value)"
-                >{{ opt.label }}</button>
-              </div>
-            </div>
+            <PriceRangeFilter
+              :model-min="pQuery.priceMin"
+              :model-max="pQuery.priceMax"
+              accent="red"
+              @apply="pApplyPriceRange"
+            />
+            <SortDropdown v-model="pSelectedSort" :options="sortOptions" accent="red" @update:model-value="pApplySort" />
             <button
               v-if="pActiveCategory || pActiveRestaurantId || (activeTab === 'productos' && searchInput)"
               class="w-full text-xs font-semibold text-red-600 py-2.5 px-4 rounded-xl border border-red-200 hover:bg-red-50 transition-colors"
@@ -323,17 +319,7 @@
                 </button>
               </div>
             </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wide mb-3">Ordenar por</h3>
-              <div class="space-y-0.5">
-                <button
-                  v-for="opt in serviceSortOptions" :key="opt.value"
-                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="sSelectedSort === opt.value ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="sApplySort(opt.value)"
-                >{{ opt.label }}</button>
-              </div>
-            </div>
+            <SortDropdown v-model="sSelectedSort" :options="serviceSortOptions" accent="blue" @update:model-value="sApplySort" />
             <button
               v-if="sActiveCategoryId || sActiveProviderId || (activeTab === 'servicios' && searchInput)"
               class="w-full text-xs font-semibold text-blue-600 py-2.5 px-4 rounded-xl border border-blue-200 hover:bg-blue-50 transition-colors"
@@ -405,17 +391,7 @@
                 >Híbrido</button>
               </div>
             </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wide mb-3">Ordenar por</h3>
-              <div class="space-y-0.5">
-                <button
-                  v-for="opt in jobSortOptions" :key="opt.value"
-                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="jSelectedSort === opt.value ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="jApplySort(opt.value)"
-                >{{ opt.label }}</button>
-              </div>
-            </div>
+            <SortDropdown v-model="jSelectedSort" :options="jobSortOptions" accent="emerald" @update:model-value="jApplySort" />
             <button
               v-if="jActiveCategoryId || jActiveType || jActiveModality || (activeTab === 'empleos' && searchInput)"
               class="w-full text-xs font-semibold text-emerald-600 py-2.5 px-4 rounded-xl border border-emerald-200 hover:bg-emerald-50 transition-colors"
@@ -452,6 +428,9 @@
                 </select>
               </div>
             </div>
+
+            <!-- Filtros activos -->
+            <ActiveFilterChips :chips="pActiveChips" accent="red" @clear-all="pResetFilters" />
 
             <!-- Error -->
             <div v-if="pError" class="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
@@ -1049,13 +1028,17 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import type { CatalogProduct } from '~/composables/useCatalog'
+import type { CatalogProduct, CatalogSortBy } from '~/composables/useCatalog'
 import type { CatalogService } from '~/composables/useServices'
 import type { Job } from '~/composables/useJobs'
 import { useJobs } from '~/composables/useJobs'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 import { useCart } from '~/composables/useCart'
 import { useSearchTabs } from '~/composables/useSearchTabs'
+import { useCatalogFilters } from '~/composables/useCatalogFilters'
+import PriceRangeFilter from '~/components/search/PriceRangeFilter.vue'
+import SortDropdown from '~/components/search/SortDropdown.vue'
+import ActiveFilterChips from '~/components/search/ActiveFilterChips.vue'
 
 definePageMeta({ layout: 'default' })
 
@@ -1072,6 +1055,7 @@ const {
   error: pError, total: pTotal, totalPages: pTotalPages, query: pQuery,
   loadCategories: pLoadCategories, loadRestaurants: pLoadRestaurants, loadProducts: pLoadProducts,
   search: pSearch, filterByCategory: pFilterByCategory, filterByRestaurant: pFilterByRestaurant,
+  filterByPriceRange: pFilterByPriceRange,
   changePage: pChangePage, changeSort: pChangeSort, resetFilters: pResetFilters,
   toggleFavorite, isFavorite,
 } = useCatalog()
@@ -1121,7 +1105,7 @@ const showServiceRequestModal = ref(false)
 const serviceRequestTarget = ref<CatalogService | null>(null)
 const serviceToast = ref(false)
 
-const pSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name'>('relevance')
+const pSelectedSort = ref<CatalogSortBy>('relevance')
 const sSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name' | 'newest'>('relevance')
 const jSelectedSort = ref<'relevance' | 'newest' | 'salary_asc' | 'salary_desc'>('relevance')
 
@@ -1130,6 +1114,8 @@ const sortOptions = [
   { value: 'price_asc' as const, label: 'Menor precio' },
   { value: 'price_desc' as const, label: 'Mayor precio' },
   { value: 'name' as const, label: 'Nombre A-Z' },
+  { value: 'rating_desc' as const, label: 'Mejor calificados' },
+  { value: 'best_seller' as const, label: 'Más vendidos' },
 ]
 const serviceSortOptions = [
   { value: 'relevance' as const, label: 'Relevancia' },
@@ -1144,6 +1130,18 @@ const jobSortOptions = [
   { value: 'salary_asc' as const, label: 'Menor salario' },
   { value: 'salary_desc' as const, label: 'Mayor salario' },
 ]
+
+// ─── Filtros activos (chips) ───────────────────────────────────────────────────
+const { activeChips: pActiveChips } = useCatalogFilters({
+  query: pQuery,
+  categories: pCategories,
+  restaurants: pRestaurants,
+  searchInput,
+  filterByCategory: pFilterByCategory,
+  filterByRestaurant: pFilterByRestaurant,
+  filterByPriceRange: pFilterByPriceRange,
+  search: pSearch,
+})
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 const firstName = computed(() => user.value?.firstName || 'Usuario')
@@ -1268,15 +1266,16 @@ function clearSearch() {
 
 function pClearCategory() { if (pActiveCategory.value) pFilterByCategory(pActiveCategory.value) }
 function pClearRestaurant() { if (pActiveRestaurantId.value) pFilterByRestaurant(pActiveRestaurantId.value) }
-function pApplySort(val: typeof pSelectedSort.value) { pSelectedSort.value = val; pChangeSort(val) }
+function pApplySort(val: string) { pSelectedSort.value = val as CatalogSortBy; pChangeSort(val as CatalogSortBy) }
+function pApplyPriceRange(min: number | null, max: number | null) { pFilterByPriceRange(min, max) }
 
 function sClearCategory() { sFilterByCategory(null) }
 function sClearProvider() { sFilterByProvider(null) }
-function sApplySort(val: typeof sSelectedSort.value) { sSelectedSort.value = val; sChangeSort(val) }
+function sApplySort(val: string) { sSelectedSort.value = val as typeof sSelectedSort.value; sChangeSort(val as typeof sSelectedSort.value) }
 function jClearCategory() { jFilterByCategory(null) }
 function jClearType() { jFilterByType(null) }
 function jClearModality() { jFilterByModality(null) }
-function jApplySort(val: typeof jSelectedSort.value) { jSelectedSort.value = val; jChangeSort(val) }
+function jApplySort(val: string) { jSelectedSort.value = val as typeof jSelectedSort.value; jChangeSort(val as typeof jSelectedSort.value) }
 
 // Un COMMERCE no puede pedir sus propios productos; un FREELANCER/COMMERCE no puede contratar sus propios servicios
 function isOwnProduct(product: CatalogProduct): boolean {
