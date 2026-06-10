@@ -63,6 +63,15 @@ interface ChangePasswordPayload {
   newPassword: string
 }
 
+export interface Session {
+  id: string
+  ipAddress?: string | null
+  deviceInfo?: string | null
+  createdAt: string
+  expiresAt: string
+  isCurrent: boolean
+}
+
 // Estado global reactivo compartido entre todas las instancias
 const currentUser = ref<User | null>(null)
 const accessToken = ref<string | null>(null)
@@ -253,6 +262,19 @@ export const useAuth = () => {
     )
   }
 
+  async function getSessions(): Promise<Session[]> {
+    return $fetch<Session[]>(`${apiUrl}/auth/sessions`, {
+      headers: getHeaders(),
+    })
+  }
+
+  async function revokeSession(id: string): Promise<void> {
+    await $fetch(`${apiUrl}/auth/sessions/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    })
+  }
+
   async function uploadAvatar(file: File): Promise<User> {
     const formData = new FormData()
     formData.append('avatar', file)
@@ -279,6 +301,8 @@ export const useAuth = () => {
     updateLocalUser,
     saveProfile,
     changePassword,
+    getSessions,
+    revokeSession,
     uploadAvatar,
     fetchProfile,
     refreshAccessToken,

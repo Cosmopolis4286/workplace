@@ -14,7 +14,8 @@ import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { MailService } from '../mail/mail.service';
-import { Role } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction, Role } from '@prisma/client';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -32,7 +33,8 @@ export class AuthService {
     private config: ConfigService,
     private prisma: PrismaService,
     private redis: RedisService,
-    private mail: MailService
+    private mail: MailService,
+    private audit: AuditService
   ) {}
 
   async register(dto: RegisterDto) {
@@ -49,8 +51,21 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, securityContext?: any) {
+    const ip = securityContext?.ipAddress;
+    const userAgent = securityContext?.userAgent;
+
     const attempts = await this.redis.getLoginAttempts(dto.email);
     if (attempts >= MAX_LOGIN_ATTEMPTS) {
+      this.audit.log({
+        userEmail: dto.email,
+        action: AuditAction.LOGIN,
+        module: 'auth',
+        summary: `[LOGIN_BLOCKED] ${dto.email} — demasiados intentos fallidos`,
+        details: { reason: 'too_many_attempts' },
+        ip,
+        userAgent,
+        statusCode: 403,
+      });
       throw new ForbiddenException(
         'Demasiados intentos fallidos. Espera 15 minutos.'
       );
@@ -59,6 +74,16 @@ export class AuthService {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
       await this.redis.incrementLoginAttempts(dto.email);
+      this.audit.log({
+        userEmail: dto.email,
+        action: AuditAction.LOGIN,
+        module: 'auth',
+        summary: `[LOGIN_FAILED] ${dto.email} — usuario no encontrado`,
+        details: { reason: 'user_not_found' },
+        ip,
+        userAgent,
+        statusCode: 401,
+      });
       throw new UnauthorizedException('Credenciales incorrectas');
     }
 
@@ -68,6 +93,18 @@ export class AuthService {
     );
     if (!valid) {
       await this.redis.incrementLoginAttempts(dto.email);
+      this.audit.log({
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        action: AuditAction.LOGIN,
+        module: 'auth',
+        summary: `[LOGIN_FAILED] ${user.email} — contraseña incorrecta`,
+        details: { reason: 'invalid_password' },
+        ip,
+        userAgent,
+        statusCode: 401,
+      });
       throw new UnauthorizedException('Credenciales incorrectas');
     }
 
@@ -76,11 +113,23 @@ export class AuthService {
     const { password, ...safeUser } = user;
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext);
-    
+
     // Crear sesión activa
     if (securityContext) {
       await this.createUserSession(user.id, securityContext);
     }
+
+    this.audit.log({
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      action: AuditAction.LOGIN,
+      module: 'auth',
+      summary: `[LOGIN] ${user.email} — inicio de sesión exitoso`,
+      ip,
+      userAgent,
+      statusCode: 200,
+    });
 
     return { user: safeUser, ...tokens };
   }
@@ -215,6 +264,58 @@ export class AuthService {
     }
   }
 
+  async getActiveSessions(userId: string, securityContext?: any) {
+    const sessions = await this.prisma.refreshToken.findMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        ipAddress: true,
+        deviceInfo: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+    });
+
+    return sessions.map((session) => ({
+      ...session,
+      isCurrent:
+        !!securityContext &&
+        session.ipAddress === securityContext.ipAddress &&
+        session.deviceInfo === securityContext.userAgent,
+    }));
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    const session = await this.prisma.refreshToken.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session || session.userId !== userId) {
+      throw new NotFoundException('Sesión no encontrada');
+    }
+
+    try {
+      const decoded = this.decodeJWT(session.token);
+      if (decoded?.jti) {
+        await this.redis.blacklistToken(decoded.jti, 900);
+      }
+    } catch {
+      // Ignorar errores al decodificar
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: sessionId },
+      data: { revokedAt: new Date() },
+    });
+
+    return { message: 'Sesión cerrada exitosamente' };
+  }
+
   async getProfile(userId: string) {
     return this.usersService.findById(userId);
   }
@@ -324,7 +425,7 @@ export class AuthService {
 
     const hashed = await bcrypt.hash(newPassword, 10);
 
-    await this.prisma.$transaction([
+    const [updatedUser] = await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: record.userId },
         data: { password: hashed },
@@ -336,6 +437,10 @@ export class AuthService {
       // Invalidate all refresh tokens so they must log in again
       this.prisma.refreshToken.deleteMany({ where: { userId: record.userId } }),
     ]);
+
+    this.mail
+      .sendSecurityAlert(updatedUser.email, updatedUser.firstName, 'password_reset')
+      .catch(() => {});
 
     return { message: 'Contraseña actualizada correctamente' };
   }
