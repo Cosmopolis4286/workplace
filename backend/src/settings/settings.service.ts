@@ -1,6 +1,5 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CategoryHelper } from '../common/helpers/category.helper';
 import {
   UpdateRestaurantInfoDto,
   UpdatePaymentSettingsDto,
@@ -10,29 +9,23 @@ import {
 
 @Injectable()
 export class SettingsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly categoryHelper: CategoryHelper
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private async getRestaurant(userId: string) {
-    const restaurantId = await this.categoryHelper.validateRestaurantForFoodCategory(userId);
-    if (!restaurantId) {
-      // Usuario no es de categoría "Comida", no necesita configuración de restaurante
-      throw new ForbiddenException(
-        'La configuración de restaurante solo está disponible para usuarios de la categoría "Comida"'
-      );
-    }
-    
     const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
+      where: { userId },
     });
-    if (!restaurant) {
-      throw new NotFoundException('Restaurante no encontrado');
-    }
-    return restaurant;
+    if (restaurant) return restaurant;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+    return this.prisma.restaurant.create({
+      data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
+    });
   }
 
   private async getOrCreateSettings(commerceId: string) {

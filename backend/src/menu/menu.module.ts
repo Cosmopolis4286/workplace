@@ -4,10 +4,9 @@ import { MenuService } from './menu.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PlansModule } from '../plans/plans.module';
-import { CategoryModule } from '../common/helpers/category.module';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, PlansModule, CategoryModule],
+  imports: [PrismaModule, NotificationsModule, PlansModule],
   controllers: [MenuController],
   providers: [MenuService],
 })
