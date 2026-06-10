@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CategoryHelper } from '../common/helpers/category.helper';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -21,13 +20,26 @@ export class MenuService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly planLimits: PlanLimitsService,
-    private readonly categoryHelper: CategoryHelper
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private async getRestaurantId(userId: string): Promise<string> {
-    return await this.categoryHelper.validateRestaurantForFoodCategory(userId);
+    const commerce = await this.prisma.restaurant.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (commerce) return commerce.id;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+    const created = await this.prisma.restaurant.create({
+      data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
+      select: { id: true },
+    });
+    return created.id;
   }
 
   private async assertCategoryOwnership(
