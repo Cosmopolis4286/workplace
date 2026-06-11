@@ -375,26 +375,30 @@ const quickAccessItems = computed(() =>
   QUICK_ACCESS.filter(i => {
     if (i.normalOnly && role.value !== 'NORMAL') return false
     if (!i.normalOnly && role.value === 'NORMAL') return false
-    return canSee(i.permission)
+    return canSee(i.permission, i.to)
   }).slice(0, 3)
 )
 const hasQuickAccess = computed(() => quickAccessItems.value.length > 0)
 
-function canSee(permission: string | null): boolean {
+function canSee(permission: string | null, to?: string): boolean {
   if (permission === null) return true
   if (!navReady.value) return false
   const module = permission.split(':')[0]
   if (permission === 'menu:view') {
     return can(permission) && hasModule(module) && userCategory.value === 'Comida'
   }
+  if (to === '/pedidos' && role.value === 'NORMAL') {
+    // /pedidos es exclusivo de comercios; NORMAL usa /mis-pedidos
+    return false
+  }
   return can(permission) && hasModule(module)
 }
 
 function groupVisible(group: NavGroup): boolean {
-  return group.items.some(i => canSee(i.permission))
+  return group.items.some(i => canSee(i.permission, i.to))
 }
 function visibleItems(group: NavGroup): NavItem[] {
-  return group.items.filter(i => canSee(i.permission))
+  return group.items.filter(i => canSee(i.permission, i.to))
 }
 
 // ─── Auto-open dropdowns on route change ─────────────────────────────────────
