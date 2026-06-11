@@ -141,7 +141,7 @@ const currentPage       = ref(1)
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export function useExpenses() {
-  const { token, refreshTokens } = useAuth()
+  const { token, refreshTokens, getHeaders } = useAuth()
 
   // ── Computed ───────────────────────────────────────────────────────────────
   const pendingExpenses = computed(() => expenses.value.filter(e => e.status === 'PENDIENTE'))
@@ -315,6 +315,26 @@ export function useExpenses() {
     }
   }
 
+  async function uploadReceipt(id: string, file: File): Promise<Expense | null> {
+    error.value = null
+    try {
+      const config = useRuntimeConfig()
+      const formData = new FormData()
+      formData.append('receipt', file)
+      const updated = await $fetch<Expense>(`${config.public.apiUrl}/expenses/${id}/receipt`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: formData,
+      })
+      const idx = expenses.value.findIndex(e => e.id === id)
+      if (idx !== -1) expenses.value[idx] = updated
+      return updated
+    } catch (e: any) {
+      error.value = e.message
+      return null
+    }
+  }
+
   return {
     // state
     expenses,
@@ -342,5 +362,6 @@ export function useExpenses() {
     updateExpense,
     updateExpenseStatus,
     deleteExpense,
+    uploadReceipt,
   }
 }

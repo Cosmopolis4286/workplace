@@ -58,15 +58,6 @@
                 <span v-if="uploadingAvatar" class="h-4 w-4 border-2 border-workplace-red border-t-transparent rounded-full animate-spin" />
                 <CameraIcon v-else class="h-4 w-4 text-gray-600" />
               </button>
-
-              <!-- Hidden file input -->
-              <input
-                ref="avatarFileInput"
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                class="hidden"
-                @change="onAvatarFileSelected"
-              >
             </div>
             <h2 class="text-2xl font-bold text-gray-900 mb-1">{{ fullName }}</h2>
             <p class="text-gray-500 mb-2 text-sm">{{ auth.user.value?.email }}</p>
@@ -494,9 +485,11 @@ import {
 import Swal from 'sweetalert2'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useAuth, type Session } from '~/composables/useAuth'
+import { useCamera } from '~/composables/useCamera'
 
 const auth = useAuth()
 const { checkUsername } = auth
+const { takePhoto } = useCamera()
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const loadingProfile = ref(false)
@@ -504,7 +497,6 @@ const savingProfile = ref(false)
 const savingPassword = ref(false)
 const uploadingAvatar = ref(false)
 const avatarPreview = ref<string | null>(null)
-const avatarFileInput = ref<HTMLInputElement | null>(null)
 const successMsg = ref('')
 const errorMsg = ref('')
 let successTimer: ReturnType<typeof setTimeout> | null = null
@@ -730,12 +722,8 @@ function showError(err: unknown) {
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
-function triggerAvatarInput() {
-  avatarFileInput.value?.click()
-}
-
-async function onAvatarFileSelected(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
+async function triggerAvatarInput() {
+  const file = await takePhoto()
   if (!file) return
 
   // Preview local
@@ -754,7 +742,6 @@ async function onAvatarFileSelected(event: Event) {
     showError(err)
   } finally {
     uploadingAvatar.value = false
-    if (avatarFileInput.value) avatarFileInput.value.value = ''
   }
 }
 
