@@ -54,7 +54,7 @@ export interface Job {
 }
 
 export type JobSortBy = 'relevance' | 'newest' | 'salary_asc' | 'salary_desc'
-export type LocationTier = 'city' | 'state' | 'country' | null
+type LocationTier = 'city' | 'state' | 'country' | null
 
 export interface JobQuery {
   search: string
