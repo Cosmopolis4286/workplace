@@ -2,11 +2,12 @@ import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { SecurityContextMiddleware } from './common/middleware/security-context.middleware';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
+import { SpanishThrottlerGuard } from './common/guards/spanish-throttler.guard';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -77,7 +78,7 @@ import { SearchTabsModule } from './search-tabs/search-tabs.module';
     SearchTabsModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: SpanishThrottlerGuard },
     { provide: APP_GUARD, useClass: RateLimitGuard },
   ],
 })

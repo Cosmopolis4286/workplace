@@ -345,7 +345,7 @@ export class AuthService {
 
     if (demoUsers.length === 0) {
       throw new ForbiddenException(
-        'No demo users found. Run: npx prisma db seed'
+        'No se encontraron usuarios demo. Ejecuta: npx prisma db seed'
       );
     }
 
