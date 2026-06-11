@@ -32,6 +32,9 @@ const SERVICE_SELECT = {
       lastName: true,
       username: true,
       avatar: true,
+      country: true,
+      state: true,
+      city: true,
       category: { select: { name: true } },
       subcategory: { select: { name: true } },
       reviewsReceived: { select: { rating: true } },
@@ -132,6 +135,10 @@ export class ServicesService {
     else if (dto.sort === ServiceSortBy.PRICE_DESC) orderBy = { price: 'desc' };
     else if (dto.sort === ServiceSortBy.NAME) orderBy = { name: 'asc' };
 
+    if (dto.city || dto.state || dto.country) {
+      return this.getCatalogServicesNearMe(where, dto, page, limit, orderBy);
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.service.findMany({
         where,
@@ -144,6 +151,37 @@ export class ServicesService {
     ]);
 
     return { data: data.map(attachRating), total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /**
+   * Filtra servicios por ubicación del proveedor con fallback en cascada:
+   * ciudad exacta → estado → país.
+   */
+  private async getCatalogServicesNearMe(
+    baseWhere: Prisma.ServiceWhereInput,
+    dto: QueryServicesDto,
+    page: number,
+    limit: number,
+    orderBy: Prisma.ServiceOrderByWithRelationInput
+  ) {
+    const skip = (page - 1) * limit;
+    const tiers: { tier: 'city' | 'state' | 'country'; user: Prisma.UserWhereInput }[] = [];
+    if (dto.city) tiers.push({ tier: 'city', user: { city: { equals: dto.city, mode: 'insensitive' } } });
+    if (dto.state) tiers.push({ tier: 'state', user: { state: { equals: dto.state, mode: 'insensitive' } } });
+    if (dto.country) tiers.push({ tier: 'country', user: { country: { equals: dto.country, mode: 'insensitive' } } });
+
+    for (const { tier, user } of tiers) {
+      const where: Prisma.ServiceWhereInput = { ...baseWhere, user };
+      const [data, total] = await Promise.all([
+        this.prisma.service.findMany({ where, select: SERVICE_SELECT, skip, take: limit, orderBy }),
+        this.prisma.service.count({ where }),
+      ]);
+      if (total > 0) {
+        return { data: data.map(attachRating), total, page, limit, totalPages: Math.ceil(total / limit), locationTier: tier };
+      }
+    }
+
+    return { data: [], total: 0, page, limit, totalPages: 0, locationTier: null };
   }
 
   async getCatalogServiceById(id: string) {

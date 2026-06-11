@@ -51,4 +51,16 @@ export class QueryCatalogDto {
   @IsOptional()
   @IsEnum(CatalogSortBy)
   sort?: CatalogSortBy = CatalogSortBy.RELEVANCE;
+
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
 }
