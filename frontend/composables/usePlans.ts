@@ -14,6 +14,8 @@ export interface Plan {
   sortOrder: number
   forCommerce: boolean
   forFreelancer: boolean
+  forNormal: boolean
+  categoryIds: string[]
   maxProducts: number
   maxEmployees: number
   maxBranches: number
