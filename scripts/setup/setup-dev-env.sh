@@ -101,8 +101,7 @@ generate_env() {
 # Created: $(date)
 
 # Environment Detection
-ENVIRONMENT=development
-SSL_ENABLED=false
+APP_ENV=development
 
 # Development Ports (auto-detected)
 HTTP_PORT=$http_port
@@ -184,7 +183,6 @@ create_dev_override() {
     log "Creating development docker-compose override..."
     
     cat > docker-compose.override.yml << EOF
-version: '3.8'
 
 services:
   nginx:
@@ -192,8 +190,7 @@ services:
       - \${HTTP_PORT:-80}:80
       # HTTPS port disabled for development
     environment:
-      - ENVIRONMENT=development
-      - SSL_ENABLED=false
+      - APP_ENV=development
       - DOMAIN=localhost
     volumes:
       # Additional development volumes
@@ -202,7 +199,7 @@ services:
 
   backend:
     environment:
-      - ENVIRONMENT=development
+      - APP_ENV=development
       - DEBUG=true
       - LOG_LEVEL=debug
     volumes:
@@ -213,7 +210,7 @@ services:
 
   frontend:
     environment:
-      - ENVIRONMENT=development
+      - APP_ENV=development
       - NUXT_DEBUG=true
     volumes:
       # Mount source code for development

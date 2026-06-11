@@ -5,6 +5,7 @@ import {
   MinLength,
   Matches,
   IsOptional,
+  Equals,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -33,4 +34,7 @@ export class RegisterDto {
   @IsOptional()
   @IsUUID()
   categoryId?: string;
+
+  @Equals(true, { message: 'Debes aceptar los Términos y Condiciones y la Política de Privacidad' })
+  acceptTerms: boolean;
 }

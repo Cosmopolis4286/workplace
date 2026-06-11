@@ -67,10 +67,11 @@ describe('AuthController', () => {
 
       mockAuthService.login.mockResolvedValue(tokens)
 
-      const result = await controller.login(loginDto)
+      const mockRequest = { securityContext: null }
+      const result = await controller.login(loginDto, mockRequest)
 
       expect(result).toEqual(tokens)
-      expect(mockAuthService.login).toHaveBeenCalledWith(loginDto)
+      expect(mockAuthService.login).toHaveBeenCalledWith(loginDto, null)
     })
   })
 
@@ -81,7 +82,8 @@ describe('AuthController', () => {
         password: 'password123',
         firstName: 'New',
         lastName: 'User',
-        commerceName: 'Test Commerce'
+        commerceName: 'Test Commerce',
+        acceptTerms: true
       }
 
       const tokens = {
@@ -120,7 +122,7 @@ describe('AuthController', () => {
       const result = await controller.refresh(mockRequest, refreshDto)
 
       expect(result).toEqual(newTokens)
-      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('test-user', refreshDto.refreshToken)
+      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('test-user', refreshDto.refreshToken, undefined)
     })
 
     it('should throw error when refresh token is invalid', async () => {
@@ -138,16 +140,16 @@ describe('AuthController', () => {
   describe('logout', () => {
     it('should logout user successfully', async () => {
       const mockUser = { 
-        id: 'test-user-id', 
-        jti: 'test-jti' 
+        id: 'test-user-id'
       }
+      const refreshToken = 'test-refresh-token'
 
       mockAuthService.logout.mockResolvedValue(undefined)
 
-      const result = await controller.logout(mockUser)
+      const result = await controller.logout(mockUser, refreshToken)
 
       expect(result).toEqual({ message: 'Sesión cerrada exitosamente' })
-      expect(mockAuthService.logout).toHaveBeenCalledWith('test-user-id', 'test-jti', 900)
+      expect(mockAuthService.logout).toHaveBeenCalledWith('test-user-id', 'test-refresh-token', undefined)
     })
   })
 })

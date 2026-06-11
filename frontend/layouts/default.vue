@@ -1,11 +1,14 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-red-50">
-    <AppSidebar :open="sidebarOpen" @update:open="toggleSidebar" />
+  <div
+    class="min-h-screen transition-colors duration-300"
+    :class="isDark
+      ? 'bg-gray-950 text-white'
+      : 'bg-gradient-to-br from-gray-50 via-white to-red-50 text-gray-900'"
+  >
+    <AppSidebar :open="sidebarOpen" @update:open="setSidebar" @update:expanded="sidebarExpanded = $event" />
     <div
-      :class="[
-        'transition-all duration-300 ease-in-out',
-        sidebarOpen ? 'lg:pl-72' : 'lg:pl-0',
-      ]"
+      class="transition-all duration-[220ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+      :class="sidebarOpen || sidebarExpanded ? 'lg:pl-[272px]' : 'lg:pl-16'"
     >
       <AppHeader @toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen" />
       <main class="py-8">
@@ -19,17 +22,15 @@
 </template>
 
 <script setup lang="ts">
-const sidebarOpen = ref(false);
+const { isDark } = useColorMode()
 
-const toggleSidebar = (value?: boolean) => {
-  sidebarOpen.value = typeof value === "boolean" ? value : !sidebarOpen.value;
-};
+const sidebarOpen = ref(false)
+const sidebarExpanded = ref(false)
 
-onMounted(() => {
-  if (window.innerWidth >= 1024) {
-    setTimeout(() => {
-      sidebarOpen.value = true;
-    }, 100);
-  }
-});
+function setSidebar(val: boolean) {
+  sidebarOpen.value = val
+}
+function toggleSidebar() {
+  sidebarOpen.value = !sidebarOpen.value
+}
 </script>

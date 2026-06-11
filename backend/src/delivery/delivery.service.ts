@@ -4,8 +4,10 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TelegramService } from '../telegram/telegram.service';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
@@ -24,30 +26,30 @@ function endOfDay(d: Date) {
 export class DeliveryService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly telegram: TelegramService,
+    private readonly i18n: I18nService,
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private async getRestaurantId(userId: string): Promise<string> {
+  private async getCommerceId(userId: string): Promise<string> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!restaurant)
-      throw new ForbiddenException(
-        'El usuario no tiene un restaurante asociado'
-      );
-    return restaurant.id;
+
+    // Si no tiene restaurante, usar el userId como commerceId
+    return restaurant?.id ?? userId;
   }
 
   private async assertDriverOwnership(driverId: string, commerceId: string) {
     const driver = await this.prisma.driver.findUnique({
       where: { id: driverId },
     });
-    if (!driver) throw new NotFoundException('Repartidor no encontrado');
+    if (!driver) throw new NotFoundException(this.i18n.t('delivery.driver.not_found'));
     if (driver.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return driver;
   }
 
@@ -58,16 +60,16 @@ export class DeliveryService {
     const delivery = await this.prisma.delivery.findUnique({
       where: { id: deliveryId },
     });
-    if (!delivery) throw new NotFoundException('Entrega no encontrada');
+    if (!delivery) throw new NotFoundException(this.i18n.t('delivery.delivery.not_found'));
     if (delivery.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return delivery;
   }
 
   // ─── Stats ────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
 
@@ -154,7 +156,7 @@ export class DeliveryService {
   // ─── Drivers CRUD ─────────────────────────────────────────────────────────
 
   async findAllDrivers(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.prisma.driver.findMany({
       where: { commerceId, isActive: true },
       include: {
@@ -176,18 +178,18 @@ export class DeliveryService {
   }
 
   async createDriver(userId: string, dto: CreateDriverDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.prisma.driver.create({ data: { ...dto, commerceId } });
   }
 
   async updateDriver(userId: string, driverId: string, dto: UpdateDriverDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDriverOwnership(driverId, commerceId);
     return this.prisma.driver.update({ where: { id: driverId }, data: dto });
   }
 
   async removeDriver(userId: string, driverId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const driver = await this.assertDriverOwnership(driverId, commerceId);
     // Soft delete: mark as inactive
     return this.prisma.driver.update({
@@ -201,7 +203,7 @@ export class DeliveryService {
     driverId: string,
     status: DriverStatus
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDriverOwnership(driverId, commerceId);
     return this.prisma.driver.update({
       where: { id: driverId },
@@ -212,7 +214,7 @@ export class DeliveryService {
   // ─── Deliveries CRUD ──────────────────────────────────────────────────────
 
   async findAllDeliveries(userId: string, query: QueryDeliveriesDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const { status, driverId, dateFrom, dateTo, page = 1, limit = 50 } = query;
 
     const where: Record<string, unknown> = { commerceId };
@@ -256,7 +258,7 @@ export class DeliveryService {
   }
 
   async findOneDelivery(userId: string, deliveryId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDeliveryOwnership(deliveryId, commerceId);
     return this.prisma.delivery.findUnique({
       where: { id: deliveryId },
@@ -265,16 +267,14 @@ export class DeliveryService {
   }
 
   async createDelivery(userId: string, dto: CreateDeliveryDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
 
     if (dto.driverId) {
       const driver = await this.prisma.driver.findUnique({
         where: { id: dto.driverId },
       });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException(
-          'Repartidor no encontrado en este restaurante'
-        );
+        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_restaurant'));
     }
 
     const delivery = await this.prisma.delivery.create({
@@ -313,7 +313,7 @@ export class DeliveryService {
     deliveryId: string,
     dto: UpdateDeliveryDto
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDeliveryOwnership(deliveryId, commerceId);
 
     if (dto.driverId) {
@@ -321,9 +321,7 @@ export class DeliveryService {
         where: { id: dto.driverId },
       });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException(
-          'Repartidor no encontrado en este restaurante'
-        );
+        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_restaurant'));
     }
 
     return this.prisma.delivery.update({
@@ -345,7 +343,7 @@ export class DeliveryService {
   }
 
   async removeDelivery(userId: string, deliveryId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDeliveryOwnership(deliveryId, commerceId);
     await this.prisma.delivery.delete({ where: { id: deliveryId } });
   }
@@ -355,7 +353,7 @@ export class DeliveryService {
     deliveryId: string,
     status: DeliveryStatus
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const delivery = await this.assertDeliveryOwnership(deliveryId, commerceId);
 
     const data: Record<string, unknown> = { status };
@@ -413,11 +411,35 @@ export class DeliveryService {
       .notifyDeliveryStatusChange(commerceId, delivery.orderNumber, status)
       .catch(() => null);
 
+    if (delivery.customerPhone) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { phone: delivery.customerPhone, commerceId },
+        select: { id: true, telegramChatId: true },
+      });
+      if (customer?.telegramChatId) {
+        const statusEmoji: Record<string, string> = {
+          ASIGNADO: '🔔 Asignado a repartidor',
+          RECOGIENDO: '🏃 Repartidor en camino a recoger',
+          EN_CAMINO: '🚚 Tu pedido va en camino',
+          ENTREGADO: '🎉 ¡Pedido entregado!',
+          CANCELADO: '❌ Entrega cancelada',
+          FALLIDO: '⚠️ Entrega fallida — contáctanos',
+        };
+        const label = statusEmoji[status] ?? status;
+        this.telegram
+          .sendMessage(
+            customer.telegramChatId,
+            `📦 <b>Entrega #${delivery.orderNumber}</b>\n${label}`,
+          )
+          .catch(() => null);
+      }
+    }
+
     return updated;
   }
 
   async assignDriver(userId: string, deliveryId: string, driverId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertDeliveryOwnership(deliveryId, commerceId);
 
     const driver = await this.prisma.driver.findUnique({
@@ -428,7 +450,7 @@ export class DeliveryService {
         'Repartidor no encontrado en este restaurante'
       );
     if (!driver.isActive)
-      throw new BadRequestException('El repartidor no está activo');
+      throw new BadRequestException(this.i18n.t('delivery.driver.not_active'));
 
     const [delivery] = await Promise.all([
       this.prisma.delivery.update({

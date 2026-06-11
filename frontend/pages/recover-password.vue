@@ -16,6 +16,16 @@
     <!-- Step: form -->
     <template v-if="!emailSent">
       <form @submit.prevent="handleRecoverPassword" class="space-y-5" novalidate>
+        <!-- General error banner -->
+        <div
+          v-if="generalError"
+          class="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700"
+          role="alert"
+        >
+          <ExclamationCircleIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-red-500" />
+          <span>{{ generalError }}</span>
+        </div>
+
         <!-- Illustration -->
         <div class="flex flex-col items-center text-center gap-3 pb-2">
           <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-workplace-red/10 to-red-600/10 flex items-center justify-center border border-red-100">
@@ -106,18 +116,11 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'auth' })
-
-import { ref, reactive, watch } from 'vue'
-import {
-  EnvelopeIcon,
-  KeyIcon,
-  PaperAirplaneIcon,
-  CheckCircleIcon,
-  InformationCircleIcon,
-  ArrowPathIcon,
-  ArrowLeftIcon
-} from '@heroicons/vue/24/outline'
+import { ref, computed } from 'vue'
+import { EnvelopeIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
+import { getApiErrorMessage } from '~/composables/useApiErrors'
+import { KeyIcon, PaperAirplaneIcon, CheckCircleIcon, InformationCircleIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline'
 import { useFormValidation } from '~/composables/useFormValidation'
 
 const { required, email: emailRule, validate } = useFormValidation()
@@ -128,6 +131,7 @@ const touched = ref(false)
 const isLoading = ref(false)
 const isResending = ref(false)
 const emailSent = ref(false)
+const generalError = ref('')
 
 watch(() => form.email, () => {
   if (touched.value) errors.email = validate(form.email, [required('El correo'), emailRule()])
@@ -139,12 +143,13 @@ const handleRecoverPassword = async () => {
   if (errors.email) return
 
   isLoading.value = true
+  generalError.value = ''
   try {
-    // TODO: call /api/auth/recover-password
-    await new Promise(resolve => setTimeout(resolve, 1400))
+    const { post } = useApi()
+    await post('/auth/forgot-password', { email: form.email })
     emailSent.value = true
-  } catch {
-    errors.email = 'Error al enviar el correo. Inténtalo de nuevo.'
+  } catch (err: unknown) {
+    generalError.value = getApiErrorMessage(err, 'Error al enviar el correo. Inténtalo de nuevo.')
   } finally {
     isLoading.value = false
   }
@@ -152,9 +157,12 @@ const handleRecoverPassword = async () => {
 
 const resendEmail = async () => {
   isResending.value = true
+  generalError.value = ''
   try {
-    await new Promise(resolve => setTimeout(resolve, 1200))
-    // Could show a toast here
+    const { post } = useApi()
+    await post('/auth/forgot-password', { email: form.email })
+  } catch (err: unknown) {
+    generalError.value = getApiErrorMessage(err, 'Error al reenviar el correo. Inténtalo de nuevo.')
   } finally {
     isResending.value = false
   }
@@ -165,5 +173,6 @@ const resetForm = () => {
   form.email = ''
   errors.email = ''
   touched.value = false
+  generalError.value = ''
 }
 </script>

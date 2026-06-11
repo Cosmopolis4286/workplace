@@ -8,6 +8,15 @@ export interface MyServiceCategory {
   icon?: string
 }
 
+export interface ServiceModality {
+  id: string
+  name: string
+  value: string
+  emoji?: string
+  sortOrder: number
+  isActive: boolean
+}
+
 export interface Service {
   id: string
   name: string
@@ -18,6 +27,7 @@ export interface Service {
   image?: string
   status: 'ACTIVO' | 'INACTIVO' | 'PAUSADO'
   tags: string[]
+  modalities: string[]
   categoryId?: string
   category?: MyServiceCategory
   requestCount?: number
@@ -38,6 +48,7 @@ export const SERVICE_STATUS_CLASSES: Record<Service['status'], string> = {
 
 const services = ref<Service[]>([])
 const catalogCategories = ref<MyServiceCategory[]>([])
+const modalities = ref<ServiceModality[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 const totalCount = ref(0)
@@ -47,7 +58,6 @@ export function useServicios() {
   const { getHeaders, refreshAccessToken } = useAuth()
   const config = useRuntimeConfig()
   const apiUrl = config.public.apiUrl as string
-  const router = useRouter()
 
   async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers = { 'Content-Type': 'application/json', ...getHeaders(), ...(options.headers as Record<string, string> || {}) }
@@ -63,7 +73,6 @@ export function useServicios() {
       if (status === 401) {
         const refreshed = await refreshAccessToken()
         if (!refreshed) {
-          router.push('/login')
           throw err
         }
         return await fn()
@@ -137,9 +146,37 @@ export function useServicios() {
     totalCount.value--
   }
 
+  async function fetchModalities() {
+    try {
+      const res = await $fetch<ServiceModality[]>(`${apiUrl}/services/modalities`)
+      modalities.value = res
+    } catch {
+      // non-blocking
+    }
+  }
+
+  async function createModality(data: { name: string; value: string; emoji?: string; sortOrder?: number }) {
+    const res = await withAuthRetry(() => apiFetch<ServiceModality>('/modalities', { method: 'POST', body: JSON.stringify(data) }))
+    modalities.value.push(res)
+    return res
+  }
+
+  async function updateModality(id: string, data: Partial<ServiceModality>) {
+    const res = await withAuthRetry(() => apiFetch<ServiceModality>(`/modalities/${id}`, { method: 'PUT', body: JSON.stringify(data) }))
+    const idx = modalities.value.findIndex((m: ServiceModality) => m.id === id)
+    if (idx !== -1) modalities.value[idx] = res
+    return res
+  }
+
+  async function deleteModality(id: string) {
+    await withAuthRetry(() => apiFetch(`/modalities/${id}`, { method: 'DELETE' }))
+    modalities.value = modalities.value.filter((m: ServiceModality) => m.id !== id)
+  }
+
   return {
     services,
     catalogCategories,
+    modalities,
     loading,
     error,
     totalCount,
@@ -147,9 +184,13 @@ export function useServicios() {
     stats,
     fetchServices,
     fetchCatalogCategories,
+    fetchModalities,
     createService,
     updateService,
     toggleStatus,
     deleteService,
+    createModality,
+    updateModality,
+    deleteModality,
   }
 }

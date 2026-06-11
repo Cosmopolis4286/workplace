@@ -107,7 +107,7 @@
                       class="hover:bg-gray-50 border-b"
                     >
                       <td class="px-4 py-3 text-gray-900 font-medium">{{ product.name }}</td>
-                      <td class="px-4 py-3 text-gray-600">{{ product.category }}</td>
+                      <td class="px-4 py-3 text-gray-600">{{ product.category?.name ?? '—' }}</td>
                       <td class="px-4 py-3 text-right text-gray-900">${{ product.price.toFixed(2) }}</td>
                       <td class="px-4 py-3 text-right font-bold text-gray-900">{{ product.stock }}</td>
                       <td class="px-4 py-3 text-right text-gray-600">{{ product.minStock }}/{{ product.maxStock }}</td>
@@ -204,7 +204,7 @@ const closeModal = () => {
 const exportReport = () => {
   const data = filteredProducts.value.map(p => ({
     'Producto': p.name,
-    'Categoría': p.category,
+    'Categoría': p.category?.name ?? '—',
     'Precio': `$${p.price.toFixed(2)}`,
     'Stock': p.stock,
     'Mínimo': p.minStock,

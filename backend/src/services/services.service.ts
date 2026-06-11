@@ -22,6 +22,7 @@ const SERVICE_SELECT = {
   image: true,
   status: true,
   tags: true,
+  modalities: true,
   createdAt: true,
   category: { select: { id: true, name: true, color: true, icon: true } },
   user: {
@@ -31,11 +32,25 @@ const SERVICE_SELECT = {
       lastName: true,
       username: true,
       avatar: true,
+      country: true,
+      state: true,
+      city: true,
       category: { select: { name: true } },
       subcategory: { select: { name: true } },
+      reviewsReceived: { select: { rating: true } },
     },
   },
 };
+
+function attachRating<T extends { user: { reviewsReceived: { rating: number }[], [k: string]: any }, [k: string]: any }>(item: T) {
+  const reviews = item.user.reviewsReceived;
+  const rating = reviews.length
+    ? Number((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(2))
+    : null;
+  const reviewsCount = reviews.length;
+  const { reviewsReceived: _, ...userWithoutReviews } = item.user;
+  return { ...item, user: { ...userWithoutReviews, rating, reviewsCount } };
+}
 
 @Injectable()
 export class ServicesService {
@@ -120,6 +135,10 @@ export class ServicesService {
     else if (dto.sort === ServiceSortBy.PRICE_DESC) orderBy = { price: 'desc' };
     else if (dto.sort === ServiceSortBy.NAME) orderBy = { name: 'asc' };
 
+    if (dto.city || dto.state || dto.country) {
+      return this.getCatalogServicesNearMe(where, dto, page, limit, orderBy);
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.service.findMany({
         where,
@@ -131,7 +150,38 @@ export class ServicesService {
       this.prisma.service.count({ where }),
     ]);
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data: data.map(attachRating), total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /**
+   * Filtra servicios por ubicación del proveedor con fallback en cascada:
+   * ciudad exacta → estado → país.
+   */
+  private async getCatalogServicesNearMe(
+    baseWhere: Prisma.ServiceWhereInput,
+    dto: QueryServicesDto,
+    page: number,
+    limit: number,
+    orderBy: Prisma.ServiceOrderByWithRelationInput
+  ) {
+    const skip = (page - 1) * limit;
+    const tiers: { tier: 'city' | 'state' | 'country'; user: Prisma.UserWhereInput }[] = [];
+    if (dto.city) tiers.push({ tier: 'city', user: { city: { equals: dto.city, mode: 'insensitive' } } });
+    if (dto.state) tiers.push({ tier: 'state', user: { state: { equals: dto.state, mode: 'insensitive' } } });
+    if (dto.country) tiers.push({ tier: 'country', user: { country: { equals: dto.country, mode: 'insensitive' } } });
+
+    for (const { tier, user } of tiers) {
+      const where: Prisma.ServiceWhereInput = { ...baseWhere, user };
+      const [data, total] = await Promise.all([
+        this.prisma.service.findMany({ where, select: SERVICE_SELECT, skip, take: limit, orderBy }),
+        this.prisma.service.count({ where }),
+      ]);
+      if (total > 0) {
+        return { data: data.map(attachRating), total, page, limit, totalPages: Math.ceil(total / limit), locationTier: tier };
+      }
+    }
+
+    return { data: [], total: 0, page, limit, totalPages: 0, locationTier: null };
   }
 
   async getCatalogServiceById(id: string) {
@@ -140,7 +190,7 @@ export class ServicesService {
       select: SERVICE_SELECT,
     });
     if (!s) throw new NotFoundException('Servicio no encontrado');
-    return s;
+    return attachRating(s);
   }
 
   // ─── My Services (authenticated) ─────────────────────────────────────────
@@ -223,6 +273,43 @@ export class ServicesService {
     await this.prisma.serviceCategory.delete({ where: { id } });
   }
 
+  // ─── Modalities (admin) ───────────────────────────────────────────────────
+
+  async getModalities() {
+    return this.prisma.serviceModality.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async getAllModalities() {
+    return this.prisma.serviceModality.findMany({
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async createModality(dto: { name: string; value: string; emoji?: string; sortOrder?: number }) {
+    return this.prisma.serviceModality.create({
+      data: {
+        name: dto.name,
+        value: dto.value,
+        emoji: dto.emoji,
+        sortOrder: dto.sortOrder ?? 0,
+      },
+    });
+  }
+
+  async updateModality(id: string, dto: Partial<{ name: string; value: string; emoji: string; sortOrder: number; isActive: boolean }>) {
+    return this.prisma.serviceModality.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async deleteModality(id: string) {
+    await this.prisma.serviceModality.delete({ where: { id } });
+  }
+
   // ─── Service Requests ─────────────────────────────────────────────────────
 
   async createServiceRequest(
@@ -255,9 +342,11 @@ export class ServicesService {
     return request;
   }
 
-  async getMyServiceRequests(userId: string, page = 1, limit = 20) {
+  async getMyServiceRequests(userId: string, page = 1, limit = 20, asRole: 'provider' | 'client' = 'provider') {
     const skip = (page - 1) * limit;
-    const where = { providerId: userId };
+    const where = asRole === 'client'
+      ? { requesterId: userId }
+      : { providerId: userId };
     const [data, total] = await Promise.all([
       this.prisma.serviceRequest.findMany({
         where,
@@ -270,15 +359,30 @@ export class ServicesService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async updateServiceRequestStatus(id: string, userId: string, status: string) {
+  async getServiceRequest(id: string, userId: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.providerId !== userId && req.requesterId !== userId)
+      throw new ForbiddenException('No tienes permiso');
+    return req;
+  }
+
+  async updateServiceRequest(id: string, userId: string, data: { status?: string; providerNotes?: string }) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.providerId !== userId)
       throw new ForbiddenException('No tienes permiso');
-    return this.prisma.serviceRequest.update({
-      where: { id },
-      data: { status: status as any },
-    });
+    const update: any = {};
+    if (data.status !== undefined) {
+      update.status = data.status;
+      update.statusUpdatedAt = new Date();
+    }
+    if (data.providerNotes !== undefined) update.providerNotes = data.providerNotes;
+    return this.prisma.serviceRequest.update({ where: { id }, data: update });
+  }
+
+  async updateServiceRequestStatus(id: string, userId: string, status: string) {
+    return this.updateServiceRequest(id, userId, { status });
   }
 
   // ─── Tracking & Metrics ───────────────────────────────────────────────────
@@ -324,50 +428,85 @@ export class ServicesService {
   async getServiceMetrics(id: string, userId: string) {
     await this.assertOwner(id, userId);
 
-    const [views, profileVisits, requests, recentViews] = await Promise.all([
+    const now = new Date();
+    const days7ago  = new Date(now.getTime() - 7  * 86400_000);
+    const days30ago = new Date(now.getTime() - 30 * 86400_000);
+    const days14ago = new Date(now.getTime() - 14 * 86400_000);
+
+    const [
+      views, profileVisits, requests,
+      viewsLast7, viewsPrev7,
+      requestsLast30, recentViewEvents,
+      lastRequest,
+    ] = await Promise.all([
+      // Totales históricos
+      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.VIEW } }),
+      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.PROFILE_VISIT } }),
+      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.REQUEST } }),
+      // Vistas últimos 7 días vs 7 días anteriores (para tendencia)
       this.prisma.serviceEvent.count({
-        where: { serviceId: id, type: ServiceEventType.VIEW },
+        where: { serviceId: id, type: ServiceEventType.VIEW, createdAt: { gte: days7ago } },
       }),
       this.prisma.serviceEvent.count({
-        where: { serviceId: id, type: ServiceEventType.PROFILE_VISIT },
+        where: { serviceId: id, type: ServiceEventType.VIEW, createdAt: { gte: days14ago, lt: days7ago } },
       }),
+      // Solicitudes últimos 30 días
       this.prisma.serviceEvent.count({
-        where: { serviceId: id, type: ServiceEventType.REQUEST },
+        where: { serviceId: id, type: ServiceEventType.REQUEST, createdAt: { gte: days30ago } },
       }),
-      // Vistas de los últimos 7 días agrupadas por día
+      // Eventos de vista recientes para gráfico por día
       this.prisma.serviceEvent.findMany({
-        where: {
-          serviceId: id,
-          type: ServiceEventType.VIEW,
-          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-        },
+        where: { serviceId: id, type: ServiceEventType.VIEW, createdAt: { gte: days7ago } },
         select: { createdAt: true },
         orderBy: { createdAt: 'asc' },
       }),
+      // Última solicitud recibida
+      this.prisma.serviceRequest.findFirst({
+        where: { serviceId: id },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true, clientName: true, modality: true },
+      }),
     ]);
 
-    // Agrupa vistas por día (YYYY-MM-DD)
+    // Gráfico: 7 días con conteo por día
     const viewsByDay: Record<string, number> = {};
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const d = new Date(now.getTime() - i * 86400_000);
       viewsByDay[d.toISOString().slice(0, 10)] = 0;
     }
-    for (const ev of recentViews) {
+    for (const ev of recentViewEvents) {
       const day = ev.createdAt.toISOString().slice(0, 10);
       if (day in viewsByDay) viewsByDay[day]++;
     }
 
+    // Tendencia de vistas: variación % respecto a los 7 días anteriores
+    const viewsTrend = viewsPrev7 > 0
+      ? Math.round(((viewsLast7 - viewsPrev7) / viewsPrev7) * 100)
+      : viewsLast7 > 0 ? 100 : 0;
+
     const conversionRate = views > 0 ? Math.round((requests / views) * 100) : 0;
+    // Tasa de interés: visitas al perfil / vistas totales
+    const interestRate   = views > 0 ? Math.round((profileVisits / views) * 100) : 0;
+    // Alcance estimado: vistas únicas aproximadas (últimos 7 días)
+    const weeklyReach = viewsLast7;
 
     return {
       views,
       profileVisits,
       requests,
       conversionRate,
-      viewsByDay: Object.entries(viewsByDay).map(([date, count]) => ({
-        date,
-        count,
-      })),
+      interestRate,
+      weeklyReach,
+      viewsTrend,
+      requestsLast30,
+      lastRequest: lastRequest
+        ? {
+            date: lastRequest.createdAt,
+            clientName: lastRequest.clientName,
+            modality: lastRequest.modality,
+          }
+        : null,
+      viewsByDay: Object.entries(viewsByDay).map(([date, count]) => ({ date, count })),
     };
   }
 

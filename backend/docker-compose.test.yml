@@ -1,5 +1,4 @@
 # Docker Compose para Unit Tests del Backend - Ultra optimizado
-version: '3.8'
 
 services:
   # Backend para Unit Tests - versión ultra ligera
@@ -8,7 +7,7 @@ services:
       context: ..
       dockerfile: backend/Dockerfile.test
     environment:
-      ENVIRONMENT: test
+      APP_ENV: test
       NODE_OPTIONS: "--max-old-space-size=1024"
       # Variables mínimas para tests (sin credenciales reales)
       DATABASE_URL: postgresql://test:test@test-postgres:5432/test_db

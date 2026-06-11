@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     "./frontend/**/*.{vue,js,ts}", // Todas las carpetas dentro de frontend
     "./frontend/app.vue",

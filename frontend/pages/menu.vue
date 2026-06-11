@@ -22,6 +22,27 @@
     <!-- Plan usage banner -->
     <PlanUsageBanner :usage="usage" :show="['products']" />
 
+    <!-- Toolbar: ordenamiento y productos por página -->
+    <div v-if="!loading && categoriesWithProducts.length > 0" class="flex flex-wrap items-center justify-end gap-3 mb-4">
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-600">Ordenar por</label>
+        <select v-model="sortBy" class="px-3 py-1.5 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-red-500 focus:border-red-500 transition-all duration-300 bg-white">
+          <option value="relevance">Relevancia</option>
+          <option value="price_asc">Precio: menor a mayor</option>
+          <option value="price_desc">Precio: mayor a menor</option>
+          <option value="name">Nombre A–Z</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-600">Mostrar</label>
+        <select v-model.number="pageSize" class="px-3 py-1.5 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-red-500 focus:border-red-500 transition-all duration-300 bg-white">
+          <option :value="10">10 por categoría</option>
+          <option :value="20">20 por categoría</option>
+          <option :value="40">40 por categoría</option>
+        </select>
+      </div>
+    </div>
+
     <!-- Error banner -->
     <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
       <p class="text-sm text-red-700">{{ error }}</p>
@@ -42,7 +63,7 @@
 
     <!-- Menu Categories -->
     <div v-else class="space-y-8">
-      <div v-for="category in categoriesWithProducts" :key="category.id" class="card p-6">
+      <div v-for="category in displayCategories" :key="category.id" class="card p-6">
         <div class="flex justify-between items-center mb-6">
           <div class="flex items-center">
             <div
@@ -74,13 +95,19 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <ProductCard
-            v-for="product in category.products"
+            v-for="product in category.visibleProducts"
             :key="product.id"
             :product="product"
             @edit="openEditProduct"
             @delete="confirmDeleteProduct"
             @toggle-status="handleToggleStatus"
           />
+        </div>
+
+        <div v-if="category.products.length > category.visibleProducts.length" class="mt-4 text-center">
+          <button @click="showMore(category.id)" class="btn-secondary">
+            Mostrar más ({{ category.products.length - category.visibleProducts.length }} restantes)
+          </button>
         </div>
       </div>
 
@@ -125,7 +152,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+
+// Middleware to ensure only users with category "Comida" can access this page
+definePageMeta({
+  middleware: ['auth', 'menu-category']
+})
 import {
   PlusIcon,
   PencilIcon,
@@ -137,6 +169,7 @@ import {
 import { useMenu } from '~/composables/useMenu'
 import type { Category, Product } from '~/composables/useMenu'
 import { usePlans } from '~/composables/usePlans'
+import { useUserPreferences } from '~/composables/useUserPreferences'
 import ProductCard from '~/components/ProductCard.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
@@ -169,6 +202,53 @@ const showCategoryModal = ref(false)
 const selectedProduct = ref<Product | null>(null)
 const selectedCategory = ref<Category | null>(null)
 const savingCategory = ref(false)
+
+// ─── Ordenamiento y paginación ───────────────────────────────────────────────
+
+const { prefs: userPrefs, savePreferences } = useUserPreferences()
+
+const sortBy = ref(userPrefs.value.defaultSort)
+const pageSize = ref(userPrefs.value.pageSize)
+
+watch(sortBy, (val: string) => savePreferences({ defaultSort: val }))
+watch(pageSize, (val: number) => {
+  savePreferences({ pageSize: val })
+  categoryShowCount.value = {}
+})
+
+// Cuántos productos mostrar por categoría (se incrementa con "Mostrar más")
+const categoryShowCount = ref<Record<string, number>>({})
+
+function sortProducts(items: Product[]): Product[] {
+  const sorted = [...items]
+  switch (sortBy.value) {
+    case 'price_asc':
+      return sorted.sort((a, b) => a.price - b.price)
+    case 'price_desc':
+      return sorted.sort((a, b) => b.price - a.price)
+    case 'name':
+      return sorted.sort((a, b) => a.name.localeCompare(b.name))
+    default:
+      return sorted
+  }
+}
+
+const displayCategories = computed(() =>
+  categoriesWithProducts.value.map((category) => {
+    const sortedProducts = sortProducts(category.products)
+    const showCount = categoryShowCount.value[category.id] ?? pageSize.value
+    return {
+      ...category,
+      products: sortedProducts,
+      visibleProducts: sortedProducts.slice(0, showCount),
+    }
+  }),
+)
+
+function showMore(categoryId: string) {
+  const current = categoryShowCount.value[categoryId] ?? pageSize.value
+  categoryShowCount.value = { ...categoryShowCount.value, [categoryId]: current + pageSize.value }
+}
 
 // ─── Header stats ────────────────────────────────────────────────────────────
 

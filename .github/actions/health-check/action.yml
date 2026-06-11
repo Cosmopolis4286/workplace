@@ -1,0 +1,313 @@
+name: 'Post-Deploy Health Check'
+description: 'Verificación de salud con métricas, retry logic y rollback automático robusto'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH del servidor'
+    required: true
+  ssh-host:
+    description: 'Host del servidor de producción'
+    required: true
+  current-sha:
+    description: 'SHA del commit actual'
+    required: true
+  backend-image:
+    description: 'Imagen Docker del backend con tag'
+    required: true
+  frontend-image:
+    description: 'Imagen Docker del frontend con tag'
+    required: true
+  deploy-path:
+    description: 'Ruta de deploy en servidor'
+    required: false
+    default: '/opt/workplace'
+  health-retries:
+    description: 'Número de reintentos para health checks'
+    required: false
+    default: '3'
+  health-interval:
+    description: 'Intervalo entre health checks (segundos)'
+    required: false
+    default: '10'
+  rollback-timeout:
+    description: 'Timeout para rollback (segundos)'
+    required: false
+    default: '300'
+
+outputs:
+  health-status:
+    description: 'Estado de salud (healthy/degraded/failed)'
+    value: ${{ steps.health-check.outputs.status }}
+  backend-latency:
+    description: 'Latencia del backend en ms'
+    value: ${{ steps.health-check.outputs.backend_latency }}
+  frontend-latency:
+    description: 'Latencia del frontend en ms'
+    value: ${{ steps.health-check.outputs.frontend_latency }}
+  rollback-performed:
+    description: 'Indica si se ejecutó rollback'
+    value: ${{ steps.health-check.outputs.rollback_performed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validar conectividad SSH
+      shell: bash
+      run: |
+        if ! ssh -o ConnectTimeout=10 -o BatchMode=yes \
+            ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} "echo 'OK'" 2>/dev/null; then
+          echo "❌ ERROR: Conexión SSH fallida"
+          exit 1
+        fi
+        echo "✅ SSH conectado"
+
+    - name: Health check y rollback automático
+      id: health-check
+      shell: bash
+      run: |
+        set -euo pipefail
+        
+        START_TIME=$(date +%s)
+        REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+        DEPLOY_PATH="${{ inputs.deploy-path }}"
+        
+        OUTPUT=$(ssh "$REMOTE" "DEPLOY_PATH='$DEPLOY_PATH' bash -s" << 'EOF'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          
+          COMPOSE="docker-compose -f docker-compose.lite.yml"
+          LOG_FILE="logs/health-check-$(date +%Y%m%d-%H%M%S).log"
+          mkdir -p logs versions backups/versions
+          exec > >(tee -a "$LOG_FILE")
+          exec 2>&1
+          
+          # Obtener puertos desde .env
+          NODE_PORT=$(grep -E '^NODE_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "3001")
+          FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "3000")
+          
+          # Detectar nombres de contenedores dinámicamente
+          get_container_name() {
+            local service=$1
+            local name=$($COMPOSE ps -q "$service" 2>/dev/null | head -1)
+            if [[ -z "$name" ]]; then
+              # Fallback a patrón común
+              docker ps --filter "name=${service}" --format "{{.Names}}" 2>/dev/null | head -1
+            else
+              docker inspect -f '{{.Name}}' "$name" 2>/dev/null | sed 's/^\///'
+            fi
+          }
+          
+          BACKEND_CONTAINER=$(get_container_name "backend")
+          FRONTEND_CONTAINER=$(get_container_name "frontend")
+          
+          echo "🩺 [$(date -Iseconds)] Iniciando health check"
+          echo "   Backend container: ${BACKEND_CONTAINER:-NO ENCONTRADO}"
+          echo "   Frontend container: ${FRONTEND_CONTAINER:-NO ENCONTRADO}"
+          echo "   Puertos: NODE=${NODE_PORT}, FRONTEND=${FRONTEND_PORT}"
+          
+          # Health check con retry y métricas de latencia
+          check_backend_health() {
+            local max_retries=${1:-3}
+            local retry=0
+            local latency=0
+            
+            while [[ $retry -lt $max_retries ]]; do
+              local start_ms=$(date +%s%N)
+              local resp
+              
+              if [[ -n "$BACKEND_CONTAINER" ]]; then
+                resp=$(docker exec "$BACKEND_CONTAINER" \
+                  curl -sf --max-time 10 "http://localhost:${NODE_PORT}/api/ready" 2>/dev/null || echo "")
+              else
+                resp=$(curl -sf --max-time 10 "http://localhost:${NODE_PORT}/api/ready" 2>/dev/null || echo "")
+              fi
+              
+              local end_ms=$(date +%s%N)
+              latency=$(( (end_ms - start_ms) / 1000000 ))
+              
+              if echo "$resp" | grep -qE '"status":"(ok|healthy|ready)"'; then
+                echo "OK:${latency}"
+                return 0
+              fi
+              
+              retry=$((retry + 1))
+              echo "   ⚠️  Backend intento $retry/$max_retries falló (latencia: ${latency}ms)"
+              sleep ${{ inputs.health-interval }}
+            done
+            
+            echo "FAILED:${latency}"
+            return 1
+          }
+          
+          check_frontend_health() {
+            local max_retries=${1:-3}
+            local retry=0
+            local latency=0
+            
+            while [[ $retry -lt $max_retries ]]; do
+              local start_ms=$(date +%s%N)
+              local http_code
+              
+              if [[ -n "$FRONTEND_CONTAINER" ]]; then
+                http_code=$(docker exec "$FRONTEND_CONTAINER" \
+                  curl -so /dev/null -w "%{http_code}" --max-time 10 \
+                  "http://localhost:${FRONTEND_PORT}/" 2>/dev/null || echo "000")
+              else
+                http_code=$(curl -so /dev/null -w "%{http_code}" --max-time 10 \
+                  "http://localhost:${FRONTEND_PORT}/" 2>/dev/null || echo "000")
+              fi
+              
+              local end_ms=$(date +%s%N)
+              latency=$(( (end_ms - start_ms) / 1000000 ))
+              
+              if [[ "$http_code" =~ ^(200|301|302|304)$ ]]; then
+                echo "OK:${http_code}:${latency}"
+                return 0
+              fi
+              
+              retry=$((retry + 1))
+              echo "   ⚠️  Frontend intento $retry/$max_retries falló (HTTP $http_code, latencia: ${latency}ms)"
+              sleep ${{ inputs.health-interval }}
+            done
+            
+            echo "FAILED:${http_code}:${latency}"
+            return 1
+          }
+          
+          # Ejecutar health checks
+          BACKEND_RESULT=$(check_backend_health ${{ inputs.health-retries }} || echo "FAILED:0")
+          FRONTEND_RESULT=$(check_frontend_health ${{ inputs.health-retries }} || echo "FAILED:000:0")
+          
+          BACKEND_OK=$(echo "$BACKEND_RESULT" | cut -d: -f1)
+          BACKEND_LATENCY=$(echo "$BACKEND_RESULT" | cut -d: -f2)
+          
+          FRONTEND_OK=$(echo "$FRONTEND_RESULT" | cut -d: -f1)
+          FRONTEND_CODE=$(echo "$FRONTEND_RESULT" | cut -d: -f2)
+          FRONTEND_LATENCY=$(echo "$FRONTEND_RESULT" | cut -d: -f3)
+          
+          echo "📊 Resultados:"
+          echo "   Backend: ${BACKEND_OK} (${BACKEND_LATENCY}ms)"
+          echo "   Frontend: ${FRONTEND_OK} (HTTP ${FRONTEND_CODE}, ${FRONTEND_LATENCY}ms)"
+          
+          # Verificar Traefik
+          echo "🌐 Routers Traefik:"
+          curl -sf http://localhost:8080/api/http/routers 2>/dev/null | \
+            grep -o '"name":"[^"]*"' | head -10 | sed 's/"name":"//;s/"$//' | \
+            while read r; do echo "   ✓ $r"; done || echo "   (API no disponible)"
+          
+          # Guardar versión si todo OK
+          if [[ "$BACKEND_OK" == "OK" && "$FRONTEND_OK" == "OK" ]]; then
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            VFILE="versions/current-${TIMESTAMP}.env"
+            
+            # Obtener imágenes actuales de contenedores running
+            B_IMG=$(docker inspect "${BACKEND_CONTAINER:-workplace-backend-1}" \
+              --format='{{.Config.Image}}' 2>/dev/null || echo "${{ inputs.backend-image }}")
+            F_IMG=$(docker inspect "${FRONTEND_CONTAINER:-workplace-frontend-1}" \
+              --format='{{.Config.Image}}' 2>/dev/null || echo "${{ inputs.frontend-image }}")
+            
+            printf 'BACKEND_CURRENT_IMAGE=%s\nFRONTEND_CURRENT_IMAGE=%s\nCURRENT_SHA=%s\nBACKUP_TIMESTAMP=%s\n' \
+              "$B_IMG" "$F_IMG" "${{ inputs.current-sha }}" "$TIMESTAMP" > "$VFILE"
+            ln -sf "$VFILE" versions/current.env
+            
+            # Rotar historial (mantener últimos 20)
+            echo "${TIMESTAMP}:${B_IMG}:${F_IMG}:${{ inputs.current-sha }}" >> backups/versions/version_history.txt
+            tail -20 backups/versions/version_history.txt > /tmp/vh.tmp && mv /tmp/vh.tmp backups/versions/version_history.txt
+            
+            echo "✅ Health check PASSED - Versión guardada: $TIMESTAMP"
+            echo "OUTPUT_STATUS=healthy"
+            echo "OUTPUT_BACKEND_LATENCY=${BACKEND_LATENCY}"
+            echo "OUTPUT_FRONTEND_LATENCY=${FRONTEND_LATENCY}"
+            echo "OUTPUT_ROLLBACK=false"
+            exit 0
+          fi
+          
+          # ===== ROLLBACK =====
+          echo "❌ Health check FAILED - Iniciando rollback..."
+          
+          if [[ ! -f versions/current.env ]]; then
+            echo "⚠️  Sin versión estable previa. Intervención manual requerida."
+            echo "📋 Logs de error:"
+            $COMPOSE logs --tail 50 backend 2>/dev/null || true
+            $COMPOSE logs --tail 50 frontend 2>/dev/null || true
+            echo "OUTPUT_STATUS=failed"
+            echo "OUTPUT_ROLLBACK=false"
+            exit 1
+          fi
+          
+          # Cargar versión anterior
+          set -a; source versions/current.env; set +a
+          echo "⏮️  Restaurando versión:"
+          echo "   Backend: ${BACKEND_CURRENT_IMAGE:-unknown}"
+          echo "   Frontend: ${FRONTEND_CURRENT_IMAGE:-unknown}"
+          
+          # Verificar/actualizar imágenes de rollback
+          for IMG in "$BACKEND_CURRENT_IMAGE" "$FRONTEND_CURRENT_IMAGE"; do
+            if [[ -n "$IMG" && "$IMG" != "unknown" ]]; then
+              if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+                echo "📥 Descargando imagen de rollback: $IMG"
+                docker pull "$IMG" || echo "⚠️  No se pudo descargar $IMG"
+              fi
+            fi
+          done
+          
+          # Ejecutar rollback
+          echo "🔄 Deteniendo servicios actuales..."
+          $COMPOSE stop backend frontend 2>/dev/null || true
+          $COMPOSE rm -f backend frontend 2>/dev/null || true
+          
+          echo "🚀 Iniciando versión anterior..."
+          BACKEND_IMAGE="${BACKEND_CURRENT_IMAGE:-${{ inputs.backend-image }}}" \
+          FRONTEND_IMAGE="${FRONTEND_CURRENT_IMAGE:-${{ inputs.frontend-image }}}" \
+          $COMPOSE up -d --no-deps backend frontend
+          
+          # Verificar rollback
+          echo "🔍 Verificando rollback..."
+          sleep 15
+          ROLLBACK_RETRIES=0
+          MAX_ROLLBACK_RETRIES=12
+          
+          while [[ $ROLLBACK_RETRIES -lt $MAX_ROLLBACK_RETRIES ]]; do
+            ROLLBACK_RETRIES=$((ROLLBACK_RETRIES + 1))
+            
+            RB_RESP=$(docker exec "${BACKEND_CONTAINER:-$($COMPOSE ps -q backend 2>/dev/null | head -1)}" \
+              curl -sf --max-time 5 "http://localhost:${NODE_PORT}/api/ready" 2>/dev/null || echo "")
+            
+            if echo "$RB_RESP" | grep -qE '"status":"(ok|healthy|ready)"'; then
+              echo "✅ Rollback exitoso (intento $ROLLBACK_RETRIES/${MAX_ROLLBACK_RETRIES})"
+              
+              # Log del rollback
+              echo "$(date '+%Y-%m-%d %H:%M:%S'): ROLLBACK OK $BACKUP_TIMESTAMP -> ${{ inputs.current-sha }}" \
+                >> logs/rollback-history.log
+              
+              echo "OUTPUT_STATUS=rolled-back"
+              echo "OUTPUT_BACKEND_LATENCY=0"
+              echo "OUTPUT_FRONTEND_LATENCY=0"
+              echo "OUTPUT_ROLLBACK=true"
+              exit 0
+            fi
+            
+            echo "   ⏳ Verificación $ROLLBACK_RETRIES/${MAX_ROLLBACK_RETRIES}..."
+            sleep 10
+          done
+          
+          echo "❌ ROLLBACK FALLÓ. Intervención manual URGENTE requerida."
+          echo "📋 Logs del rollback:"
+          $COMPOSE logs --tail 100 backend 2>/dev/null || true
+          
+          echo "OUTPUT_STATUS=rollback-failed"
+          echo "OUTPUT_ROLLBACK=true"
+          exit 1
+        EOF
+        )
+        
+        # Parsear outputs
+        echo "$OUTPUT" | grep "^OUTPUT_" | while read line; do
+          key=$(echo "$line" | cut -d= -f1 | sed 's/OUTPUT_//' | tr '[:upper:]' '[:lower:]')
+          value=$(echo "$line" | cut -d= -f2-)
+          echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+        done
+        
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - START_TIME))
+        echo "⏱️  Health check completado en ${DURATION}s"

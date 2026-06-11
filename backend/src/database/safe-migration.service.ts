@@ -44,14 +44,14 @@ export class SafeMigrationService {
       return { success: true, message: 'Migración completada exitosamente' };
 
     } catch (error) {
-      this.logger.error('❌ Error en migración segura:', error);
+      this.logger.error('❌ Error en migración segura:', error.stack);
       
       // Intentar rollback si es posible
       try {
         await this.attemptRollback();
         return { success: false, message: `Error: ${error.message}. Rollback intentado.` };
       } catch (rollbackError) {
-        this.logger.error('❌ Rollback falló:', rollbackError);
+        this.logger.error('❌ Rollback falló:', rollbackError.stack);
         return { success: false, message: `Error crítico: ${error.message}. Rollback falló.` };
       }
     }

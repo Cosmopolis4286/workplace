@@ -1,6 +1,4 @@
-import { ref, computed, onUnmounted } from 'vue'
-import { io, Socket } from 'socket.io-client'
-import { useAuth } from './useAuth'
+import type { Socket } from 'socket.io-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,13 +28,13 @@ const error          = ref<string | null>(null)
 const totalCount     = ref(0)
 const unreadCount    = computed(() => notifications.value.filter(n => !n.read).length)
 
-let socket: Socket | null = null
 let socketRestaurantId: string | null = null
 
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export const useNotifications = () => {
-  const { token, refreshTokens } = useAuth()
+  const { $socketio } = useNuxtApp()
+  const { token, refreshAccessToken: refreshTokens } = useAuth()
   const config = useRuntimeConfig()
   const apiBase = config.public.apiUrl as string
 
@@ -131,54 +129,38 @@ export const useNotifications = () => {
     }
   }
 
-  // ── WebSocket: connect ────────────────────────────────────────────────────
+  // ── WebSocket: connect usando plugin ─────────────────────────────────────
   function connectWebSocket(commerceId: string) {
-    if (socket && socketRestaurantId === commerceId) return // already connected
+    if (socketRestaurantId === commerceId && $socketio.isConnected.value) return
 
     disconnectWebSocket()
-
-    // socket.io-client handles the HTTP→WebSocket upgrade internally
-    socket = io(`${apiBase}/notifications`, {
-      auth:              { token: token.value },
-      transports:        ['websocket'],
-      reconnection:      true,
-      reconnectionDelay: 2000,
-    })
-
     socketRestaurantId = commerceId
 
-    socket.on('connect', () => {
-      socket!.emit('join', { commerceId })
+    // Usar plugin Socket.IO
+    const socket = $socketio.connect('/notifications', {
+      token: token.value,
+      commerceId,
     })
 
+    // Escuchar eventos específicos de notificaciones
     socket.on('notification', (notification: Notification) => {
-      // Prepend new notification and keep latest 100
       notifications.value.unshift(notification)
       if (notifications.value.length > 100) notifications.value.pop()
       totalCount.value++
     })
 
     socket.on('unread_count', ({ count }: { count: number }) => {
-      // Sync count from server broadcast (e.g. another tab marked all as read)
       const currentRead = notifications.value.filter(n => n.read).length
       const currentUnread = notifications.value.length - currentRead
       if (count !== currentUnread) {
-        // Reload to stay in sync
         fetchNotifications()
       }
-    })
-
-    socket.on('connect_error', () => {
-      // Silent — will reconnect automatically
     })
   }
 
   function disconnectWebSocket() {
-    if (socket) {
-      socket.disconnect()
-      socket = null
-      socketRestaurantId = null
-    }
+    $socketio.disconnect()
+    socketRestaurantId = null
   }
 
   // ── Init: fetch + connect ─────────────────────────────────────────────────

@@ -1,0 +1,4 @@
+{
+  "not_found": "Cliente no encontrado",
+  "email_taken": "Ya existe un cliente con ese correo electrónico"
+}

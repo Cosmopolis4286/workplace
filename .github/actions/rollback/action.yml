@@ -1,0 +1,114 @@
+name: 'Rollback Production'
+description: 'Restaura la última versión estable en el servidor de producción'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH del servidor'
+    required: true
+  ssh-host:
+    description: 'Host del servidor de producción'
+    required: true
+  deploy-path:
+    description: 'Ruta en servidor'
+    required: false
+    default: '/opt/workplace'
+
+runs:
+  using: composite
+  steps:
+    - name: Ejecutar rollback
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.ssh-user }}" || -z "${{ inputs.ssh-host }}" ]]; then
+          echo "❌ ssh-user y ssh-host son requeridos"
+          exit 1
+        fi
+
+        ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" \
+          "DEPLOY_PATH='${{ inputs.deploy-path }}' bash -s" << 'ENDSSH'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+
+          echo "⏮️  Iniciando rollback en $DEPLOY_PATH"
+
+          # Lock para evitar rollbacks concurrentes
+          exec 200>/tmp/deploy.lock
+          flock -n 200 || { echo "❌ Otro deploy/rollback en progreso — abortando"; exit 1; }
+
+          # Verificar que existe una versión previa
+          if [[ ! -f versions/current.env ]]; then
+            echo "❌ No hay versión previa disponible (primer deploy o versions/current.env eliminado)"
+            echo "   Estado actual de containers:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}" 2>/dev/null || true
+            exit 1
+          fi
+
+          # Cargar versión previa
+          set -a; source versions/current.env; set +a
+
+          BACKEND_CURRENT_IMAGE="${BACKEND_CURRENT_IMAGE:-}"
+          FRONTEND_CURRENT_IMAGE="${FRONTEND_CURRENT_IMAGE:-}"
+          DEPLOY_SHA="${DEPLOY_SHA:-desconocido}"
+
+          if [[ -z "$BACKEND_CURRENT_IMAGE" || -z "$FRONTEND_CURRENT_IMAGE" ]]; then
+            echo "❌ versions/current.env no contiene imágenes válidas"
+            cat versions/current.env
+            exit 1
+          fi
+
+          echo "   SHA previo:  $DEPLOY_SHA"
+          echo "   Backend:     $BACKEND_CURRENT_IMAGE"
+          echo "   Frontend:    $FRONTEND_CURRENT_IMAGE"
+
+          # Verificar/descargar imágenes antes de bajar los services
+          pull_with_retry() {
+            local img="$1"
+            if docker image inspect "$img" >/dev/null 2>&1; then
+              echo "  ✅ Imagen $img ya disponible localmente"
+              return 0
+            fi
+            for i in 1 2 3; do
+              docker pull "$img" && return 0
+              echo "  ⚠️  Pull $img intento $i/3"
+              [[ $i -lt 3 ]] && sleep 10
+            done
+            echo "  ❌ No se pudo obtener imagen: $img"
+            return 1
+          }
+
+          pull_with_retry "$BACKEND_CURRENT_IMAGE"
+          pull_with_retry "$FRONTEND_CURRENT_IMAGE"
+
+          # Ejecutar rollback
+          echo "🔄 Recreando containers con versión previa..."
+          export BACKEND_IMAGE="$BACKEND_CURRENT_IMAGE"
+          export FRONTEND_IMAGE="$FRONTEND_CURRENT_IMAGE"
+          $COMPOSE up -d --no-deps --force-recreate backend frontend
+
+          # Esperar arranque y verificar que no están en restarting
+          echo "⏳ Verificando arranque post-rollback..."
+          for i in $(seq 1 12); do
+            BACKEND_STATUS=$(docker inspect --format='{{.State.Status}}' \
+              "$(docker ps -aqf name=backend | head -1)" 2>/dev/null || echo "missing")
+
+            if [[ "$BACKEND_STATUS" == "running" ]]; then
+              echo "  ✅ Backend running (intento $i)"
+              break
+            fi
+            if [[ "$BACKEND_STATUS" == "restarting" ]]; then
+              echo "  ❌ Backend en restarting tras rollback — intervención manual urgente"
+              docker logs "$(docker ps -aqf name=backend | head -1)" --tail 30 2>&1 || true
+              exit 1
+            fi
+            echo "  ⏳ backend=$BACKEND_STATUS — intento $i/12"
+            sleep 5
+          done
+
+          # Registrar en historial
+          mkdir -p logs
+          echo "$(date '+%Y-%m-%d %H:%M:%S'): ROLLBACK OK — restored SHA=$DEPLOY_SHA" \
+            >> logs/rollback-history.log
+
+          echo "✅ Rollback completado"
+        ENDSSH

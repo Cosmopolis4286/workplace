@@ -1,0 +1,71 @@
+# =========================
+# Security Services Override
+# =========================
+# Uso: docker compose -f docker-compose.yml -f docker-compose.security.yml up -d
+
+services:
+  nginx:
+    volumes:
+      # Enhanced logging for security monitoring
+      - ./security/monitoring/nginx-security.conf:/etc/nginx/conf.d/security.conf:ro
+      - ./logs/nginx:/var/log/nginx:rw
+    environment:
+      - ENABLE_SECURITY_LOGGING=true
+      - RATE_LIMIT_REQUESTS=50
+      - RATE_LIMIT_WINDOW=1m
+    # Additional security headers
+    command: >
+      sh -c "
+        envsubst '\$DOMAIN \$RATE_LIMIT_REQUESTS \$RATE_LIMIT_WINDOW' < /nginx.conf.template > /etc/nginx/conf.d/default.conf &&
+        envsubst '\$RATE_LIMIT_REQUESTS \$RATE_LIMIT_WINDOW' < /etc/nginx/conf.d/security.conf > /etc/nginx/conf.d/security-generated.conf &&
+        nginx -g 'daemon off;'
+      "
+
+  certbot:
+    volumes:
+      # Security monitoring for certbot
+      - ./logs/certbot:/var/log/certbot:rw
+      - ./logs/letsencrypt:/var/log/letsencrypt:rw
+    environment:
+      - ENABLE_SECURITY_MONITORING=true
+
+  # Security monitoring service
+  security-monitor:
+    image: alpine:latest
+    container_name: workplace_security_monitor
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+    cpus: "0.1"
+    mem_limit: 64m
+    mem_reservation: 32m
+    volumes:
+      - ./logs/nginx:/var/log/nginx:ro
+      - ./logs/certbot:/var/log/certbot:ro
+      - ./logs/security:/var/log/security:rw
+      - ./security/monitoring/monitor.sh:/usr/local/bin/monitor.sh:ro
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo "🔍 Starting security monitoring..."
+        mkdir -p /var/log/security
+        
+        # Run monitoring every 5 minutes
+        while true; do
+          /usr/local/bin/monitor.sh
+          sleep 300
+        done
+    networks:
+      - app_network
+    depends_on:
+      - nginx
+      - certbot

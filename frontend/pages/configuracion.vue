@@ -46,11 +46,10 @@
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Moneda preferida</label>
               <select v-model="userPrefs.currency" class="input-field">
-                <option value="MXN">MXN — Peso Mexicano</option>
-                <option value="USD">USD — Dólar Estadounidense</option>
-                <option value="EUR">EUR — Euro</option>
-                <option value="COP">COP — Peso Colombiano</option>
-                <option value="ARS">ARS — Peso Argentino</option>
+                <option v-for="rate in activeRates" :key="rate.code" :value="rate.code">
+                  {{ rate.code }} — {{ rate.name }}
+                </option>
+                <option v-if="activeRates.length === 0" disabled value="">Cargando monedas...</option>
               </select>
             </div>
 
@@ -309,6 +308,20 @@
                 <input v-model="restaurantForm.email" type="email" class="input-field" placeholder="contacto@micomercio.com">
               </div>
             </div>
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">País</label>
+                <input v-model="restaurantForm.country" type="text" class="input-field" placeholder="Ej: Venezuela">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Estado / Provincia</label>
+                <input v-model="restaurantForm.state" type="text" class="input-field" placeholder="Ej: Miranda">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
+                <input v-model="restaurantForm.city" type="text" class="input-field" placeholder="Ej: Caracas">
+              </div>
+            </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Horario de Atención</label>
               <textarea
@@ -369,7 +382,7 @@
         </div>
 
         <!-- ── Configuración de Pagos ─────────────────────────────────── -->
-        <div class="card-premium p-6">
+        <div v-if="isComidaCategory" class="card-premium p-6">
           <div class="flex items-center mb-6">
             <div class="p-3 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg mr-3">
               <CurrencyDollarIcon class="h-6 w-6 text-white" />
@@ -380,9 +393,10 @@
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Moneda</label>
               <select v-model="paymentForm.currency" class="input-field">
-                <option value="MXN">MXN — Peso Mexicano</option>
-                <option value="USD">USD — Dólar Estadounidense</option>
-                <option value="EUR">EUR — Euro</option>
+                <option v-for="rate in activeRates" :key="rate.code" :value="rate.code">
+                  {{ rate.code }} — {{ rate.name }}
+                </option>
+                <option v-if="activeRates.length === 0" disabled value="">Cargando monedas...</option>
               </select>
             </div>
             <div class="grid grid-cols-2 gap-4">
@@ -430,7 +444,7 @@
         </div>
 
         <!-- ── Operaciones ────────────────────────────────────────────── -->
-        <div class="card-premium p-6">
+        <div v-if="isComidaCategory" class="card-premium p-6">
           <div class="flex items-center mb-6">
             <div class="p-3 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg mr-3">
               <ClockIcon class="h-6 w-6 text-white" />
@@ -485,6 +499,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ middleware: 'auth' })
+
 import { ref, computed, watch, onMounted } from 'vue'
 import {
   CogIcon,
@@ -504,11 +520,16 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useSettings } from '~/composables/useSettings'
 import { useAuth } from '~/composables/useAuth'
+import { usePermissions } from '~/composables/usePermissions'
+import { useUserPreferences } from '~/composables/useUserPreferences'
 
 const { user } = useAuth()
+const { userCategory } = usePermissions()
 const role = computed(() => user.value?.role ?? 'NORMAL')
 // Solo COMMERCE y FREELANCER tienen un negocio propio con configuración de backend
 const isCommerce = computed(() => ['COMMERCE', 'FREELANCER'].includes(role.value))
+// Solo usuarios de categoría "Comida" pueden ver Operaciones y Configuración de Pagos
+const isComidaCategory = computed(() => userCategory.value === 'Comida')
 const roleLabel = computed(() => {
   const labels: Record<string, string> = {
     SUPERADMIN: 'Super Administrador',
@@ -519,6 +540,10 @@ const roleLabel = computed(() => {
   }
   return labels[role.value] ?? role.value
 })
+
+// ─── User preferences (singleton — shared with all formatCurrency callers) ────
+
+const { prefs: userPrefs, activeRates, fetchRates, savePreferences } = useUserPreferences()
 
 // ─── COMMERCE settings (backend) ─────────────────────────────────────────────
 
@@ -536,7 +561,7 @@ const {
   saveNotificationSettings,
 } = useSettings()
 
-const restaurantForm = ref({ name: '', type: '', address: '', phone: '', email: '', schedule: '' })
+const restaurantForm = ref({ name: '', type: '', address: '', phone: '', email: '', schedule: '', country: '', state: '', city: '' })
 const paymentForm = ref({ currency: 'MXN', tax: 16, suggestedTip: 10, paymentMethods: ['cash', 'card', 'transfer'] as string[] })
 const operationForm = ref({ avgPrepTime: 20, avgDeliveryTime: 30, deliveryFee: 35, freeDeliveryMinimum: 200 })
 const notifForm = ref({ notifyNewOrders: true, notifyLowStock: true, notifyDailyReports: false, notifyCustomerReviews: true })
@@ -564,6 +589,9 @@ function syncForms() {
       phone: restaurant.value.phone ?? '',
       email: restaurant.value.email ?? '',
       schedule: restaurant.value.schedule ?? '',
+      country: restaurant.value.country ?? '',
+      state: restaurant.value.state ?? '',
+      city: restaurant.value.city ?? '',
     }
   }
   if (settings.value) {
@@ -630,7 +658,7 @@ function lsSet(key: string, val: unknown) {
   if (process.client) localStorage.setItem(key, JSON.stringify(val))
 }
 
-const userPrefs = ref(lsGet(LS_PREFS, { language: 'es', currency: 'MXN', defaultSort: 'relevance', pageSize: 20 }))
+// userPrefs comes from useUserPreferences (singleton) — already declared above
 const userNotifs = ref(lsGet(LS_NOTIFS, { promotions: true, newProducts: true, priceAlerts: false, recommendations: true }))
 const userPrivacy = ref(lsGet(LS_PRIVACY, { shareActivity: false, personalizedAds: false, analyticsConsent: true }))
 
@@ -656,7 +684,7 @@ const privacyItems = [
 ]
 
 function saveUserPrefs() {
-  lsSet(LS_PREFS, userPrefs.value)
+  savePreferences({ ...userPrefs.value })
   showUserToast('Preferencias guardadas')
 }
 
@@ -685,6 +713,7 @@ function clearCache() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
+  await fetchRates(false, true)
   if (isCommerce.value) {
     await loadSettings()
     syncForms()

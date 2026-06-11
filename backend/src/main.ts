@@ -1,10 +1,14 @@
+import './config/env'; // valida variables de entorno antes de arrancar
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuditService } from './audit/audit.service';
 import { AuditLogger } from './audit/audit.logger';
+import { PrismaService } from './prisma/prisma.service';
+import { RedisService } from './redis/redis.service';
 
 async function bootstrap() {
   // Instantiate a dedicated PrismaClient for the logger (pre-DI)
@@ -13,7 +17,17 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { logger: auditLogger });
 
-  const isDev = process.env.ENVIRONMENT !== 'production';
+  app.use(
+    helmet({
+      // API-only backend (no HTML views) — CSP/COEP can break cross-origin
+      // asset loading (avatars under /uploads) from the Nuxt frontend.
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
+
+  const isDev = process.env.APP_ENV !== 'production';
   app.enableCors({
     origin: isDev ? true : process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
@@ -47,12 +61,12 @@ async function bootstrap() {
       console.log('✅ HTTP server closed');
       
       // Close database connections
-      const prismaService = app.get('PrismaService');
+      const prismaService = app.get(PrismaService);
       await prismaService.$disconnect();
       console.log('✅ Database connections closed');
       
       // Close Redis connections
-      const redisService = app.get('RedisService');
+      const redisService = app.get(RedisService);
       await redisService.disconnect();
       console.log('✅ Redis connections closed');
       
@@ -76,11 +90,11 @@ async function bootstrap() {
     server.close(async () => {
       console.log('✅ HTTP server closed');
       
-      const prismaService = app.get('PrismaService');
+      const prismaService = app.get(PrismaService);
       await prismaService.$disconnect();
       console.log('✅ Database connections closed');
       
-      const redisService = app.get('RedisService');
+      const redisService = app.get(RedisService);
       await redisService.disconnect();
       console.log('✅ Redis connections closed');
       

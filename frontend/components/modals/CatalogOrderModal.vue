@@ -190,7 +190,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { CatalogProduct } from '~/composables/useCatalog'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
+import { useAuth } from '~/composables/useAuth'
 
 const props = defineProps<{
   modelValue: boolean
@@ -262,25 +264,21 @@ async function submit() {
 
   sending.value = true
   try {
-    const { getHeaders } = useAuth()
-    await $fetch(`${apiUrl}/catalog/orders`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: {
-        productId: props.product.id,
-        productName: props.product.name,
-        commerceId: props.product.commerce.id,
-        commerceName: props.product.commerce.name,
-        quantity: form.value.quantity,
-        deliveryType: form.value.deliveryType,
-        address: form.value.address || undefined,
-        city: form.value.city || undefined,
-        buyerName: form.value.buyerName,
-        buyerPhone: form.value.buyerPhone,
-        buyerEmail: form.value.buyerEmail || undefined,
-        notes: form.value.notes || undefined,
-        totalEstimate: totalEstimate.value,
-      },
+    const { post } = useApi()
+    await post('/catalog/orders', {
+      productId: props.product.id,
+      productName: props.product.name,
+      commerceId: props.product.commerce.id,
+      commerceName: props.product.commerce.name,
+      quantity: form.value.quantity,
+      deliveryType: form.value.deliveryType,
+      address: form.value.address || undefined,
+      city: form.value.city || undefined,
+      buyerName: form.value.buyerName,
+      buyerPhone: form.value.buyerPhone,
+      buyerEmail: form.value.buyerEmail || undefined,
+      notes: form.value.notes || undefined,
+      totalEstimate: totalEstimate.value,
     })
     emit('update:modelValue', false)
     emit('success')

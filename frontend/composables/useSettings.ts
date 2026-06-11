@@ -9,6 +9,9 @@ export interface RestaurantInfo {
   phone?: string
   email?: string
   schedule?: string
+  country?: string
+  state?: string
+  city?: string
 }
 
 export interface RestaurantSettings {

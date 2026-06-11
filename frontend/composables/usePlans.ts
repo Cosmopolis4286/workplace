@@ -14,6 +14,8 @@ export interface Plan {
   sortOrder: number
   forCommerce: boolean
   forFreelancer: boolean
+  forNormal: boolean
+  categoryIds: string[]
   maxProducts: number
   maxEmployees: number
   maxBranches: number
@@ -40,7 +42,7 @@ export interface Subscription {
   notes: string | null
   createdAt: string
   updatedAt: string
-  user?: { id: string; firstName: string; lastName: string; email: string; role: string; avatar?: string }
+  user?: { id: string; firstName: string; lastName: string; email: string; role: string; avatar?: string; category?: { id: string; name: string; icon?: string } | null }
   plan?: Pick<Plan, 'id' | 'name' | 'price' | 'color'>
 }
 
@@ -87,6 +89,7 @@ const plans = ref<Plan[]>([])
 const subscriptions = ref<Subscription[]>([])
 const stats = ref<PlanStats | null>(null)
 const mySubscription = ref<Subscription | null>(null)
+const pendingSubscription = ref<Subscription | null>(null)
 const myPlan = ref<Plan | null>(null)
 const usage = ref<PlanUsage | null>(null)
 const loading = ref(false)
@@ -97,35 +100,7 @@ const totalSubs = ref(0)
 const subPage = ref(1)
 
 export function usePlans() {
-  const config = useRuntimeConfig()
-  const base = config.public.apiUrl as string
-  const { getHeaders, refreshAccessToken } = useAuth()
-
-  async function apiFetch(url: string, options: RequestInit = {}) {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> ?? {}),
-    }
-    const res = await fetch(`${base}${url}`, { ...options, headers })
-    if (res.status === 401) {
-      const refreshed = await refreshAccessToken()
-      if (refreshed) {
-        const retryHeaders = { 'Content-Type': 'application/json', ...getHeaders() }
-        const retry = await fetch(`${base}${url}`, { ...options, headers: retryHeaders })
-        if (!retry.ok) {
-          const body = await retry.json().catch(() => ({}))
-          throw new Error(body.message ?? `Error ${retry.status}`)
-        }
-        return retry.json()
-      }
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.message ?? `Error ${res.status}`)
-    }
-    return res.json()
-  }
+  const { apiFetch } = useApi()
 
   // ─── Plans ────────────────────────────────────────────────────────────────────
 
@@ -211,6 +186,23 @@ export function usePlans() {
     if (idx >= 0) subscriptions.value[idx].status = 'CANCELLED'
   }
 
+  async function approveSubscription(id: string) {
+    const data = await apiFetch(`/plans/subscriptions/${id}/approve`, { method: 'PATCH' })
+    const idx = subscriptions.value.findIndex((s: Subscription) => s.id === id)
+    if (idx >= 0) subscriptions.value[idx] = data.subscription
+    return data
+  }
+
+  async function rejectSubscription(id: string, reason?: string) {
+    const data = await apiFetch(`/plans/subscriptions/${id}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    })
+    const idx = subscriptions.value.findIndex((s: Subscription) => s.id === id)
+    if (idx >= 0) subscriptions.value[idx] = data
+    return data
+  }
+
   // ─── Stats ────────────────────────────────────────────────────────────────────
 
   async function fetchStats() {
@@ -240,6 +232,7 @@ export function usePlans() {
     try {
       const data = await apiFetch('/plans/my-subscription')
       mySubscription.value = data.subscription
+      pendingSubscription.value = data.pendingSubscription ?? null
       myPlan.value = data.subscription?.plan ?? null
     } catch (e: any) {
       error.value = e.message
@@ -283,6 +276,7 @@ export function usePlans() {
     subscriptions,
     stats,
     mySubscription,
+    pendingSubscription,
     myPlan,
     usage,
     loading,
@@ -300,6 +294,8 @@ export function usePlans() {
     fetchSubscriptions,
     assignSubscription,
     cancelSubscription,
+    approveSubscription,
+    rejectSubscription,
     fetchStats,
     fetchMySubscription,
     fetchPublicPlans,

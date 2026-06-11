@@ -1,0 +1,40 @@
+name: 'Run Database Seed'
+description: 'Ejecuta prisma db seed en el contenedor backend del servidor'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH del servidor'
+    required: true
+  ssh-host:
+    description: 'Host del servidor'
+    required: true
+  deploy-path:
+    description: 'Ruta en servidor'
+    required: false
+    default: '/opt/workplace'
+  container-name:
+    description: 'Nombre del contenedor backend'
+    required: false
+    default: 'backend'
+
+runs:
+  using: composite
+  steps:
+    - name: Ejecutar seed
+      shell: bash
+      run: |
+        echo "🌱 Ejecutando prisma db seed en ${{ inputs.ssh-host }}..."
+        ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" bash -s << 'ENDSSH'
+          CONTAINER="${{ inputs.container-name }}"
+          if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
+            # Buscar por nombre parcial si el nombre exacto no existe
+            CONTAINER=$(docker ps --format '{{.Names}}' | grep -i backend | head -1 || true)
+            if [[ -z "$CONTAINER" ]]; then
+              echo "❌ Contenedor backend no encontrado"
+              exit 1
+            fi
+            echo "ℹ️  Usando contenedor: $CONTAINER"
+          fi
+          docker exec "$CONTAINER" pnpm prisma db seed
+        ENDSSH
+        echo "✅ Seed ejecutado correctamente"

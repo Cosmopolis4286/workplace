@@ -1,0 +1,77 @@
+name: 'Notify Deploy Status'
+description: 'Envia notificacion de estado del deploy a Discord y Slack'
+
+inputs:
+  status:
+    description: 'Estado del deploy (success | failure)'
+    required: true
+  repository:
+    description: 'Nombre del repositorio'
+    required: true
+  branch:
+    description: 'Nombre del branch'
+    required: true
+  sha:
+    description: 'SHA del commit'
+    required: true
+  actor:
+    description: 'Usuario que disparó el deploy'
+    required: true
+  message:
+    description: 'Mensaje descriptivo del estado del deploy'
+    required: false
+    default: ''
+  discord-webhook:
+    description: 'Discord webhook URL'
+    required: false
+    default: ''
+  slack-webhook:
+    description: 'Slack webhook URL'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Validar inputs
+      shell: bash
+      run: |
+        STATUS="${{ inputs.status }}"
+        if [[ "$STATUS" != "success" && "$STATUS" != "failure" ]]; then
+          echo "❌ ERROR: status debe ser 'success' o 'failure', recibido: '$STATUS'"
+          exit 1
+        fi
+        echo "✅ Status validado: $STATUS"
+
+    - name: Notificar Discord
+      shell: bash
+      run: |
+        [ -z "${{ inputs.discord-webhook }}" ] && exit 0
+        COLOR=$([[ "${{ inputs.status }}" = "success" ]] && echo "65280" || echo "16711680")
+        MSG="${{ inputs.message }}"
+        TITLE="${MSG:-Deploy ${{ inputs.status }} — ${{ inputs.repository }}}"
+        curl -sf -X POST "${{ inputs.discord-webhook }}" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"${TITLE}\",
+              \"color\": ${COLOR},
+              \"fields\": [
+                {\"name\": \"Repo\", \"value\": \"${{ inputs.repository }}\", \"inline\": true},
+                {\"name\": \"Branch\", \"value\": \"${{ inputs.branch }}\", \"inline\": true},
+                {\"name\": \"Actor\", \"value\": \"${{ inputs.actor }}\", \"inline\": true},
+                {\"name\": \"SHA\", \"value\": \"`${{ inputs.sha }}`\", \"inline\": false}
+              ]
+            }]
+          }" || echo "Discord webhook fallo (no critico)"
+
+    - name: Notificar Slack
+      shell: bash
+      run: |
+        [ -z "${{ inputs.slack-webhook }}" ] && exit 0
+        MSG="${{ inputs.message }}"
+        TEXT="${MSG:-Deploy *${{ inputs.status }}* — ${{ inputs.repository }}}"
+        curl -sf -X POST "${{ inputs.slack-webhook }}" \
+          -H "Content-Type: application/json" \
+          -d "{\"text\": \"${TEXT} (${{ inputs.branch }}) by ${{ inputs.actor }} \`${{ inputs.sha }}\`\"}" \
+          || echo "Slack webhook fallo (no critico)"

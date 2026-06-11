@@ -1,0 +1,49 @@
+api:
+  dashboard: false
+  insecure: true
+
+ping:
+  entryPoint: "traefik"
+
+entryPoints:
+  # Puerto 80: sirve ACME HTTP challenge, luego redirige todo lo demás a HTTPS
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  # Puerto 443: tráfico HTTPS
+  websecure:
+    address: ":443"
+
+  # Puerto 8080: solo para healthcheck interno (no expuesto a internet)
+  traefik:
+    address: ":8080"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: "workplace_public_network"
+    watch: true
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "ACME_EMAIL_PLACEHOLDER"
+      storage: "/letsencrypt/acme.json"
+      # TLS challenge: no depende del entrypoint HTTP, funciona en puerto 443
+      tlsChallenge: {}
+
+log:
+  level: "WARN"
+
+serversTransport:
+  insecureSkipVerify: false

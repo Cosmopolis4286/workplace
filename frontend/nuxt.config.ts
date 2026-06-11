@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
     '@vueuse/nuxt',
     '@vite-pwa/nuxt',
+    '@pinia/nuxt',
   ],
 
   tailwindcss: {
@@ -30,16 +31,22 @@ export default defineNuxtConfig({
   ],
 
   plugins: [
+    '~/plugins/color-mode.client.ts',
     '~/plugins/chart.client.ts',
     '~/plugins/auth.client.ts',
   ],
 
   ssr: false,
 
+  experimental: {
+    appManifest: false,
+  },
+
   runtimeConfig: {
     public: {
-      environment: process.env.ENVIRONMENT || 'development',
-      apiUrl: process.env.BACKEND_API_URL || '/api',
+      apiUrl: process.env.API_URL || '/api',
+      environment: process.env.APP_ENV || 'production',
+      useDemoCredentials: process.env.USE_DEMO === 'true',
       recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY || '',
     },
   },

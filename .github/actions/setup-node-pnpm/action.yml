@@ -1,49 +1,39 @@
 name: Setup Node.js and pnpm
-description: Setup Node.js, pnpm and cache dependencies
-author: 'WorkPlace Team'
+description: Setup Node.js, pnpm, cache de dependencias y genera Prisma Client
 
 inputs:
   node-version:
     description: 'Node.js version'
     required: false
-    default: '20'
+    default: '22'
   pnpm-version:
     description: 'pnpm version'
     required: false
-    default: '8'
+    default: '9'
 
 runs:
-  using: 'composite'
+  using: composite
   steps:
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ inputs.node-version }}
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v2
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
       with:
         version: ${{ inputs.pnpm-version }}
 
-    - name: Cache pnpm dependencies
-      uses: actions/cache@v3
+    - name: Setup Node.js con cache pnpm
+      uses: actions/setup-node@v4
       with:
-        path: |
-          ~/.pnpm-store
-          backend/node_modules
-          frontend/node_modules
-        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm
 
-    - name: Install dependencies
+    - name: Instalar dependencias
       shell: bash
       run: |
-        cd backend && pnpm install
-        cd ../frontend && pnpm install
+        pnpm install --frozen-lockfile
+        echo "✅ Dependencias instaladas"
 
-    - name: Generate Prisma Client
+    - name: Generar Prisma Client
       shell: bash
       run: |
         cd backend
         pnpm prisma generate
+        echo "✅ Prisma Client generado"

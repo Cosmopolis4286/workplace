@@ -1,440 +1,379 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-    <!-- Header -->
-    <div class="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-white p-6 rounded-b-3xl shadow-2xl">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-4">
-          <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm animate-float">
-            <Users class="w-8 h-8" />
-          </div>
-          <div>
-            <h1 class="text-3xl font-bold">Gestión de Clientes</h1>
-            <p class="text-blue-100">Base de datos de clientes y análisis</p>
-          </div>
-        </div>
-        <button
-          @click="openModal()"
-          class="flex items-center space-x-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-xl transition-all duration-200 hover:scale-105"
-        >
-          <Plus class="w-5 h-5" />
-          <span class="font-medium">Nuevo Cliente</span>
+  <div>
+    <PageHeader
+      title="Gestión de Clientes"
+      description="Base de datos de clientes y análisis de segmentos"
+      :icon="UsersIcon"
+      :breadcrumb="[{ label: 'Clientes' }]"
+      :stats="headerStats"
+    >
+      <template #actions>
+        <button class="btn-primary flex items-center gap-2" @click="openModal()">
+          <PlusIcon class="h-5 w-5" />
+          Nuevo Cliente
         </button>
-      </div>
+      </template>
+    </PageHeader>
+
+    <!-- Error banner -->
+    <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+      <p class="text-red-700 text-sm">{{ error }}</p>
+      <button class="text-red-500 hover:text-red-700" @click="error = null">
+        <XMarkIcon class="h-4 w-4" />
+      </button>
     </div>
 
-    <div class="p-6">
-      <!-- Error Banner -->
-      <div v-if="error" class="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
-        <div class="flex items-center space-x-3 text-red-700">
-          <AlertCircle class="w-5 h-5 flex-shrink-0" />
-          <span class="text-sm">{{ error }}</span>
-        </div>
-        <button @click="error = null" class="text-red-400 hover:text-red-600">
-          <X class="w-4 h-4" />
-        </button>
-      </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-white/20">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-gray-600 text-sm font-medium">Total Clientes</p>
-              <p class="text-3xl font-bold text-gray-800">
-                <span v-if="loading" class="inline-block w-12 h-8 bg-gray-200 animate-pulse rounded" />
-                <span v-else>{{ stats.totalClients }}</span>
-              </p>
-              <p class="text-green-500 text-sm flex items-center mt-1">
-                <TrendingUp class="w-4 h-4 mr-1" />
-                Base de clientes
-              </p>
+      <!-- ── Columna principal ────────────────────────────────────────────── -->
+      <div class="lg:col-span-2 space-y-4">
+
+        <!-- Filtros -->
+        <div class="card p-4">
+          <div class="flex flex-col sm:flex-row gap-3">
+            <div class="relative flex-1">
+              <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                v-model="searchQuery"
+                type="text"
+                placeholder="Buscar por nombre, email o teléfono..."
+                class="input-field pl-9"
+                @input="currentPage = 1"
+              />
             </div>
-            <div class="p-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl shadow-lg">
-              <Users class="w-8 h-8 text-white" />
-            </div>
+            <select v-model="selectedSegment" class="input-field w-auto" @change="currentPage = 1">
+              <option value="">Todos los segmentos</option>
+              <option value="VIP">VIP</option>
+              <option value="PREMIUM">Premium</option>
+              <option value="REGULAR">Regular</option>
+              <option value="NUEVO">Nuevo</option>
+            </select>
+            <select v-model="selectedStatus" class="input-field w-auto" @change="currentPage = 1">
+              <option value="">Todos los estados</option>
+              <option value="active">Activos</option>
+              <option value="inactive">Inactivos</option>
+            </select>
+            <button
+              v-if="searchQuery || selectedSegment || selectedStatus"
+              class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap"
+              @click="clearFilters"
+            >Limpiar</button>
           </div>
         </div>
 
-        <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-white/20">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-gray-600 text-sm font-medium">Clientes Activos</p>
-              <p class="text-3xl font-bold text-gray-800">
-                <span v-if="loading" class="inline-block w-12 h-8 bg-gray-200 animate-pulse rounded" />
-                <span v-else>{{ stats.activeClients }}</span>
-              </p>
-              <p class="text-blue-500 text-sm flex items-center mt-1">
-                <Activity class="w-4 h-4 mr-1" />
-                Habilitados
-              </p>
-            </div>
-            <div class="p-3 bg-gradient-to-br from-green-400 to-green-600 rounded-xl shadow-lg">
-              <Activity class="w-8 h-8 text-white" />
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-white/20">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-gray-600 text-sm font-medium">Gasto Promedio</p>
-              <p class="text-3xl font-bold text-gray-800">
-                <span v-if="loading" class="inline-block w-16 h-8 bg-gray-200 animate-pulse rounded" />
-                <span v-else>${{ stats.avgSpent.toFixed(2) }}</span>
-              </p>
-              <p class="text-purple-500 text-sm flex items-center mt-1">
-                <DollarSign class="w-4 h-4 mr-1" />
-                Por cliente
-              </p>
-            </div>
-            <div class="p-3 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl shadow-lg">
-              <DollarSign class="w-8 h-8 text-white" />
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-white/20">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-gray-600 text-sm font-medium">Clientes VIP</p>
-              <p class="text-3xl font-bold text-gray-800">
-                <span v-if="loading" class="inline-block w-10 h-8 bg-gray-200 animate-pulse rounded" />
-                <span v-else>{{ vipClients }}</span>
-              </p>
-              <p class="text-yellow-500 text-sm flex items-center mt-1">
-                <Star class="w-4 h-4 mr-1" />
-                Segmento VIP
-              </p>
-            </div>
-            <div class="p-3 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl shadow-lg">
-              <Star class="w-8 h-8 text-white" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Filters -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-8 border border-white/20">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="relative">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Buscar por nombre, email o teléfono..."
-              class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/50"
-            />
+        <!-- Tabla -->
+        <div class="card overflow-hidden">
+          <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+            <p class="text-sm font-medium text-gray-700">
+              {{ filteredClients.length }} cliente{{ filteredClients.length !== 1 ? 's' : '' }}
+              <span v-if="searchQuery || selectedSegment || selectedStatus" class="text-gray-400 font-normal"> — filtrados</span>
+            </p>
           </div>
 
-          <select v-model="selectedSegment" class="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50">
-            <option value="">Todos los segmentos</option>
-            <option value="VIP">VIP</option>
-            <option value="PREMIUM">Premium</option>
-            <option value="REGULAR">Regular</option>
-            <option value="NUEVO">Nuevo</option>
-          </select>
-
-          <select v-model="selectedStatus" class="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50">
-            <option value="">Todos los estados</option>
-            <option value="active">Activo</option>
-            <option value="inactive">Inactivo</option>
-          </select>
-
-          <button
-            @click="openModal()"
-            class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 shadow-lg flex items-center justify-center space-x-2"
-          >
-            <Plus class="w-5 h-5" />
-            <span>Nuevo Cliente</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Table -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-white/20">
-        <div class="p-6 border-b border-gray-200">
-          <h2 class="text-2xl font-bold text-gray-800 flex items-center">
-            <Users class="w-6 h-6 mr-2 text-blue-500" />
-            Lista de Clientes
-            <span class="ml-2 text-sm font-normal text-gray-500">({{ filteredClients.length }})</span>
-          </h2>
-        </div>
-
-        <!-- Loading skeleton -->
-        <div v-if="loading" class="divide-y divide-gray-100">
-          <div v-for="i in 5" :key="i" class="px-6 py-4 flex items-center space-x-4 animate-pulse">
-            <div class="w-12 h-12 bg-gray-200 rounded-full" />
-            <div class="flex-1 space-y-2">
-              <div class="h-4 bg-gray-200 rounded w-1/4" />
-              <div class="h-3 bg-gray-100 rounded w-1/3" />
+          <!-- Skeleton -->
+          <template v-if="loading">
+            <div v-for="i in 5" :key="i" class="px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0">
+              <div class="skeleton h-10 w-10 rounded-full flex-shrink-0" />
+              <div class="flex-1 space-y-2">
+                <div class="skeleton h-4 w-36 rounded" />
+                <div class="skeleton h-3 w-48 rounded" />
+              </div>
+              <div class="skeleton h-6 w-16 rounded-full" />
             </div>
-            <div class="h-6 bg-gray-200 rounded-full w-16" />
+          </template>
+
+          <!-- Empty -->
+          <div v-else-if="filteredClients.length === 0" class="p-12 text-center">
+            <UsersIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p class="text-gray-500 font-medium">No hay clientes</p>
+            <p class="text-sm text-gray-400 mt-1">
+              {{ searchQuery || selectedSegment || selectedStatus ? 'Sin resultados para los filtros aplicados' : 'Agrega tu primer cliente' }}
+            </p>
+            <button v-if="!searchQuery && !selectedSegment && !selectedStatus" class="btn-primary mt-4" @click="openModal()">
+              <PlusIcon class="h-4 w-4 inline mr-1.5" />Nuevo Cliente
+            </button>
           </div>
-        </div>
 
-        <div v-else-if="filteredClients.length === 0" class="py-16 text-center text-gray-500">
-          <Users class="w-12 h-12 mx-auto mb-3 text-gray-300" />
-          <p class="text-lg font-medium">No hay clientes</p>
-          <p class="text-sm mt-1">{{ searchQuery || selectedSegment || selectedStatus ? 'Sin resultados para los filtros aplicados' : 'Agrega tu primer cliente' }}</p>
-        </div>
+          <!-- Filas -->
+          <template v-else>
+            <div
+              v-for="client in paginatedClients"
+              :key="client.id"
+              class="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors group border-b border-gray-100 last:border-0"
+            >
+              <!-- Avatar -->
+              <div class="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 font-bold text-sm text-red-700">
+                {{ client.name.charAt(0).toUpperCase() }}
+              </div>
 
-        <div v-else class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
-              <tr>
-                <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
-                <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
-                <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pedidos</th>
-                <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Gastado</th>
-                <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-              <tr
-                v-for="client in paginatedClients"
-                :key="client.id"
-                class="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200"
-              >
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex items-center">
-                    <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold mr-4 flex-shrink-0">
-                      {{ client.name.charAt(0).toUpperCase() }}
-                    </div>
-                    <div>
-                      <div class="text-sm font-medium text-gray-900">{{ client.name }}</div>
-                      <div class="text-xs text-gray-400">Desde {{ formatDate(client.createdAt) }}</div>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-900">{{ client.email || '—' }}</div>
-                  <div class="text-sm text-gray-500">{{ client.phone || '—' }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="segmentClass(client.segment)" class="px-3 py-1 rounded-full text-xs font-medium">
-                    {{ segmentLabel(client.segment) }}
+              <!-- Info -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="text-sm font-semibold text-gray-900 truncate">{{ client.name }}</p>
+                  <span class="badge" :class="SEGMENT_CLASSES[client.segment]">
+                    {{ SEGMENT_LABELS[client.segment] }}
                   </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ client.totalOrders }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  ${{ client.totalSpent.toFixed(2) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <button
-                    @click="handleToggleStatus(client)"
-                    :class="client.isActive ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'"
-                    class="px-3 py-1 rounded-full text-xs font-medium transition-colors duration-150"
-                  >
-                    {{ client.isActive ? 'Activo' : 'Inactivo' }}
-                  </button>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                  <button
-                    @click="openModal(client)"
-                    class="text-indigo-600 hover:text-indigo-900 hover:scale-110 transition-all duration-200"
-                    title="Editar"
-                  >
-                    <Edit class="w-5 h-5" />
-                  </button>
-                  <button
-                    @click="confirmDelete(client)"
-                    class="text-red-600 hover:text-red-900 hover:scale-110 transition-all duration-200"
-                    title="Eliminar"
-                  >
-                    <Trash2 class="w-5 h-5" />
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </div>
+                <p class="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3">
+                  <span v-if="client.email">{{ client.email }}</span>
+                  <span v-if="client.phone">{{ client.phone }}</span>
+                  <span>Desde {{ formatDate(client.createdAt) }}</span>
+                </p>
+              </div>
+
+              <!-- Pedidos + gasto -->
+              <div class="hidden sm:flex flex-col items-end text-right flex-shrink-0">
+                <p class="text-sm font-bold text-gray-900">${{ client.totalSpent.toFixed(2) }}</p>
+                <p class="text-xs text-gray-400">{{ client.totalOrders }} pedido{{ client.totalOrders !== 1 ? 's' : '' }}</p>
+              </div>
+
+              <!-- Estado -->
+              <button
+                class="flex-shrink-0 badge transition-colors"
+                :class="client.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+                @click="handleToggleStatus(client)"
+              >
+                {{ client.isActive ? 'Activo' : 'Inactivo' }}
+              </button>
+
+              <!-- Acciones hover -->
+              <div class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Editar"
+                  @click="openModal(client)"
+                >
+                  <PencilIcon class="h-4 w-4" />
+                </button>
+                <button
+                  class="p-1.5 rounded-lg transition-colors"
+                  :class="client.telegramChatId ? 'text-green-500 hover:text-green-700 hover:bg-green-50' : 'text-sky-500 hover:text-sky-700 hover:bg-sky-50'"
+                  :title="client.telegramChatId ? 'Telegram vinculado — copiar nuevo link' : 'Enviar link de Telegram'"
+                  :disabled="telegramLinkLoading === client.id"
+                  @click="sendTelegramLink(client)"
+                >
+                  <PaperAirplaneIcon class="h-4 w-4" />
+                </button>
+                <button
+                  class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Eliminar"
+                  @click="confirmDelete(client)"
+                >
+                  <TrashIcon class="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Paginación -->
+          <div v-if="!loading && totalPages > 1" class="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+            <p class="text-sm text-gray-500">
+              {{ (currentPage - 1) * itemsPerPage + 1 }}–{{ Math.min(currentPage * itemsPerPage, filteredClients.length) }}
+              de {{ filteredClients.length }}
+            </p>
+            <div class="flex gap-2">
+              <button
+                class="btn-secondary text-sm px-3 py-1"
+                :disabled="currentPage === 1"
+                @click="currentPage--"
+              >Anterior</button>
+              <span class="text-sm text-gray-600 px-2 py-1">{{ currentPage }} / {{ totalPages }}</span>
+              <button
+                class="btn-secondary text-sm px-3 py-1"
+                :disabled="currentPage >= totalPages"
+                @click="currentPage++"
+              >Siguiente</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
+      <div class="space-y-4">
+
+        <!-- Distribución por segmento -->
+        <div class="card p-5">
+          <h3 class="text-sm font-semibold text-gray-700 mb-4">Por segmento</h3>
+          <div class="space-y-3">
+            <div v-for="s in segmentSummary" :key="s.key" class="flex items-center gap-3">
+              <span class="text-base flex-shrink-0">{{ s.emoji }}</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-gray-600">{{ s.label }}</span>
+                  <span class="font-bold text-gray-900">{{ s.count }}</span>
+                </div>
+                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all duration-700"
+                    :class="s.bar"
+                    :style="{ width: stats.totalClients ? `${Math.round((s.count / stats.totalClients) * 100)}%` : '0%' }"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Pagination -->
-        <div v-if="!loading && filteredClients.length > 0" class="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 flex items-center justify-between border-t border-gray-200">
-          <div class="text-sm text-gray-700">
-            Mostrando {{ (currentPage - 1) * itemsPerPage + 1 }}–{{ Math.min(currentPage * itemsPerPage, filteredClients.length) }} de {{ filteredClients.length }}
+        <!-- Top clientes por gasto -->
+        <div class="card p-5">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">Top clientes</h3>
+          <div v-if="loading" class="space-y-3">
+            <div v-for="n in 3" :key="n" class="skeleton h-10 w-full rounded-lg" />
           </div>
-          <div class="flex items-center space-x-2">
-            <button
-              @click="currentPage--"
-              :disabled="currentPage === 1"
-              class="px-3 py-2 rounded-lg bg-white shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
+          <div v-else class="space-y-2.5">
+            <div
+              v-for="(client, i) in topClients"
+              :key="client.id"
+              class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg p-1 -mx-1 transition-colors"
+              @click="openModal(client)"
             >
-              <ChevronLeft class="w-5 h-5" />
-            </button>
-            <span class="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-medium">
-              {{ currentPage }}
-            </span>
-            <button
-              @click="currentPage++"
-              :disabled="currentPage >= totalPages"
-              class="px-3 py-2 rounded-lg bg-white shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
-            >
-              <ChevronRight class="w-5 h-5" />
-            </button>
+              <span
+                class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
+                :class="i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-gray-100 text-gray-600' : 'bg-orange-50 text-orange-600'"
+              >{{ i + 1 }}</span>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-semibold text-gray-900 truncate">{{ client.name }}</p>
+                <p class="text-[10px] text-gray-400">{{ client.totalOrders }} pedidos</p>
+              </div>
+              <span class="text-xs font-bold text-gray-900 flex-shrink-0">${{ client.totalSpent.toFixed(0) }}</span>
+            </div>
+            <p v-if="topClients.length === 0" class="text-xs text-gray-400 text-center py-2">Sin datos</p>
+          </div>
+        </div>
+
+        <!-- Resumen rápido -->
+        <div class="card p-5 border-l-4 border-l-red-400">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">Resumen</h3>
+          <div class="space-y-2.5">
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-500">Activos</span>
+              <span class="font-bold text-green-600">{{ stats.activeClients }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-500">Inactivos</span>
+              <span class="font-bold text-gray-400">{{ stats.totalClients - stats.activeClients }}</span>
+            </div>
+            <div class="h-px bg-gray-100" />
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-500">Gasto promedio</span>
+              <span class="font-bold text-gray-900">${{ stats.avgSpent.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-500">Clientes VIP</span>
+              <span class="font-bold text-purple-600">{{ vipClients }}</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Create / Edit Modal -->
+    <!-- Toast Telegram -->
     <Teleport to="body">
-      <div
-        v-if="showModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @mousedown.self="closeModal"
+      <Transition
+        enter-active-class="transition ease-out duration-300"
+        enter-from-class="opacity-0 translate-y-4"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition ease-in duration-200"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-4"
       >
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <!-- Modal Header -->
-          <div class="sticky top-0 bg-gradient-to-r from-blue-500 to-indigo-500 p-6 rounded-t-2xl flex items-center justify-between">
-            <h3 class="text-xl font-bold text-white">
-              {{ editingClient ? 'Editar Cliente' : 'Nuevo Cliente' }}
-            </h3>
-            <button @click="closeModal" class="text-white/80 hover:text-white transition-colors">
-              <X class="w-6 h-6" />
-            </button>
-          </div>
-
-          <!-- Modal Body -->
-          <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Nombre <span class="text-red-500">*</span>
-              </label>
-              <input
-                v-model="form.name"
-                type="text"
-                required
-                maxlength="100"
-                placeholder="Nombre completo"
-                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
-              <input
-                v-model="form.email"
-                type="email"
-                maxlength="100"
-                placeholder="correo@ejemplo.com"
-                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-              <input
-                v-model="form.phone"
-                type="text"
-                maxlength="30"
-                placeholder="+58 412-1234567"
-                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-              <input
-                v-model="form.address"
-                type="text"
-                maxlength="200"
-                placeholder="Dirección del cliente"
-                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Segmento</label>
-              <select
-                v-model="form.segment"
-                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-all"
-              >
-                <option value="NUEVO">Nuevo</option>
-                <option value="REGULAR">Regular</option>
-                <option value="PREMIUM">Premium</option>
-                <option value="VIP">VIP</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-              <textarea
-                v-model="form.notes"
-                maxlength="500"
-                rows="3"
-                placeholder="Preferencias, observaciones..."
-                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-              />
-            </div>
-
-            <div v-if="formError" class="flex items-center space-x-2 text-red-600 text-sm bg-red-50 rounded-xl p-3">
-              <AlertCircle class="w-4 h-4 flex-shrink-0" />
-              <span>{{ formError }}</span>
-            </div>
-
-            <div class="flex space-x-3 pt-2">
-              <button
-                type="button"
-                @click="closeModal"
-                class="flex-1 px-6 py-3 border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                :disabled="saving"
-                class="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {{ saving ? 'Guardando...' : editingClient ? 'Actualizar' : 'Crear Cliente' }}
-              </button>
-            </div>
-          </form>
+        <div
+          v-if="telegramToast"
+          class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl bg-sky-600 text-white text-sm font-medium"
+        >
+          <PaperAirplaneIcon class="h-4 w-4 flex-shrink-0" />
+          <span>{{ telegramToast }}</span>
         </div>
-      </div>
+      </Transition>
     </Teleport>
 
-    <!-- Delete Confirmation Modal -->
+    <!-- Modal crear / editar -->
     <Teleport to="body">
-      <div
-        v-if="clientToDelete"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @mousedown.self="clientToDelete = null"
-      >
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-          <div class="text-center">
-            <div class="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-              <Trash2 class="w-8 h-8 text-red-500" />
+      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
+        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @mousedown.self="closeModal">
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeModal" />
+          <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100"
+            leave-active-class="ease-in duration-150" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+            <div v-if="showModal" class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+              <div class="flex items-center justify-between mb-5">
+                <h2 class="text-lg font-semibold text-gray-900">
+                  {{ editingClient ? 'Editar Cliente' : 'Nuevo Cliente' }}
+                </h2>
+                <button class="p-1 text-gray-400 hover:text-gray-600 rounded-lg" @click="closeModal">
+                  <XMarkIcon class="h-5 w-5" />
+                </button>
+              </div>
+
+              <form @submit.prevent="handleSubmit" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                  <input v-model="form.name" type="text" required maxlength="100" placeholder="Nombre completo" class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Correo electrónico</label>
+                  <input v-model="form.email" type="email" maxlength="100" placeholder="correo@ejemplo.com" class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Teléfono</label>
+                  <input v-model="form.phone" type="text" maxlength="30" placeholder="+58 412-1234567" class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Dirección</label>
+                  <input v-model="form.address" type="text" maxlength="200" placeholder="Dirección del cliente" class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Segmento</label>
+                  <select v-model="form.segment" class="input-field">
+                    <option value="NUEVO">Nuevo</option>
+                    <option value="REGULAR">Regular</option>
+                    <option value="PREMIUM">Premium</option>
+                    <option value="VIP">VIP</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Notas</label>
+                  <textarea v-model="form.notes" maxlength="500" rows="3" placeholder="Preferencias, observaciones..." class="input-field resize-none" />
+                </div>
+
+                <div v-if="formError" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {{ formError }}
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                  <button type="button" class="btn-secondary flex-1" @click="closeModal">Cancelar</button>
+                  <button type="submit" class="btn-primary flex-1" :disabled="saving">
+                    {{ saving ? 'Guardando...' : (editingClient ? 'Actualizar' : 'Crear Cliente') }}
+                  </button>
+                </div>
+              </form>
             </div>
-            <h3 class="text-xl font-bold text-gray-800 mb-2">¿Eliminar cliente?</h3>
-            <p class="text-gray-500 mb-6">
-              Se eliminará permanentemente a <strong>{{ clientToDelete.name }}</strong>.
-              Esta acción no se puede deshacer.
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Modal eliminar -->
+    <Teleport to="body">
+      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
+        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="clientToDelete" class="fixed inset-0 z-50 flex items-center justify-center p-4" @mousedown.self="clientToDelete = null">
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="clientToDelete = null" />
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Eliminar cliente</h3>
+            <p class="text-sm text-gray-600 mb-6">
+              ¿Estás seguro de eliminar a <strong>{{ clientToDelete.name }}</strong>? Esta acción no se puede deshacer.
             </p>
-            <div class="flex space-x-3">
-              <button
-                @click="clientToDelete = null"
-                class="flex-1 px-6 py-3 border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                @click="handleDelete"
-                :disabled="deleting"
-                class="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors font-medium disabled:opacity-60"
-              >
+            <div class="flex gap-3">
+              <button class="btn-secondary flex-1" @click="clientToDelete = null">Cancelar</button>
+              <button class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors"
+                :disabled="deleting" @click="handleDelete">
                 {{ deleting ? 'Eliminando...' : 'Eliminar' }}
               </button>
             </div>
           </div>
         </div>
-      </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -442,86 +381,105 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import {
-  Users, Search, Plus, Edit, Trash2,
-  TrendingUp, Activity, DollarSign, Star,
-  ChevronLeft, ChevronRight, X, AlertCircle,
-} from 'lucide-vue-next'
+  UsersIcon,
+  PlusIcon,
+  XMarkIcon,
+  MagnifyingGlassIcon,
+  PencilIcon,
+  TrashIcon,
+  PaperAirplaneIcon,
+} from '@heroicons/vue/24/outline'
+import PageHeader from '~/components/ui/PageHeader.vue'
 import { useClientes, type Customer, type CustomerSegment } from '~/composables/useClientes'
+
+definePageMeta({ middleware: 'auth' })
 
 const {
   customers, stats, loading, error,
   vipClients, loadClientes, createCliente, updateCliente, deleteCliente, toggleStatus,
 } = useClientes()
 
-// ─── Filters & pagination ──────────────────────────────────────────────────
+// ─── Segmento maps ────────────────────────────────────────────────────────────
+const SEGMENT_LABELS: Record<CustomerSegment, string> = {
+  VIP: 'VIP', PREMIUM: 'Premium', REGULAR: 'Regular', NUEVO: 'Nuevo',
+}
+const SEGMENT_CLASSES: Record<CustomerSegment, string> = {
+  VIP:     'bg-purple-100 text-purple-800',
+  PREMIUM: 'bg-blue-100 text-blue-800',
+  REGULAR: 'bg-green-100 text-green-800',
+  NUEVO:   'bg-yellow-100 text-yellow-800',
+}
 
-const searchQuery = ref('')
+// ─── Filtros y paginación ─────────────────────────────────────────────────────
+const searchQuery    = ref('')
 const selectedSegment = ref('')
-const selectedStatus = ref('')
-const currentPage = ref(1)
-const itemsPerPage = 10
+const selectedStatus  = ref('')
+const currentPage     = ref(1)
+const itemsPerPage    = 10
 
 const filteredClients = computed(() => {
   let list = customers.value
-
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
-    list = list.filter((c) =>
+    list = list.filter(c =>
       c.name.toLowerCase().includes(q) ||
       c.email?.toLowerCase().includes(q) ||
-      c.phone?.includes(q),
+      c.phone?.includes(q)
     )
   }
-
-  if (selectedSegment.value) {
-    list = list.filter((c) => c.segment === selectedSegment.value)
-  }
-
-  if (selectedStatus.value === 'active') list = list.filter((c) => c.isActive)
-  else if (selectedStatus.value === 'inactive') list = list.filter((c) => !c.isActive)
-
+  if (selectedSegment.value) list = list.filter(c => c.segment === selectedSegment.value)
+  if (selectedStatus.value === 'active')   list = list.filter(c => c.isActive)
+  if (selectedStatus.value === 'inactive') list = list.filter(c => !c.isActive)
   return list
 })
 
-// Reset page when filters change
 watch([searchQuery, selectedSegment, selectedStatus], () => { currentPage.value = 1 })
 
 const totalPages = computed(() => Math.ceil(filteredClients.value.length / itemsPerPage))
-
 const paginatedClients = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage
   return filteredClients.value.slice(start, start + itemsPerPage)
 })
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
-
-const segmentLabel = (segment: CustomerSegment) => {
-  const labels: Record<CustomerSegment, string> = {
-    VIP: 'VIP', PREMIUM: 'Premium', REGULAR: 'Regular', NUEVO: 'Nuevo',
-  }
-  return labels[segment] ?? segment
+function clearFilters() {
+  searchQuery.value = ''; selectedSegment.value = ''; selectedStatus.value = ''
 }
 
-const segmentClass = (segment: CustomerSegment) => {
-  const classes: Record<CustomerSegment, string> = {
-    VIP: 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800',
-    PREMIUM: 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800',
-    REGULAR: 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800',
-    NUEVO: 'bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800',
-  }
-  return classes[segment] ?? 'bg-gray-100 text-gray-800'
-}
+// ─── Computados sidebar ───────────────────────────────────────────────────────
+const headerStats = computed(() => [
+  { label: 'Total',    value: String(stats.value.totalClients) },
+  { label: 'Activos',  value: String(stats.value.activeClients) },
+  { label: 'Promedio', value: `$${stats.value.avgSpent.toFixed(0)}` },
+  { label: 'VIP',      value: String(vipClients.value) },
+])
 
-const formatDate = (iso: string) => {
+const segmentSummary = computed(() => {
+  const count = (seg: string) => customers.value.filter(c => c.segment === seg).length
+  return [
+    { key: 'VIP',     label: 'VIP',     emoji: '⭐', count: count('VIP'),     bar: 'bg-purple-400' },
+    { key: 'PREMIUM', label: 'Premium', emoji: '💎', count: count('PREMIUM'), bar: 'bg-blue-400'   },
+    { key: 'REGULAR', label: 'Regular', emoji: '✅', count: count('REGULAR'), bar: 'bg-green-400'  },
+    { key: 'NUEVO',   label: 'Nuevo',   emoji: '🆕', count: count('NUEVO'),   bar: 'bg-yellow-400' },
+  ]
+})
+
+const topClients = computed(() =>
+  [...customers.value]
+    .filter(c => c.isActive)
+    .sort((a, b) => b.totalSpent - a.totalSpent)
+    .slice(0, 5)
+)
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-VE', { year: 'numeric', month: 'short' })
 }
 
-// ─── Modal ─────────────────────────────────────────────────────────────────
-
-const showModal = ref(false)
+// ─── Modal ────────────────────────────────────────────────────────────────────
+const showModal     = ref(false)
 const editingClient = ref<Customer | null>(null)
-const saving = ref(false)
-const formError = ref<string | null>(null)
+const saving        = ref(false)
+const formError     = ref<string | null>(null)
 
 const defaultForm = () => ({ name: '', email: '', phone: '', address: '', notes: '', segment: 'NUEVO' as CustomerSegment })
 const form = ref(defaultForm())
@@ -529,65 +487,40 @@ const form = ref(defaultForm())
 function openModal(client?: Customer) {
   editingClient.value = client ?? null
   formError.value = null
-  if (client) {
-    form.value = {
-      name: client.name,
-      email: client.email ?? '',
-      phone: client.phone ?? '',
-      address: client.address ?? '',
-      notes: client.notes ?? '',
-      segment: client.segment,
-    }
-  } else {
-    form.value = defaultForm()
-  }
+  form.value = client
+    ? { name: client.name, email: client.email ?? '', phone: client.phone ?? '', address: client.address ?? '', notes: client.notes ?? '', segment: client.segment }
+    : defaultForm()
   showModal.value = true
 }
 
 function closeModal() {
-  showModal.value = false
-  editingClient.value = null
-  formError.value = null
+  showModal.value = false; editingClient.value = null; formError.value = null
 }
 
 async function handleSubmit() {
-  formError.value = null
-  saving.value = true
+  formError.value = null; saving.value = true
   try {
     const payload = {
-      name: form.value.name.trim(),
-      email: form.value.email?.trim() || undefined,
-      phone: form.value.phone?.trim() || undefined,
+      name:    form.value.name.trim(),
+      email:   form.value.email?.trim()   || undefined,
+      phone:   form.value.phone?.trim()   || undefined,
       address: form.value.address?.trim() || undefined,
-      notes: form.value.notes?.trim() || undefined,
+      notes:   form.value.notes?.trim()   || undefined,
       segment: form.value.segment,
     }
-
-    let result: Customer | null
-    if (editingClient.value) {
-      result = await updateCliente(editingClient.value.id, payload)
-    } else {
-      result = await createCliente(payload)
-    }
-
-    if (result) {
-      closeModal()
-    } else {
-      formError.value = error.value ?? 'Error al guardar'
-    }
-  } finally {
-    saving.value = false
-  }
+    const result = editingClient.value
+      ? await updateCliente(editingClient.value.id, payload)
+      : await createCliente(payload)
+    if (result) closeModal()
+    else formError.value = error.value ?? 'Error al guardar'
+  } finally { saving.value = false }
 }
 
-// ─── Delete ────────────────────────────────────────────────────────────────
-
+// ─── Eliminar ─────────────────────────────────────────────────────────────────
 const clientToDelete = ref<Customer | null>(null)
-const deleting = ref(false)
+const deleting       = ref(false)
 
-function confirmDelete(client: Customer) {
-  clientToDelete.value = client
-}
+function confirmDelete(client: Customer) { clientToDelete.value = client }
 
 async function handleDelete() {
   if (!clientToDelete.value) return
@@ -597,24 +530,37 @@ async function handleDelete() {
   if (ok) clientToDelete.value = null
 }
 
-// ─── Toggle status ─────────────────────────────────────────────────────────
+// ─── Toggle status ────────────────────────────────────────────────────────────
+async function handleToggleStatus(client: Customer) { await toggleStatus(client.id) }
 
-async function handleToggleStatus(client: Customer) {
-  await toggleStatus(client.id)
+// ─── Telegram ─────────────────────────────────────────────────────────────────
+const telegramLinkLoading = ref<string | null>(null)
+const telegramToast       = ref<string | null>(null)
+
+async function sendTelegramLink(client: Customer) {
+  telegramLinkLoading.value = client.id
+  try {
+    const config = useRuntimeConfig()
+    const token = useCookie('access_token').value
+    const res = await fetch(`${config.public.apiUrl}/telegram/link/${client.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    if (data.url) {
+      await navigator.clipboard.writeText(data.url)
+      telegramToast.value = `¡Link copiado! Envíaselo a ${client.name} por Telegram.`
+    } else if (data.linked) {
+      telegramToast.value = `${client.name} ya tiene Telegram vinculado ✓`
+    } else {
+      telegramToast.value = 'No se pudo generar el link. Verifica TELEGRAM_BOT_USERNAME.'
+    }
+  } catch {
+    telegramToast.value = 'Error al generar link de Telegram.'
+  } finally {
+    telegramLinkLoading.value = null
+    setTimeout(() => { telegramToast.value = null }, 4000)
+  }
 }
-
-// ─── Init ──────────────────────────────────────────────────────────────────
 
 onMounted(() => loadClientes())
 </script>
-
-<style scoped>
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-</style>

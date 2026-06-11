@@ -1,0 +1,4 @@
+{
+  "not_found": "Empleado no encontrado",
+  "email_taken": "Ya existe un empleado con ese correo electrónico"
+}

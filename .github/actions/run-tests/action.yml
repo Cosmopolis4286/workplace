@@ -1,34 +1,21 @@
 name: Run Tests with Coverage
-description: Run unit tests with coverage threshold validation
+description: Ejecuta tests unitarios y de frontend con reporte de cobertura
 author: 'WorkPlace Team'
 
 inputs:
   force-deploy:
-    description: 'Force deploy even if tests fail'
+    description: 'Continuar aunque los tests fallen (no recomendado en prod)'
     required: false
-    default: false
-    type: boolean
+    default: 'false'
   coverage-threshold:
-    description: 'Coverage threshold percentage'
+    description: 'Umbral mínimo de cobertura % (referencial — jest.config.js es la fuente de verdad)'
     required: false
-    default: '80'
+    default: '5'
 
 runs:
   using: 'composite'
   steps:
-    - name: Install dependencies
-      shell: bash
-      run: |
-        cd backend && pnpm install
-        cd ../frontend && pnpm install
-
-    - name: Generate Prisma Client
-      shell: bash
-      run: |
-        cd backend
-        pnpm prisma generate
-
-    - name: Run Backend Tests with Coverage
+    - name: Tests backend con cobertura
       shell: bash
       run: |
         cd backend
@@ -36,59 +23,37 @@ runs:
       env:
         DATABASE_URL: postgresql://test:test@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379
+      continue-on-error: ${{ inputs.force-deploy == 'true' }}
 
-    - name: Run Frontend Tests with Coverage
+    - name: Tests frontend con cobertura
       shell: bash
       run: |
         cd frontend
         pnpm test:coverage
+      continue-on-error: ${{ inputs.force-deploy == 'true' }}
 
-    - name: Check Coverage Threshold
+    - name: Reporte de cobertura
       shell: bash
       run: |
-        echo "🔍 Checking coverage thresholds..."
-        
-        # Backend coverage
-        BACKEND_COVERAGE=$(cd backend && pnpm run coverage:percentage || echo "0")
-        echo "Backend coverage: ${BACKEND_COVERAGE}%"
-        
-        # Frontend coverage  
-        FRONTEND_COVERAGE=$(cd frontend && pnpm run coverage:percentage || echo "0")
-        echo "Frontend coverage: ${FRONTEND_COVERAGE}%"
-        
-        # Check thresholds
-        BACKEND_THRESHOLD=${{ inputs.coverage-threshold }}
-        FRONTEND_THRESHOLD=0  # Frontend only tests utilities, expect 0% coverage
-        
-        if (( $(echo "$BACKEND_COVERAGE < $BACKEND_THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
-          echo "❌ Backend coverage ${BACKEND_COVERAGE}% is below threshold ${BACKEND_THRESHOLD}%"
-          if [ "${{ inputs.force-deploy }}" != "true" ]; then
-            exit 1
-          fi
-          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
+        SUMMARY="backend/coverage/coverage-summary.json"
+        if [[ -f "$SUMMARY" ]]; then
+          LINES=$(node -e "const s=require('./$SUMMARY'); console.log(s.total?.lines?.pct ?? 'n/a')" 2>/dev/null || echo "n/a")
+          STMTS=$(node -e "const s=require('./$SUMMARY'); console.log(s.total?.statements?.pct ?? 'n/a')" 2>/dev/null || echo "n/a")
+          FUNCS=$(node -e "const s=require('./$SUMMARY'); console.log(s.total?.functions?.pct ?? 'n/a')" 2>/dev/null || echo "n/a")
+          echo "📊 Coverage — lines: ${LINES}%, statements: ${STMTS}%, functions: ${FUNCS}%"
+        else
+          echo "📊 coverage-summary.json no disponible"
         fi
-        
-        if (( $(echo "$FRONTEND_COVERAGE < $FRONTEND_THRESHOLD" | bc -l 2>/dev/null || echo "0") )); then
-          echo "❌ Frontend coverage ${FRONTEND_COVERAGE}% is below threshold ${FRONTEND_THRESHOLD}%"
-          if [ "${{ inputs.force-deploy }}" != "true" ]; then
-            exit 1
-          fi
-          echo "⚠️ Force deploy enabled - proceeding despite low coverage"
-        fi
-        
-        echo "✅ All coverage requirements met!"
 
-    - name: Upload Coverage Reports
-      uses: codecov/codecov-action@v3
+    - name: Subir cobertura a Codecov
+      uses: codecov/codecov-action@v4
       with:
         files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
 
-    - name: Run linting
+    - name: Lint backend
       shell: bash
-      run: |
-        cd backend
-        pnpm lint:ci
+      run: cd backend && pnpm lint:ci
       continue-on-error: ${{ inputs.force-deploy == 'true' }}

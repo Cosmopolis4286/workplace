@@ -1,0 +1,103 @@
+name: 'Database Migration'
+description: 'Verifica y aplica migraciones de Prisma antes del deploy'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH'
+    required: true
+  ssh-host:
+    description: 'Host del servidor'
+    required: true
+  deploy-path:
+    description: 'Ruta de despliegue'
+    required: false
+    default: '/opt/workplace'
+  run-migrate:
+    description: 'Ejecutar prisma migrate deploy'
+    required: false
+    default: 'true'
+  run-seed:
+    description: 'Ejecutar prisma db seed'
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Verificar estado de migraciones
+      shell: bash
+      run: |
+        REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+        DEPLOY_PATH="${{ inputs.deploy-path }}"
+        
+        echo "════════════════════════════════════════"
+        echo "  Database Migration Check"
+        echo "  Host: ${{ inputs.ssh-host }}"
+        echo "════════════════════════════════════════"
+        
+        # Verificar si hay migraciones pendientes
+        MIGRATE_STATUS=$(ssh "$REMOTE" "cd $DEPLOY_PATH && docker compose exec -T backend npx prisma migrate status 2>&1" || echo "error")
+        
+        if echo "$MIGRATE_STATUS" | grep -q "Database schema is up to date"; then
+          echo "✅ Schema está actualizado - no hay migraciones pendientes"
+        elif echo "$MIGRATE_STATUS" | grep -q "migration.*not yet applied"; then
+          echo "⚠️  Migraciones pendientes detectadas"
+          
+          if [[ "${{ inputs.run-migrate }}" == "true" ]]; then
+            echo "🚀 Aplicando migraciones..."
+            ssh "$REMOTE" "cd $DEPLOY_PATH && docker compose exec -T backend npx prisma migrate deploy"
+            echo "✅ Migraciones aplicadas exitosamente"
+          else
+            echo "❌ ERROR: Hay migraciones pendientes y run-migrate=false"
+            exit 1
+          fi
+        elif echo "$MIGRATE_STATUS" | grep -q "error\|Error\|diverged"; then
+          echo "⚠️  Estado de migraciones incierto o schema divergente"
+          echo "   Considerar ejecutar: npx prisma db push"
+          
+          # Intentar verificar con db pull
+          echo "🔍 Verificando schema actual..."
+          DB_SCHEMA=$(ssh "$REMOTE" "cd $DEPLOY_PATH && docker compose exec -T backend npx prisma db pull --print 2>&1 | head -20" || echo "")
+          
+          if echo "$DB_SCHEMA" | grep -q "userType\|enum.*UserType"; then
+            echo "✅ Campo userType existe en la base de datos"
+          else
+            echo "⚠️  Schema puede estar desincronizado - campo userType no detectado"
+          fi
+        fi
+        
+        echo ""
+
+    - name: Aplicar seed (opcional)
+      if: inputs.run-seed == 'true'
+      shell: bash
+      run: |
+        REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+        DEPLOY_PATH="${{ inputs.deploy-path }}"
+        
+        echo "🌱 Ejecutando prisma db seed..."
+        ssh "$REMOTE" "cd $DEPLOY_PATH && docker compose exec -T backend npm run seed" || {
+          echo "⚠️  Seed falló - puede ser por datos existentes o error de schema"
+          echo "   Verificar logs: docker logs \$(docker ps --format '{{.Names}}' | grep backend | head -1)"
+          exit 1
+        }
+        echo "✅ Seed completado"
+
+    - name: Verificación post-migración
+      shell: bash
+      run: |
+        REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+        DEPLOY_PATH="${{ inputs.deploy-path }}"
+        
+        echo "🔍 Verificando estado final de la base de datos..."
+        
+        # Verificar que el backend puede conectar
+        READY_CHECK=$(ssh "$REMOTE" "cd $DEPLOY_PATH && docker compose exec -T backend curl -sf http://localhost:3001/api/ready 2>&1" || echo "failed")
+        
+        if echo "$READY_CHECK" | grep -q '"database":"connected"'; then
+          echo "✅ Base de datos conectada y respondiendo"
+        else
+          echo "⚠️  Verificación de DB falló - revisar logs del backend"
+        fi
+        
+        echo "════════════════════════════════════════"

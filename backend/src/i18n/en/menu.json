@@ -1,0 +1,10 @@
+{
+  "category": {
+    "not_found": "Category not found",
+    "name_taken": "A category with that name already exists",
+    "has_products": "Cannot delete a category with products. Move or delete the products first."
+  },
+  "product": {
+    "not_found": "Product not found"
+  }
+}

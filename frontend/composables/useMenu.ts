@@ -23,6 +23,8 @@ export interface Product {
   unit: string
   status: ProductStatus
   image?: string
+  brand?: string
+  forSale: boolean
   preparationTime?: number
   calories?: number
   ingredients: string[]

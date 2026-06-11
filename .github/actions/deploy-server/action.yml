@@ -1,0 +1,69 @@
+name: 'Deploy to Server'
+description: 'Deploy de imagenes Docker al servidor via SSH'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH del servidor'
+    required: true
+  ssh-host:
+    description: 'Host del servidor'
+    required: true
+  backend-image:
+    description: 'Imagen backend (registry/image:tag)'
+    required: true
+  frontend-image:
+    description: 'Imagen frontend (registry/image:tag)'
+    required: true
+  current-sha:
+    description: 'SHA del commit'
+    required: true
+  acme-email:
+    description: 'Email para certificados'
+    required: true
+  domain:
+    description: 'Dominio de la aplicación'
+    required: false
+    default: ''
+  deploy-path:
+    description: 'Ruta en servidor'
+    required: false
+    default: '/opt/workplace'
+  node-port:
+    description: 'Puerto del backend'
+    required: false
+    default: '3001'
+  frontend-port:
+    description: 'Puerto del frontend'
+    required: false
+    default: '3000'
+
+outputs:
+  deploy-status:
+    description: 'Estado del deploy'
+    value: ${{ steps.deploy.outputs.status }}
+  deploy-duration:
+    description: 'Duracion del deploy'
+    value: ${{ steps.deploy.outputs.duration }}
+
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/sync-server
+      with:
+        ssh-user: ${{ inputs.ssh-user }}
+        ssh-host: ${{ inputs.ssh-host }}
+        deploy-path: ${{ inputs.deploy-path }}
+
+    - uses: ./.github/actions/docker-deploy
+      id: deploy
+      with:
+        ssh-user: ${{ inputs.ssh-user }}
+        ssh-host: ${{ inputs.ssh-host }}
+        deploy-path: ${{ inputs.deploy-path }}
+        backend-image: ${{ inputs.backend-image }}
+        frontend-image: ${{ inputs.frontend-image }}
+        current-sha: ${{ inputs.current-sha }}
+        domain: ${{ inputs.domain }}
+        acme-email: ${{ inputs.acme-email }}
+        node-port: ${{ inputs.node-port }}
+        frontend-port: ${{ inputs.frontend-port }}

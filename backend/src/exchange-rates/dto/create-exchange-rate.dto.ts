@@ -44,4 +44,8 @@ export class CreateExchangeRateDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  autoSync?: boolean;
 }

@@ -19,9 +19,14 @@ model User {
   avatar      String?
   coverImage  String?
   role        Role     @default(NORMAL)
+  userType    UserType @default(REGULAR)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  country       String?
+  state         String?
+  city          String?
 
   categoryId    String?
   subcategoryId String?
@@ -29,6 +34,10 @@ model User {
   subcategory   UserSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
 
   emailVerified   Boolean  @default(false)
+
+  termsAcceptedAt   DateTime?
+  termsVersion      String?
+  privacyAcceptedAt DateTime?
 
   commerce        Restaurant?
   profileSettings ProfileSettings?
@@ -47,6 +56,15 @@ model User {
   catalogOrders    CatalogOrder[]
   serviceRequests  ServiceRequest[]
   notifications    Notification[]
+  wallet           Wallet?
+  walletTransactions WalletTransaction[]
+  userPermissions  UserPermission[]
+  corridasAsPassenger Corrida[]     @relation("PassengerCorridas")
+  corridasAsDriver    Corrida[]     @relation("DriverCorridas")
+
+  // Jobs / Empleos
+  jobsPosted         Job[]           @relation("UserJobs")
+  jobApplications    JobApplication[]
 
   @@map("users")
 }
@@ -101,6 +119,10 @@ model Restaurant {
   email   String?
   schedule String?
 
+  country   String?
+  state     String?
+  city      String?
+
   userId     String     @unique
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   categories Category[]
@@ -153,22 +175,23 @@ model RestaurantSettings {
 }
 
 model Customer {
-  id           String          @id @default(uuid())
-  name         String
-  email        String?
-  phone        String?
-  address      String?
-  notes        String?
-  segment      CustomerSegment @default(NUEVO)
-  totalOrders  Int             @default(0)
-  totalSpent   Float           @default(0)
-  isActive     Boolean         @default(true)
-  commerceId String
-  commerce   Restaurant      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  appointments Appointment[]
-  orders       Order[]
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id              String          @id @default(uuid())
+  name            String
+  email           String?
+  phone           String?
+  address         String?
+  notes           String?
+  segment         CustomerSegment @default(NUEVO)
+  totalOrders     Int             @default(0)
+  totalSpent      Float           @default(0)
+  isActive        Boolean         @default(true)
+  telegramChatId  String?
+  commerceId      String
+  commerce        Restaurant      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  appointments    Appointment[]
+  orders          Order[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   @@unique([email, commerceId])
   @@map("customers")
@@ -216,22 +239,60 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
-
+  
+  // Nuevos campos para sistema robusto
+  revokedAt DateTime?  // Cuando se revoca (logout)
+  replacedByTokenId String?  // Si fue reemplazado por refresh
+  deviceInfo String?   // Info del dispositivo (opcional)
+  ipAddress  String?   // IP de creación (opcional)
+  
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
 model Category {
   id           String    @id @default(uuid())
   name         String
+  description  String?
+  icon         String?
   color        String    @default("#6b7280")
-  commerceId String
-  commerce   Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  sortOrder    Int       @default(0)
+  
+  // Categoría global (opcional) - solo si es global
+  isGlobal     Boolean   @default(false)
+  
+  // Categoría de comercio específico (opcional) - solo si es de un comercio
+  commerceId   String?
+  commerce     Restaurant? @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  
   products     Product[]
+  subcategories Subcategory[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   @@unique([name, commerceId])
+  @@unique([name, isGlobal]) // Solo una categoría global con el mismo nombre
   @@map("categories")
+}
+
+model Subcategory {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  products    Product[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([name, categoryId])
+  @@map("subcategories")
 }
 
 model Product {
@@ -250,8 +311,12 @@ model Product {
   calories        Int?
   ingredients     String[]
   allergens       String[]
+  brand           String?
+  forSale         Boolean       @default(true)
   categoryId      String
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategoryId   String?
+  subcategory     Subcategory?  @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
   commerceId    String
   commerce      Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime      @default(now())
@@ -266,6 +331,13 @@ enum Role {
   COMMERCE
   FREELANCER
   NORMAL
+}
+
+enum UserType {
+  APP      // Usuarios propios de la app (superadmin, admins del sistema)
+  DEMO     // Cuentas de demostración/test visibles en login
+  TEST     // Cuentas de testing automatizado (no visibles)
+  REGULAR  // Usuarios normales registrados
 }
 
 enum ProductStatus {
@@ -461,6 +533,72 @@ model Notification {
 }
 
 // ─── Expenses ────────────────────────────────────────────────────────────────
+
+// Digital Wallets
+
+enum WalletStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+  ADJUSTMENT
+}
+
+enum WalletTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Wallet {
+  id       String       @id @default(uuid())
+  userId   String       @unique
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency String       @default("USD")
+  balance  Float        @default(0)
+  status   WalletStatus @default(ACTIVE)
+
+  pin      String?      // bcrypt hash of 6-digit PIN
+  pinSetAt DateTime?
+
+  frozenAt   DateTime?  // set when admin freezes; null = not frozen
+  frozenBy   String?    // userId of admin who froze
+
+  transactions WalletTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id           String                  @id @default(uuid())
+  walletId     String
+  wallet       Wallet                  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         WalletTransactionType
+  status       WalletTransactionStatus @default(COMPLETED)
+  amount       Float
+  balanceAfter Float
+  description  String?
+  reference    String?
+  metadata     Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([walletId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([reference])
+  @@map("wallet_transactions")
+}
 
 enum ExpenseType {
   FIJO
@@ -698,6 +836,7 @@ model Permission {
   createdAt   DateTime @default(now())
 
   rolePermissions RolePermission[]
+  userPermissions UserPermission[]
 
   @@unique([module, action])
   @@map("permissions")
@@ -714,6 +853,25 @@ model RolePermission {
 
   @@unique([role, permissionId])
   @@map("role_permissions")
+}
+
+// Permisos individuales por usuario (sobrescriben los del rol)
+model UserPermission {
+  id           String     @id @default(uuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  granted      Boolean    @default(true) // true = concedido, false = denegado explícitamente
+  reason       String?    // Razón de la asignación especial
+  expiresAt    DateTime?  // Expiración opcional
+  updatedAt    DateTime   @updatedAt
+  updatedBy    String?
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([permissionId])
+  @@map("user_permissions")
 }
 
 // ─── Audit & Logs ─────────────────────────────────────────────────────────────
@@ -819,6 +977,19 @@ model ServiceCategory {
   @@map("service_categories")
 }
 
+model ServiceModality {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  value     String   @unique
+  emoji     String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("service_modalities")
+}
+
 model Service {
   id           String          @id @default(uuid())
   name         String
@@ -829,6 +1000,7 @@ model Service {
   image        String?
   status       ServiceStatus   @default(ACTIVO)
   tags         String[]
+  modalities   String[]
   categoryId   String?
   category     ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   userId       String
@@ -875,10 +1047,13 @@ model ServiceRequest {
   description  String?
   price        Float?
   priceUnit    String?
-  status       ServiceRequestStatus   @default(PENDIENTE)
+  status           ServiceRequestStatus   @default(PENDIENTE)
+  providerNotes    String?
+  statusUpdatedAt  DateTime?
   requesterId  String?
   requester    User?                  @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
   @@index([serviceId])
   @@index([providerId])
@@ -955,6 +1130,10 @@ model Plan {
   // Targets
   forCommerce   Boolean @default(true)
   forFreelancer Boolean @default(false)
+  forNormal     Boolean @default(false) // Planes para usuarios NORMAL
+
+  // Categorías de negocio asociadas (para filtrado en onboarding)
+  categoryIds String[] @default([])
 
   // Límites (-1 = ilimitado)
   maxProducts   Int @default(50)
@@ -1035,6 +1214,54 @@ model EmailVerificationToken {
   @@map("email_verification_tokens")
 }
 
+// ─── Corridas (Rides) ─────────────────────────────────────────────────────────
+
+enum CorridaStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CorridaVehicleType {
+  MOTO
+  AUTO
+}
+
+model Corrida {
+  id             String             @id @default(uuid())
+  origin         String
+  destination    String
+  originLat      Float?
+  originLng      Float?
+  destinationLat Float?
+  destinationLng Float?
+  status         CorridaStatus      @default(PENDING)
+  vehicleType    CorridaVehicleType @default(MOTO)
+  price          Float?
+  distance       Float?
+  duration       Int?               // minutes
+  notes          String?
+  acceptedAt     DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+
+  passengerId    String
+  passenger      User               @relation("PassengerCorridas", fields: [passengerId], references: [id], onDelete: Cascade)
+  driverId       String?
+  driver         User?              @relation("DriverCorridas", fields: [driverId], references: [id], onDelete: SetNull)
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([passengerId])
+  @@index([driverId])
+  @@index([status])
+  @@map("corridas")
+}
+
 // ─── Exchange Rates ───────────────────────────────────────────────────────────
 
 model ExchangeRate {
@@ -1049,8 +1276,138 @@ model ExchangeRate {
   notes        String?
   updatedBy    String?  // userId of last editor
 
+  // Auto-sync tracking fields
+  autoSync      Boolean  @default(false) // enable auto-sync for this currency
+  lastSyncAt    DateTime? // last successful sync timestamp
+  syncSource    String?  // actual source used: "BCV_SCRAPING", "BCV_API", "MANUAL"
+  syncError     String?  // last sync error message if failed
+  syncAttempts  Int      @default(0) // consecutive failed attempts
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@map("exchange_rates")
 }
+
+// ─── Jobs / Empleos ───────────────────────────────────────────────────────────
+
+enum JobType {
+  TIEMPO_COMPLETO
+  MEDIO_TIEMPO
+  FREELANCE
+  TEMPORAL
+  PRACTICAS
+}
+
+enum JobModality {
+  PRESENCIAL
+  REMOTO
+  HIBRIDO
+}
+
+enum JobStatus {
+  ACTIVO
+  INACTIVO
+  PAUSADO
+  CERRADO
+}
+
+enum JobApplicationStatus {
+  PENDIENTE
+  VISTO
+  EN_PROCESO
+  ACEPTADA
+  RECHAZADA
+}
+
+model JobCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  color       String   @default("#10B981")
+  icon        String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  jobs        Job[]
+
+  @@map("job_categories")
+}
+
+model Job {
+  id              String      @id @default(uuid())
+  title           String
+  description     String
+  requirements    String[]
+  benefits        String[]
+  salaryMin       Float?
+  salaryMax       Float?
+  salaryCurrency  String      @default("USD")
+  location        String?
+  type            JobType     @default(TIEMPO_COMPLETO)
+  modality        JobModality @default(PRESENCIAL)
+  experienceLevel String?     // Junior, Mid, Senior, etc.
+  tags            String[]
+  status          JobStatus   @default(ACTIVO)
+  expiresAt       DateTime?
+
+  // Relations
+  categoryId    String?
+  category        JobCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  employerId      String
+  employer        User         @relation("UserJobs", fields: [employerId], references: [id], onDelete: Cascade)
+
+  // For commerce users
+  commerceId      String?
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  applications    JobApplication[]
+
+  @@index([employerId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([type])
+  @@index([modality])
+  @@index([createdAt(sort: Desc)])
+  @@map("jobs")
+}
+
+model JobApplication {
+  id          String                @id @default(uuid())
+  jobId       String
+  job         Job                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  applicantId String
+  applicant   User                  @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  coverLetter String?
+  resumeUrl   String?
+  phone       String?
+  email       String?
+  status      JobApplicationStatus  @default(PENDIENTE)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([jobId])
+  @@index([applicantId])
+  @@index([status])
+  @@unique([jobId, applicantId])
+  @@map("job_applications")
+}
+
+// ─── Search Tabs Configuration ───────────────────────────────────────────────
+
+model SearchTab {
+  id        String   @id @default(uuid())
+  key       String   @unique  // "productos" | "servicios" | "empleos" | custom
+  label     String
+  icon      String?           // SVG path string or icon name
+  color     String   @default("#EF4444")
+  isEnabled Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("search_tabs")
+}
+
+// ─── Wallets & Transactions ─────────────────────────────────────────────────────

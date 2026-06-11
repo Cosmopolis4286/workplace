@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -16,32 +17,37 @@ import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Role, SubscriptionStatus } from '@prisma/client';
+import { Role, SubscriptionStatus, BillingInterval } from '@prisma/client';
 
 @Controller('plans')
-@UseGuards(JwtAuthGuard)
 export class PlansController {
   constructor(
     private readonly plansService: PlansService,
     private readonly planLimitsService: PlanLimitsService
   ) {}
 
-  // ─── Public (authenticated) endpoints ────────────────────────────────────────
+  // ─── Public — no auth required ────────────────────────────────────────────
 
   @Get('public')
-  getPublicPlans(@CurrentUser() user: any) {
-    return this.plansService.getPublicPlans(user.role);
+  @UseGuards(OptionalJwtAuthGuard)
+  getPublicPlans(@CurrentUser() user: any, @Query('categoryId') categoryId?: string) {
+    return this.plansService.getPublicPlans(user?.role, categoryId ?? user?.categoryId);
   }
 
+  // ─── Authenticated user endpoints ────────────────────────────────────────
+
   @Get('my-subscription')
+  @UseGuards(JwtAuthGuard)
   getMySubscription(@CurrentUser() user: any) {
     return this.plansService.getMySubscription(user.id);
   }
 
   @Get('usage')
+  @UseGuards(JwtAuthGuard)
   async getUsage(@CurrentUser() user: any) {
     const commerce = await this.planLimitsService[
       'prisma'
@@ -53,24 +59,44 @@ export class PlansController {
     return this.planLimitsService.getUsage(user.id, commerce.id);
   }
 
-  // ─── Admin endpoints ──────────────────────────────────────────────────────────
+  @Post('self-subscribe')
+  @UseGuards(JwtAuthGuard)
+  selfSubscribe(
+    @Body() dto: { planId: string; interval?: string },
+    @CurrentUser() user: { id: string; role: string }
+  ) {
+    if (dto.planId && user.id) {
+      const subscriptionDto = {
+        userId: user.id,
+        planId: dto.planId,
+        interval: (dto.interval || 'MONTHLY') as BillingInterval,
+        status: 'ACTIVE' as SubscriptionStatus
+      };
+      return this.plansService.assignSubscription(subscriptionDto, user.id);
+    }
+    throw new Error('Datos inválidos para suscripción');
+  }
+
+  @Post('upgrade')
+  @UseGuards(JwtAuthGuard)
+  upgradePlan(
+    @Body() dto: { planId: string; categoryId: string; interval?: string },
+    @CurrentUser() user: { id: string; role: string }
+  ) {
+    return this.plansService.upgradePlan(user.id, dto);
+  }
+
+  // ─── Admin endpoints ──────────────────────────────────────────────────────
 
   @Get('stats')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   getStats() {
     return this.plansService.getStats();
   }
 
-  @Get()
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
-  findAll(@Query('includeInactive') includeInactive?: string) {
-    return this.plansService.findAllPlans(includeInactive === 'true');
-  }
-
   @Get('subscriptions')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   findAllSubscriptions(
     @Query('status') status?: SubscriptionStatus,
@@ -86,36 +112,43 @@ export class PlansController {
     });
   }
 
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  findAll(@Query('includeInactive') includeInactive?: string) {
+    return this.plansService.findAllPlans(includeInactive === 'true');
+  }
+
   @Get(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   findOne(@Param('id') id: string) {
     return this.plansService.findPlanById(id);
   }
 
   @Post()
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN)
   create(@Body() dto: CreatePlanDto) {
     return this.plansService.createPlan(dto);
   }
 
   @Put(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN)
   update(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
     return this.plansService.updatePlan(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN)
   remove(@Param('id') id: string) {
     return this.plansService.deletePlan(id);
   }
 
   @Post('subscriptions')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   assignSubscription(
     @Body() dto: AssignSubscriptionDto,
@@ -125,9 +158,27 @@ export class PlansController {
   }
 
   @Delete('subscriptions/:id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   cancelSubscription(@Param('id') id: string) {
     return this.plansService.cancelSubscription(id);
+  }
+
+  @Patch('subscriptions/:id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  approveSubscription(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.plansService.approveSubscription(id, user.id);
+  }
+
+  @Patch('subscriptions/:id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  rejectSubscription(
+    @Param('id') id: string,
+    @Body() dto: { reason?: string },
+    @CurrentUser() user: any
+  ) {
+    return this.plansService.rejectSubscription(id, user.id, dto?.reason);
   }
 }

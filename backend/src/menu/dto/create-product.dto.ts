@@ -7,6 +7,7 @@ import {
   IsUrl,
   IsArray,
   IsEnum,
+  IsBoolean,
   Min,
 } from 'class-validator';
 
@@ -81,6 +82,14 @@ export class CreateProductDto {
   @IsArray()
   @IsString({ each: true })
   allergens?: string[];
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  forSale?: boolean;
 
   @IsString()
   @IsNotEmpty()
