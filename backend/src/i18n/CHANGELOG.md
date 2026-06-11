@@ -82,11 +82,28 @@ módulo por módulo para no romper nada y poder revisar incrementos pequeños.
   user-facing en español que migrar (ya cubierto por
   `useApiErrors.ts`).
 
+## Increment 5 — Appointments + Delivery (hecho)
+
+- Namespace `appointments` creado (`not_found`, `customer_not_found`).
+- Namespace `delivery` creado, con sub-secciones `driver.*`
+  (`not_found`, `not_found_in_restaurant`, `not_active`) y
+  `delivery.*` (`not_found`).
+- Migrados `appointments.service.ts` (3 mensajes) y
+  `delivery.service.ts` (6 mensajes), reusando
+  `common.errors.access_denied`.
+- Verificado en `i18n-pilot-check.spec.ts` (13/13 OK).
+- **Fuera de alcance / pendiente de decisión**: `delivery.service.ts`
+  tiene plantillas de notificación por Telegram con emojis y texto en
+  español (`statusEmoji` en `updateDeliveryStatus`) — son mensajes que
+  recibe el cliente final por Telegram, no la UI del comercio. No se
+  migraron porque su tratamiento (¿deben seguir solo en español? ¿usar
+  el idioma preferido del cliente?) requiere una decisión de producto
+  aparte.
+
 ## Próximos incrementos (sin empezar)
 
 - Resto de módulos backend con strings hardcodeados en español: `orders`,
-  `appointments`, `delivery`, `expenses`, `menu`, `plans`,
-  `notifications`, `permissions`. Reusar
+  `expenses`, `menu`, `plans`, `notifications`, `permissions`. Reusar
   `common.errors.access_denied` donde aplique; cada módulo con su propio
   namespace para mensajes específicos (`not_found`, `name_taken`, etc.).
 - Mensajes de validación de DTOs (`class-validator`) vía i18n

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
@@ -19,7 +20,10 @@ function endOfDay(d: Date) {
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly i18n: I18nService
+  ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -37,9 +41,9 @@ export class AppointmentsService {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id: appointmentId },
     });
-    if (!appointment) throw new NotFoundException('Agendamiento no encontrado');
+    if (!appointment) throw new NotFoundException(this.i18n.t('appointments.not_found'));
     if (appointment.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return appointment;
   }
 
@@ -133,9 +137,7 @@ export class AppointmentsService {
         where: { id: dto.customerId },
       });
       if (!customer || customer.commerceId !== commerceId)
-        throw new BadRequestException(
-          'Cliente no encontrado en este restaurante'
-        );
+        throw new BadRequestException(this.i18n.t('appointments.customer_not_found'));
     }
 
     return this.prisma.appointment.create({
@@ -165,9 +167,7 @@ export class AppointmentsService {
         where: { id: dto.customerId },
       });
       if (!customer || customer.commerceId !== commerceId)
-        throw new BadRequestException(
-          'Cliente no encontrado en este restaurante'
-        );
+        throw new BadRequestException(this.i18n.t('appointments.customer_not_found'));
     }
 
     return this.prisma.appointment.update({

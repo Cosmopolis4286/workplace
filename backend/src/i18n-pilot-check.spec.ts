@@ -105,4 +105,21 @@ describe('i18n pilot setup', () => {
     const en1 = i18n.t('users.username_cooldown', { lang: 'en', args: { cooldown: 30, daysLeft: 1, count: 1 } });
     expect(en1).toBe('You can only change your username every 30 days. You can change it in 1 day.');
   });
+
+  it('resuelve mensajes del modulo appointments (es/en)', () => {
+    expect(i18n.t('appointments.not_found', { lang: 'es' })).toBe('Agendamiento no encontrado');
+    expect(i18n.t('appointments.not_found', { lang: 'en' })).toBe('Appointment not found');
+    expect(i18n.t('appointments.customer_not_found', { lang: 'es' })).toBe('Cliente no encontrado en este restaurante');
+    expect(i18n.t('appointments.customer_not_found', { lang: 'en' })).toBe('Customer not found in this restaurant');
+  });
+
+  it('resuelve mensajes del modulo delivery (es/en)', () => {
+    expect(i18n.t('delivery.driver.not_found', { lang: 'es' })).toBe('Repartidor no encontrado');
+    expect(i18n.t('delivery.driver.not_found', { lang: 'en' })).toBe('Driver not found');
+    expect(i18n.t('delivery.driver.not_found_in_restaurant', { lang: 'es' })).toBe('Repartidor no encontrado en este restaurante');
+    expect(i18n.t('delivery.driver.not_active', { lang: 'es' })).toBe('El repartidor no está activo');
+    expect(i18n.t('delivery.driver.not_active', { lang: 'en' })).toBe('The driver is not active');
+    expect(i18n.t('delivery.delivery.not_found', { lang: 'es' })).toBe('Entrega no encontrada');
+    expect(i18n.t('delivery.delivery.not_found', { lang: 'en' })).toBe('Delivery not found');
+  });
 });
