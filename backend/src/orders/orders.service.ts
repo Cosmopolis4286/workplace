@@ -315,6 +315,49 @@ export class OrdersService {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // My Orders stats (for customers)
+  // ──────────────────────────────────────────────────────────────────────────
+  async getMyOrdersStats(userEmail: string) {
+    const where = { customerEmail: userEmail };
+
+    const [total, byStatus, totalSpent] = await Promise.all([
+      this.prisma.order.count({ where }),
+      this.prisma.order.groupBy({
+        by: ['status'],
+        where,
+        _count: true,
+      }),
+      this.prisma.order.aggregate({
+        where: { ...where, status: 'ENTREGADO' },
+        _sum: { total: true },
+      }),
+    ]);
+
+    const statusMap = Object.fromEntries(
+      byStatus.map((s) => [s.status, s._count]),
+    );
+    const processingStatuses: OrderStatus[] = [
+      'CONFIRMADO',
+      'PREPARANDO',
+      'LISTO',
+      'EN_ENTREGA',
+    ];
+    const processingOrders = processingStatuses.reduce(
+      (sum, s) => sum + (statusMap[s] ?? 0),
+      0,
+    );
+
+    return {
+      totalOrders: total,
+      pendingOrders: statusMap['PENDIENTE'] ?? 0,
+      processingOrders,
+      completedOrders: statusMap['ENTREGADO'] ?? 0,
+      cancelledOrders: statusMap['CANCELADO'] ?? 0,
+      totalSpent: totalSpent._sum.total ?? 0,
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // My Orders (for customers)
   // ──────────────────────────────────────────────────────────────────────────
   async getMyOrders(userEmail: string, page = 1, limit = 20, status?: string) {

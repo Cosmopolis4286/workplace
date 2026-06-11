@@ -51,6 +51,12 @@ export class OrdersController {
     );
   }
 
+  @Get('stats/mine')
+  @RequirePermission('orders:view')
+  getMyOrdersStats(@CurrentUser() user: any) {
+    return this.ordersService.getMyOrdersStats(user.email);
+  }
+
   @Get('stats')
   @RequirePermission('orders:view')
   getStats(@CurrentUser() user: any) {

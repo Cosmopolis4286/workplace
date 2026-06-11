@@ -179,8 +179,8 @@
           </div>
         </div>
 
-        <!-- Pedidos Marketplace -->
-        <div class="card overflow-hidden">
+        <!-- Pedidos Marketplace (solo si el comercio tiene productos en catálogo) -->
+        <div v-if="hasCatalogProducts" class="card overflow-hidden">
           <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="text-base">🛒</span>
@@ -757,6 +757,7 @@ const mktPending = computed(() => mktOrders.value.filter(o => o.status === 'PEND
 
 const config = useRuntimeConfig()
 const { getHeaders } = useAuth()
+const { usage, fetchUsage } = usePlans()
 
 async function loadMktOrders() {
   mktLoading.value = true
@@ -767,6 +768,9 @@ async function loadMktOrders() {
     mktOrders.value = res.data; mktTotalPages.value = res.totalPages
   } catch { } finally { mktLoading.value = false }
 }
+
+// El comercio tiene productos publicados en el marketplace
+const hasCatalogProducts = computed(() => (usage.value?.usage?.products ?? 0) > 0)
 
 async function updateMktStatus(id: string, status: MktOrderStatus) {
   try {
@@ -781,8 +785,12 @@ function mktChangePage(page: number) { mktPage.value = page; loadMktOrders() }
 function formatMktPrice(p: number) { return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(p) }
 function formatMktDate(d: string) { return new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) }
 
-const { usage, fetchUsage } = usePlans()
-onMounted(() => { loadOrders({ page: 1, limit: 20 }); loadStats(); loadMktOrders(); fetchUsage() })
+onMounted(async () => {
+  loadOrders({ page: 1, limit: 20 })
+  loadStats()
+  await fetchUsage()
+  if (hasCatalogProducts.value) loadMktOrders()
+})
 </script>
 
 <style scoped>
