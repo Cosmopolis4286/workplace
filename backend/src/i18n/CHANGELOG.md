@@ -52,11 +52,20 @@ módulo por módulo para no romper nada y poder revisar incrementos pequeños.
   decorators, ej. `@Matches(... { message: '...' })`) — requieren un
   `ValidationPipe` con i18n aparte; no migrados todavía.
 
+## Increment 3 — Customers + Employees (hecho)
+
+- Namespaces `customers` (`not_found`, `email_taken`) y `employees`
+  (`not_found`, `email_taken`) creados (es/en).
+- Migrados `backend/src/customers/customers.service.ts` y
+  `backend/src/employees/employees.service.ts` (3 mensajes cada uno,
+  incluyendo `common.errors.access_denied` compartido).
+- Verificado en `i18n-pilot-check.spec.ts` (8/8 OK).
+
 ## Próximos incrementos (sin empezar)
 
 - Resto de módulos backend con strings hardcodeados en español: `orders`,
-  `customers`, `appointments`, `delivery`, `expenses`, `menu`, `plans`,
-  `notifications`, `permissions`, `employees`, `users`. Reusar
+  `appointments`, `delivery`, `expenses`, `menu`, `plans`,
+  `notifications`, `permissions`, `users`. Reusar
   `common.errors.access_denied` donde aplique; cada módulo con su propio
   namespace para mensajes específicos (`not_found`, `name_taken`, etc.).
 - Mensajes de validación de DTOs (`class-validator`) vía i18n

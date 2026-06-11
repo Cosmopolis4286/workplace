@@ -63,4 +63,18 @@ describe('i18n pilot setup', () => {
     expect(i18n.t('branches.name_taken', { lang: 'es' })).toBe('Ya existe una sucursal con ese nombre');
     expect(i18n.t('branches.name_taken', { lang: 'en' })).toBe('A branch with that name already exists');
   });
+
+  it('resuelve mensajes del modulo customers (es/en)', () => {
+    expect(i18n.t('customers.not_found', { lang: 'es' })).toBe('Cliente no encontrado');
+    expect(i18n.t('customers.not_found', { lang: 'en' })).toBe('Customer not found');
+    expect(i18n.t('customers.email_taken', { lang: 'es' })).toBe('Ya existe un cliente con ese correo electrónico');
+    expect(i18n.t('customers.email_taken', { lang: 'en' })).toBe('A customer with that email already exists');
+  });
+
+  it('resuelve mensajes del modulo employees (es/en)', () => {
+    expect(i18n.t('employees.not_found', { lang: 'es' })).toBe('Empleado no encontrado');
+    expect(i18n.t('employees.not_found', { lang: 'en' })).toBe('Employee not found');
+    expect(i18n.t('employees.email_taken', { lang: 'es' })).toBe('Ya existe un empleado con ese correo electrónico');
+    expect(i18n.t('employees.email_taken', { lang: 'en' })).toBe('An employee with that email already exists');
+  });
 });
