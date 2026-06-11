@@ -108,10 +108,19 @@ módulo por módulo para no romper nada y poder revisar incrementos pequeños.
 - Migrado `expenses.service.ts` (8 mensajes).
 - Verificado en `i18n-pilot-check.spec.ts` (15/15 OK).
 
+## Increment 7 — Menu (hecho)
+
+- Namespace `menu` creado: `category.*` (`not_found`, `name_taken`,
+  `has_products`) y `product.*` (`not_found`).
+- Migrado `menu.service.ts` (6 mensajes), reusando
+  `common.errors.access_denied` en `assertCategoryOwnership` y
+  `assertProductOwnership`.
+- Verificado en `i18n-pilot-check.spec.ts` (16/16 OK).
+
 ## Próximos incrementos (sin empezar)
 
 - Resto de módulos backend con strings hardcodeados en español: `orders`,
-  `menu`, `plans`, `notifications`, `permissions`. Reusar
+  `plans`, `notifications`, `permissions`. Reusar
   `common.errors.access_denied` donde aplique; cada módulo con su propio
   namespace para mensajes específicos (`not_found`, `name_taken`, etc.).
 - Mensajes de validación de DTOs (`class-validator`) vía i18n
