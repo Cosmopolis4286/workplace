@@ -26,6 +26,7 @@
           :loading="isResending"
           @click="resendVerification"
         />
+        <p v-if="resendError" class="text-sm text-red-600">{{ resendError }}</p>
       </div>
 
       <!-- Success/Resent state -->
@@ -109,6 +110,7 @@
             @click="navigateTo('/register')"
           />
         </div>
+        <p v-if="resendError" class="text-sm text-red-600">{{ resendError }}</p>
       </template>
     </div>
 
@@ -130,6 +132,7 @@ import { ref, computed, onMounted } from 'vue'
 import { EnvelopeIcon, CheckIcon, ArrowPathIcon, ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 import { useApi } from '~/composables/useApi'
+import { getApiErrorMessage } from '~/composables/useApiErrors'
 
 const { currentUser } = useAuth()
 
@@ -137,6 +140,7 @@ const displayEmail = computed(() => currentUser.value?.email ?? 'tu correo')
 
 const isResending = ref(false)
 const resentSuccess = ref(false)
+const resendError = ref('')
 
 const verifySteps = computed(() => [
   { label: 'Cuenta creada', desc: 'Tu cuenta ha sido registrada exitosamente', done: true },
@@ -146,12 +150,13 @@ const verifySteps = computed(() => [
 
 const resendVerification = async () => {
   isResending.value = true
+  resendError.value = ''
   try {
     const { post } = useApi()
     await post('/auth/send-verification', { email: currentUser.value?.email })
     resentSuccess.value = true
-  } catch (err: any) {
-    console.error('Error resending verification:', err)
+  } catch (err: unknown) {
+    resendError.value = getApiErrorMessage(err, 'No se pudo reenviar el correo. Inténtalo de nuevo.')
   } finally {
     isResending.value = false
   }
