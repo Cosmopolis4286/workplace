@@ -147,6 +147,11 @@ export default defineNuxtRouteMiddleware((to: any) => {
     }
   }
 
+  // ── 4c-2. /pedidos es exclusivo de comercios → NORMAL usa /mis-pedidos ───
+  if (path.startsWith('/pedidos') && role === 'NORMAL') {
+    return navigateTo('/mis-pedidos')
+  }
+
   // ── 4d. Verificar permiso por ruta (usando la tabla PERMISSION_ROUTE_MAP) ─
   // Solo verificar si los permisos ya están inicializados (evitar falsos negativos)
   if (initialized.value) {
