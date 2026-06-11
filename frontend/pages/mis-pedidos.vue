@@ -167,8 +167,15 @@
 
         <p v-if="!loading && filtered.length > 0" class="text-xs text-gray-400 text-right px-1">
           {{ filtered.length }} pedido{{ filtered.length !== 1 ? 's' : '' }}
-          {{ activeFilter !== 'ALL' ? 'filtrados' : 'en total' }}
+          {{ activeFilter !== 'ALL' ? `filtrados (de ${orders.length} cargados)` : `de ${total} en total` }}
         </p>
+
+        <!-- Cargar más -->
+        <div v-if="!loading && orders.length < total" class="text-center">
+          <button class="btn-secondary text-sm" :disabled="loadingMore" @click="loadMore">
+            {{ loadingMore ? 'Cargando...' : 'Cargar más pedidos' }}
+          </button>
+        </div>
       </div>
 
       <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
@@ -205,7 +212,7 @@
         <div v-if="totalSpent > 0" class="card p-5">
           <p class="text-xs text-gray-500 mb-1">Total gastado</p>
           <p class="text-2xl font-black text-gray-900">{{ formatCurrency(totalSpent) }}</p>
-          <p class="text-xs text-gray-400 mt-1">en {{ countByStatus('ENTREGADO') }} pedido{{ countByStatus('ENTREGADO') !== 1 ? 's' : '' }} entregado{{ countByStatus('ENTREGADO') !== 1 ? 's' : '' }}</p>
+          <p class="text-xs text-gray-400 mt-1">en {{ stats?.completedOrders ?? 0 }} pedido{{ (stats?.completedOrders ?? 0) !== 1 ? 's' : '' }} entregado{{ (stats?.completedOrders ?? 0) !== 1 ? 's' : '' }}</p>
         </div>
 
       </div>
@@ -281,10 +288,23 @@ const filters = [
 // ─── Estado ───────────────────────────────────────────────────────────────────
 const orders      = ref<Order[]>([])
 const total       = ref(0)
+const page        = ref(1)
+const limit       = 20
 const loading     = ref(false)
+const loadingMore = ref(false)
 const error       = ref<string | null>(null)
 const activeFilter = ref('ALL')
 const expanded    = ref<Set<string>>(new Set())
+
+interface MyOrdersStats {
+  totalOrders: number
+  pendingOrders: number
+  processingOrders: number
+  completedOrders: number
+  cancelledOrders: number
+  totalSpent: number
+}
+const stats = ref<MyOrdersStats | null>(null)
 
 // ─── Computados ───────────────────────────────────────────────────────────────
 const filtered = computed(() => {
@@ -295,28 +315,24 @@ const filtered = computed(() => {
 })
 
 const headerStats = computed(() => [
-  { label: 'Total',      value: String(total.value) },
-  { label: 'Pendientes', value: String(countByStatus('PENDIENTE')) },
-  { label: 'En Proceso', value: String(countByStatusProcessing()) },
-  { label: 'Entregados', value: String(countByStatus('ENTREGADO')) },
+  { label: 'Total',      value: String(stats.value?.totalOrders ?? total.value) },
+  { label: 'Pendientes', value: String(stats.value?.pendingOrders ?? 0) },
+  { label: 'En Proceso', value: String(stats.value?.processingOrders ?? 0) },
+  { label: 'Entregados', value: String(stats.value?.completedOrders ?? 0) },
 ])
 
 const statusSummary = computed(() => [
-  { label: 'Pendientes',  count: countByStatus('PENDIENTE'),  dot: 'bg-yellow-400' },
-  { label: 'En Proceso',  count: countByStatusProcessing(),   dot: 'bg-blue-400'   },
-  { label: 'Entregados',  count: countByStatus('ENTREGADO'),  dot: 'bg-green-400'  },
-  { label: 'Cancelados',  count: countByStatus('CANCELADO'),  dot: 'bg-red-400'    },
+  { label: 'Pendientes',  count: stats.value?.pendingOrders ?? 0,    dot: 'bg-yellow-400' },
+  { label: 'En Proceso',  count: stats.value?.processingOrders ?? 0, dot: 'bg-blue-400'   },
+  { label: 'Entregados',  count: stats.value?.completedOrders ?? 0,  dot: 'bg-green-400'  },
+  { label: 'Cancelados',  count: stats.value?.cancelledOrders ?? 0,  dot: 'bg-red-400'    },
 ])
 
 const latestActive = computed(() =>
   orders.value.find(o => PROCESSING.includes(o.status) || o.status === 'PENDIENTE') ?? null
 )
 
-const totalSpent = computed(() =>
-  orders.value
-    .filter(o => o.status === 'ENTREGADO')
-    .reduce((sum, o) => sum + o.total, 0)
-)
+const totalSpent = computed(() => stats.value?.totalSpent ?? 0)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function countByStatus(s: Order['status']) {
@@ -327,7 +343,10 @@ function countByStatusProcessing() {
 }
 function countByFilter(v: string) {
   if (v === 'ALL')        return total.value
-  if (v === 'PROCESSING') return countByStatusProcessing()
+  if (v === 'PENDIENTE')  return stats.value?.pendingOrders ?? countByStatus('PENDIENTE')
+  if (v === 'PROCESSING') return stats.value?.processingOrders ?? countByStatusProcessing()
+  if (v === 'ENTREGADO')  return stats.value?.completedOrders ?? countByStatus('ENTREGADO')
+  if (v === 'CANCELADO')  return stats.value?.cancelledOrders ?? countByStatus('CANCELADO')
   return countByStatus(v as Order['status'])
 }
 
@@ -374,9 +393,10 @@ function timeAgo(d: string) {
 async function fetchOrders() {
   loading.value = true
   error.value   = null
+  page.value    = 1
   try {
     const res = await $fetch<{ data: Order[]; total: number }>(
-      `${apiUrl}/orders/mine`,
+      `${apiUrl}/orders/mine?page=1&limit=${limit}`,
       { headers: getHeaders() }
     )
     orders.value = res.data
@@ -388,7 +408,36 @@ async function fetchOrders() {
   }
 }
 
-onMounted(fetchOrders)
+async function loadMore() {
+  loadingMore.value = true
+  try {
+    const nextPage = page.value + 1
+    const res = await $fetch<{ data: Order[]; total: number }>(
+      `${apiUrl}/orders/mine?page=${nextPage}&limit=${limit}`,
+      { headers: getHeaders() }
+    )
+    orders.value = [...orders.value, ...res.data]
+    total.value  = res.total
+    page.value   = nextPage
+  } catch (e: any) {
+    error.value = e?.data?.message ?? 'Error al cargar más pedidos'
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+async function fetchStats() {
+  try {
+    stats.value = await $fetch<MyOrdersStats>(`${apiUrl}/orders/stats/mine`, { headers: getHeaders() })
+  } catch {
+    // non-critical
+  }
+}
+
+onMounted(() => {
+  fetchOrders()
+  fetchStats()
+})
 </script>
 
 <style scoped>
