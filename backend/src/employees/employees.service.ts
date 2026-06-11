@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -14,7 +15,8 @@ import { PlanLimitsService } from '../plans/plan-limits.service';
 export class EmployeesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly planLimits: PlanLimitsService
+    private readonly planLimits: PlanLimitsService,
+    private readonly i18n: I18nService
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -33,9 +35,9 @@ export class EmployeesService {
     const employee = await this.prisma.employee.findUnique({
       where: { id: employeeId },
     });
-    if (!employee) throw new NotFoundException('Empleado no encontrado');
+    if (!employee) throw new NotFoundException(this.i18n.t('employees.not_found'));
     if (employee.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return employee;
   }
 
@@ -85,9 +87,7 @@ export class EmployeesService {
         where: { email_commerceId: { email: dto.email, commerceId } },
       });
       if (exists)
-        throw new ConflictException(
-          'Ya existe un empleado con ese correo electrónico'
-        );
+        throw new ConflictException(this.i18n.t('employees.email_taken'));
     }
 
     return this.prisma.employee.create({
@@ -104,9 +104,7 @@ export class EmployeesService {
         where: { email_commerceId: { email: dto.email, commerceId } },
       });
       if (exists && exists.id !== employeeId)
-        throw new ConflictException(
-          'Ya existe un empleado con ese correo electrónico'
-        );
+        throw new ConflictException(this.i18n.t('employees.email_taken'));
     }
 
     return this.prisma.employee.update({

@@ -4,13 +4,17 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 @Injectable()
 export class CustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly i18n: I18nService
+  ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -28,9 +32,9 @@ export class CustomersService {
     const customer = await this.prisma.customer.findUnique({
       where: { id: customerId },
     });
-    if (!customer) throw new NotFoundException('Cliente no encontrado');
+    if (!customer) throw new NotFoundException(this.i18n.t('customers.not_found'));
     if (customer.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return customer;
   }
 
@@ -78,9 +82,7 @@ export class CustomersService {
         where: { email_commerceId: { email: dto.email, commerceId } },
       });
       if (exists)
-        throw new ConflictException(
-          'Ya existe un cliente con ese correo electrónico'
-        );
+        throw new ConflictException(this.i18n.t('customers.email_taken'));
     }
 
     return this.prisma.customer.create({
@@ -97,9 +99,7 @@ export class CustomersService {
         where: { email_commerceId: { email: dto.email, commerceId } },
       });
       if (exists && exists.id !== customerId)
-        throw new ConflictException(
-          'Ya existe un cliente con ese correo electrónico'
-        );
+        throw new ConflictException(this.i18n.t('customers.email_taken'));
     }
 
     return this.prisma.customer.update({
