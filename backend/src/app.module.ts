@@ -1,9 +1,14 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { I18nModule, AcceptLanguageResolver, QueryResolver } from 'nestjs-i18n';
 import { join } from 'path';
+import { SecurityContextMiddleware } from './common/middleware/security-context.middleware';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
+import { SpanishThrottlerGuard } from './common/guards/spanish-throttler.guard';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -27,11 +32,28 @@ import { ServicesModule } from './services/services.module';
 import { PlansModule } from './plans/plans.module';
 import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
 import { HealthModule } from './health/health.module';
+import { CategoriesGlobalModule } from './categories-global/categories-global.module';
+import { CorridasModule } from './corridas/corridas.module';
+import { JobsModule } from './jobs/jobs.module';
+import { TelegramModule } from './telegram/telegram.module';
+import { WalletsModule } from './wallets/wallets.module'
+import { SearchTabsModule } from './search-tabs/search-tabs.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    I18nModule.forRoot({
+      fallbackLanguage: 'es',
+      loaderOptions: {
+        path: join(__dirname, 'i18n'),
+        watch: true,
+      },
+      resolvers: [
+        { use: QueryResolver, options: ['lang'] },
+        AcceptLanguageResolver,
+      ],
+    }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
@@ -60,6 +82,22 @@ import { HealthModule } from './health/health.module';
     PlansModule,
     ExchangeRatesModule,
     HealthModule,
+    CategoriesGlobalModule,
+    CorridasModule,
+    JobsModule,
+    TelegramModule,
+    WalletsModule,
+    SearchTabsModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: SpanishThrottlerGuard },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(SecurityContextMiddleware)
+      .forRoutes('*'); // Aplicar a todas las rutas
+  }
+}

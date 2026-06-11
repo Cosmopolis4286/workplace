@@ -1,0 +1,418 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# Deploy Pipeline - Orquestador principal
+# Todas las operaciones complejas están en actions reutilizables
+name: Production Deploy
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment (staging/production)'
+        required: false
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      force_rollback:
+        description: 'Ejecutar rollback manual si el deploy falla'
+        required: false
+        default: false
+        type: boolean
+      run-seed:
+        description: 'Ejecutar prisma db seed tras el deploy (⚠️ modifica datos)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '22'
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_USERNAME }}
+  BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/workplace-backend:${{ github.event_name == 'release' && github.event.release.tag_name || format('main-{0}', github.sha) }}
+  FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend:${{ github.event_name == 'release' && github.event.release.tag_name || format('main-{0}', github.sha) }}
+  NODE_PORT: ${{ vars.NODE_PORT || '3001' }}
+  FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '3000' }}
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  deployments: write
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 0. VALIDACIÓN DE ENTORNO
+  # ═══════════════════════════════════════════════════════════════════════════
+  validate:
+    name: Validar Secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      staging-ready: ${{ steps.validate.outputs.staging-ready }}
+      production-ready: ${{ steps.validate.outputs.production-ready }}
+      base-valid: ${{ steps.validate.outputs.base-secrets-valid }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/validate-environment
+      id: validate
+      with:
+        docker-username: ${{ secrets.DOCKER_USERNAME }}
+        docker-password: ${{ secrets.DOCKER_PASSWORD }}
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        staging-host: ${{ secrets.STAGING_HOST }}
+        staging-user: ${{ secrets.STAGING_USER }}
+        production-host: ${{ secrets.PRODUCTION_HOST }}
+        production-user: ${{ secrets.PRODUCTION_USER }}
+        production-domain: ${{ secrets.PRODUCTION_DOMAIN }}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 1. TESTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  test-unit:
+    name: Tests Unitarios
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/setup-tests
+      with:
+        node-version: '22'
+    - uses: ./.github/actions/run-tests
+      with:
+        coverage-threshold: '5'
+
+  test-e2e:
+    name: Tests E2E
+    runs-on: ubuntu-latest
+    needs: [validate, test-unit]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/setup-node-pnpm
+      with:
+        node-version: '22'
+    - name: Ejecutar E2E
+      run: |
+        chmod +x scripts/ci/run-e2e-optimized.sh
+        ./scripts/ci/run-e2e-optimized.sh
+    - name: Diagnóstico de fallo
+      if: failure()
+      run: |
+        cd e2e-tests
+        docker compose -f docker-compose.test.yml ps
+        docker compose -f docker-compose.test.yml logs test-backend --tail 50
+        docker compose -f docker-compose.test.yml logs postgres --tail 20
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report
+        path: e2e-tests/playwright-report/
+        retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 2. BUILD
+  # ═══════════════════════════════════════════════════════════════════════════
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    needs: [validate, test-unit, test-e2e]
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/build-image
+      with:
+        service: backend
+        dockerfile: ./backend/Dockerfile.prod
+        image-name: ${{ secrets.DOCKER_USERNAME }}/workplace-backend
+        image-tag: main-${{ github.sha }}
+        docker-username: ${{ secrets.DOCKER_USERNAME }}
+        docker-password: ${{ secrets.DOCKER_PASSWORD }}
+        github-token: ${{ secrets.WORKPLACE_PAT }}
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: [validate, test-unit, test-e2e]
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/build-image
+      with:
+        service: frontend
+        dockerfile: ./frontend/Dockerfile.prod
+        image-name: ${{ secrets.DOCKER_USERNAME }}/workplace-frontend
+        image-tag: main-${{ github.sha }}
+        docker-username: ${{ secrets.DOCKER_USERNAME }}
+        docker-password: ${{ secrets.DOCKER_PASSWORD }}
+        github-token: ${{ secrets.WORKPLACE_PAT }}
+        build-args: |
+          APP_ENV=production
+          API_URL=${{ vars.API_URL || '/api' }}
+          # NOTA: USE_DEMO se lee del .env del servidor en runtime
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 3. DEPLOY STAGING
+  # ═══════════════════════════════════════════════════════════════════════════
+  deploy-staging:
+    name: Deploy Staging
+    runs-on: ubuntu-latest
+    needs: [validate, build-backend, build-frontend]
+    if: |
+      (github.event.inputs.environment == 'staging' || 
+       (github.event_name == 'push' && github.ref == 'refs/heads/main')) && 
+      needs.validate.outputs.staging-ready == 'true'
+    timeout-minutes: 20
+    environment:
+      name: staging
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.STAGING_HOST }}
+    
+    - uses: ./.github/actions/db-migrate
+      with:
+        ssh-user: ${{ secrets.STAGING_USER }}
+        ssh-host: ${{ secrets.STAGING_HOST }}
+        deploy-path: /opt/workplace
+        run-migrate: 'false'  # Staging usa db push manual
+        run-seed: ${{ github.event.inputs.run-seed }}
+    
+    - uses: ./.github/actions/deploy-server
+      with:
+        ssh-user: ${{ secrets.STAGING_USER }}
+        ssh-host: ${{ secrets.STAGING_HOST }}
+        backend-image: ${{ env.BACKEND_IMAGE }}
+        frontend-image: ${{ env.FRONTEND_IMAGE }}
+        current-sha: ${{ github.sha }}
+        acme-email: ${{ secrets.ACME_EMAIL }}
+        deploy-path: /opt/workplace
+        node-port: ${{ env.NODE_PORT }}
+        frontend-port: ${{ env.FRONTEND_PORT }}
+
+  smoke-staging:
+    name: Smoke Test Staging
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: needs.deploy-staging.result == 'success'
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/smoke-test
+      with:
+        environment: staging
+        domain: staging.${{ secrets.PRODUCTION_DOMAIN }}
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        ssh-host: ${{ secrets.STAGING_HOST }}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 4. DEPLOY PRODUCCIÓN
+  # ═══════════════════════════════════════════════════════════════════════════
+  deploy-prod:
+    name: Deploy Producción
+    runs-on: ubuntu-latest
+    needs: [validate, build-backend, build-frontend, smoke-staging]
+    if: |
+      always() &&
+      (github.event.inputs.environment == 'production' ||
+       github.event_name == 'release' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
+      needs.validate.outputs.production-ready == 'true' &&
+      needs.build-backend.result == 'success' &&
+      needs.build-frontend.result == 'success' &&
+      (needs.smoke-staging.result == 'success' || needs.smoke-staging.result == 'skipped')
+    timeout-minutes: 25
+    environment:
+      name: production
+    outputs:
+      deployment-id: ${{ steps.gh-deploy.outputs.deployment-id }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: ./.github/actions/github-deployment
+      id: gh-deploy
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        environment: production
+        sha: ${{ github.sha }}
+        backend-image: ${{ env.BACKEND_IMAGE }}
+        frontend-image: ${{ env.FRONTEND_IMAGE }}
+        domain: ${{ secrets.PRODUCTION_DOMAIN }}
+        action: create
+
+    - uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.PRODUCTION_HOST }}
+
+    - uses: ./.github/actions/db-migrate
+      with:
+        ssh-user: ${{ secrets.PRODUCTION_USER }}
+        ssh-host: ${{ secrets.PRODUCTION_HOST }}
+        deploy-path: /opt/workplace
+        run-migrate: 'true'  # Producción aplica migraciones automáticamente
+        run-seed: ${{ github.event.inputs.run-seed }}
+
+    - uses: ./.github/actions/deploy-server
+      with:
+        ssh-user: ${{ secrets.PRODUCTION_USER }}
+        ssh-host: ${{ secrets.PRODUCTION_HOST }}
+        backend-image: ${{ env.BACKEND_IMAGE }}
+        frontend-image: ${{ env.FRONTEND_IMAGE }}
+        current-sha: ${{ github.sha }}
+        acme-email: ${{ secrets.ACME_EMAIL }}
+        deploy-path: /opt/workplace
+        node-port: ${{ env.NODE_PORT }}
+        frontend-port: ${{ env.FRONTEND_PORT }}
+
+    - name: Métricas
+      if: always()
+      run: |
+        echo "📊 Deploy: ${{ job.status }}"
+        echo "📊 SHA: ${{ github.sha }}"
+        echo "📊 Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+    - uses: ./.github/actions/github-deployment
+      if: always() && steps.gh-deploy.outputs.deployment-id
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        environment: production
+        sha: ${{ github.sha }}
+        deployment-id: ${{ steps.gh-deploy.outputs.deployment-id }}
+        domain: ${{ secrets.PRODUCTION_DOMAIN }}
+        status: ${{ job.status == 'success' && 'success' || 'failure' }}
+        action: update
+
+  smoke-prod:
+    name: Smoke Test Producción
+    runs-on: ubuntu-latest
+    needs: deploy-prod
+    if: always() && needs.deploy-prod.result == 'success'
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/smoke-test
+      with:
+        environment: production
+        domain: ${{ secrets.PRODUCTION_DOMAIN }}
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        ssh-host: ${{ secrets.PRODUCTION_HOST }}
+        backend-retries: 12
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 5. ROLLBACK
+  # ═══════════════════════════════════════════════════════════════════════════
+  rollback-manual:
+    name: Rollback Manual
+    runs-on: ubuntu-latest
+    needs: [deploy-prod, smoke-prod]
+    if: |
+      always() &&
+      github.event.inputs.force_rollback == 'true' &&
+      needs.deploy-prod.result == 'success' &&
+      (needs.smoke-prod.result == 'success' || needs.smoke-prod.result == 'skipped')
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.PRODUCTION_HOST }}
+    - uses: ./.github/actions/rollback
+      with:
+        ssh-user: ${{ secrets.PRODUCTION_USER }}
+        ssh-host: ${{ secrets.PRODUCTION_HOST }}
+
+  rollback-auto:
+    name: Rollback Automático
+    runs-on: ubuntu-latest
+    needs: [deploy-prod, smoke-prod]
+    if: |
+      always() &&
+      (needs.smoke-prod.result == 'failure' ||
+       (needs.deploy-prod.result == 'failure' && needs.smoke-prod.result == 'skipped'))
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        production-host: ${{ secrets.PRODUCTION_HOST }}
+    - uses: ./.github/actions/rollback
+      with:
+        ssh-user: ${{ secrets.PRODUCTION_USER }}
+        ssh-host: ${{ secrets.PRODUCTION_HOST }}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 6. NOTIFICACIÓN
+  # ═══════════════════════════════════════════════════════════════════════════
+  notify:
+    name: Notificar Estado
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, smoke-staging, deploy-prod, smoke-prod, rollback-auto, rollback-manual]
+    if: always()
+    steps:
+    - uses: actions/checkout@v4
+    - name: Calcular estado
+      id: status
+      run: |
+        STAGING_OK="${{ needs.deploy-staging.result == 'success' && needs.smoke-staging.result != 'failure' }}"
+        PROD_DEPLOYED="${{ needs.deploy-prod.result }}"
+        PROD_OK="${{ needs.deploy-prod.result == 'success' && needs.smoke-prod.result != 'failure' }}"
+        ROLLBACK_AUTO="${{ needs.rollback-auto.result == 'success' }}"
+        ROLLBACK_MANUAL="${{ needs.rollback-manual.result == 'success' }}"
+
+        if [[ "$PROD_OK" == "true" && "$ROLLBACK_AUTO" != "true" && "$ROLLBACK_MANUAL" != "true" ]]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "message=🎉 Deploy a producción exitoso" >> $GITHUB_OUTPUT
+        elif [[ "$ROLLBACK_AUTO" == "true" ]]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=🚨 Deploy falló - rollback automático ejecutado" >> $GITHUB_OUTPUT
+        elif [[ "$ROLLBACK_MANUAL" == "true" ]]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=⏮️ Rollback manual ejecutado" >> $GITHUB_OUTPUT
+        elif [[ "$PROD_DEPLOYED" == "failure" ]]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ Deploy a producción falló" >> $GITHUB_OUTPUT
+        elif [[ "$PROD_DEPLOYED" == "success" && "${{ needs.smoke-prod.result }}" == "failure" ]]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ Smoke test de producción falló" >> $GITHUB_OUTPUT
+        elif [[ "$STAGING_OK" == "true" && "$PROD_DEPLOYED" == "skipped" ]]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "message=✅ Deploy a staging exitoso" >> $GITHUB_OUTPUT
+        elif [[ "${{ needs.deploy-staging.result }}" == "failure" || "${{ needs.smoke-staging.result }}" == "failure" ]]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ Deploy a staging falló" >> $GITHUB_OUTPUT
+        else
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ Pipeline falló" >> $GITHUB_OUTPUT
+        fi
+    - uses: ./.github/actions/notify
+      with:
+        status: ${{ steps.status.outputs.status }}
+        repository: ${{ github.repository }}
+        branch: ${{ github.ref_name }}
+        sha: ${{ github.sha }}
+        actor: ${{ github.actor }}
+        message: ${{ steps.status.outputs.message }}
+        discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        slack-webhook: ${{ secrets.SLACK_WEBHOOK }}

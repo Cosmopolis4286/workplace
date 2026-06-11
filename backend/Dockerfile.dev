@@ -18,9 +18,9 @@ COPY backend/package.json ./package.json
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 COPY backend/prisma ./prisma
 
-# Instalar dependencias del backend (incluyendo devDependencies)
+# Instalar dependencias del backend (TODAS - incluye dev y prisma)
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --no-frozen-lockfile --dev
+    pnpm install --no-frozen-lockfile
 
 # Copiar código fuente
 COPY backend/src ./src
@@ -30,4 +30,6 @@ RUN pnpm prisma:generate
 
 EXPOSE 3001
 
-CMD ["pnpm", "dev"]
+# Regenerar Prisma client y correr migraciones en cada arranque para
+# que el volumen montado siempre tenga el cliente actualizado con el schema actual
+CMD ["sh", "-c", "pnpm prisma:generate && pnpm prisma migrate deploy && pnpm dev"]

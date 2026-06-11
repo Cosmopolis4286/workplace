@@ -129,13 +129,31 @@ export class ServicesController {
   getMyRequests(
     @CurrentUser() user: any,
     @Query('page') page?: string,
-    @Query('limit') limit?: string
+    @Query('limit') limit?: string,
+    @Query('as') asRole?: 'provider' | 'client'
   ) {
     return this.servicesService.getMyServiceRequests(
       user.id,
       parseInt(page ?? '1'),
-      parseInt(limit ?? '20')
+      parseInt(limit ?? '20'),
+      asRole ?? 'provider'
     );
+  }
+
+  @Get('requests/:id')
+  @UseGuards(JwtAuthGuard)
+  getRequest(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.servicesService.getServiceRequest(id, user.id);
+  }
+
+  @Patch('requests/:id')
+  @UseGuards(JwtAuthGuard)
+  updateRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() body: { status?: string; providerNotes?: string }
+  ) {
+    return this.servicesService.updateServiceRequest(id, user.id, body);
   }
 
   @Patch('requests/:id/status')
@@ -179,5 +197,44 @@ export class ServicesController {
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   deleteCategory(@Param('id') id: string) {
     return this.servicesService.deleteCategory(id);
+  }
+
+  // ─── Modalities (public + admin) ───────────────────────────────────────────
+
+  @Get('modalities')
+  @UseGuards(OptionalJwtAuthGuard)
+  getModalities() {
+    return this.servicesService.getModalities();
+  }
+
+  @Get('modalities/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  getAllModalities() {
+    return this.servicesService.getAllModalities();
+  }
+
+  @Post('modalities')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  createModality(@Body() dto: { name: string; value: string; emoji?: string; sortOrder?: number }) {
+    return this.servicesService.createModality(dto);
+  }
+
+  @Put('modalities/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  updateModality(
+    @Param('id') id: string,
+    @Body() dto: Partial<{ name: string; value: string; emoji: string; sortOrder: number; isActive: boolean }>
+  ) {
+    return this.servicesService.updateModality(id, dto);
+  }
+
+  @Delete('modalities/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  deleteModality(@Param('id') id: string) {
+    return this.servicesService.deleteModality(id);
   }
 }

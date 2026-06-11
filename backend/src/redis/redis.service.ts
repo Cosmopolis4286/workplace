@@ -23,11 +23,54 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.client.on('connect', () => this.logger.log('Redis connected'));
-    this.client.on('error', (err) => this.logger.error('Redis error', err));
+    this.client.on('error', (err) => this.logger.error('Redis error', err.stack));
   }
 
   async onModuleDestroy() {
     await this.client.quit();
+  }
+
+  async disconnect(): Promise<void> {
+    await this.client.quit();
+  }
+  
+  // --- Métodos básicos de Redis ---
+  async set(key: string, value: string): Promise<void> {
+    await this.client.set(key, value);
+  }
+  
+  async setex(key: string, seconds: number, value: string): Promise<void> {
+    await this.client.setex(key, seconds, value);
+  }
+  
+  async get(key: string): Promise<string | null> {
+    return await this.client.get(key);
+  }
+  
+  async del(key: string): Promise<void> {
+    await this.client.del(key);
+  }
+  
+  async delMultiple(keys: string[]): Promise<void> {
+    if (keys.length > 0) {
+      await this.client.del(...keys);
+    }
+  }
+  
+  async keys(pattern: string): Promise<string[]> {
+    return await this.client.keys(pattern);
+  }
+  
+  async lpush(key: string, value: string): Promise<number> {
+    return await this.client.lpush(key, value);
+  }
+  
+  async ltrim(key: string, start: number, stop: number): Promise<void> {
+    await this.client.ltrim(key, start, stop);
+  }
+  
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    return await this.client.lrange(key, start, stop);
   }
 
   // --- Token blacklist (logout) ---
@@ -51,28 +94,23 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getLoginAttempts(email: string): Promise<number> {
-    const val = await this.client.get(`login_attempts:${email}`);
-    return val ? parseInt(val, 10) : 0;
+    const key = `login_attempts:${email}`;
+    const attempts = await this.client.get(key);
+    return attempts ? parseInt(attempts) : 0;
   }
 
   async resetLoginAttempts(email: string): Promise<void> {
-    await this.client.del(`login_attempts:${email}`);
+    const key = `login_attempts:${email}`;
+    await this.client.del(key);
   }
 
   // --- Generic cache ---
-  async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
-    if (ttlSeconds) {
-      await this.client.setex(key, ttlSeconds, value);
-    } else {
-      await this.client.set(key, value);
-    }
+  async exists(key: string): Promise<boolean> {
+    const result = await this.client.exists(key);
+    return result === 1;
   }
 
-  async get(key: string): Promise<string | null> {
-    return this.client.get(key);
-  }
-
-  async del(key: string): Promise<void> {
-    await this.client.del(key);
+  async expire(key: string, seconds: number): Promise<void> {
+    await this.client.expire(key, seconds);
   }
 }

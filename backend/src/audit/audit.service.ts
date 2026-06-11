@@ -38,9 +38,9 @@ export class AuditService {
     meta?: Record<string, any>
   ) {
     try {
-      await this.prisma.systemLog.create({
-        data: { level, message, context, stack, meta: meta as any },
-      });
+      const data: any = { level, message, context, meta: meta as any };
+      if (stack) data.stack = stack; // Only include if has value
+      await this.prisma.systemLog.create({ data });
     } catch {
       // Fire-and-forget
     }

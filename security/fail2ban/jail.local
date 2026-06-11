@@ -1,0 +1,64 @@
+# Fail2Ban Configuration for Workplace
+# Protects against HTTP/HTTPS abuse and brute force attacks
+
+[DEFAULT]
+# Ban IP for 1 hour (3600 seconds)
+bantime = 3600
+# Find IP within 10 minutes
+findtime = 600
+# Retry count before banning
+maxretry = 5
+# Ignore local network
+ignoreip = 127.0.0.1/8 ::1 172.20.0.0/16
+
+# Nginx HTTP protection
+[nginx-http-auth]
+enabled = true
+filter = nginx-http-auth
+logpath = /var/log/nginx/error.log
+maxretry = 3
+bantime = 3600
+
+# Nginx rate limiting protection  
+[nginx-limit-req]
+enabled = true
+filter = nginx-limit-req
+logpath = /var/log/nginx/error.log
+maxretry = 10
+findtime = 600
+bantime = 3600
+
+# Protect against bot/scanner attacks
+[nginx-badbots]
+enabled = true
+filter = nginx-badbots
+logpath = /var/log/nginx/access.log
+maxretry = 2
+bantime = 86400
+findtime = 600
+
+# Protect against HTTP floods
+[nginx-http-flood]
+enabled = true
+filter = nginx-http-flood
+logpath = /var/log/nginx/access.log
+maxretry = 200
+findtime = 300
+bantime = 7200
+
+# Protect against SSL/TLS abuse
+[nginx-ssl-abuse]
+enabled = true
+filter = nginx-ssl-abuse
+logpath = /var/log/nginx/error.log
+maxretry = 5
+bantime = 3600
+
+# Protect against ACME challenge abuse
+[nginx-acme-abuse]
+enabled = true
+filter = nginx-acme-abuse
+logpath = /var/log/nginx/access.log
+maxretry = 50
+findtime = 300
+bantime = 1800

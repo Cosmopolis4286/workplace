@@ -4,9 +4,8 @@
     <!-- ─── HERO ──────────────────────────────────────────────────────────── -->
     <div
       class="relative overflow-hidden px-4 py-10 sm:py-14 transition-colors duration-500"
-      :class="activeTab === 'productos'
-        ? 'bg-gradient-to-br from-red-600 via-red-500 to-orange-500'
-        : 'bg-gradient-to-br from-blue-700 via-blue-500 to-indigo-500'"
+      :style="activeTabData ? `background: linear-gradient(to bottom right, ${darken(activeTabData.color, 30)}, ${activeTabData.color})` : ''"
+      :class="!activeTabData ? 'bg-gradient-to-br from-red-700 via-red-600 to-red-500' : ''"
     >
       <div class="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-white/5 pointer-events-none" />
       <div class="absolute -bottom-20 -left-10 w-80 h-80 rounded-full bg-white/5 pointer-events-none" />
@@ -16,37 +15,34 @@
           {{ greeting }}, <strong class="text-white">{{ firstName }}</strong> {{ greetingEmoji }}
         </p>
         <h1 class="text-3xl sm:text-4xl font-black text-white mb-5 leading-tight">
-          {{ activeTab === 'productos' ? '¿Qué vas a pedir hoy?' : '¿Qué servicio necesitas?' }}
+          {{ heroTitle }}
         </h1>
 
-        <!-- Tabs -->
+        <!-- Tabs (dynamic from API) -->
         <div class="inline-flex bg-white/15 backdrop-blur-sm rounded-2xl p-1 mb-5">
-          <button
-            class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
-            :class="activeTab === 'productos' ? 'bg-white text-red-600 shadow-sm' : 'text-white hover:bg-white/10'"
-            @click="setTab('productos')"
-          >
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-              </svg>
-              Productos
-            </span>
-          </button>
-          <button
-            class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
-            :class="activeTab === 'servicios' ? 'bg-white text-blue-600 shadow-sm' : 'text-white hover:bg-white/10'"
-            @click="setTab('servicios')"
-          >
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-              </svg>
-              Servicios
-            </span>
-          </button>
+          <template v-if="searchTabs.length > 0">
+            <button
+              v-for="tab in searchTabs"
+              :key="tab.key"
+              class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
+              :class="activeTab === tab.key ? 'bg-white shadow-sm' : 'text-white hover:bg-white/10'"
+              :style="activeTab === tab.key ? `color: ${tab.color}` : ''"
+              @click="setTab(tab.key)"
+            >
+              <span class="flex items-center gap-1.5">
+                <svg v-if="tab.icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon" />
+                </svg>
+                {{ tab.label }}
+              </span>
+            </button>
+          </template>
+          <!-- Skeleton genérico mientras cargan los tabs dinámicos -->
+          <template v-else>
+            <div v-for="n in 3" :key="n" class="px-5 py-2 rounded-xl">
+              <div class="h-5 w-20 bg-white/20 rounded animate-pulse"></div>
+            </div>
+          </template>
         </div>
 
         <!-- Stats -->
@@ -60,7 +56,9 @@
             </div>
             <div class="text-left">
               <p class="text-white font-black text-xl leading-none">{{ displayCount }}</p>
-              <p class="text-white/70 text-[11px] leading-none mt-0.5">{{ activeTab === 'productos' ? 'productos' : 'servicios' }}</p>
+              <p class="text-white/70 text-[11px] leading-none mt-0.5">
+                {{ activeTab === 'productos' ? 'productos' : activeTab === 'servicios' ? 'servicios' : 'empleos' }}
+              </p>
             </div>
           </div>
           <div class="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-2.5">
@@ -72,7 +70,9 @@
             </div>
             <div class="text-left">
               <p class="text-white font-black text-xl leading-none">{{ displayGroups }}</p>
-              <p class="text-white/70 text-[11px] leading-none mt-0.5">{{ activeTab === 'productos' ? 'restaurantes' : 'proveedores' }}</p>
+              <p class="text-white/70 text-[11px] leading-none mt-0.5">
+                {{ activeTab === 'productos' ? 'comercios' : activeTab === 'servicios' ? 'proveedores' : 'empleadores' }}
+              </p>
             </div>
           </div>
         </div>
@@ -87,9 +87,12 @@
           <input
             v-model="searchInput"
             type="text"
-            :placeholder="activeTab === 'productos' ? 'Busca productos, restaurantes, categorías...' : 'Busca servicios, categorías, proveedores...'"
+            :placeholder="activeTab === 'productos' ? 'Busca productos, comercios, categorías...' : activeTab === 'servicios' ? 'Busca servicios, categorías, proveedores...' : 'Busca empleos, categorías, empresas...'"
             class="w-full pl-12 pr-10 py-4 rounded-2xl text-sm text-gray-900 bg-white shadow-lg placeholder-gray-400 outline-none focus:ring-4 focus:ring-white/30 transition-all duration-200"
             @input="handleSearchInput"
+            @focus="handleSearchFocus"
+            @blur="handleSearchBlur"
+            @keyup.enter="handleSearchEnter"
           />
           <button
             v-if="searchInput"
@@ -100,6 +103,33 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </button>
+
+          <!-- Sugerencias: búsquedas recientes -->
+          <div
+            v-if="showSuggestions"
+            class="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-40 text-left"
+          >
+            <p class="px-4 pt-1 pb-2 text-[11px] font-bold text-gray-400 uppercase tracking-wide">Búsquedas recientes</p>
+            <button
+              v-for="item in recentSearchesForTab"
+              :key="`${item.tab}-${item.term}`"
+              class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors group"
+              @mousedown.prevent="applyRecentSearch(item.term)"
+            >
+              <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span class="flex-1 truncate text-left">{{ item.term }}</span>
+              <span
+                class="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-200 text-gray-400 transition-opacity"
+                @mousedown.prevent.stop="removeRecentSearch(item.term, item.tab)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -121,6 +151,18 @@
               </svg>
               Todos
             </button>
+            <button
+              v-if="pFavorites.length > 0"
+              class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+              :class="pShowFavoritesOnly ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              @click="pShowFavoritesOnly = !pShowFavoritesOnly"
+            >
+              <svg class="w-3.5 h-3.5" :fill="pShowFavoritesOnly ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 21l-7.682-7.682a4.5 4.5 0 010-6.364z"/>
+              </svg>
+              Favoritos
+              <span class="opacity-60">({{ pFavorites.length }})</span>
+            </button>
             <template v-if="pLoadingCategories">
               <div v-for="n in 5" :key="n" class="flex-shrink-0 h-8 w-24 bg-gray-100 rounded-xl animate-pulse" />
             </template>
@@ -139,7 +181,7 @@
           </template>
 
           <!-- Tab Servicios -->
-          <template v-else>
+          <template v-else-if="activeTab === 'servicios'">
             <button
               class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
               :class="!sActiveCategoryId ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
@@ -167,6 +209,86 @@
             </button>
           </template>
 
+          <!-- Tab Empleos -->
+          <template v-else-if="activeTab === 'empleos'">
+            <button
+              class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+              :class="!jActiveCategoryId ? 'bg-emerald-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              @click="jClearCategory"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+              Todos
+            </button>
+            <button
+              v-if="suggestedJobCategory && jActiveCategoryId !== suggestedJobCategory.id"
+              class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+              :title="`Basado en tu rubro: ${userCategoryName}`"
+              @click="jFilterByCategory(suggestedJobCategory.id)"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+              </svg>
+              Para ti: {{ suggestedJobCategory.name }}
+            </button>
+            <template v-if="jLoadingCategories">
+              <div v-for="n in 5" :key="n" class="flex-shrink-0 h-8 w-24 bg-gray-100 rounded-xl animate-pulse" />
+            </template>
+            <button
+              v-for="cat in jCategories"
+              :key="cat.id"
+              class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+              :class="jActiveCategoryId === cat.id ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              :style="jActiveCategoryId === cat.id ? { backgroundColor: cat.color || '#10B981' } : {}"
+              @click="jFilterByCategory(cat.id)"
+            >
+              <span class="w-2 h-2 rounded-full flex-shrink-0" :style="{ backgroundColor: jActiveCategoryId === cat.id ? 'rgba(255,255,255,0.8)' : (cat.color || '#10B981') }" />
+              {{ cat.name }}
+              <span class="opacity-60">({{ cat.jobCount }})</span>
+            </button>
+          </template>
+
+          <div class="flex-1 min-w-2"></div>
+
+          <!-- Toggle "Cerca de mí" -->
+          <button
+            v-if="hasLocation && activeTab === 'productos'"
+            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            :class="pNearMe ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+            @click="pToggleNearMe"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Cerca de mí
+          </button>
+          <button
+            v-else-if="hasLocation && activeTab === 'servicios'"
+            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            :class="sNearMe ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+            @click="sToggleNearMe"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Cerca de mí
+          </button>
+          <button
+            v-else-if="hasLocation && activeTab === 'empleos'"
+            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            :class="jNearMe ? 'bg-emerald-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+            @click="jToggleNearMe"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Cerca de mí
+          </button>
+
         </div>
       </div>
     </div>
@@ -186,7 +308,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
                 </svg>
-                Restaurantes
+                Comercios
               </h3>
               <div class="space-y-0.5">
                 <button
@@ -208,17 +330,13 @@
                 </button>
               </div>
             </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wide mb-3">Ordenar por</h3>
-              <div class="space-y-0.5">
-                <button
-                  v-for="opt in sortOptions" :key="opt.value"
-                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="pSelectedSort === opt.value ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="pApplySort(opt.value)"
-                >{{ opt.label }}</button>
-              </div>
-            </div>
+            <PriceRangeFilter
+              :model-min="pQuery.priceMin"
+              :model-max="pQuery.priceMax"
+              accent="red"
+              @apply="pApplyPriceRange"
+            />
+            <SortDropdown v-model="pSelectedSort" :options="sortOptions" accent="red" @update:model-value="pApplySort" />
             <button
               v-if="pActiveCategory || pActiveRestaurantId || (activeTab === 'productos' && searchInput)"
               class="w-full text-xs font-semibold text-red-600 py-2.5 px-4 rounded-xl border border-red-200 hover:bg-red-50 transition-colors"
@@ -229,7 +347,7 @@
           </template>
 
           <!-- SIDEBAR SERVICIOS -->
-          <template v-else>
+          <template v-else-if="activeTab === 'servicios'">
             <div v-if="sProviders.length > 0" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
               <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -258,21 +376,83 @@
                 </button>
               </div>
             </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wide mb-3">Ordenar por</h3>
-              <div class="space-y-0.5">
-                <button
-                  v-for="opt in serviceSortOptions" :key="opt.value"
-                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="sSelectedSort === opt.value ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="sApplySort(opt.value)"
-                >{{ opt.label }}</button>
-              </div>
-            </div>
+            <SortDropdown v-model="sSelectedSort" :options="serviceSortOptions" accent="blue" @update:model-value="sApplySort" />
             <button
               v-if="sActiveCategoryId || sActiveProviderId || (activeTab === 'servicios' && searchInput)"
               class="w-full text-xs font-semibold text-blue-600 py-2.5 px-4 rounded-xl border border-blue-200 hover:bg-blue-50 transition-colors"
               @click="sResetFilters"
+            >
+              ✕ Limpiar filtros
+            </button>
+          </template>
+
+          <!-- SIDEBAR EMPLEOS -->
+          <template v-else-if="activeTab === 'empleos'">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wide mb-3">Tipo de Empleo</h3>
+              <div class="space-y-0.5">
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="!jActiveType ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jClearType"
+                >Todos</button>
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="jActiveType === 'TIEMPO_COMPLETO' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByType('TIEMPO_COMPLETO')"
+                >Tiempo Completo</button>
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="jActiveType === 'MEDIO_TIEMPO' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByType('MEDIO_TIEMPO')"
+                >Medio Tiempo</button>
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="jActiveType === 'FREELANCE' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByType('FREELANCE')"
+                >Freelance</button>
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="jActiveType === 'TEMPORAL' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByType('TEMPORAL')"
+                >Temporal</button>
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="jActiveType === 'PRACTICAS' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByType('PRACTICAS')"
+                >Prácticas</button>
+              </div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wide mb-3">Modalidad</h3>
+              <div class="space-y-0.5">
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="!jActiveModality ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jClearModality"
+                >Todas</button>
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="jActiveModality === 'PRESENCIAL' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByModality('PRESENCIAL')"
+                >Presencial</button>
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="jActiveModality === 'REMOTO' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByModality('REMOTO')"
+                >Remoto</button>
+                <button
+                  class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                  :class="jActiveModality === 'HIBRIDO' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByModality('HIBRIDO')"
+                >Híbrido</button>
+              </div>
+            </div>
+            <SortDropdown v-model="jSelectedSort" :options="jobSortOptions" accent="emerald" @update:model-value="jApplySort" />
+            <button
+              v-if="jActiveCategoryId || jActiveType || jActiveModality || (activeTab === 'empleos' && searchInput)"
+              class="w-full text-xs font-semibold text-emerald-600 py-2.5 px-4 rounded-xl border border-emerald-200 hover:bg-emerald-50 transition-colors"
+              @click="jResetFilters"
             >
               ✕ Limpiar filtros
             </button>
@@ -306,6 +486,42 @@
               </div>
             </div>
 
+            <!-- Filtros activos -->
+            <ActiveFilterChips :chips="pActiveChips" accent="red" @clear-all="pResetFilters" />
+
+            <!-- Cerca de mí: tier label -->
+            <div v-if="pLocationTierLabel" class="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-4">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              {{ pLocationTierLabel }}
+            </div>
+
+            <!-- Vistos recientemente -->
+            <div v-if="recentlyViewedForTab.length > 0" class="mb-4">
+              <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Vistos recientemente</p>
+              <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <button
+                  v-for="item in recentlyViewedForTab"
+                  :key="`${item.type}-${item.id}`"
+                  class="flex-shrink-0 flex items-center gap-2 bg-white border border-gray-100 rounded-xl shadow-sm pl-1.5 pr-3 py-1.5 hover:border-red-200 hover:shadow-md transition-all"
+                  @click="openRecentlyViewed(item)"
+                >
+                  <div class="w-8 h-8 rounded-lg overflow-hidden bg-red-50 flex-shrink-0">
+                    <img v-if="item.image" :src="imageSrc(item.image)" :alt="item.name" class="w-full h-full object-cover" />
+                    <div v-else class="w-full h-full flex items-center justify-center text-red-200">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    </div>
+                  </div>
+                  <div class="text-left">
+                    <p class="text-xs font-bold text-gray-800 line-clamp-1 max-w-[120px]">{{ item.name }}</p>
+                    <p v-if="item.price" class="text-[11px] text-red-600 font-semibold">${{ formatPrice(item.price) }}</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <!-- Error -->
             <div v-if="pError" class="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
               <p class="text-sm font-semibold text-red-700 mb-3">{{ pError }}</p>
@@ -328,20 +544,29 @@
             </div>
 
             <!-- Vacío -->
-            <div v-else-if="pProducts.length === 0" class="bg-white rounded-2xl border border-gray-100 py-16 text-center">
+            <div v-else-if="pVisibleProducts.length === 0" class="bg-white rounded-2xl border border-gray-100 py-16 text-center">
               <div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                  <path v-if="pShowFavoritesOnly" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 21l-7.682-7.682a4.5 4.5 0 010-6.364z"/>
+                  <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </div>
               <p class="text-base font-bold text-gray-800 mb-1">Sin resultados</p>
-              <p class="text-sm text-gray-400 mb-6">{{ searchInput ? `No hay productos para "${searchInput}"` : 'No hay productos con estos filtros' }}</p>
-              <button class="px-5 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors" @click="pResetFilters">Ver todos los productos</button>
+              <p class="text-sm text-gray-400 mb-6">
+                <span v-if="pShowFavoritesOnly">Aún no tienes productos favoritos</span>
+                <span v-else>{{ searchInput ? `No hay productos para "${searchInput}"` : 'No hay productos con estos filtros' }}</span>
+              </p>
+              <button v-if="pShowFavoritesOnly" class="px-5 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors" @click="pShowFavoritesOnly = false">Ver todos los productos</button>
+              <button v-else class="px-5 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors" @click="pResetFilters">Ver todos los productos</button>
             </div>
 
             <!-- Grid -->
             <div v-else class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-              <CatalogProductCard v-for="product in pProducts" :key="product.id" :product="product" :isOwner="isOwnProduct(product)" @view="openProduct" @order="openOrderModal" />
+              <CatalogProductCard
+                v-for="product in pVisibleProducts" :key="product.id" :product="product"
+                :isOwner="isOwnProduct(product)" :isFavorite="isFavorite(product.id)"
+                @view="openProduct" @order="openOrderModal" @toggle-favorite="toggleFavorite"
+              />
             </div>
 
             <!-- Paginación -->
@@ -364,7 +589,7 @@
           </template>
 
           <!-- ── TAB SERVICIOS ────────────────────────────────────────────── -->
-          <template v-else>
+          <template v-else-if="activeTab === 'servicios'">
 
             <!-- Toolbar -->
             <div class="flex items-center justify-between mb-4 gap-3">
@@ -383,6 +608,39 @@
                 <select v-model="sSelectedSort" class="text-xs font-medium border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-700 outline-none" @change="sApplySort(sSelectedSort)">
                   <option v-for="opt in serviceSortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                 </select>
+              </div>
+            </div>
+
+            <!-- Cerca de mí: tier label -->
+            <div v-if="sLocationTierLabel" class="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 mb-4">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              {{ sLocationTierLabel }}
+            </div>
+
+            <!-- Vistos recientemente -->
+            <div v-if="recentlyViewedForTab.length > 0" class="mb-4">
+              <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Vistos recientemente</p>
+              <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <button
+                  v-for="item in recentlyViewedForTab"
+                  :key="`${item.type}-${item.id}`"
+                  class="flex-shrink-0 flex items-center gap-2 bg-white border border-gray-100 rounded-xl shadow-sm pl-1.5 pr-3 py-1.5 hover:border-blue-200 hover:shadow-md transition-all"
+                  @click="openRecentlyViewed(item)"
+                >
+                  <div class="w-8 h-8 rounded-lg overflow-hidden bg-blue-50 flex-shrink-0">
+                    <img v-if="item.image" :src="imageSrc(item.image)" :alt="item.name" class="w-full h-full object-cover" />
+                    <div v-else class="w-full h-full flex items-center justify-center text-blue-200">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    </div>
+                  </div>
+                  <div class="text-left">
+                    <p class="text-xs font-bold text-gray-800 line-clamp-1 max-w-[120px]">{{ item.name }}</p>
+                    <p v-if="item.subtitle" class="text-[11px] text-gray-400 line-clamp-1 max-w-[120px]">{{ item.subtitle }}</p>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -443,6 +701,12 @@
                       {{ srv.category.name }}
                     </span>
                   </div>
+                  <div v-if="isOwnService(srv)" class="absolute top-2 right-2">
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-blue-600 border border-blue-200 shadow-sm flex items-center gap-1">
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+                      Mi servicio
+                    </span>
+                  </div>
                 </div>
 
                 <!-- Info -->
@@ -461,6 +725,20 @@
                     <span class="text-xs text-gray-500 truncate">{{ srv.user.firstName }} {{ srv.user.lastName }}</span>
                   </div>
 
+                  <!-- Rating del proveedor -->
+                  <div class="flex items-center gap-1 mb-3">
+                    <div class="flex items-center gap-0.5">
+                      <template v-for="n in 5" :key="n">
+                        <svg class="w-3 h-3" :class="n <= Math.round(srv.user.rating ?? 0) ? 'text-amber-400' : 'text-gray-200'" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                      </template>
+                    </div>
+                    <span v-if="srv.user.rating" class="text-[11px] font-semibold text-gray-600">{{ srv.user.rating.toFixed(1) }}</span>
+                    <span v-else class="text-[11px] text-gray-400">Sin reseñas</span>
+                    <span v-if="srv.user.reviewsCount > 0" class="text-[10px] text-gray-400">({{ srv.user.reviewsCount }})</span>
+                  </div>
+
                   <!-- Tags -->
                   <div v-if="srv.tags.length" class="flex flex-wrap gap-1 mb-3">
                     <span v-for="tag in srv.tags.slice(0,3)" :key="tag" class="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium">{{ tag }}</span>
@@ -471,6 +749,9 @@
                     <div>
                       <span class="text-lg font-black text-blue-600">${{ formatPrice(srv.price) }}</span>
                       <span v-if="srv.priceUnit" class="text-xs text-gray-400 ml-1">/ {{ srv.priceUnit }}</span>
+                      <div v-if="defaultRate && srv.price" class="text-xs text-gray-500 mt-0.5">
+                        {{ defaultRate.symbol }} {{ (srv.price * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                      </div>
                     </div>
                     <div v-if="srv.duration" class="flex items-center gap-1 text-xs text-gray-400">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -502,6 +783,175 @@
             </div>
           </template>
 
+          <!-- ── TAB EMPLEOS ─────────────────────────────────────────────── -->
+          <template v-else-if="activeTab === 'empleos'">
+
+            <!-- Toolbar -->
+            <div class="flex items-center justify-between mb-4 gap-3">
+              <div>
+                <p class="text-sm font-bold text-gray-800">
+                  <span v-if="jLoading">Buscando...</span>
+                  <span v-else><span class="text-emerald-600">{{ jTotal }}</span> {{ jTotal === 1 ? ' empleo disponible' : ' empleos disponibles' }}</span>
+                </p>
+                <p v-if="jActiveCategoryId || jActiveType || jActiveModality" class="text-xs text-gray-400 mt-0.5">
+                  <span v-if="jActiveCategoryId">Categoría: <strong>{{ jCategories.find(c => c.id === jActiveCategoryId)?.name }}</strong></span>
+                  <span v-if="jActiveType"> · Tipo: <strong>{{ jActiveType }}</strong></span>
+                  <span v-if="jActiveModality"> · Modalidad: <strong>{{ jActiveModality }}</strong></span>
+                </p>
+              </div>
+              <div class="lg:hidden">
+                <select v-model="jSelectedSort" class="text-xs font-medium border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-700 outline-none" @change="jApplySort(jSelectedSort)">
+                  <option v-for="opt in jobSortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Cerca de mí: tier label -->
+            <div v-if="jLocationTierLabel" class="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 mb-4">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              {{ jLocationTierLabel }}
+            </div>
+
+            <!-- Vistos recientemente -->
+            <div v-if="recentlyViewedForTab.length > 0" class="mb-4">
+              <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Vistos recientemente</p>
+              <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <button
+                  v-for="item in recentlyViewedForTab"
+                  :key="`${item.type}-${item.id}`"
+                  class="flex-shrink-0 flex items-center gap-2 bg-white border border-gray-100 rounded-xl shadow-sm pl-1.5 pr-3 py-1.5 hover:border-emerald-200 hover:shadow-md transition-all"
+                  @click="openRecentlyViewed(item)"
+                >
+                  <div class="w-8 h-8 rounded-lg overflow-hidden bg-emerald-50 flex-shrink-0 flex items-center justify-center text-emerald-200">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                  </div>
+                  <div class="text-left">
+                    <p class="text-xs font-bold text-gray-800 line-clamp-1 max-w-[120px]">{{ item.name }}</p>
+                    <p v-if="item.subtitle" class="text-[11px] text-gray-400 line-clamp-1 max-w-[120px]">{{ item.subtitle }}</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Error -->
+            <div v-if="jError" class="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center">
+              <p class="text-sm font-semibold text-emerald-700 mb-3">{{ jError }}</p>
+              <button class="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl" @click="jLoadJobs">Reintentar</button>
+            </div>
+
+            <!-- Skeleton -->
+            <div v-else-if="jLoading" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div v-for="n in 6" :key="n" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-pulse">
+                <div class="p-4 space-y-3">
+                  <div class="h-5 bg-gray-200 rounded w-3/4" />
+                  <div class="h-3 bg-gray-200 rounded w-full" />
+                  <div class="h-3 bg-gray-200 rounded w-2/3" />
+                  <div class="flex items-center gap-2 mt-3">
+                    <div class="h-8 w-8 bg-gray-200 rounded-full" />
+                    <div class="h-3 bg-gray-200 rounded w-24" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Vacío -->
+            <div v-else-if="jJobs.length === 0" class="bg-white rounded-2xl border border-gray-100 py-16 text-center">
+              <div class="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <p class="text-base font-bold text-gray-800 mb-1">Sin empleos disponibles</p>
+              <p class="text-sm text-gray-400 mb-6">{{ searchInput ? `No hay empleos para "${searchInput}"` : 'No hay empleos con estos filtros' }}</p>
+              <button class="px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors" @click="jResetFilters">Ver todos los empleos</button>
+            </div>
+
+            <!-- Grid empleos -->
+            <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div
+                v-for="job in jJobs"
+                :key="job.id"
+                class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
+                @click="openJob(job)"
+              >
+                <div class="p-4">
+                  <!-- Categoría -->
+                  <div v-if="job.category" class="mb-3">
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full text-white" :style="{ backgroundColor: job.category.color || '#10B981' }">
+                      {{ job.category.name }}
+                    </span>
+                  </div>
+
+                  <!-- Título y descripción -->
+                  <h3 class="font-bold text-gray-900 text-sm mb-2 line-clamp-1">{{ job.title }}</h3>
+                  <p class="text-xs text-gray-500 mb-3 line-clamp-2">{{ job.description }}</p>
+
+                  <!-- Empleador -->
+                  <div class="flex items-center gap-2 mb-3">
+                    <div class="w-7 h-7 rounded-full overflow-hidden bg-emerald-100 flex-shrink-0">
+                      <img v-if="job.employer.avatar" :src="avatarSrc(job.employer.avatar)" :alt="job.employer.firstName" class="w-full h-full object-cover" />
+                      <span v-else class="w-full h-full flex items-center justify-center text-[10px] font-bold text-emerald-600">
+                        {{ job.employer.firstName[0] }}{{ job.employer.lastName[0] }}
+                      </span>
+                    </div>
+                    <span class="text-xs text-gray-500 truncate">{{ job.employer.firstName }} {{ job.employer.lastName }}</span>
+                  </div>
+
+                  <!-- Tags de tipo y modalidad -->
+                  <div class="flex flex-wrap gap-1 mb-3">
+                    <span class="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-medium">{{ job.type.replace('_', ' ') }}</span>
+                    <span class="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-medium">{{ job.modality }}</span>
+                    <span v-if="job.experienceLevel" class="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full font-medium">{{ job.experienceLevel }}</span>
+                  </div>
+
+                  <!-- Ubicación -->
+                  <div v-if="job.location" class="flex items-center gap-1 text-xs text-gray-400 mb-3">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    {{ job.location }}
+                  </div>
+
+                  <!-- Salario -->
+                  <div v-if="job.salaryMin || job.salaryMax" class="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <div class="text-emerald-600 font-black text-sm">
+                      <span v-if="job.salaryMin">${{ formatPrice(job.salaryMin) }}</span>
+                      <span v-if="job.salaryMin && job.salaryMax"> - </span>
+                      <span v-if="job.salaryMax">${{ formatPrice(job.salaryMax) }}</span>
+                      <span v-if="job.salaryCurrency" class="text-xs font-normal text-gray-400 ml-0.5">{{ job.salaryCurrency }}</span>
+                    </div>
+                    <div v-if="job._count?.applications !== undefined" class="text-xs text-gray-400">
+                      {{ job._count.applications }} aplicaciones
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Paginación empleos -->
+            <div v-if="jTotalPages > 1" class="flex items-center justify-center gap-1.5 mt-8">
+              <button class="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                :disabled="jCurrentPage <= 1" @click="jChangePage(jCurrentPage - 1)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <template v-for="page in jVisiblePages" :key="String(page)">
+                <span v-if="page === '...'" class="w-9 h-9 flex items-center justify-center text-xs text-gray-400">…</span>
+                <button v-else class="w-9 h-9 flex items-center justify-center rounded-xl text-sm font-bold transition-all"
+                  :class="page === jCurrentPage ? 'bg-emerald-600 text-white shadow-sm' : 'border border-gray-200 bg-white text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200'"
+                  @click="jChangePage(page as number)">{{ page }}</button>
+              </template>
+              <button class="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                :disabled="jCurrentPage >= jTotalPages" @click="jChangePage(jCurrentPage + 1)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </template>
+
         </div>
       </div>
     </div>
@@ -512,7 +962,7 @@
         leave-active-class="duration-150 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-75">
         <button v-if="showScrollTop"
           class="fixed bottom-8 right-8 z-[150] w-11 h-11 rounded-2xl bg-white shadow-xl border border-gray-100 flex items-center justify-center text-gray-600 hover:text-white hover:border-transparent transition-all duration-200 active:scale-90"
-          :class="activeTab === 'productos' ? 'hover:bg-red-600' : 'hover:bg-blue-600'"
+          :class="activeTab === 'productos' ? 'hover:bg-red-600' : activeTab === 'servicios' ? 'hover:bg-blue-600' : 'hover:bg-emerald-600'"
           @click="scrollToTop">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/>
@@ -544,7 +994,12 @@
               <div class="p-5">
                 <div class="flex items-start justify-between gap-3 mb-3">
                   <h2 class="text-xl font-black text-gray-900 leading-tight">{{ selectedProduct.name }}</h2>
-                  <span class="text-2xl font-black text-red-600 flex-shrink-0">${{ formatPrice(selectedProduct.price) }}</span>
+                  <div class="text-right flex-shrink-0">
+                    <span class="text-2xl font-black text-red-600">${{ formatPrice(selectedProduct.price) }}</span>
+                    <div v-if="defaultRate && selectedProduct.price" class="text-xs text-gray-500">
+                      {{ defaultRate.symbol }} {{ (selectedProduct.price * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    </div>
+                  </div>
                 </div>
                 <p v-if="selectedProduct.description" class="text-sm text-gray-500 mb-4 leading-relaxed">{{ selectedProduct.description }}</p>
                 <div class="flex flex-wrap gap-2 mb-4">
@@ -609,6 +1064,9 @@
                   <div class="text-right flex-shrink-0">
                     <span class="text-2xl font-black text-blue-600">${{ formatPrice(selectedService.price) }}</span>
                     <p v-if="selectedService.priceUnit" class="text-xs text-gray-400">/ {{ selectedService.priceUnit }}</p>
+                    <div v-if="defaultRate && selectedService.price" class="text-xs text-gray-500">
+                      {{ defaultRate.symbol }} {{ (selectedService.price * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    </div>
                   </div>
                 </div>
                 <p v-if="selectedService.description" class="text-sm text-gray-500 mb-4 leading-relaxed">{{ selectedService.description }}</p>
@@ -625,6 +1083,19 @@
                       <p class="text-sm font-semibold text-gray-800">{{ selectedService.user.firstName }} {{ selectedService.user.lastName }}</p>
                       <p v-if="selectedService.user.category" class="text-xs text-gray-400">{{ selectedService.user.subcategory?.name ?? selectedService.user.category.name }}</p>
                     </div>
+                  </div>
+                  <!-- Rating del proveedor -->
+                  <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-0.5">
+                      <template v-for="n in 5" :key="n">
+                        <svg class="w-3.5 h-3.5" :class="n <= Math.round(selectedService.user.rating ?? 0) ? 'text-amber-400' : 'text-gray-200'" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                      </template>
+                    </div>
+                    <span v-if="selectedService.user.rating" class="text-xs font-semibold text-gray-600">{{ selectedService.user.rating.toFixed(1) }}</span>
+                    <span v-else class="text-xs text-gray-400">Sin reseñas</span>
+                    <span v-if="selectedService.user.reviewsCount > 0" class="text-[11px] text-gray-400">({{ selectedService.user.reviewsCount }})</span>
                   </div>
                   <span v-if="selectedService.duration" class="flex items-center gap-1.5 text-xs font-medium bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -656,11 +1127,131 @@
           </Transition>
         </div>
       </Transition>
-      <!-- Modal pedido -->
+
+      <!-- Modal empleo -->
+      <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100"
+        leave-active-class="duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="selectedJob" class="fixed inset-0 z-[200] flex items-center justify-center p-4" @click.self="selectedJob = null">
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="selectedJob = null" />
+          <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0">
+            <div v-if="selectedJob" class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <div class="relative aspect-video bg-emerald-50 rounded-t-3xl overflow-hidden">
+                <div class="w-full h-full bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center">
+                  <svg class="w-16 h-16 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                      d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  </svg>
+                </div>
+                <div v-if="selectedJob.category" class="absolute top-3 left-3">
+                  <span class="text-xs font-bold px-2.5 py-1 rounded-full text-white shadow" :style="{ backgroundColor: selectedJob.category.color || '#10B981' }">{{ selectedJob.category.name }}</span>
+                </div>
+                <button class="absolute top-3 right-3 w-8 h-8 rounded-xl bg-black/30 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/50 transition-colors" @click="selectedJob = null">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div class="p-5">
+                <div class="flex items-start justify-between gap-3 mb-2">
+                  <h2 class="text-xl font-black text-gray-900 leading-tight">{{ selectedJob.title }}</h2>
+                  <div v-if="selectedJob.salaryMin || selectedJob.salaryMax" class="text-right flex-shrink-0">
+                    <div class="text-emerald-600 font-black text-base">
+                      <span v-if="selectedJob.salaryMin">${{ formatPrice(selectedJob.salaryMin) }}</span>
+                      <span v-if="selectedJob.salaryMin && selectedJob.salaryMax"> - </span>
+                      <span v-if="selectedJob.salaryMax">${{ formatPrice(selectedJob.salaryMax) }}</span>
+                    </div>
+                    <p v-if="selectedJob.salaryCurrency" class="text-xs text-gray-400">{{ selectedJob.salaryCurrency }}</p>
+                  </div>
+                </div>
+                <p v-if="selectedJob.description" class="text-sm text-gray-500 mb-4 leading-relaxed">{{ selectedJob.description }}</p>
+
+                <!-- Empleador -->
+                <div class="flex items-center gap-2 w-full mb-4">
+                  <div class="w-8 h-8 rounded-full overflow-hidden bg-emerald-100 flex-shrink-0">
+                    <img v-if="selectedJob.employer.avatar" :src="avatarSrc(selectedJob.employer.avatar)" :alt="selectedJob.employer.firstName" class="w-full h-full object-cover" />
+                    <span v-else class="w-full h-full flex items-center justify-center text-xs font-bold text-emerald-600">
+                      {{ selectedJob.employer.firstName[0] }}{{ selectedJob.employer.lastName[0] }}
+                    </span>
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold text-gray-800">{{ selectedJob.employer.firstName }} {{ selectedJob.employer.lastName }}</p>
+                    <p v-if="selectedJob.employer.category" class="text-xs text-gray-400">{{ selectedJob.employer.subcategory?.name ?? selectedJob.employer.category.name }}</p>
+                  </div>
+                </div>
+
+                <!-- Tags de tipo, modalidad, experiencia -->
+                <div class="flex flex-wrap gap-1.5 mb-4">
+                  <span class="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full font-medium border border-emerald-100">{{ selectedJob.type.replace('_', ' ') }}</span>
+                  <span class="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full font-medium border border-emerald-100">{{ selectedJob.modality }}</span>
+                  <span v-if="selectedJob.experienceLevel" class="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full font-medium border border-emerald-100">{{ selectedJob.experienceLevel }}</span>
+                </div>
+
+                <!-- Ubicación -->
+                <div v-if="selectedJob.location" class="flex items-center gap-1.5 text-xs text-gray-400 mb-4">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  {{ selectedJob.location }}
+                </div>
+
+                <!-- Tags -->
+                <div v-if="selectedJob.tags.length" class="flex flex-wrap gap-1.5 mb-4">
+                  <span v-for="tag in selectedJob.tags" :key="tag" class="text-xs px-2.5 py-1 bg-gray-50 text-gray-500 rounded-full font-medium border border-gray-100">{{ tag }}</span>
+                </div>
+
+                <div class="flex items-center gap-2 pt-3 border-t border-gray-100">
+                  <NuxtLink v-if="selectedJob.employer.username" :to="`/p/${selectedJob.employer.username}`"
+                    class="flex-shrink-0 text-xs font-semibold text-emerald-600 py-2.5 px-4 rounded-xl border border-emerald-200 hover:bg-emerald-50 transition-colors">
+                    Ver perfil
+                  </NuxtLink>
+                  <span v-if="selectedJob._count?.applications !== undefined" class="flex-1 text-center text-xs text-gray-400">
+                    {{ selectedJob._count.applications }} aplicaciones
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+
+      <!-- Modal pedido individual -->
       <ModalsCatalogOrderModal v-model="showOrderModal" :product="orderProduct" @success="onOrderSuccess" />
 
       <!-- Modal solicitud de servicio -->
       <ModalsCatalogServiceRequestModal v-model="showServiceRequestModal" :service="serviceRequestTarget" @success="onServiceRequestSuccess" />
+
+      <!-- Carrito drawer (solo en tab productos) -->
+      <CartDrawer v-if="activeTab === 'productos'" />
+
+      <!-- Botón flotante carrito (solo en tab productos) -->
+      <Transition
+        enter-active-class="duration-300 ease-out"
+        enter-from-class="opacity-0 translate-y-4 scale-90"
+        enter-to-class="opacity-100 translate-y-0 scale-100"
+        leave-active-class="duration-200 ease-in"
+        leave-from-class="opacity-100 translate-y-0 scale-100"
+        leave-to-class="opacity-0 translate-y-4 scale-90"
+      >
+        <button
+          v-if="activeTab === 'productos' && cartTotalItems > 0"
+          class="fixed bottom-6 right-6 z-[350] flex items-center gap-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-sm px-5 py-3.5 rounded-2xl shadow-xl shadow-red-300 transition-all duration-200"
+          @click="openCart"
+        >
+          <!-- Icono carrito -->
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          <span>Ver carrito</span>
+          <!-- Badge cantidad -->
+          <span class="bg-white text-red-600 text-xs font-black w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">
+            {{ cartTotalItems > 99 ? '99+' : cartTotalItems }}
+          </span>
+          <!-- Precio total -->
+          <span class="border-l border-red-400/60 pl-3 text-red-100 font-semibold text-xs">
+            ${{ formatPrice(cartTotalPrice) }}
+          </span>
+        </button>
+      </Transition>
 
       <!-- Toast éxito pedido -->
       <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
@@ -685,23 +1276,37 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import type { CatalogProduct } from '~/composables/useCatalog'
+import type { CatalogProduct, CatalogSortBy } from '~/composables/useCatalog'
 import type { CatalogService } from '~/composables/useServices'
+import type { Job } from '~/composables/useJobs'
+import { useJobs } from '~/composables/useJobs'
+import { useExchangeRates } from '~/composables/useExchangeRates'
+import { useCart } from '~/composables/useCart'
+import { useSearchTabs } from '~/composables/useSearchTabs'
+import { useCatalogFilters } from '~/composables/useCatalogFilters'
+import PriceRangeFilter from '~/components/search/PriceRangeFilter.vue'
+import SortDropdown from '~/components/search/SortDropdown.vue'
+import ActiveFilterChips from '~/components/search/ActiveFilterChips.vue'
 
 definePageMeta({ layout: 'default' })
 
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 
+// ─── Carrito ──────────────────────────────────────────────────────────────────
+const { totalItems: cartTotalItems, totalPrice: cartTotalPrice, openCart } = useCart()
+
 // ─── Productos ────────────────────────────────────────────────────────────────
 const {
   products: pProducts, categories: pCategories, restaurants: pRestaurants,
   loading: pLoading, loadingCategories: pLoadingCategories,
   error: pError, total: pTotal, totalPages: pTotalPages, query: pQuery,
+  locationTier: pLocationTier,
   loadCategories: pLoadCategories, loadRestaurants: pLoadRestaurants, loadProducts: pLoadProducts,
   search: pSearch, filterByCategory: pFilterByCategory, filterByRestaurant: pFilterByRestaurant,
-  changePage: pChangePage, changeSort: pChangeSort, resetFilters: pResetFilters,
-  toggleFavorite, isFavorite,
+  filterByPriceRange: pFilterByPriceRange,
+  changePage: pChangePage, changeSort: pChangeSort, resetFilters: pResetFilters, toggleNearMe: pToggleNearMe,
+  toggleFavorite, isFavorite, favorites: pFavorites,
 } = useCatalog()
 
 // ─── Servicios ────────────────────────────────────────────────────────────────
@@ -709,21 +1314,42 @@ const {
   services: sServices, categories: sCategories, providers: sProviders,
   loading: sLoading, loadingCategories: sLoadingCategories,
   error: sError, total: sTotal, totalPages: sTotalPages, query: sQuery,
+  locationTier: sLocationTier,
   loadCategories: sLoadCategories, loadProviders: sLoadProviders, loadServices: sLoadServices,
   search: sSearch, filterByCategory: sFilterByCategory, filterByProvider: sFilterByProvider,
-  changePage: sChangePage, changeSort: sChangeSort, resetFilters: sResetFilters,
+  changePage: sChangePage, changeSort: sChangeSort, resetFilters: sResetFilters, toggleNearMe: sToggleNearMe,
   trackServiceEvent,
 } = useServices()
+
+// ─── Empleos ──────────────────────────────────────────────────────────────────
+const {
+  jobs: jJobs, categories: jCategories,
+  loading: jLoading, loadingCategories: jLoadingCategories,
+  error: jError, total: jTotal, totalPages: jTotalPages, query: jQuery,
+  locationTier: jLocationTier,
+  loadCategories: jLoadCategories, loadJobs: jLoadJobs,
+  search: jSearch, filterByCategory: jFilterByCategory,
+  filterByType: jFilterByType, filterByModality: jFilterByModality,
+  changePage: jChangePage, changeSort: jChangeSort, resetFilters: jResetFilters, toggleNearMe: jToggleNearMe,
+} = useJobs()
 
 const { getHeaders } = useAuth()
 
 const { user } = useAuth()
 
+// Obtener tasa de cambio para conversión
+const { defaultRate, fetchRates } = useExchangeRates()
+
+// ─── Search Tabs (dynamic from API) ──────────────────────────────────────────
+const { tabs: searchTabs, loadTabs: loadSearchTabs } = useSearchTabs()
+
 // ─── Estado local ─────────────────────────────────────────────────────────────
-const activeTab = ref<'productos' | 'servicios'>('productos')
+const activeTab = ref<string>('productos')
 const searchInput = ref('')
+const searchFocused = ref(false)
 const selectedProduct = ref<CatalogProduct | null>(null)
 const selectedService = ref<CatalogService | null>(null)
+const selectedJob = ref<Job | null>(null)
 const showScrollTop = ref(false)
 const showOrderModal = ref(false)
 const orderProduct = ref<CatalogProduct | null>(null)
@@ -731,15 +1357,19 @@ const orderToast = ref(false)
 const showServiceRequestModal = ref(false)
 const serviceRequestTarget = ref<CatalogService | null>(null)
 const serviceToast = ref(false)
+const pShowFavoritesOnly = ref(false)
 
-const pSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name'>('relevance')
+const pSelectedSort = ref<CatalogSortBy>('relevance')
 const sSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name' | 'newest'>('relevance')
+const jSelectedSort = ref<'relevance' | 'newest' | 'salary_asc' | 'salary_desc'>('relevance')
 
 const sortOptions = [
   { value: 'relevance' as const, label: 'Relevancia' },
   { value: 'price_asc' as const, label: 'Menor precio' },
   { value: 'price_desc' as const, label: 'Mayor precio' },
   { value: 'name' as const, label: 'Nombre A-Z' },
+  { value: 'rating_desc' as const, label: 'Mejor calificados' },
+  { value: 'best_seller' as const, label: 'Más vendidos' },
 ]
 const serviceSortOptions = [
   { value: 'relevance' as const, label: 'Relevancia' },
@@ -748,15 +1378,197 @@ const serviceSortOptions = [
   { value: 'price_desc' as const, label: 'Mayor precio' },
   { value: 'name' as const, label: 'Nombre A-Z' },
 ]
+const jobSortOptions = [
+  { value: 'relevance' as const, label: 'Relevancia' },
+  { value: 'newest' as const, label: 'Más recientes' },
+  { value: 'salary_asc' as const, label: 'Menor salario' },
+  { value: 'salary_desc' as const, label: 'Mayor salario' },
+]
+
+// ─── Filtros activos (chips) ───────────────────────────────────────────────────
+const { activeChips: pActiveChips } = useCatalogFilters({
+  query: pQuery,
+  categories: pCategories,
+  restaurants: pRestaurants,
+  searchInput,
+  filterByCategory: pFilterByCategory,
+  filterByRestaurant: pFilterByRestaurant,
+  filterByPriceRange: pFilterByPriceRange,
+  search: pSearch,
+})
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 const firstName = computed(() => user.value?.firstName || 'Usuario')
+
+const activeTabData = computed(() =>
+  searchTabs.value.find(t => t.key === activeTab.value) ?? null,
+)
+
+const heroTitle = computed(() => {
+  if (activeTab.value === 'productos') return '¿Qué vas a pedir hoy?'
+  if (activeTab.value === 'servicios') return '¿Qué servicio necesitas?'
+  if (activeTab.value === 'empleos') return '¿Buscas trabajo?'
+  return activeTabData.value ? `Busca ${activeTabData.value.label.toLowerCase()}` : '¿Qué buscas hoy?'
+})
+
+function darken(hex: string, amount: number): string {
+  const n = parseInt(hex.replace('#', ''), 16)
+  const r = Math.max(0, (n >> 16) - amount)
+  const g = Math.max(0, ((n >> 8) & 0xff) - amount)
+  const b = Math.max(0, (n & 0xff) - amount)
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+}
 const pCurrentPage = computed(() => pQuery.value.page)
 const pActiveCategory = computed(() => pQuery.value.categoryName)
 const pActiveRestaurantId = computed(() => pQuery.value.commerceId)
 const sCurrentPage = computed(() => sQuery.value.page)
 const sActiveCategoryId = computed(() => sQuery.value.categoryId)
 const sActiveProviderId = computed(() => sQuery.value.userId)
+const jCurrentPage = computed(() => jQuery.value.page)
+const jActiveCategoryId = computed(() => jQuery.value.categoryId)
+const jActiveType = computed(() => jQuery.value.type)
+const jActiveModality = computed(() => jQuery.value.modality)
+
+// ─── Cerca de mí ────────────────────────────────────────────────────────────
+const hasLocation = computed(() => !!(user.value?.city || user.value?.state || user.value?.country))
+const pNearMe = computed(() => pQuery.value.nearMe)
+const sNearMe = computed(() => sQuery.value.nearMe)
+const jNearMe = computed(() => jQuery.value.nearMe)
+
+const locationTierLabel = (tier: 'city' | 'state' | 'country' | null | undefined): string | null => {
+  if (tier === 'city') return `Mostrando resultados en ${user.value?.city}`
+  if (tier === 'state') return `Sin resultados en tu ciudad. Mostrando resultados en ${user.value?.state}`
+  if (tier === 'country') return `Sin resultados en tu zona. Mostrando resultados en ${user.value?.country}`
+  return null
+}
+const pLocationTierLabel = computed(() => pNearMe.value ? locationTierLabel(pLocationTier.value) : null)
+const sLocationTierLabel = computed(() => sNearMe.value ? locationTierLabel(sLocationTier.value) : null)
+const jLocationTierLabel = computed(() => jNearMe.value ? locationTierLabel(jLocationTier.value) : null)
+
+// ─── Sugerencia de categoría según rubro del usuario ──────────────────────────
+const userCategoryName = computed(() => user.value?.category?.name ?? null)
+const suggestedJobCategory = computed(() => {
+  const name = userCategoryName.value
+  if (!name) return null
+  return jCategories.value.find(c => c.name.toLowerCase() === name.toLowerCase()) ?? null
+})
+
+// ─── Favoritos ────────────────────────────────────────────────────────────────
+const pVisibleProducts = computed(() => {
+  if (!pShowFavoritesOnly.value) return pProducts.value
+  return pProducts.value.filter(p => pFavorites.value.includes(p.id))
+})
+
+// ─── Búsquedas recientes ────────────────────────────────────────────────────────
+const RECENT_SEARCHES_KEY = 'search_recent'
+const MAX_RECENT_SEARCHES = 6
+interface RecentSearch { term: string; tab: string }
+const recentSearches = ref<RecentSearch[]>([])
+
+function loadRecentSearches() {
+  if (!process.client) return
+  try {
+    const stored = localStorage.getItem(RECENT_SEARCHES_KEY)
+    recentSearches.value = stored ? JSON.parse(stored) : []
+  } catch {
+    recentSearches.value = []
+  }
+}
+
+function saveRecentSearches() {
+  if (!process.client) return
+  localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(recentSearches.value))
+}
+
+function addRecentSearch(term: string) {
+  const trimmed = term.trim()
+  if (!trimmed) return
+  recentSearches.value = [
+    { term: trimmed, tab: activeTab.value },
+    ...recentSearches.value.filter(s => s.term.toLowerCase() !== trimmed.toLowerCase() || s.tab !== activeTab.value),
+  ].slice(0, MAX_RECENT_SEARCHES)
+  saveRecentSearches()
+}
+
+function removeRecentSearch(term: string, tab: string) {
+  recentSearches.value = recentSearches.value.filter(s => !(s.term === term && s.tab === tab))
+  saveRecentSearches()
+}
+
+const recentSearchesForTab = computed(() =>
+  recentSearches.value.filter(s => s.tab === activeTab.value),
+)
+
+const showSuggestions = computed(() =>
+  searchFocused.value && !searchInput.value && recentSearchesForTab.value.length > 0,
+)
+
+function applyRecentSearch(term: string) {
+  searchInput.value = term
+  searchFocused.value = false
+  if (activeTab.value === 'productos') pSearch(term)
+  else if (activeTab.value === 'servicios') sSearch(term)
+  else jSearch(term)
+  addRecentSearch(term)
+}
+
+if (process.client) loadRecentSearches()
+
+// ─── Vistos recientemente ───────────────────────────────────────────────────────
+const RECENTLY_VIEWED_KEY = 'search_recently_viewed'
+const MAX_RECENTLY_VIEWED = 12
+interface RecentlyViewedItem {
+  type: 'producto' | 'servicio' | 'empleo'
+  id: string
+  name: string
+  image?: string | null
+  subtitle?: string
+  price?: number | null
+}
+const recentlyViewed = ref<RecentlyViewedItem[]>([])
+
+function loadRecentlyViewed() {
+  if (!process.client) return
+  try {
+    const stored = localStorage.getItem(RECENTLY_VIEWED_KEY)
+    recentlyViewed.value = stored ? JSON.parse(stored) : []
+  } catch {
+    recentlyViewed.value = []
+  }
+}
+
+function saveRecentlyViewed() {
+  if (!process.client) return
+  localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(recentlyViewed.value))
+}
+
+function addRecentlyViewed(item: RecentlyViewedItem) {
+  recentlyViewed.value = [
+    item,
+    ...recentlyViewed.value.filter(v => !(v.type === item.type && v.id === item.id)),
+  ].slice(0, MAX_RECENTLY_VIEWED)
+  saveRecentlyViewed()
+}
+
+const recentlyViewedForTab = computed(() => {
+  const tabType = activeTab.value === 'productos' ? 'producto' : activeTab.value === 'servicios' ? 'servicio' : 'empleo'
+  return recentlyViewed.value.filter(v => v.type === tabType)
+})
+
+function openRecentlyViewed(item: RecentlyViewedItem) {
+  if (item.type === 'producto') {
+    const product = pProducts.value.find(p => p.id === item.id)
+    if (product) openProduct(product)
+  } else if (item.type === 'servicio') {
+    const srv = sServices.value.find(s => s.id === item.id)
+    if (srv) openService(srv)
+  } else {
+    const job = jJobs.value.find(j => j.id === item.id)
+    if (job) openJob(job)
+  }
+}
+
+if (process.client) loadRecentlyViewed()
 
 const displayCount = ref(0)
 const displayGroups = ref(0)
@@ -786,13 +1598,16 @@ function animateCounter(target: { value: number }, end: number, duration = 700) 
   requestAnimationFrame(step)
 }
 
-watch([activeTab, pTotal, sTotal, () => pRestaurants.value.length, () => sProviders.value.length], () => {
+watch([activeTab, pTotal, sTotal, jTotal, () => pRestaurants.value.length, () => sProviders.value.length], () => {
   if (activeTab.value === 'productos') {
     animateCounter(displayCount, pTotal.value)
     animateCounter(displayGroups, pRestaurants.value.length)
-  } else {
+  } else if (activeTab.value === 'servicios') {
     animateCounter(displayCount, sTotal.value)
     animateCounter(displayGroups, sProviders.value.length)
+  } else {
+    animateCounter(displayCount, jTotal.value)
+    animateCounter(displayGroups, jJobs.value.length > 0 ? [...new Set(jJobs.value.map(j => j.employer.id))].length : 0)
   }
 }, { immediate: true })
 
@@ -808,6 +1623,7 @@ function buildVisiblePages(cur: number, max: number) {
 }
 const pVisiblePages = computed(() => buildVisiblePages(pCurrentPage.value, pTotalPages.value))
 const sVisiblePages = computed(() => buildVisiblePages(sCurrentPage.value, sTotalPages.value))
+const jVisiblePages = computed(() => buildVisiblePages(jCurrentPage.value, jTotalPages.value))
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function avatarSrc(avatar: string) {
@@ -825,29 +1641,51 @@ function formatPrice(price: number): string {
 }
 
 // ─── Acciones ─────────────────────────────────────────────────────────────────
-function setTab(tab: 'productos' | 'servicios') {
+function setTab(tab: string) {
   activeTab.value = tab
   searchInput.value = ''
 }
 
 function handleSearchInput() {
   if (activeTab.value === 'productos') pSearch(searchInput.value)
-  else sSearch(searchInput.value)
+  else if (activeTab.value === 'servicios') sSearch(searchInput.value)
+  else jSearch(searchInput.value)
 }
 
 function clearSearch() {
   searchInput.value = ''
   if (activeTab.value === 'productos') pSearch('')
-  else sSearch('')
+  else if (activeTab.value === 'servicios') sSearch('')
+  else jSearch('')
+}
+
+function handleSearchFocus() {
+  searchFocused.value = true
+}
+
+function handleSearchBlur() {
+  // pequeño delay para permitir el click en una sugerencia
+  setTimeout(() => { searchFocused.value = false }, 150)
+  if (searchInput.value.trim()) addRecentSearch(searchInput.value)
+}
+
+function handleSearchEnter() {
+  if (searchInput.value.trim()) addRecentSearch(searchInput.value)
+  searchFocused.value = false
 }
 
 function pClearCategory() { if (pActiveCategory.value) pFilterByCategory(pActiveCategory.value) }
 function pClearRestaurant() { if (pActiveRestaurantId.value) pFilterByRestaurant(pActiveRestaurantId.value) }
-function pApplySort(val: typeof pSelectedSort.value) { pSelectedSort.value = val; pChangeSort(val) }
+function pApplySort(val: string) { pSelectedSort.value = val as CatalogSortBy; pChangeSort(val as CatalogSortBy) }
+function pApplyPriceRange(min: number | null, max: number | null) { pFilterByPriceRange(min, max) }
 
 function sClearCategory() { sFilterByCategory(null) }
 function sClearProvider() { sFilterByProvider(null) }
-function sApplySort(val: typeof sSelectedSort.value) { sSelectedSort.value = val; sChangeSort(val) }
+function sApplySort(val: string) { sSelectedSort.value = val as typeof sSelectedSort.value; sChangeSort(val as typeof sSelectedSort.value) }
+function jClearCategory() { jFilterByCategory(null) }
+function jClearType() { jFilterByType(null) }
+function jClearModality() { jFilterByModality(null) }
+function jApplySort(val: string) { jSelectedSort.value = val as typeof jSelectedSort.value; jChangeSort(val as typeof jSelectedSort.value) }
 
 // Un COMMERCE no puede pedir sus propios productos; un FREELANCER/COMMERCE no puede contratar sus propios servicios
 function isOwnProduct(product: CatalogProduct): boolean {
@@ -862,12 +1700,40 @@ function isOwnService(srv: CatalogService): boolean {
   return u.id === srv.user.id
 }
 
-function openProduct(product: CatalogProduct) { selectedProduct.value = product }
+function openProduct(product: CatalogProduct) {
+  selectedProduct.value = product
+  addRecentlyViewed({
+    type: 'producto',
+    id: product.id,
+    name: product.name,
+    image: product.image,
+    subtitle: product.commerce?.name,
+    price: product.price,
+  })
+}
 function openService(srv: CatalogService) {
   selectedService.value = srv
   if (!isOwnService(srv)) {
     trackServiceEvent(srv.id, 'VIEW', getHeaders())
   }
+  addRecentlyViewed({
+    type: 'servicio',
+    id: srv.id,
+    name: srv.name,
+    image: srv.image,
+    subtitle: `${srv.user.firstName} ${srv.user.lastName}`,
+    price: srv.price,
+  })
+}
+function openJob(job: Job) {
+  selectedJob.value = job
+  addRecentlyViewed({
+    type: 'empleo',
+    id: job.id,
+    name: job.title,
+    subtitle: `${job.employer.firstName} ${job.employer.lastName}`,
+    price: job.salaryMax ?? job.salaryMin ?? null,
+  })
 }
 function openOrderModal(product: CatalogProduct) { orderProduct.value = product; showOrderModal.value = true }
 function onOrderSuccess() {
@@ -900,9 +1766,16 @@ function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
 onMounted(async () => {
   window.addEventListener('scroll', handleScroll, { passive: true })
   await Promise.all([
+    loadSearchTabs(),
     pLoadCategories(), pLoadRestaurants(), pLoadProducts(),
     sLoadCategories(), sLoadProviders(), sLoadServices(),
+    jLoadCategories(), jLoadJobs(),
+    fetchRates(false, true),
   ])
+  // Set initial tab to first enabled tab from API (if loaded)
+  if (searchTabs.value.length > 0) {
+    activeTab.value = searchTabs.value[0].key
+  }
 })
 
 onUnmounted(() => {

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -13,7 +14,10 @@ import { ExpenseStatus } from '@prisma/client';
 
 @Injectable()
 export class ExpensesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly i18n: I18nService
+  ) {}
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
@@ -141,7 +145,7 @@ export class ExpensesService {
       where: { id, commerceId },
       include: { category: true },
     });
-    if (!expense) throw new NotFoundException('Gasto no encontrado');
+    if (!expense) throw new NotFoundException(this.i18n.t('expenses.not_found'));
     return expense;
   }
 
@@ -150,7 +154,7 @@ export class ExpensesService {
       const cat = await this.prisma.expenseCategory.findFirst({
         where: { id: dto.categoryId, commerceId },
       });
-      if (!cat) throw new NotFoundException('Categoría no encontrada');
+      if (!cat) throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
     }
 
     return this.prisma.expense.create({
@@ -170,7 +174,7 @@ export class ExpensesService {
       const cat = await this.prisma.expenseCategory.findFirst({
         where: { id: dto.categoryId, commerceId },
       });
-      if (!cat) throw new NotFoundException('Categoría no encontrada');
+      if (!cat) throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
     }
 
     return this.prisma.expense.update({
@@ -191,7 +195,7 @@ export class ExpensesService {
   async remove(id: string, commerceId: string) {
     await this.findOne(id, commerceId);
     await this.prisma.expense.delete({ where: { id } });
-    return { message: 'Gasto eliminado correctamente' };
+    return { message: this.i18n.t('expenses.deleted') };
   }
 
   // ── Categories CRUD ────────────────────────────────────────────────────────
@@ -211,7 +215,7 @@ export class ExpensesService {
       where: { name: dto.name, commerceId },
     });
     if (existing)
-      throw new ConflictException('Ya existe una categoría con ese nombre');
+      throw new ConflictException(this.i18n.t('expenses.category.name_taken'));
 
     return this.prisma.expenseCategory.create({
       data: { ...dto, commerceId },
@@ -226,14 +230,14 @@ export class ExpensesService {
     const cat = await this.prisma.expenseCategory.findFirst({
       where: { id, commerceId },
     });
-    if (!cat) throw new NotFoundException('Categoría no encontrada');
+    if (!cat) throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
 
     if (dto.name && dto.name !== cat.name) {
       const existing = await this.prisma.expenseCategory.findFirst({
         where: { name: dto.name, commerceId },
       });
       if (existing)
-        throw new ConflictException('Ya existe una categoría con ese nombre');
+        throw new ConflictException(this.i18n.t('expenses.category.name_taken'));
     }
 
     return this.prisma.expenseCategory.update({ where: { id }, data: dto });
@@ -244,13 +248,13 @@ export class ExpensesService {
       where: { id, commerceId },
       include: { _count: { select: { expenses: true } } },
     });
-    if (!cat) throw new NotFoundException('Categoría no encontrada');
+    if (!cat) throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
     if (cat._count.expenses > 0) {
       throw new ConflictException(
-        `No se puede eliminar: la categoría tiene ${cat._count.expenses} gasto(s) asociado(s)`
+        this.i18n.t('expenses.category.in_use', { args: { count: cat._count.expenses } })
       );
     }
     await this.prisma.expenseCategory.delete({ where: { id } });
-    return { message: 'Categoría eliminada correctamente' };
+    return { message: this.i18n.t('expenses.category.deleted') };
   }
 }

@@ -8,6 +8,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { UsersModule } from '../users/users.module';
 import { MailModule } from '../mail/mail.module';
+import { SessionCleanupScheduler } from '../common/schedulers/session-cleanup.scheduler';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { MailModule } from '../mail/mail.module';
     UsersModule,
     MailModule,
   ],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy],
+  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy, SessionCleanupScheduler],
   controllers: [AuthController],
 })
 export class AuthModule {}

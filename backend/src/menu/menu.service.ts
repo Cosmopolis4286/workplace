@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -19,21 +20,28 @@ export class MenuService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
-    private readonly planLimits: PlanLimitsService
+    private readonly planLimits: PlanLimitsService,
+    private readonly i18n: I18nService,
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private async getRestaurantId(userId: string): Promise<string> {
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const commerce = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!restaurant)
-      throw new ForbiddenException(
-        'El usuario no tiene un restaurante asociado'
-      );
-    return restaurant.id;
+    if (commerce) return commerce.id;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+    const created = await this.prisma.restaurant.create({
+      data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
+      select: { id: true },
+    });
+    return created.id;
   }
 
   private async assertCategoryOwnership(
@@ -43,9 +51,9 @@ export class MenuService {
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
     });
-    if (!category) throw new NotFoundException('Categoría no encontrada');
+    if (!category) throw new NotFoundException(this.i18n.t('menu.category.not_found'));
     if (category.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return category;
   }
 
@@ -53,9 +61,9 @@ export class MenuService {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
     });
-    if (!product) throw new NotFoundException('Producto no encontrado');
+    if (!product) throw new NotFoundException(this.i18n.t('menu.product.not_found'));
     if (product.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return product;
   }
 
@@ -76,7 +84,7 @@ export class MenuService {
       where: { name_commerceId: { name: dto.name, commerceId } },
     });
     if (exists)
-      throw new ConflictException('Ya existe una categoría con ese nombre');
+      throw new ConflictException(this.i18n.t('menu.category.name_taken'));
 
     return this.prisma.category.create({
       data: { ...dto, commerceId },
@@ -96,7 +104,7 @@ export class MenuService {
         where: { name_commerceId: { name: dto.name, commerceId } },
       });
       if (exists && exists.id !== categoryId)
-        throw new ConflictException('Ya existe una categoría con ese nombre');
+        throw new ConflictException(this.i18n.t('menu.category.name_taken'));
     }
 
     return this.prisma.category.update({
@@ -113,9 +121,7 @@ export class MenuService {
       where: { categoryId },
     });
     if (productCount > 0)
-      throw new ConflictException(
-        'No se puede eliminar una categoría con productos. Mueve o elimina los productos primero.'
-      );
+      throw new ConflictException(this.i18n.t('menu.category.has_products'));
 
     await this.prisma.category.delete({ where: { id: categoryId } });
   }

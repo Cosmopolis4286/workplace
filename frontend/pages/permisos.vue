@@ -3,10 +3,10 @@
     <div class="max-w-full p-6">
 
       <!-- Header -->
-      <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">Matriz de Permisos</h1>
-          <p class="text-sm text-gray-500 mt-1">
+      <div class="mb-6">
+        <div class="mb-4">
+          <h1 class="text-2xl font-bold text-gray-900 mb-2">Matriz de Permisos</h1>
+          <p class="text-sm text-gray-500">
             Configura qué acciones puede realizar cada rol. Los permisos con
             <span class="inline-flex items-center gap-1 font-medium text-red-600">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -17,7 +17,18 @@
             son del sistema y no pueden modificarse.
           </p>
         </div>
-        <div class="flex gap-3 flex-shrink-0">
+        
+        <!-- Botones de acción en una sola fila -->
+        <div class="flex flex-wrap gap-3">
+          <NuxtLink
+            to="/permisos/usuarios"
+            class="px-4 py-2 text-sm font-medium border border-purple-300 rounded-lg text-purple-700 bg-white hover:bg-purple-50 transition-colors flex items-center gap-1.5"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            Permisos por Usuario
+          </NuxtLink>
           <button
             @click="openNewPermModal"
             class="px-4 py-2 text-sm font-medium border border-indigo-300 rounded-lg text-indigo-700 bg-white hover:bg-indigo-50 transition-colors flex items-center gap-1.5"
@@ -28,21 +39,22 @@
             Nuevo permiso
           </button>
           <button
-            @click="loadMatrix"
-            :disabled="loading"
-            class="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            @click="reloadUserPermissions"
+            :disabled="reloadingPerms"
+            class="px-4 py-2 text-sm font-medium border border-green-300 rounded-lg text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+            title="Fuerza recarga de permisos para todos los usuarios (incluyéndote)"
           >
-            <svg class="w-4 h-4 inline mr-1.5" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" :class="{ 'animate-spin': reloadingPerms }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
-            Recargar
+            {{ reloadingPerms ? 'Recargando...' : 'Recargar mis permisos' }}
           </button>
           <button
             @click="saveAll"
             :disabled="saving || pendingChanges.length === 0"
-            class="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            class="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
           >
-            <svg v-if="saving" class="w-4 h-4 inline mr-1.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
             {{ saving ? 'Guardando...' : `Guardar cambios${pendingChanges.length > 0 ? ` (${pendingChanges.length})` : ''}` }}
@@ -256,6 +268,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import PageHeader from '~/components/ui/PageHeader.vue'
+import { ShieldCheckIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
+import { useAuth } from '~/composables/useAuth'
+import { useAlert } from '~/composables/useAlert'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -302,6 +319,8 @@ const MODULE_LABELS: Record<string, string> = {
   logs: 'Logs',
   plans: 'Planes',
   exchange_rates: 'Tasas de Cambio',
+  search: 'Búsqueda',
+  corridas: 'Corridas',
 }
 
 // All modules available for permission grouping
@@ -325,6 +344,7 @@ interface PendingChange {
 }
 
 const { getHeaders, refreshAccessToken } = useAuth()
+const { reloadPermissions } = usePermissions()
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 
@@ -337,6 +357,7 @@ const plans = ref<PlanInfo[]>([])
 
 const loading = ref(false)
 const saving = ref(false)
+const reloadingPerms = ref(false)
 const error = ref<string | null>(null)
 const successMsg = ref<string | null>(null)
 
@@ -361,35 +382,13 @@ const groupedPermissions = computed(() => {
   return groups
 })
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const doFetch = () =>
-    fetch(`${apiUrl}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...getHeaders(),
-        ...(options.headers as Record<string, string> ?? {}),
-      },
-    })
-
-  let res = await doFetch()
-  if (res.status === 401) {
-    const ok = await refreshAccessToken()
-    if (!ok) throw new Error('Sesión expirada, por favor inicia sesión nuevamente')
-    res = await doFetch()
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string }
-    throw new Error(body.message ?? `Error del servidor (${res.status})`)
-  }
-  return res.json() as Promise<T>
-}
+const { get, post, patch, del } = useApi()
 
 async function loadMatrix() {
   loading.value = true
   error.value = null
   try {
-    const data = await apiFetch<PermissionRow[]>('/permissions/matrix')
+    const data = await get('/permissions/matrix')
     permissions.value = data
 
     const matrix: Record<string, Record<Role, boolean>> = {}
@@ -429,10 +428,7 @@ async function saveAll() {
   successMsg.value = null
   try {
     const count = pendingChanges.value.length
-    await apiFetch('/permissions/bulk', {
-      method: 'PATCH',
-      body: JSON.stringify({ updates: pendingChanges.value }),
-    })
+    await patch('/permissions/bulk', { updates: pendingChanges.value })
     pendingChanges.value = []
     successMsg.value = `${count} permiso(s) actualizados correctamente. Los cambios se aplican en los próximos 5 minutos (cache Redis).`
     setTimeout(() => { successMsg.value = null }, 6000)
@@ -445,9 +441,23 @@ async function saveAll() {
 
 async function loadPlans() {
   try {
-    const data = await apiFetch<PlanInfo[]>('/plans?includeInactive=false')
+    const data = await get('/plans?includeInactive=false')
     plans.value = data
   } catch { /* non-critical */ }
+}
+
+async function reloadUserPermissions() {
+  reloadingPerms.value = true
+  error.value = null
+  try {
+    await reloadPermissions()
+    successMsg.value = 'Tus permisos han sido recargados. Los cambios están activos inmediatamente.'
+    setTimeout(() => { successMsg.value = null }, 4000)
+  } catch (e: any) {
+    error.value = e.message || 'Error recargando permisos'
+  } finally {
+    reloadingPerms.value = false
+  }
 }
 
 // ── New permission modal ───────────────────────────────────────────────────
@@ -489,15 +499,12 @@ async function saveNewPerm() {
       ? newPermForm.value.customModule.trim()
       : newPermForm.value.module
 
-    await apiFetch('/permissions', {
-      method: 'POST',
-      body: JSON.stringify({
-        key: newPermForm.value.key.trim(),
-        module,
-        action: newPermForm.value.action.trim(),
-        label: newPermForm.value.label.trim(),
-        description: newPermForm.value.description.trim() || undefined,
-      }),
+    await post('/permissions', {
+      key: newPermForm.value.key.trim(),
+      label: newPermForm.value.label.trim(),
+      description: newPermForm.value.description?.trim() || null,
+      module: module,
+      allowedRoles: newPermForm.value.allowedRoles,
     })
     showNewPermModal.value = false
     await loadMatrix()
@@ -513,7 +520,7 @@ async function saveNewPerm() {
 async function confirmDelete(perm: PermissionRow) {
   if (!confirm(`¿Eliminar el permiso "${perm.label}" (${perm.key})?\nEsta acción no se puede deshacer.`)) return
   try {
-    await apiFetch(`/permissions/${perm.id}`, { method: 'DELETE' })
+    await del(`/permissions/${perm.id}`)
     await loadMatrix()
     successMsg.value = `Permiso "${perm.key}" eliminado.`
     setTimeout(() => { successMsg.value = null }, 3000)

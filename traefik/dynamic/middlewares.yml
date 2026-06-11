@@ -1,0 +1,77 @@
+# 🛡️ Traefik Middlewares - Security & Performance
+
+http:
+  middlewares:
+    # Global Rate Limiting
+    global-rate-limit:
+      rateLimit:
+        average: 100
+        period: "1m"
+        burst: 200
+    
+    # Security Headers
+    security-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        customResponseHeaders:
+          X-Content-Type-Options: "nosniff"
+          X-Frame-Options: "DENY"
+          X-XSS-Protection: "1; mode=block"
+          Referrer-Policy: "strict-origin-when-cross-origin"
+          Permissions-Policy: "camera=(), microphone=(), geolocation=()"
+          Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'"
+          Strict-Transport-Security: "max-age=31536000; includeSubDomains; preload"
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+
+    # Rate Limiting específico para auth (más estricto)
+    rate-limit-auth:
+      rateLimit:
+        average: 10
+        period: "1m"
+        burst: 20
+
+    # Rate Limiting general
+    rate-limit:
+      rateLimit:
+        average: 100
+        period: "1m"
+        burst: 50
+
+    # Compression
+    compression:
+      compress:
+        excludedContentTypes:
+          - "text/event-stream"
+          - "application/grpc"
+        minResponseBodyBytes: 1024
+
+    # API Stripping
+    api-stripprefix:
+      stripPrefix:
+        prefixes:
+          - "/api"
+
+    # CORS para API
+    # Nota: Traefik no expande variables en config dinamica.
+    # Los origenes se configuran via labels en docker-compose.lite.yml
+    cors-api:
+      headers:
+        accessControlAllowCredentials: true
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Requested-With"
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+        accessControlAllowOriginListRegex:
+          - "^https://(www\\.)?playrke\\.com$"

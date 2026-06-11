@@ -1,0 +1,13 @@
+{
+  "not_found": "Expense not found",
+  "deleted": "Expense deleted successfully",
+  "category": {
+    "not_found": "Category not found",
+    "name_taken": "A category with that name already exists",
+    "deleted": "Category deleted successfully",
+    "in_use": {
+      "one": "Cannot delete: this category has {count} associated expense",
+      "other": "Cannot delete: this category has {count} associated expenses"
+    }
+  }
+}

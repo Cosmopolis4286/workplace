@@ -8,13 +8,15 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { MailService } from '../mail/mail.service';
-import { Role } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction, Role } from '@prisma/client';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -32,28 +34,57 @@ export class AuthService {
     private config: ConfigService,
     private prisma: PrismaService,
     private redis: RedisService,
-    private mail: MailService
+    private mail: MailService,
+    private audit: AuditService,
+    private i18n: I18nService
   ) {}
 
   async register(dto: RegisterDto) {
-    const user = await this.usersService.create(dto);
+    const user = await this.usersService.create({ ...dto, acceptTerms: dto.acceptTerms });
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
+    
+    // Send verification email automatically
+    await this.sendVerificationEmail(user.id).catch((err) => {
+      this.logger.warn(`Failed to send verification email: ${err.message}`);
+    });
+    
     return { user, ...tokens };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, securityContext?: any) {
+    const ip = securityContext?.ipAddress;
+    const userAgent = securityContext?.userAgent;
+
     const attempts = await this.redis.getLoginAttempts(dto.email);
     if (attempts >= MAX_LOGIN_ATTEMPTS) {
-      throw new ForbiddenException(
-        'Demasiados intentos fallidos. Espera 15 minutos.'
-      );
+      this.audit.log({
+        userEmail: dto.email,
+        action: AuditAction.LOGIN,
+        module: 'auth',
+        summary: `[LOGIN_BLOCKED] ${dto.email} — demasiados intentos fallidos`,
+        details: { reason: 'too_many_attempts' },
+        ip,
+        userAgent,
+        statusCode: 403,
+      });
+      throw new ForbiddenException(this.i18n.t('auth.login.blocked'));
     }
 
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
       await this.redis.incrementLoginAttempts(dto.email);
-      throw new UnauthorizedException('Credenciales incorrectas');
+      this.audit.log({
+        userEmail: dto.email,
+        action: AuditAction.LOGIN,
+        module: 'auth',
+        summary: `[LOGIN_FAILED] ${dto.email} — usuario no encontrado`,
+        details: { reason: 'user_not_found' },
+        ip,
+        userAgent,
+        statusCode: 401,
+      });
+      throw new UnauthorizedException(this.i18n.t('auth.login.invalid_credentials'));
     }
 
     const valid = await this.usersService.validatePassword(
@@ -62,33 +93,89 @@ export class AuthService {
     );
     if (!valid) {
       await this.redis.incrementLoginAttempts(dto.email);
-      throw new UnauthorizedException('Credenciales incorrectas');
+      this.audit.log({
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        action: AuditAction.LOGIN,
+        module: 'auth',
+        summary: `[LOGIN_FAILED] ${user.email} — contraseña incorrecta`,
+        details: { reason: 'invalid_password' },
+        ip,
+        userAgent,
+        statusCode: 401,
+      });
+      throw new UnauthorizedException(this.i18n.t('auth.login.invalid_credentials'));
     }
 
     await this.redis.resetLoginAttempts(dto.email);
 
     const { password, ...safeUser } = user;
     const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
+    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext);
+
+    // Crear sesión activa
+    if (securityContext) {
+      await this.createUserSession(user.id, securityContext);
+    }
+
+    this.audit.log({
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      action: AuditAction.LOGIN,
+      module: 'auth',
+      summary: `[LOGIN] ${user.email} — inicio de sesión exitoso`,
+      ip,
+      userAgent,
+      statusCode: 200,
+    });
 
     return { user: safeUser, ...tokens };
   }
 
-  async refreshTokens(userId: string, oldRefreshToken: string) {
+  async refreshTokens(userId: string, oldRefreshToken: string, securityContext?: any) {
     const stored = await this.prisma.refreshToken.findUnique({
       where: { token: oldRefreshToken },
     });
 
-    if (!stored || stored.userId !== userId || stored.expiresAt < new Date()) {
-      throw new ForbiddenException('Refresh token inválido o expirado');
+    if (!stored || stored.userId !== userId || stored.expiresAt < new Date() || stored.revokedAt) {
+      throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
+    }
+
+    // Validar contexto de seguridad
+    if (securityContext && stored.ipAddress && stored.deviceInfo) {
+      if (stored.ipAddress !== securityContext.ipAddress) {
+        await this.logSecurityEvent(userId, 'REFRESH_IP_MISMATCH', {
+          expectedIp: stored.ipAddress,
+          actualIp: securityContext.ipAddress
+        });
+        throw new ForbiddenException(this.i18n.t('auth.refresh.ip_mismatch'));
+      }
+      
+      if (stored.deviceInfo !== securityContext.userAgent) {
+        await this.logSecurityEvent(userId, 'REFRESH_DEVICE_MISMATCH', {
+          expectedDevice: stored.deviceInfo,
+          actualDevice: securityContext.userAgent
+        });
+        // Permitir pero registrar como sospechoso
+      }
     }
 
     // Rotate: delete old, issue new
-    await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() }
+    });
 
     const user = await this.usersService.findById(userId);
     const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
+    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext, stored.id);
+    
+    // Actualizar sesión
+    if (securityContext) {
+      await this.updateUserSession(userId, securityContext);
+    }
 
     return tokens;
   }
@@ -130,11 +217,103 @@ export class AuthService {
     return { user: safeUser, ...tokens };
   }
 
-  async logout(userId: string, accessTokenJti: string, accessTokenTtl: number) {
-    // Blacklist the access token in Redis
-    await this.redis.blacklistToken(accessTokenJti, accessTokenTtl);
-    // Delete all refresh tokens for user
-    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+  async logout(userId: string, refreshToken?: string, securityContext?: any) {
+    // 1. Obtener JTI de los tokens activos para blacklist
+    const activeTokens = await this.prisma.refreshToken.findMany({
+      where: { userId, revokedAt: null },
+      select: { token: true }
+    });
+    
+    // 2. Blacklist los JTI de los tokens JWT activos (si se pueden extraer)
+    for (const token of activeTokens) {
+      try {
+        const decoded = this.decodeJWT(token.token);
+        if (decoded?.jti) {
+          // Blacklist por 15 minutos (tiempo de vida del access token)
+          await this.redis.blacklistToken(decoded.jti, 900);
+        }
+      } catch (error) {
+        // Ignorar errores al decodificar
+      }
+    }
+    
+    // 3. Revocar el refresh token específico si se proporciona
+    if (refreshToken) {
+      await this.prisma.refreshToken.updateMany({
+        where: { token: refreshToken, userId },
+        data: { revokedAt: new Date() },
+      });
+    }
+    
+    // 4. También revocar todos los refresh tokens del usuario (logout global)
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    
+    // 5. Eliminar todas las sesiones activas
+    await this.clearAllUserSessions(userId);
+    
+    // 6. Registrar evento de logout
+    if (securityContext) {
+      await this.logSecurityEvent(userId, 'LOGOUT', {
+        ipAddress: securityContext.ipAddress,
+        userAgent: securityContext.userAgent,
+        deviceFingerprint: securityContext.deviceFingerprint
+      });
+    }
+  }
+
+  async getActiveSessions(userId: string, securityContext?: any) {
+    const sessions = await this.prisma.refreshToken.findMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        ipAddress: true,
+        deviceInfo: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+    });
+
+    return sessions.map((session) => ({
+      ...session,
+      isCurrent:
+        !!securityContext &&
+        session.ipAddress === securityContext.ipAddress &&
+        session.deviceInfo === securityContext.userAgent,
+    }));
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    const session = await this.prisma.refreshToken.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session || session.userId !== userId) {
+      throw new NotFoundException(this.i18n.t('auth.session.not_found'));
+    }
+
+    try {
+      const decoded = this.decodeJWT(session.token);
+      if (decoded?.jti) {
+        await this.redis.blacklistToken(decoded.jti, 900);
+      }
+    } catch {
+      // Ignorar errores al decodificar
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: sessionId },
+      data: { revokedAt: new Date() },
+    });
+
+    return { message: this.i18n.t('auth.session.revoked') };
   }
 
   async getProfile(userId: string) {
@@ -158,66 +337,55 @@ export class AuthService {
   }
 
   async getDemoCredentials() {
-    const demoAccounts = [
-      {
-        role: 'SUPERADMIN' as const,
-        email: 'superadmin@demo.com',
-        password: 'SuperAdmin123',
-        label: 'Super Admin',
-        description: 'Acceso total: gestiona todos los usuarios y roles',
-      },
-      {
-        role: 'ADMIN' as const,
-        email: 'admin@demo.com',
-        password: 'Admin1234',
-        label: 'Administrador',
-        description: 'Gestiona commerce, freelancer y normal',
-      },
-      {
-        role: 'COMMERCE' as const,
-        email: 'commerce@demo.com',
-        password: 'Commerce123',
-        label: 'Comercio',
-        description: 'Acceso completo al negocio y operaciones',
-      },
-      {
-        role: 'FREELANCER' as const,
-        email: 'freelancer@demo.com',
-        password: 'Freelancer1',
-        label: 'Freelancer',
-        description: 'Acceso a sus propios servicios',
-      },
-      {
-        role: 'NORMAL' as const,
-        email: 'normal@demo.com',
-        password: 'Normal1234',
-        label: 'Usuario Normal',
-        description: 'Acceso básico de usuario final',
-      },
-    ];
+    // Buscar usuarios marcados como DEMO en la BD (dinámico, no array fijo)
+    const demoUsers = await this.prisma.user.findMany({
+      where: { userType: 'DEMO' },
+      include: { commerce: true, category: true, subcategory: true },
+    });
 
-    const results = await Promise.all(
-      demoAccounts.map(async (acc) => {
-        const user = await this.usersService.findByEmail(acc.email);
-        return {
-          ...acc,
-          commerceName: user?.commerce?.name ?? null,
-          exists: !!user,
-        };
-      })
-    );
-
-    const missing = results.filter((r) => !r.exists).map((r) => r.role);
-    if (missing.length > 0) {
-      throw new ForbiddenException(
-        `Demo users not found: ${missing.join(', ')}. Run: pnpm seed`
-      );
+    if (demoUsers.length === 0) {
+      throw new ForbiddenException(this.i18n.t('auth.demo.no_users'));
     }
+
+    // Contraseñas mapeadas por email (fuente de verdad: prisma/seed.js)
+    const emailPasswords: Record<string, string> = {
+      'superadmin@demo.com': 'S4p3rAdm1n!#2026',
+      'admin@demo.com': 'Adm1n@Sec#2026',
+      'commerce@demo.com': 'C0mm3rc3!Biz#26',
+      'tecnologia@demo.com': 'T3ch@Biz#26',
+      'freelancer@demo.com': 'Fr33lanc3r!#2026',
+      'delivery@demo.com': 'D3l1v3ry@Fast#26',
+      'comidarapida@demo.com': 'C0m1d4R4p!d4#26',
+      'normal@demo.com': 'N0rm4lUs3r!#2026',
+    };
+
+    const credentials = demoUsers.map((user) => ({
+      role: user.role,
+      email: user.email,
+      password: emailPasswords[user.email] ?? 'Demo123',
+      label: `${user.firstName} ${user.lastName}`,
+      description: this.getRoleDescription(user.role),
+      commerceName: (user as any).commerce?.name ?? null,
+      categoryName: (user as any).category?.name ?? null,
+      categoryIcon: (user as any).category?.icon ?? null,
+      subcategoryName: (user as any).subcategory?.name ?? null,
+    }));
 
     return {
       success: true,
-      data: results.map(({ exists, ...rest }) => rest),
+      data: credentials,
     };
+  }
+
+  private getRoleDescription(role: string): string {
+    const descriptions: Record<string, string> = {
+      SUPERADMIN: 'Acceso total: gestiona todos los usuarios y roles',
+      ADMIN: 'Gestiona commerce, freelancer y normal',
+      COMMERCE: 'Acceso completo al negocio y operaciones',
+      FREELANCER: 'Acceso a sus propios servicios',
+      NORMAL: 'Acceso básico de usuario final',
+    };
+    return descriptions[role] || 'Usuario demo';
   }
 
   // --- Password Reset ---
@@ -225,7 +393,7 @@ export class AuthService {
   async requestPasswordReset(email: string) {
     const user = await this.usersService.findByEmail(email);
     // Always return success to prevent user enumeration
-    if (!user) return { message: 'Si ese correo existe, recibirás un enlace.' };
+    if (!user) return { message: this.i18n.t('auth.password_reset.sent') };
 
     // Invalidate old tokens
     await this.prisma.passwordResetToken.updateMany({
@@ -241,7 +409,7 @@ export class AuthService {
     });
 
     await this.mail.sendPasswordReset(user.email, token, user.firstName);
-    return { message: 'Si ese correo existe, recibirás un enlace.' };
+    return { message: this.i18n.t('auth.password_reset.sent') };
   }
 
   async resetPassword(token: string, newPassword: string) {
@@ -250,12 +418,12 @@ export class AuthService {
     });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
-      throw new BadRequestException('Token inválido o expirado');
+      throw new BadRequestException(this.i18n.t('auth.password_reset.invalid_token'));
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
 
-    await this.prisma.$transaction([
+    const [updatedUser] = await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: record.userId },
         data: { password: hashed },
@@ -268,16 +436,20 @@ export class AuthService {
       this.prisma.refreshToken.deleteMany({ where: { userId: record.userId } }),
     ]);
 
-    return { message: 'Contraseña actualizada correctamente' };
+    this.mail
+      .sendSecurityAlert(updatedUser.email, updatedUser.firstName, 'password_reset')
+      .catch(() => {});
+
+    return { message: this.i18n.t('auth.password_reset.success') };
   }
 
   // --- Email Verification ---
 
   async sendVerificationEmail(userId: string) {
     const user = await this.usersService.findById(userId);
-    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user) throw new NotFoundException(this.i18n.t('auth.user.not_found'));
     if ((user as any).emailVerified)
-      return { message: 'El correo ya está verificado' };
+      return { message: this.i18n.t('auth.email_verification.already_verified') };
 
     // Invalidate old tokens
     await this.prisma.emailVerificationToken.updateMany({
@@ -293,7 +465,7 @@ export class AuthService {
     });
 
     await this.mail.sendEmailVerification(user.email, token, user.firstName);
-    return { message: 'Correo de verificación enviado' };
+    return { message: this.i18n.t('auth.email_verification.sent') };
   }
 
   async verifyEmail(token: string) {
@@ -302,7 +474,7 @@ export class AuthService {
     });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
-      throw new BadRequestException('Token inválido o expirado');
+      throw new BadRequestException(this.i18n.t('auth.email_verification.invalid_token'));
     }
 
     await this.prisma.$transaction([
@@ -316,7 +488,7 @@ export class AuthService {
       }),
     ]);
 
-    return { message: 'Correo verificado correctamente' };
+    return { message: this.i18n.t('auth.email_verification.success') };
   }
 
   // --- Helpers ---
@@ -333,7 +505,7 @@ export class AuthService {
     );
 
     const refreshToken = this.jwtService.sign(
-      { sub: userId },
+      { sub: userId, jti }, // Incluir JTI también en refresh token
       {
         secret: this.config.get('JWT_REFRESH_SECRET'),
         expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
@@ -342,17 +514,172 @@ export class AuthService {
 
     return { accessToken, refreshToken };
   }
+  
+  private decodeJWT(token: string): any {
+    try {
+      const payload = token.split('.')[1];
+      return JSON.parse(Buffer.from(payload, 'base64').toString());
+    } catch {
+      return null;
+    }
+  }
 
-  private async saveRefreshToken(userId: string, token: string) {
+  private async saveRefreshToken(userId: string, token: string, securityContext?: any, replacedByTokenId?: string) {
     const expiresIn = this.config.get('JWT_REFRESH_EXPIRES_IN', '7d');
     const ms = this.parseDuration(expiresIn);
     const expiresAt = new Date(Date.now() + ms);
 
     await this.prisma.refreshToken.create({
-      data: { token, userId, expiresAt },
+      data: { 
+        token, 
+        userId, 
+        expiresAt,
+        ipAddress: securityContext?.ipAddress,
+        deviceInfo: securityContext?.userAgent,
+        replacedByTokenId
+      },
     });
   }
 
+  private async createUserSession(userId: string, securityContext: any): Promise<void> {
+    const sessionKey = `session:${userId}:${securityContext.deviceFingerprint}`;
+    const sessionData = {
+      userId,
+      deviceFingerprint: securityContext.deviceFingerprint,
+      ipAddress: securityContext.ipAddress,
+      userAgent: securityContext.userAgent,
+      createdAt: new Date(),
+      lastActivity: new Date()
+    };
+    
+    // Sesión expira en 30 minutos de inactividad
+    await this.redis.setex(sessionKey, 1800, JSON.stringify(sessionData));
+    
+    // Guardar contexto para detección de actividad sospechosa
+    const suspiciousKey = `suspicious:${userId}`;
+    await this.redis.setex(suspiciousKey, 86400, JSON.stringify({
+      ipAddress: securityContext.ipAddress,
+      deviceFingerprint: securityContext.deviceFingerprint,
+      userAgent: securityContext.userAgent
+    }));
+  }
+  
+  private async updateUserSession(userId: string, securityContext: any): Promise<void> {
+    const sessionKey = `session:${userId}:${securityContext.deviceFingerprint}`;
+    const sessionData = await this.redis.get(sessionKey);
+    
+    if (sessionData) {
+      const session = JSON.parse(sessionData);
+      session.lastActivity = new Date();
+      
+      // Extender TTL 30 minutos más
+      await this.redis.setex(sessionKey, 1800, JSON.stringify(session));
+    } else {
+      // Recrear sesión si no existe
+      await this.createUserSession(userId, securityContext);
+    }
+  }
+  
+  private async clearAllUserSessions(userId: string): Promise<void> {
+    // Buscar todas las claves de sesión del usuario
+    const pattern = `session:${userId}:*`;
+    const keys = await this.redis.keys(pattern);
+    
+    if (keys.length > 0) {
+      await this.redis.delMultiple(keys);
+    }
+    
+    // Limpiar también el contexto sospechoso
+    await this.redis.del(`suspicious:${userId}`);
+  }
+  
+  private async logSecurityEvent(userId: string, eventType: string, details: any): Promise<void> {
+    const eventKey = `security-events:${userId}`;
+    const event = {
+      type: eventType,
+      details,
+      timestamp: new Date(),
+      severity: this.getEventSeverity(eventType)
+    };
+    
+    await this.redis.lpush(eventKey, JSON.stringify(event));
+    await this.redis.ltrim(eventKey, 0, 99); // Mantener últimos 100 eventos
+    
+    this.logger.warn(`Security event for user ${userId}: ${eventType}`, details);
+  }
+  
+  async getSecurityEvents(userId: string) {
+    const eventKey = `security-events:${userId}`;
+    const events = await this.redis.lrange(eventKey, 0, -1);
+    
+    return {
+      success: true,
+      data: events.map(event => JSON.parse(event)).reverse(), // Más recientes primero
+      count: events.length
+    };
+  }
+
+  private getEventSeverity(eventType: string): 'LOW' | 'MEDIUM' | 'HIGH' {
+    const severityMap: Record<string, 'LOW' | 'MEDIUM' | 'HIGH'> = {
+      'LOGIN_SUCCESS': 'LOW',
+      'LOGIN_FAILED': 'MEDIUM',
+      'LOGOUT': 'LOW',
+      'REFRESH_IP_MISMATCH': 'HIGH',
+      'REFRESH_DEVICE_MISMATCH': 'MEDIUM',
+      'SESSION_EXPIRED': 'MEDIUM',
+      'MULTIPLE_FAILED_LOGIN': 'HIGH',
+      'TOKEN_REUSE': 'HIGH',
+      'BRUTE_FORCE_ATTEMPT': 'HIGH'
+    };
+    
+    return severityMap[eventType] || 'LOW';
+  }
+  
+  // --- Cleanup automático de sesiones expiradas ---
+  async cleanupExpiredSessions(): Promise<void> {
+    try {
+      // Limpiar refresh tokens expirados
+      const expiredTokens = await this.prisma.refreshToken.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date()
+          }
+        }
+      });
+      
+      if (expiredTokens.count > 0) {
+        this.logger.log(`Cleaned up ${expiredTokens.count} expired refresh tokens`);
+      }
+      
+      // Limpiar sesiones de Redis expiradas (Redis lo hace automáticamente con TTL)
+      // Pero podemos limpiar claves huérfanas si es necesario
+      const sessionPattern = 'session:*';
+      const sessionKeys = await this.redis.keys(sessionPattern);
+      
+      let cleanedSessions = 0;
+      for (const key of sessionKeys) {
+        const sessionData = await this.redis.get(key);
+        if (sessionData) {
+          const session = JSON.parse(sessionData);
+          const lastActivity = new Date(session.lastActivity);
+          const inactiveMinutes = (Date.now() - lastActivity.getTime()) / (1000 * 60);
+          
+          if (inactiveMinutes > 60) { // Más de 1 hora de inactividad
+            await this.redis.del(key);
+            cleanedSessions++;
+          }
+        }
+      }
+      
+      if (cleanedSessions > 0) {
+        this.logger.log(`Cleaned up ${cleanedSessions} inactive sessions`);
+      }
+      
+    } catch (error) {
+      this.logger.error('Error during session cleanup:', error);
+    }
+  }
+  
   private parseDuration(duration: string): number {
     const match = duration.match(/^(\d+)([smhd])$/);
     if (!match) return 7 * 24 * 60 * 60 * 1000;

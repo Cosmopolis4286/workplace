@@ -138,6 +138,7 @@ logs_data/
 # ================================
 etc/letsencrypt/
 certbot/test-certs/
+certbot/www/.well-known/
 *.pem
 *.crt
 *.key

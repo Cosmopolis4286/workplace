@@ -1,0 +1,159 @@
+name: 'Build and Push Docker Image'
+description: 'Construye, escanea y publica imagen Docker con cache y seguridad'
+
+inputs:
+  service:
+    description: 'Nombre del servicio (backend/frontend)'
+    required: true
+  dockerfile:
+    description: 'Path al Dockerfile'
+    required: true
+  image-name:
+    description: 'Nombre de la imagen en Docker Hub'
+    required: true
+  image-tag:
+    description: 'Tag principal de la imagen (ej: main-abc123)'
+    required: true
+  docker-username:
+    description: 'Docker Hub username'
+    required: true
+  docker-password:
+    description: 'Docker Hub password/token'
+    required: true
+  build-args:
+    description: 'Build args adicionales (multilínea)'
+    required: false
+    default: ''
+  context:
+    description: 'Build context'
+    required: false
+    default: '.'
+  target:
+    description: 'Dockerfile target stage'
+    required: false
+    default: 'production'
+  enable-scan:
+    description: 'Habilitar escaneo de vulnerabilidades Trivy'
+    required: false
+    default: 'true'
+  max-image-size:
+    description: 'Tamaño máximo permitido de imagen en MB'
+    required: false
+    default: '500'
+  github-token:
+    description: 'GitHub token para subir SARIF (opcional)'
+    required: false
+    default: ''
+
+outputs:
+  image-digest:
+    description: 'Digest SHA256 de la imagen'
+    value: ${{ steps.build.outputs.digest }}
+  image-size-mb:
+    description: 'Tamaño de la imagen en MB'
+    value: ${{ steps.inspect.outputs.size_mb }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validar inputs
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.docker-username }}" || -z "${{ inputs.docker-password }}" ]]; then
+          echo "❌ docker-username y docker-password son requeridos"
+          exit 1
+        fi
+        if [[ ! -f "${{ inputs.dockerfile }}" ]]; then
+          echo "❌ Dockerfile no encontrado: ${{ inputs.dockerfile }}"
+          exit 1
+        fi
+        echo "✅ Build ${{ inputs.service }}: ${{ inputs.image-name }}:${{ inputs.image-tag }}"
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login a Docker Hub
+      uses: docker/login-action@v4
+      with:
+        username: ${{ inputs.docker-username }}
+        password: ${{ inputs.docker-password }}
+
+    - name: Build y push ${{ inputs.service }}
+      id: build
+      uses: docker/build-push-action@v6
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        target: ${{ inputs.target }}
+        push: true
+        platforms: linux/amd64,linux/arm64
+        tags: |
+          ${{ inputs.image-name }}:${{ inputs.image-tag }}
+          ${{ inputs.image-name }}:latest
+        cache-from: |
+          type=gha,scope=${{ github.workflow }}-${{ inputs.service }}
+          type=registry,ref=${{ inputs.image-name }}:cache
+        cache-to: |
+          type=gha,mode=max,scope=${{ github.workflow }}-${{ inputs.service }}
+          type=registry,ref=${{ inputs.image-name }}:cache,mode=max
+        build-args: |
+          BUILDKIT_INLINE_CACHE=1
+          GIT_SHA=${{ github.sha }}
+          APP_VERSION=${{ github.run_number }}.${{ github.run_attempt }}
+          BUILD_TIME=${{ github.event.head_commit.timestamp }}
+          ${{ inputs.build-args }}
+        provenance: true
+        sbom: ${{ inputs.enable-scan == 'true' }}
+
+    - name: Inspeccionar imagen
+      id: inspect
+      shell: bash
+      run: |
+        DIGEST="${{ steps.build.outputs.digest }}"
+        echo "📦 ${{ inputs.image-name }}@${DIGEST}"
+
+        # Instalar crane si no está disponible
+        if ! command -v crane &>/dev/null; then
+          curl -sL https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz \
+            | tar xz -C /usr/local/bin crane 2>/dev/null || true
+        fi
+
+        SIZE_MB=0
+        if command -v crane &>/dev/null; then
+          echo "${{ inputs.docker-password }}" | \
+            crane auth login docker.io -u "${{ inputs.docker-username }}" --password-stdin 2>/dev/null || true
+          SIZE_BYTES=$(crane manifest "${{ inputs.image-name }}@${DIGEST}" 2>/dev/null \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print(sum(l.get('size',0) for l in d.get('layers',[])))" \
+            2>/dev/null || echo "0")
+          SIZE_MB=$((SIZE_BYTES / 1024 / 1024))
+        fi
+
+        echo "size_mb=${SIZE_MB}" >> $GITHUB_OUTPUT
+        echo "📊 Tamaño: ${SIZE_MB}MB (máx: ${{ inputs.max-image-size }}MB)"
+
+        if [[ $SIZE_MB -gt 0 && $SIZE_MB -gt ${{ inputs.max-image-size }} ]]; then
+          echo "❌ Imagen excede el tamaño máximo (${{ inputs.max-image-size }}MB)"
+          exit 1
+        fi
+        echo "✅ Tamaño de imagen válido"
+
+    - name: Escaneo de vulnerabilidades Trivy
+      if: inputs.enable-scan == 'true'
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ inputs.image-name }}:${{ inputs.image-tag }}'
+        format: 'sarif'
+        output: 'trivy-${{ inputs.service }}.sarif'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '0'
+      env:
+        TRIVY_USERNAME: ${{ inputs.docker-username }}
+        TRIVY_PASSWORD: ${{ inputs.docker-password }}
+
+    - name: Subir resultados de seguridad
+      if: inputs.enable-scan == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-${{ inputs.service }}-${{ github.run_number }}
+        path: trivy-${{ inputs.service }}.sarif
+        retention-days: 30

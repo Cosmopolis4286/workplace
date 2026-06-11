@@ -1,0 +1,13 @@
+{
+  "not_found": "Gasto no encontrado",
+  "deleted": "Gasto eliminado correctamente",
+  "category": {
+    "not_found": "Categoría no encontrada",
+    "name_taken": "Ya existe una categoría con ese nombre",
+    "deleted": "Categoría eliminada correctamente",
+    "in_use": {
+      "one": "No se puede eliminar: la categoría tiene {count} gasto asociado",
+      "other": "No se puede eliminar: la categoría tiene {count} gastos asociados"
+    }
+  }
+}

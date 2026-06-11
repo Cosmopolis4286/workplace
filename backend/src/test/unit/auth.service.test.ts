@@ -6,6 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { UsersService } from '../../users/users.service'
 import { RedisService } from '../../redis/redis.service'
 import { MailService } from '../../mail/mail.service'
+import { AuditService } from '../../audit/audit.service'
 
 describe('AuthService', () => {
   let service: AuthService
@@ -47,6 +48,10 @@ describe('AuthService', () => {
   const mockMailService = {
     sendPasswordResetEmail: jest.fn(),
     sendVerificationEmail: jest.fn(),
+  }
+
+  const mockAuditService = {
+    log: jest.fn(),
   }
 
   const mockConfigService = {
@@ -94,6 +99,10 @@ describe('AuthService', () => {
         {
           provide: MailService,
           useValue: mockMailService,
+        },
+        {
+          provide: AuditService,
+          useValue: mockAuditService,
         },
         {
           provide: ConfigService,
@@ -162,7 +171,8 @@ describe('AuthService', () => {
         password: 'password123',
         firstName: 'New',
         lastName: 'User',
-        commerceName: 'Test Commerce'
+        commerceName: 'Test Commerce',
+        acceptTerms: true
       }
 
       const createdUser = {

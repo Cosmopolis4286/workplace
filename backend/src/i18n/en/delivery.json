@@ -1,0 +1,10 @@
+{
+  "driver": {
+    "not_found": "Driver not found",
+    "not_found_in_restaurant": "Driver not found in this restaurant",
+    "not_active": "The driver is not active"
+  },
+  "delivery": {
+    "not_found": "Delivery not found"
+  }
+}

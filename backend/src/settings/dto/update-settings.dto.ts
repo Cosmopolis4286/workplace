@@ -4,7 +4,6 @@ import {
   IsBoolean,
   IsOptional,
   IsArray,
-  IsIn,
   Min,
   Max,
 } from 'class-validator';
@@ -33,12 +32,23 @@ export class UpdateRestaurantInfoDto {
   @IsOptional()
   @IsString()
   schedule?: string;
+
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
 }
 
 export class UpdatePaymentSettingsDto {
   @IsOptional()
   @IsString()
-  @IsIn(['MXN', 'USD', 'EUR'])
   currency?: string;
 
   @IsOptional()

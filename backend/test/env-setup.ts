@@ -5,7 +5,7 @@ import path from 'path'
 
 // Set test environment variables directly
 const testEnvVars = {
-  ENVIRONMENT: 'test',
+  APP_ENV: 'test',
   PORT: '3001',
   JWT_SECRET: 'test-jwt-secret-key-for-testing',
   JWT_REFRESH_SECRET: 'test-jwt-refresh-secret-key-for-testing',
@@ -37,7 +37,7 @@ Object.entries(testEnvVars).forEach(([key, value]) => {
 })
 
 console.log('✅ Test environment variables loaded')
-console.log(`🔧 ENVIRONMENT: ${process.env.ENVIRONMENT}`)
+console.log(`🔧 APP_ENV: ${process.env.APP_ENV}`)
 console.log(`🔧 DATABASE_URL: ${process.env.DATABASE_URL?.replace(/\/\/.*@/, '//***:***@')}`)
 console.log(`🔧 REDIS_URL: ${process.env.REDIS_URL}`)
 console.log(`🔧 JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Set' : '❌ Missing'}`)

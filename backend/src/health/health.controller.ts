@@ -1,7 +1,9 @@
 import { Controller, Get, Inject } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
+@SkipThrottle()
 @Controller()
 export class HealthController {
   constructor(
@@ -45,7 +47,7 @@ export class HealthController {
     // Verificar conexión a Redis
     let redisStatus = 'disconnected';
     try {
-      await this.redisService.set('health_check', 'ok', 10);
+      await this.redisService.setex('health_check', 10, 'ok');
       const value = await this.redisService.get('health_check');
       if (value === 'ok') {
         redisStatus = 'connected';

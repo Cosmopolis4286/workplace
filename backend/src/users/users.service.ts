@@ -5,6 +5,7 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -12,10 +13,17 @@ import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 import { ChangePasswordDto } from '../auth/dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { MailService } from '../mail/mail.service';
+
+export const CURRENT_TERMS_VERSION = '2.0';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mail: MailService,
+    private i18n: I18nService,
+  ) {}
 
   async create(data: {
     email: string;
@@ -27,17 +35,19 @@ export class UsersService {
     role?: Role;
     categoryId?: string;
     subcategoryId?: string;
+    acceptTerms?: boolean;
   }) {
     const existing = await this.prisma.user.findUnique({
       where: { email: data.email },
     });
-    if (existing) throw new ConflictException('El correo ya está registrado');
+    if (existing) throw new ConflictException(this.i18n.t('users.email_taken'));
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
-    const role = data.role ?? Role.COMMERCE;
+    const role = data.role ?? Role.NORMAL;
     const createRestaurant =
       role === Role.COMMERCE || role === Role.ADMIN || role === Role.FREELANCER;
 
+    const now = new Date();
     const user = await this.prisma.user.create({
       data: {
         email: data.email,
@@ -48,8 +58,16 @@ export class UsersService {
         role,
         ...(data.categoryId && { categoryId: data.categoryId }),
         ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
+        wallet: { create: { currency: 'USD' } },
         ...(createRestaurant && data.commerceName
           ? { commerce: { create: { name: data.commerceName } } }
+          : {}),
+        ...(data.acceptTerms
+          ? {
+              termsAcceptedAt: now,
+              termsVersion: CURRENT_TERMS_VERSION,
+              privacyAcceptedAt: now,
+            }
           : {}),
       },
       include: { commerce: true, category: true, subcategory: true },
@@ -134,7 +152,7 @@ export class UsersService {
         where: { email: dto.email },
       });
       if (existing && existing.id !== id) {
-        throw new ConflictException('El correo ya está en uso por otra cuenta');
+        throw new ConflictException(this.i18n.t('users.email_in_use'));
       }
     }
 
@@ -163,7 +181,7 @@ export class UsersService {
 
   async toggleUserStatus(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
 
     const updated = await this.prisma.user.update({
       where: { id },
@@ -176,7 +194,7 @@ export class UsersService {
   async deleteUser(id: string) {
     await this.prisma.user.findUnique({ where: { id } });
     await this.prisma.user.delete({ where: { id } });
-    return { message: 'Usuario eliminado correctamente' };
+    return { message: this.i18n.t('users.deleted') };
   }
 
   // ─── Categories CRUD ─────────────────────────────────────────────────────────
@@ -200,7 +218,7 @@ export class UsersService {
       where: { name: data.name },
     });
     if (existing)
-      throw new ConflictException('Ya existe una categoría con ese nombre');
+      throw new ConflictException(this.i18n.t('users.category.name_taken'));
     return this.prisma.userCategory.create({
       data: {
         name: data.name,
@@ -220,7 +238,7 @@ export class UsersService {
         where: { name: data.name, NOT: { id } },
       });
       if (existing)
-        throw new ConflictException('Ya existe una categoría con ese nombre');
+        throw new ConflictException(this.i18n.t('users.category.name_taken'));
     }
     return this.prisma.userCategory.update({
       where: { id },
@@ -236,26 +254,37 @@ export class UsersService {
     const count = await this.prisma.user.count({ where: { categoryId: id } });
     if (count > 0)
       throw new BadRequestException(
-        `No se puede eliminar: ${count} usuario(s) usan esta categoría`
+        this.i18n.t('users.category.in_use', { args: { count } })
       );
     await this.prisma.userCategory.delete({ where: { id } });
-    return { message: 'Categoría eliminada' };
+    return { message: this.i18n.t('users.category.deleted') };
   }
 
   // ─── Subcategories CRUD ───────────────────────────────────────────────────────
+
+  async findSubcategoriesByCategory(categoryId: string) {
+    return this.prisma.userSubcategory.findMany({
+      where: { categoryId },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async findAllSubcategories() {
+    return this.prisma.userSubcategory.findMany({
+      orderBy: { name: 'asc' },
+    });
+  }
 
   async createSubcategory(categoryId: string, data: { name: string }) {
     const cat = await this.prisma.userCategory.findUnique({
       where: { id: categoryId },
     });
-    if (!cat) throw new NotFoundException('Categoría no encontrada');
+    if (!cat) throw new NotFoundException(this.i18n.t('users.category.not_found'));
     const existing = await this.prisma.userSubcategory.findUnique({
       where: { name_categoryId: { name: data.name, categoryId } },
     });
     if (existing)
-      throw new ConflictException(
-        'Ya existe esa subcategoría en esta categoría'
-      );
+      throw new ConflictException(this.i18n.t('users.subcategory.name_taken'));
     return this.prisma.userSubcategory.create({
       data: { name: data.name, categoryId },
     });
@@ -263,14 +292,12 @@ export class UsersService {
 
   async updateSubcategory(id: string, data: { name: string }) {
     const sub = await this.prisma.userSubcategory.findUnique({ where: { id } });
-    if (!sub) throw new NotFoundException('Subcategoría no encontrada');
+    if (!sub) throw new NotFoundException(this.i18n.t('users.subcategory.not_found'));
     const existing = await this.prisma.userSubcategory.findFirst({
       where: { name: data.name, categoryId: sub.categoryId, NOT: { id } },
     });
     if (existing)
-      throw new ConflictException(
-        'Ya existe esa subcategoría en esta categoría'
-      );
+      throw new ConflictException(this.i18n.t('users.subcategory.name_taken'));
     return this.prisma.userSubcategory.update({ where: { id }, data });
   }
 
@@ -280,25 +307,25 @@ export class UsersService {
     });
     if (count > 0)
       throw new BadRequestException(
-        `No se puede eliminar: ${count} usuario(s) usan esta subcategoría`
+        this.i18n.t('users.subcategory.in_use', { args: { count } })
       );
     await this.prisma.userSubcategory.delete({ where: { id } });
-    return { message: 'Subcategoría eliminada' };
+    return { message: this.i18n.t('users.subcategory.deleted') };
   }
 
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
-      include: { commerce: true },
+      include: { commerce: true, category: true, subcategory: true },
     });
   }
 
   async findById(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { commerce: true },
+      include: { commerce: true, category: true },
     });
-    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
     const { password, ...result } = user;
     return result;
   }
@@ -311,12 +338,18 @@ export class UsersService {
   }
 
   async updateProfile(id: string, dto: UpdateProfileDto) {
+    let previousEmail: string | undefined;
     if (dto.email) {
       const existing = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });
       if (existing && existing.id !== id) {
-        throw new ConflictException('El correo ya está en uso por otra cuenta');
+        throw new ConflictException(this.i18n.t('users.email_in_use'));
+      }
+
+      const currentUser = await this.prisma.user.findUnique({ where: { id } });
+      if (currentUser && currentUser.email !== dto.email) {
+        previousEmail = currentUser.email;
       }
     }
 
@@ -334,7 +367,7 @@ export class UsersService {
             where: { username: newUsername },
           });
           if (taken && taken.id !== id) {
-            throw new ConflictException('El nombre de usuario ya está en uso');
+            throw new ConflictException(this.i18n.t('users.username_taken'));
           }
 
           if (currentUser.usernameUpdatedAt) {
@@ -344,7 +377,9 @@ export class UsersService {
             if (daysSince < USERNAME_COOLDOWN_DAYS) {
               const daysLeft = Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince);
               throw new BadRequestException(
-                `Solo puedes cambiar el nombre de usuario cada ${USERNAME_COOLDOWN_DAYS} días. Podrás cambiarlo en ${daysLeft} día${daysLeft !== 1 ? 's' : ''}.`
+                this.i18n.t('users.username_cooldown', {
+                  args: { cooldown: USERNAME_COOLDOWN_DAYS, daysLeft, count: daysLeft },
+                })
               );
             }
           }
@@ -362,9 +397,19 @@ export class UsersService {
         ...(dto.phone !== undefined && { phone: dto.phone || null }),
         ...(dto.username !== undefined && { username: dto.username || null }),
         ...(usernameChanged && { usernameUpdatedAt: new Date() }),
+        ...((dto as any).categoryId !== undefined && { categoryId: (dto as any).categoryId || null }),
+        ...(dto.country !== undefined && { country: dto.country || null }),
+        ...(dto.state !== undefined && { state: dto.state || null }),
+        ...(dto.city !== undefined && { city: dto.city || null }),
       },
       include: { commerce: true },
     });
+
+    if (previousEmail) {
+      this.mail
+        .sendSecurityAlert(previousEmail, user.firstName, 'email_changed')
+        .catch(() => {});
+    }
 
     const { password, ...result } = user;
     return result;
@@ -421,16 +466,14 @@ export class UsersService {
 
   async changePassword(id: string, dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
 
     const valid = await bcrypt.compare(dto.currentPassword, user.password);
     if (!valid)
-      throw new UnauthorizedException('La contraseña actual es incorrecta');
+      throw new UnauthorizedException(this.i18n.t('users.current_password_incorrect'));
 
     if (dto.currentPassword === dto.newPassword) {
-      throw new BadRequestException(
-        'La nueva contraseña debe ser diferente a la actual'
-      );
+      throw new BadRequestException(this.i18n.t('users.new_password_must_differ'));
     }
 
     const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
@@ -439,6 +482,102 @@ export class UsersService {
       data: { password: hashedPassword },
     });
 
-    return { message: 'Contraseña actualizada correctamente' };
+    this.mail
+      .sendSecurityAlert(user.email, user.firstName, 'password_changed')
+      .catch(() => {});
+
+    return { message: this.i18n.t('users.password_updated') };
+  }
+
+  async getProfileCompletion(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        commerce: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(this.i18n.t('users.not_found'));
+    }
+
+    // Obtener información de categoría y subcategoría
+    const category = user.categoryId ? 
+      await this.prisma.userCategory.findUnique({ where: { id: user.categoryId } }) : null;
+    const subcategory = user.subcategoryId ? 
+      await this.prisma.userSubcategory.findUnique({ where: { id: user.subcategoryId } }) : null;
+
+    // Verificar si tiene restaurante (para categoría Comida)
+    let restaurant = null;
+    if (category?.name === 'Comida') {
+      restaurant = await this.prisma.restaurant.findUnique({ where: { userId } });
+    }
+
+    // Verificar campos básicos del perfil
+    const hasBasicInfo = !!(user.firstName && user.lastName && user.phone);
+    
+    // Verificar categoría y subcategoría
+    const hasCategory = !!(user.categoryId && category);
+    const hasSubcategory = !!(user.subcategoryId && subcategory);
+
+    // Verificaciones específicas por rol/categoría
+    let hasBusinessSetup = false;
+    let hasServicesSetup = false;
+
+    if (user.role === 'COMMERCE') {
+      if (category?.name === 'Comida') {
+        // Para categoría Comida, necesita restaurante
+        hasBusinessSetup = !!restaurant;
+      } else {
+        // Para otras categorías, necesita comercio configurado
+        hasBusinessSetup = !!user.commerce;
+      }
+    } else if (user.role === 'FREELANCER') {
+      // Freelancer necesita tener perfil completo y servicios (simulado por ahora)
+      hasServicesSetup = hasBasicInfo && hasCategory;
+    }
+
+    // Calcular porcentaje de completitud
+    const requiredFields = [
+      hasBasicInfo,
+      hasCategory,
+      user.role === 'NORMAL' ? true : hasSubcategory, // NORMAL no requiere subcategoría
+    ];
+
+    if (user.role === 'COMMERCE') {
+      requiredFields.push(hasBusinessSetup);
+    } else if (user.role === 'FREELANCER') {
+      requiredFields.push(hasServicesSetup);
+    }
+
+    const completedFields = requiredFields.filter(Boolean).length;
+    const totalFields = requiredFields.length;
+    const completionPercentage = Math.round((completedFields / totalFields) * 100);
+
+    const isComplete = completionPercentage === 100;
+
+    return {
+      isComplete,
+      completionPercentage,
+      missingFields: requiredFields
+        .map((has, index) => {
+          const fieldNames = [
+            this.i18n.t('users.profile_completion.basic_info'),
+            this.i18n.t('users.profile_completion.category'),
+            this.i18n.t('users.profile_completion.subcategory'),
+            this.i18n.t('users.profile_completion.business_setup'),
+            this.i18n.t('users.profile_completion.services_setup'),
+          ];
+          return has ? null : fieldNames[index];
+        })
+        .filter(Boolean),
+      hasBasicInfo,
+      hasCategory,
+      hasSubcategory,
+      hasBusinessSetup,
+      hasServicesSetup,
+      role: user.role,
+      category: category?.name,
+    };
   }
 }

@@ -22,6 +22,8 @@ export const ALL_MODULES = [
   'services',
   'service_requests',
   'catalog',
+  'corridas',
+  'wallets',
 ] as const;
 
 export type AppModule = (typeof ALL_MODULES)[number];

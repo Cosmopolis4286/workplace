@@ -9,6 +9,7 @@ import { useAuth } from "~/composables/useAuth"
 import { useModules } from "~/composables/useModules"
 
 // Mapa ruta → módulo requerido
+// Debe mantenerse sincronizado con PERMISSION_ROUTE_MAP en middleware/auth.ts
 const ROUTE_MODULE_MAP: Record<string, string> = {
   '/menu':                 'menu',
   '/inventario':           'inventory',
@@ -25,7 +26,9 @@ const ROUTE_MODULE_MAP: Record<string, string> = {
   '/sucursales':           'branches',
   '/servicios':            'services',
   '/solicitudes-servicio': 'service_requests',
+  '/corridas':             'corridas',       // ← faltaba
   '/search':               'catalog',
+  '/mis-pedidos':          'orders',         // ← faltaba
 }
 
 const UNRESTRICTED_ROLES = ['SUPERADMIN', 'ADMIN', 'NORMAL']

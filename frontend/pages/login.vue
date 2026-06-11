@@ -155,6 +155,7 @@ import {
 import { useAuth } from '~/composables/useAuth'
 import { useFormValidation } from '~/composables/useFormValidation'
 import { useRecaptcha } from '~/composables/useRecaptcha'
+import { getApiErrorMessage } from '~/composables/useApiErrors'
 
 const { login } = useAuth()
 const { required, email, minLength, validateAll } = useFormValidation()
@@ -198,8 +199,7 @@ const handleLogin = async () => {
     await login({ ...form, recaptchaToken })
     await navigateTo('/dashboard')
   } catch (err: unknown) {
-    const e = err as { data?: { message?: string }; message?: string }
-    generalError.value = e?.data?.message || e?.message || 'Credenciales incorrectas'
+    generalError.value = getApiErrorMessage(err, 'Credenciales incorrectas')
   } finally {
     isLoading.value = false
   }
@@ -221,8 +221,7 @@ const autoLoginDemo = async (creds: { email: string; password: string }) => {
     await navigateTo('/dashboard')
   } catch (err: unknown) {
     fillDemoCredentials(creds)
-    const e = err as { data?: { message?: string }; message?: string }
-    generalError.value = e?.data?.message || e?.message || 'Error en demo login'
+    generalError.value = getApiErrorMessage(err, 'Error en demo login')
   } finally {
     isLoading.value = false
   }

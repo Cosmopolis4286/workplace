@@ -1,0 +1,237 @@
+# 🚀 Docker Compose DEV - Optimizado para desarrollo rápido
+# Objetivo: velocidad + visibilidad, NO eficiencia
+# 
+# ⚠️ IMPORTANTE: Ejecutar SIEMPRE con --env-file .env.dev
+# El archivo .env (producción) tiene valores diferentes que causarán errores de conexión
+#
+# Comando correcto:
+#   docker compose --env-file .env.dev -f docker-compose.lite.dev.yml up -d
+#
+# Accesos disponibles:
+#   - Frontend: http://localhost:3000
+#   - Backend API: http://localhost:3001
+#   - PostgreSQL: localhost:5432
+#   - Redis: localhost:6379  
+#   - Traefik Dashboard: http://localhost:8080
+
+services:
+  # 🌐 Traefik - Router simplificado para DEV
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"  # Dashboard habilitado para debug
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=public_network"
+      - "--entrypoints.web.address=:80"
+      # Sin redirección en DEV - HTTP puro
+      # Sin TLS en DEV - HTTP puro para velocidad
+      - "--log.level=INFO"  # Más visibilidad en dev
+      - "--accesslog=true"  # Access logs para debugging
+    ports:
+      - "80:80"
+      - "8080:8080"  # Dashboard Traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - public_network
+      - private_network
+    # Sin límites de recursos en DEV
+
+  # 🔧 Backend - Hot reload activo
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    container_name: backend-dev
+    env_file:
+      - .env.dev
+    environment:
+      APP_ENV: development
+      PORT: ${NODE_PORT:-3001}
+      DEBUG: "*"
+      LOG_LEVEL: debug
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      # Hot reload: código montado desde host
+      # Nota: el WORKDIR en Dockerfile.dev es /app/backend
+      - ./backend:/app/backend
+      # Excepciones para node_modules y uploads
+      - /app/backend/node_modules
+      - uploads_data:/app/backend/uploads
+    ports:
+      # Acceso directo para Postman/debugging
+      - "3001:3001"
+    networks:
+      - public_network
+      - private_network
+    # Sin read_only, sin límites, sin seguridad excesiva para DEV
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT:-3001}/api/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT:-3001}"
+
+  # 🎨 Frontend - Hot reload con Nuxt dev mode
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.dev
+    container_name: frontend-dev
+    environment:
+      APP_ENV: development
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: ${FRONTEND_PORT:-3000}
+      DEBUG: "*"
+      NUXT_DEBUG: "true"
+      # Polling para hot reload en Docker (crítico para HMR)
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      WATCHPACK_POLLING: "true"
+      # Limitar workers para reducir consumo de RAM en paralelo
+      NUXT_DEV_WORKERS: "1"
+      # Aumentar límite de memoria para Node.js (2GB suficiente para dev)
+      NODE_OPTIONS: "--max-old-space-size=2048"
+    volumes:
+      # Hot reload: código montado desde host
+      # Nota: el WORKDIR en Dockerfile.dev es /app/frontend
+      - ./frontend:/app/frontend
+      # Excepciones para node_modules y .nuxt
+      - /app/frontend/node_modules
+      - /app/frontend/.nuxt
+    ports:
+      # Acceso directo para debugging
+      - "3000:3000"
+    networks:
+      - public_network
+    # Sin límites, sin seguridad excesiva para DEV
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`, `www.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+
+  # 🗄️ PostgreSQL - Configuración dev simplificada
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/pgdata
+    ports:
+      # Acceso directo para herramientas DB
+      - "5432:5432"
+    networks:
+      - private_network
+    # Sin límites estrictos en DEV
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # 🔴 Redis - Ligero para dev
+  redis:
+    image: redis:7-alpine
+    container_name: redis-dev
+    command: >
+      redis-server 
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      # Acceso directo para debugging
+      - "6379:6379"
+    networks:
+      - private_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # 📧 Mailhog - Email testing para dev
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog-dev
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - public_network
+      - private_network
+    environment:
+      MH_STORAGE: memory
+      MH_CORS_ORIGIN: "*"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mailhog.rule=Host(`mailhog.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.mailhog.entrypoints=web"
+      - "traefik.http.services.mailhog.loadbalancer.server.port=8025"
+
+  # 🛠️ Adminer - Database management UI
+  adminer:
+    image: adminer:latest
+    container_name: adminer-dev
+    ports:
+      - "8081:8080"
+    networks:
+      - public_network
+      - private_network
+    environment:
+      ADMINER_DESIGN: dracula
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adminer.rule=Host(`db.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.adminer.entrypoints=web"
+      - "traefik.http.services.adminer.loadbalancer.server.port=8080"
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+
+networks:
+  public_network:
+    driver: bridge
+  private_network:
+    driver: bridge
+    internal: false  # Permitir acceso externo si es necesario en dev

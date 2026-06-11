@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { useAuth } from './useAuth'
+import { useUserPreferences } from './useUserPreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -146,9 +147,8 @@ export function useExpenses() {
   const pendingExpenses = computed(() => expenses.value.filter(e => e.status === 'PENDIENTE'))
   const overdueExpenses = computed(() => expenses.value.filter(e => e.status === 'VENCIDO'))
 
-  function formatCurrency(value: number) {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)
-  }
+  const { formatCurrency: _fmt } = useUserPreferences()
+  function formatCurrency(value: number) { return _fmt.value(value) }
 
   // ── Auth-aware fetch ───────────────────────────────────────────────────────
   async function apiFetch(path: string, options: RequestInit = {}) {

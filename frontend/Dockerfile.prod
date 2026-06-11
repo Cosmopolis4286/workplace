@@ -25,6 +25,13 @@ WORKDIR /app/frontend
 # Copiar código fuente
 COPY frontend/ ./
 
+# Build args para runtimeConfig (build-time defaults)
+ARG APP_ENV
+ARG API_URL
+ENV APP_ENV=${APP_ENV:-production}
+ENV API_URL=${API_URL:-/api}
+# NOTA: USE_DEMO se lee del .env del servidor en runtime via plugins/runtime-config.server.ts
+
 # Construir Nuxt con memoria extendida
 RUN NODE_OPTIONS="--max-old-space-size=2048" pnpm run build \
     && rm -rf .nuxt/.cache node_modules/.cache

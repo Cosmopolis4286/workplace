@@ -1,0 +1,65 @@
+name: 'Setup SSH for Production'
+description: 'Configura SSH key y known hosts para conexión a producción'
+
+inputs:
+  ssh-private-key:
+    description: 'SSH private key para conexión al servidor'
+    required: true
+  production-host:
+    description: 'Hostname del servidor de producción'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Configurar SSH
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.ssh-private-key }}" ]]; then
+          echo "❌ ssh-private-key vacío"
+          exit 1
+        fi
+        if [[ -z "${{ inputs.production-host }}" ]]; then
+          echo "❌ production-host vacío"
+          exit 1
+        fi
+
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+
+        # Escribir clave privada (printf evita trailing newline issues)
+        printf '%s\n' "${{ inputs.ssh-private-key }}" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+
+        # Config SSH específica para el host: sin StrictHostKeyChecking global,
+        # timeout razonable y keepalive para conexiones largas
+        cat > ~/.ssh/config << 'SSHCONF'
+        Host *
+          IdentityFile ~/.ssh/id_ed25519
+          ConnectTimeout 15
+          ServerAliveInterval 30
+          ServerAliveCountMax 3
+          StrictHostKeyChecking accept-new
+        SSHCONF
+        chmod 600 ~/.ssh/config
+
+        # keyscan con retry — falla duro si no responde tras 3 intentos
+        SCANNED=false
+        for i in 1 2 3; do
+          if timeout 30 ssh-keyscan -H "${{ inputs.production-host }}" \
+              >> ~/.ssh/known_hosts 2>/dev/null; then
+            SCANNED=true
+            echo "✅ SSH keyscan OK (intento $i)"
+            break
+          fi
+          echo "⚠️  ssh-keyscan intento $i/3 falló"
+          [[ $i -lt 3 ]] && sleep 5
+        done
+        chmod 600 ~/.ssh/known_hosts
+
+        if [[ "$SCANNED" == "false" ]]; then
+          echo "❌ No se pudo escanear el host tras 3 intentos"
+          exit 1
+        fi
+
+        echo "✅ SSH configurado para ${{ inputs.production-host }}"

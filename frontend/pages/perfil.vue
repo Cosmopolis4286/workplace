@@ -137,54 +137,90 @@
             <h3 class="text-xl font-bold text-gray-900">Información Personal</h3>
           </div>
 
-          <form @submit.prevent="saveProfile" class="space-y-6">
+          <div class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
-                <input
-                  v-model="profileForm.firstName"
-                  type="text"
-                  required
-                  minlength="2"
-                  maxlength="50"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                  placeholder="Tu nombre"
-                >
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ profileForm.firstName || '—' }}
+                </div>
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Apellido</label>
-                <input
-                  v-model="profileForm.lastName"
-                  type="text"
-                  required
-                  minlength="2"
-                  maxlength="50"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                  placeholder="Tu apellido"
-                >
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ profileForm.lastName || '—' }}
+                </div>
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico</label>
-                <input
-                  v-model="profileForm.email"
-                  type="email"
-                  required
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                  placeholder="tu@email.com"
-                >
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ profileForm.email || '—' }}
+                </div>
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Teléfono</label>
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ profileForm.phone || '—' }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Ubicación — todos los usuarios -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">País</label>
                 <input
-                  v-model="profileForm.phone"
-                  type="tel"
-                  maxlength="20"
+                  v-model="profileForm.country"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Ej: Venezuela"
                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                  placeholder="+52 123 456 7890"
                 >
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Estado / Provincia</label>
+                <input
+                  v-model="profileForm.state"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Ej: Miranda"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
+                >
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
+                <input
+                  v-model="profileForm.city"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Ej: Caracas"
+                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
+                >
+              </div>
+            </div>
+
+            <!-- Categoría y Subcategoría — solo COMMERCE y FREELANCER -->
+            <div v-if="isCommerceOrFreelancer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Categoría
+                  <span class="ml-1 text-xs font-normal text-gray-400">(afecta los módulos disponibles)</span>
+                </label>
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ getCategoryName() || 'Sin categoría' }}
+                </div>
+              </div>
+
+              <div v-if="getSubcategoryName()">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Subcategoría
+                </label>
+                <div class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-700">
+                  {{ getSubcategoryName() }}
+                </div>
               </div>
             </div>
 
@@ -260,25 +296,34 @@
               </p>
             </div>
 
-            <div class="flex justify-end space-x-3">
-              <button
-                type="button"
-                :disabled="savingProfile"
-                @click="resetProfileForm"
-                class="px-5 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                :disabled="savingProfile || !profileDirty || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking' || usernameStatus === 'cooldown'"
-                class="px-5 py-2.5 bg-gradient-to-r from-workplace-red to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <span v-if="savingProfile" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                {{ savingProfile ? 'Guardando...' : 'Guardar Cambios' }}
-              </button>
+            <!-- Save Profile Button -->
+            <div class="pt-4 border-t border-gray-100">
+              <div class="flex items-center justify-between">
+                <p v-if="profileDirty" class="text-sm text-gray-500">
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg class="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    Tienes cambios sin guardar
+                  </span>
+                </p>
+                <p v-else class="text-sm text-gray-400">Sin cambios pendientes</p>
+                <button
+                  type="button"
+                  @click="saveProfile"
+                  :disabled="!profileDirty || savingProfile || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'cooldown'"
+                  class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <span v-if="savingProfile" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  {{ savingProfile ? 'Guardando...' : 'Guardar Cambios' }}
+                </button>
+              </div>
             </div>
-          </form>
+
+          </div>
         </div>
 
         <!-- Change Password -->
@@ -371,12 +416,69 @@
           </form>
         </div>
 
+        <!-- Active Sessions -->
+        <div class="card-premium p-6">
+          <div class="flex items-center mb-6">
+            <div class="p-3 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl shadow-lg mr-3">
+              <ComputerDesktopIcon class="h-6 w-6 text-white" />
+            </div>
+            <h3 class="text-xl font-bold text-gray-900">Sesiones Activas</h3>
+          </div>
+
+          <div v-if="loadingSessions" class="space-y-3">
+            <div v-for="i in 2" :key="i" class="h-16 bg-gray-100 rounded-xl animate-pulse" />
+          </div>
+
+          <p v-else-if="sessions.length === 0" class="text-sm text-gray-500">
+            No hay sesiones activas registradas.
+          </p>
+
+          <div v-else class="space-y-3">
+            <div
+              v-for="session in sessions"
+              :key="session.id"
+              class="flex items-center justify-between gap-4 p-4 border-2 rounded-xl"
+              :class="session.isCurrent ? 'border-green-200 bg-green-50' : 'border-gray-100'"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="p-2 bg-white rounded-lg border border-gray-200 shrink-0">
+                  <ComputerDesktopIcon class="h-5 w-5 text-gray-500" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-gray-900 truncate">
+                    {{ deviceLabel(session.deviceInfo) }}
+                    <span v-if="session.isCurrent" class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                      Sesión actual
+                    </span>
+                  </p>
+                  <p class="text-xs text-gray-500 truncate">
+                    {{ session.ipAddress || 'IP desconocida' }} · Conectado {{ formatSessionDate(session.createdAt) }}
+                  </p>
+                </div>
+              </div>
+              <button
+                v-if="!session.isCurrent"
+                type="button"
+                @click="revokeSession(session)"
+                :disabled="revokingSessionId === session.id"
+                class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 shrink-0"
+                title="Cerrar sesión"
+              >
+                <span v-if="revokingSessionId === session.id" class="block h-4 w-4 border-2 border-red-300 border-t-transparent rounded-full animate-spin" />
+                <XMarkIcon v-else class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+definePageMeta({ middleware: 'auth' })
+
 import { ref, computed, onMounted, watch } from 'vue'
 import {
   UserCircleIcon,
@@ -386,15 +488,15 @@ import {
   EyeIcon,
   EyeSlashIcon,
   CameraIcon,
+  ComputerDesktopIcon,
+  XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import Swal from 'sweetalert2'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useAuth } from '~/composables/useAuth'
+import { useAuth, type Session } from '~/composables/useAuth'
 
 const auth = useAuth()
 const { checkUsername } = auth
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const loadingProfile = ref(false)
@@ -407,15 +509,19 @@ const successMsg = ref('')
 const errorMsg = ref('')
 let successTimer: ReturnType<typeof setTimeout> | null = null
 
-const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '' })
+const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '', categoryId: '', country: '', state: '', city: '' })
 const passwordForm = ref({ current: '', new: '', confirm: '' })
 const showPasswords = ref({ current: false, new: false, confirm: false })
+
+// ─── Active sessions ──────────────────────────────────────────────────────────
+const sessions = ref<Session[]>([])
+const loadingSessions = ref(false)
+const revokingSessionId = ref<string | null>(null)
 
 // ─── Username availability check ──────────────────────────────────────────────
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid' | 'cooldown'
 const usernameStatus = ref<UsernameStatus>('idle')
 const usernameCooldownDaysLeft = ref(0)
-const usernameNextChangeAt = ref<string | null>(null)
 let usernameDebounce: ReturnType<typeof setTimeout> | null = null
 
 const USERNAME_REGEX = /^[a-z0-9_.-]+$/
@@ -456,7 +562,6 @@ function onUsernameInput(val: string) {
       if (!res.canChange) {
         usernameStatus.value = 'cooldown'
         usernameCooldownDaysLeft.value = res.daysLeft
-        usernameNextChangeAt.value = res.nextChangeAt
       } else {
         usernameStatus.value = res.available ? 'available' : 'taken'
       }
@@ -490,12 +595,50 @@ const ROLE_STYLES: Record<string, { label: string; badge: string }> = {
 const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role ?? 'NORMAL'] ?? ROLE_STYLES.NORMAL)
 // Solo COMMERCE tiene restaurante asociado y perfil público
 const isCommerce = computed(() => auth.user.value?.role === 'COMMERCE')
+const isCommerceOrFreelancer = computed(() => ['COMMERCE', 'FREELANCER'].includes(auth.user.value?.role ?? ''))
 
+// Categories and Subcategories
+const categories = ref<{ id: string; name: string; icon: string }[]>([])
+const subcategories = ref<{ id: string; name: string; categoryId: string }[]>([])
+const loadingCategories = ref(false)
+
+async function fetchCategories() {
+  if (!isCommerceOrFreelancer.value) return
+  loadingCategories.value = true
+  try {
+    const { get } = useApi()
+    categories.value = await get<typeof categories.value>('/users/categories')
+  } catch { /* ignore */ } finally {
+    loadingCategories.value = false
+  }
+}
+
+async function fetchSubcategories() {
+  if (!isCommerceOrFreelancer.value) return
+  try {
+    const { get } = useApi()
+    subcategories.value = await get<typeof subcategories.value>('/users/subcategories')
+  } catch { /* ignore */ }
+}
+
+function getCategoryName() {
+  const u = auth.user.value as any
+  if (!u?.categoryId) return ''
+  const category = categories.value.find(cat => cat.id === u.categoryId)
+  return category ? `${category.icon} ${category.name}` : ''
+}
+
+function getSubcategoryName() {
+  const u = auth.user.value as any
+  if (!u?.subcategoryId) return ''
+  const subcategory = subcategories.value.find(sub => sub.id === u.subcategoryId)
+  return subcategory ? subcategory.name : ''
+}
+
+const { getAssetUrl } = useAssetUrl()
 const avatarUrl = computed(() => {
   if (avatarPreview.value) return avatarPreview.value
-  const av = auth.user.value?.avatar
-  if (!av) return null
-  return av.startsWith('http') ? av : `${apiUrl}${av}`
+  return getAssetUrl(auth.user.value?.avatar)
 })
 
 // Track dirty state to enable/disable Save button
@@ -507,7 +650,11 @@ const profileDirty = computed(() => {
     profileForm.value.lastName !== (u.lastName ?? '') ||
     profileForm.value.email !== (u.email ?? '') ||
     profileForm.value.phone !== (u.phone ?? '') ||
-    profileForm.value.username !== (u.username ?? '')
+    profileForm.value.username !== (u.username ?? '') ||
+    profileForm.value.categoryId !== ((u as any).categoryId ?? '') ||
+    profileForm.value.country !== (u.country ?? '') ||
+    profileForm.value.state !== (u.state ?? '') ||
+    profileForm.value.city !== (u.city ?? '')
   )
 })
 
@@ -554,6 +701,10 @@ function syncFormFromUser() {
     email: u.email ?? '',
     phone: u.phone ?? '',
     username: u.username ?? '',
+    categoryId: (u as any).categoryId ?? '',
+    country: u.country ?? '',
+    state: u.state ?? '',
+    city: u.city ?? '',
   }
   usernameStatus.value = 'idle'
 }
@@ -639,7 +790,11 @@ async function saveProfile() {
       email: profileForm.value.email,
       phone: profileForm.value.phone || undefined,
       username: profileForm.value.username || undefined,
-    })
+      categoryId: profileForm.value.categoryId || undefined,
+      country: profileForm.value.country || undefined,
+      state: profileForm.value.state || undefined,
+      city: profileForm.value.city || undefined,
+    } as any)
     usernameStatus.value = 'idle'
     showSuccess('Perfil actualizado correctamente')
   } catch (err) {
@@ -667,6 +822,72 @@ async function changePassword() {
   }
 }
 
+// ─── Active sessions ──────────────────────────────────────────────────────────
+async function fetchSessions() {
+  loadingSessions.value = true
+  try {
+    sessions.value = await auth.getSessions()
+  } catch (err) {
+    showError(err)
+  } finally {
+    loadingSessions.value = false
+  }
+}
+
+function deviceLabel(userAgent?: string | null): string {
+  if (!userAgent) return 'Dispositivo desconocido'
+  const ua = userAgent.toLowerCase()
+  let os = 'Desconocido'
+  if (ua.includes('windows')) os = 'Windows'
+  else if (ua.includes('mac os') || ua.includes('macintosh')) os = 'macOS'
+  else if (ua.includes('android')) os = 'Android'
+  else if (ua.includes('iphone') || ua.includes('ipad')) os = 'iOS'
+  else if (ua.includes('linux')) os = 'Linux'
+
+  let browser = 'Navegador'
+  if (ua.includes('edg/')) browser = 'Edge'
+  else if (ua.includes('chrome/')) browser = 'Chrome'
+  else if (ua.includes('firefox/')) browser = 'Firefox'
+  else if (ua.includes('safari/')) browser = 'Safari'
+
+  return `${browser} en ${os}`
+}
+
+function formatSessionDate(value: string): string {
+  return new Date(value).toLocaleString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+async function revokeSession(session: Session) {
+  const result = await Swal.fire({
+    title: '¿Cerrar esta sesión?',
+    text: 'El dispositivo deberá iniciar sesión nuevamente.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, cerrar sesión',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#e53e3e',
+    cancelButtonColor: '#718096',
+  })
+  if (!result.isConfirmed) return
+
+  revokingSessionId.value = session.id
+  try {
+    await auth.revokeSession(session.id)
+    sessions.value = sessions.value.filter((s) => s.id !== session.id)
+    showSuccess('Sesión cerrada correctamente')
+  } catch (err) {
+    showError(err)
+  } finally {
+    revokingSessionId.value = null
+  }
+}
+
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 onMounted(async () => {
   if (!auth.user.value) {
@@ -675,6 +896,7 @@ onMounted(async () => {
     loadingProfile.value = false
   }
   syncFormFromUser()
+  await Promise.all([fetchCategories(), fetchSubcategories(), fetchSessions()])
 })
 
 // Sync form if user changes after fetch

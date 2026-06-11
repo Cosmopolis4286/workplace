@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CreatePermissionDto } from './dto/create-permission.dto';
+import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -31,7 +32,7 @@ export class PermissionsService {
     });
     const keys = records.map((r) => r.permission.key);
 
-    await this.redis.set(cacheKey(role), JSON.stringify(keys), CACHE_TTL);
+    await this.redis.setex(cacheKey(role), CACHE_TTL, JSON.stringify(keys));
     return keys;
   }
 
@@ -42,20 +43,93 @@ export class PermissionsService {
 
   // ── Frontend endpoint: permissions for the logged-in user ─────────────────
 
-  async getMyPermissions(role: Role): Promise<{ keys: string[] }> {
-    const keys = await this.getRolePermissions(role);
-    return { keys };
+  async getMyPermissions(
+    role: Role,
+    userId?: string,
+  ): Promise<{
+    keys: string[];
+    category: string | null;
+    subcategory: string | null;
+    version: string;
+    userSpecific?: string[];
+  }> {
+    const roleKeys = await this.getRolePermissions(role);
+    let keys = roleKeys;
+    let userSpecific: string[] | undefined;
+
+    // Resolver categoría del usuario si se proporciona userId
+    let category: string | null = null;
+    let subcategory: string | null = null;
+
+    if (userId) {
+      const userKeys = await this.getUserSpecificPermissions(userId);
+      // Combinar: rol + individuales concedidos - individuales denegados
+      const combined = new Set(roleKeys);
+      for (const up of userKeys) {
+        if (up.granted) combined.add(up.permissionKey);
+        else combined.delete(up.permissionKey);
+      }
+      keys = Array.from(combined);
+      userSpecific = userKeys.filter(u => u.granted).map(u => u.permissionKey);
+
+      // Obtener categoría/subcategoría del usuario para el sidebar y middleware
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          category:    { select: { name: true } },
+          subcategory: { select: { name: true } },
+        },
+      });
+      category    = user?.category?.name    ?? null;
+      subcategory = user?.subcategory?.name ?? null;
+    }
+
+    // version = hash del estado actual de permisos del rol (permite invalidación en cliente)
+    // Usamos el TTL restante de Redis como proxy; si no hay cache → nuevo timestamp
+    const versionKey = `permissions:version:${role}`;
+    let version = await this.redis.get(versionKey);
+    if (!version) {
+      version = Date.now().toString();
+      await this.redis.setex(versionKey, CACHE_TTL, version);
+    }
+
+    return { keys, category, subcategory, version, userSpecific };
+  }
+
+  // Llamar cuando se modifiquen permisos del rol para invalidar cache de clientes
+  async invalidateRoleVersion(role: Role): Promise<void> {
+    const newVersion = Date.now().toString();
+    await this.redis.setex(`permissions:version:${role}`, CACHE_TTL, newVersion);
+    // También invalida el cache de keys del rol
+    await this.redis.del(cacheKey(role));
+  }
+
+  private async getUserSpecificPermissions(userId: string): Promise<Array<{permissionKey: string; granted: boolean}>> {
+    const userPerms = await this.prisma.userPermission.findMany({
+      where: { userId },
+      include: { permission: true },
+    });
+    
+    return userPerms.map(up => ({
+      permissionKey: up.permission.key,
+      granted: up.granted && (!up.expiresAt || up.expiresAt > new Date()),
+    }));
   }
 
   // ── Admin panel: full matrix ───────────────────────────────────────────────
 
-  async getMatrixForAllRoles() {
+  async getMatrixForAllRoles(adminRole?: Role) {
     const permissions = await this.prisma.permission.findMany({
       include: { rolePermissions: true },
       orderBy: [{ module: 'asc' }, { action: 'asc' }],
     });
 
-    return permissions.map((p) => ({
+    // Si es ADMIN, filtrar para no mostrar permisos de sistema marcados como isSystem
+    const filteredPerms = adminRole === Role.ADMIN 
+      ? permissions.filter(p => !p.isSystem)
+      : permissions;
+
+    return filteredPerms.map((p) => ({
       id: p.id,
       key: p.key,
       module: p.module,
@@ -67,6 +141,21 @@ export class PermissionsService {
         p.rolePermissions.map((rp) => [rp.role, rp.granted])
       ),
     }));
+  }
+
+  async getAllPermissions() {
+    return this.prisma.permission.findMany({
+      orderBy: [{ module: 'asc' }, { action: 'asc' }],
+      select: { id: true, key: true, module: true, action: true, label: true, isSystem: true }
+    });
+  }
+
+  async isSystemPermission(permissionId: string): Promise<boolean> {
+    const perm = await this.prisma.permission.findUnique({
+      where: { id: permissionId },
+      select: { isSystem: true }
+    });
+    return perm?.isSystem ?? false;
   }
 
   // ── Admin panel: toggle single permission ──────────────────────────────────
@@ -92,13 +181,14 @@ export class PermissionsService {
       update: { granted, updatedBy },
     });
 
-    await this.redis.del(cacheKey(role));
+    // Invalida cache de keys y bumps la version para que los clientes re-carguen
+    await this.invalidateRoleVersion(role);
     return { success: true };
   }
 
   // ── Admin panel: create permission ────────────────────────────────────────
 
-  async createPermission(dto: CreatePermissionDto) {
+  async createPermission(dto: CreatePermissionDto, createdBy?: string) {
     const exists = await this.prisma.permission.findUnique({
       where: { key: dto.key },
     });
@@ -125,6 +215,7 @@ export class PermissionsService {
         role,
         permissionId: permission.id,
         granted: false,
+        updatedBy: createdBy,
       })),
       skipDuplicates: true,
     });
@@ -191,5 +282,239 @@ export class PermissionsService {
     await Promise.all(roles.map((r) => this.redis.del(cacheKey(r))));
 
     return { success: true, updated: updates.length };
+  }
+
+  // ─── User Permission Management ───────────────────────────────────────────
+
+  async getUserPermissionsWithAccessCheck(userId: string, admin: { id: string; role: Role }) {
+    // Validar que el admin puede ver este usuario
+    await this.validateUserAccess(admin, userId);
+    
+    return this.getUserPermissions(userId);
+  }
+
+  async getUserPermissions(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, firstName: true, lastName: true, role: true },
+    });
+    
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    // Obtener permisos del rol
+    const rolePermissions = await this.prisma.rolePermission.findMany({
+      where: { role: user.role, granted: true },
+      include: { permission: true },
+    });
+
+    // Obtener permisos individuales del usuario
+    const userPermissions = await this.prisma.userPermission.findMany({
+      where: { userId },
+      include: { permission: true },
+    });
+
+    // Combinar
+    const rolePermMap = new Map(rolePermissions.map(rp => [rp.permission.id, rp.permission]));
+    const userPermMap = new Map(userPermissions.map(up => [up.permission.id, { 
+      ...up, 
+      isGranted: up.granted && (!up.expiresAt || up.expiresAt > new Date()) 
+    }]));
+
+    // Todos los permisos disponibles
+    const allPermissions = await this.prisma.permission.findMany({
+      orderBy: [{ module: 'asc' }, { action: 'asc' }],
+    });
+
+    const permissions = allPermissions.map(p => {
+      const hasRolePermission = rolePermMap.has(p.id);
+      const userPerm = userPermMap.get(p.id);
+      
+      let effectiveGranted = hasRolePermission;
+      let source: 'role' | 'user' | 'none' = hasRolePermission ? 'role' : 'none';
+      
+      if (userPerm) {
+        effectiveGranted = userPerm.isGranted;
+        source = 'user';
+      }
+
+      return {
+        permissionId: p.id,
+        key: p.key,
+        module: p.module,
+        action: p.action,
+        label: p.label,
+        isSystem: p.isSystem,
+        roleGranted: hasRolePermission,
+        userGranted: userPerm?.granted ?? null,
+        userDenied: userPerm && !userPerm.granted ? true : false,
+        expiresAt: userPerm?.expiresAt ?? null,
+        reason: userPerm?.reason ?? null,
+        effectiveGranted,
+        source,
+      };
+    });
+
+    return {
+      user,
+      permissions: permissions.filter(p => p.effectiveGranted || p.userGranted !== null),
+      allPermissions: permissions,
+    };
+  }
+
+  async validateUserAccess(admin: { id: string; role: Role }, userId: string) {
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
+
+    if (!targetUser) throw new NotFoundException('Usuario no encontrado');
+
+    // SUPERADMIN puede ver todos excepto otros SUPERADMIN (a menos que sea él mismo)
+    if (admin.role === Role.SUPERADMIN) {
+      if (targetUser.role === Role.SUPERADMIN && targetUser.id !== admin.id) {
+        throw new ForbiddenException('No puedes gestionar permisos de otros SUPERADMIN');
+      }
+      return;
+    }
+
+    // ADMIN no puede ver SUPERADMIN ni otros ADMIN
+    if (admin.role === Role.ADMIN) {
+      if (targetUser.role === Role.SUPERADMIN) {
+        throw new ForbiddenException('No tienes acceso a usuarios SUPERADMIN');
+      }
+      if (targetUser.role === Role.ADMIN && targetUser.id !== admin.id) {
+        throw new ForbiddenException('No puedes gestionar permisos de otros ADMIN');
+      }
+    }
+  }
+
+  async listUsers(params: {
+    role?: Role;
+    search?: string;
+    page: number;
+    limit: number;
+    visibleRoles?: Role[];
+    excludeUserId?: string;
+  }) {
+    const { role, search, page, limit, visibleRoles, excludeUserId } = params;
+
+    const where: any = {};
+    
+    if (role) where.role = role;
+    if (visibleRoles?.length) where.role = { in: visibleRoles };
+    if (excludeUserId) where.id = { not: excludeUserId };
+    
+    if (search) {
+      where.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          _count: { select: { userPermissions: true } },
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      users: users.map(u => ({
+        ...u,
+        hasCustomPermissions: u._count.userPermissions > 0,
+        _count: undefined,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async updateUserPermission(
+    userId: string, 
+    dto: UpdateUserPermissionDto, 
+    admin: { id: string; role: Role }
+  ) {
+    await this.validateUserAccess(admin, userId);
+
+    const perm = await this.prisma.permission.findUnique({
+      where: { id: dto.permissionId },
+    });
+    if (!perm) throw new NotFoundException('Permiso no encontrado');
+
+    // Solo SUPERADMIN puede asignar permisos de sistema
+    if (perm.isSystem && admin.role !== Role.SUPERADMIN) {
+      throw new ForbiddenException('No puedes asignar permisos de sistema');
+    }
+
+    const userPerm = await this.prisma.userPermission.upsert({
+      where: {
+        userId_permissionId: { userId, permissionId: dto.permissionId },
+      },
+      create: {
+        userId,
+        permissionId: dto.permissionId,
+        granted: dto.granted,
+        reason: dto.reason,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+        updatedBy: admin.id,
+      },
+      update: {
+        granted: dto.granted,
+        reason: dto.reason,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+        updatedBy: admin.id,
+      },
+    });
+
+    // Invalidar caché de permisos del usuario
+    await this.redis.del(`permissions:user:${userId}`);
+
+    return { success: true, userPerm };
+  }
+
+  async removeUserPermission(
+    userId: string, 
+    permissionId: string, 
+    admin: { id: string; role: Role }
+  ) {
+    await this.validateUserAccess(admin, userId);
+
+    await this.prisma.userPermission.deleteMany({
+      where: { userId, permissionId },
+    });
+
+    await this.redis.del(`permissions:user:${userId}`);
+
+    return { success: true };
+  }
+
+  async resetUserPermissions(userId: string, admin: { id: string; role: Role }) {
+    await this.validateUserAccess(admin, userId);
+
+    await this.prisma.userPermission.deleteMany({
+      where: { userId },
+    });
+
+    await this.redis.del(`permissions:user:${userId}`);
+
+    return { success: true, message: 'Permisos individuales eliminados. El usuario ahora usa solo los permisos de su rol.' };
   }
 }

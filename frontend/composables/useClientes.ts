@@ -14,6 +14,7 @@ export interface Customer {
   totalOrders: number
   totalSpent: number
   isActive: boolean
+  telegramChatId?: string | null
   commerceId: string
   createdAt: string
   updatedAt: string

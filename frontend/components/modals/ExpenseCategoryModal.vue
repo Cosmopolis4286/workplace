@@ -141,6 +141,9 @@ import { ref } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { ExpenseCategory } from '~/composables/useExpenses'
+import { useUserPreferences } from '~/composables/useUserPreferences'
+
+const { formatCurrency: _fmt } = useUserPreferences()
 
 const props = defineProps<{
   isOpen: boolean
@@ -162,9 +165,7 @@ const categoryToDelete = ref<ExpenseCategory | null>(null)
 const defaultForm = () => ({ name: '', color: '#6b7280', budget: 0 })
 const form = ref(defaultForm())
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)
-}
+function formatCurrency(value: number) { return _fmt.value(value) }
 
 function startEdit(cat: ExpenseCategory) {
   editingId.value  = cat.id

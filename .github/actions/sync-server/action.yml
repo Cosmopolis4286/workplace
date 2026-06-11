@@ -1,0 +1,77 @@
+name: 'Sync to Server'
+description: 'Sincroniza archivos de configuración al servidor via SSH'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH'
+    required: true
+  ssh-host:
+    description: 'Host del servidor'
+    required: true
+  deploy-path:
+    description: 'Ruta destino en servidor'
+    required: false
+    default: '/opt/workplace'
+
+runs:
+  using: composite
+  steps:
+    - name: Sincronizar archivos
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.ssh-user }}" || -z "${{ inputs.ssh-host }}" ]]; then
+          echo "❌ ssh-user y ssh-host son requeridos"
+          exit 1
+        fi
+
+        REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+        DEPLOY_PATH="${{ inputs.deploy-path }}"
+
+        echo "📤 Sincronizando → $REMOTE:$DEPLOY_PATH"
+
+        # Crear estructura de directorios
+        ssh "$REMOTE" "mkdir -p ${DEPLOY_PATH}/{traefik/dynamic,scripts/deploy,logs,versions,backups/versions}"
+
+        # Copiar archivo via SSH cat (sin scp, sin rsync)
+        copy_file() {
+          local src="$1" dst="$2"
+          if [[ ! -f "$src" ]]; then
+            echo "  ⚠️  $src no existe — omitido"
+            return 0
+          fi
+          ssh "$REMOTE" "mkdir -p $(dirname "$dst") && cat > $dst" < "$src" \
+            && echo "  ✅ $(basename "$src")" \
+            || { echo "  ❌ Error copiando $src"; return 1; }
+        }
+
+        # Copiar directorio (un nivel — no recursivo)
+        copy_dir() {
+          local src_dir="$1" dst_dir="$2"
+          if [[ ! -d "$src_dir" ]]; then
+            echo "  ⚠️  $src_dir no existe — omitido"
+            return 0
+          fi
+          ssh "$REMOTE" "mkdir -p $dst_dir"
+          local count=0
+          for f in "$src_dir"/*; do
+            [[ -f "$f" ]] && copy_file "$f" "$dst_dir/$(basename "$f")" && count=$((count+1))
+          done
+          echo "  ✅ $src_dir ($count archivos)"
+        }
+
+        # docker-compose
+        copy_file "docker-compose.lite.yml" "$DEPLOY_PATH/docker-compose.lite.yml"
+
+        # Traefik
+        copy_dir "traefik" "$DEPLOY_PATH/traefik"
+        if [[ -d "traefik/dynamic" ]]; then
+          copy_dir "traefik/dynamic" "$DEPLOY_PATH/traefik/dynamic"
+        fi
+
+        # Scripts de deploy
+        if [[ -d "scripts/deploy" ]]; then
+          copy_dir "scripts/deploy" "$DEPLOY_PATH/scripts/deploy"
+          ssh "$REMOTE" "find $DEPLOY_PATH/scripts/deploy -name '*.sh' -exec chmod +x {} \;"
+        fi
+
+        echo "✅ Sincronización completada → $REMOTE:$DEPLOY_PATH"

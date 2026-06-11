@@ -2,191 +2,193 @@ name: PR Validation
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
   workflow_dispatch:
     inputs:
       force_approval:
-        description: 'Force approval even if some checks fail'
+        description: 'Continuar aunque fallen algunos checks'
         required: false
         default: false
         type: boolean
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
+  # ─── Validación de código ──────────────────────────────────────────────────
   validate:
+    name: Validar Código
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 20
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+
+    - uses: ./.github/actions/setup-node-pnpm
       with:
-        fetch-depth: 0
+        node-version: '22'
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v3
-      with:
-        version: 9.15.4
-
-    - name: Install dependencies
-      run: |
-        cd backend
-        pnpm install --frozen-lockfile
-
-    - name: Database schema validation
-      run: |
-        cd backend
-        pnpm prisma validate
-        pnpm prisma generate
+    - name: Validar schema Prisma
+      run: cd backend && pnpm prisma validate && pnpm prisma generate
 
     - name: Type checking
-      run: |
-        cd backend
-        pnpm type-check
+      run: cd backend && pnpm type-check
 
-    - name: Linting
-      run: |
-        cd backend
-        pnpm lint:ci
+    - name: Lint
+      run: cd backend && pnpm lint:ci
 
     - name: Format check
-      run: |
-        cd backend
-        pnpm format:check
+      run: cd backend && pnpm format:check
 
-    - name: Security audit
-      run: |
-        cd backend
-        pnpm audit --audit-level moderate
+    - name: Audit de dependencias
+      run: cd backend && pnpm audit --audit-level moderate
       timeout-minutes: 5
       continue-on-error: ${{ github.event.inputs.force_approval == 'true' }}
 
-    - name: Check for migration conflicts
+    - name: Verificar migraciones nuevas
       run: |
         cd backend
-        # Check if there are migration files that haven't been applied
-        if [ -n "$(git diff --name-only origin/main..HEAD | grep 'prisma/migrations')" ]; then
-          echo "🔍 New migrations detected"
-          
-          # Validate migration format
-          for migration in prisma/migrations/*/migration.sql; do
-            if [ -f "$migration" ]; then
-              echo "✅ Validating $(basename $(dirname $migration))"
-              
-              # Check migration SQL syntax
-              if ! pnpm prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > /dev/null 2>&1; then
-                echo "❌ Migration validation failed"
-                exit 1
-              fi
-            fi
-          done
-          
-          echo "✅ All migrations validated"
+        BASE=${{ github.event.pull_request.base.sha || 'HEAD~1' }}
+        if git diff --name-only "$BASE"..HEAD | grep -q 'prisma/migrations'; then
+          echo "Nuevas migraciones detectadas — validando..."
+          pnpm prisma migrate diff \
+            --from-empty \
+            --to-schema-datamodel prisma/schema.prisma \
+            --script > /dev/null
+          echo "Migraciones OK"
+        else
+          echo "Sin migraciones nuevas"
         fi
 
-    - name: Build test
-      run: |
-        cd backend
-        pnpm build
-
-    - name: Unit tests
-      run: |
-        cd backend
-        pnpm test:ci
+    - name: Tests unitarios
+      run: cd backend && pnpm test:ci
       timeout-minutes: 10
       continue-on-error: ${{ github.event.inputs.force_approval == 'true' }}
 
-    - name: Check bundle size
+    - name: Build
+      run: cd backend && pnpm build
+
+    - name: Verificar tamaño del bundle
       run: |
-        cd backend
-        pnpm build
-        
-        # Check if dist folder size is reasonable (< 50MB)
-        DIST_SIZE=$(du -sm dist | cut -f1)
+        DIST_SIZE=$(du -sm backend/dist | cut -f1)
+        echo "Bundle size: ${DIST_SIZE}MB"
         if [ "$DIST_SIZE" -gt 50 ]; then
-          echo "❌ Bundle size too large: ${DIST_SIZE}MB (limit: 50MB)"
+          echo "Bundle demasiado grande: ${DIST_SIZE}MB (limite: 50MB)"
           exit 1
         fi
-        
-        echo "✅ Bundle size OK: ${DIST_SIZE}MB"
-      timeout-minutes: 5
 
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
+    - name: Subir coverage
+      uses: codecov/codecov-action@v5
       with:
-        file: ./backend/coverage/lcov.info
-        flags: pr-tests
-        name: pr-coverage
+        files: ./backend/coverage/lcov.info
+        flags: pr
+        fail_ci_if_error: false
 
-    - name: Docker build test
-      run: |
-        docker build -f backend/Dockerfile --target production .
-        echo "✅ Docker build successful"
-      timeout-minutes: 10
-
-  security-scan:
+  # ─── Build de verificación Docker ─────────────────────────────────────────
+  docker-build-check:
+    name: Verificar Build Docker
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v4
 
-    - name: Run Trivy vulnerability scanner
+    - name: Build backend (sin push)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./backend/Dockerfile.prod
+        target: production
+        push: false
+        cache-from: type=gha,scope=pr-backend
+        cache-to: type=gha,mode=max,scope=pr-backend
+
+    - name: Build frontend (sin push)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./frontend/Dockerfile.prod
+        target: production
+        push: false
+        cache-from: type=gha,scope=pr-frontend
+        cache-to: type=gha,mode=max,scope=pr-frontend
+
+  # ─── Escaneo de seguridad ──────────────────────────────────────────────────
+  security-scan:
+    name: Escaneo de Seguridad
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Trivy — escaneo de vulnerabilidades
       uses: aquasecurity/trivy-action@master
       with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
+        scan-type: fs
+        scan-ref: .
+        format: sarif
+        output: trivy-results.sarif
 
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+    - name: Subir resultados a GitHub Security
+      uses: github/codeql-action/upload-sarif@v4
       if: always()
       with:
-        sarif_file: 'trivy-results.sarif'
+        sarif_file: trivy-results.sarif
+      env:
+        GITHUB_TOKEN: ${{ secrets.WORKPLACE_PAT || github.token }}
 
+  # ─── Revisión de dependencias (solo PRs) ──────────────────────────────────
   dependency-review:
+    name: Revisión de Dependencias
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     timeout-minutes: 10
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Dependency Review
-      uses: actions/dependency-review-action@v3
+    - uses: actions/dependency-review-action@v4
       with:
         fail-on-severity: moderate
 
+  # ─── Comentario de estado en el PR ────────────────────────────────────────
   notify:
-    needs: [validate, security-scan, dependency-review]
+    name: Comentar Estado en PR
     runs-on: ubuntu-latest
-    if: always()
-
+    needs: [validate, docker-build-check, security-scan, dependency-review]
+    if: always() && github.event_name == 'pull_request'
     steps:
-    - name: Notify PR status
+    - name: Comentar resultado en PR
       uses: actions/github-script@v7
       with:
         script: |
-          const { owner, repo } = context.repo;
-          const pr_number = context.issue.number;
-          
-          const status = ${{ needs.validate.result }} === 'success' && 
-                        ${{ needs.security-scan.result }} !== 'failure' && 
-                        ${{ needs.dependency-review.result }} !== 'failure' 
-                        ? '✅ All checks passed' 
-                        : ${{ github.event.inputs.force_approval == 'true' }} ? '✅ Force approved' : '❌ Some checks failed';
-          
+          const results = {
+            validate:          '${{ needs.validate.result }}',
+            dockerBuildCheck:  '${{ needs.docker-build-check.result }}',
+            securityScan:      '${{ needs.security-scan.result }}',
+            dependencyReview:  '${{ needs.dependency-review.result }}',
+          };
+
+          const icon = (r) => r === 'success' ? '✅' : r === 'skipped' ? '⏭️' : '❌';
+          const allOk = Object.values(results).every(r => r === 'success' || r === 'skipped');
+
+          const body = [
+            '## Resultado de Validación del PR',
+            '',
+            `| Check | Estado |`,
+            `|-------|--------|`,
+            `| Código (lint, types, tests, build) | ${icon(results.validate)} ${results.validate} |`,
+            `| Build Docker | ${icon(results.dockerBuildCheck)} ${results.dockerBuildCheck} |`,
+            `| Seguridad (Trivy) | ${icon(results.securityScan)} ${results.securityScan} |`,
+            `| Dependencias | ${icon(results.dependencyReview)} ${results.dependencyReview} |`,
+            '',
+            allOk
+              ? '**Listo para review.** Todos los checks pasaron.'
+              : '**Hay checks fallidos.** Revisa los detalles antes de hacer merge.',
+          ].join('\n');
+
           github.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: pr_number,
-            body: `## PR Validation Status\n\n${status}\n\n**Checks:**\n- ✅ Code validation\n- ✅ Security scan\n- ✅ Dependency review\n\n${status.includes('✅') ? 'Ready for review! 🎉' : 'Please fix the issues before merging.'}`
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body,
           });

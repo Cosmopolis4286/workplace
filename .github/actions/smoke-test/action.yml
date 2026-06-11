@@ -1,0 +1,229 @@
+name: 'Smoke Test Environment'
+description: 'Ejecuta smoke tests en un entorno desplegado (staging o producción)'
+
+inputs:
+  environment:
+    description: 'Environment name (staging/production)'
+    required: true
+  domain:
+    description: 'Domain to test'
+    required: true
+  ssh-private-key:
+    description: 'SSH private key for server access'
+    required: true
+  ssh-host:
+    description: 'SSH host'
+    required: true
+  ssh-user:
+    description: 'SSH user'
+    required: false
+    default: 'root'
+  ssl-retries:
+    description: 'Number of SSL verification retries'
+    required: false
+    default: '5'
+  backend-retries:
+    description: 'Number of backend health check retries'
+    required: false
+    default: '12'
+  frontend-retries:
+    description: 'Number of frontend health check retries'
+    required: false
+    default: '8'
+
+outputs:
+  status:
+    description: 'Test status (success/failure/skipped)'
+    value: ${{ steps.smoke-test.outputs.status }}
+  url:
+    description: 'Tested URL'
+    value: ${{ steps.smoke-test.outputs.url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup SSH
+      uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ inputs.ssh-private-key }}
+        production-host: ${{ inputs.ssh-host }}
+
+    - name: Smoke Test
+      id: smoke-test
+      shell: bash
+      run: |
+        set -euo pipefail
+        DOMAIN="${{ inputs.domain }}"
+        REMOTE="${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+
+        if [ -z "$DOMAIN" ]; then
+          echo "⚠️ Domain no configurado — smoke test omitido"
+          echo "status=skipped" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "════════════════════════════════════════"
+        echo "  Smoke Test: ${{ inputs.environment }}"
+        echo "  URL: https://$DOMAIN"
+        echo "════════════════════════════════════════"
+
+        # ── Helpers ────────────────────────────────
+        check_url() {
+          local url="$1" retries="$2" interval="${3:-10}" label="$4"
+          local i latency_ms start end http_code
+          for i in $(seq 1 "$retries"); do
+            start=$(date +%s%3N)
+            http_code=$(curl -so /dev/null -w "%{http_code}" --max-time 15 "$url" 2>/dev/null || echo "000")
+            end=$(date +%s%3N)
+            latency_ms=$((end - start))
+            if [[ "$http_code" =~ ^(200|301|302|304)$ ]]; then
+              echo "  ✅ $label — HTTP $http_code (${latency_ms}ms) en intento $i/$retries"
+              return 0
+            fi
+            echo "  ⏳ $label — HTTP $http_code (${latency_ms}ms) intento $i/$retries"
+            [ "$i" -lt "$retries" ] && sleep "$interval"
+          done
+          echo "  ❌ $label — no responde tras $retries intentos"
+          return 1
+        }
+
+        # ── 1. SSL ─────────────────────────────────
+        echo ""
+        echo "🔒 Verificando certificado SSL..."
+        ssl_ok=false
+        for i in $(seq 1 ${{ inputs.ssl-retries }}); do
+          if echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" \
+              2>/dev/null | openssl x509 -noout -dates 2>/dev/null; then
+            ssl_ok=true
+            break
+          fi
+          echo "  ⏳ SSL intento $i/${{ inputs.ssl-retries }}"
+          [ "$i" -lt "${{ inputs.ssl-retries }}" ] && sleep 5
+        done
+        [[ "$ssl_ok" == "false" ]] && echo "  ⚠️ SSL no verificado (puede estar propagándose)"
+
+        # ── 2. Backend /api/health ──────────────────
+        echo ""
+        echo "🔍 Verificando backend..."
+        backend_ok=false
+        check_url "https://$DOMAIN/api/health" \
+          "${{ inputs.backend-retries }}" 10 "GET /api/health" && backend_ok=true || true
+
+        # ── 3. /api/ready — DB + Redis ─────────────
+        echo ""
+        echo "🩺 Verificando readiness (DB + Redis)..."
+        ready_json=$(curl -sf --max-time 10 "https://$DOMAIN/api/ready" 2>/dev/null || echo "{}")
+        ready_val=$(echo "$ready_json"  | grep -o '"ready":[^,}]*' | cut -d: -f2 | tr -d ' "' || echo "unknown")
+        db_status=$(echo "$ready_json"  | grep -o '"database":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+        redis_status=$(echo "$ready_json" | grep -o '"redis":"[^"]*"'   | cut -d'"' -f4 || echo "unknown")
+        app_status=$(echo "$ready_json"  | grep -o '"application":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+
+        echo "  Ready:       $ready_val"
+        echo "  Database:    $db_status"
+        echo "  Redis:       $redis_status"
+        echo "  Application: $app_status"
+
+        if [[ "$db_status" != "connected" || "$redis_status" != "connected" ]]; then
+          echo "  ⚠️ Servicios críticos degradados"
+        else
+          echo "  ✅ Todos los servicios internos OK"
+        fi
+
+        # ── 4. Frontend ────────────────────────────
+        echo ""
+        echo "🎨 Verificando frontend..."
+        frontend_ok=false
+        check_url "https://$DOMAIN/" \
+          "${{ inputs.frontend-retries }}" 10 "GET /" && frontend_ok=true || true
+
+        # ── 5. /api/version ────────────────────────
+        echo ""
+        echo "📦 Versión desplegada:"
+        version_json=$(curl -sf --max-time 5 "https://$DOMAIN/api/version" 2>/dev/null || echo "{}")
+        echo "  $(echo "$version_json" | tr ',' '\n' | tr -d '{"' | sed 's/^/  /')"
+
+        # ── 6. Verificación de Schema Prisma ────────
+        echo ""
+        echo "🔍 Verificando integridad del schema Prisma..."
+        schema_ok=true
+        
+        # Verificar que no hay errores P2022 (columnas faltantes)
+        backend_logs=$(ssh "$REMOTE" "docker logs \$(docker ps --format '{{.Names}}' | grep -i backend | head -1) --tail 50 2>&1" || echo "")
+        if echo "$backend_logs" | grep -q "P2022\|column.*does not exist\|userType"; then
+          echo "  ❌ ERROR: Schema desincronizado - campo userType faltante"
+          echo "     Prisma error P2022 detectado en logs"
+          schema_ok=false
+        fi
+        
+        # Verificar endpoint de test-db si existe
+        db_test=$(curl -sf --max-time 5 "https://$DOMAIN/api/health/db" 2>/dev/null || echo "{}")
+        if [[ "$db_test" != *"healthy"* && "$db_test" != *"{}"* ]]; then
+          echo "  ⚠️  Endpoint /api/health/db responde con error"
+          schema_ok=false
+        fi
+        
+        # Intentar operación real de lectura (findFirst en users)
+        health_detailed=$(curl -sf --max-time 10 "https://$DOMAIN/api/ready" 2>/dev/null || echo "{}")
+        if echo "$health_detailed" | grep -q "error\|Error\|failed\|FAILED"; then
+          echo "  ❌ ERROR: /api/ready reporta errores internos"
+          schema_ok=false
+        fi
+        
+        if [[ "$schema_ok" == "true" ]]; then
+          echo "  ✅ Schema Prisma verificado - sin errores de columna"
+        else
+          echo "  ⚠️  Problemas de schema detectados - revisar migraciones"
+        fi
+
+        # ── 7. Diagnóstico SSH en caso de fallo ────
+        if [[ "$backend_ok" == "false" || "$frontend_ok" == "false" || "$schema_ok" == "false" ]]; then
+          echo ""
+          echo "════════════════════════════════════════"
+          echo "  DIAGNÓSTICO DE CONTAINERS (SSH)"
+          echo "════════════════════════════════════════"
+          ssh "$REMOTE" bash -s << 'ENDSSH'
+            echo "── docker ps ──────────────────────────"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}" 2>/dev/null || true
+
+            echo ""
+            echo "── Últimos logs: backend ───────────────"
+            BACKEND=$(docker ps --format '{{.Names}}' | grep -i backend | head -1 || true)
+            if [[ -n "$BACKEND" ]]; then
+              docker logs "$BACKEND" --tail 30 2>&1 || true
+            else
+              echo "  Contenedor backend no encontrado"
+            fi
+
+            echo ""
+            echo "── Últimos logs: frontend ──────────────"
+            FRONTEND=$(docker ps --format '{{.Names}}' | grep -i frontend | head -1 || true)
+            if [[ -n "$FRONTEND" ]]; then
+              docker logs "$FRONTEND" --tail 15 2>&1 || true
+            else
+              echo "  Contenedor frontend no encontrado"
+            fi
+
+            echo ""
+            echo "── Uso de recursos ────────────────────"
+            docker stats --no-stream --format \
+              "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}" 2>/dev/null || true
+        ENDSSH
+        fi
+
+        # ── Resultado final ────────────────────────
+        echo ""
+        echo "════════════════════════════════════════"
+        if [[ "$backend_ok" == "true" && "$frontend_ok" == "true" && "$schema_ok" == "true" ]]; then
+          echo "  🎉 Smoke test PASSED — ${{ inputs.environment }}"
+          echo "════════════════════════════════════════"
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "url=https://$DOMAIN" >> $GITHUB_OUTPUT
+        else
+          echo "  ❌ Smoke test FAILED — ${{ inputs.environment }}"
+          [[ "$backend_ok"  != "true" ]] && echo "     • Backend no responde"
+          [[ "$frontend_ok" != "true" ]] && echo "     • Frontend no responde"
+          [[ "$schema_ok"   != "true" ]] && echo "     • Schema Prisma desincronizado (ejecutar: npx prisma db push)"
+          echo "════════════════════════════════════════"
+          echo "status=failure" >> $GITHUB_OUTPUT
+          exit 1
+        fi

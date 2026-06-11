@@ -13,6 +13,12 @@ export interface ExchangeRate {
   updatedBy: string | null
   createdAt: string
   updatedAt: string
+  // Auto-sync fields
+  autoSync?: boolean
+  lastSyncAt?: string | null
+  syncSource?: string | null
+  syncError?: string | null
+  syncAttempts?: number
 }
 
 export interface ExchangeRateStats {
@@ -64,11 +70,12 @@ export function useExchangeRates() {
 
   // ─── Fetch ────────────────────────────────────────────────────────────────────
 
-  async function fetchRates(includeInactive = true) {
+  async function fetchRates(includeInactive = true, publicOnly = false) {
     loading.value = true
     error.value = null
     try {
-      const data = await apiFetch(`/exchange-rates?includeInactive=${includeInactive}`)
+      const url = publicOnly ? '/exchange-rates/active' : `/exchange-rates?includeInactive=${includeInactive}`
+      const data = await apiFetch(url)
       rates.value = data
     } catch (e: any) {
       error.value = e.message
@@ -104,7 +111,7 @@ export function useExchangeRates() {
       method: 'PUT',
       body: JSON.stringify(dto),
     })
-    const idx = rates.value.findIndex(r => r.id === id)
+    const idx = rates.value.findIndex((r: ExchangeRate) => r.id === id)
     if (idx >= 0) rates.value[idx] = data
     return data
   }
@@ -112,21 +119,42 @@ export function useExchangeRates() {
   async function setDefault(id: string) {
     const data = await apiFetch(`/exchange-rates/${id}/set-default`, { method: 'PATCH' })
     // update local state: clear previous default, set new one
-    rates.value = rates.value.map(r => ({ ...r, isDefault: r.id === id ? data.isDefault : false }))
-    rates.value[rates.value.findIndex(r => r.id === id)] = data
+    rates.value = rates.value.map((r: ExchangeRate) => ({ ...r, isDefault: r.id === id ? data.isDefault : false }))
+    rates.value[rates.value.findIndex((r: ExchangeRate) => r.id === id)] = data
     return data
   }
 
   async function toggleStatus(id: string) {
     const data = await apiFetch(`/exchange-rates/${id}/toggle-status`, { method: 'PATCH' })
-    const idx = rates.value.findIndex(r => r.id === id)
+    const idx = rates.value.findIndex((r: ExchangeRate) => r.id === id)
     if (idx >= 0) rates.value[idx] = data
     return data
   }
 
   async function deleteRate(id: string) {
     await apiFetch(`/exchange-rates/${id}`, { method: 'DELETE' })
-    rates.value = rates.value.filter(r => r.id !== id)
+    rates.value = rates.value.filter((r: ExchangeRate) => r.id !== id)
+  }
+
+  async function toggleAutoSync(code: string, enabled: boolean) {
+    const data = await apiFetch(`/exchange-rates/${code}/auto-sync`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled }),
+    })
+    // Update local state
+    const idx = rates.value.findIndex((r: ExchangeRate) => r.code === code)
+    if (idx >= 0) {
+      rates.value[idx] = { ...rates.value[idx], autoSync: enabled }
+    }
+    return data
+  }
+
+  async function manualSync(code: string) {
+    return await apiFetch(`/exchange-rates/sync/${code}`, { method: 'POST' })
+  }
+
+  async function getSyncStatus(code: string) {
+    return await apiFetch(`/exchange-rates/sync-status/${code}`)
   }
 
   // ─── Public utils ─────────────────────────────────────────────────────────────
@@ -149,8 +177,8 @@ export function useExchangeRates() {
 
   // ─── Computed ─────────────────────────────────────────────────────────────────
 
-  const activeRates = computed(() => rates.value.filter(r => r.isActive))
-  const defaultRate = computed(() => rates.value.find(r => r.isDefault) ?? null)
+  const activeRates = computed(() => rates.value.filter((r: ExchangeRate) => r.isActive))
+  const defaultRate = computed(() => rates.value.find((r: ExchangeRate) => r.isDefault) ?? null)
 
   function formatRate(rate: ExchangeRate) {
     return `1 USD = ${rate.rateToUsd.toLocaleString('es-VE', { maximumFractionDigits: 4 })} ${rate.code}`
@@ -176,6 +204,9 @@ export function useExchangeRates() {
     setDefault,
     toggleStatus,
     deleteRate,
+    toggleAutoSync,
+    manualSync,
+    getSyncStatus,
     fetchPublicRates,
     convertAmount,
     formatRate,

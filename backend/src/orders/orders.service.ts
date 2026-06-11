@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TelegramService } from '../telegram/telegram.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
@@ -27,7 +28,8 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
-    private readonly planLimits: PlanLimitsService
+    private readonly planLimits: PlanLimitsService,
+    private readonly telegram: TelegramService,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -226,6 +228,15 @@ export class OrdersService {
       .notifyNewOrder(commerceId, orderNumber, total)
       .catch(() => null);
 
+    if (dto.customerId) {
+      this.telegram
+        .notifyCustomer(
+          dto.customerId,
+          `🛒 <b>Pedido recibido</b>\nNúmero: <b>${orderNumber}</b>\nTotal: <b>$${total.toFixed(2)}</b>\nEstaremos preparando tu pedido pronto.`,
+        )
+        .catch(() => null);
+    }
+
     return order;
   }
 
@@ -280,16 +291,113 @@ export class OrdersService {
       this.notifications
         .notifyOrderStatusChange(commerceId, existing.orderNumber, dto.status)
         .catch(() => null);
+
+      if (existing.customerId) {
+        const statusEmoji: Record<string, string> = {
+          CONFIRMADO: '✅ Confirmado',
+          PREPARANDO: '👨‍🍳 En preparación',
+          LISTO: '📦 Listo para entrega',
+          EN_ENTREGA: '🚚 En camino',
+          ENTREGADO: '🎉 Entregado',
+          CANCELADO: '❌ Cancelado',
+        };
+        const label = statusEmoji[dto.status] ?? dto.status;
+        this.telegram
+          .notifyCustomer(
+            existing.customerId,
+            `📋 <b>Pedido #${existing.orderNumber}</b>\nEstado: <b>${label}</b>`,
+          )
+          .catch(() => null);
+      }
     }
 
     return updated;
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // My Orders stats (for customers)
+  // ──────────────────────────────────────────────────────────────────────────
+  async getMyOrdersStats(userEmail: string) {
+    const where = { customerEmail: userEmail };
+
+    const [total, byStatus, totalSpent] = await Promise.all([
+      this.prisma.order.count({ where }),
+      this.prisma.order.groupBy({
+        by: ['status'],
+        where,
+        _count: true,
+      }),
+      this.prisma.order.aggregate({
+        where: { ...where, status: 'ENTREGADO' },
+        _sum: { total: true },
+      }),
+    ]);
+
+    const statusMap = Object.fromEntries(
+      byStatus.map((s) => [s.status, s._count]),
+    );
+    const processingStatuses: OrderStatus[] = [
+      'CONFIRMADO',
+      'PREPARANDO',
+      'LISTO',
+      'EN_ENTREGA',
+    ];
+    const processingOrders = processingStatuses.reduce(
+      (sum, s) => sum + (statusMap[s] ?? 0),
+      0,
+    );
+
+    return {
+      totalOrders: total,
+      pendingOrders: statusMap['PENDIENTE'] ?? 0,
+      processingOrders,
+      completedOrders: statusMap['ENTREGADO'] ?? 0,
+      cancelledOrders: statusMap['CANCELADO'] ?? 0,
+      totalSpent: totalSpent._sum.total ?? 0,
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // My Orders (for customers)
+  // ──────────────────────────────────────────────────────────────────────────
+  async getMyOrders(userEmail: string, page = 1, limit = 20, status?: string) {
+    const skip = (page - 1) * limit;
+    const where: any = { customerEmail: userEmail };
+    if (status) where.status = status;
+
+    const [data, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          items: true,
+          commerce: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      data: data.map((o) => ({ ...o, itemCount: o.items.length })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // Delete
   // ──────────────────────────────────────────────────────────────────────────
   async remove(id: string, commerceId: string) {
-    await this.findOne(id, commerceId);
+    const order = await this.findOne(id, commerceId);
+    if (order.status !== 'PENDIENTE') {
+      throw new BadRequestException(
+        'Solo se pueden eliminar pedidos en estado PENDIENTE'
+      );
+    }
     await this.prisma.order.delete({ where: { id } });
     return { message: 'Pedido eliminado' };
   }

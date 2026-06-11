@@ -1,0 +1,258 @@
+name: 'Docker Deploy'
+description: 'Pull de imágenes y recreación de containers en el servidor remoto'
+
+inputs:
+  ssh-user:
+    description: 'Usuario SSH'
+    required: true
+  ssh-host:
+    description: 'Host del servidor'
+    required: true
+  deploy-path:
+    description: 'Ruta en servidor'
+    required: false
+    default: '/opt/workplace'
+  backend-image:
+    description: 'Imagen backend (registry/image:tag)'
+    required: true
+  frontend-image:
+    description: 'Imagen frontend (registry/image:tag)'
+    required: true
+  current-sha:
+    description: 'SHA del commit'
+    required: true
+  domain:
+    description: 'Dominio de la aplicación'
+    required: false
+    default: ''
+  acme-email:
+    description: 'Email para certificados ACME'
+    required: false
+    default: ''
+  node-port:
+    description: 'Puerto del backend'
+    required: false
+    default: '3001'
+  frontend-port:
+    description: 'Puerto del frontend'
+    required: false
+    default: '3000'
+
+outputs:
+  status:
+    description: 'Estado del deploy (success/failure)'
+    value: ${{ steps.deploy.outputs.status }}
+  duration:
+    description: 'Duración en segundos'
+    value: ${{ steps.deploy.outputs.duration }}
+
+runs:
+  using: composite
+  steps:
+    - name: Deploy
+      id: deploy
+      shell: bash
+      run: |
+        START=$(date +%s)
+
+        ssh "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}" \
+          "DEPLOY_PATH='${{ inputs.deploy-path }}' \
+           BACKEND_IMAGE='${{ inputs.backend-image }}' \
+           FRONTEND_IMAGE='${{ inputs.frontend-image }}' \
+           CURRENT_SHA='${{ inputs.current-sha }}' \
+           DOMAIN='${{ inputs.domain }}' \
+           ACME_EMAIL='${{ inputs.acme-email }}' \
+           NODE_PORT='${{ inputs.node-port }}' \
+           FRONTEND_PORT='${{ inputs.frontend-port }}' \
+           bash -s" << 'ENDSSH'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          COMPOSE="docker compose -f docker-compose.lite.yml"
+
+          echo "🚀 Deploy iniciado: $CURRENT_SHA"
+          echo "   Backend:  $BACKEND_IMAGE"
+          echo "   Frontend: $FRONTEND_IMAGE"
+          echo "   Ports:    Backend=$NODE_PORT, Frontend=$FRONTEND_PORT"
+
+          # Backup de la versión anterior antes de recrear containers
+          mkdir -p versions
+          if [[ -f versions/current.env ]]; then
+            cp versions/current.env "versions/backup-$(date +%Y%m%d-%H%M%S).env"
+            # Mantener solo los últimos 10 backups
+            ls -t versions/backup-*.env 2>/dev/null | tail -n +11 | xargs rm -f || true
+          fi
+
+          # Guardar imágenes anteriores para rollback (antes del deploy, no después)
+          PREV_BACKEND=$(docker inspect --format='{{.Config.Image}}' \
+            "$(docker ps -aqf name=backend | head -1)" 2>/dev/null || echo "")
+          PREV_FRONTEND=$(docker inspect --format='{{.Config.Image}}' \
+            "$(docker ps -aqf name=frontend | head -1)" 2>/dev/null || echo "")
+
+          # Pull imágenes con retry (3 intentos por red inestable)
+          pull_with_retry() {
+            local img="$1"
+            for i in 1 2 3; do
+              docker pull "$img" && return 0
+              echo "  ⚠️  Pull $img intento $i/3 falló"
+              [[ $i -lt 3 ]] && sleep 10
+            done
+            echo "  ❌ No se pudo pull: $img"
+            return 1
+          }
+
+          pull_with_retry "$BACKEND_IMAGE"
+          pull_with_retry "$FRONTEND_IMAGE"
+
+          # Verificar que postgres y redis estén healthy antes de recrear backend
+          # (--no-deps omite el depends_on, así que lo hacemos explícito aquí)
+          echo "🔍 Verificando que postgres y redis estén healthy antes del deploy..."
+          for svc in postgres redis; do
+            SVC_ID=$(docker ps -qf name="$svc" | head -1)
+            if [[ -z "$SVC_ID" ]]; then
+              echo "  ❌ Container '$svc' no encontrado — asegúrate de que el stack base está levantado"
+              echo "     Ejecuta: docker compose -f docker-compose.lite.yml up -d postgres redis traefik"
+              exit 1
+            fi
+            SVC_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$SVC_ID" 2>/dev/null || echo "unknown")
+            if [[ "$SVC_HEALTH" != "healthy" ]]; then
+              echo "  ⚠️  $svc está '$SVC_HEALTH' — esperando hasta 60s..."
+              for j in $(seq 1 20); do
+                sleep 3
+                SVC_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$SVC_ID" 2>/dev/null || echo "unknown")
+                [[ "$SVC_HEALTH" == "healthy" ]] && break
+                echo "    ⏳ $svc=$SVC_HEALTH ($((j*3))s/60s)"
+              done
+              if [[ "$SVC_HEALTH" != "healthy" ]]; then
+                echo "  ❌ $svc no alcanzó estado healthy (actual: $SVC_HEALTH)"
+                echo "  Logs $svc (últimos 20):"
+                docker logs "$SVC_ID" --tail 20 2>&1 || true
+                exit 1
+              fi
+            fi
+            echo "  ✅ $svc healthy"
+          done
+
+          # Deploy — recrear solo backend y frontend sin tocar postgres/redis/traefik
+          export BACKEND_IMAGE FRONTEND_IMAGE NODE_PORT FRONTEND_PORT
+          $COMPOSE up -d --no-deps --force-recreate backend frontend
+
+          # Actualizar variables de deploy en .env sin sobreescribir secretos
+          if [[ -n "$DOMAIN" ]]; then
+            update_env() {
+              local key="$1" val="$2"
+              if grep -q "^${key}=" .env 2>/dev/null; then
+                sed -i "s|^${key}=.*|${key}=${val}|" .env
+              else
+                echo "${key}=${val}" >> .env
+              fi
+            }
+            update_env "DOMAIN"          "$DOMAIN"
+            update_env "ACME_EMAIL"      "$ACME_EMAIL"
+            update_env "BACKEND_IMAGE"   "$BACKEND_IMAGE"
+            update_env "FRONTEND_IMAGE"  "$FRONTEND_IMAGE"
+            update_env "NODE_PORT"       "$NODE_PORT"
+            update_env "FRONTEND_PORT"   "$FRONTEND_PORT"
+          fi
+
+          # Esperar que los containers estén healthy
+          # Backend: start_period=120s + 5 retries×30s = hasta ~270s posibles
+          # Loop: 90 iteraciones × 3s = 270s máx
+          echo "⏳ Esperando que los containers estén healthy (máx 270s)..."
+          HEALTHY_COUNT=0
+          for i in $(seq 1 90); do
+            BACKEND_ID=$(docker ps -qf name=backend | head -1)
+            FRONTEND_ID=$(docker ps -qf name=frontend | head -1)
+
+            BACKEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$BACKEND_ID" 2>/dev/null || echo "unknown")
+            FRONTEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$FRONTEND_ID" 2>/dev/null || echo "unknown")
+            BACKEND_STATUS=$(docker inspect --format='{{.State.Status}}' "$BACKEND_ID" 2>/dev/null || echo "missing")
+            FRONTEND_STATUS=$(docker inspect --format='{{.State.Status}}' "$FRONTEND_ID" 2>/dev/null || echo "missing")
+
+            # Fallo inmediato si alguno está en restarting o exited
+            if [[ "$BACKEND_STATUS" == "restarting" || "$FRONTEND_STATUS" == "restarting" ||
+                  "$BACKEND_STATUS" == "exited"     || "$FRONTEND_STATUS" == "exited" ]]; then
+              echo "  ❌ Container en estado de fallo — backend=$BACKEND_STATUS frontend=$FRONTEND_STATUS"
+              echo ""
+              echo "── Logs backend (últimos 60) ──"
+              docker logs "$BACKEND_ID" --tail 60 2>&1 || true
+              echo ""
+              echo "── Logs frontend (últimos 30) ──"
+              docker logs "$FRONTEND_ID" --tail 30 2>&1 || true
+              echo ""
+              echo "── Logs traefik (últimos 20) ──"
+              docker logs "$(docker ps -qf name=traefik | head -1)" --tail 20 2>&1 || true
+              echo ""
+              echo "── Postgres health (diagnóstico) ──"
+              PG_ID=$(docker ps -qf name=postgres | head -1)
+              docker inspect --format='{{.State.Health.Status}}' "$PG_ID" 2>/dev/null || echo "postgres no encontrado"
+              docker logs "$PG_ID" --tail 10 2>&1 || true
+              exit 1
+            fi
+
+            if [[ "$BACKEND_HEALTH" == "healthy" && "$FRONTEND_HEALTH" == "healthy" ]]; then
+              ((HEALTHY_COUNT++))
+              if [[ $HEALTHY_COUNT -ge 2 ]]; then
+                echo "  ✅ Containers healthy confirmado (2 checks consecutivos) en $((i*3))s"
+                break
+              fi
+              echo "  ✅ Healthy check $HEALTHY_COUNT/2 (intento $i)"
+            else
+              HEALTHY_COUNT=0
+              if [[ $((i % 10)) -eq 0 || $i -le 5 ]]; then
+                echo "  ⏳ backend=$BACKEND_HEALTH ($BACKEND_STATUS) | frontend=$FRONTEND_HEALTH ($FRONTEND_STATUS) — $((i*3))s/270s"
+              fi
+            fi
+
+            sleep 3
+          done
+
+          # Verificación final
+          BACKEND_FINAL=$(docker inspect --format='{{.State.Health.Status}}' \
+            "$(docker ps -qf name=backend | head -1)" 2>/dev/null || echo "unknown")
+          FRONTEND_FINAL=$(docker inspect --format='{{.State.Health.Status}}' \
+            "$(docker ps -qf name=frontend | head -1)" 2>/dev/null || echo "unknown")
+
+          if [[ "$BACKEND_FINAL" != "healthy" || "$FRONTEND_FINAL" != "healthy" ]]; then
+            echo "  ❌ Containers no alcanzaron estado healthy después de 270s"
+            echo "     Backend: $BACKEND_FINAL | Frontend: $FRONTEND_FINAL"
+            echo ""
+            echo "── Logs backend (últimos 80) ──"
+            docker logs "$(docker ps -aqf name=backend | head -1)" --tail 80 2>&1 || true
+            echo ""
+            echo "── Últimos healthchecks del backend ──"
+            docker inspect --format='{{range .State.Health.Log}}[{{.Start}}] ExitCode={{.ExitCode}} {{.Output}}{{end}}' \
+              "$(docker ps -aqf name=backend | head -1)" 2>/dev/null | tail -5 || true
+            echo ""
+            echo "── Logs frontend (últimos 30) ──"
+            docker logs "$(docker ps -aqf name=frontend | head -1)" --tail 30 2>&1 || true
+            echo ""
+            echo "── Últimos healthchecks del frontend ──"
+            docker inspect --format='{{range .State.Health.Log}}[{{.Start}}] ExitCode={{.ExitCode}} {{.Output}}{{end}}' \
+              "$(docker ps -aqf name=frontend | head -1)" 2>/dev/null | tail -3 || true
+            echo ""
+            echo "── Logs traefik (últimos 20) ──"
+            docker logs "$(docker ps -aqf name=traefik | head -1)" --tail 20 2>&1 || true
+            echo ""
+            echo "── Estado de todos los containers del stack ──"
+            docker ps -a --filter "name=workplace" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
+            # Guardar versión previa para que rollback pueda revertir
+            if [[ -n "$PREV_BACKEND" && -n "$PREV_FRONTEND" ]]; then
+              printf 'BACKEND_CURRENT_IMAGE=%s\nFRONTEND_CURRENT_IMAGE=%s\nDEPLOY_SHA=pre-deploy\nDEPLOY_DATE=%s\n' \
+                "$PREV_BACKEND" "$PREV_FRONTEND" "$(date -Iseconds)" > versions/current.env
+              echo "  ℹ️  versions/current.env guardado con imágenes previas para rollback"
+            fi
+            exit 1
+          fi
+
+          # Guardar versión nueva desplegada
+          printf 'BACKEND_CURRENT_IMAGE=%s\nFRONTEND_CURRENT_IMAGE=%s\nDEPLOY_SHA=%s\nDEPLOY_DATE=%s\n' \
+            "$BACKEND_IMAGE" "$FRONTEND_IMAGE" "$CURRENT_SHA" "$(date -Iseconds)" > versions/current.env
+
+          echo "✅ Deploy completado"
+        ENDSSH
+
+        END=$(date +%s)
+        DURATION=$((END - START))
+        echo "status=success" >> $GITHUB_OUTPUT
+        echo "duration=$DURATION" >> $GITHUB_OUTPUT
+        echo "✅ Deploy completado en ${DURATION}s"

@@ -137,12 +137,12 @@ POSTGRES_DB=workplace
 REDIS_PASSWORD=your_redis_password
 
 # Backend
-ENVIRONMENT=production
+APP_ENV=production
 NODE_PORT=3001
 
 # Frontend
 FRONTEND_PORT=3000
-BACKEND_API_URL=http://localhost:3001/api
+API_URL=http://localhost:3001/api
 NITRO_HOST=localhost
 ```
 

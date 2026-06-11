@@ -21,6 +21,10 @@ interface User {
   isActive: boolean
   commerce?: Restaurant
   categoryId?: string
+  category?: { id: string; name: string; icon?: string | null } | null
+  country?: string
+  state?: string
+  city?: string
 }
 
 interface AuthResponse {
@@ -36,6 +40,7 @@ interface RegisterCredentials {
   phone?: string
   commerceName: string
   password: string
+  acceptTerms: boolean
 }
 
 interface LoginCredentials {
@@ -49,11 +54,23 @@ interface UpdateProfilePayload {
   email?: string
   phone?: string
   username?: string
+  country?: string
+  state?: string
+  city?: string
 }
 
 interface ChangePasswordPayload {
   currentPassword: string
   newPassword: string
+}
+
+export interface Session {
+  id: string
+  ipAddress?: string | null
+  deviceInfo?: string | null
+  createdAt: string
+  expiresAt: string
+  isCurrent: boolean
 }
 
 // Estado global reactivo compartido entre todas las instancias
@@ -131,10 +148,12 @@ export const useAuth = () => {
         phone: credentials.phone || undefined,
         commerceName: credentials.commerceName,
         password: credentials.password,
+        acceptTerms: credentials.acceptTerms,
       },
     })
     setSession(data)
-    usePermissions().fetchPermissions().catch(() => {})
+    useModules().invalidate()
+    usePermissions().reloadPermissions().catch(() => {})
     return data.user
   }
 
@@ -147,7 +166,8 @@ export const useAuth = () => {
       },
     })
     setSession(data)
-    usePermissions().fetchPermissions().catch(() => {})
+    useModules().invalidate()
+    usePermissions().reloadPermissions().catch(() => {})
     return data.user
   }
 
@@ -164,6 +184,7 @@ export const useAuth = () => {
     } finally {
       clearSession()
       usePermissions().clearPermissions()
+      useModules().invalidate()
     }
   }
 
@@ -245,6 +266,19 @@ export const useAuth = () => {
     )
   }
 
+  async function getSessions(): Promise<Session[]> {
+    return $fetch<Session[]>(`${apiUrl}/auth/sessions`, {
+      headers: getHeaders(),
+    })
+  }
+
+  async function revokeSession(id: string): Promise<void> {
+    await $fetch(`${apiUrl}/auth/sessions/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    })
+  }
+
   async function uploadAvatar(file: File): Promise<User> {
     const formData = new FormData()
     formData.append('avatar', file)
@@ -271,6 +305,8 @@ export const useAuth = () => {
     updateLocalUser,
     saveProfile,
     changePassword,
+    getSessions,
+    revokeSession,
     uploadAvatar,
     fetchProfile,
     refreshAccessToken,

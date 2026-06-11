@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -14,37 +15,36 @@ import { PlanLimitsService } from '../plans/plan-limits.service';
 export class EmployeesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly planLimits: PlanLimitsService
+    private readonly planLimits: PlanLimitsService,
+    private readonly i18n: I18nService
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  private async getRestaurantId(userId: string): Promise<string> {
+  private async getCommerceId(userId: string): Promise<string> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!restaurant)
-      throw new ForbiddenException(
-        'El usuario no tiene un restaurante asociado'
-      );
-    return restaurant.id;
+
+    // Si no tiene restaurante, usar el userId como commerceId
+    return restaurant?.id ?? userId;
   }
 
   private async assertOwnership(employeeId: string, commerceId: string) {
     const employee = await this.prisma.employee.findUnique({
       where: { id: employeeId },
     });
-    if (!employee) throw new NotFoundException('Empleado no encontrado');
+    if (!employee) throw new NotFoundException(this.i18n.t('employees.not_found'));
     if (employee.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return employee;
   }
 
   // ─── Stats ──────────────────────────────────────────────────────────────────
 
   async getStats(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
 
     const [total, active, byRoleRaw] = await Promise.all([
       this.prisma.employee.count({ where: { commerceId } }),
@@ -66,7 +66,7 @@ export class EmployeesService {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   async findAll(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.prisma.employee.findMany({
       where: { commerceId },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
@@ -74,12 +74,12 @@ export class EmployeesService {
   }
 
   async findOne(userId: string, employeeId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.assertOwnership(employeeId, commerceId);
   }
 
   async create(userId: string, dto: CreateEmployeeDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.planLimits.assertEmployeeLimit(userId, commerceId);
 
     if (dto.email) {
@@ -87,9 +87,7 @@ export class EmployeesService {
         where: { email_commerceId: { email: dto.email, commerceId } },
       });
       if (exists)
-        throw new ConflictException(
-          'Ya existe un empleado con ese correo electrónico'
-        );
+        throw new ConflictException(this.i18n.t('employees.email_taken'));
     }
 
     return this.prisma.employee.create({
@@ -98,7 +96,7 @@ export class EmployeesService {
   }
 
   async update(userId: string, employeeId: string, dto: UpdateEmployeeDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(employeeId, commerceId);
 
     if (dto.email) {
@@ -106,9 +104,7 @@ export class EmployeesService {
         where: { email_commerceId: { email: dto.email, commerceId } },
       });
       if (exists && exists.id !== employeeId)
-        throw new ConflictException(
-          'Ya existe un empleado con ese correo electrónico'
-        );
+        throw new ConflictException(this.i18n.t('employees.email_taken'));
     }
 
     return this.prisma.employee.update({
@@ -118,13 +114,13 @@ export class EmployeesService {
   }
 
   async remove(userId: string, employeeId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertOwnership(employeeId, commerceId);
     await this.prisma.employee.delete({ where: { id: employeeId } });
   }
 
   async toggleStatus(userId: string, employeeId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const employee = await this.assertOwnership(employeeId, commerceId);
     return this.prisma.employee.update({
       where: { id: employeeId },

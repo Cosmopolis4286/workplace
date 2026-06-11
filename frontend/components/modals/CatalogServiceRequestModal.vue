@@ -42,6 +42,18 @@
                   <div>
                     <h2 class="text-base font-black text-gray-900 leading-tight">{{ service?.name }}</h2>
                     <p class="text-xs text-gray-400 mt-0.5">{{ service?.user?.firstName }} {{ service?.user?.lastName }}</p>
+                    <div class="flex items-center gap-1 mt-1">
+                      <div class="flex items-center gap-0.5">
+                        <template v-for="n in 5" :key="n">
+                          <svg class="w-3 h-3" :class="n <= Math.round(service?.user?.rating ?? 0) ? 'text-amber-400' : 'text-gray-200'" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                          </svg>
+                        </template>
+                      </div>
+                      <span v-if="service?.user?.rating" class="text-[11px] font-semibold text-gray-600">{{ service.user.rating.toFixed(1) }}</span>
+                      <span v-else class="text-[11px] text-gray-400">Sin reseñas</span>
+                      <span v-if="(service?.user?.reviewsCount ?? 0) > 0" class="text-[10px] text-gray-400">({{ service!.user.reviewsCount }})</span>
+                    </div>
                   </div>
                 </div>
                 <button class="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors flex-shrink-0" @click="$emit('update:modelValue', false)">
@@ -163,8 +175,14 @@
               <div class="flex items-center justify-between bg-blue-50 rounded-2xl px-4 py-3">
                 <span class="text-xs font-bold text-blue-700">Precio del servicio</span>
                 <div class="text-right">
-                  <span class="text-xl font-black text-blue-600">${{ formatPrice(service?.price ?? 0) }}</span>
-                  <span v-if="service?.priceUnit" class="text-xs text-blue-400 ml-1">/ {{ service.priceUnit }}</span>
+                  <div>
+                    <span class="text-xl font-black text-blue-600">${{ formatPrice(service?.price ?? 0) }}</span>
+                    <span v-if="service?.priceUnit" class="text-xs text-blue-400 ml-1">/ {{ service.priceUnit }}</span>
+                  </div>
+                  <div v-if="convertedPrice && defaultRate" class="text-xs text-blue-400 mt-0.5">
+                    {{ defaultRate.symbol }} {{ convertedPrice.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    <span v-if="service?.priceUnit"> / {{ service.priceUnit }}</span>
+                  </div>
                 </div>
               </div>
 
@@ -194,8 +212,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { CatalogService } from '~/composables/useServices'
+import { ref, computed, watch } from 'vue'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
+import { useAuth } from '~/composables/useAuth'
+import { useExchangeRates } from '~/composables/useExchangeRates'
 
 const props = defineProps<{
   modelValue: boolean
@@ -210,17 +231,35 @@ const emit = defineEmits<{
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 const { user } = useAuth()
+const { defaultRate } = useExchangeRates()
 
-const modalityOptions = [
-  { value: 'PRESENCIAL', label: 'Presencial', emoji: '📍' },
-  { value: 'REMOTO', label: 'Remoto', emoji: '💻' },
-  { value: 'CUALQUIERA', label: 'Cualquiera', emoji: '🤝' },
-]
+const convertedPrice = computed(() => {
+  const price = props.service?.price
+  if (!price || !defaultRate.value) return null
+  return price * defaultRate.value.rateToUsd
+})
+
+const ALL_MODALITY_OPTIONS: Record<string, { label: string; emoji: string }> = {
+  PRESENCIAL: { label: 'Presencial', emoji: '📍' },
+  REMOTO: { label: 'Remoto', emoji: '💻' },
+  CUALQUIERA: { label: 'Cualquiera', emoji: '🤝' },
+}
+
+const modalityOptions = computed(() => {
+  const vals = props.service?.modalities?.length
+    ? props.service.modalities
+    : ['PRESENCIAL', 'REMOTO', 'CUALQUIERA']
+  return vals.map(v => ({
+    value: v,
+    label: ALL_MODALITY_OPTIONS[v]?.label ?? v,
+    emoji: ALL_MODALITY_OPTIONS[v]?.emoji ?? '📋',
+  }))
+})
 
 const minDate = new Date().toISOString().split('T')[0]
 
 const defaultForm = () => ({
-  modality: 'CUALQUIERA' as 'PRESENCIAL' | 'REMOTO' | 'CUALQUIERA',
+  modality: (modalityOptions.value[0]?.value ?? 'CUALQUIERA') as string,
   preferredDate: '',
   address: '',
   city: '',
@@ -237,6 +276,12 @@ const errorMsg = ref('')
 watch(() => props.service, () => {
   form.value = defaultForm()
   errorMsg.value = ''
+})
+
+watch(() => props.modelValue, (isOpen) => {
+  if (isOpen) {
+    form.value.modality = modalityOptions.value[0]?.value ?? 'CUALQUIERA'
+  }
 })
 
 watch(() => user.value, (u) => {
@@ -267,26 +312,22 @@ async function submit() {
 
   sending.value = true
   try {
-    const { getHeaders } = useAuth()
-    await $fetch(`${apiUrl}/services/requests`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: {
-        serviceId: props.service.id,
-        serviceName: props.service.name,
-        providerId: props.service.user.id,
-        providerName: `${props.service.user.firstName} ${props.service.user.lastName}`,
-        modality: form.value.modality,
-        preferredDate: form.value.preferredDate,
-        address: form.value.address || undefined,
-        city: form.value.city || undefined,
-        clientName: form.value.clientName,
-        clientPhone: form.value.clientPhone,
-        clientEmail: form.value.clientEmail || undefined,
-        description: form.value.description || undefined,
-        price: props.service.price,
-        priceUnit: props.service.priceUnit || undefined,
-      },
+    const { post } = useApi()
+    await post('/services/requests', {
+      serviceId: props.service.id,
+      serviceName: props.service.name,
+      providerId: props.service.user.id,
+      providerName: `${props.service.user.firstName} ${props.service.user.lastName}`,
+      modality: form.value.modality,
+      preferredDate: form.value.preferredDate,
+      address: form.value.address || undefined,
+      city: form.value.city || undefined,
+      clientName: form.value.clientName,
+      clientPhone: form.value.clientPhone,
+      clientEmail: form.value.clientEmail || undefined,
+      description: form.value.description || undefined,
+      price: props.service.price,
+      priceUnit: props.service.priceUnit || undefined,
     })
     emit('update:modelValue', false)
     emit('success')

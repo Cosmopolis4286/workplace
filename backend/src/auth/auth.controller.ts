@@ -3,8 +3,10 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   Query,
+  Param,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -15,6 +17,7 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import { RateLimit, RateLimitOptions } from '../common/guards/rate-limit.guard';
 import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -71,6 +74,11 @@ export class AuthController {
 
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @RateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hora
+    maxRequests: 3, // Máximo 3 registros por hora
+    keyGenerator: (req) => `register:${req.ip}` // Por IP
+  })
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
@@ -78,24 +86,37 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  @RateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    maxRequests: 20, // Máximo 20 intentos de login
+    keyGenerator: (req) => `login:${req.ip}` // Por IP
+  })
+  async login(@Body() dto: LoginDto, @Request() req: any) {
+    return this.authService.login(dto, req.securityContext);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtRefreshGuard)
+  @RateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutos
+    maxRequests: 50, // Máximo 50 refresh tokens
+    keyGenerator: (req: any) => `refresh:${(req.user as any)?.userId || req.ip}` // Por usuario o IP
+  })
   async refresh(@Request() req: any, @Body() dto: RefreshDto) {
-    return this.authService.refreshTokens(req.user.userId, dto.refreshToken);
+    return this.authService.refreshTokens(req.user.userId, dto.refreshToken, req.securityContext);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async logout(@CurrentUser() user: any) {
-    const expiresIn = this.config.get('JWT_EXPIRES_IN', '15m');
-    const ttlSeconds = this.parseTtlToSeconds(expiresIn);
-    await this.authService.logout(user.id, user.jti, ttlSeconds);
+  async logout(
+    @CurrentUser() user: any,
+    @Body('refreshToken') refreshToken?: string,
+    @Request() req?: any
+  ) {
+    // Revoca refresh tokens en DB (no necesita Redis blacklist)
+    await this.authService.logout(user.id, refreshToken, req?.securityContext);
     return { message: 'Sesión cerrada exitosamente' };
   }
 
@@ -180,6 +201,11 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @RateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hora
+    maxRequests: 5, // Máximo 5 solicitudes de reset por hora
+    keyGenerator: (req) => `reset:${req.ip}` // Por IP
+  })
   async forgotPassword(@Body('email') email: string) {
     return this.authService.requestPasswordReset(email);
   }
@@ -211,10 +237,34 @@ export class AuthController {
 
   @Get('demo-credentials')
   async getDemoCredentials() {
-    if (this.config.get('ENVIRONMENT') !== 'development') {
+    const isDev =
+      this.config.get('APP_ENV') === 'development' ||
+      this.config.get('USE_DEMO') === 'true';
+    if (!isDev) {
       throw new ForbiddenException('Solo disponible en desarrollo');
     }
     return this.authService.getDemoCredentials();
+  }
+
+  @Get('security-events')
+  @UseGuards(JwtAuthGuard)
+  async getSecurityEvents(@CurrentUser() user: any) {
+    return this.authService.getSecurityEvents(user.id);
+  }
+
+  // ─── Sessions / Devices ──────────────────────────────────────────────────────
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  async getSessions(@CurrentUser() user: any, @Request() req: any) {
+    return this.authService.getActiveSessions(user.id, req.securityContext);
+  }
+
+  @Delete('sessions/:id')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async revokeSession(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.authService.revokeSession(user.id, id);
   }
 
   private parseTtlToSeconds(duration: string): number {

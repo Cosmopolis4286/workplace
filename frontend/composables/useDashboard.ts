@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue'
 import { useAuth } from './useAuth'
 import { type Order, type OrderStats, type OrderStatus, NEXT_STATUS } from './useClienteDashboard'
+import { useUserPreferences } from './useUserPreferences'
+import { type DashboardPeriod } from './useDashboardPeriod'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -8,7 +10,9 @@ export interface DashboardKpis {
   salesToday: number
   salesTodayChange: number | null
   activeOrders: number
+  activeOrdersChange: number | null
   lowStockProducts: number
+  lowStockChange: number | null
   newCustomers: number
   newCustomersChange: number | null
   avgPrepTime: number
@@ -22,13 +26,18 @@ const kpis = ref<DashboardKpis>({
   salesToday: 0,
   salesTodayChange: null,
   activeOrders: 0,
+  activeOrdersChange: null,
   lowStockProducts: 0,
+  lowStockChange: null,
   newCustomers: 0,
   newCustomersChange: null,
   avgPrepTime: 0,
   avgDeliveryTime: 0,
   customerSatisfaction: 0,
 })
+
+// Valores anteriores para calcular cambio de bajo stock entre recargas
+const prevLowStock = ref<number | null>(null)
 
 const activeOrders = ref<Order[]>([])
 const orderStats   = ref<OrderStats | null>(null)
@@ -39,7 +48,7 @@ const lastUpdated  = ref<Date | null>(null)
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export function useDashboard() {
-  const { token, refreshTokens } = useAuth()
+  const { token, refreshTokens, user } = useAuth()
 
   // ── Auth-aware fetch ────────────────────────────────────────────────────────
   async function apiFetch(path: string, options: RequestInit = {}) {
@@ -70,20 +79,33 @@ export function useDashboard() {
   }
 
   // ── Load all dashboard data in parallel ─────────────────────────────────────
-  async function loadDashboard() {
+  async function loadDashboard(period: DashboardPeriod = '30d') {
     loading.value = true
     error.value   = null
 
+    const isNormal = user.value?.role === 'NORMAL'
+
     try {
-      const [ordersRes, statsRes, analyticsRes, productsRes] = await Promise.allSettled([
+      // Usuarios NORMAL no tienen commerceId — solo cargan sus propios pedidos via /orders/mine
+      if (isNormal) {
+        kpis.value = {
+          ...kpis.value,
+          salesToday: 0, salesTodayChange: null,
+          activeOrders: 0, activeOrdersChange: null,
+          lowStockProducts: 0, lowStockChange: null,
+          newCustomers: 0, newCustomersChange: null,
+        }
+        lastUpdated.value = new Date()
+        return
+      }
+
+      const [ordersRes, statsRes, analyticsRes] = await Promise.allSettled([
         // Active orders (non-terminal statuses)
         apiFetch('/orders?status=PENDIENTE&limit=20'),
         // Order stats
         apiFetch('/orders/stats'),
-        // Analytics overview for today's KPIs
-        apiFetch('/analytics/overview?period=today&compareWith=previous'),
-        // Low-stock products
-        apiFetch('/menu/products?status=BAJO_STOCK&limit=1'),
+        // Analytics overview para el período seleccionado
+        apiFetch(`/analytics/overview?period=${period}&compareWith=previous`),
       ])
 
       // Active orders — merge PENDIENTE + CONFIRMADO + PREPARANDO + LISTO + EN_ENTREGA
@@ -124,17 +146,24 @@ export function useDashboard() {
         lowStock = lowStockRes?.total ?? lowStockRes?.data?.length ?? 0
       } catch {}
 
+      // Calcular cambio de bajo stock respecto al ciclo anterior
+      const lowStockChange = prevLowStock.value !== null && prevLowStock.value > 0
+        ? +((lowStock - prevLowStock.value) / prevLowStock.value * 100).toFixed(1)
+        : null
+      prevLowStock.value = lowStock
+
       // Build unified KPIs
       kpis.value = {
-        salesToday:       analyticsData?.kpis?.totalRevenue ?? 0,
-        salesTodayChange: analyticsData?.kpis?.totalRevenueChange ?? null,
-        activeOrders:     statsRes.status === 'fulfilled' ? (statsRes.value?.activeOrders ?? 0) : activeOrders.value.length,
-        lowStockProducts: lowStock,
-        newCustomers:     analyticsData?.kpis?.newCustomers ?? 0,
-        newCustomersChange: analyticsData?.kpis?.newCustomersChange ?? null,
-        avgPrepTime:      analyticsData?.performance?.operational?.avgPrepTime ?? 0,
-        avgDeliveryTime:  analyticsData?.performance?.operational?.avgDeliveryTime ?? 0,
-        // satisfaction: not in current backend — derive from cancellation rate
+        salesToday:          analyticsData?.kpis?.totalRevenue ?? 0,
+        salesTodayChange:    analyticsData?.kpis?.totalRevenueChange ?? null,
+        activeOrders:        statsRes.status === 'fulfilled' ? (statsRes.value?.activeOrders ?? 0) : activeOrders.value.length,
+        activeOrdersChange:  analyticsData?.kpis?.totalOrdersChange ?? null,
+        lowStockProducts:    lowStock,
+        lowStockChange,
+        newCustomers:        analyticsData?.kpis?.newCustomers ?? 0,
+        newCustomersChange:  analyticsData?.kpis?.newCustomersChange ?? null,
+        avgPrepTime:         analyticsData?.performance?.operational?.avgPrepTime ?? 0,
+        avgDeliveryTime:     analyticsData?.performance?.operational?.avgDeliveryTime ?? 0,
         customerSatisfaction: analyticsData?.performance?.operational?.cancellationRate != null
           ? Math.max(0, 100 - analyticsData.performance.operational.cancellationRate)
           : 0,
@@ -197,9 +226,8 @@ export function useDashboard() {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
-  function formatCurrency(value: number) {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)
-  }
+  const { formatCurrency: _fmt } = useUserPreferences()
+  function formatCurrency(value: number) { return _fmt.value(value) }
 
   function formatChange(change: number | null): string {
     if (change === null) return ''
