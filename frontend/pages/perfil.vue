@@ -497,8 +497,6 @@ import { useAuth, type Session } from '~/composables/useAuth'
 
 const auth = useAuth()
 const { checkUsername } = auth
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const loadingProfile = ref(false)
@@ -524,7 +522,6 @@ const revokingSessionId = ref<string | null>(null)
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid' | 'cooldown'
 const usernameStatus = ref<UsernameStatus>('idle')
 const usernameCooldownDaysLeft = ref(0)
-const usernameNextChangeAt = ref<string | null>(null)
 let usernameDebounce: ReturnType<typeof setTimeout> | null = null
 
 const USERNAME_REGEX = /^[a-z0-9_.-]+$/
@@ -565,7 +562,6 @@ function onUsernameInput(val: string) {
       if (!res.canChange) {
         usernameStatus.value = 'cooldown'
         usernameCooldownDaysLeft.value = res.daysLeft
-        usernameNextChangeAt.value = res.nextChangeAt
       } else {
         usernameStatus.value = res.available ? 'available' : 'taken'
       }
@@ -610,8 +606,8 @@ async function fetchCategories() {
   if (!isCommerceOrFreelancer.value) return
   loadingCategories.value = true
   try {
-    const data = await $fetch<any[]>(`${apiUrl}/users/categories`)
-    categories.value = data
+    const { get } = useApi()
+    categories.value = await get<typeof categories.value>('/users/categories')
   } catch { /* ignore */ } finally {
     loadingCategories.value = false
   }
@@ -620,8 +616,8 @@ async function fetchCategories() {
 async function fetchSubcategories() {
   if (!isCommerceOrFreelancer.value) return
   try {
-    const data = await $fetch<any[]>(`${apiUrl}/users/subcategories`)
-    subcategories.value = data
+    const { get } = useApi()
+    subcategories.value = await get<typeof subcategories.value>('/users/subcategories')
   } catch { /* ignore */ }
 }
 
@@ -639,9 +635,9 @@ function getSubcategoryName() {
   return subcategory ? subcategory.name : ''
 }
 
+const { getAssetUrl } = useAssetUrl()
 const avatarUrl = computed(() => {
   if (avatarPreview.value) return avatarPreview.value
-  const { getAssetUrl } = useAssetUrl()
   return getAssetUrl(auth.user.value?.avatar)
 })
 
@@ -900,9 +896,7 @@ onMounted(async () => {
     loadingProfile.value = false
   }
   syncFormFromUser()
-  fetchCategories()
-  fetchSubcategories()
-  fetchSessions()
+  await Promise.all([fetchCategories(), fetchSubcategories(), fetchSessions()])
 })
 
 // Sync form if user changes after fetch

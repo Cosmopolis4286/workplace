@@ -718,19 +718,6 @@ onMounted(async () => {
     await loadSettings()
     syncForms()
   }
-  
-  // Hide any alert containing restaurant configuration message for non-Comida categories
-  if (!isComidaCategory.value) {
-    setTimeout(() => {
-      const elements = document.querySelectorAll('*')
-      elements.forEach(el => {
-        const htmlEl = el as HTMLElement
-        if (htmlEl.textContent?.includes('La configuración de restaurante solo está disponible para usuarios de la categoría "Comida"')) {
-          htmlEl.style.display = 'none'
-        }
-      })
-    }, 100)
-  }
 })
 </script>
 
@@ -757,9 +744,4 @@ onMounted(async () => {
 .toast-leave-active { transition: all 0.3s ease; }
 .toast-enter-from,
 .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(1rem); }
-
-/* Hide alert about restaurant configuration for non-Comida categories */
-.alert-restaurant-config {
-  display: none !important;
-}
 </style>
