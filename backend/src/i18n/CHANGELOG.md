@@ -61,11 +61,32 @@ módulo por módulo para no romper nada y poder revisar incrementos pequeños.
   incluyendo `common.errors.access_denied` compartido).
 - Verificado en `i18n-pilot-check.spec.ts` (8/8 OK).
 
+## Increment 4 — Users (hecho)
+
+- Namespace `users` creado (es/en): mensajes de cuenta (`not_found`,
+  `email_taken`, `email_in_use`, `username_taken`, `deleted`,
+  `current_password_incorrect`, `new_password_must_differ`,
+  `password_updated`), `category.*` y `subcategory.*` (incluye
+  pluralización de `in_use` por cantidad de usuarios), `permissions.*`
+  (mensajes de `ForbiddenException` del controller) y
+  `profile_completion.*` (etiquetas de `missingFields`).
+- Migrados `backend/src/users/users.service.ts` (todas las excepciones y
+  mensajes de retorno) y `backend/src/users/users.controller.ts` (8
+  `ForbiddenException`). Ambos ahora reciben `I18nService` por
+  constructor.
+- Pluralización agregada para `users.category.in_use`,
+  `users.subcategory.in_use` y `users.username_cooldown` (cooldown de
+  cambio de nombre de usuario).
+- Verificado en `i18n-pilot-check.spec.ts` (11/11 OK).
+- `frontend/composables/useAuth.ts` revisado — no tiene strings
+  user-facing en español que migrar (ya cubierto por
+  `useApiErrors.ts`).
+
 ## Próximos incrementos (sin empezar)
 
 - Resto de módulos backend con strings hardcodeados en español: `orders`,
   `appointments`, `delivery`, `expenses`, `menu`, `plans`,
-  `notifications`, `permissions`, `users`. Reusar
+  `notifications`, `permissions`. Reusar
   `common.errors.access_denied` donde aplique; cada módulo con su propio
   namespace para mensajes específicos (`not_found`, `name_taken`, etc.).
 - Mensajes de validación de DTOs (`class-validator`) vía i18n

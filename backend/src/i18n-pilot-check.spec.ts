@@ -77,4 +77,32 @@ describe('i18n pilot setup', () => {
     expect(i18n.t('employees.email_taken', { lang: 'es' })).toBe('Ya existe un empleado con ese correo electrónico');
     expect(i18n.t('employees.email_taken', { lang: 'en' })).toBe('An employee with that email already exists');
   });
+
+  it('resuelve mensajes del modulo users (es/en)', () => {
+    expect(i18n.t('users.not_found', { lang: 'es' })).toBe('Usuario no encontrado');
+    expect(i18n.t('users.not_found', { lang: 'en' })).toBe('User not found');
+    expect(i18n.t('users.permissions.assign_role', { lang: 'es' })).toBe('No puedes asignar ese rol');
+    expect(i18n.t('users.permissions.assign_role', { lang: 'en' })).toBe("You can't assign that role");
+  });
+
+  it('pluraliza mensajes de uso de categoria/subcategoria (es/en)', () => {
+    expect(i18n.t('users.category.in_use', { lang: 'es', args: { count: 1 } }))
+      .toBe('No se puede eliminar: 1 usuario usa esta categoría');
+    expect(i18n.t('users.category.in_use', { lang: 'es', args: { count: 3 } }))
+      .toBe('No se puede eliminar: 3 usuarios usan esta categoría');
+    expect(i18n.t('users.category.in_use', { lang: 'en', args: { count: 1 } }))
+      .toBe('Cannot delete: 1 user is using this category');
+    expect(i18n.t('users.category.in_use', { lang: 'en', args: { count: 3 } }))
+      .toBe('Cannot delete: 3 users are using this category');
+  });
+
+  it('pluraliza el mensaje de cooldown de username (es/en)', () => {
+    const es1 = i18n.t('users.username_cooldown', { lang: 'es', args: { cooldown: 30, daysLeft: 1, count: 1 } });
+    const es5 = i18n.t('users.username_cooldown', { lang: 'es', args: { cooldown: 30, daysLeft: 5, count: 5 } });
+    expect(es1).toBe('Solo puedes cambiar el nombre de usuario cada 30 días. Podrás cambiarlo en 1 día.');
+    expect(es5).toBe('Solo puedes cambiar el nombre de usuario cada 30 días. Podrás cambiarlo en 5 días.');
+
+    const en1 = i18n.t('users.username_cooldown', { lang: 'en', args: { cooldown: 30, daysLeft: 1, count: 1 } });
+    expect(en1).toBe('You can only change your username every 30 days. You can change it in 1 day.');
+  });
 });

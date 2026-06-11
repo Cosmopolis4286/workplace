@@ -1,0 +1,49 @@
+{
+  "not_found": "Usuario no encontrado",
+  "email_taken": "El correo ya está registrado",
+  "email_in_use": "El correo ya está en uso por otra cuenta",
+  "username_taken": "El nombre de usuario ya está en uso",
+  "username_cooldown": {
+    "one": "Solo puedes cambiar el nombre de usuario cada {cooldown} días. Podrás cambiarlo en {daysLeft} día.",
+    "other": "Solo puedes cambiar el nombre de usuario cada {cooldown} días. Podrás cambiarlo en {daysLeft} días."
+  },
+  "deleted": "Usuario eliminado correctamente",
+  "current_password_incorrect": "La contraseña actual es incorrecta",
+  "new_password_must_differ": "La nueva contraseña debe ser diferente a la actual",
+  "password_updated": "Contraseña actualizada correctamente",
+  "category": {
+    "not_found": "Categoría no encontrada",
+    "name_taken": "Ya existe una categoría con ese nombre",
+    "deleted": "Categoría eliminada",
+    "in_use": {
+      "one": "No se puede eliminar: {count} usuario usa esta categoría",
+      "other": "No se puede eliminar: {count} usuarios usan esta categoría"
+    }
+  },
+  "subcategory": {
+    "not_found": "Subcategoría no encontrada",
+    "name_taken": "Ya existe esa subcategoría en esta categoría",
+    "deleted": "Subcategoría eliminada",
+    "in_use": {
+      "one": "No se puede eliminar: {count} usuario usa esta subcategoría",
+      "other": "No se puede eliminar: {count} usuarios usan esta subcategoría"
+    }
+  },
+  "permissions": {
+    "view_user": "No tienes permisos para ver este usuario",
+    "create_role": "No puedes crear usuarios con ese rol",
+    "edit_user": "No tienes permisos para editar este usuario",
+    "assign_role": "No puedes asignar ese rol",
+    "edit_own_profile_only": "Solo puedes editar tu propio perfil",
+    "modify_user": "No tienes permisos para modificar este usuario",
+    "delete_user": "No tienes permisos para eliminar este usuario",
+    "view_info": "No tienes permisos para ver esta información"
+  },
+  "profile_completion": {
+    "basic_info": "Información básica (nombre, apellido, teléfono)",
+    "category": "Categoría",
+    "subcategory": "Subcategoría",
+    "business_setup": "Configuración de negocio",
+    "services_setup": "Configuración de servicios"
+  }
+}
