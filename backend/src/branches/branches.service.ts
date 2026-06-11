@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
@@ -14,7 +15,8 @@ import { PlanLimitsService } from '../plans/plan-limits.service';
 export class BranchesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly planLimits: PlanLimitsService
+    private readonly planLimits: PlanLimitsService,
+    private readonly i18n: I18nService
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -33,9 +35,9 @@ export class BranchesService {
     const branch = await this.prisma.branch.findUnique({
       where: { id: branchId },
     });
-    if (!branch) throw new NotFoundException('Sucursal no encontrada');
+    if (!branch) throw new NotFoundException(this.i18n.t('branches.not_found'));
     if (branch.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return branch;
   }
 
@@ -86,7 +88,7 @@ export class BranchesService {
       where: { name_commerceId: { name: dto.name, commerceId } },
     });
     if (exists)
-      throw new ConflictException('Ya existe una sucursal con ese nombre');
+      throw new ConflictException(this.i18n.t('branches.name_taken'));
 
     return this.prisma.branch.create({
       data: { ...dto, commerceId },
@@ -102,7 +104,7 @@ export class BranchesService {
         where: { name_commerceId: { name: dto.name, commerceId } },
       });
       if (exists && exists.id !== branchId)
-        throw new ConflictException('Ya existe una sucursal con ese nombre');
+        throw new ConflictException(this.i18n.t('branches.name_taken'));
     }
 
     return this.prisma.branch.update({

@@ -38,11 +38,29 @@ módulo por módulo para no romper nada y poder revisar incrementos pequeños.
 - Pendiente: verificación end-to-end contra el servidor en caliente (no se
   reinició el dev server para no afectar otras sesiones en curso).
 
+## Increment 2 — Branches + mensajes compartidos (hecho)
+
+- Namespace `common.errors` agregado para mensajes reutilizables entre
+  módulos (`access_denied`, usado por `customers`, `appointments`,
+  `delivery`, `menu`, `employees`, `branches`, etc.). Otros módulos deben
+  reusar esta clave en vez de duplicarla.
+- Namespace `branches` creado (`not_found`, `name_taken`).
+- Migrado `backend/src/branches/branches.service.ts` (3 mensajes) a
+  `i18n.t(...)`.
+- Verificado en `i18n-pilot-check.spec.ts` (6/6 OK).
+- Fuera de alcance: mensajes de validación de DTOs (`class-validator`
+  decorators, ej. `@Matches(... { message: '...' })`) — requieren un
+  `ValidationPipe` con i18n aparte; no migrados todavía.
+
 ## Próximos incrementos (sin empezar)
 
 - Resto de módulos backend con strings hardcodeados en español: `orders`,
   `customers`, `appointments`, `delivery`, `expenses`, `menu`, `plans`,
-  `notifications`, etc. Cada uno como su propio namespace de traducción.
+  `notifications`, `permissions`, `employees`, `users`. Reusar
+  `common.errors.access_denied` donde aplique; cada módulo con su propio
+  namespace para mensajes específicos (`not_found`, `name_taken`, etc.).
+- Mensajes de validación de DTOs (`class-validator`) vía i18n
+  `ValidationPipe`.
 - Frontend: `@nuxtjs/i18n` para mensajes de UI, validaciones de formularios y
   el selector de idioma.
 - Selector de idioma visible para el usuario (hoy solo se resuelve por
