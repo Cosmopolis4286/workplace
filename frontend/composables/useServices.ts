@@ -50,7 +50,7 @@ export interface CatalogService {
 }
 
 export type ServiceSortBy = 'relevance' | 'price_asc' | 'price_desc' | 'name' | 'newest'
-export type LocationTier = 'city' | 'state' | 'country' | null
+type LocationTier = 'city' | 'state' | 'country' | null
 
 export interface ServiceQuery {
   search: string
