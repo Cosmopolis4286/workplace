@@ -122,4 +122,23 @@ describe('i18n pilot setup', () => {
     expect(i18n.t('delivery.delivery.not_found', { lang: 'es' })).toBe('Entrega no encontrada');
     expect(i18n.t('delivery.delivery.not_found', { lang: 'en' })).toBe('Delivery not found');
   });
+
+  it('resuelve mensajes del modulo expenses (es/en)', () => {
+    expect(i18n.t('expenses.not_found', { lang: 'es' })).toBe('Gasto no encontrado');
+    expect(i18n.t('expenses.not_found', { lang: 'en' })).toBe('Expense not found');
+    expect(i18n.t('expenses.deleted', { lang: 'es' })).toBe('Gasto eliminado correctamente');
+    expect(i18n.t('expenses.category.not_found', { lang: 'es' })).toBe('Categoría no encontrada');
+    expect(i18n.t('expenses.category.name_taken', { lang: 'en' })).toBe('A category with that name already exists');
+  });
+
+  it('pluraliza el mensaje de categoria de gastos en uso (es/en)', () => {
+    expect(i18n.t('expenses.category.in_use', { lang: 'es', args: { count: 1 } }))
+      .toBe('No se puede eliminar: la categoría tiene 1 gasto asociado');
+    expect(i18n.t('expenses.category.in_use', { lang: 'es', args: { count: 4 } }))
+      .toBe('No se puede eliminar: la categoría tiene 4 gastos asociados');
+    expect(i18n.t('expenses.category.in_use', { lang: 'en', args: { count: 1 } }))
+      .toBe('Cannot delete: this category has 1 associated expense');
+    expect(i18n.t('expenses.category.in_use', { lang: 'en', args: { count: 4 } }))
+      .toBe('Cannot delete: this category has 4 associated expenses');
+  });
 });

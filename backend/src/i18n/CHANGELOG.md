@@ -100,10 +100,18 @@ módulo por módulo para no romper nada y poder revisar incrementos pequeños.
   el idioma preferido del cliente?) requiere una decisión de producto
   aparte.
 
+## Increment 6 — Expenses (hecho)
+
+- Namespace `expenses` creado: `not_found`, `deleted`, `category.*`
+  (`not_found`, `name_taken`, `deleted`, `in_use` pluralizado por
+  cantidad de gastos asociados).
+- Migrado `expenses.service.ts` (8 mensajes).
+- Verificado en `i18n-pilot-check.spec.ts` (15/15 OK).
+
 ## Próximos incrementos (sin empezar)
 
 - Resto de módulos backend con strings hardcodeados en español: `orders`,
-  `expenses`, `menu`, `plans`, `notifications`, `permissions`. Reusar
+  `menu`, `plans`, `notifications`, `permissions`. Reusar
   `common.errors.access_denied` donde aplique; cada módulo con su propio
   namespace para mensajes específicos (`not_found`, `name_taken`, etc.).
 - Mensajes de validación de DTOs (`class-validator`) vía i18n
