@@ -51,6 +51,15 @@ export class CreatePlanDto {
   forFreelancer?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  forNormal?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categoryIds?: string[];
+
+  @IsOptional()
   @IsNumber()
   maxProducts?: number;
 

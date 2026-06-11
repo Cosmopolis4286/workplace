@@ -32,6 +32,29 @@
 
     <!-- ── Tab: Planes ──────────────────────────────────────────────────────── -->
     <div v-if="activeTab === 'plans'">
+      <!-- Filtros por rol/audiencia y categoría de negocio -->
+      <div class="card px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Filtrar:</span>
+        <div class="flex items-center bg-gray-50 border border-gray-200 rounded-xl p-1 gap-1">
+          <button
+            v-for="opt in [
+              { key: 'all',         label: 'Todos' },
+              { key: 'COMMERCE',    label: 'Commerce' },
+              { key: 'FREELANCER',  label: 'Freelancer' },
+              { key: 'NORMAL',      label: 'Normal' },
+            ]" :key="opt.key"
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            :class="roleFilter === opt.key ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-white'"
+            @click="roleFilter = opt.key as typeof roleFilter"
+          >{{ opt.label }}</button>
+        </div>
+        <select v-model="categoryFilter" class="input-field w-auto text-xs">
+          <option value="all">Todas las categorías</option>
+          <option v-for="cat in userCategories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+        </select>
+        <span class="ml-auto text-xs text-gray-400">{{ filteredPlans.length }} de {{ plans.length }} planes</span>
+      </div>
+
       <!-- Skeleton -->
       <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <div v-for="i in 4" :key="i" class="card p-5 animate-pulse space-y-3">
@@ -40,9 +63,15 @@
         </div>
       </div>
 
+      <!-- Vacío -->
+      <div v-else-if="filteredPlans.length === 0" class="card p-12 text-center">
+        <CreditCardIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
+        <p class="text-gray-500 font-medium">No hay planes que coincidan con los filtros</p>
+      </div>
+
       <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <div
-          v-for="plan in plans" :key="plan.id"
+          v-for="plan in filteredPlans" :key="plan.id"
           class="card border-2 overflow-hidden transition-shadow hover:shadow-md"
           :style="{ borderColor: plan.status === 'ACTIVE' ? plan.color : '#e5e7eb' }"
         >
@@ -77,10 +106,20 @@
             </div>
 
             <!-- Para quién -->
-            <div class="flex gap-1.5 mt-2">
+            <div class="flex gap-1.5 mt-2 flex-wrap">
               <span v-if="plan.forCommerce"    class="badge bg-blue-100 text-blue-700">Commerce</span>
               <span v-if="plan.forFreelancer"  class="badge bg-green-100 text-green-700">Freelancer</span>
+              <span v-if="plan.forNormal"      class="badge bg-purple-100 text-purple-700">Normal</span>
             </div>
+
+            <!-- Categorías de negocio -->
+            <div v-if="(plan.categoryIds ?? []).length > 0" class="flex gap-1.5 mt-1.5 flex-wrap">
+              <span
+                v-for="catId in plan.categoryIds" :key="catId"
+                class="badge bg-white/70 text-gray-600 border border-gray-200 text-[10px]"
+              >{{ categoryName(catId) }}</span>
+            </div>
+            <div v-else class="mt-1.5 text-[10px] text-gray-400 italic">Todas las categorías</div>
           </div>
 
           <!-- Límites en grid 2×2 -->
@@ -256,9 +295,32 @@
                   <input v-model="planForm.forFreelancer" type="checkbox" class="w-4 h-4 rounded text-red-600" />Para Freelancer
                 </label>
                 <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input v-model="planForm.forNormal" type="checkbox" class="w-4 h-4 rounded text-red-600" />Para Normal
+                </label>
+                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input v-model="planForm.isPopular" type="checkbox" class="w-4 h-4 rounded text-red-600" />Marcar como Popular
                 </label>
               </div>
+
+              <!-- Categorías de negocio -->
+              <fieldset class="border border-gray-200 rounded-xl p-4">
+                <legend class="text-xs font-semibold text-gray-700 px-1">Categorías de negocio (vacío = todas)</legend>
+                <div v-if="userCategories.length === 0" class="text-xs text-gray-400 italic mt-1">No hay categorías registradas</div>
+                <div v-else class="grid grid-cols-2 gap-1.5 mt-2">
+                  <label
+                    v-for="cat in userCategories" :key="cat.id"
+                    class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 rounded px-1.5 py-1"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="(planForm.categoryIds ?? []).includes(cat.id)"
+                      @change="toggleCategory(cat.id, ($event.target as HTMLInputElement).checked)"
+                      class="w-4 h-4 rounded text-red-600"
+                    />
+                    {{ cat.icon ? `${cat.icon} ` : '' }}{{ cat.name }}
+                  </label>
+                </div>
+              </fieldset>
 
               <!-- Límites -->
               <fieldset class="border border-gray-200 rounded-xl p-4">
@@ -400,6 +462,7 @@ const ALL_MODULES = [
   'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
   'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
   'branches', 'settings', 'notifications', 'services', 'service_requests', 'catalog',
+  'corridas', 'wallets',
 ] as const
 
 const MODULE_LABELS: Record<string, string> = {
@@ -408,6 +471,7 @@ const MODULE_LABELS: Record<string, string> = {
   expenses: 'Gastos', analytics: 'Analytics', reports: 'Reportes', sales: 'Ventas',
   employees: 'Empleados', branches: 'Sucursales', settings: 'Configuración',
   notifications: 'Notificaciones', services: 'Servicios', service_requests: 'Solicitudes', catalog: 'Catálogo',
+  corridas: 'Corridas', wallets: 'Billetera',
 }
 
 const {
@@ -418,10 +482,32 @@ const {
   fetchStats, formatLimit, formatPrice,
 } = usePlans()
 
+const { get } = useApi()
+
+// ─── Categorías de negocio ──────────────────────────────────────────────────────
+interface UserCategory { id: string; name: string; icon?: string }
+const userCategories = ref<UserCategory[]>([])
+
+async function loadUserCategories() {
+  try {
+    userCategories.value = await get<UserCategory[]>('/users/categories')
+  } catch {
+    userCategories.value = []
+  }
+}
+
+function categoryName(id: string): string {
+  return userCategories.value.find(c => c.id === id)?.name ?? id
+}
+
 // ─── Estado ───────────────────────────────────────────────────────────────────
 const activeTab  = ref<'plans' | 'subscriptions'>('plans')
 const subFilter  = ref('')
 const planFilter = ref('')
+
+// Filtros de la grilla de planes: por rol/audiencia y por categoría de negocio
+const roleFilter     = ref<'all' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'>('all')
+const categoryFilter = ref<string>('all')
 
 const tabs = [
   { key: 'plans',         label: 'Planes'         },
@@ -435,6 +521,22 @@ const headerStats = computed(() => [
   { label: 'Ingresos mensuales',  value: stats.value ? formatPrice(stats.value.monthlyRevenue) : '—' },
 ])
 
+// Planes visibles en la grilla según los filtros de rol/categoría seleccionados
+const filteredPlans = computed(() => {
+  return plans.value.filter((plan) => {
+    if (roleFilter.value === 'COMMERCE' && !plan.forCommerce) return false
+    if (roleFilter.value === 'FREELANCER' && !plan.forFreelancer) return false
+    if (roleFilter.value === 'NORMAL' && !plan.forNormal) return false
+
+    if (categoryFilter.value !== 'all') {
+      const ids = plan.categoryIds ?? []
+      if (ids.length > 0 && !ids.includes(categoryFilter.value)) return false
+    }
+
+    return true
+  })
+})
+
 // ─── Plan modal ───────────────────────────────────────────────────────────────
 const showPlanModal = ref(false)
 const editingPlan   = ref<Plan | null>(null)
@@ -444,7 +546,8 @@ const formError     = ref<string | null>(null)
 const defaultPlanForm = () => ({
   name: '', description: '', price: 0, priceAnnual: undefined as number | undefined,
   status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE', isPopular: false, color: '#3B82F6', sortOrder: 0,
-  forCommerce: true, forFreelancer: false,
+  forCommerce: true, forFreelancer: false, forNormal: false,
+  categoryIds: [] as string[],
   maxProducts: 50, maxEmployees: 5, maxBranches: 1, maxOrders: -1, maxStorage: 1,
   features: [] as string[], enabledModules: [] as string[],
 })
@@ -459,11 +562,18 @@ function toggleModule(mod: string, checked: boolean) {
     : current.filter(m => m !== mod)
 }
 
+function toggleCategory(catId: string, checked: boolean) {
+  const current = planForm.value.categoryIds ?? []
+  planForm.value.categoryIds = checked
+    ? [...current.filter(c => c !== catId), catId]
+    : current.filter(c => c !== catId)
+}
+
 function openPlanModal(plan?: Plan) {
   editingPlan.value = plan ?? null
   formError.value   = null
   planForm.value    = plan
-    ? { name: plan.name, description: plan.description ?? '', price: plan.price, priceAnnual: plan.priceAnnual ?? undefined, status: plan.status, isPopular: plan.isPopular, color: plan.color, sortOrder: plan.sortOrder, forCommerce: plan.forCommerce, forFreelancer: plan.forFreelancer, maxProducts: plan.maxProducts, maxEmployees: plan.maxEmployees, maxBranches: plan.maxBranches, maxOrders: plan.maxOrders, maxStorage: plan.maxStorage, features: [...plan.features], enabledModules: [...(plan.enabledModules ?? [])] }
+    ? { name: plan.name, description: plan.description ?? '', price: plan.price, priceAnnual: plan.priceAnnual ?? undefined, status: plan.status, isPopular: plan.isPopular, color: plan.color, sortOrder: plan.sortOrder, forCommerce: plan.forCommerce, forFreelancer: plan.forFreelancer, forNormal: plan.forNormal, categoryIds: [...(plan.categoryIds ?? [])], maxProducts: plan.maxProducts, maxEmployees: plan.maxEmployees, maxBranches: plan.maxBranches, maxOrders: plan.maxOrders, maxStorage: plan.maxStorage, features: [...plan.features], enabledModules: [...(plan.enabledModules ?? [])] }
     : defaultPlanForm()
   showPlanModal.value = true
 }
@@ -529,7 +639,7 @@ function goSubPage(page: number) {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchPlans(), fetchStats()])
+  await Promise.all([fetchPlans(), fetchStats(), loadUserCategories()])
   await loadSubscriptions()
 })
 </script>

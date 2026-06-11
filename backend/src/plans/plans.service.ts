@@ -209,15 +209,22 @@ export class PlansService {
     if (role === 'FREELANCER') where.forFreelancer = true;
     else if (role === 'COMMERCE') where.forCommerce = true;
     else if (role === 'NORMAL') {
-      // NORMAL users see upgrade plans (freelancer or commerce)
-      where.OR = [{ forFreelancer: true }, { forCommerce: true }];
+      // NORMAL users see upgrade plans (freelancer, commerce or normal-targeted)
+      where.OR = [{ forFreelancer: true }, { forCommerce: true }, { forNormal: true }];
     }
     // No role (public/unauthenticated): show all active plans
 
-    return this.prisma.plan.findMany({
+    const plans = await this.prisma.plan.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],
     });
+
+    // Filter by business category when provided: a plan with no categoryIds
+    // is available to every category; otherwise the category must be listed.
+    if (!categoryId) return plans;
+    return plans.filter(
+      (plan) => plan.categoryIds.length === 0 || plan.categoryIds.includes(categoryId)
+    );
   }
 
   async upgradePlan(userId: string, dto: { planId: string; categoryId: string; interval?: string }) {
