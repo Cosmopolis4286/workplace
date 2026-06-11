@@ -87,6 +87,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { KeyIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
+import { getApiErrorMessage } from '~/composables/useApiErrors'
 import {
   LockClosedIcon,
   CheckCircleIcon,
@@ -120,8 +121,8 @@ const handleReset = async () => {
     const { post } = useApi()
     await post('/auth/reset-password', { token, password: form.password })
     success.value = true
-  } catch (err: any) {
-    tokenError.value = err?.data?.message || 'El enlace es inválido o ha expirado.'
+  } catch (err: unknown) {
+    tokenError.value = getApiErrorMessage(err, 'El enlace es inválido o ha expirado.')
   } finally {
     isLoading.value = false
   }

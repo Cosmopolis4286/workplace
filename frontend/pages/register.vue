@@ -212,6 +212,7 @@ import {
 import { useAuth } from '~/composables/useAuth'
 import { useFormValidation } from '~/composables/useFormValidation'
 import { useRecaptcha } from '~/composables/useRecaptcha'
+import { getApiErrorMessage } from '~/composables/useApiErrors'
 
 const { register } = useAuth()
 const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha()
@@ -290,9 +291,7 @@ const handleSubmit = async () => {
     })
     await navigateTo('/verify-email')
   } catch (err: unknown) {
-    const e = err as { data?: { message?: string | string[] }; message?: string }
-    const msg = e?.data?.message || e?.message || 'Error al crear la cuenta'
-    generalError.value = Array.isArray(msg) ? msg.join('. ') : msg
+    generalError.value = getApiErrorMessage(err, 'Error al crear la cuenta')
   } finally {
     isLoading.value = false
   }
