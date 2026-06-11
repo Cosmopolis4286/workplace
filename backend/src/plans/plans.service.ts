@@ -112,6 +112,7 @@ export class PlansService {
               email: true,
               role: true,
               avatar: true,
+              category: { select: { id: true, name: true, icon: true } },
             },
           },
           plan: { select: { id: true, name: true, price: true, color: true } },
@@ -195,12 +196,19 @@ export class PlansService {
   }
 
   async getMySubscription(userId: string) {
-    const subscription = await this.prisma.subscription.findFirst({
-      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
-      include: { plan: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    return { subscription };
+    const [subscription, pendingSubscription] = await Promise.all([
+      this.prisma.subscription.findFirst({
+        where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+        include: { plan: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.subscription.findFirst({
+        where: { userId, status: 'PENDING' },
+        include: { plan: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+    return { subscription, pendingSubscription };
   }
 
   async getPublicPlans(role?: string, categoryId?: string) {
@@ -227,6 +235,15 @@ export class PlansService {
     );
   }
 
+  // Deriva el rol destino a partir de las banderas del plan
+  private getTargetRole(plan: { forFreelancer: boolean; forCommerce: boolean }): 'FREELANCER' | 'COMMERCE' | null {
+    if (plan.forFreelancer && !plan.forCommerce) return 'FREELANCER';
+    if (plan.forCommerce && !plan.forFreelancer) return 'COMMERCE';
+    if (plan.forCommerce) return 'COMMERCE';
+    if (plan.forFreelancer) return 'FREELANCER';
+    return null;
+  }
+
   async upgradePlan(userId: string, dto: { planId: string; categoryId: string; interval?: string }) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
@@ -234,44 +251,34 @@ export class PlansService {
     const plan = await this.prisma.plan.findUnique({ where: { id: dto.planId } });
     if (!plan) throw new NotFoundException('Plan no encontrado');
 
-    // Determine target role from plan flags
-    let targetRole: 'FREELANCER' | 'COMMERCE' | null = null;
-    if (plan.forFreelancer && !plan.forCommerce) targetRole = 'FREELANCER';
-    else if (plan.forCommerce && !plan.forFreelancer) targetRole = 'COMMERCE';
-    else if (plan.forCommerce) targetRole = 'COMMERCE';
-    else if (plan.forFreelancer) targetRole = 'FREELANCER';
-
+    const targetRole = this.getTargetRole(plan);
     if (!targetRole) throw new ConflictException('El plan seleccionado no permite cambio de rol');
 
     // Verify category exists
     const category = await this.prisma.userCategory.findUnique({ where: { id: dto.categoryId } });
     if (!category) throw new NotFoundException('Categoría no encontrada');
 
-    // Update user role and category atomically
+    // Ya tiene una solicitud pendiente
+    const existingPending = await this.prisma.subscription.findFirst({
+      where: { userId, status: 'PENDING' },
+    });
+    if (existingPending) {
+      throw new ConflictException('Ya tienes una solicitud de upgrade pendiente de aprobación');
+    }
+
+    // Asignar la categoría desde ya, pero el rol se mantiene sin cambios
+    // hasta que un admin apruebe la solicitud.
     await this.prisma.user.update({
       where: { id: userId },
-      data: { role: targetRole as any, categoryId: dto.categoryId },
+      data: { categoryId: dto.categoryId },
     });
-
-    // Cancel existing active subscriptions and create new one
-    await this.prisma.subscription.updateMany({
-      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
-      data: { status: 'CANCELLED' },
-    });
-
-    const startAt = new Date();
-    const endAt = new Date(startAt);
-    if (dto.interval === 'ANNUAL') endAt.setFullYear(endAt.getFullYear() + 1);
-    else endAt.setMonth(endAt.getMonth() + 1);
 
     const subscription = await this.prisma.subscription.create({
       data: {
         userId,
         planId: dto.planId,
-        status: 'ACTIVE',
+        status: 'PENDING',
         interval: (dto.interval === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY') as any,
-        startAt,
-        endAt,
         pricePaid: plan.price,
         assignedBy: userId,
       },
@@ -286,6 +293,63 @@ export class PlansService {
     const { password: _, ...userResult } = updatedUser as any;
 
     return { user: userResult, subscription, targetRole };
+  }
+
+  async approveSubscription(id: string, adminId: string) {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { id },
+      include: { plan: true, user: true },
+    });
+    if (!subscription) throw new NotFoundException('Solicitud no encontrada');
+    if (subscription.status !== 'PENDING') {
+      throw new ConflictException('Esta solicitud ya fue procesada');
+    }
+
+    const targetRole = this.getTargetRole(subscription.plan);
+    if (!targetRole) throw new ConflictException('El plan asociado no permite cambio de rol');
+
+    // Cancelar otras suscripciones activas del usuario
+    await this.prisma.subscription.updateMany({
+      where: { userId: subscription.userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+      data: { status: 'CANCELLED' },
+    });
+
+    const startAt = new Date();
+    const endAt = new Date(startAt);
+    if (subscription.interval === 'ANNUAL') endAt.setFullYear(endAt.getFullYear() + 1);
+    else endAt.setMonth(endAt.getMonth() + 1);
+
+    const [updatedSubscription] = await this.prisma.$transaction([
+      this.prisma.subscription.update({
+        where: { id },
+        data: { status: 'ACTIVE', startAt, endAt, assignedBy: adminId },
+        include: { plan: true, user: true },
+      }),
+      this.prisma.user.update({
+        where: { id: subscription.userId },
+        data: { role: targetRole as any },
+      }),
+    ]);
+
+    return { subscription: updatedSubscription, targetRole };
+  }
+
+  async rejectSubscription(id: string, adminId: string, reason?: string) {
+    const subscription = await this.prisma.subscription.findUnique({ where: { id } });
+    if (!subscription) throw new NotFoundException('Solicitud no encontrada');
+    if (subscription.status !== 'PENDING') {
+      throw new ConflictException('Esta solicitud ya fue procesada');
+    }
+
+    return this.prisma.subscription.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        assignedBy: adminId,
+        notes: reason ?? subscription.notes,
+      },
+      include: { plan: true, user: true },
+    });
   }
 
   async getStats() {

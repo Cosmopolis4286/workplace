@@ -52,11 +52,28 @@
       </div>
     </div>
 
+    <!-- ── Solicitud pendiente de aprobación (usuario NORMAL) ────────────────── -->
+    <section v-if="isNormalUser && pendingSubscription && upgradeStep !== 3" class="max-w-2xl mx-auto py-6">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-8 text-center">
+          <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ClockIcon class="w-8 h-8 text-yellow-600" />
+          </div>
+          <h2 class="text-lg font-bold text-gray-900 mb-1">Tu solicitud está en revisión</h2>
+          <p class="text-sm text-gray-500 max-w-md mx-auto">
+            Tu solicitud para el plan <strong class="text-gray-700">{{ pendingSubscription.plan?.name }}</strong>
+            está pendiente de aprobación por un administrador. Te notificaremos cuando sea revisada.
+          </p>
+          <span class="badge bg-yellow-100 text-yellow-700 mt-4 inline-block">Pendiente de aprobación</span>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Flujo upgrade usuario NORMAL ────────────────────────────────────── -->
-    <section v-if="isNormalUser" class="max-w-2xl mx-auto py-6">
+    <section v-if="isNormalUser && (!pendingSubscription || upgradeStep === 3)" class="max-w-2xl mx-auto py-6">
 
       <!-- Banner -->
-      <div class="flex items-start gap-4 bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-8">
+      <div v-if="upgradeStep !== 3" class="flex items-start gap-4 bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-8">
         <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
           <BoltIcon class="w-5 h-5 text-blue-600" />
         </div>
@@ -67,7 +84,7 @@
       </div>
 
       <!-- Steps -->
-      <div class="flex items-center gap-2 mb-8 justify-center">
+      <div v-if="upgradeStep !== 3" class="flex items-center gap-2 mb-8 justify-center">
         <template v-for="(label, i) in upgradeSteps" :key="i">
           <div class="flex items-center gap-2">
             <div
@@ -201,18 +218,18 @@
               </div>
             </div>
             <div class="mt-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 leading-relaxed">
-              Al confirmar, tu cuenta se actualizará y pasarás al flujo de configuración de tu nuevo perfil.
+              Al confirmar, tu solicitud quedará en revisión y un administrador deberá aprobarla antes de activar tu nuevo rol.
             </div>
           </template>
 
           <!-- Step 3: Listo -->
           <template v-if="upgradeStep === 3">
             <div class="text-center py-6">
-              <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckIcon class="w-8 h-8 text-green-600" />
+              <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ClockIcon class="w-8 h-8 text-yellow-600" />
               </div>
-              <h2 class="text-lg font-bold text-gray-900 mb-1">¡Upgrade exitoso!</h2>
-              <p class="text-sm text-gray-500">Tu cuenta fue actualizada. Redirigiendo al panel de configuración...</p>
+              <h2 class="text-lg font-bold text-gray-900 mb-1">¡Solicitud enviada!</h2>
+              <p class="text-sm text-gray-500">Tu solicitud está pendiente de aprobación por un administrador. Te notificaremos cuando sea revisada.</p>
             </div>
           </template>
 
@@ -471,7 +488,7 @@
 import { ref, computed, onMounted } from 'vue'
 import {
   BoltIcon, CheckIcon, ExclamationCircleIcon,
-  CreditCardIcon, ChevronDownIcon, EnvelopeIcon,
+  CreditCardIcon, ChevronDownIcon, EnvelopeIcon, ClockIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import PageHeader from '~/components/ui/PageHeader.vue'
@@ -501,8 +518,8 @@ interface Plan {
 interface Category { id: string; name: string; icon?: string }
 interface Subcategory { id: string; name: string }
 
-const { user, isAuthenticated, fetchProfile, updateLocalUser } = useAuth()
-const { mySubscription, myPlan, fetchMySubscription, daysRemaining } = usePlans()
+const { user, isAuthenticated, fetchProfile } = useAuth()
+const { mySubscription, pendingSubscription, myPlan, fetchMySubscription, daysRemaining } = usePlans()
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 const plans        = ref<Plan[]>([])
@@ -643,23 +660,16 @@ async function confirmUpgrade() {
   upgrading.value = true
   try {
     const { post } = useApi()
-    const result = await post('/plans/upgrade', {
+    await post('/plans/upgrade', {
       planId: selectedPlan.value,
       categoryId: selectedCategory.value,
       interval: annual.value ? 'ANNUAL' : 'MONTHLY',
-    }) as any
+    })
 
-    updateLocalUser({ role: result.targetRole, categoryId: selectedCategory.value })
     await fetchProfile()
-
-    localStorage.removeItem('onboarding_completed')
-    localStorage.removeItem('onboarding_step')
-    localStorage.removeItem('onboarding_category')
-    localStorage.removeItem('onboarding_subcategory')
-    localStorage.removeItem('onboarding_plan')
+    await fetchMySubscription()
 
     upgradeStep.value = 3
-    setTimeout(() => navigateTo('/onboarding'), 1500)
   } catch (e: any) {
     upgradeError.value = e?.data?.message ?? e?.message ?? 'Error al procesar el upgrade. Intenta de nuevo.'
   } finally { upgrading.value = false }
@@ -667,7 +677,10 @@ async function confirmUpgrade() {
 
 onMounted(async () => {
   await loadPlans()
-  if (isNormalUser.value) loadCategories()
+  if (isNormalUser.value) {
+    await fetchMySubscription()
+    if (!pendingSubscription.value) loadCategories()
+  }
   if (canChangePlan.value) fetchMySubscription()
 })
 </script>
