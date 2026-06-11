@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Hero Section - Personalizado por Rol -->
-    <DashboardHero :config="heroConfig" />
+    <DashboardHero :config="personalizedHeroConfig" />
 
     <!-- Error Banner -->
     <div v-if="error" class="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
@@ -34,6 +34,14 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- Resumen de actividad personal - Solo NORMAL -->
+    <MyActivitySummaryWidget
+      v-if="canViewWidget('myOrders')"
+      :orders="myOrders"
+      :requests="myServiceRequests"
+      :loading="loadingMyOrders || loadingMyServiceRequests"
+    />
 
     <!-- Alertas dinámicas (bajo stock, gastos vencidos, etc.) -->
     <DashboardAlerts v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
@@ -145,7 +153,7 @@
       />
 
       <!-- Quick Actions - Filtradas por rol -->
-      <QuickActions :actions="quickActions" />
+      <QuickActions :actions="quickActions" :class="{ 'lg:col-span-2': userRole === 'NORMAL' }" />
     </div>
 
     <!-- Analytics Overview - Solo ADMIN/SUPERADMIN -->
@@ -208,6 +216,7 @@ import OrdersListWidget from '~/components/dashboard/widgets/OrdersListWidget.vu
 import AnalyticsOverviewWidget from '~/components/dashboard/widgets/AnalyticsOverviewWidget.vue'
 import MyOrdersWidget from '~/components/dashboard/widgets/MyOrdersWidget.vue'
 import MyServiceRequestsWidget from '~/components/dashboard/widgets/MyServiceRequestsWidget.vue'
+import MyActivitySummaryWidget from '~/components/dashboard/widgets/MyActivitySummaryWidget.vue'
 import OrderDetailModal from '~/components/modals/OrderDetailModal.vue'
 
 // Dashboard data
@@ -273,6 +282,26 @@ async function loadCustomerData() {
 const { heroConfig, quickActions, canViewWidget } = useDashboardWidgets()
 const { user } = useAuth()
 const userRole = computed(() => user.value?.role)
+
+// Saludo personalizado para usuarios NORMAL
+function timeGreeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Buenos días'
+  if (h < 19) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
+const personalizedHeroConfig = computed(() => {
+  if (userRole.value === 'NORMAL') {
+    const name = user.value?.firstName
+    return {
+      ...heroConfig.value,
+      title: name ? `${timeGreeting()}, ${name}` : heroConfig.value.title,
+      subtitle: 'Aquí tienes un resumen de tu actividad reciente',
+    }
+  }
+  return heroConfig.value
+})
 
 // Toast
 const toast = reactive({

@@ -6,7 +6,7 @@
       </div>
       <h3 class="text-xl font-bold text-gray-900">Acciones Rápidas</h3>
     </div>
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
       <NuxtLink
         v-for="action in actions"
         :key="action.id"
@@ -28,7 +28,9 @@
 <script setup lang="ts">
 import {
   ShoppingCartIcon,
+  ShoppingBagIcon,
   DocumentTextIcon,
+  ClipboardDocumentListIcon,
   CubeIcon,
   ChartBarIcon,
   CurrencyDollarIcon,
@@ -36,6 +38,8 @@ import {
   UsersIcon,
   CogIcon,
   UserIcon,
+  WrenchIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline'
 import type { QuickActionConfig } from '~/config/dashboard.config'
 
@@ -58,7 +62,9 @@ const gradientClasses: Record<string, string> = {
 
 const iconMap: Record<string, any> = {
   ShoppingCartIcon,
+  ShoppingBagIcon,
   DocumentTextIcon,
+  ClipboardDocumentListIcon,
   CubeIcon,
   ChartBarIcon,
   CurrencyDollarIcon,
@@ -66,6 +72,8 @@ const iconMap: Record<string, any> = {
   UsersIcon,
   CogIcon,
   UserIcon,
+  WrenchIcon,
+  MagnifyingGlassIcon,
 }
 
 function getIcon(iconName: string) {
