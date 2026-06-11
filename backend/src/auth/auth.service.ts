@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
@@ -34,7 +35,8 @@ export class AuthService {
     private prisma: PrismaService,
     private redis: RedisService,
     private mail: MailService,
-    private audit: AuditService
+    private audit: AuditService,
+    private i18n: I18nService
   ) {}
 
   async register(dto: RegisterDto) {
@@ -66,9 +68,7 @@ export class AuthService {
         userAgent,
         statusCode: 403,
       });
-      throw new ForbiddenException(
-        'Demasiados intentos fallidos. Espera 15 minutos.'
-      );
+      throw new ForbiddenException(this.i18n.t('auth.login.blocked'));
     }
 
     const user = await this.usersService.findByEmail(dto.email);
@@ -84,7 +84,7 @@ export class AuthService {
         userAgent,
         statusCode: 401,
       });
-      throw new UnauthorizedException('Credenciales incorrectas');
+      throw new UnauthorizedException(this.i18n.t('auth.login.invalid_credentials'));
     }
 
     const valid = await this.usersService.validatePassword(
@@ -105,7 +105,7 @@ export class AuthService {
         userAgent,
         statusCode: 401,
       });
-      throw new UnauthorizedException('Credenciales incorrectas');
+      throw new UnauthorizedException(this.i18n.t('auth.login.invalid_credentials'));
     }
 
     await this.redis.resetLoginAttempts(dto.email);
@@ -140,7 +140,7 @@ export class AuthService {
     });
 
     if (!stored || stored.userId !== userId || stored.expiresAt < new Date() || stored.revokedAt) {
-      throw new ForbiddenException('Refresh token inválido o expirado');
+      throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
     }
 
     // Validar contexto de seguridad
@@ -150,7 +150,7 @@ export class AuthService {
           expectedIp: stored.ipAddress,
           actualIp: securityContext.ipAddress
         });
-        throw new ForbiddenException('Sesión inválida: cambio de IP detectado');
+        throw new ForbiddenException(this.i18n.t('auth.refresh.ip_mismatch'));
       }
       
       if (stored.deviceInfo !== securityContext.userAgent) {
@@ -296,7 +296,7 @@ export class AuthService {
     });
 
     if (!session || session.userId !== userId) {
-      throw new NotFoundException('Sesión no encontrada');
+      throw new NotFoundException(this.i18n.t('auth.session.not_found'));
     }
 
     try {
@@ -313,7 +313,7 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
 
-    return { message: 'Sesión cerrada exitosamente' };
+    return { message: this.i18n.t('auth.session.revoked') };
   }
 
   async getProfile(userId: string) {
@@ -344,9 +344,7 @@ export class AuthService {
     });
 
     if (demoUsers.length === 0) {
-      throw new ForbiddenException(
-        'No se encontraron usuarios demo. Ejecuta: npx prisma db seed'
-      );
+      throw new ForbiddenException(this.i18n.t('auth.demo.no_users'));
     }
 
     // Contraseñas mapeadas por email (fuente de verdad: prisma/seed.js)
@@ -395,7 +393,7 @@ export class AuthService {
   async requestPasswordReset(email: string) {
     const user = await this.usersService.findByEmail(email);
     // Always return success to prevent user enumeration
-    if (!user) return { message: 'Si ese correo existe, recibirás un enlace.' };
+    if (!user) return { message: this.i18n.t('auth.password_reset.sent') };
 
     // Invalidate old tokens
     await this.prisma.passwordResetToken.updateMany({
@@ -411,7 +409,7 @@ export class AuthService {
     });
 
     await this.mail.sendPasswordReset(user.email, token, user.firstName);
-    return { message: 'Si ese correo existe, recibirás un enlace.' };
+    return { message: this.i18n.t('auth.password_reset.sent') };
   }
 
   async resetPassword(token: string, newPassword: string) {
@@ -420,7 +418,7 @@ export class AuthService {
     });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
-      throw new BadRequestException('Token inválido o expirado');
+      throw new BadRequestException(this.i18n.t('auth.password_reset.invalid_token'));
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
@@ -442,16 +440,16 @@ export class AuthService {
       .sendSecurityAlert(updatedUser.email, updatedUser.firstName, 'password_reset')
       .catch(() => {});
 
-    return { message: 'Contraseña actualizada correctamente' };
+    return { message: this.i18n.t('auth.password_reset.success') };
   }
 
   // --- Email Verification ---
 
   async sendVerificationEmail(userId: string) {
     const user = await this.usersService.findById(userId);
-    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user) throw new NotFoundException(this.i18n.t('auth.user.not_found'));
     if ((user as any).emailVerified)
-      return { message: 'El correo ya está verificado' };
+      return { message: this.i18n.t('auth.email_verification.already_verified') };
 
     // Invalidate old tokens
     await this.prisma.emailVerificationToken.updateMany({
@@ -467,7 +465,7 @@ export class AuthService {
     });
 
     await this.mail.sendEmailVerification(user.email, token, user.firstName);
-    return { message: 'Correo de verificación enviado' };
+    return { message: this.i18n.t('auth.email_verification.sent') };
   }
 
   async verifyEmail(token: string) {
@@ -476,7 +474,7 @@ export class AuthService {
     });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
-      throw new BadRequestException('Token inválido o expirado');
+      throw new BadRequestException(this.i18n.t('auth.email_verification.invalid_token'));
     }
 
     await this.prisma.$transaction([
@@ -490,7 +488,7 @@ export class AuthService {
       }),
     ]);
 
-    return { message: 'Correo verificado correctamente' };
+    return { message: this.i18n.t('auth.email_verification.success') };
   }
 
   // --- Helpers ---
