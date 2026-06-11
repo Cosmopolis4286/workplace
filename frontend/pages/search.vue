@@ -18,7 +18,7 @@
           {{ heroTitle }}
         </h1>
 
-        <!-- Tabs (dynamic from API, fallback to hardcoded if not loaded) -->
+        <!-- Tabs (dynamic from API) -->
         <div class="inline-flex bg-white/15 backdrop-blur-sm rounded-2xl p-1 mb-5">
           <template v-if="searchTabs.length > 0">
             <button
@@ -37,47 +37,11 @@
               </span>
             </button>
           </template>
-          <!-- Fallback skeleton while loading -->
+          <!-- Skeleton genérico mientras cargan los tabs dinámicos -->
           <template v-else>
-            <button
-              class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
-              :class="activeTab === 'productos' ? 'bg-white text-red-600 shadow-sm' : 'text-white hover:bg-white/10'"
-              @click="setTab('productos')"
-            >
-              <span class="flex items-center gap-1.5">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-                </svg>
-                Productos
-              </span>
-            </button>
-            <button
-              class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
-              :class="activeTab === 'servicios' ? 'bg-white text-blue-600 shadow-sm' : 'text-white hover:bg-white/10'"
-              @click="setTab('servicios')"
-            >
-              <span class="flex items-center gap-1.5">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                </svg>
-                Servicios
-              </span>
-            </button>
-            <button
-              class="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
-              :class="activeTab === 'empleos' ? 'bg-white text-emerald-600 shadow-sm' : 'text-white hover:bg-white/10'"
-              @click="setTab('empleos')"
-            >
-              <span class="flex items-center gap-1.5">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                </svg>
-                Empleos
-              </span>
-            </button>
+            <div v-for="n in 3" :key="n" class="px-5 py-2 rounded-xl">
+              <div class="h-5 w-20 bg-white/20 rounded animate-pulse"></div>
+            </div>
           </template>
         </div>
 
