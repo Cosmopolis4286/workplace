@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TelegramService } from '../telegram/telegram.service';
@@ -27,6 +28,7 @@ export class DeliveryService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly telegram: TelegramService,
+    private readonly i18n: I18nService,
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -45,9 +47,9 @@ export class DeliveryService {
     const driver = await this.prisma.driver.findUnique({
       where: { id: driverId },
     });
-    if (!driver) throw new NotFoundException('Repartidor no encontrado');
+    if (!driver) throw new NotFoundException(this.i18n.t('delivery.driver.not_found'));
     if (driver.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return driver;
   }
 
@@ -58,9 +60,9 @@ export class DeliveryService {
     const delivery = await this.prisma.delivery.findUnique({
       where: { id: deliveryId },
     });
-    if (!delivery) throw new NotFoundException('Entrega no encontrada');
+    if (!delivery) throw new NotFoundException(this.i18n.t('delivery.delivery.not_found'));
     if (delivery.commerceId !== commerceId)
-      throw new ForbiddenException('Acceso denegado');
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return delivery;
   }
 
@@ -272,9 +274,7 @@ export class DeliveryService {
         where: { id: dto.driverId },
       });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException(
-          'Repartidor no encontrado en este restaurante'
-        );
+        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_restaurant'));
     }
 
     const delivery = await this.prisma.delivery.create({
@@ -321,9 +321,7 @@ export class DeliveryService {
         where: { id: dto.driverId },
       });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException(
-          'Repartidor no encontrado en este restaurante'
-        );
+        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_restaurant'));
     }
 
     return this.prisma.delivery.update({
@@ -452,7 +450,7 @@ export class DeliveryService {
         'Repartidor no encontrado en este restaurante'
       );
     if (!driver.isActive)
-      throw new BadRequestException('El repartidor no está activo');
+      throw new BadRequestException(this.i18n.t('delivery.driver.not_active'));
 
     const [delivery] = await Promise.all([
       this.prisma.delivery.update({

@@ -1,0 +1,10 @@
+{
+  "driver": {
+    "not_found": "Repartidor no encontrado",
+    "not_found_in_restaurant": "Repartidor no encontrado en este restaurante",
+    "not_active": "El repartidor no está activo"
+  },
+  "delivery": {
+    "not_found": "Entrega no encontrada"
+  }
+}
