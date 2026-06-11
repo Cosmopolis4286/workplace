@@ -21,6 +21,7 @@ interface User {
   isActive: boolean
   commerce?: Restaurant
   categoryId?: string
+  category?: { id: string; name: string; icon?: string | null } | null
   country?: string
   state?: string
   city?: string

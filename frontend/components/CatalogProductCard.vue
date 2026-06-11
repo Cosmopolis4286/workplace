@@ -42,6 +42,17 @@
         </span>
       </div>
 
+      <!-- Botón favorito -->
+      <button
+        class="absolute bottom-2 left-2 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow-sm hover:bg-white transition-all duration-200 active:scale-90"
+        :title="isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'"
+        @click.stop="$emit('toggle-favorite', product.id)"
+      >
+        <svg class="w-3.5 h-3.5" :class="isFavorite ? 'text-red-500' : 'text-gray-400'" :fill="isFavorite ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 21l-7.682-7.682a4.5 4.5 0 010-6.364z"/>
+        </svg>
+      </button>
+
       <!-- Tiempo preparación (bottom-right) -->
       <div v-if="product.preparationTime" class="absolute bottom-2 right-2">
         <span class="flex items-center gap-1 text-[10px] font-semibold bg-black/60 text-white backdrop-blur-sm px-2 py-0.5 rounded-full">
@@ -173,8 +184,8 @@ import type { CatalogProduct } from '~/composables/useCatalog'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 import { useCart } from '~/composables/useCart'
 
-const props = defineProps<{ product: CatalogProduct; isOwner?: boolean }>()
-defineEmits<{ view: [product: CatalogProduct]; order: [product: CatalogProduct] }>()
+const props = defineProps<{ product: CatalogProduct; isOwner?: boolean; isFavorite?: boolean }>()
+defineEmits<{ view: [product: CatalogProduct]; order: [product: CatalogProduct]; 'toggle-favorite': [productId: string] }>()
 
 const { addItem, increment, decrement, getQuantity } = useCart()
 const addedFlash = ref(false)
