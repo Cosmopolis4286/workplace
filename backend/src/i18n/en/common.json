@@ -1,0 +1,13 @@
+{
+  "rate_limit": {
+    "exceeded": "Too many requests. Try again in {wait}.",
+    "wait_seconds": {
+      "one": "{count} second",
+      "other": "{count} seconds"
+    },
+    "wait_minutes": {
+      "one": "{count} minute",
+      "other": "{count} minutes"
+    }
+  }
+}

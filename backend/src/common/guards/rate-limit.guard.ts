@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { I18nService, I18nContext } from 'nestjs-i18n';
 import { RedisService } from '../../redis/redis.service';
 import { Request } from 'express';
 
@@ -17,7 +18,8 @@ export class RateLimitGuard implements CanActivate {
 
   constructor(
     private readonly reflector: Reflector,
-    private readonly redis: RedisService
+    private readonly redis: RedisService,
+    private readonly i18n: I18nService
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -29,17 +31,18 @@ export class RateLimitGuard implements CanActivate {
       return true; // Sin rate limiting si no hay opciones
     }
 
-    const key = options.keyGenerator 
+    const key = options.keyGenerator
       ? options.keyGenerator(request)
       : this.generateDefaultKey(request);
 
-    return await this.checkRateLimit(key, options, request);
+    return await this.checkRateLimit(key, options, request, context);
   }
 
   private async checkRateLimit(
-    key: string, 
-    options: RateLimitOptions, 
-    request: Request
+    key: string,
+    options: RateLimitOptions,
+    request: Request,
+    context: ExecutionContext
   ): Promise<boolean> {
     try {
       const current = await this.redis.get(key);
@@ -54,8 +57,12 @@ export class RateLimitGuard implements CanActivate {
           userAgent: request.headers['user-agent']
         });
 
+        const lang = I18nContext.current(context)?.lang;
         throw new ForbiddenException(
-          `Demasiadas solicitudes. Intenta de nuevo en ${this.formatWaitTime(options.windowMs)}.`
+          this.i18n.t('common.rate_limit.exceeded', {
+            lang,
+            args: { wait: this.formatWaitTime(options.windowMs, lang) },
+          })
         );
       }
 
@@ -83,13 +90,19 @@ export class RateLimitGuard implements CanActivate {
     }
   }
 
-  private formatWaitTime(windowMs: number): string {
+  private formatWaitTime(windowMs: number, lang?: string): string {
     const totalSeconds = Math.ceil(windowMs / 1000);
     if (totalSeconds < 60) {
-      return `${totalSeconds} segundo${totalSeconds === 1 ? '' : 's'}`;
+      return this.i18n.t('common.rate_limit.wait_seconds', {
+        lang,
+        args: { count: totalSeconds },
+      });
     }
     const minutes = Math.ceil(totalSeconds / 60);
-    return `${minutes} minuto${minutes === 1 ? '' : 's'}`;
+    return this.i18n.t('common.rate_limit.wait_minutes', {
+      lang,
+      args: { count: minutes },
+    });
   }
 
   private generateDefaultKey(request: Request): string {
