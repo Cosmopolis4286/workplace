@@ -141,4 +141,15 @@ describe('i18n pilot setup', () => {
     expect(i18n.t('expenses.category.in_use', { lang: 'en', args: { count: 4 } }))
       .toBe('Cannot delete: this category has 4 associated expenses');
   });
+
+  it('resuelve mensajes del modulo menu (es/en)', () => {
+    expect(i18n.t('menu.category.not_found', { lang: 'es' })).toBe('Categoría no encontrada');
+    expect(i18n.t('menu.category.not_found', { lang: 'en' })).toBe('Category not found');
+    expect(i18n.t('menu.category.name_taken', { lang: 'es' })).toBe('Ya existe una categoría con ese nombre');
+    expect(i18n.t('menu.category.name_taken', { lang: 'en' })).toBe('A category with that name already exists');
+    expect(i18n.t('menu.category.has_products', { lang: 'es' })).toBe('No se puede eliminar una categoría con productos. Mueve o elimina los productos primero.');
+    expect(i18n.t('menu.category.has_products', { lang: 'en' })).toBe('Cannot delete a category with products. Move or delete the products first.');
+    expect(i18n.t('menu.product.not_found', { lang: 'es' })).toBe('Producto no encontrado');
+    expect(i18n.t('menu.product.not_found', { lang: 'en' })).toBe('Product not found');
+  });
 });
