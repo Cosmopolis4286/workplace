@@ -18,7 +18,7 @@ const loaded = ref(false)
 
 export function useModules() {
   const config = useRuntimeConfig()
-  const { getHeaders } = useAuth()
+  const { getHeaders, user } = useAuth()
 
   async function loadModules() {
     if (loaded.value) return
@@ -38,8 +38,12 @@ export function useModules() {
   }
 
   function hasModule(module: string): boolean {
-    // If not loaded yet (SUPERADMIN/ADMIN path where commerce is null), allow all
-    if (!loaded.value || effectiveModules.value.length === 0) return true
+    // SUPERADMIN/ADMIN/NORMAL no tienen restricciones de plan/categoría (commerce es null)
+    const role = user.value?.role
+    const unrestricted = role === 'SUPERADMIN' || role === 'ADMIN' || role === 'NORMAL'
+    if (unrestricted) return true
+    // COMMERCE/FREELANCER: mientras no haya cargado el plan, denegar (evita "flash" de módulos no permitidos)
+    if (!loaded.value) return false
     return effectiveModules.value.includes(module)
   }
 
