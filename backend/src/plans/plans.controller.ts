@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -161,5 +162,23 @@ export class PlansController {
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   cancelSubscription(@Param('id') id: string) {
     return this.plansService.cancelSubscription(id);
+  }
+
+  @Patch('subscriptions/:id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  approveSubscription(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.plansService.approveSubscription(id, user.id);
+  }
+
+  @Patch('subscriptions/:id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  rejectSubscription(
+    @Param('id') id: string,
+    @Body() dto: { reason?: string },
+    @CurrentUser() user: any
+  ) {
+    return this.plansService.rejectSubscription(id, user.id, dto?.reason);
   }
 }

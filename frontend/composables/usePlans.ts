@@ -42,7 +42,7 @@ export interface Subscription {
   notes: string | null
   createdAt: string
   updatedAt: string
-  user?: { id: string; firstName: string; lastName: string; email: string; role: string; avatar?: string }
+  user?: { id: string; firstName: string; lastName: string; email: string; role: string; avatar?: string; category?: { id: string; name: string; icon?: string } | null }
   plan?: Pick<Plan, 'id' | 'name' | 'price' | 'color'>
 }
 
@@ -89,6 +89,7 @@ const plans = ref<Plan[]>([])
 const subscriptions = ref<Subscription[]>([])
 const stats = ref<PlanStats | null>(null)
 const mySubscription = ref<Subscription | null>(null)
+const pendingSubscription = ref<Subscription | null>(null)
 const myPlan = ref<Plan | null>(null)
 const usage = ref<PlanUsage | null>(null)
 const loading = ref(false)
@@ -185,6 +186,23 @@ export function usePlans() {
     if (idx >= 0) subscriptions.value[idx].status = 'CANCELLED'
   }
 
+  async function approveSubscription(id: string) {
+    const data = await apiFetch(`/plans/subscriptions/${id}/approve`, { method: 'PATCH' })
+    const idx = subscriptions.value.findIndex((s: Subscription) => s.id === id)
+    if (idx >= 0) subscriptions.value[idx] = data.subscription
+    return data
+  }
+
+  async function rejectSubscription(id: string, reason?: string) {
+    const data = await apiFetch(`/plans/subscriptions/${id}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    })
+    const idx = subscriptions.value.findIndex((s: Subscription) => s.id === id)
+    if (idx >= 0) subscriptions.value[idx] = data
+    return data
+  }
+
   // ─── Stats ────────────────────────────────────────────────────────────────────
 
   async function fetchStats() {
@@ -214,6 +232,7 @@ export function usePlans() {
     try {
       const data = await apiFetch('/plans/my-subscription')
       mySubscription.value = data.subscription
+      pendingSubscription.value = data.pendingSubscription ?? null
       myPlan.value = data.subscription?.plan ?? null
     } catch (e: any) {
       error.value = e.message
@@ -257,6 +276,7 @@ export function usePlans() {
     subscriptions,
     stats,
     mySubscription,
+    pendingSubscription,
     myPlan,
     usage,
     loading,
@@ -274,6 +294,8 @@ export function usePlans() {
     fetchSubscriptions,
     assignSubscription,
     cancelSubscription,
+    approveSubscription,
+    rejectSubscription,
     fetchStats,
     fetchMySubscription,
     fetchPublicPlans,

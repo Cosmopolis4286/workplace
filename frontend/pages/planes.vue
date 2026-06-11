@@ -237,6 +237,81 @@
       </div>
     </div>
 
+    <!-- ── Tab: Solicitudes ─────────────────────────────────────────────────── -->
+    <div v-if="activeTab === 'requests'">
+      <div v-if="requestActionError" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+        <p class="text-red-700 text-sm">{{ requestActionError }}</p>
+        <button class="text-red-500 hover:text-red-700" @click="requestActionError = null"><XMarkIcon class="h-4 w-4" /></button>
+      </div>
+
+      <div class="card overflow-hidden">
+        <!-- Skeleton -->
+        <template v-if="loadingRequests">
+          <div v-for="i in 3" :key="i" class="p-4 flex items-center gap-4 border-b border-gray-100">
+            <div class="skeleton h-9 w-9 rounded-full flex-shrink-0" />
+            <div class="flex-1 space-y-2"><div class="skeleton h-4 w-36 rounded" /><div class="skeleton h-3 w-48 rounded" /></div>
+            <div class="skeleton h-8 w-24 rounded-lg" />
+          </div>
+        </template>
+
+        <!-- Vacío -->
+        <div v-else-if="pendingRequests.length === 0" class="p-12 text-center">
+          <CheckIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
+          <p class="text-gray-500 font-medium">No hay solicitudes pendientes de aprobación</p>
+        </div>
+
+        <!-- Filas -->
+        <div v-else class="divide-y divide-gray-100">
+          <div v-for="sub in pendingRequests" :key="sub.id" class="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50 transition-colors flex-wrap">
+            <!-- Avatar -->
+            <div class="h-9 w-9 rounded-full bg-yellow-100 flex items-center justify-center font-bold text-sm text-yellow-700 flex-shrink-0">
+              {{ sub.user?.firstName?.[0] ?? '?' }}
+            </div>
+            <!-- Usuario -->
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-gray-900 truncate">{{ sub.user?.firstName }} {{ sub.user?.lastName }}</p>
+              <p class="text-xs text-gray-400 truncate">{{ sub.user?.email }}</p>
+            </div>
+            <!-- Sector solicitado -->
+            <span v-if="sub.user?.category" class="badge bg-gray-100 text-gray-600 flex-shrink-0">
+              {{ sub.user.category.icon ? `${sub.user.category.icon} ` : '' }}{{ sub.user.category.name }}
+            </span>
+            <!-- Plan -->
+            <span
+              class="badge flex-shrink-0"
+              :style="{ backgroundColor: (sub.plan?.color ?? '#6b7280') + '20', color: sub.plan?.color ?? '#6b7280' }"
+            >{{ sub.plan?.name }}</span>
+            <!-- Rol nuevo -->
+            <span class="badge bg-orange-100 text-orange-700 flex-shrink-0">
+              {{ sub.user?.role === 'NORMAL' ? 'Pendiente' : sub.user?.role }}
+            </span>
+            <!-- Intervalo + precio -->
+            <div class="hidden sm:block text-right flex-shrink-0">
+              <p class="text-sm font-bold text-gray-900">{{ formatPrice(sub.pricePaid) }}</p>
+              <p class="text-xs text-gray-400">{{ INTERVAL_LABELS[sub.interval] }}</p>
+            </div>
+            <!-- Fecha de solicitud -->
+            <div class="hidden md:block text-right flex-shrink-0 text-xs text-gray-500">
+              {{ new Date(sub.createdAt).toLocaleDateString('es-MX') }}
+            </div>
+            <!-- Acciones -->
+            <div class="flex gap-2 flex-shrink-0">
+              <button
+                class="btn-secondary text-xs px-3 py-1.5 text-red-600 hover:bg-red-50"
+                :disabled="processingRequest === sub.id"
+                @click="handleRejectRequest(sub)"
+              >Rechazar</button>
+              <button
+                class="btn-primary text-xs px-3 py-1.5"
+                :disabled="processingRequest === sub.id"
+                @click="handleApproveRequest(sub)"
+              >Aprobar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Modal Plan ──────────────────────────────────────────────────────── -->
     <Teleport to="body">
       <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
@@ -449,10 +524,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { CreditCardIcon, PlusIcon, XMarkIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ref, computed, onMounted, watch } from 'vue'
+import { CreditCardIcon, PlusIcon, XMarkIcon, PencilIcon, TrashIcon, CheckIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan } from '~/composables/usePlans'
+import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan, type Subscription } from '~/composables/usePlans'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -479,6 +554,7 @@ const {
   totalSubs, subPage,
   fetchPlans, createPlan, updatePlan, deletePlan,
   fetchSubscriptions, assignSubscription, cancelSubscription,
+  approveSubscription, rejectSubscription,
   fetchStats, formatLimit, formatPrice,
 } = usePlans()
 
@@ -501,7 +577,7 @@ function categoryName(id: string): string {
 }
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
-const activeTab  = ref<'plans' | 'subscriptions'>('plans')
+const activeTab  = ref<'plans' | 'subscriptions' | 'requests'>('plans')
 const subFilter  = ref('')
 const planFilter = ref('')
 
@@ -512,6 +588,7 @@ const categoryFilter = ref<string>('all')
 const tabs = [
   { key: 'plans',         label: 'Planes'         },
   { key: 'subscriptions', label: 'Suscripciones'  },
+  { key: 'requests',      label: 'Solicitudes'    },
 ]
 
 const headerStats = computed(() => [
@@ -638,8 +715,61 @@ function goSubPage(page: number) {
   fetchSubscriptions({ status: subFilter.value || undefined, planId: planFilter.value || undefined, page })
 }
 
+// ─── Solicitudes pendientes ─────────────────────────────────────────────────────
+const pendingRequests = ref<Subscription[]>([])
+const loadingRequests = ref(false)
+const processingRequest = ref<string | null>(null)
+const requestActionError = ref<string | null>(null)
+
+async function loadPendingRequests() {
+  loadingRequests.value = true
+  try {
+    const data = await get<{ subscriptions: Subscription[] }>('/plans/subscriptions?status=PENDING&limit=100')
+    pendingRequests.value = data.subscriptions
+  } catch (e: any) {
+    requestActionError.value = e?.data?.message ?? e.message
+  } finally {
+    loadingRequests.value = false
+  }
+}
+
+async function handleApproveRequest(sub: Subscription) {
+  if (!confirm(`¿Aprobar la solicitud de ${sub.user?.firstName} ${sub.user?.lastName} para el plan "${sub.plan?.name}"?`)) return
+  processingRequest.value = sub.id
+  requestActionError.value = null
+  try {
+    await approveSubscription(sub.id)
+    pendingRequests.value = pendingRequests.value.filter(s => s.id !== sub.id)
+    invalidateModules(); await fetchStats()
+  } catch (e: any) {
+    requestActionError.value = e?.data?.message ?? e.message
+  } finally {
+    processingRequest.value = null
+  }
+}
+
+async function handleRejectRequest(sub: Subscription) {
+  if (!confirm(`¿Rechazar la solicitud de ${sub.user?.firstName} ${sub.user?.lastName} para el plan "${sub.plan?.name}"?`)) return
+  processingRequest.value = sub.id
+  requestActionError.value = null
+  try {
+    await rejectSubscription(sub.id)
+    pendingRequests.value = pendingRequests.value.filter(s => s.id !== sub.id)
+    await fetchStats()
+  } catch (e: any) {
+    requestActionError.value = e?.data?.message ?? e.message
+  } finally {
+    processingRequest.value = null
+  }
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'requests' && pendingRequests.value.length === 0) loadPendingRequests()
+})
+
 onMounted(async () => {
   await Promise.all([fetchPlans(), fetchStats(), loadUserCategories()])
   await loadSubscriptions()
+  await loadPendingRequests()
 })
 </script>
