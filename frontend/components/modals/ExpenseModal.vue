@@ -105,7 +105,18 @@
                   </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Recibo / Factura</label>
-                    <input v-model="form.receipt" type="text" class="input-field" placeholder="Ej. REC-001" />
+                    <div class="flex gap-2">
+                      <input v-model="form.receipt" type="text" class="input-field flex-1" placeholder="Ej. REC-001" />
+                      <button
+                        v-if="isEditing"
+                        type="button"
+                        :disabled="uploadingReceipt"
+                        class="shrink-0 inline-flex items-center justify-center px-3 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                        @click="handleTakePhoto"
+                      >
+                        <CameraIcon class="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -134,7 +145,9 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
-import type { Expense, ExpenseCategory } from '~/composables/useExpenses'
+import { CameraIcon } from '@heroicons/vue/24/outline'
+import { useCamera } from '~/composables/useCamera'
+import { useExpenses, type Expense, type ExpenseCategory } from '~/composables/useExpenses'
 
 const props = defineProps<{
   isOpen: boolean
@@ -149,6 +162,10 @@ const emit = defineEmits<{
 }>()
 
 const isEditing = computed(() => !!props.expense)
+
+const { takePhoto } = useCamera()
+const { uploadReceipt } = useExpenses()
+const uploadingReceipt = ref(false)
 
 const defaultForm = () => ({
   description:   '',
@@ -208,5 +225,19 @@ function handleSubmit() {
   if (form.value.notes)      payload.notes      = form.value.notes
 
   emit('save', payload)
+}
+
+async function handleTakePhoto() {
+  if (!props.expense?.id) return
+  const file = await takePhoto()
+  if (!file) return
+
+  uploadingReceipt.value = true
+  try {
+    const updated = await uploadReceipt(props.expense.id, file)
+    if (updated) form.value.receipt = updated.receipt ?? form.value.receipt
+  } finally {
+    uploadingReceipt.value = false
+  }
 }
 </script>

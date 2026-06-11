@@ -9,7 +9,14 @@ import {
   Body,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -118,5 +125,48 @@ export class ExpensesController {
   @RequirePermission('expenses:delete')
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.expensesService.remove(id, user.commerceId);
+  }
+
+  @Post(':id/receipt')
+  @RequirePermission('expenses:edit')
+  @UseInterceptors(
+    FileInterceptor('receipt', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadPath = join(process.cwd(), 'uploads', 'expenses');
+          if (!existsSync(uploadPath))
+            mkdirSync(uploadPath, { recursive: true });
+          cb(null, uploadPath);
+        },
+        filename: (_req, file, cb) => {
+          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, unique + extname(file.originalname));
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/)) {
+          return cb(
+            new BadRequestException(
+              'Solo se permiten imágenes (jpeg, png, webp, gif)'
+            ),
+            false
+          );
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    })
+  )
+  uploadReceipt(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    if (!file) throw new BadRequestException('No se recibió ningún archivo');
+    return this.expensesService.updateReceipt(
+      id,
+      user.commerceId,
+      `/uploads/expenses/${file.filename}`
+    );
   }
 }

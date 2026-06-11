@@ -148,12 +148,26 @@
 
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">URL de Imagen</label>
-                  <input
-                    v-model="form.image"
-                    type="url"
-                    class="input-field"
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                  >
+                  <div class="flex gap-2">
+                    <input
+                      v-model="form.image"
+                      type="url"
+                      class="input-field flex-1"
+                      placeholder="https://ejemplo.com/imagen.jpg"
+                    >
+                    <button
+                      v-if="isEditing"
+                      type="button"
+                      :disabled="uploadingImage"
+                      class="shrink-0 inline-flex items-center justify-center px-3 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      @click="handleTakePhoto"
+                    >
+                      <CameraIcon class="h-5 w-5" />
+                    </button>
+                  </div>
+                  <p v-if="!isEditing" class="mt-1 text-xs text-gray-400">
+                    Podrás tomar una foto después de crear el producto.
+                  </p>
                 </div>
 
                 <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
@@ -228,10 +242,17 @@
 <script setup>
 import { ref, watch, computed, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
+import { CameraIcon } from '@heroicons/vue/24/outline'
 import { useDefaultRate } from '~/composables/useDefaultRate'
+import { useCamera } from '~/composables/useCamera'
+import { useMenu } from '~/composables/useMenu'
 
 const { defaultRate, convertLabel, rateLabel, load } = useDefaultRate()
 onMounted(load)
+
+const { takePhoto } = useCamera()
+const { uploadProductImage } = useMenu()
+const uploadingImage = ref(false)
 
 const props = defineProps({
   isOpen: Boolean,
@@ -299,5 +320,19 @@ const closeModal = () => {
 const handleSubmit = () => {
   emit('save', { ...form.value })
   closeModal()
+}
+
+const handleTakePhoto = async () => {
+  if (!props.product?.id) return
+  const file = await takePhoto()
+  if (!file) return
+
+  uploadingImage.value = true
+  try {
+    const updated = await uploadProductImage(props.product.id, file)
+    if (updated) form.value.image = updated.image ?? form.value.image
+  } finally {
+    uploadingImage.value = false
+  }
 }
 </script>
