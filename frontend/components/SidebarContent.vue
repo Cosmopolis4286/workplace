@@ -141,7 +141,7 @@
       <NavLink to="/perfil" label="Mi Perfil" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.customers" class="h-5 w-5" /></template>
       </NavLink>
-      <NavLink v-if="can('settings:view')" to="/configuracion" label="Configuración" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+      <NavLink v-if="navReady && can('settings:view')" to="/configuracion" label="Configuración" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.ops_group" class="h-5 w-5" /></template>
       </NavLink>
       <!-- Mi Plan: solo para comercios/freelancers que pueden tener una suscripción propia -->
@@ -197,19 +197,32 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const { user } = useAuth()
-const { can, userCategory } = usePermissions()
-const { hasModule, loadModules } = useModules()
+const { can, userCategory, initialized: permissionsInitialized, fetchPermissions } = usePermissions()
+const { hasModule, loaded: modulesLoaded, loadModules } = useModules()
 
-onMounted(() => loadModules())
+onMounted(() => {
+  loadModules()
+  if (!permissionsInitialized.value) fetchPermissions()
+})
 
 const role = computed(() => user.value?.role ?? 'NORMAL')
+
+// Mientras los permisos/módulos no terminen de cargar, no renderizar items
+// restringidos para evitar el "flash" de opciones que luego se ocultan.
+const navReady = computed(() => {
+  if (!permissionsInitialized.value) return false
+  if (role.value === 'COMMERCE' || role.value === 'FREELANCER') {
+    return modulesLoaded.value
+  }
+  return true
+})
 
 // Sección Administración visible si el usuario tiene al menos un permiso admin
 const ADMIN_PERMISSIONS = [
   'users:view', 'categories_global:view', 'permissions:manage',
   'audit:view', 'logs:view', 'plans:view', 'exchange_rates:view',
 ]
-const hasAdminItems = computed(() => ADMIN_PERMISSIONS.some(p => can(p)))
+const hasAdminItems = computed(() => navReady.value && ADMIN_PERMISSIONS.some(p => can(p)))
 
 const props = withDefaults(
   defineProps<{ collapsed?: boolean; dark?: boolean }>(),
@@ -369,6 +382,7 @@ const hasQuickAccess = computed(() => quickAccessItems.value.length > 0)
 
 function canSee(permission: string | null): boolean {
   if (permission === null) return true
+  if (!navReady.value) return false
   const module = permission.split(':')[0]
   if (permission === 'menu:view') {
     return can(permission) && hasModule(module) && userCategory.value === 'Comida'

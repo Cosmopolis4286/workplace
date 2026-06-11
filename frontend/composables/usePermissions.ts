@@ -1,8 +1,8 @@
 import { ref, computed } from 'vue'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const CACHE_KEY    = 'perm_cache'
-const VERSION_KEY  = 'perm_version'   // versión del servidor para invalidar cache
+const CACHE_KEY_PREFIX = 'perm_cache_'
+const VERSION_KEY_PREFIX = 'perm_version_'
 const CACHE_TTL    = 5 * 60 * 1000   // 5 minutos
 const REFRESH_INT  = 60_000          // verificar cada minuto si el cache expiró
 
@@ -23,14 +23,38 @@ interface CacheEntry {
   timestamp:   number
 }
 
-// ─── Cache helpers ─────────────────────────────────────────────────────────
-function getCache(): CacheEntry | null {
+// ─── Cache helpers (namespaced por usuario) ────────────────────────────────
+function getCurrentUserId(): string | null {
   if (!process.client) return null
   try {
-    const raw = localStorage.getItem(CACHE_KEY)
+    const raw = localStorage.getItem('auth_user')
+    if (!raw) return null
+    const user = JSON.parse(raw) as { id?: string }
+    return user?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+function cacheKey(): string | null {
+  const userId = getCurrentUserId()
+  return userId ? `${CACHE_KEY_PREFIX}${userId}` : null
+}
+
+function versionKey(): string | null {
+  const userId = getCurrentUserId()
+  return userId ? `${VERSION_KEY_PREFIX}${userId}` : null
+}
+
+function getCache(): CacheEntry | null {
+  if (!process.client) return null
+  const key = cacheKey()
+  if (!key) return null
+  try {
+    const raw = localStorage.getItem(key)
     return raw ? (JSON.parse(raw) as CacheEntry) : null
   } catch {
-    localStorage.removeItem(CACHE_KEY)
+    localStorage.removeItem(key)
     return null
   }
 }
@@ -40,13 +64,16 @@ function isCacheValid(entry: CacheEntry | null): boolean {
   const fresh = Date.now() - entry.timestamp < CACHE_TTL
   if (!fresh) return false
   // Invalidar si el servidor tiene una versión más nueva
-  const sv = localStorage.getItem(VERSION_KEY)
+  const vKey = versionKey()
+  const sv = vKey ? localStorage.getItem(vKey) : null
   if (sv && entry.version !== sv) return false
   return true
 }
 
 function setCache(keys: string[], version?: string | null): void {
   if (!process.client) return
+  const key = cacheKey()
+  if (!key) return
   const entry: CacheEntry = {
     keys,
     category:    userCategory.value,
@@ -54,12 +81,13 @@ function setCache(keys: string[], version?: string | null): void {
     version:     version ?? null,
     timestamp:   Date.now(),
   }
-  localStorage.setItem(CACHE_KEY, JSON.stringify(entry))
+  localStorage.setItem(key, JSON.stringify(entry))
 }
 
 function clearCache(): void {
   if (!process.client) return
-  localStorage.removeItem(CACHE_KEY)
+  const key = cacheKey()
+  if (key) localStorage.removeItem(key)
 }
 
 /**
@@ -77,7 +105,8 @@ export function invalidatePermissionsCache(): void {
  */
 export function setPermissionsVersion(v: string): void {
   if (!process.client) return
-  localStorage.setItem(VERSION_KEY, v)
+  const vKey = versionKey()
+  if (vKey) localStorage.setItem(vKey, v)
   clearCache()
   initialized.value = false
 }
@@ -85,6 +114,9 @@ export function setPermissionsVersion(v: string): void {
 // ─── Rehydrate desde cache al cargar la app ──────────────────────────────
 function rehydrate(): void {
   if (initialized.value || !process.client) return
+  // Limpiar claves globales antiguas (no namespaced por usuario)
+  localStorage.removeItem('perm_cache')
+  localStorage.removeItem('perm_version')
   const entry = getCache()
   if (isCacheValid(entry)) {
     permissionKeys.value  = entry!.keys
@@ -142,7 +174,8 @@ export const usePermissions = () => {
 
       // Persistir versión del servidor para comparación futura
       if (data.version && process.client) {
-        localStorage.setItem(VERSION_KEY, data.version)
+        const vKey = versionKey()
+        if (vKey) localStorage.setItem(vKey, data.version)
       }
 
       setCache(data.keys, data.version)

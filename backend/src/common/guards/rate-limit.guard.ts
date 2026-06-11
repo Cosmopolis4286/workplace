@@ -53,9 +53,9 @@ export class RateLimitGuard implements CanActivate {
           ip: request.ip,
           userAgent: request.headers['user-agent']
         });
-        
+
         throw new ForbiddenException(
-          `Too many requests. Try again in ${Math.ceil(options.windowMs / 1000)} seconds.`
+          `Demasiadas solicitudes. Intenta de nuevo en ${this.formatWaitTime(options.windowMs)}.`
         );
       }
 
@@ -81,6 +81,15 @@ export class RateLimitGuard implements CanActivate {
       this.logger.error(`Error checking rate limit for key: ${key}`, error);
       return true; // Permitir si hay error en Redis (fail-open)
     }
+  }
+
+  private formatWaitTime(windowMs: number): string {
+    const totalSeconds = Math.ceil(windowMs / 1000);
+    if (totalSeconds < 60) {
+      return `${totalSeconds} segundo${totalSeconds === 1 ? '' : 's'}`;
+    }
+    const minutes = Math.ceil(totalSeconds / 60);
+    return `${minutes} minuto${minutes === 1 ? '' : 's'}`;
   }
 
   private generateDefaultKey(request: Request): string {

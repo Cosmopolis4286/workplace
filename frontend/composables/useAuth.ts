@@ -151,7 +151,8 @@ export const useAuth = () => {
       },
     })
     setSession(data)
-    usePermissions().fetchPermissions().catch(() => {})
+    useModules().invalidate()
+    usePermissions().reloadPermissions().catch(() => {})
     return data.user
   }
 
@@ -164,7 +165,8 @@ export const useAuth = () => {
       },
     })
     setSession(data)
-    usePermissions().fetchPermissions().catch(() => {})
+    useModules().invalidate()
+    usePermissions().reloadPermissions().catch(() => {})
     return data.user
   }
 
@@ -181,6 +183,7 @@ export const useAuth = () => {
     } finally {
       clearSession()
       usePermissions().clearPermissions()
+      useModules().invalidate()
     }
   }
 
