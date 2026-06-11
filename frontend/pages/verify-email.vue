@@ -176,8 +176,8 @@ onMounted(async () => {
       await post('/auth/verify-email', { token })
       // Verification successful, redirect to login
       await navigateTo('/login?verified=true')
-    } catch (err: any) {
-      verificationError.value = err?.data?.message || 'El enlace de verificación es inválido o ha expirado'
+    } catch (err: unknown) {
+      verificationError.value = getApiErrorMessage(err, 'El enlace de verificación es inválido o ha expirado')
     } finally {
       isVerifying.value = false
     }
