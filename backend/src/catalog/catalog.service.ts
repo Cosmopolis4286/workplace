@@ -100,6 +100,9 @@ export class CatalogService {
       page = 1,
       limit = 20,
       sort = CatalogSortBy.RELEVANCE,
+      country,
+      state,
+      city,
     } = dto;
     const skip = (page - 1) * limit;
 
@@ -130,6 +133,10 @@ export class CatalogService {
         ...(priceMin !== undefined ? { gte: priceMin } : {}),
         ...(priceMax !== undefined ? { lte: priceMax } : {}),
       };
+    }
+
+    if (city || state || country) {
+      return this.getProductsNearMe(where, { country, state, city }, page, limit, sort);
     }
 
     if (sort === CatalogSortBy.RATING_DESC) {
@@ -165,6 +172,66 @@ export class CatalogService {
     };
   }
 
+  /**
+   * Filtra productos por ubicación del comercio con fallback en cascada:
+   * ciudad exacta → estado → país. Si la ciudad no arroja resultados,
+   * se amplía la búsqueda al siguiente nivel e informa `locationTier`.
+   */
+  private async getProductsNearMe(
+    baseWhere: Record<string, unknown>,
+    location: { country?: string; state?: string; city?: string },
+    page: number,
+    limit: number,
+    sort: CatalogSortBy
+  ) {
+    const { country, state, city } = location;
+    const skip = (page - 1) * limit;
+
+    let orderBy: Record<string, unknown> = { createdAt: 'desc' };
+    if (sort === CatalogSortBy.PRICE_ASC) orderBy = { price: 'asc' };
+    else if (sort === CatalogSortBy.PRICE_DESC) orderBy = { price: 'desc' };
+    else if (sort === CatalogSortBy.NAME) orderBy = { name: 'asc' };
+
+    const tiers: { tier: 'city' | 'state' | 'country'; commerce: Record<string, unknown> }[] = [];
+    if (city) tiers.push({ tier: 'city', commerce: { city: { equals: city, mode: 'insensitive' } } });
+    if (state) tiers.push({ tier: 'state', commerce: { state: { equals: state, mode: 'insensitive' } } });
+    if (country) tiers.push({ tier: 'country', commerce: { country: { equals: country, mode: 'insensitive' } } });
+
+    for (const { tier, commerce } of tiers) {
+      const where = { ...baseWhere, commerce };
+
+      if (sort === CatalogSortBy.RATING_DESC) {
+        const result = await this.getProductsSortedByRating(where, page, limit);
+        if (result.total > 0) return { ...result, locationTier: tier };
+        continue;
+      }
+      if (sort === CatalogSortBy.BEST_SELLER) {
+        const result = await this.getProductsSortedByBestSeller(where, page, limit);
+        if (result.total > 0) return { ...result, locationTier: tier };
+        continue;
+      }
+
+      const [products, total] = await Promise.all([
+        this.prisma.product.findMany({ where, skip, take: limit, orderBy, select: this.productSelect }),
+        this.prisma.product.count({ where }),
+      ]);
+
+      if (total > 0) {
+        return {
+          data: products.map(attachProductRating),
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          locationTier: tier,
+        };
+      }
+    }
+
+    // Sin resultados en ninguna ubicación: devolver vacío
+    return { data: [], total: 0, page, limit, totalPages: 0, locationTier: null };
+  }
+
   private readonly productSelect = {
     id: true,
     name: true,
@@ -183,6 +250,9 @@ export class CatalogService {
         id: true,
         name: true,
         type: true,
+        country: true,
+        state: true,
+        city: true,
         user: {
           select: {
             username: true,

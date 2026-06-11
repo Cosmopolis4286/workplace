@@ -39,6 +39,9 @@ export interface CatalogService {
     lastName: string
     username: string | null
     avatar: string | null
+    country?: string | null
+    state?: string | null
+    city?: string | null
     rating: number | null
     reviewsCount: number
     category: { name: string } | null
@@ -47,6 +50,7 @@ export interface CatalogService {
 }
 
 export type ServiceSortBy = 'relevance' | 'price_asc' | 'price_desc' | 'name' | 'newest'
+export type LocationTier = 'city' | 'state' | 'country' | null
 
 export interface ServiceQuery {
   search: string
@@ -54,6 +58,7 @@ export interface ServiceQuery {
   userId: string | null
   sort: ServiceSortBy
   page: number
+  nearMe: boolean
 }
 
 // ─── Module-level singleton state ─────────────────────────────────────────────
@@ -66,6 +71,7 @@ const loadingCategories = ref(false)
 const error = ref<string | null>(null)
 const total = ref(0)
 const totalPages = ref(1)
+const locationTier = ref<LocationTier>(null)
 
 const query = ref<ServiceQuery>({
   search: '',
@@ -73,6 +79,7 @@ const query = ref<ServiceQuery>({
   userId: null,
   sort: 'relevance',
   page: 1,
+  nearMe: false,
 })
 
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
@@ -121,13 +128,22 @@ export const useServices = () => {
       if (q.categoryId) params.categoryId = q.categoryId
       if (q.userId) params.userId = q.userId
 
-      const res = await $fetch<{ data: CatalogService[]; total: number; totalPages: number }>(
+      if (q.nearMe) {
+        const { user } = useAuth()
+        const u = user.value
+        if (u?.city) params.city = u.city
+        if (u?.state) params.state = u.state
+        if (u?.country) params.country = u.country
+      }
+
+      const res = await $fetch<{ data: CatalogService[]; total: number; totalPages: number; locationTier?: LocationTier }>(
         `${base}/catalog`,
         { params },
       )
       services.value = res.data
       total.value = res.total
       totalPages.value = res.totalPages
+      locationTier.value = q.nearMe ? (res.locationTier ?? null) : null
     } catch (e: any) {
       error.value = e?.data?.message ?? 'Error al cargar servicios'
     } finally {
@@ -169,7 +185,13 @@ export const useServices = () => {
   }
 
   function resetFilters() {
-    query.value = { search: '', categoryId: null, userId: null, sort: 'relevance', page: 1 }
+    query.value = { search: '', categoryId: null, userId: null, sort: 'relevance', page: 1, nearMe: false }
+    loadServices()
+  }
+
+  function toggleNearMe() {
+    query.value.nearMe = !query.value.nearMe
+    query.value.page = 1
     loadServices()
   }
 
@@ -209,6 +231,7 @@ export const useServices = () => {
     error,
     total,
     totalPages,
+    locationTier: computed(() => locationTier.value),
     query: computed(() => query.value),
     loadCategories,
     loadProviders,
@@ -219,6 +242,7 @@ export const useServices = () => {
     changeSort,
     changePage,
     resetFilters,
+    toggleNearMe,
     trackServiceEvent,
   }
 }

@@ -17,6 +17,9 @@ export interface JobEmployer {
   lastName: string
   username: string | null
   avatar: string | null
+  country?: string | null
+  state?: string | null
+  city?: string | null
   category: { name: string } | null
   subcategory: { name: string } | null
 }
@@ -51,6 +54,7 @@ export interface Job {
 }
 
 export type JobSortBy = 'relevance' | 'newest' | 'salary_asc' | 'salary_desc'
+export type LocationTier = 'city' | 'state' | 'country' | null
 
 export interface JobQuery {
   search: string
@@ -59,6 +63,7 @@ export interface JobQuery {
   modality: string | null
   sort: JobSortBy
   page: number
+  nearMe: boolean
 }
 
 // ─── Module-level singleton state ─────────────────────────────────────────────
@@ -70,6 +75,7 @@ const loadingCategories = ref(false)
 const error = ref<string | null>(null)
 const total = ref(0)
 const totalPages = ref(1)
+const locationTier = ref<LocationTier>(null)
 
 const query = ref<JobQuery>({
   search: '',
@@ -78,6 +84,7 @@ const query = ref<JobQuery>({
   modality: null,
   sort: 'relevance',
   page: 1,
+  nearMe: false,
 })
 
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
@@ -118,13 +125,22 @@ export const useJobs = () => {
       if (q.type) params.type = q.type
       if (q.modality) params.modality = q.modality
 
-      const res = await $fetch<{ data: Job[]; total: number; totalPages: number }>(
+      if (q.nearMe) {
+        const { user } = useAuth()
+        const u = user.value
+        if (u?.city) params.city = u.city
+        if (u?.state) params.state = u.state
+        if (u?.country) params.country = u.country
+      }
+
+      const res = await $fetch<{ data: Job[]; total: number; totalPages: number; locationTier?: LocationTier }>(
         `${base}/catalog`,
         { params },
       )
       jobs.value = res.data
       total.value = res.total
       totalPages.value = res.totalPages
+      locationTier.value = q.nearMe ? (res.locationTier ?? null) : null
     } catch (e: any) {
       error.value = e?.data?.message ?? 'Error al cargar empleos'
     } finally {
@@ -179,7 +195,14 @@ export const useJobs = () => {
       modality: null,
       sort: 'relevance',
       page: 1,
+      nearMe: false,
     }
+    loadJobs()
+  }
+
+  function toggleNearMe() {
+    query.value.nearMe = !query.value.nearMe
+    query.value.page = 1
     loadJobs()
   }
 
@@ -193,6 +216,7 @@ export const useJobs = () => {
     error,
     total,
     totalPages,
+    locationTier: computed(() => locationTier.value),
     query: computed(() => query.value),
     loadCategories,
     loadJobs,
@@ -203,5 +227,6 @@ export const useJobs = () => {
     changeSort,
     changePage,
     resetFilters,
+    toggleNearMe,
   }
 }

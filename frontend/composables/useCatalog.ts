@@ -23,7 +23,7 @@ export interface CatalogProduct {
   unit?: string
   status: string
   category: { id: string; name: string; color: string }
-  commerce: { id: string; name: string; type: string | null; user?: { username: string | null; rating: number | null; reviewsCount: number } }
+  commerce: { id: string; name: string; type: string | null; country?: string | null; state?: string | null; city?: string | null; user?: { username: string | null; rating: number | null; reviewsCount: number } }
 }
 
 export interface CatalogProductDetail extends CatalogProduct {
@@ -43,7 +43,10 @@ export interface CatalogQuery {
   page: number
   limit: number
   sort: CatalogSortBy
+  nearMe: boolean
 }
+
+export type LocationTier = 'city' | 'state' | 'country' | null
 
 // ─── Singleton state ────────────────────────────────────────────────────────
 const products = ref<CatalogProduct[]>([])
@@ -56,6 +59,7 @@ const productDetail = ref<CatalogProductDetail | null>(null)
 const error = ref<string | null>(null)
 const total = ref(0)
 const totalPages = ref(0)
+const locationTier = ref<LocationTier>(null)
 const query = ref<CatalogQuery>({
   search: '',
   categoryName: '',
@@ -65,6 +69,7 @@ const query = ref<CatalogQuery>({
   page: 1,
   limit: 20,
   sort: 'relevance',
+  nearMe: false,
 })
 
 // ─── Favorites (localStorage) ─────────────────────────────────────────────
@@ -147,16 +152,26 @@ export const useCatalog = () => {
       params.set('limit', String(q.limit))
       params.set('sort', q.sort)
 
+      if (q.nearMe) {
+        const { user } = useAuth()
+        const u = user.value
+        if (u?.city) params.set('city', u.city)
+        if (u?.state) params.set('state', u.state)
+        if (u?.country) params.set('country', u.country)
+      }
+
       const res = await apiFetch<{
         data: CatalogProduct[]
         total: number
         totalPages: number
         page: number
+        locationTier?: LocationTier
       }>(`/catalog/products?${params}`)
 
       products.value = res.data
       total.value = res.total
       totalPages.value = res.totalPages
+      locationTier.value = q.nearMe ? (res.locationTier ?? null) : null
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : 'Error al cargar productos'
     } finally {
@@ -219,8 +234,14 @@ export const useCatalog = () => {
   function resetFilters() {
     query.value = {
       search: '', categoryName: '', commerceId: '', priceMin: null, priceMax: null,
-      page: 1, limit: 20, sort: 'relevance',
+      page: 1, limit: 20, sort: 'relevance', nearMe: false,
     }
+    loadProducts()
+  }
+
+  function toggleNearMe() {
+    query.value.nearMe = !query.value.nearMe
+    query.value.page = 1
     loadProducts()
   }
 
@@ -258,6 +279,7 @@ export const useCatalog = () => {
     totalPages: readonly(totalPages),
     query: readonly(query),
     favorites: readonly(favorites),
+    locationTier: readonly(locationTier),
     // actions
     loadCategories,
     loadRestaurants,
@@ -270,6 +292,7 @@ export const useCatalog = () => {
     changePage,
     changeSort,
     resetFilters,
+    toggleNearMe,
     toggleFavorite,
     isFavorite,
     clearAllFavorites,
