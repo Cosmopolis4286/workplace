@@ -12,6 +12,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import { I18nService } from 'nestjs-i18n';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -26,7 +27,10 @@ const ADMIN_RESTRICTED_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly i18n: I18nService,
+  ) {}
 
   @Get()
   @Roles(Role.SUPERADMIN, Role.ADMIN)
@@ -137,7 +141,7 @@ export class UsersController {
       caller.role === Role.ADMIN &&
       ADMIN_RESTRICTED_ROLES.includes(target.role as Role)
     ) {
-      throw new ForbiddenException('No tienes permisos para ver este usuario');
+      throw new ForbiddenException(this.i18n.t('users.permissions.view_user'));
     }
     return target;
   }
@@ -152,7 +156,7 @@ export class UsersController {
       caller.role === Role.ADMIN &&
       ADMIN_RESTRICTED_ROLES.includes(dto.role)
     ) {
-      throw new ForbiddenException('No puedes crear usuarios con ese rol');
+      throw new ForbiddenException(this.i18n.t('users.permissions.create_role'));
     }
     return this.usersService.createUser(dto);
   }
@@ -169,16 +173,14 @@ export class UsersController {
       caller.role === Role.ADMIN &&
       ADMIN_RESTRICTED_ROLES.includes(target.role as Role)
     ) {
-      throw new ForbiddenException(
-        'No tienes permisos para editar este usuario'
-      );
+      throw new ForbiddenException(this.i18n.t('users.permissions.edit_user'));
     }
     if (
       dto.role &&
       caller.role === Role.ADMIN &&
       ADMIN_RESTRICTED_ROLES.includes(dto.role)
     ) {
-      throw new ForbiddenException('No puedes asignar ese rol');
+      throw new ForbiddenException(this.i18n.t('users.permissions.assign_role'));
     }
     return this.usersService.updateUser(id, dto);
   }
@@ -191,7 +193,7 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role }
   ) {
     if (caller.id !== id) {
-      throw new ForbiddenException('Solo puedes editar tu propio perfil');
+      throw new ForbiddenException(this.i18n.t('users.permissions.edit_own_profile_only'));
     }
     return this.usersService.updateUser(id, dto);
   }
@@ -207,9 +209,7 @@ export class UsersController {
       caller.role === Role.ADMIN &&
       ADMIN_RESTRICTED_ROLES.includes(target.role as Role)
     ) {
-      throw new ForbiddenException(
-        'No tienes permisos para modificar este usuario'
-      );
+      throw new ForbiddenException(this.i18n.t('users.permissions.modify_user'));
     }
     return this.usersService.toggleUserStatus(id);
   }
@@ -225,9 +225,7 @@ export class UsersController {
       caller.role === Role.ADMIN &&
       ADMIN_RESTRICTED_ROLES.includes(target.role as Role)
     ) {
-      throw new ForbiddenException(
-        'No tienes permisos para eliminar este usuario'
-      );
+      throw new ForbiddenException(this.i18n.t('users.permissions.delete_user'));
     }
     return this.usersService.deleteUser(id);
   }
@@ -239,7 +237,7 @@ export class UsersController {
   ) {
     // Solo el propio usuario o admins pueden ver esta información
     if (caller.id !== id && !['SUPERADMIN', 'ADMIN'].includes(caller.role)) {
-      throw new ForbiddenException('No tienes permisos para ver esta información');
+      throw new ForbiddenException(this.i18n.t('users.permissions.view_info'));
     }
 
     return this.usersService.getProfileCompletion(id);

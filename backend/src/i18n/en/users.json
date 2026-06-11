@@ -1,0 +1,49 @@
+{
+  "not_found": "User not found",
+  "email_taken": "Email is already registered",
+  "email_in_use": "Email is already in use by another account",
+  "username_taken": "Username is already taken",
+  "username_cooldown": {
+    "one": "You can only change your username every {cooldown} days. You can change it in {daysLeft} day.",
+    "other": "You can only change your username every {cooldown} days. You can change it in {daysLeft} days."
+  },
+  "deleted": "User deleted successfully",
+  "current_password_incorrect": "Current password is incorrect",
+  "new_password_must_differ": "New password must be different from the current one",
+  "password_updated": "Password updated successfully",
+  "category": {
+    "not_found": "Category not found",
+    "name_taken": "A category with that name already exists",
+    "deleted": "Category deleted",
+    "in_use": {
+      "one": "Cannot delete: {count} user is using this category",
+      "other": "Cannot delete: {count} users are using this category"
+    }
+  },
+  "subcategory": {
+    "not_found": "Subcategory not found",
+    "name_taken": "That subcategory already exists in this category",
+    "deleted": "Subcategory deleted",
+    "in_use": {
+      "one": "Cannot delete: {count} user is using this subcategory",
+      "other": "Cannot delete: {count} users are using this subcategory"
+    }
+  },
+  "permissions": {
+    "view_user": "You don't have permission to view this user",
+    "create_role": "You can't create users with that role",
+    "edit_user": "You don't have permission to edit this user",
+    "assign_role": "You can't assign that role",
+    "edit_own_profile_only": "You can only edit your own profile",
+    "modify_user": "You don't have permission to modify this user",
+    "delete_user": "You don't have permission to delete this user",
+    "view_info": "You don't have permission to view this information"
+  },
+  "profile_completion": {
+    "basic_info": "Basic information (first name, last name, phone)",
+    "category": "Category",
+    "subcategory": "Subcategory",
+    "business_setup": "Business setup",
+    "services_setup": "Services setup"
+  }
+}
