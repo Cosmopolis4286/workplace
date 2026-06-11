@@ -1,4 +1,7 @@
 {
+  "errors": {
+    "access_denied": "Acceso denegado"
+  },
   "rate_limit": {
     "exceeded": "Demasiadas solicitudes. Intenta de nuevo en {wait}.",
     "wait_seconds": {

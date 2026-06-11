@@ -51,4 +51,16 @@ describe('i18n pilot setup', () => {
     const msg = i18n.t('common.rate_limit.exceeded', { lang: 'en', args: { wait: wait30 } });
     expect(msg).toBe('Too many requests. Try again in 30 seconds.');
   });
+
+  it('resuelve mensajes de error compartidos (es/en)', () => {
+    expect(i18n.t('common.errors.access_denied', { lang: 'es' })).toBe('Acceso denegado');
+    expect(i18n.t('common.errors.access_denied', { lang: 'en' })).toBe('Access denied');
+  });
+
+  it('resuelve mensajes del modulo branches (es/en)', () => {
+    expect(i18n.t('branches.not_found', { lang: 'es' })).toBe('Sucursal no encontrada');
+    expect(i18n.t('branches.not_found', { lang: 'en' })).toBe('Branch not found');
+    expect(i18n.t('branches.name_taken', { lang: 'es' })).toBe('Ya existe una sucursal con ese nombre');
+    expect(i18n.t('branches.name_taken', { lang: 'en' })).toBe('A branch with that name already exists');
+  });
 });
