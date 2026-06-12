@@ -42,10 +42,10 @@ Convert the existing Nuxt.js frontend into a native Android app using Capacitor.
 - [x] Iconos y splash screen nativos generados (`@capacitor/assets`, ver `frontend/capacitor-assets/`)
 - [x] CORS backend ajustado para aceptar el origen `https://localhost` del WebView (`backend/src/main.ts`)
 - [x] Pasos de compilación documentados en `frontend/docs/CAPACITOR_APK_BUILD.md`
-- [ ] Generate debug APK (requiere JDK 17 + Android SDK locales, no disponibles en este entorno)
-- [ ] Test on Android device
-- [ ] Optimize performance
-- [ ] Generate release APK (requiere keystore de firma)
+- [x] Generate debug APK — `frontend/android/app/build/outputs/apk/debug/app-debug.apk` (9.9 MB), generado con `NUXT_PUBLIC_API_URL=https://playrke.com/api` + `gradlew assembleDebug` (JDK del Android Studio embebido, `local.properties` apuntando al SDK en `%LOCALAPPDATA%\Android\Sdk`)
+- [x] Test on Android device — instalado y probado en emulador `Medium_Phone_API_36.1` (AVD `android-36.1`): pantalla de login renderiza con estilos/branding/reCAPTCHA, formulario valida inputs (email/password). Intento de login (`commerce@demo.com`) muestra `[POST] "https://playrke.com/api/auth/login": <no response> Failed to fetch` — **no es un problema del APK**: `playrke.com:443` no responde (timeout TCP) también desde la máquina host, DNS resuelve OK (`190.9.40.235`). El manejo de error de red de la app funciona correctamente (mensaje visible al usuario). Pendiente: re-probar login cuando el backend de producción esté accesible
+- [x] Optimize performance — lazy-load de `chart.js` (solo usado en `/analytics`): chunk de entrada reducido de 458 KB a 276 KB (gzip 162 KB → 99 KB); chart.js ahora vive en un chunk separado de 184 KB cargado on-demand vía `frontend/plugins/chart.client.ts`
+- [x] Generate release APK — keystore `frontend/android/workplace-release.keystore` (alias `workplace`, válido hasta 2053, gitignored) + `frontend/android/keystore.properties` (gitignored); `signingConfigs.release` agregado a `frontend/android/app/build.gradle`; `gradlew assembleRelease` → `frontend/android/app/build/outputs/apk/release/app-release.apk` (7.96 MB), firmado y verificado con `apksigner verify`
 
 ## 🔧 Technical Configuration
 
@@ -158,12 +158,18 @@ frontend/
 8. **Push notifications**: crear proyecto Firebase, descargar `google-services.json`,
    configurar credenciales `FIREBASE_*` en backend y seguir `frontend/docs/PUSH_NOTIFICATIONS.md`
 9. ✅ Proyecto Android regenerado + iconos/splash + CORS para WebView (ver `frontend/docs/CAPACITOR_APK_BUILD.md`)
-10. **Compilar el APK** (en una máquina con JDK 17 + Android SDK) siguiendo `frontend/docs/CAPACITOR_APK_BUILD.md`:
-    - File → Open → `c:\Users\Eisker\Documents\projects\workplace\frontend\android` en Android Studio, o `./gradlew assembleDebug`
-11. **Test app on Android device/emulator**
-12. **Optimize UI components for mobile**
+10. ✅ Compilar el APK debug — `frontend/android/app/build/outputs/apk/debug/app-debug.apk`
+11. ✅ Test app en emulador (`Medium_Phone_API_36.1`) — login screen OK, sin errores de CORS/red
+    hacia `playrke.com`. Pendiente: probar login completo, navegación interna, cámara
+    (avatar/producto/gasto) y comportamiento offline en un dispositivo real
+12. ✅ **Optimize performance**: lazy-load de chart.js (entry chunk -40% gzip)
+13. ✅ **Release APK**: keystore generado, `signingConfigs` configurado en `build.gradle`,
+    `app-release.apk` compilado y firmado correctamente. Pendiente: instalar/probar el
+    release APK en un dispositivo real y, cuando `playrke.com` esté accesible, validar
+    login + navegación + cámara + offline end-to-end
+14. **Push notifications**: pendiente proyecto Firebase (ver paso 8)
 
 ---
 **Created**: March 24, 2026
 **Branch**: feature/capacitor-mobile-app
-**Status**: In Progress — Phase 4 casi completa (falta push notifications), Phase 5 lista para compilar (falta entorno con JDK/Android SDK)
+**Status**: In Progress — Phase 4 casi completa (falta push notifications), Phase 5 completa salvo prueba en dispositivo real con backend accesible
