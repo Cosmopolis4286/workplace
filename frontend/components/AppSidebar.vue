@@ -16,7 +16,7 @@
             :class="isDark ? 'bg-gray-900' : 'bg-white'"
           >
             <!-- Mobile header -->
-            <div class="h-16 flex-shrink-0 flex items-center justify-between px-5 bg-gradient-to-r from-workplace-red to-red-700 shadow-md">
+            <div class="h-16 flex-shrink-0 flex items-center justify-between px-5 bg-gradient-to-r from-workplace-red to-red-700 shadow-md" style="padding-top: env(safe-area-inset-top)">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
                   <span class="text-white font-black text-sm">iF</span>
