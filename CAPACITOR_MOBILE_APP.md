@@ -160,6 +160,7 @@ frontend/
 - ✅ **App Lock (biometría): toggle en Configuración + overlay de bloqueo al reanudar la app, preferencia solo local**
 - ✅ **Safe-area / notch: `viewport-fit=cover` + `env(safe-area-inset-*)` aplicado globalmente y en el drawer móvil**
 - ✅ **Permiso `CAMERA` declarado explícitamente en `AndroidManifest.xml`**
+- ✅ **StatusBar sincronizado con el modo oscuro**: `capacitor-init.client.ts` usa `useColorMode().isDark` (reactivo) para aplicar `StatusBar.setStyle`/`setBackgroundColor` al iniciar y cada vez que cambia el tema (`#ffffff`/`Style.Light` en claro, `#030712`/`Style.Dark` en oscuro, igual que `bg-gray-950` del layout)
 - ⚠️ **Migración `20260612180000_add_device_tokens` escrita a mano (DB local no accesible); pendiente aplicar con `prisma migrate deploy`**
 - ⚠️ **`versionCode 1` / `versionName "1.0"` (valor inicial) — incrementar antes de cada release a Play Store o reinstalación sobre versión anterior (ver `frontend/docs/CAPACITOR_APK_BUILD.md` sección 10)**
 - ⚠️ **`minifyEnabled false` en release (~9.4 MB sin shrinking) — reglas ProGuard listas en `frontend/android-backup/proguard-rules.pro`, pendiente activar y probar en dispositivo real (sección 11)**

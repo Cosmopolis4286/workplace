@@ -11,9 +11,15 @@ export default defineNuxtPlugin(async () => {
   }
 
   try {
-    // Configurar StatusBar
-    await StatusBar.setStyle({ style: Style.Light })
-    await StatusBar.setBackgroundColor({ color: '#ffffff' })
+    // Configurar StatusBar según el modo de color actual y sincronizar
+    // con futuros cambios (toggle de modo oscuro en Configuración)
+    const { isDark } = useColorMode()
+    const syncStatusBar = async (dark: boolean) => {
+      await StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light })
+      await StatusBar.setBackgroundColor({ color: dark ? '#030712' : '#ffffff' })
+    }
+    await syncStatusBar(isDark.value)
+    watch(isDark, syncStatusBar)
 
     // Ocultar splash screen
     await SplashScreen.hide()
