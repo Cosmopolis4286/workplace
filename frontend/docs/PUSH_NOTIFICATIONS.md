@@ -1,8 +1,26 @@
 # Plan: Push Notifications (Firebase Cloud Messaging)
 
-> Estado: **solo documentación**. No se instaló ninguna dependencia ni se escribió
-> código de push en esta sesión. Este documento es la guía para implementarlo en
-> una sesión futura, cuando se disponga de las credenciales de Firebase.
+> Estado: **cliente y backend (sin FCM) implementados**. Lo único pendiente es
+> la sección 3 (credenciales Firebase + envío real). El resto de este documento
+> describe lo ya implementado y lo que falta.
+
+## Implementado (sin credenciales Firebase)
+
+- **Backend**: modelo `DeviceToken` (migración `20260612180000_add_device_tokens`),
+  endpoints `POST /api/notifications/device-token` (upsert por token) y
+  `DELETE /api/notifications/device-token` en `notifications.controller.ts` /
+  `notifications.service.ts`. `NotificationsService.create()` y `.createForUser()`
+  llaman a un stub privado `sendPush()` (no-op) — punto de integración listo para
+  cuando exista `firebase-admin`.
+- **Frontend**: `@capacitor/push-notifications` instalado;
+  `frontend/plugins/push-notifications.client.ts` — solo corre en nativo
+  (`Capacitor.isNativePlatform()`), pide permisos, registra el token FCM del
+  dispositivo vía `POST /notifications/device-token` cuando el usuario está
+  autenticado, y navega via `pushNotificationActionPerformed` usando
+  `notification.data.link`.
+- Pendiente (no bloqueante): eliminar el token al hacer logout
+  (`DELETE /notifications/device-token`) — requiere guardar el token actual
+  en el plugin y exponerlo a `useAuth().logout()`.
 
 ## Objetivo
 
@@ -14,63 +32,6 @@ métodos `notifyNewOrder`, `notifyOrderStatusChange`, `notifyDeliveryStatusChang
 `notifyLowStock`) y se emiten por WebSocket (`NotificationsGateway`, namespace
 `/notifications`). El push FCM se añade como **canal adicional** sobre esos mismos
 eventos, no como un sistema paralelo.
-
-## 1. Cliente (Capacitor / Nuxt)
-
-### 1.1 Dependencia
-```bash
-pnpm add @capacitor/push-notifications
-```
-
-### 1.2 Registro y permisos
-Crear `frontend/plugins/push-notifications.client.ts` (solo se ejecuta si
-`Capacitor.isNativePlatform()`, igual que el patrón usado en `useCamera.ts`):
-
-- `PushNotifications.requestPermissions()` → si se concede, `PushNotifications.register()`.
-- Listener `registration` → entrega el **token del dispositivo** (FCM token en Android).
-  Este token se envía al backend (ver sección 2).
-- Listener `registrationError` → loggear, no bloquear la app.
-- Listener `pushNotificationReceived` → mostrar notificación local o actualizar el
-  badge/`useNotifications` mientras la app está en foreground.
-- Listener `pushNotificationActionPerformed` → navegar a la pantalla relevante
-  (ej. tap en notificación de "Nuevo pedido" → `/pedidos` o `/dashboard`) cuando la
-  app estaba en background.
-
-### 1.3 Cuándo registrar
-Registrar el token después del login exitoso (cuando `useAuth().user` está
-disponible), y volver a enviarlo si cambia (Android puede rotar el token FCM).
-
-## 2. Backend — nuevo endpoint y modelo
-
-### 2.1 Modelo Prisma `DeviceToken`
-Nueva migración con un modelo simple:
-
-```prisma
-model DeviceToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  platform  String   // "android" | "ios" | "web"
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-```
-
-Agregar la relación inversa `deviceTokens DeviceToken[]` en `model User`.
-
-### 2.2 Endpoint
-En `backend/src/notifications/notifications.controller.ts`, agregar:
-
-- `POST /api/notifications/device-token` — body `{ token: string, platform: string }`,
-  protegido por `JwtAuthGuard` + `@CurrentUser()`. Hace upsert por `token` (si el
-  mismo token ya existe para otro usuario — ej. reinstalación — se reasigna al
-  usuario actual).
-- `DELETE /api/notifications/device-token` — eliminar el token al hacer logout
-  (opcional, evita enviar push a sesiones cerradas).
-
-Ambos métodos van en `NotificationsService`, siguiendo el patrón existente de los
-demás métodos (`create`, `notifyNewOrder`, etc.).
 
 ## 3. Envío real vía FCM
 

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType } from '@prisma/client';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
 import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
@@ -29,6 +30,15 @@ export class NotificationsService {
     // Broadcast to all sockets subscribed to this restaurant
     this.gateway.broadcast(commerceId, notification);
 
+    // Restaurant.userId is the commerce owner — push goes to their devices
+    const commerce = await this.prisma.restaurant.findUnique({
+      where: { id: commerceId },
+      select: { userId: true },
+    });
+    if (commerce) {
+      await this.sendPush(commerce.userId, notification);
+    }
+
     return notification;
   }
 
@@ -46,6 +56,7 @@ export class NotificationsService {
       },
     });
     this.gateway.broadcastToUser(userId, notification);
+    await this.sendPush(userId, notification);
     return notification;
   }
 
@@ -239,6 +250,28 @@ export class NotificationsService {
       where: { ...this.scopeWhere(scope), read: false },
     });
     return { count };
+  }
+
+  // ── Device tokens (push notifications) ───────────────────────────────────
+  async registerDeviceToken(userId: string, dto: RegisterDeviceTokenDto) {
+    return this.prisma.deviceToken.upsert({
+      where: { token: dto.token },
+      create: { token: dto.token, platform: dto.platform, userId },
+      update: { userId, platform: dto.platform },
+    });
+  }
+
+  async removeDeviceToken(userId: string, token: string) {
+    await this.prisma.deviceToken.deleteMany({ where: { token, userId } });
+    return { message: 'Token de dispositivo eliminado' };
+  }
+
+  /**
+   * Envío real vía FCM pendiente de credenciales Firebase
+   * (ver frontend/docs/PUSH_NOTIFICATIONS.md). No-op por ahora.
+   */
+  private async sendPush(_userId: string, _notification: { title: string; message: string }) {
+    return;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

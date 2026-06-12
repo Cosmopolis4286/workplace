@@ -56,6 +56,7 @@ model User {
   catalogOrders    CatalogOrder[]
   serviceRequests  ServiceRequest[]
   notifications    Notification[]
+  deviceTokens     DeviceToken[]
   wallet           Wallet?
   walletTransactions WalletTransaction[]
   userPermissions  UserPermission[]
@@ -1408,6 +1409,21 @@ model SearchTab {
   updatedAt DateTime @updatedAt
 
   @@map("search_tabs")
+}
+
+// ─── Push Notification Device Tokens ─────────────────────────────────────────
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  platform  String   // "android" | "ios" | "web"
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("device_tokens")
 }
 
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────

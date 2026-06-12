@@ -33,7 +33,7 @@ Convert the existing Nuxt.js frontend into a native Android app using Capacitor.
 
 ### Phase 4: Native Features
 - [x] Camera integration (avatar, productos, gastos via `useCamera()`)
-- [ ] Push notifications (plan documentado en `frontend/docs/PUSH_NOTIFICATIONS.md`, pendiente credenciales Firebase)
+- [~] Push notifications — cliente (`@capacitor/push-notifications` + `push-notifications.client.ts`) y backend (modelo `DeviceToken`, endpoints `POST/DELETE /api/notifications/device-token`, stub `sendPush()`) implementados; solo falta integración FCM real (proyecto Firebase, ver `frontend/docs/PUSH_NOTIFICATIONS.md`)
 - [x] Local storage (Pinia + `pinia-plugin-persistedstate`)
 - [x] Offline support (cola de acciones pendientes + reintento automático al reconectar)
 
@@ -65,9 +65,14 @@ pinia-plugin-persistedstate
 @vite-pwa/nuxt
 ```
 
+### Dependencies Installed (Phase 4 follow-up)
+```bash
+@capacitor/push-notifications   # cliente listo, ver frontend/docs/PUSH_NOTIFICATIONS.md
+```
+
 ### Pending (Phase 4 follow-up)
 ```bash
-@capacitor/push-notifications   # ver frontend/docs/PUSH_NOTIFICATIONS.md
+firebase-admin   # backend, pendiente credenciales Firebase — ver frontend/docs/PUSH_NOTIFICATIONS.md
 ```
 
 ### Key Commands
@@ -105,7 +110,7 @@ npx cap run android
 
 ### Native Integration
 - [x] Camera access (avatar de perfil, imagen de producto, comprobante de gasto)
-- [ ] Push notifications for appointments (plan listo, falta Firebase)
+- [~] Push notifications for appointments (cliente + backend listos, falta FCM/Firebase)
 - [ ] Biometric authentication
 - [x] Offline data synchronization (cola `pendingActions` con reintento FIFO)
 
@@ -130,8 +135,10 @@ frontend/
 │   └── useCamera.ts                 # Camera.getPhoto + fallback <input capture>
 ├── components/
 │   └── PwaPrompt.vue                # install / update prompts
+├── plugins/
+│   └── push-notifications.client.ts # registro de token FCM + listeners
 ├── docs/
-│   └── PUSH_NOTIFICATIONS.md        # plan FCM (sin código aún)
+│   └── PUSH_NOTIFICATIONS.md        # cliente/backend implementados, falta FCM
 └── nuxt.config.ts (modified)
 ```
 
@@ -141,7 +148,9 @@ frontend/
 - ✅ **Capacitor plugins initialized (camera, splash, status bar, keyboard, haptics)**
 - ✅ **Camera integration: avatar, productos (ProductModal) y gastos (ExpenseModal)**
 - ✅ **Offline: Pinia store con cola `pendingActions` + reintento FIFO al reconectar**
-- ⚠️ **Push notifications: solo plan documentado, falta proyecto Firebase + `google-services.json` + credenciales backend**
+- ✅ **Push notifications: cliente (`push-notifications.client.ts`) y backend (`DeviceToken` + endpoints + stub `sendPush()`) implementados**
+- ⚠️ **Push notifications: falta proyecto Firebase + `google-services.json` + credenciales backend (`firebase-admin`) para envío real**
+- ⚠️ **Migración `20260612180000_add_device_tokens` escrita a mano (DB local no accesible); pendiente aplicar con `prisma migrate deploy`**
 - ⚠️ **Android Studio not detected - need to install or configure path**
 - ⚠️ **Gradle wrapper missing - need Android Studio for proper setup**
 - ✅ **WebSocket connections (Socket.io) ready for testing**
@@ -155,8 +164,11 @@ frontend/
 5. ✅ Install Android Studio for APK generation
 6. ✅ Camera integration (avatar, productos, gastos)
 7. ✅ Offline support (cola de acciones pendientes + reintento)
-8. **Push notifications**: crear proyecto Firebase, descargar `google-services.json`,
-   configurar credenciales `FIREBASE_*` en backend y seguir `frontend/docs/PUSH_NOTIFICATIONS.md`
+8. ✅ **Push notifications (sin Firebase)**: modelo `DeviceToken` + migración, endpoints
+   `POST/DELETE /api/notifications/device-token`, stub `sendPush()`, plugin
+   `push-notifications.client.ts`. Pendiente (paso 14): crear proyecto Firebase,
+   descargar `google-services.json`, configurar credenciales `FIREBASE_*` en backend
+   y seguir la sección 3 de `frontend/docs/PUSH_NOTIFICATIONS.md`
 9. ✅ Proyecto Android regenerado + iconos/splash + CORS para WebView (ver `frontend/docs/CAPACITOR_APK_BUILD.md`)
 10. ✅ Compilar el APK debug — `frontend/android/app/build/outputs/apk/debug/app-debug.apk`
 11. ✅ Test app en emulador (`Medium_Phone_API_36.1`) — login screen OK, sin errores de CORS/red
@@ -167,9 +179,11 @@ frontend/
     `app-release.apk` compilado y firmado correctamente. Pendiente: instalar/probar el
     release APK en un dispositivo real y, cuando `playrke.com` esté accesible, validar
     login + navegación + cámara + offline end-to-end
-14. **Push notifications**: pendiente proyecto Firebase (ver paso 8)
+14. **Push notifications — FCM**: pendiente proyecto Firebase, `google-services.json`,
+    credenciales `FIREBASE_*` y `firebase-admin` (ver paso 8 y sección 3 de
+    `frontend/docs/PUSH_NOTIFICATIONS.md`)
 
 ---
 **Created**: March 24, 2026
 **Branch**: feature/capacitor-mobile-app
-**Status**: In Progress — Phase 4 casi completa (falta push notifications), Phase 5 completa salvo prueba en dispositivo real con backend accesible
+**Status**: In Progress — Phase 4 casi completa (cliente+backend de push notifications listos, solo falta integración FCM/Firebase), Phase 5 completa salvo prueba en dispositivo real con backend accesible
