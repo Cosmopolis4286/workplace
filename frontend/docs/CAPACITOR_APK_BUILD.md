@@ -103,18 +103,36 @@ En Windows: `gradlew.bat assembleDebug` / `gradlew.bat assembleRelease`.
 
 ## 6. Firma para release (Play Store / distribución)
 
-Para un APK de release hay que firmarlo con un keystore propio:
+**Ya configurado** en este proyecto: existe `android/workplace-release.keystore`
+(alias `workplace`, RSA 2048, válido hasta 2053) y `android/keystore.properties`
+(ambos gitignored — no versionados). `android/app/build.gradle` carga
+`keystore.properties` y define `signingConfigs.release`, usado automáticamente
+por `buildTypes.release`. Si el archivo no existe, `assembleRelease` produce un
+APK sin firmar (`app-release-unsigned.apk`) en vez de fallar.
+
+Las contraseñas del keystore están guardadas fuera del repo (gestor de
+contraseñas del usuario) — **sin ellas no se puede actualizar la app ya
+publicada con el mismo `appId` (`com.workplace.app`)**.
+
+Para regenerar desde cero (solo si se pierde el keystore actual y aún no se
+publicó ninguna versión con él):
 
 ```bash
 keytool -genkey -v -keystore workplace-release.keystore -alias workplace \
   -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Configurar `android/app/build.gradle` (sección `signingConfigs` /
-`buildTypes.release`) o crear `android/keystore.properties` (no versionado)
-con `storeFile`, `storePassword`, `keyAlias`, `keyPassword`, y referenciarlo
-desde `build.gradle`. **Guardar el keystore y las contraseñas fuera del repo**
-— perderlo impide actualizar la app ya publicada con la misma `appId`.
+Y crear `android/keystore.properties`:
+```properties
+storePassword=...
+keyPassword=...
+keyAlias=workplace
+storeFile=workplace-release.keystore
+```
+
+Nota: con keystores PKCS12 (formato por defecto en JDKs recientes), `keytool`
+ignora `-keypass` si es distinto de `-storepass` — usar la misma contraseña
+para `storePassword` y `keyPassword`.
 
 ## 7. CORS — backend debe aceptar el origen del WebView
 
