@@ -60,6 +60,10 @@ npx cap add android
 npx cap sync android
 ```
 
+> ⚠️ Después de `cap add android` hay que volver a aplicar los permisos manuales
+> descritos en la sección 9 (`AndroidManifest.xml`), ya que `cap sync` no los
+> agrega automáticamente.
+
 ## 4. Iconos y splash screen
 
 Ya generados a partir de `frontend/capacitor-assets/icon.png` y `splash.png`
@@ -155,3 +159,22 @@ cd android
 ```
 
 APK resultante en `android/app/build/outputs/apk/{debug,release}/`.
+
+## 9. Permisos manuales en `AndroidManifest.xml`
+
+`frontend/android/` no está versionado (ver `.gitignore`), así que estos
+permisos se pierden si se regenera el proyecto con `cap add android`. Hay que
+agregarlos a mano en `android/app/src/main/AndroidManifest.xml`, dentro de
+`<manifest>` (fuera de `<application>`):
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+- `INTERNET`: ya lo agrega `cap add android` por defecto.
+- `POST_NOTIFICATIONS`: requerido en Android 13+ (API 33+) para que
+  `PushNotifications.requestPermissions()` (ver
+  `frontend/plugins/push-notifications.client.ts`) pueda solicitar el permiso
+  en runtime. Sin esto, las notificaciones push no se mostrarán en dispositivos
+  con Android 13 o superior (el `targetSdkVersion` del proyecto es 36).

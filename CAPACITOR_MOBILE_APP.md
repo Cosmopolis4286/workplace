@@ -130,15 +130,15 @@ frontend/
 ├── plugins/
 │   ├── capacitor-init.client.ts
 │   ├── pinia-persist.client.ts
-│   └── offline-sync.client.ts      # reintento FIFO de pendingActions
+│   ├── offline-sync.client.ts      # reintento FIFO de pendingActions
+│   └── push-notifications.client.ts # registro/baja de token FCM + listeners
 ├── composables/
 │   └── useCamera.ts                 # Camera.getPhoto + fallback <input capture>
 ├── components/
 │   └── PwaPrompt.vue                # install / update prompts
-├── plugins/
-│   └── push-notifications.client.ts # registro de token FCM + listeners
 ├── docs/
-│   └── PUSH_NOTIFICATIONS.md        # cliente/backend implementados, falta FCM
+│   ├── PUSH_NOTIFICATIONS.md        # cliente/backend implementados, falta FCM
+│   └── CAPACITOR_APK_BUILD.md       # build APK + permisos manuales (sección 9)
 └── nuxt.config.ts (modified)
 ```
 
