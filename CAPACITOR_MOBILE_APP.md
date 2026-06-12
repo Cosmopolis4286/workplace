@@ -161,8 +161,8 @@ frontend/
 - ✅ **Safe-area / notch: `viewport-fit=cover` + `env(safe-area-inset-*)` aplicado globalmente y en el drawer móvil**
 - ✅ **Permiso `CAMERA` declarado explícitamente en `AndroidManifest.xml`**
 - ⚠️ **Migración `20260612180000_add_device_tokens` escrita a mano (DB local no accesible); pendiente aplicar con `prisma migrate deploy`**
-- ⚠️ **Android Studio not detected - need to install or configure path**
-- ⚠️ **Gradle wrapper missing - need Android Studio for proper setup**
+- ⚠️ **`versionCode 1` / `versionName "1.0"` (valor inicial) — incrementar antes de cada release a Play Store o reinstalación sobre versión anterior (ver `frontend/docs/CAPACITOR_APK_BUILD.md` sección 10)**
+- ⚠️ **`minifyEnabled false` en release (~9.4 MB sin shrinking) — reglas ProGuard listas en `frontend/android-backup/proguard-rules.pro`, pendiente activar y probar en dispositivo real (sección 11)**
 - ✅ **WebSocket connections (Socket.io) ready for testing**
 - ✅ **PWA features as fallback for non-native**
 
