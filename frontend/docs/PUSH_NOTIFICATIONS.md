@@ -16,11 +16,9 @@
   `frontend/plugins/push-notifications.client.ts` — solo corre en nativo
   (`Capacitor.isNativePlatform()`), pide permisos, registra el token FCM del
   dispositivo vía `POST /notifications/device-token` cuando el usuario está
-  autenticado, y navega via `pushNotificationActionPerformed` usando
-  `notification.data.link`.
-- Pendiente (no bloqueante): eliminar el token al hacer logout
-  (`DELETE /notifications/device-token`) — requiere guardar el token actual
-  en el plugin y exponerlo a `useAuth().logout()`.
+  autenticado, navega via `pushNotificationActionPerformed` usando
+  `notification.data.link`, y elimina el token (`DELETE /notifications/device-token`)
+  al hacer logout (`watch(isAuthenticated)` dentro del propio plugin).
 
 ## Objetivo
 
