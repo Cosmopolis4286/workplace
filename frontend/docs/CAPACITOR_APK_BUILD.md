@@ -176,6 +176,11 @@ agregarlos a mano en `android/app/src/main/AndroidManifest.xml`, dentro de
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.CAMERA" />
+
+<!-- La app funciona sin camara (CameraSource.Prompt permite elegir galeria) -->
+<uses-feature android:name="android.hardware.camera" android:required="false" />
+<uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 ```
 
 - `INTERNET`: ya lo agrega `cap add android` por defecto.
@@ -184,3 +189,10 @@ agregarlos a mano en `android/app/src/main/AndroidManifest.xml`, dentro de
   `frontend/plugins/push-notifications.client.ts`) pueda solicitar el permiso
   en runtime. Sin esto, las notificaciones push no se mostrarán en dispositivos
   con Android 13 o superior (el `targetSdkVersion` del proyecto es 36).
+- `CAMERA` + `<uses-feature>`: declaración explícita recomendada por Capacitor
+  para `CameraSource.Prompt` (ver `frontend/composables/useCamera.ts`). Se marca
+  `required="false"` para no excluir de la Play Store a dispositivos sin cámara,
+  ya que `CameraSource.Prompt` permite elegir galería como alternativa.
+- El permiso `USE_BIOMETRIC` que requiere `@aparajita/capacitor-biometric-auth`
+  (App Lock) lo agrega automáticamente el manifest del plugin durante el build
+  (merge de manifests de Gradle); no requiere edición manual.
