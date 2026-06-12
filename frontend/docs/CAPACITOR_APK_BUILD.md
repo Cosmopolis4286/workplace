@@ -196,3 +196,39 @@ agregarlos a mano en `android/app/src/main/AndroidManifest.xml`, dentro de
 - El permiso `USE_BIOMETRIC` que requiere `@aparajita/capacitor-biometric-auth`
   (App Lock) lo agrega automáticamente el manifest del plugin durante el build
   (merge de manifests de Gradle); no requiere edición manual.
+
+## 10. `versionCode` / `versionName`
+
+Definidos en `android/app/build.gradle` (`defaultConfig`), actualmente
+`versionCode 1` / `versionName "1.0"`.
+
+- `versionCode` (entero) **debe incrementarse en cada build que se suba a
+  Play Store o que se instale sobre una versión anterior en el mismo
+  dispositivo** — Android rechaza instalar un APK con `versionCode` igual o
+  menor al ya instalado.
+- `versionName` (string visible al usuario, ej. `"1.1"`, `"1.0.1"`) se
+  actualiza junto con `versionCode` siguiendo semver o el esquema que se
+  prefiera.
+- Como `android/` se regenera (gitignored), este valor vuelve a `1`/`"1.0"`
+  cada vez que se hace `cap add android`. Si ya existe una versión publicada,
+  anotar aquí o en `android-backup/` cuál fue el último `versionCode` usado
+  para no repetirlo.
+
+## 11. Activar `minifyEnabled` (R8/ProGuard) — opcional
+
+Actualmente `minifyEnabled false` en el build de release (`app-release.apk`
+~9.4 MB sin shrinking). Para reducir el tamaño:
+
+1. Copiar `android-backup/proguard-rules.pro` a
+   `android/app/proguard-rules.pro` (contiene reglas para Capacitor core,
+   plugins, `@aparajita/capacitor-biometric-auth` y
+   `@capacitor/push-notifications`/Firebase).
+2. Cambiar `minifyEnabled false` → `true` en
+   `android/app/build.gradle` (`buildTypes.release`).
+3. Compilar `assembleRelease` y **probar exhaustivamente en un dispositivo
+   real**: cámara, App Lock (biometría), push notifications y WebView/Bridge.
+   R8 puede eliminar clases usadas solo via reflection si las reglas no
+   cubren algún plugin nuevo.
+
+No se activó en esta sesión porque no hay forma de probar en dispositivo
+real con el backend de producción accesible (`playrke.com`).
