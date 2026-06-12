@@ -16,8 +16,9 @@ contiene lo que **no** es regenerable y que de otra forma se perdería.
   `android/keystore.properties` (gitignored).
 - **`AndroidManifest.xml`** — copia de referencia de
   `android/app/src/main/AndroidManifest.xml` con los permisos manuales ya
-  aplicados (`POST_NOTIFICATIONS`, además del `INTERNET` que agrega Capacitor
-  por defecto). Ver `frontend/docs/CAPACITOR_APK_BUILD.md` sección 9.
+  aplicados (`POST_NOTIFICATIONS`, `CAMERA` + `<uses-feature>`, además del
+  `INTERNET` que agrega Capacitor por defecto). Ver
+  `frontend/docs/CAPACITOR_APK_BUILD.md` sección 9.
 
 ## Restaurar después de `cap add android`
 

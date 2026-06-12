@@ -68,6 +68,7 @@ pinia-plugin-persistedstate
 ### Dependencies Installed (Phase 4 follow-up)
 ```bash
 @capacitor/push-notifications   # cliente listo, ver frontend/docs/PUSH_NOTIFICATIONS.md
+@aparajita/capacitor-biometric-auth   # App Lock (Face/Touch ID, huella, PIN del dispositivo)
 ```
 
 ### Pending (Phase 4 follow-up)
@@ -109,10 +110,11 @@ npx cap run android
 - Caching strategies
 
 ### Native Integration
-- [x] Camera access (avatar de perfil, imagen de producto, comprobante de gasto)
+- [x] Camera access (avatar de perfil, imagen de producto, comprobante de gasto) — permiso `CAMERA` declarado explícitamente en `AndroidManifest.xml` (con `<uses-feature required="false">`)
 - [~] Push notifications for appointments (cliente + backend listos, falta FCM/Firebase)
-- [ ] Biometric authentication
+- [x] Biometric authentication — "App Lock": toggle en Configuración (`useBiometric.ts`, `@aparajita/capacitor-biometric-auth`), overlay de bloqueo (`AppLockScreen.vue`) al reanudar la app (`app-lock.client.ts`), preferencia solo local (localStorage, no sincronizada)
 - [x] Offline data synchronization (cola `pendingActions` con reintento FIFO)
+- [x] Safe-area / notch support — `viewport-fit=cover` + `env(safe-area-inset-*)` en `body` y en el drawer móvil de `AppSidebar.vue`
 
 ## 🗂️ File Structure
 ```
@@ -131,11 +133,15 @@ frontend/
 │   ├── capacitor-init.client.ts
 │   ├── pinia-persist.client.ts
 │   ├── offline-sync.client.ts      # reintento FIFO de pendingActions
-│   └── push-notifications.client.ts # registro/baja de token FCM + listeners
+│   ├── push-notifications.client.ts # registro/baja de token FCM + listeners
+│   └── app-lock.client.ts          # detecta resume y bloquea la app (App Lock)
 ├── composables/
-│   └── useCamera.ts                 # Camera.getPhoto + fallback <input capture>
+│   ├── useCamera.ts                 # Camera.getPhoto + fallback <input capture>
+│   ├── useBiometric.ts              # wrapper de capacitor-biometric-auth + pref. App Lock
+│   └── useAppLock.ts                # estado reactivo compartido del bloqueo
 ├── components/
-│   └── PwaPrompt.vue                # install / update prompts
+│   ├── PwaPrompt.vue                # install / update prompts
+│   └── AppLockScreen.vue            # overlay de bloqueo (App Lock)
 ├── docs/
 │   ├── PUSH_NOTIFICATIONS.md        # cliente/backend implementados, falta FCM
 │   └── CAPACITOR_APK_BUILD.md       # build APK + permisos manuales (sección 9)
@@ -150,6 +156,9 @@ frontend/
 - ✅ **Offline: Pinia store con cola `pendingActions` + reintento FIFO al reconectar**
 - ✅ **Push notifications: cliente (`push-notifications.client.ts`) y backend (`DeviceToken` + endpoints + stub `sendPush()`) implementados**
 - ⚠️ **Push notifications: falta proyecto Firebase + `google-services.json` + credenciales backend (`firebase-admin`) para envío real**
+- ✅ **App Lock (biometría): toggle en Configuración + overlay de bloqueo al reanudar la app, preferencia solo local**
+- ✅ **Safe-area / notch: `viewport-fit=cover` + `env(safe-area-inset-*)` aplicado globalmente y en el drawer móvil**
+- ✅ **Permiso `CAMERA` declarado explícitamente en `AndroidManifest.xml`**
 - ⚠️ **Migración `20260612180000_add_device_tokens` escrita a mano (DB local no accesible); pendiente aplicar con `prisma migrate deploy`**
 - ⚠️ **Android Studio not detected - need to install or configure path**
 - ⚠️ **Gradle wrapper missing - need Android Studio for proper setup**
