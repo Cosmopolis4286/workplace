@@ -118,6 +118,12 @@ Las contraseñas del keystore están guardadas fuera del repo (gestor de
 contraseñas del usuario) — **sin ellas no se puede actualizar la app ya
 publicada con el mismo `appId` (`com.workplace.app`)**.
 
+**Backup**: el archivo binario `workplace-release.keystore` (sin contraseñas,
+inútil sin ellas) está respaldado en `frontend/android-backup/` (sí versionado
+en git, a diferencia de `frontend/android/`). Ver
+[`android-backup/README.md`](../android-backup/README.md) para el flujo de
+restauración tras `cap add android`.
+
 Para regenerar desde cero (solo si se pierde el keystore actual y aún no se
 publicó ninguna versión con él):
 

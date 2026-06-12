@@ -154,6 +154,7 @@ certbot/www/.well-known/
 # Capacitor (Mobile App)
 # ================================
 frontend/android/
+!frontend/android-backup/
 frontend/ios/
 frontend/*.xcworkspace
 frontend/*.xcodeproj
