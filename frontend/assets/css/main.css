@@ -7,8 +7,13 @@
 @layer base {
   body {
     @apply bg-gradient-to-br from-gray-50 via-white to-red-50 font-sans !important;
+    /* Evita que el contenido quede bajo el notch/status bar o los gestos del sistema en Android/iOS */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
-  
+
   * {
     @apply transition-all duration-200 ease-in-out;
   }
