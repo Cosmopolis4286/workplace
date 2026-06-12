@@ -130,3 +130,22 @@ docker compose up --build
 | COMMERCE    | Panel completo del restaurante                           |
 | FREELANCER  | Acceso limitado según plan                               |
 | NORMAL      | Bloqueado de rutas de comercio                           |
+
+## App móvil (Capacitor)
+
+El frontend Nuxt también se empaqueta como app Android nativa con [Capacitor](https://capacitorjs.com/).
+Detalle de progreso en [`CAPACITOR_MOBILE_APP.md`](./CAPACITOR_MOBILE_APP.md).
+
+```bash
+# Build y sync con el proyecto Android
+pnpm --filter frontend build
+npx --prefix frontend cap sync android
+
+# Abrir en Android Studio
+npx --prefix frontend cap open android
+```
+
+- **PWA**: manifest + service worker (`@vite-pwa/nuxt`) con prompt de instalación/actualización (`PwaPrompt.vue`)
+- **Cámara**: `useCamera()` (Capacitor Camera nativo + fallback `<input capture>` en web) — avatar, imagen de producto y comprobante de gasto
+- **Offline**: store Pinia `stores/offline.ts` (`isOnline`, `pendingActions`, persistido) + `offline-sync.client.ts` reintenta la cola FIFO al recuperar conexión
+- **Push notifications**: pendiente, plan documentado en [`frontend/docs/PUSH_NOTIFICATIONS.md`](./frontend/docs/PUSH_NOTIFICATIONS.md) (requiere credenciales Firebase)
