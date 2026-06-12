@@ -7,14 +7,30 @@ export default defineNuxtPlugin(() => {
   const { isAuthenticated } = useAuth()
   const { apiFetch } = useApi()
 
+  let currentToken: string | null = null
+
   async function registerToken(token: string) {
     try {
       await apiFetch('/notifications/device-token', {
         method: 'POST',
         body: JSON.stringify({ token, platform: 'android' }),
       })
+      currentToken = token
     } catch (error) {
       console.error('❌ Error registrando device token:', error)
+    }
+  }
+
+  async function unregisterToken(token: string) {
+    try {
+      await apiFetch('/notifications/device-token', {
+        method: 'DELETE',
+        body: JSON.stringify({ token }),
+      })
+    } catch (error) {
+      console.error('❌ Error eliminando device token:', error)
+    } finally {
+      currentToken = null
     }
   }
 
@@ -43,6 +59,13 @@ export default defineNuxtPlugin(() => {
     const link = action.notification.data?.link
     if (link) {
       navigateTo(link)
+    }
+  })
+
+  // Al cerrar sesión, eliminar el token del backend para no enviar push a sesiones cerradas
+  watch(isAuthenticated, (authenticated) => {
+    if (!authenticated && currentToken) {
+      unregisterToken(currentToken)
     }
   })
 
