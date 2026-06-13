@@ -24,6 +24,11 @@ describe('AuthController', () => {
     }),
   }
 
+  const mockResponse = {
+    cookie: jest.fn(),
+    clearCookie: jest.fn(),
+  } as any
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -68,7 +73,7 @@ describe('AuthController', () => {
       mockAuthService.login.mockResolvedValue(tokens)
 
       const mockRequest = { securityContext: null }
-      const result = await controller.login(loginDto, mockRequest)
+      const result = await controller.login(loginDto, mockRequest, mockResponse)
 
       expect(result).toEqual(tokens)
       expect(mockAuthService.login).toHaveBeenCalledWith(loginDto, null)
@@ -98,7 +103,7 @@ describe('AuthController', () => {
 
       mockAuthService.register.mockResolvedValue(tokens)
 
-      const result = await controller.register(registerDto)
+      const result = await controller.register(registerDto, mockResponse)
 
       expect(result).toEqual(tokens)
       expect(mockAuthService.register).toHaveBeenCalledWith(registerDto)
@@ -118,8 +123,8 @@ describe('AuthController', () => {
 
       mockAuthService.refreshTokens.mockResolvedValue(newTokens)
 
-      const mockRequest = { user: { userId: 'test-user' } }
-      const result = await controller.refresh(mockRequest, refreshDto)
+      const mockRequest = { user: { userId: 'test-user', refreshToken: refreshDto.refreshToken } }
+      const result = await controller.refresh(mockRequest, refreshDto, mockResponse)
 
       expect(result).toEqual(newTokens)
       expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('test-user', refreshDto.refreshToken, undefined)
@@ -132,8 +137,8 @@ describe('AuthController', () => {
 
       mockAuthService.refreshTokens.mockRejectedValue(new Error('Invalid refresh token'))
 
-      const mockRequest = { user: { userId: 'test-user' } }
-      await expect(controller.refresh(mockRequest, refreshDto)).rejects.toThrow('Invalid refresh token')
+      const mockRequest = { user: { userId: 'test-user', refreshToken: refreshDto.refreshToken } }
+      await expect(controller.refresh(mockRequest, refreshDto, mockResponse)).rejects.toThrow('Invalid refresh token')
     })
   })
 

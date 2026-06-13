@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { Capacitor } from '@capacitor/core'
 
 interface Restaurant {
   id: string
@@ -25,12 +26,18 @@ interface User {
   country?: string
   state?: string
   city?: string
+  twoFactorEnabled?: boolean
 }
 
 interface AuthResponse {
   user: User
   accessToken: string
   refreshToken: string
+}
+
+export interface TwoFactorRequiredResponse {
+  requiresTwoFactor: true
+  sessionId: string
 }
 
 interface RegisterCredentials {
@@ -82,14 +89,20 @@ const initialized = ref(false)
 function rehydrate(): void {
   if (initialized.value || !process.client) return
   initialized.value = true
+  const isNative = Capacitor.isNativePlatform()
   try {
     const storedUser = localStorage.getItem('auth_user')
-    const storedAccess = localStorage.getItem('auth_access_token')
-    const storedRefresh = localStorage.getItem('auth_refresh_token')
-    if (storedUser && storedAccess) {
-      currentUser.value = JSON.parse(storedUser) as User
-      accessToken.value = storedAccess
-      refreshToken.value = storedRefresh
+    if (storedUser) currentUser.value = JSON.parse(storedUser) as User
+
+    if (isNative) {
+      const storedAccess = localStorage.getItem('auth_access_token')
+      const storedRefresh = localStorage.getItem('auth_refresh_token')
+      if (storedUser && storedAccess) {
+        accessToken.value = storedAccess
+        refreshToken.value = storedRefresh
+      } else {
+        currentUser.value = null
+      }
     }
   } catch {
     localStorage.removeItem('auth_user')
@@ -105,8 +118,10 @@ export const useAuth = () => {
 
   rehydrate()
 
+  const isNative = process.client ? Capacitor.isNativePlatform() : false
+
   const user = computed(() => currentUser.value)
-  const isAuthenticated = computed(() => !!currentUser.value && !!accessToken.value)
+  const isAuthenticated = computed(() => !!currentUser.value)
   const restaurant = computed(() => currentUser.value?.commerce)
   const token = computed(() => accessToken.value)
 
@@ -116,8 +131,10 @@ export const useAuth = () => {
     refreshToken.value = data.refreshToken
     if (process.client) {
       localStorage.setItem('auth_user', JSON.stringify(data.user))
-      localStorage.setItem('auth_access_token', data.accessToken)
-      localStorage.setItem('auth_refresh_token', data.refreshToken)
+      if (isNative) {
+        localStorage.setItem('auth_access_token', data.accessToken)
+        localStorage.setItem('auth_refresh_token', data.refreshToken)
+      }
     }
   }
 
@@ -141,6 +158,7 @@ export const useAuth = () => {
   async function register(credentials: RegisterCredentials): Promise<User> {
     const data = await $fetch<AuthResponse>(`${apiUrl}/auth/register`, {
       method: 'POST',
+      credentials: 'include',
       body: {
         firstName: credentials.firstName,
         lastName: credentials.lastName,
@@ -157,13 +175,27 @@ export const useAuth = () => {
     return data.user
   }
 
-  async function login(credentials: LoginCredentials): Promise<User> {
-    const data = await $fetch<AuthResponse>(`${apiUrl}/auth/login`, {
+  async function login(credentials: LoginCredentials): Promise<User | TwoFactorRequiredResponse> {
+    const data = await $fetch<AuthResponse | TwoFactorRequiredResponse>(`${apiUrl}/auth/login`, {
       method: 'POST',
+      credentials: 'include',
       body: {
         email: credentials.email,
         password: credentials.password,
       },
+    })
+    if ('requiresTwoFactor' in data) return data
+    setSession(data)
+    useModules().invalidate()
+    usePermissions().reloadPermissions().catch(() => {})
+    return data.user
+  }
+
+  async function verifyTwoFactor(sessionId: string, code: string): Promise<User> {
+    const data = await $fetch<AuthResponse>(`${apiUrl}/auth/2fa/verify-login`, {
+      method: 'POST',
+      credentials: 'include',
+      body: { sessionId, code },
     })
     setSession(data)
     useModules().invalidate()
@@ -171,11 +203,40 @@ export const useAuth = () => {
     return data.user
   }
 
+  async function setupTwoFactor(): Promise<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }> {
+    return $fetch(`${apiUrl}/auth/2fa/setup`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getHeaders(),
+    })
+  }
+
+  async function enableTwoFactor(code: string): Promise<{ enabled: true; backupCodes: string[] }> {
+    return $fetch(`${apiUrl}/auth/2fa/enable`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getHeaders(),
+      body: { code },
+    })
+  }
+
+  async function disableTwoFactor(password: string, code: string): Promise<{ enabled: false }> {
+    const result = await $fetch<{ enabled: false }>(`${apiUrl}/auth/2fa/disable`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getHeaders(),
+      body: { password, code },
+    })
+    if (currentUser.value) updateLocalUser({ twoFactorEnabled: false } as Partial<User>)
+    return result
+  }
+
   async function logout(): Promise<void> {
     try {
-      if (accessToken.value) {
+      if (accessToken.value || !isNative) {
         await $fetch(`${apiUrl}/auth/logout`, {
           method: 'POST',
+          credentials: 'include',
           headers: getHeaders(),
         })
       }
@@ -189,18 +250,19 @@ export const useAuth = () => {
   }
 
   async function refreshAccessToken(): Promise<boolean> {
-    if (!refreshToken.value) return false
+    if (isNative && !refreshToken.value) return false
     try {
       const data = await $fetch<Pick<AuthResponse, 'accessToken' | 'refreshToken'>>(
         `${apiUrl}/auth/refresh`,
         {
           method: 'POST',
-          body: { refreshToken: refreshToken.value },
+          credentials: 'include',
+          body: refreshToken.value ? { refreshToken: refreshToken.value } : undefined,
         },
       )
       accessToken.value = data.accessToken
       refreshToken.value = data.refreshToken
-      if (process.client) {
+      if (process.client && isNative) {
         localStorage.setItem('auth_access_token', data.accessToken)
         localStorage.setItem('auth_refresh_token', data.refreshToken)
       }
@@ -212,9 +274,9 @@ export const useAuth = () => {
   }
 
   async function fetchProfile(): Promise<User | null> {
-    if (!accessToken.value) return null
     try {
       const profile = await $fetch<User>(`${apiUrl}/auth/me`, {
+        credentials: 'include',
         headers: getHeaders(),
       })
       currentUser.value = profile
@@ -243,6 +305,7 @@ export const useAuth = () => {
   async function saveProfile(payload: UpdateProfilePayload): Promise<User> {
     const updated = await $fetch<User>(`${apiUrl}/auth/me`, {
       method: 'PATCH',
+      credentials: 'include',
       headers: getHeaders(),
       body: payload,
     })
@@ -254,6 +317,7 @@ export const useAuth = () => {
   async function changePassword(payload: ChangePasswordPayload): Promise<void> {
     await $fetch(`${apiUrl}/auth/change-password`, {
       method: 'PATCH',
+      credentials: 'include',
       headers: getHeaders(),
       body: payload,
     })
@@ -262,12 +326,13 @@ export const useAuth = () => {
   async function checkUsername(username: string): Promise<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }> {
     return $fetch<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }>(
       `${apiUrl}/auth/check-username?username=${encodeURIComponent(username)}`,
-      { headers: getHeaders() },
+      { credentials: 'include', headers: getHeaders() },
     )
   }
 
   async function getSessions(): Promise<Session[]> {
     return $fetch<Session[]>(`${apiUrl}/auth/sessions`, {
+      credentials: 'include',
       headers: getHeaders(),
     })
   }
@@ -275,6 +340,7 @@ export const useAuth = () => {
   async function revokeSession(id: string): Promise<void> {
     await $fetch(`${apiUrl}/auth/sessions/${id}`, {
       method: 'DELETE',
+      credentials: 'include',
       headers: getHeaders(),
     })
   }
@@ -284,6 +350,7 @@ export const useAuth = () => {
     formData.append('avatar', file)
     const updated = await $fetch<User>(`${apiUrl}/auth/me/avatar`, {
       method: 'POST',
+      credentials: 'include',
       headers: getHeaders(),
       body: formData,
     })
@@ -312,5 +379,9 @@ export const useAuth = () => {
     refreshAccessToken,
     getHeaders,
     checkUsername,
+    verifyTwoFactor,
+    setupTwoFactor,
+    enableTwoFactor,
+    disableTwoFactor,
   }
 }
