@@ -37,7 +37,8 @@
     "edit_own_profile_only": "Solo puedes editar tu propio perfil",
     "modify_user": "No tienes permisos para modificar este usuario",
     "delete_user": "No tienes permisos para eliminar este usuario",
-    "view_info": "No tienes permisos para ver esta información"
+    "view_info": "No tienes permisos para ver esta información",
+    "self_role_change": "No puedes cambiar tu propio rol"
   },
   "profile_completion": {
     "basic_info": "Información básica (nombre, apellido, teléfono)",

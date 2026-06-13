@@ -20,9 +20,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-
-// Roles that ADMIN is NOT allowed to manage
-const ADMIN_RESTRICTED_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
+import { canAssignRole } from '../common/utils/role-hierarchy.util';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -137,10 +135,7 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role }
   ) {
     const target = await this.usersService.findById(id);
-    if (
-      caller.role === Role.ADMIN &&
-      ADMIN_RESTRICTED_ROLES.includes(target.role as Role)
-    ) {
+    if (!canAssignRole(caller.role, target.role as Role)) {
       throw new ForbiddenException(this.i18n.t('users.permissions.view_user'));
     }
     return target;
@@ -152,10 +147,7 @@ export class UsersController {
     @Body() dto: CreateUserDto,
     @CurrentUser() caller: { id: string; role: Role }
   ) {
-    if (
-      caller.role === Role.ADMIN &&
-      ADMIN_RESTRICTED_ROLES.includes(dto.role)
-    ) {
+    if (!canAssignRole(caller.role, dto.role)) {
       throw new ForbiddenException(this.i18n.t('users.permissions.create_role'));
     }
     return this.usersService.createUser(dto);
@@ -169,17 +161,13 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role }
   ) {
     const target = await this.usersService.findById(id);
-    if (
-      caller.role === Role.ADMIN &&
-      ADMIN_RESTRICTED_ROLES.includes(target.role as Role)
-    ) {
+    if (caller.id === id && dto.role && dto.role !== target.role) {
+      throw new ForbiddenException(this.i18n.t('users.permissions.self_role_change'));
+    }
+    if (!canAssignRole(caller.role, target.role as Role)) {
       throw new ForbiddenException(this.i18n.t('users.permissions.edit_user'));
     }
-    if (
-      dto.role &&
-      caller.role === Role.ADMIN &&
-      ADMIN_RESTRICTED_ROLES.includes(dto.role)
-    ) {
+    if (dto.role && !canAssignRole(caller.role, dto.role)) {
       throw new ForbiddenException(this.i18n.t('users.permissions.assign_role'));
     }
     return this.usersService.updateUser(id, dto);
@@ -205,10 +193,7 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role }
   ) {
     const target = await this.usersService.findById(id);
-    if (
-      caller.role === Role.ADMIN &&
-      ADMIN_RESTRICTED_ROLES.includes(target.role as Role)
-    ) {
+    if (!canAssignRole(caller.role, target.role as Role)) {
       throw new ForbiddenException(this.i18n.t('users.permissions.modify_user'));
     }
     return this.usersService.toggleUserStatus(id);
@@ -221,10 +206,7 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role }
   ) {
     const target = await this.usersService.findById(id);
-    if (
-      caller.role === Role.ADMIN &&
-      ADMIN_RESTRICTED_ROLES.includes(target.role as Role)
-    ) {
+    if (!canAssignRole(caller.role, target.role as Role)) {
       throw new ForbiddenException(this.i18n.t('users.permissions.delete_user'));
     }
     return this.usersService.deleteUser(id);

@@ -37,7 +37,8 @@
     "edit_own_profile_only": "You can only edit your own profile",
     "modify_user": "You don't have permission to modify this user",
     "delete_user": "You don't have permission to delete this user",
-    "view_info": "You don't have permission to view this information"
+    "view_info": "You don't have permission to view this information",
+    "self_role_change": "You can't change your own role"
   },
   "profile_completion": {
     "basic_info": "Basic information (first name, last name, phone)",
