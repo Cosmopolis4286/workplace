@@ -47,6 +47,7 @@ Convert the existing Nuxt.js frontend into a native Android app using Capacitor.
 - [x] Optimize performance — lazy-load de `chart.js` (solo usado en `/analytics`): chunk de entrada reducido de 458 KB a 276 KB (gzip 162 KB → 99 KB); chart.js ahora vive en un chunk separado de 184 KB cargado on-demand vía `frontend/plugins/chart.client.ts`
 - [x] Generate release APK — keystore `frontend/android/workplace-release.keystore` (alias `workplace`, válido hasta 2053, gitignored) + `frontend/android/keystore.properties` (gitignored); `signingConfigs.release` agregado a `frontend/android/app/build.gradle`; `gradlew assembleRelease` → `frontend/android/app/build/outputs/apk/release/app-release.apk` (7.96 MB), firmado y verificado con `apksigner verify`
 - [x] Rebuild debug + release APK con safe-area, permiso `CAMERA` y App Lock — `nuxt generate` (prod API URL) + `cap sync android` + `gradlew assembleDebug`/`assembleRelease`. Resultado: `app-debug.apk` (14.7 MB) y `app-release.apk` (9.4 MB, firmado y verificado con `apksigner verify --print-certs`, mismo certificado que antes). `aapt dump permissions` confirma `CAMERA`, `USE_BIOMETRIC` y `USE_FINGERPRINT` (estos dos últimos agregados automáticamente por el plugin biométrico) en el manifest final
+- [x] Rebuild debug + release APK con StatusBar dark-mode, Android App Links (deep links) y Sentry — `nuxt generate` (prod API URL) + `cap sync android` + `gradlew assembleDebug`/`assembleRelease`. Resultado: `app-debug.apk` (17.9 MB) y `app-release.apk` (13.1 MB, firmado y verificado con `apksigner verify --print-certs`, mismo certificado SHA-256 `5B:37:91:BD:A2:70:5B:91:EA:69:7E:B4:BD:B9:B6:A3:5C:57:6A:97:B0:A3:73:0C:87:31:1B:AF:72:8C:B7:14`). Aumento de tamaño (~3.7 MB) viene del SDK nativo de Sentry (`sentry-capacitor` + crash-handling Android)
 
 ## 🔧 Technical Configuration
 
@@ -70,6 +71,8 @@ pinia-plugin-persistedstate
 ```bash
 @capacitor/push-notifications   # cliente listo, ver frontend/docs/PUSH_NOTIFICATIONS.md
 @aparajita/capacitor-biometric-auth   # App Lock (Face/Touch ID, huella, PIN del dispositivo)
+@sentry/capacitor   # crash/error tracking (web + nativo), opcional vía NUXT_PUBLIC_SENTRY_DSN
+@sentry/vue         # integración con la app Vue (sibling SDK de @sentry/capacitor)
 ```
 
 ### Pending (Phase 4 follow-up)
@@ -116,6 +119,8 @@ npx cap run android
 - [x] Biometric authentication — "App Lock": toggle en Configuración (`useBiometric.ts`, `@aparajita/capacitor-biometric-auth`), overlay de bloqueo (`AppLockScreen.vue`) al reanudar la app (`app-lock.client.ts`), preferencia solo local (localStorage, no sincronizada)
 - [x] Offline data synchronization (cola `pendingActions` con reintento FIFO)
 - [x] Safe-area / notch support — `viewport-fit=cover` + `env(safe-area-inset-*)` en `body` y en el drawer móvil de `AppSidebar.vue`
+- [x] Deep links (Android App Links) — `/reset-password` y `/verify-email` desde `https://playrke.com` abren la app directamente (intent-filter `autoVerify` + `.well-known/assetlinks.json` + listener `appUrlOpen`)
+- [x] Crash/error tracking — `@sentry/capacitor` + `@sentry/vue`, desactivado por defecto (requiere `NUXT_PUBLIC_SENTRY_DSN`)
 
 ## 🗂️ File Structure
 ```
@@ -127,15 +132,18 @@ frontend/
 │   └── splash.png
 ├── public/
 │   ├── icon-192.png
-│   └── icon-512.png
+│   ├── icon-512.png
+│   └── .well-known/
+│       └── assetlinks.json         # Android App Links: verifica el dominio playrke.com
 ├── stores/
 │   └── offline.ts                  # Pinia store: isOnline, pendingActions (persist)
 ├── plugins/
-│   ├── capacitor-init.client.ts
+│   ├── capacitor-init.client.ts    # StatusBar+darkmode, backButton, teclado, deep links (appUrlOpen)
 │   ├── pinia-persist.client.ts
 │   ├── offline-sync.client.ts      # reintento FIFO de pendingActions
 │   ├── push-notifications.client.ts # registro/baja de token FCM + listeners
-│   └── app-lock.client.ts          # detecta resume y bloquea la app (App Lock)
+│   ├── app-lock.client.ts          # detecta resume y bloquea la app (App Lock)
+│   └── sentry.client.ts            # crash/error tracking, no-op sin NUXT_PUBLIC_SENTRY_DSN
 ├── composables/
 │   ├── useCamera.ts                 # Camera.getPhoto + fallback <input capture>
 │   ├── useBiometric.ts              # wrapper de capacitor-biometric-auth + pref. App Lock
@@ -161,6 +169,9 @@ frontend/
 - ✅ **Safe-area / notch: `viewport-fit=cover` + `env(safe-area-inset-*)` aplicado globalmente y en el drawer móvil**
 - ✅ **Permiso `CAMERA` declarado explícitamente en `AndroidManifest.xml`**
 - ✅ **StatusBar sincronizado con el modo oscuro**: `capacitor-init.client.ts` usa `useColorMode().isDark` (reactivo) para aplicar `StatusBar.setStyle`/`setBackgroundColor` al iniciar y cada vez que cambia el tema (`#ffffff`/`Style.Light` en claro, `#030712`/`Style.Dark` en oscuro, igual que `bg-gray-950` del layout)
+- ✅ **Deep links (Android App Links)**: intent-filter `autoVerify="true"` en `AndroidManifest.xml` para `https://playrke.com/reset-password` y `/verify-email`, `frontend/public/.well-known/assetlinks.json` con los fingerprints SHA-256 del keystore release y debug, y listener `App.addListener('appUrlOpen', ...)` en `capacitor-init.client.ts` que navega el SPA a la ruta del enlace. **Pendiente de servidor**: verificar que `https://playrke.com/.well-known/assetlinks.json` responda 200 tras el próximo deploy del frontend (Android revalida automáticamente, puede tardar unos minutos tras instalar la app)
+- ✅ **Crash/error tracking (Sentry)**: `@sentry/capacitor` + `@sentry/vue` añadidos, plugin `sentry.client.ts` con import dinámico (no añade peso al chunk de entrada). Desactivado por defecto — solo se activa si `NUXT_PUBLIC_SENTRY_DSN` está configurado (`.env`, vacío por defecto). **Pendiente del usuario**: crear proyecto en sentry.io y configurar el DSN para activarlo en producción
+- ✅ **Bundle size revisado**: 2.7 MB en `.output/public/_nuxt`, chunk de entrada ~276-281 KB (sin cambios tras añadir Sentry gracias al import dinámico). Los demás chunks grandes son code-splitting normal por ruta (Nuxt) y chart.js (ya lazy-loaded) — no se identificaron más oportunidades de lazy-loading
 - ⚠️ **Migración `20260612180000_add_device_tokens` escrita a mano (DB local no accesible); pendiente aplicar con `prisma migrate deploy`**
 - ⚠️ **`versionCode 1` / `versionName "1.0"` (valor inicial) — incrementar antes de cada release a Play Store o reinstalación sobre versión anterior (ver `frontend/docs/CAPACITOR_APK_BUILD.md` sección 10)**
 - ⚠️ **`minifyEnabled false` en release (~9.4 MB sin shrinking) — reglas ProGuard listas en `frontend/android-backup/proguard-rules.pro`, pendiente activar y probar en dispositivo real (sección 11)**

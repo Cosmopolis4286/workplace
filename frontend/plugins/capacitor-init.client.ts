@@ -33,6 +33,17 @@ export default defineNuxtPlugin(async () => {
       }
     })
 
+    // Deep links (Android App Links): enlaces de https://playrke.com/reset-password
+    // y /verify-email abren la app y navegan a la ruta correspondiente del SPA
+    App.addListener('appUrlOpen', ({ url }) => {
+      try {
+        const { pathname, search } = new URL(url)
+        navigateTo(`${pathname}${search}`)
+      } catch (e) {
+        console.error('❌ Error procesando deep link:', e)
+      }
+    })
+
     // Configurar teclado
     await Keyboard.addListener('keyboardDidShow', () => {
       document.body.classList.add('keyboard-open')

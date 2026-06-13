@@ -48,6 +48,7 @@ export default defineNuxtConfig({
       environment: process.env.APP_ENV || 'production',
       useDemoCredentials: process.env.USE_DEMO === 'true',
       recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY || '',
+      sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
     },
   },
 

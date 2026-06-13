@@ -17,8 +17,9 @@ contiene lo que **no** es regenerable y que de otra forma se perdería.
 - **`AndroidManifest.xml`** — copia de referencia de
   `android/app/src/main/AndroidManifest.xml` con los permisos manuales ya
   aplicados (`POST_NOTIFICATIONS`, `CAMERA` + `<uses-feature>`, además del
-  `INTERNET` que agrega Capacitor por defecto). Ver
-  `frontend/docs/CAPACITOR_APK_BUILD.md` sección 9.
+  `INTERNET` que agrega Capacitor por defecto) y el intent-filter de **deep
+  links** (`autoVerify` para `/reset-password` y `/verify-email`). Ver
+  `frontend/docs/CAPACITOR_APK_BUILD.md` secciones 9 y 12.
 - **`proguard-rules.pro`** — reglas ProGuard/R8 recomendadas para cuando se
   active `minifyEnabled true` en release (actualmente `false`). Cubre
   Capacitor core/plugins, biometric-auth y push-notifications/Firebase.

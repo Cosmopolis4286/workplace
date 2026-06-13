@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.workplace.app",
+      "sha256_cert_fingerprints": [
+        "5B:37:91:BD:A2:70:5B:91:EA:69:7E:B4:BD:B9:B6:A3:5C:57:6A:97:B0:A3:73:0C:87:31:1B:AF:72:8C:B7:14",
+        "98:3B:F8:44:A9:A1:7D:83:1B:B0:22:5C:56:53:37:F2:43:63:7D:62:B1:0B:3B:64:2F:CD:7F:EB:26:85:0B:C1"
+      ]
+    }
+  }
+]
