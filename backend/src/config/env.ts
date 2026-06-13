@@ -25,6 +25,11 @@ const envSchema = z.object({
     .string()
     .regex(/^\d+[smhd]$/, 'JWT_REFRESH_EXPIRES_IN debe ser ej. 7d, 30d'),
 
+  // Cifrado (2FA - secretos TOTP en reposo, AES-256-GCM)
+  ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/i, 'ENCRYPTION_KEY debe ser una clave hex de 64 caracteres (32 bytes) — generar con: openssl rand -hex 32'),
+
   // CORS
   FRONTEND_URL: z.string().url(),
 
