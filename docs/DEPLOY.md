@@ -124,6 +124,75 @@ export FRONTEND_IMAGE=$FRONTEND_CURRENT_IMAGE
 docker compose -f docker-compose.lite.yml up -d --no-deps --force-recreate backend frontend
 ```
 
+## Rotación de credenciales (Postgres / Redis / JWT)
+
+> Los archivos `.env.dev` y `.env.local.prod` del repo estuvieron versionados con
+> los mismos secretos que el `.env` real de producción (`POSTGRES_PASSWORD`,
+> `REDIS_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET`). Ya se generaron valores
+> nuevos para el `.env` local de este proyecto y se limpiaron los archivos
+> versionados (ahora son plantillas con `CHANGE_ME_*`). **Falta aplicar los
+> nuevos valores en el servidor de producción** (`/opt/workplace/.env`), que es
+> independiente del repo.
+
+Pasos en el servidor (`/opt/workplace`):
+
+```bash
+cd /opt/workplace
+COMPOSE="docker compose -f docker-compose.lite.yml"
+
+# 1. Backup del .env actual
+cp .env .env.bak.$(date +%Y%m%d)
+
+# 2. Editar .env con los nuevos valores de POSTGRES_PASSWORD, REDIS_PASSWORD,
+#    JWT_SECRET y JWT_REFRESH_SECRET (los mismos que se pusieron en el .env
+#    local del proyecto tras la rotación)
+nano .env
+
+# 3. Actualizar la contraseña del usuario en Postgres para que coincida
+#    (si se cambia POSTGRES_PASSWORD, el usuario existente sigue teniendo la
+#    contraseña vieja hasta que se actualice explícitamente)
+$COMPOSE exec -T postgres psql -U workplace -d workplace_db \
+  -c "ALTER USER workplace WITH PASSWORD '<NUEVO_POSTGRES_PASSWORD>';"
+
+# 4. Si se usa pgbouncer, actualizar pgbouncer/userlist.txt con el mismo
+#    password nuevo y reiniciar el contenedor
+$COMPOSE restart pgbouncer   # si aplica
+
+# 5. Reiniciar backend y redis para tomar las nuevas variables
+$COMPOSE up -d --force-recreate redis backend
+
+# 6. Verificar
+$COMPOSE exec -T backend curl -sf http://localhost:3001/api/ready
+$COMPOSE logs --tail 30 backend
+```
+
+**Efecto esperado**: al rotar `JWT_SECRET`/`JWT_REFRESH_SECRET`, todos los
+tokens emitidos previamente quedan inválidos — todos los usuarios deberán
+volver a iniciar sesión. Esto es intencional y deseable tras una exposición de
+secretos.
+
+## ENCRYPTION_KEY (2FA - cifrado de secretos TOTP en reposo)
+
+El backend requiere una variable `ENCRYPTION_KEY`: una clave hex de 64
+caracteres (32 bytes) usada con AES-256-GCM para cifrar el
+`twoFactorSecret` de cada usuario antes de guardarlo en la base de datos.
+
+```bash
+# Generar una clave nueva
+openssl rand -hex 32
+```
+
+- En `.env.dev` ya hay un valor de desarrollo.
+- En `.env.local.prod` (plantilla) el valor es `CHANGE_ME_ENCRYPTION_KEY` —
+  reemplazar con un valor generado antes de desplegar, igual que el resto de
+  secretos `CHANGE_ME_*`.
+- En el `.env` real del servidor de producción (`/opt/workplace/.env`),
+  añadir `ENCRYPTION_KEY=<valor-generado>` (no reutilizar el valor de dev).
+- **Importante**: si `ENCRYPTION_KEY` se rota después de que existan usuarios
+  con 2FA activado, sus `twoFactorSecret` cifrados con la clave anterior ya
+  no podrán descifrarse — esos usuarios deberán desactivar y volver a
+  configurar 2FA.
+
 ## Estructura en el servidor
 
 ```
