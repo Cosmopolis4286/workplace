@@ -73,7 +73,7 @@ export class UsersService {
       include: { commerce: true, category: true, subcategory: true },
     });
 
-    const { password, ...result } = user;
+    const { password, twoFactorSecret, ...result } = user;
     return result;
   }
 
@@ -432,7 +432,7 @@ export class UsersService {
         .catch(() => {});
     }
 
-    const { password, ...result } = user;
+    const { password, twoFactorSecret, ...result } = user;
     return result;
   }
 
@@ -481,7 +481,7 @@ export class UsersService {
       data: { avatar: avatarUrl },
       include: { commerce: true },
     });
-    const { password, ...result } = user;
+    const { password, twoFactorSecret, ...result } = user;
     return result;
   }
 
