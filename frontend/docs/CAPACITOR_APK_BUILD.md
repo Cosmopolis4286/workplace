@@ -196,6 +196,10 @@ agregarlos a mano en `android/app/src/main/AndroidManifest.xml`, dentro de
 - El permiso `USE_BIOMETRIC` que requiere `@aparajita/capacitor-biometric-auth`
   (App Lock) lo agrega automáticamente el manifest del plugin durante el build
   (merge de manifests de Gradle); no requiere edición manual.
+- El **intent-filter de deep links** (`autoVerify="true"` para
+  `https://playrke.com/reset-password` y `/verify-email`) también se pierde al
+  regenerar `android/` — está documentado y copiado en
+  `android-backup/AndroidManifest.xml` junto con el resto. Ver sección 12.
 
 ## 10. `versionCode` / `versionName`
 
@@ -232,3 +236,71 @@ Actualmente `minifyEnabled false` en el build de release (`app-release.apk`
 
 No se activó en esta sesión porque no hay forma de probar en dispositivo
 real con el backend de producción accesible (`playrke.com`).
+
+## 12. Deep links (Android App Links)
+
+Los enlaces de `https://playrke.com/reset-password?token=...` y
+`https://playrke.com/verify-email?token=...` (enviados por correo) abren la
+app directamente en vez del navegador, gracias a:
+
+1. **Intent-filter** en `AndroidManifest.xml` (sección 9, también en
+   `android-backup/AndroidManifest.xml`):
+   ```xml
+   <intent-filter android:autoVerify="true">
+       <action android:name="android.intent.action.VIEW" />
+       <category android:name="android.intent.category.DEFAULT" />
+       <category android:name="android.intent.category.BROWSABLE" />
+       <data android:scheme="https" android:host="playrke.com" android:pathPrefix="/reset-password" />
+       <data android:scheme="https" android:host="playrke.com" android:pathPrefix="/verify-email" />
+   </intent-filter>
+   ```
+2. **`frontend/public/.well-known/assetlinks.json`** — verificación del
+   dominio. Incluido en `.output/public/` por `nuxt generate` (Nuxt copia
+   `public/` a la raíz del output), por lo que queda servido en
+   `https://playrke.com/.well-known/assetlinks.json` tras el próximo deploy
+   del frontend. Contiene los fingerprints SHA-256 de:
+   - `workplace-release.keystore` (release): `5B:37:91:BD:A2:70:5B:91:EA:69:7E:B4:BD:B9:B6:A3:5C:57:6A:97:B0:A3:73:0C:87:31:1B:AF:72:8C:B7:14`
+   - `debug.keystore` (debug, `~/.android/debug.keystore`, password `android`):
+     `98:3B:F8:44:A9:A1:7D:83:1B:B0:22:5C:56:53:37:F2:43:63:7D:62:B1:0B:3B:64:2F:CD:7F:EB:26:85:0B:C1`
+
+   Si se regenera el keystore release o se firma con uno nuevo, hay que
+   recalcular el fingerprint (`keytool -list -v -keystore ... | grep SHA256`)
+   y actualizar `assetlinks.json`.
+3. **Listener `appUrlOpen`** en `frontend/plugins/capacitor-init.client.ts` —
+   cuando Android abre la app vía App Link, Capacitor emite la URL completa
+   (`https://playrke.com/reset-password?token=...`); el listener extrae
+   `pathname + search` y navega el SPA con `navigateTo()`.
+
+**Verificación**: Android revalida `assetlinks.json` al instalar la app (o
+puede forzarse con `adb shell pm verify-app-links --re-verify
+com.workplace.app`). Si el archivo no es accesible (404, redirect, etc.), el
+sistema cae de vuelta al navegador — el flujo sigue funcionando, solo sin la
+apertura directa en la app.
+
+## 13. Crash/error tracking (Sentry) — opcional
+
+`@sentry/capacitor` + `@sentry/vue` están instalados pero **desactivados por
+defecto**: `frontend/plugins/sentry.client.ts` solo inicializa Sentry si
+`NUXT_PUBLIC_SENTRY_DSN` no está vacío (import dinámico, no afecta el tamaño
+del chunk de entrada si no se usa).
+
+Para activarlo:
+
+1. Crear un proyecto en [sentry.io](https://sentry.io) (plataforma "Vue" o
+   "Capacitor").
+2. Copiar el DSN del proyecto (`Settings → Client Keys (DSN)`).
+3. Configurar `NUXT_PUBLIC_SENTRY_DSN=https://...@....ingest.sentry.io/...`
+   al compilar (mismo mecanismo que `NUXT_PUBLIC_API_URL`, ver sección 2):
+   ```bash
+   NUXT_PUBLIC_API_URL="https://playrke.com/api" \
+   NUXT_PUBLIC_SENTRY_DSN="https://...@....ingest.sentry.io/..." \
+   pnpm exec nuxt generate
+   ```
+4. `npx cap sync android` + rebuild — el plugin nativo `sentry-capacitor` ya
+   queda registrado (9 plugins) y agrega ~3-4 MB al APK (SDK nativo de
+   crash-handling para Android).
+
+Sin DSN, el código de Sentry permanece sin cargarse y el tamaño del APK no
+incluye el SDK nativo no inicializado (pero las dependencias del proyecto
+Gradle sí quedan instaladas tras `cap sync`, ya que Capacitor registra todos
+los plugins instalados independientemente de si se usan en runtime).
