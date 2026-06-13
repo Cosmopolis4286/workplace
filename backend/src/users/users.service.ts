@@ -175,7 +175,7 @@ export class UsersService {
       include: { commerce: true, category: true, subcategory: true },
     });
 
-    const { password, ...result } = user;
+    const { password, twoFactorSecret, ...result } = user;
     return result;
   }
 
@@ -314,10 +314,13 @@ export class UsersService {
   }
 
   async findByEmail(email: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { email },
       include: { commerce: true, category: true, subcategory: true },
     });
+    if (!user) return null;
+    const { twoFactorSecret, ...result } = user;
+    return result;
   }
 
   async findById(id: string) {
@@ -326,8 +329,26 @@ export class UsersService {
       include: { commerce: true, category: true },
     });
     if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
-    const { password, ...result } = user;
+    const { password, twoFactorSecret, ...result } = user;
     return result;
+  }
+
+  /**
+   * Variante de findById que incluye twoFactorSecret (cifrado) y
+   * twoFactorEnabled para el flujo de verificación 2FA. Uso interno
+   * exclusivo — nunca devolver el resultado de este método al cliente.
+   */
+  async findByIdWithTwoFactor(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        twoFactorEnabled: true,
+        twoFactorSecret: true,
+      },
+    });
   }
 
   async validatePassword(
