@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { TwoFactorService } from './two-factor.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
@@ -17,7 +18,7 @@ import { SessionCleanupScheduler } from '../common/schedulers/session-cleanup.sc
     UsersModule,
     MailModule,
   ],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy, SessionCleanupScheduler],
+  providers: [AuthService, TwoFactorService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy, SessionCleanupScheduler],
   controllers: [AuthController],
 })
 export class AuthModule {}

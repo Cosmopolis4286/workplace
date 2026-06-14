@@ -21,6 +21,11 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyLoginTwoFactorDto } from './dto/verify-login-two-factor.dto';
+import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
+import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { TwoFactorService } from './two-factor.service';
+import { encryptSecret, decryptSecret } from '../common/utils/crypto.util';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 
@@ -36,7 +41,8 @@ export class AuthService {
     private redis: RedisService,
     private mail: MailService,
     private audit: AuditService,
-    private i18n: I18nService
+    private i18n: I18nService,
+    private twoFactor: TwoFactorService
   ) {}
 
   async register(dto: RegisterDto) {
@@ -110,6 +116,29 @@ export class AuthService {
 
     await this.redis.resetLoginAttempts(dto.email);
 
+    if (user.twoFactorEnabled) {
+      const sessionId = uuidv4();
+      await this.redis.setex(
+        `2fa-pending:${sessionId}`,
+        300,
+        JSON.stringify({ userId: user.id, securityContext })
+      );
+
+      this.audit.log({
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        action: AuditAction.LOGIN,
+        module: 'auth',
+        summary: `[LOGIN_2FA_PENDING] ${user.email} — esperando verificación 2FA`,
+        ip,
+        userAgent,
+        statusCode: 200,
+      });
+
+      return { requiresTwoFactor: true as const, sessionId };
+    }
+
     const { password, ...safeUser } = user;
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext);
@@ -132,6 +161,189 @@ export class AuthService {
     });
 
     return { user: safeUser, ...tokens };
+  }
+
+  // --- 2FA / TOTP ---
+
+  async verifyLoginTwoFactor(dto: VerifyLoginTwoFactorDto) {
+    const pendingRaw = await this.redis.get(`2fa-pending:${dto.sessionId}`);
+    if (!pendingRaw) {
+      throw new UnauthorizedException(this.i18n.t('auth.2fa.session_expired'));
+    }
+
+    const { userId, securityContext } = JSON.parse(pendingRaw);
+
+    const user = await this.usersService.findByIdWithTwoFactor(userId);
+    if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new UnauthorizedException(this.i18n.t('auth.2fa.not_enabled'));
+    }
+
+    const decryptedSecret = decryptSecret(user.twoFactorSecret, this.config.get('ENCRYPTION_KEY'));
+    const validTotp = this.twoFactor.verifyToken(dto.code, decryptedSecret);
+    const validBackup = !validTotp && (await this.consumeBackupCodeIfValid(userId, dto.code));
+
+    if (!validTotp && !validBackup) {
+      this.audit.log({
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        action: AuditAction.LOGIN,
+        module: 'auth',
+        summary: `[LOGIN_2FA_FAILED] ${user.email} — código 2FA inválido`,
+        ip: securityContext?.ipAddress,
+        userAgent: securityContext?.userAgent,
+        statusCode: 401,
+      });
+      throw new UnauthorizedException(this.i18n.t('auth.2fa.invalid_code'));
+    }
+
+    await this.redis.del(`2fa-pending:${dto.sessionId}`);
+
+    const fullUser = await this.usersService.findByEmail(user.email);
+    const { password, ...safeUser } = fullUser as typeof fullUser & { password: string };
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext);
+
+    if (securityContext) {
+      await this.createUserSession(user.id, securityContext);
+    }
+
+    this.audit.log({
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      action: AuditAction.LOGIN,
+      module: 'auth',
+      summary: `[LOGIN_2FA] ${user.email} — 2FA verificado`,
+      ip: securityContext?.ipAddress,
+      userAgent: securityContext?.userAgent,
+      statusCode: 200,
+    });
+
+    return { user: safeUser, ...tokens };
+  }
+
+  async setupTwoFactor(userId: string) {
+    const user = await this.usersService.findByIdWithTwoFactor(userId);
+    if (!user) throw new NotFoundException(this.i18n.t('auth.user.not_found'));
+    if (user.twoFactorEnabled) {
+      throw new BadRequestException(this.i18n.t('auth.2fa.already_enabled'));
+    }
+
+    const { secret, otpAuthUrl } = this.twoFactor.generateSecret(user.email);
+    await this.redis.setex(`2fa-setup:${userId}`, 600, secret);
+
+    const qrCodeDataUrl = await this.twoFactor.generateQrCodeDataUrl(otpAuthUrl);
+    return { secret, qrCodeDataUrl, otpAuthUrl };
+  }
+
+  async enableTwoFactor(userId: string, dto: VerifyTwoFactorDto) {
+    const user = await this.usersService.findByIdWithTwoFactor(userId);
+    if (!user) throw new NotFoundException(this.i18n.t('auth.user.not_found'));
+    if (user.twoFactorEnabled) {
+      throw new BadRequestException(this.i18n.t('auth.2fa.already_enabled'));
+    }
+
+    const pendingSecret = await this.redis.get(`2fa-setup:${userId}`);
+    if (!pendingSecret) {
+      throw new BadRequestException(this.i18n.t('auth.2fa.setup_required'));
+    }
+
+    if (!this.twoFactor.verifyToken(dto.code, pendingSecret)) {
+      throw new UnauthorizedException(this.i18n.t('auth.2fa.invalid_code'));
+    }
+
+    const encryptedSecret = encryptSecret(pendingSecret, this.config.get('ENCRYPTION_KEY'));
+    const backupCodes = this.twoFactor.generateBackupCodes();
+    const hashedCodes = await this.twoFactor.hashBackupCodes(backupCodes);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          twoFactorEnabled: true,
+          twoFactorSecret: encryptedSecret,
+          twoFactorEnabledAt: new Date(),
+        },
+      }),
+      this.prisma.twoFactorBackupCode.createMany({
+        data: hashedCodes.map((codeHash) => ({ userId, codeHash })),
+      }),
+    ]);
+
+    await this.redis.del(`2fa-setup:${userId}`);
+
+    this.audit.log({
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      action: AuditAction.OTHER,
+      module: 'auth',
+      summary: `[2FA_ENABLED] ${user.email} — verificación en dos pasos activada`,
+      statusCode: 200,
+    });
+
+    return { enabled: true, backupCodes };
+  }
+
+  async disableTwoFactor(userId: string, dto: DisableTwoFactorDto) {
+    const user = await this.usersService.findByIdWithTwoFactor(userId);
+    if (!user) throw new NotFoundException(this.i18n.t('auth.user.not_found'));
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException(this.i18n.t('auth.2fa.not_enabled'));
+    }
+
+    const fullUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    const validPassword = await this.usersService.validatePassword(dto.password, fullUser.password);
+    if (!validPassword) {
+      throw new UnauthorizedException(this.i18n.t('auth.2fa.invalid_password'));
+    }
+
+    const decryptedSecret = decryptSecret(user.twoFactorSecret, this.config.get('ENCRYPTION_KEY'));
+    const validTotp = this.twoFactor.verifyToken(dto.code, decryptedSecret);
+    const validBackup = !validTotp && (await this.consumeBackupCodeIfValid(userId, dto.code));
+
+    if (!validTotp && !validBackup) {
+      throw new UnauthorizedException(this.i18n.t('auth.2fa.invalid_code'));
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorEnabledAt: null },
+      }),
+      this.prisma.twoFactorBackupCode.deleteMany({ where: { userId } }),
+    ]);
+
+    this.audit.log({
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      action: AuditAction.OTHER,
+      module: 'auth',
+      summary: `[2FA_DISABLED] ${user.email} — verificación en dos pasos desactivada`,
+      statusCode: 200,
+    });
+
+    return { enabled: false };
+  }
+
+  private async consumeBackupCodeIfValid(userId: string, code: string): Promise<boolean> {
+    const backupCodes = await this.prisma.twoFactorBackupCode.findMany({
+      where: { userId, usedAt: null },
+    });
+
+    for (const backupCode of backupCodes) {
+      if (await bcrypt.compare(code, backupCode.codeHash)) {
+        await this.prisma.twoFactorBackupCode.update({
+          where: { id: backupCode.id },
+          data: { usedAt: new Date() },
+        });
+        return true;
+      }
+    }
+
+    return false;
   }
 
   async refreshTokens(userId: string, oldRefreshToken: string, securityContext?: any) {

@@ -98,6 +98,7 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('user');
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
+      if (!('user' in result)) throw new Error('expected user in result');
       expect(result.user).not.toHaveProperty('password');
       expect(mockRedisService.resetLoginAttempts).toHaveBeenCalledWith('test@example.com');
     });

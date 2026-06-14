@@ -31,6 +31,9 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
+import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { VerifyLoginTwoFactorDto } from './dto/verify-login-two-factor.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { JwtRefreshGuard } from '../common/guards/jwt-refresh.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -111,6 +114,40 @@ export class AuthController {
   })
   async refresh(@Request() req: any, @Body() dto: RefreshDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.refreshTokens(req.user.userId, req.user.refreshToken, req.securityContext);
+    setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
+    return result;
+  }
+
+  // ─── 2FA / TOTP ───────────────────────────────────────────────────────────────
+
+  @Post('2fa/setup')
+  @UseGuards(JwtAuthGuard)
+  async setupTwoFactor(@CurrentUser() user: any) {
+    return this.authService.setupTwoFactor(user.id);
+  }
+
+  @Post('2fa/enable')
+  @UseGuards(JwtAuthGuard)
+  async enableTwoFactor(@CurrentUser() user: any, @Body() dto: VerifyTwoFactorDto) {
+    return this.authService.enableTwoFactor(user.id, dto);
+  }
+
+  @Post('2fa/disable')
+  @UseGuards(JwtAuthGuard)
+  async disableTwoFactor(@CurrentUser() user: any, @Body() dto: DisableTwoFactorDto) {
+    return this.authService.disableTwoFactor(user.id, dto);
+  }
+
+  @Post('2fa/verify-login')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @RateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutos
+    maxRequests: 10, // Máximo 10 intentos de verificación 2FA
+    keyGenerator: (req) => `2fa-verify:${req.body?.sessionId || req.ip}`
+  })
+  async verifyLoginTwoFactor(@Body() dto: VerifyLoginTwoFactorDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.verifyLoginTwoFactor(dto);
     setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
     return result;
   }
