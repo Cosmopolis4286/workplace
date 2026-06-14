@@ -15,14 +15,14 @@ const SERVICE_REQUEST_ROLES:    Role[] = ['COMMERCE', 'FREELANCER', 'NORMAL']
 const PUBLIC_ROUTES: string[] = [
   '/', '/precios', '/login', '/register',
   '/recover-password', '/reset-password',
-  '/verify-email', '/auth/google/callback',
+  '/verify-email', '/auth/google/callback', '/auth/2fa-verify',
   '/privacidad', '/terminos', '/soporte',
 ]
 
 // ─── Rutas que solo pueden ver usuarios NO autenticados ───────────────────────
 // (autenticado → redirige al dashboard)
 const GUEST_ONLY_ROUTES: string[] = [
-  '/login', '/register', '/recover-password', '/reset-password', '/auth/google/callback',
+  '/login', '/register', '/recover-password', '/reset-password', '/auth/google/callback', '/auth/2fa-verify',
 ]
 
 // ─── Rutas que requieren autenticación mínima (cualquier rol) ─────────────────

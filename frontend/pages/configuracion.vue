@@ -497,6 +497,13 @@
     </template>
 
     <!-- ════════════════════════════════════════════════════════════════════
+         SEGURIDAD — 2FA, disponible para todos los roles
+         ════════════════════════════════════════════════════════════════════ -->
+    <div class="mt-6">
+      <TwoFactorSettings />
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
          APP LOCK — disponible para todos los roles en app nativa
          ════════════════════════════════════════════════════════════════════ -->
     <div v-if="showAppLockCard" class="card-premium p-6 mt-6">
@@ -554,6 +561,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { BiometryType } from '@aparajita/capacitor-biometric-auth'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import TwoFactorSettings from '~/components/settings/TwoFactorSettings.vue'
 import { useSettings } from '~/composables/useSettings'
 import { useAuth } from '~/composables/useAuth'
 import { usePermissions } from '~/composables/usePermissions'

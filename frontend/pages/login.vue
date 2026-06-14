@@ -196,7 +196,11 @@ const handleLogin = async () => {
 
   try {
     const recaptchaToken = await executeRecaptcha('login')
-    await login({ ...form, recaptchaToken })
+    const result = await login({ ...form, recaptchaToken })
+    if ('requiresTwoFactor' in result) {
+      await navigateTo(`/auth/2fa-verify?sessionId=${encodeURIComponent(result.sessionId)}`)
+      return
+    }
     await navigateTo('/dashboard')
   } catch (err: unknown) {
     generalError.value = getApiErrorMessage(err, 'Credenciales incorrectas')
