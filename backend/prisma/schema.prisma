@@ -39,6 +39,11 @@ model User {
   termsVersion      String?
   privacyAcceptedAt DateTime?
 
+  twoFactorEnabled     Boolean   @default(false)
+  twoFactorSecret      String?
+  twoFactorEnabledAt   DateTime?
+  twoFactorBackupCodes TwoFactorBackupCode[]
+
   commerce        Restaurant?
   profileSettings ProfileSettings?
   refreshTokens   RefreshToken[]
@@ -56,6 +61,7 @@ model User {
   catalogOrders    CatalogOrder[]
   serviceRequests  ServiceRequest[]
   notifications    Notification[]
+  deviceTokens     DeviceToken[]
   wallet           Wallet?
   walletTransactions WalletTransaction[]
   userPermissions  UserPermission[]
@@ -250,6 +256,18 @@ model RefreshToken {
   @@index([token])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+model TwoFactorBackupCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("two_factor_backup_codes")
 }
 
 model Category {
@@ -1408,6 +1426,21 @@ model SearchTab {
   updatedAt DateTime @updatedAt
 
   @@map("search_tabs")
+}
+
+// ─── Push Notification Device Tokens ─────────────────────────────────────────
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  platform  String   // "android" | "ios" | "web"
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("device_tokens")
 }
 
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────

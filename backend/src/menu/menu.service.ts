@@ -185,6 +185,16 @@ export class MenuService {
     await this.prisma.product.delete({ where: { id: productId } });
   }
 
+  async updateProductImage(userId: string, productId: string, image: string) {
+    const commerceId = await this.getRestaurantId(userId);
+    await this.assertProductOwnership(productId, commerceId);
+    return this.prisma.product.update({
+      where: { id: productId },
+      data: { image },
+      include: { category: { select: { id: true, name: true, color: true } } },
+    });
+  }
+
   async updateStock(userId: string, productId: string, dto: UpdateStockDto) {
     const commerceId = await this.getRestaurantId(userId);
     const product = await this.assertProductOwnership(productId, commerceId);

@@ -82,8 +82,9 @@ onMounted(async () => {
   await nextTick()
   if (chartRef.value) {
     const ctx = chartRef.value.getContext('2d')
-    const { $chart: Chart } = useNuxtApp()
-    
+    const { $chart } = useNuxtApp()
+    const Chart = await $chart()
+
     chartInstance = new Chart(ctx, {
       type: 'line',
       data: props.data,

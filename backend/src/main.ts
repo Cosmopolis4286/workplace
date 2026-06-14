@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuditService } from './audit/audit.service';
@@ -27,9 +28,17 @@ async function bootstrap() {
     })
   );
 
+  app.use(cookieParser());
+
   const isDev = process.env.APP_ENV !== 'production';
+  // La app Android (Capacitor, androidScheme: 'https') sirve el WebView desde
+  // el origen https://localhost, distinto del dominio del FRONTEND_URL web.
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'https://localhost',
+  ];
   app.enableCors({
-    origin: isDev ? true : process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: isDev ? true : allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

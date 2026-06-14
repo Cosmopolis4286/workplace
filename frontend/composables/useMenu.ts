@@ -200,6 +200,26 @@ export const useMenu = () => {
     }
   }
 
+  async function uploadProductImage(id: string, file: File): Promise<Product | null> {
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      const product = await withAuthRetry(() =>
+        $fetch<Product>(`${apiUrl}/menu/products/${id}/image`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: formData,
+        }),
+      )
+      const idx = products.value.findIndex((p) => p.id === id)
+      if (idx !== -1) products.value[idx] = product
+      return product
+    } catch (err: unknown) {
+      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al subir la imagen'
+      return null
+    }
+  }
+
   return {
     // state
     categories,
@@ -220,5 +240,6 @@ export const useMenu = () => {
     updateProduct,
     deleteProduct,
     toggleProductStatus,
+    uploadProductImage,
   }
 }

@@ -35,24 +35,29 @@ definePageMeta({ layout: false })
 import { onMounted, ref } from 'vue'
 import { ExclamationCircleIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
+import { useModules } from '~/composables/useModules'
+import { usePermissions } from '~/composables/usePermissions'
 
-const { setSession } = useAuth()
+const { fetchProfile } = useAuth()
 const error = ref('')
 
 onMounted(async () => {
   try {
     const params = new URLSearchParams(window.location.search)
-    const accessToken = params.get('accessToken')
-    const refreshToken = params.get('refreshToken')
-    const userRaw = params.get('user')
 
-    if (!accessToken || !refreshToken || !userRaw) {
-      error.value = 'Parámetros de autenticación inválidos. Intenta de nuevo.'
+    if (params.get('error')) {
+      error.value = 'No se pudo completar el inicio de sesión con Google. Intenta de nuevo.'
       return
     }
 
-    const user = JSON.parse(decodeURIComponent(userRaw))
-    setSession({ user, accessToken, refreshToken })
+    const profile = await fetchProfile()
+    if (!profile) {
+      error.value = 'No se pudo verificar la sesión. Intenta iniciar sesión nuevamente.'
+      return
+    }
+
+    useModules().invalidate()
+    usePermissions().reloadPermissions().catch(() => {})
     await navigateTo('/dashboard')
   } catch {
     error.value = 'Error inesperado al completar el inicio de sesión.'

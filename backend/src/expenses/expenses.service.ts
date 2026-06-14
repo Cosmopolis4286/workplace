@@ -198,6 +198,15 @@ export class ExpensesService {
     return { message: this.i18n.t('expenses.deleted') };
   }
 
+  async updateReceipt(id: string, commerceId: string, receipt: string) {
+    await this.findOne(id, commerceId);
+    return this.prisma.expense.update({
+      where: { id },
+      data: { receipt },
+      include: { category: { select: { id: true, name: true, color: true } } },
+    });
+  }
+
   // ── Categories CRUD ────────────────────────────────────────────────────────
 
   async findAllCategories(commerceId: string) {

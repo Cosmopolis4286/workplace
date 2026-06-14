@@ -31,10 +31,14 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
+import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { VerifyLoginTwoFactorDto } from './dto/verify-login-two-factor.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { JwtRefreshGuard } from '../common/guards/jwt-refresh.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ConfigService } from '@nestjs/config';
+import { setAuthCookies, clearAuthCookies } from '../common/utils/auth-cookies.util';
 
 @Controller('auth')
 export class AuthController {
@@ -54,20 +58,20 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(@Request() req: any, @Res() res: Response) {
-    const { user, accessToken, refreshToken } =
-      await this.authService.loginWithGoogle(req.user);
     const frontendUrl = this.config.get<string>(
       'FRONTEND_URL',
       'http://localhost:3000'
     );
 
-    // Pass tokens via query params so the SPA can store them
-    const params = new URLSearchParams({
-      accessToken,
-      refreshToken,
-      user: JSON.stringify(user),
-    });
-    return res.redirect(`${frontendUrl}/auth/google/callback?${params}`);
+    try {
+      const { accessToken, refreshToken } =
+        await this.authService.loginWithGoogle(req.user);
+
+      setAuthCookies(res, accessToken, refreshToken, this.config);
+      return res.redirect(`${frontendUrl}/auth/google/callback?success=1`);
+    } catch {
+      return res.redirect(`${frontendUrl}/auth/google/callback?error=1`);
+    }
   }
 
   // ─── Credentials auth ────────────────────────────────────────────────────────
@@ -79,8 +83,10 @@ export class AuthController {
     maxRequests: 3, // Máximo 3 registros por hora
     keyGenerator: (req) => `register:${req.ip}` // Por IP
   })
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.register(dto);
+    setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
+    return result;
   }
 
   @Post('login')
@@ -91,8 +97,11 @@ export class AuthController {
     maxRequests: 20, // Máximo 20 intentos de login
     keyGenerator: (req) => `login:${req.ip}` // Por IP
   })
-  async login(@Body() dto: LoginDto, @Request() req: any) {
-    return this.authService.login(dto, req.securityContext);
+  async login(@Body() dto: LoginDto, @Request() req: any, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.login(dto, req.securityContext);
+    if ('requiresTwoFactor' in result) return result;
+    setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
+    return result;
   }
 
   @Post('refresh')
@@ -103,8 +112,44 @@ export class AuthController {
     maxRequests: 50, // Máximo 50 refresh tokens
     keyGenerator: (req: any) => `refresh:${(req.user as any)?.userId || req.ip}` // Por usuario o IP
   })
-  async refresh(@Request() req: any, @Body() dto: RefreshDto) {
-    return this.authService.refreshTokens(req.user.userId, dto.refreshToken, req.securityContext);
+  async refresh(@Request() req: any, @Body() dto: RefreshDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.refreshTokens(req.user.userId, req.user.refreshToken, req.securityContext);
+    setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
+    return result;
+  }
+
+  // ─── 2FA / TOTP ───────────────────────────────────────────────────────────────
+
+  @Post('2fa/setup')
+  @UseGuards(JwtAuthGuard)
+  async setupTwoFactor(@CurrentUser() user: any) {
+    return this.authService.setupTwoFactor(user.id);
+  }
+
+  @Post('2fa/enable')
+  @UseGuards(JwtAuthGuard)
+  async enableTwoFactor(@CurrentUser() user: any, @Body() dto: VerifyTwoFactorDto) {
+    return this.authService.enableTwoFactor(user.id, dto);
+  }
+
+  @Post('2fa/disable')
+  @UseGuards(JwtAuthGuard)
+  async disableTwoFactor(@CurrentUser() user: any, @Body() dto: DisableTwoFactorDto) {
+    return this.authService.disableTwoFactor(user.id, dto);
+  }
+
+  @Post('2fa/verify-login')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @RateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutos
+    maxRequests: 10, // Máximo 10 intentos de verificación 2FA
+    keyGenerator: (req) => `2fa-verify:${req.body?.sessionId || req.ip}`
+  })
+  async verifyLoginTwoFactor(@Body() dto: VerifyLoginTwoFactorDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.verifyLoginTwoFactor(dto);
+    setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
+    return result;
   }
 
   @Post('logout')
@@ -113,10 +158,13 @@ export class AuthController {
   async logout(
     @CurrentUser() user: any,
     @Body('refreshToken') refreshToken?: string,
-    @Request() req?: any
+    @Request() req?: any,
+    @Res({ passthrough: true }) res?: Response
   ) {
     // Revoca refresh tokens en DB (no necesita Redis blacklist)
-    await this.authService.logout(user.id, refreshToken, req?.securityContext);
+    const token = refreshToken ?? req?.cookies?.['refresh_token'];
+    await this.authService.logout(user.id, token, req?.securityContext);
+    if (res) clearAuthCookies(res, this.config);
     return { message: 'Sesión cerrada exitosamente' };
   }
 
