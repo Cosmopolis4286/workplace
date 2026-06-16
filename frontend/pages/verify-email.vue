@@ -145,9 +145,18 @@ const displayEmail = computed(() => {
 })
 
 // Polling: si el usuario verifica en otra pestaña, detectarlo y redirigir
+// Stops after 60 attempts (5 min) to avoid endless background requests
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let pollAttempts = 0
+const MAX_POLL_ATTEMPTS = 60
+
 function startPolling() {
   pollTimer = setInterval(async () => {
+    pollAttempts++
+    if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+      clearInterval(pollTimer!)
+      return
+    }
     const profile = await fetchProfile().catch(() => null)
     if (profile?.emailVerified) {
       clearInterval(pollTimer!)
@@ -161,11 +170,11 @@ const isResending = ref(false)
 const resentSuccess = ref(false)
 const resendError = ref('')
 
-const verifySteps = computed(() => [
+const verifySteps = [
   { label: 'Cuenta creada', desc: 'Tu cuenta ha sido registrada exitosamente', done: true },
   { label: 'Verifica tu correo', desc: 'Haz clic en el enlace que te enviamos', done: false },
-  { label: 'Comienza a usar la plataforma', desc: 'Accede a tu panel de control', done: false }
-])
+  { label: 'Comienza a usar la plataforma', desc: 'Accede a tu panel de control', done: false },
+]
 
 const resendVerification = async () => {
   isResending.value = true

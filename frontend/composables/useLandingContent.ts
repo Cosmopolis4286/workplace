@@ -56,7 +56,7 @@ export const useLandingContent = () => {
 
   const testimonials = useState<PublicTestimonial[]>('landing-testimonials', () => FALLBACK_TESTIMONIALS)
   const stats = useState<PublicStat[]>('landing-stats', () => FALLBACK_STATS)
-  const loading = ref(false)
+  const loading = useState('landing-loading', () => false)
 
   async function load() {
     if (loading.value) return

@@ -43,6 +43,16 @@
         variant="primary"
       />
     </form>
+
+    <template #footer>
+      <button
+        type="button"
+        class="text-sm text-gray-400 hover:text-gray-600 transition-colors duration-150"
+        @click="navigateTo('/login')"
+      >
+        Configurar más tarde
+      </button>
+    </template>
   </AuthLayout>
 </template>
 

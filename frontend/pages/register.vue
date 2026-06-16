@@ -258,7 +258,7 @@ const validationSchema = {
   firstName: [required('El nombre')],
   lastName: [required('El apellido')],
   email: [required('El correo'), email()],
-  phone: [phone()],
+  phone: [(v: string) => !v || phone()(v)],
   commerceName: [required('El nombre del negocio'), minLength(2), maxLength(80)],
   password: [required('La contraseña'), minLength(8), passwordStrength()],
   confirmPassword: [required('Confirma la contraseña'), matches(() => form.password, 'Las contraseñas')]

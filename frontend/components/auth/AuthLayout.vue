@@ -260,7 +260,7 @@ const healthLabel = computed(() => ({
   up: 'Plataforma activa',
   degraded: 'Servicio degradado',
   down: 'Servicio interrumpido',
-}[healthStatus.value]))
+}[healthStatus.value] ?? 'Plataforma activa'))
 
 // apiUrl extracted at setup level — not inside setInterval callback
 const config = useRuntimeConfig()
@@ -269,11 +269,12 @@ const apiUrl = config.public.apiUrl as string
 let healthTimer: ReturnType<typeof setInterval> | null = null
 
 async function checkHealth() {
-  const res = await $fetch<{ status: string }>(`${apiUrl}/health`, {
-    timeout: 4000,
-  }).catch(() => null)
-  if (!res) { healthStatus.value = 'down'; return }
-  healthStatus.value = res.status === 'ok' ? 'up' : 'degraded'
+  try {
+    const res = await $fetch<{ status: string }>(`${apiUrl}/health`, { timeout: 4000 })
+    healthStatus.value = res.status === 'ok' ? 'up' : 'degraded'
+  } catch {
+    healthStatus.value = 'down'
+  }
 }
 
 // ─── Stats dinámicas ──────────────────────────────────────────────────────────
@@ -303,7 +304,12 @@ function resetTestimonialTimer() {
 }
 
 // Start timer only once testimonials data has loaded (avoids race condition)
-watch(testimonials, resetTestimonialTimer, { once: true })
+const unwatchTestimonials = watch(testimonials, (val) => {
+  if (val.length > 0) {
+    resetTestimonialTimer()
+    unwatchTestimonials()
+  }
+})
 
 onMounted(() => {
   loadStats()
