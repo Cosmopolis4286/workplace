@@ -5,14 +5,7 @@
     <nav class="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
         <!-- Logo -->
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 bg-workplace-red rounded-lg flex items-center justify-center shadow-sm">
-            <svg class="w-4.5 h-4.5 text-white w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3 3 0 110 6 3 3 0 010-6zm0 14.2a7.2 7.2 0 01-6-3.22c.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08A7.2 7.2 0 0112 19.2z"/>
-            </svg>
-          </div>
-          <span class="font-black text-gray-900 text-lg tracking-tight">WorkPlace <span class="font-medium text-gray-500">Manager</span></span>
-        </div>
+        <AppLogo />
 
         <!-- Desktop nav -->
         <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
@@ -229,8 +222,8 @@
         </div>
 
         <div class="grid md:grid-cols-3 gap-8 relative">
-          <!-- Connecting line (desktop) -->
-          <div class="hidden md:block absolute top-10 left-[calc(16.67%-0px)] right-[calc(16.67%-0px)] h-px bg-gray-200" style="left: 17%; right: 17%;"></div>
+          <!-- Connecting line (desktop): spans between centers of the 3 icon boxes -->
+          <div class="hidden md:block absolute top-10 h-px bg-gray-200" style="left: calc(16.67% + 40px); right: calc(16.67% + 40px);"></div>
 
           <div v-for="(step, i) in steps" :key="i" class="flex flex-col items-center text-center space-y-4 relative">
             <div class="w-20 h-20 rounded-2xl bg-white border-2 border-gray-200 flex items-center justify-center shadow-sm relative z-10">
@@ -278,7 +271,7 @@
             </div>
             <p class="text-gray-600 text-sm leading-relaxed italic">"{{ t.quote }}"</p>
             <div class="flex items-center gap-3 pt-2 border-t border-gray-50">
-              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" :class="t.avatarBg">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" :style="{ backgroundColor: t.avatarColor }">
                 {{ t.initials }}
               </div>
               <div>
@@ -333,14 +326,7 @@
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           <!-- Brand -->
           <div class="space-y-3">
-            <div class="flex items-center gap-2">
-              <div class="w-7 h-7 bg-workplace-red rounded-lg flex items-center justify-center">
-                <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3 3 0 110 6 3 3 0 010-6zm0 14.2a7.2 7.2 0 01-6-3.22c.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08A7.2 7.2 0 0112 19.2z"/>
-                </svg>
-              </div>
-              <span class="font-black text-gray-900">WorkPlace <span class="font-medium text-gray-500">Manager</span></span>
-            </div>
+            <AppLogo size="sm" />
             <p class="text-sm text-gray-400 max-w-xs">
               La plataforma de gestión más completa para restaurantes modernos.
             </p>
@@ -366,7 +352,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import {
   ShoppingCartIcon,
   CubeIcon,
@@ -381,12 +366,28 @@ import {
   UserPlusIcon,
   CogIcon,
   RocketLaunchIcon,
-  StarIcon,
 } from '@heroicons/vue/24/outline'
+import { StarIcon } from '@heroicons/vue/24/solid'
 
 definePageMeta({ layout: false })
 
-const currentYear = computed(() => new Date().getFullYear())
+useHead({
+  title: 'WorkPlace Manager — Gestiona tu restaurante sin complicaciones',
+  meta: [
+    { name: 'description', content: 'Pedidos, inventario, menú, clientes, delivery y reportes todo desde un solo panel. La plataforma todo-en-uno diseñada para restaurantes que quieren crecer.' },
+    { name: 'keywords', content: 'gestión restaurante, software restaurante, pedidos online, inventario, delivery, analytics' },
+    { property: 'og:title', content: 'WorkPlace Manager — Gestiona tu restaurante sin complicaciones' },
+    { property: 'og:description', content: 'Pedidos, inventario, menú, clientes, delivery y reportes — todo desde un solo panel.' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:image', content: '/og-image.png' },
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: 'WorkPlace Manager' },
+    { name: 'twitter:description', content: 'La plataforma todo-en-uno para gestionar tu restaurante.' },
+  ],
+  link: [{ rel: 'canonical', href: 'https://workplace-manager.app' }],
+})
+
+const currentYear = new Date().getFullYear()
 
 // ─── Hero mock data ──────────────────────────────────────────────────────────
 
@@ -404,15 +405,10 @@ const heroOrders = [
   { id: 3, initials: 'CR', name: 'Carlos R.', time: 'hace 15 min', amount: '$560', status: 'Listo', statusClass: 'bg-green-50 text-green-600' },
 ]
 
-// ─── Social proof ────────────────────────────────────────────────────────────
+// ─── Dynamic landing content ──────────────────────────────────────────────────
 
-const socialStats = [
-  { value: '500+', label: 'Restaurantes activos' },
-  { value: '99.9%', label: 'Tiempo en línea' },
-  { value: '50k+', label: 'Pedidos procesados' },
-  { value: '4.9★', label: 'Valoración promedio' },
-  { value: '24/7', label: 'Soporte disponible' },
-]
+const { stats: socialStats, testimonials, load: loadLandingContent } = useLandingContent()
+onMounted(loadLandingContent)
 
 // ─── Features ────────────────────────────────────────────────────────────────
 
@@ -475,29 +471,5 @@ const steps = [
   },
 ]
 
-// ─── Testimonials ─────────────────────────────────────────────────────────────
-
-const testimonials = [
-  {
-    quote: 'Desde que usamos WorkPlace Manager nuestros tiempos de servicio mejoraron un 40%. El módulo de pedidos es increíblemente intuitivo.',
-    name: 'Laura Martínez',
-    role: 'Dueña, Restaurante El Sabor',
-    initials: 'LM',
-    avatarBg: 'bg-workplace-red',
-  },
-  {
-    quote: 'El control de inventario nos ahorró miles al mes. Ahora nunca nos quedamos sin ingredientes clave en hora pico.',
-    name: 'Roberto Núñez',
-    role: 'Chef ejecutivo, Casa del Chef',
-    initials: 'RN',
-    avatarBg: 'bg-violet-500',
-  },
-  {
-    quote: 'Los reportes de analytics nos ayudaron a identificar nuestros productos estrella y duplicar su disponibilidad.',
-    name: 'Ana Torres',
-    role: 'Gerente, Pizzería Bella Napoli',
-    initials: 'AT',
-    avatarBg: 'bg-teal-500',
-  },
-]
+// Features and steps remain static (marketing copy, not admin-managed)
 </script>
