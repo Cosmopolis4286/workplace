@@ -20,6 +20,7 @@ interface User {
   avatar?: string
   role: 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
   isActive: boolean
+  emailVerified?: boolean
   commerce?: Restaurant
   categoryId?: string
   category?: { id: string; name: string; icon?: string | null } | null
@@ -345,6 +346,14 @@ export const useAuth = () => {
     })
   }
 
+  async function revokeAllSessions(): Promise<void> {
+    await $fetch(`${apiUrl}/auth/sessions`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: getHeaders(),
+    })
+  }
+
   async function uploadAvatar(file: File): Promise<User> {
     const formData = new FormData()
     formData.append('avatar', file)
@@ -383,5 +392,6 @@ export const useAuth = () => {
     setupTwoFactor,
     enableTwoFactor,
     disableTwoFactor,
+    revokeAllSessions,
   }
 }

@@ -172,7 +172,14 @@ const resendVerification = async () => {
   resendError.value = ''
   try {
     const { post } = useApi()
-    await post('/auth/send-verification', { email: user.value?.email })
+    const email = user.value?.email ?? (useRoute().query.email as string | undefined)
+    if (user.value) {
+      // Authenticated: use protected endpoint
+      await post('/auth/send-verification', {})
+    } else if (email) {
+      // Unauthenticated (expired session): use public endpoint
+      await post('/auth/send-verification-by-email', { email: decodeURIComponent(email) })
+    }
     resentSuccess.value = true
   } catch (err: unknown) {
     resendError.value = getApiErrorMessage(err, 'No se pudo reenviar el correo. Inténtalo de nuevo.')

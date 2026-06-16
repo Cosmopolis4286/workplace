@@ -399,15 +399,16 @@ export class AuthService {
     lastName: string;
     avatar?: string;
   }) {
-    // Find existing user by email or create a new COMMERCE account
     let user: any = await this.usersService.findByEmail(googleUser.email);
+    let isNewUser = false;
 
     if (!user) {
-      // Auto-register: use email prefix as restaurant name placeholder
-      const commerceName = `${googleUser.firstName}'s Commerce`;
+      isNewUser = true;
+      // Placeholder name — user will complete it in onboarding
+      const commerceName = `__pending__${googleUser.firstName}`;
       user = await this.usersService.create({
         email: googleUser.email,
-        password: uuidv4(), // random unusable password — user logs in via Google
+        password: uuidv4(),
         firstName: googleUser.firstName,
         lastName: googleUser.lastName,
         commerceName,
@@ -415,7 +416,6 @@ export class AuthService {
       });
     }
 
-    // Update avatar if provided and user doesn't have one yet
     if (googleUser.avatar && !user.avatar) {
       await this.usersService.updateAvatar(user.id, googleUser.avatar);
     }
@@ -423,10 +423,12 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
-    const { password, ...safeUser } = user as typeof user & {
-      password?: string;
-    };
-    return { user: safeUser, ...tokens };
+    const { password, ...safeUser } = user as typeof user & { password?: string };
+
+    // Signal the frontend to redirect to onboarding for new Google registrations
+    const needsOnboarding = isNewUser || (safeUser.commerce?.name as string | undefined)?.startsWith('__pending__');
+
+    return { user: safeUser, ...tokens, needsOnboarding };
   }
 
   async logout(userId: string, refreshToken?: string, securityContext?: any) {
@@ -528,6 +530,28 @@ export class AuthService {
     return { message: this.i18n.t('auth.session.revoked') };
   }
 
+  async revokeAllSessions(userId: string) {
+    const tokens = await this.prisma.refreshToken.findMany({
+      where: { userId, revokedAt: null },
+      select: { id: true, token: true },
+    })
+
+    for (const t of tokens) {
+      try {
+        const decoded = this.decodeJWT(t.token)
+        if (decoded?.jti) await this.redis.blacklistToken(decoded.jti, 900)
+      } catch { /* skip */ }
+    }
+
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    })
+
+    await this.clearAllUserSessions(userId)
+    return { message: 'Todas las sesiones han sido cerradas' }
+  }
+
   async getProfile(userId: string) {
     return this.usersService.findById(userId);
   }
@@ -559,16 +583,16 @@ export class AuthService {
       throw new ForbiddenException(this.i18n.t('auth.demo.no_users'));
     }
 
-    // Contraseñas mapeadas por email (fuente de verdad: prisma/seed.js)
+    // Demo passwords come from environment variables (not hardcoded)
     const emailPasswords: Record<string, string> = {
-      'superadmin@demo.com': 'S4p3rAdm1n!#2026',
-      'admin@demo.com': 'Adm1n@Sec#2026',
-      'commerce@demo.com': 'C0mm3rc3!Biz#26',
-      'tecnologia@demo.com': 'T3ch@Biz#26',
-      'freelancer@demo.com': 'Fr33lanc3r!#2026',
-      'delivery@demo.com': 'D3l1v3ry@Fast#26',
-      'comidarapida@demo.com': 'C0m1d4R4p!d4#26',
-      'normal@demo.com': 'N0rm4lUs3r!#2026',
+      'superadmin@demo.com': this.config.get('DEMO_PWD_SUPERADMIN', 'Demo123'),
+      'admin@demo.com': this.config.get('DEMO_PWD_ADMIN', 'Demo123'),
+      'commerce@demo.com': this.config.get('DEMO_PWD_COMMERCE', 'Demo123'),
+      'tecnologia@demo.com': this.config.get('DEMO_PWD_TECNOLOGIA', 'Demo123'),
+      'freelancer@demo.com': this.config.get('DEMO_PWD_FREELANCER', 'Demo123'),
+      'delivery@demo.com': this.config.get('DEMO_PWD_DELIVERY', 'Demo123'),
+      'comidarapida@demo.com': this.config.get('DEMO_PWD_COMIDARAPIDA', 'Demo123'),
+      'normal@demo.com': this.config.get('DEMO_PWD_NORMAL', 'Demo123'),
     };
 
     const credentials = demoUsers.map((user) => ({
@@ -678,6 +702,16 @@ export class AuthService {
 
     await this.mail.sendEmailVerification(user.email, token, user.firstName);
     return { message: this.i18n.t('auth.email_verification.sent') };
+  }
+
+  async sendVerificationEmailByEmail(email: string) {
+    if (!email) return { message: this.i18n.t('auth.email_verification.sent') }
+    const user = await this.usersService.findByEmail(email)
+    // Always return success to prevent enumeration
+    if (!user) return { message: this.i18n.t('auth.email_verification.sent') }
+    if ((user as any).emailVerified)
+      return { message: this.i18n.t('auth.email_verification.already_verified') }
+    return this.sendVerificationEmail(user.id)
   }
 
   async verifyEmail(token: string) {

@@ -277,6 +277,18 @@ export class AuthController {
     return this.authService.sendVerificationEmail(user.id);
   }
 
+  @Post('send-verification-by-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @RateLimit({
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 5,
+    keyGenerator: (req) => `send-verify:${req.body?.email || req.ip}`,
+  })
+  async sendVerificationByEmail(@Body('email') email: string) {
+    return this.authService.sendVerificationEmailByEmail(email);
+  }
+
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   async verifyEmail(@Body('token') token: string) {
@@ -313,6 +325,13 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async revokeSession(@CurrentUser() user: any, @Param('id') id: string) {
     return this.authService.revokeSession(user.id, id);
+  }
+
+  @Delete('sessions')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async revokeAllSessions(@CurrentUser() user: any) {
+    return this.authService.revokeAllSessions(user.id);
   }
 
   private parseTtlToSeconds(duration: string): number {
