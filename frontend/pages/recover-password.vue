@@ -116,6 +116,7 @@
 </template>
 
 <script setup lang="ts">
+useHead({ title: 'Recuperar contraseña — WorkPlace Manager' })
 import { ref, computed } from 'vue'
 import { EnvelopeIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'

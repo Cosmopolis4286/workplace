@@ -25,8 +25,8 @@
 
       <!-- Content -->
       <div class="relative flex flex-col h-full px-12 py-16">
-        <!-- Logo -->
-        <div class="flex items-center space-x-3">
+        <!-- Logo (panel izquierdo — color blanco sobre fondo rojo) -->
+        <div class="flex items-center gap-2.5">
           <div class="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
             <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3 3 0 110 6 3 3 0 010-6zm0 14.2a7.2 7.2 0 01-6-3.22c.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08A7.2 7.2 0 0112 19.2z"/>
@@ -81,13 +81,8 @@
       <!-- Top bar -->
       <div class="flex items-center justify-between px-6 sm:px-10 py-5 border-b border-gray-100 bg-white">
         <!-- Mobile logo -->
-        <div class="flex items-center space-x-2 lg:hidden">
-          <div class="w-8 h-8 bg-gradient-to-br from-workplace-red to-red-600 rounded-lg flex items-center justify-center shadow-sm">
-            <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a3 3 0 110 6 3 3 0 010-6zm0 14.2a7.2 7.2 0 01-6-3.22c.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08A7.2 7.2 0 0112 19.2z"/>
-            </svg>
-          </div>
-          <span class="font-black text-gray-900 text-lg">WorkPlace <span class="font-medium text-gray-500">Manager</span></span>
+        <div class="lg:hidden">
+          <AppLogo size="sm" />
         </div>
         <div class="hidden lg:block"></div>
 
@@ -132,12 +127,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import {
   ChartBarIcon,
   ShoppingBagIcon,
   UsersIcon,
-  TruckIcon
+  TruckIcon,
+  BriefcaseIcon,
+  WrenchScrewdriverIcon,
+  StarIcon,
 } from '@heroicons/vue/24/outline'
 
 defineProps({
@@ -146,18 +143,47 @@ defineProps({
   description: { type: String, default: '' }
 })
 
-const currentYear = computed(() => new Date().getFullYear())
+const currentYear = new Date().getFullYear()
 
-const features = [
+// C: stats dinámicas desde useLandingContent con fallback
+const { stats: landingStats, load: loadStats } = useLandingContent()
+onMounted(loadStats)
+
+const stats = computed(() => {
+  const s = landingStats.value
+  // Mostrar solo 3 en el panel lateral
+  return s.slice(0, 3).map(item => ({ value: item.value, label: item.label }))
+})
+
+// I: features según el contexto (registro suele ser sin rol aún — mostramos las generales)
+// Si hay usuario autenticado con rol conocido, adaptamos
+const { user } = useAuth()
+const role = computed(() => user.value?.role ?? null)
+
+const COMMERCE_FEATURES = [
   { icon: ChartBarIcon, label: 'Analytics en tiempo real', desc: 'Métricas y reportes al instante' },
   { icon: ShoppingBagIcon, label: 'Gestión de pedidos', desc: 'Control total del flujo de órdenes' },
   { icon: UsersIcon, label: 'CRM de clientes', desc: 'Segmentación y fidelización' },
   { icon: TruckIcon, label: 'Módulo de delivery', desc: 'Seguimiento de repartidores' },
 ]
 
-const stats = [
-  { value: '500+', label: 'Restaurantes' },
-  { value: '99.9%', label: 'Uptime' },
-  { value: '24/7', label: 'Soporte' },
+const FREELANCER_FEATURES = [
+  { icon: WrenchScrewdriverIcon, label: 'Catálogo de servicios', desc: 'Publica y gestiona tus servicios' },
+  { icon: UsersIcon, label: 'Gestión de clientes', desc: 'Historial y seguimiento de solicitudes' },
+  { icon: ChartBarIcon, label: 'Reportes de actividad', desc: 'Visualiza tus ingresos y métricas' },
+  { icon: StarIcon, label: 'Reseñas y reputación', desc: 'Construye tu presencia en la plataforma' },
 ]
+
+const NORMAL_FEATURES = [
+  { icon: ShoppingBagIcon, label: 'Marketplace', desc: 'Encuentra productos y servicios' },
+  { icon: BriefcaseIcon, label: 'Bolsa de trabajo', desc: 'Descubre oportunidades laborales' },
+  { icon: UsersIcon, label: 'Perfiles públicos', desc: 'Conecta con comercios y freelancers' },
+  { icon: StarIcon, label: 'Reseñas verificadas', desc: 'Comparte tu experiencia' },
+]
+
+const features = computed(() => {
+  if (role.value === 'FREELANCER') return FREELANCER_FEATURES
+  if (role.value === 'NORMAL') return NORMAL_FEATURES
+  return COMMERCE_FEATURES // default: COMMERCE / no autenticado / ADMIN
+})
 </script>

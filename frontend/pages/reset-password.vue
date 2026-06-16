@@ -44,21 +44,40 @@
           <LockClosedIcon class="h-7 w-7 text-workplace-red" />
         </div>
         <p class="text-sm text-gray-500 max-w-xs leading-relaxed">
-          Ingresa tu nueva contraseña. Debe tener al menos 8 caracteres.
+          Ingresa tu nueva contraseña. Debe tener al menos 8 caracteres con mayúsculas, minúsculas y números.
         </p>
       </div>
 
-      <AuthInput
-        id="password"
-        v-model="form.password"
-        type="password"
-        label="Nueva contraseña"
-        placeholder="••••••••"
-        :icon="LockClosedIcon"
-        :error="errors.password"
-        autocomplete="new-password"
-        required
-      />
+      <div>
+        <AuthInput
+          id="password"
+          v-model="form.password"
+          type="password"
+          label="Nueva contraseña"
+          placeholder="••••••••"
+          :icon="LockClosedIcon"
+          :error="errors.password"
+          :show-valid="touched.password && !errors.password"
+          :show-password-toggle="true"
+          autocomplete="new-password"
+          required
+          @blur="touch('password')"
+        />
+        <!-- Password strength bar -->
+        <div v-if="form.password" class="space-y-1.5 mt-2">
+          <div class="flex gap-1">
+            <div
+              v-for="i in 4"
+              :key="i"
+              class="flex-1 h-1 rounded-full transition-all duration-300"
+              :class="i <= pwScore ? strengthColor : 'bg-gray-200'"
+            />
+          </div>
+          <p class="text-xs" :class="pwScore >= 3 ? 'text-green-600' : pwScore >= 2 ? 'text-yellow-600' : 'text-red-500'">
+            Seguridad: <span class="font-semibold">{{ strengthLabel }}</span>
+          </p>
+        </div>
+      </div>
 
       <AuthInput
         id="confirm"
@@ -68,8 +87,11 @@
         placeholder="••••••••"
         :icon="LockClosedIcon"
         :error="errors.confirm"
+        :show-valid="touched.confirm && !errors.confirm"
+        :show-password-toggle="true"
         autocomplete="new-password"
         required
+        @blur="touch('confirm')"
       />
 
       <AuthButton
@@ -84,10 +106,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { KeyIcon } from '@heroicons/vue/24/outline'
+useHead({ title: 'Nueva contraseña — WorkPlace Manager' })
+import { ref, computed } from 'vue'
 import { useApi } from '~/composables/useApi'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
+import { useFormValidation } from '~/composables/useFormValidation'
 import {
   LockClosedIcon,
   CheckCircleIcon,
@@ -100,20 +123,38 @@ import {
 const route = useRoute()
 const token = route.query.token as string
 
+const { required, minLength, passwordStrength, matches, validate, passwordScore, strengthLabel: slabel, strengthColor: scolor } = useFormValidation()
+
 const form = reactive({ password: '', confirm: '' })
 const errors = reactive({ password: '', confirm: '' })
+const touched = reactive({ password: false, confirm: false })
 const isLoading = ref(false)
 const success = ref(false)
 const tokenError = ref('')
 
-// If no token in URL, show error immediately
 if (!token) {
   tokenError.value = 'No se encontró un token de recuperación. Solicita un nuevo enlace.'
 }
 
+const pwScore = computed(() => passwordScore(form.password))
+const strengthLabel = computed(() => slabel(pwScore.value))
+const strengthColor = computed(() => scolor(pwScore.value))
+
+function touch(field: 'password' | 'confirm') {
+  touched[field] = true
+  if (field === 'password') {
+    errors.password = validate(form.password, [required('La contraseña'), minLength(8), passwordStrength()])
+    if (touched.confirm) errors.confirm = validate(form.confirm, [matches(() => form.password, 'Las contraseñas')])
+  } else {
+    errors.confirm = validate(form.confirm, [matches(() => form.password, 'Las contraseñas')])
+  }
+}
+
 const handleReset = async () => {
-  errors.password = form.password.length < 8 ? 'Mínimo 8 caracteres' : ''
-  errors.confirm = form.password !== form.confirm ? 'Las contraseñas no coinciden' : ''
+  touched.password = true
+  touched.confirm = true
+  errors.password = validate(form.password, [required('La contraseña'), minLength(8), passwordStrength()])
+  errors.confirm = validate(form.confirm, [matches(() => form.password, 'Las contraseñas')])
   if (errors.password || errors.confirm) return
 
   isLoading.value = true

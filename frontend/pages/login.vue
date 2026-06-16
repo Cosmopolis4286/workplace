@@ -14,9 +14,19 @@
     </template>
 
     <form @submit.prevent="handleLogin" class="space-y-5" novalidate>
+      <!-- Rate-limit countdown banner -->
+      <div
+        v-if="rateLimitSeconds > 0"
+        class="flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800"
+        role="alert"
+      >
+        <ClockIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-500" />
+        <span>Demasiados intentos. Espera <strong>{{ rateLimitSeconds }}s</strong> antes de reintentar.</span>
+      </div>
+
       <!-- General error banner -->
       <div
-        v-if="generalError"
+        v-if="generalError && rateLimitSeconds === 0"
         class="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700"
         role="alert"
       >
@@ -87,6 +97,7 @@
         type="submit"
         text="Iniciar sesión"
         :loading="isLoading"
+        :disabled="rateLimitSeconds > 0"
         :icon="ArrowLeftEndOnRectangleIcon"
         variant="primary"
       />
@@ -99,19 +110,7 @@
       </div>
 
       <!-- Google OAuth -->
-      <button
-        type="button"
-        @click="loginWithGoogle"
-        class="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
-      >
-        <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        Continuar con Google
-      </button>
+      <GoogleAuthButton />
 
       <!-- reCAPTCHA notice -->
       <p v-if="recaptchaEnabled" class="text-center text-[11px] text-gray-400 leading-relaxed">
@@ -143,6 +142,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
+useHead({ title: 'Iniciar sesión — WorkPlace Manager' })
 
 import { ref, reactive } from 'vue'
 import {
@@ -150,23 +150,50 @@ import {
   LockClosedIcon,
   ArrowLeftEndOnRectangleIcon,
   ExclamationCircleIcon,
-  CheckIcon
+  CheckIcon,
+  ClockIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 import { useFormValidation } from '~/composables/useFormValidation'
 import { useRecaptcha } from '~/composables/useRecaptcha'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
 
-const { login } = useAuth()
+const { login, isAuthenticated } = useAuth()
 const { required, email, minLength, validateAll } = useFormValidation()
 const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha()
 const config = useRuntimeConfig()
+const route = useRoute()
+
+// F: auto-redirect si ya hay sesión activa
+onMounted(() => {
+  if (isAuthenticated.value) navigateTo('/dashboard')
+  // G: pre-rellenar email desde query param (?email= viene de register/recover-password)
+  const emailParam = route.query.email as string | undefined
+  if (emailParam) form.email = decodeURIComponent(emailParam)
+})
 
 const form = reactive({ email: '', password: '', rememberMe: false })
 const errors = reactive({ email: '', password: '' })
 const touched = reactive({ email: false, password: false })
 const isLoading = ref(false)
 const generalError = ref('')
+
+// E: rate-limit countdown
+const rateLimitSeconds = ref(0)
+let rateLimitTimer: ReturnType<typeof setInterval> | null = null
+
+function startRateLimitCountdown(seconds: number) {
+  rateLimitSeconds.value = seconds
+  if (rateLimitTimer) clearInterval(rateLimitTimer)
+  rateLimitTimer = setInterval(() => {
+    rateLimitSeconds.value--
+    if (rateLimitSeconds.value <= 0) {
+      clearInterval(rateLimitTimer!)
+      rateLimitTimer = null
+    }
+  }, 1000)
+}
+onUnmounted(() => { if (rateLimitTimer) clearInterval(rateLimitTimer) })
 
 const touch = (field: keyof typeof touched) => {
   touched[field] = true
@@ -203,14 +230,17 @@ const handleLogin = async () => {
     }
     await navigateTo('/dashboard')
   } catch (err: unknown) {
-    generalError.value = getApiErrorMessage(err, 'Credenciales incorrectas')
+    const msg = getApiErrorMessage(err, 'Credenciales incorrectas')
+    // Detectar rate-limit con segundos para countdown
+    const match = msg.match(/(\d+)\s*segundo/i)
+    if (match) {
+      startRateLimitCountdown(parseInt(match[1], 10))
+    } else {
+      generalError.value = msg
+    }
   } finally {
     isLoading.value = false
   }
-}
-
-const loginWithGoogle = () => {
-  window.location.href = `${config.public.apiUrl}/auth/google`
 }
 
 const fillDemoCredentials = (creds: { email: string; password: string }) => {

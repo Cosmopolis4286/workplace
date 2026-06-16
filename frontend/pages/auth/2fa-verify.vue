@@ -58,6 +58,7 @@
         :icon="KeyIcon"
         autocomplete="one-time-code"
         required
+        @input="onCodeInput"
       />
 
       <AuthInput
@@ -70,6 +71,7 @@
         :icon="KeyIcon"
         autocomplete="one-time-code"
         required
+        @input="onBackupCodeInput"
       />
 
       <AuthButton
@@ -95,6 +97,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
+useHead({ title: 'Verificación en dos pasos — WorkPlace Manager' })
 
 import { ref } from 'vue'
 import {
@@ -127,6 +130,19 @@ const toggleBackupCode = () => {
   useBackupCode.value = !useBackupCode.value
   code.value = ''
   generalError.value = ''
+}
+
+function onCodeInput() {
+  // Solo dígitos, máximo 6
+  code.value = code.value.replace(/\D/g, '').slice(0, 6)
+  // Auto-submit cuando se completan 6 dígitos
+  if (code.value.length === 6) handleVerify()
+}
+
+function onBackupCodeInput() {
+  // Formato XXXX-XXXX: letras y números, guion automático
+  const clean = code.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8)
+  code.value = clean.length > 4 ? `${clean.slice(0, 4)}-${clean.slice(4)}` : clean
 }
 
 const handleVerify = async () => {

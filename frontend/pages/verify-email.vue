@@ -127,16 +127,35 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
+useHead({ title: 'Verifica tu correo — WorkPlace Manager' })
 
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { EnvelopeIcon, CheckIcon, ArrowPathIcon, ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 import { useApi } from '~/composables/useApi'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
 
-const { currentUser } = useAuth()
+const { user, fetchProfile } = useAuth()
 
-const displayEmail = computed(() => currentUser.value?.email ?? 'tu correo')
+// email puede venir de ?email= cuando se llega desde register
+const displayEmail = computed(() => {
+  const route = useRoute()
+  const emailParam = route.query.email as string | undefined
+  return emailParam ? decodeURIComponent(emailParam) : (user.value?.email ?? 'tu correo')
+})
+
+// Polling: si el usuario verifica en otra pestaña, detectarlo y redirigir
+let pollTimer: ReturnType<typeof setInterval> | null = null
+function startPolling() {
+  pollTimer = setInterval(async () => {
+    const profile = await fetchProfile().catch(() => null)
+    if (profile?.emailVerified) {
+      clearInterval(pollTimer!)
+      await navigateTo('/login?verified=true')
+    }
+  }, 5000)
+}
+onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
 
 const isResending = ref(false)
 const resentSuccess = ref(false)
@@ -153,7 +172,7 @@ const resendVerification = async () => {
   resendError.value = ''
   try {
     const { post } = useApi()
-    await post('/auth/send-verification', { email: currentUser.value?.email })
+    await post('/auth/send-verification', { email: user.value?.email })
     resentSuccess.value = true
   } catch (err: unknown) {
     resendError.value = getApiErrorMessage(err, 'No se pudo reenviar el correo. Inténtalo de nuevo.')
@@ -162,25 +181,26 @@ const resendVerification = async () => {
   }
 }
 
-// Handle token verification when user clicks email link
-const route = useRoute()
 const isVerifying = ref(false)
 const verificationError = ref('')
 
 onMounted(async () => {
+  const route = useRoute()
   const token = route.query.token as string
   if (token) {
     isVerifying.value = true
     try {
       const { post } = useApi()
       await post('/auth/verify-email', { token })
-      // Verification successful, redirect to login
       await navigateTo('/login?verified=true')
     } catch (err: unknown) {
       verificationError.value = getApiErrorMessage(err, 'El enlace de verificación es inválido o ha expirado')
     } finally {
       isVerifying.value = false
     }
+  } else {
+    // No hay token en URL: el usuario llegó tras el registro; iniciar polling
+    startPolling()
   }
 })
 </script>
