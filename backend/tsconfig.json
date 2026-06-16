@@ -23,6 +23,7 @@
     /* Compatibilidad */
     /* ============================= */
     "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
     "incremental": true,
 
