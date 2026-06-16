@@ -1443,4 +1443,33 @@ model DeviceToken {
   @@map("device_tokens")
 }
 
+// ─── Landing Content ──────────────────────────────────────────────────────────
+
+model LandingTestimonial {
+  id          String   @id @default(uuid())
+  quote       String
+  name        String
+  role        String
+  initials    String   @default("")
+  avatarColor String   @default("#EF4444")
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("landing_testimonials")
+}
+
+model LandingStat {
+  id        String   @id @default(uuid())
+  key       String   @unique // "restaurants" | "uptime" | "orders" | "rating" | "support"
+  label     String
+  value     String   // valor display, ej: "500+" o se calcula dinámicamente
+  isDynamic Boolean  @default(false) // true = se calcula desde la BD en cada request
+  sortOrder Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("landing_stats")
+}
+
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────
