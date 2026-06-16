@@ -136,6 +136,7 @@ import { useApi } from '~/composables/useApi'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
 
 const { user, fetchProfile } = useAuth()
+const { post } = useApi()
 const route = useRoute()
 
 // email puede venir de ?email= cuando se llega desde register
@@ -151,6 +152,8 @@ let pollAttempts = 0
 const MAX_POLL_ATTEMPTS = 60
 
 function startPolling() {
+  if (pollTimer) clearInterval(pollTimer)
+  pollAttempts = 0
   pollTimer = setInterval(async () => {
     pollAttempts++
     if (pollAttempts >= MAX_POLL_ATTEMPTS) {
@@ -180,16 +183,15 @@ const resendVerification = async () => {
   isResending.value = true
   resendError.value = ''
   try {
-    const { post } = useApi()
     const email = user.value?.email ?? (route.query.email as string | undefined)
     if (user.value) {
-      // Authenticated: use protected endpoint
       await post('/auth/send-verification', {})
     } else if (email) {
-      // Unauthenticated (expired session): use public endpoint
       await post('/auth/send-verification-by-email', { email: decodeURIComponent(email) })
     }
     resentSuccess.value = true
+    // Reiniciar polling para detectar verificación tras reenvío
+    startPolling()
   } catch (err: unknown) {
     resendError.value = getApiErrorMessage(err, 'No se pudo reenviar el correo. Inténtalo de nuevo.')
   } finally {
@@ -205,7 +207,6 @@ onMounted(async () => {
   if (token) {
     isVerifying.value = true
     try {
-      const { post } = useApi()
       await post('/auth/verify-email', { token })
       await navigateTo('/login?verified=true')
     } catch (err: unknown) {
@@ -214,7 +215,6 @@ onMounted(async () => {
       isVerifying.value = false
     }
   } else {
-    // No hay token en URL: el usuario llegó tras el registro; iniciar polling
     startPolling()
   }
 })

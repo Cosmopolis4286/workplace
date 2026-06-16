@@ -123,6 +123,7 @@ import {
 
 const route = useRoute()
 const token = route.query.token as string
+const { post } = useApi()
 
 const { required, minLength, passwordStrength, matches, validate, passwordScore, strengthLabel: slabel, strengthColor: scolor } = useFormValidation()
 
@@ -160,7 +161,6 @@ const handleReset = async () => {
 
   isLoading.value = true
   try {
-    const { post } = useApi()
     await post('/auth/reset-password', { token, password: form.password })
     success.value = true
   } catch (err: unknown) {

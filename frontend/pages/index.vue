@@ -583,7 +583,8 @@ const { stats: socialStats, testimonials, loading: loadingContent, load: loadLan
 
 const ratingCount = computed(() => {
   const reviewsStat = socialStats.value.find(s => s.key === 'reviews')
-  return reviewsStat ? String(reviewsStat.rawValue ?? reviewsStat.value) : '500'
+  // rawValue is guaranteed to be numeric; never use .value which may contain '4.9★'
+  return String(reviewsStat?.rawValue ?? 500)
 })
 
 useHead(() => ({
@@ -844,7 +845,7 @@ const steps = [
 .mobile-menu-enter-to,
 .mobile-menu-leave-from {
   opacity: 1;
-  max-height: 400px;
+  max-height: 600px;
 }
 
 /* Feature card scroll-in animation — only hide when JS is active (noscript/bots see cards normally) */

@@ -63,12 +63,12 @@ useHead({ title: 'Configura tu negocio — WorkPlace Manager' })
 import { ref } from 'vue'
 import { BuildingStorefrontIcon, ExclamationCircleIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
+import { useApi } from '~/composables/useApi'
 import { useFormValidation } from '~/composables/useFormValidation'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
 
-const { isAuthenticated, token } = useAuth()
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
+const { isAuthenticated } = useAuth()
+const { patch } = useApi()
 const { required, minLength, maxLength, validate } = useFormValidation()
 
 onMounted(() => { if (!isAuthenticated.value) navigateTo('/login') })
@@ -91,12 +91,7 @@ const handleSubmit = async () => {
   isLoading.value = true
   generalError.value = ''
   try {
-    await $fetch(`${apiUrl}/settings/restaurant`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
-      body: { name: commerceName.value },
-    })
+    await patch('/settings/restaurant', { name: commerceName.value })
     await navigateTo('/dashboard')
   } catch (err: unknown) {
     generalError.value = getApiErrorMessage(err, 'No se pudo guardar el nombre. Inténtalo de nuevo.')

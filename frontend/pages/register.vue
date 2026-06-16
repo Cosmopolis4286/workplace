@@ -185,14 +185,6 @@
     </div>
     </form>
 
-    <template #footer>
-      <p class="text-sm text-gray-500">
-        ¿Ya tienes cuenta?
-        <NuxtLink to="/login" class="font-semibold text-workplace-red hover:underline ml-1">
-          Inicia sesión aquí
-        </NuxtLink>
-      </p>
-    </template>
   </AuthLayout>
 </template>
 

@@ -67,9 +67,9 @@
           <div class="space-y-4">
             <Transition name="slide-up" mode="out-in">
               <div :key="panelCtx.headline" class="space-y-3">
-                <h1 class="text-4xl xl:text-5xl font-black text-white leading-tight">
+                <p class="text-4xl xl:text-5xl font-black text-white leading-tight" style="white-space: pre-line;">
                   {{ panelCtx.headline }}
-                </h1>
+                </p>
                 <p class="text-white/70 text-lg leading-relaxed max-w-sm">
                   {{ panelCtx.subline }}
                 </p>
@@ -303,13 +303,13 @@ function resetTestimonialTimer() {
   }
 }
 
-// Start timer only once testimonials data has loaded (avoids race condition)
+// immediate: true handles the case where useState already has fallback data on mount
 const unwatchTestimonials = watch(testimonials, (val) => {
   if (val.length > 0) {
     resetTestimonialTimer()
     unwatchTestimonials()
   }
-})
+}, { immediate: true })
 
 onMounted(() => {
   loadStats()
@@ -478,6 +478,4 @@ const panelCtx = computed<PanelContext>(() => {
   opacity: 0;
 }
 
-/* Headline preserves newlines */
-h1 { white-space: pre-line; }
 </style>

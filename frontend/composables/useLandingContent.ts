@@ -57,9 +57,10 @@ export const useLandingContent = () => {
   const testimonials = useState<PublicTestimonial[]>('landing-testimonials', () => FALLBACK_TESTIMONIALS)
   const stats = useState<PublicStat[]>('landing-stats', () => FALLBACK_STATS)
   const loading = useState('landing-loading', () => false)
+  const loaded = useState('landing-loaded', () => false)
 
   async function load() {
-    if (loading.value) return
+    if (loaded.value || loading.value) return
     loading.value = true
     try {
       const [t, s] = await Promise.all([
@@ -68,6 +69,7 @@ export const useLandingContent = () => {
       ])
       if (t && t.length > 0) testimonials.value = t
       if (s && s.length > 0) stats.value = s
+      loaded.value = true
     } finally {
       loading.value = false
     }
