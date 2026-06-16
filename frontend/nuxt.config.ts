@@ -4,6 +4,12 @@ import { defineNuxtConfig } from 'nuxt/config'
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
 
+  app: {
+    head: {
+      htmlAttrs: { class: 'scroll-smooth' },
+    },
+  },
+
   devServer: {
     host: '0.0.0.0',
     port: 3000,
@@ -45,6 +51,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiUrl: process.env.API_URL || '/api',
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'https://workplace-manager.app',
       environment: process.env.APP_ENV || 'production',
       useDemoCredentials: process.env.USE_DEMO === 'true',
       recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY || '',
