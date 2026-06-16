@@ -106,6 +106,7 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ layout: 'auth' })
 useHead({ title: 'Nueva contraseña — WorkPlace Manager' })
 import { ref, computed } from 'vue'
 import { useApi } from '~/composables/useApi'

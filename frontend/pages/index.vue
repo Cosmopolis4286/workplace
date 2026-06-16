@@ -12,10 +12,10 @@
           <a href="#features" aria-label="Ver funcionalidades" class="hover:text-gray-900 transition-colors duration-150">Funciones</a>
           <a href="#how" aria-label="Cómo funciona la plataforma" class="hover:text-gray-900 transition-colors duration-150">Cómo funciona</a>
           <a href="#testimonials" aria-label="Testimonios de clientes" class="hover:text-gray-900 transition-colors duration-150">Testimonios</a>
-          <NuxtLink to="/precios" class="hover:text-gray-900 transition-colors duration-150">Precios</NuxtLink>
+          <a href="#features" class="hover:text-gray-900 transition-colors duration-150">Precios</a>
         </div>
 
-        <!-- CTA -->
+        <!-- CTA + Hamburger -->
         <div class="flex items-center gap-2">
           <NuxtLink
             to="/login"
@@ -25,12 +25,63 @@
           </NuxtLink>
           <NuxtLink
             to="/register"
-            class="text-sm font-semibold text-white bg-workplace-red hover:bg-red-700 px-4 py-2 rounded-lg shadow-sm transition-all duration-150"
+            class="hidden sm:inline-flex text-sm font-semibold text-white bg-workplace-red hover:bg-red-700 px-4 py-2 rounded-lg shadow-sm transition-all duration-150"
           >
             Empezar gratis
           </NuxtLink>
+          <!-- Mobile hamburger -->
+          <button
+            type="button"
+            class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors duration-150"
+            :aria-label="mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'"
+            :aria-expanded="mobileMenuOpen"
+            @click="mobileMenuOpen = !mobileMenuOpen"
+          >
+            <XMarkIcon v-if="mobileMenuOpen" class="w-5 h-5" />
+            <Bars3Icon v-else class="w-5 h-5" />
+          </button>
         </div>
       </div>
+
+      <!-- Mobile drawer -->
+      <Transition name="mobile-menu">
+        <div v-if="mobileMenuOpen" class="md:hidden border-t border-gray-100 bg-white shadow-lg">
+          <div class="px-4 py-4 space-y-1">
+            <a
+              href="#features"
+              class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
+              @click="mobileMenuOpen = false"
+            >Funciones</a>
+            <a
+              href="#how"
+              class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
+              @click="mobileMenuOpen = false"
+            >Cómo funciona</a>
+            <a
+              href="#testimonials"
+              class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
+              @click="mobileMenuOpen = false"
+            >Testimonios</a>
+            <a
+              href="#features"
+              class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
+              @click="mobileMenuOpen = false"
+            >Precios</a>
+          </div>
+          <div class="px-4 pb-4 pt-2 border-t border-gray-100 flex flex-col gap-2">
+            <NuxtLink
+              to="/login"
+              class="block text-center text-sm font-semibold text-gray-700 hover:text-workplace-red px-4 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-150"
+              @click="mobileMenuOpen = false"
+            >Iniciar sesión</NuxtLink>
+            <NuxtLink
+              to="/register"
+              class="block text-center text-sm font-semibold text-white bg-workplace-red hover:bg-red-700 px-4 py-2.5 rounded-lg shadow-sm transition-all duration-150"
+              @click="mobileMenuOpen = false"
+            >Empezar gratis</NuxtLink>
+          </div>
+        </div>
+      </Transition>
     </nav>
 
     <!-- ─── Hero ───────────────────────────────────────────────────────────── -->
@@ -74,7 +125,7 @@
                 type="button"
                 aria-label="Ver demo de la plataforma"
                 class="inline-flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold px-7 py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-150 text-base"
-                @click="showDemo = true"
+                @click="openDemo"
               >
                 <PlayIcon class="w-4 h-4 text-workplace-red" />
                 Ver demo
@@ -125,16 +176,16 @@
                 </div>
               </div>
 
-              <!-- Mini bar chart -->
+              <!-- Mini bar chart (animated on mount) -->
               <div>
                 <p class="text-xs text-gray-400 font-medium mb-3">Ingresos esta semana</p>
                 <div class="flex items-end gap-1.5 h-16">
                   <div
                     v-for="(bar, i) in chartBars"
                     :key="i"
-                    class="flex-1 rounded-t-md transition-all duration-300"
+                    class="flex-1 rounded-t-md transition-all duration-700 ease-out"
                     :class="i === chartBars.length - 1 ? 'bg-workplace-red' : 'bg-gray-100'"
-                    :style="{ height: `${bar}%` }"
+                    :style="{ height: chartAnimated ? `${bar}%` : '4%', transitionDelay: `${i * 80}ms` }"
                   ></div>
                 </div>
                 <div class="flex justify-between mt-1.5">
@@ -210,9 +261,10 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <div
-            v-for="feature in features"
+            v-for="(feature, idx) in features"
             :key="feature.title"
-            class="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 hover:-translate-y-1 transition-all duration-200 cursor-default"
+            class="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 hover:-translate-y-1 transition-all duration-200 cursor-default feature-card"
+            :data-index="idx"
           >
             <div :class="['w-11 h-11 rounded-xl flex items-center justify-center mb-5', feature.bg]">
               <component :is="feature.icon" class="w-5 h-5 text-white" />
@@ -363,13 +415,49 @@
             <p class="text-sm text-gray-400 max-w-xs">
               La plataforma de gestión más completa para restaurantes modernos.
             </p>
+            <!-- Social links -->
+            <div class="flex items-center gap-3 pt-1">
+              <a
+                href="https://twitter.com/workplacemanager"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Síguenos en Twitter/X"
+                class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-all duration-150"
+              >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+              </a>
+              <a
+                href="https://instagram.com/workplacemanager"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Síguenos en Instagram"
+                class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-all duration-150"
+              >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+              </a>
+              <a
+                href="https://linkedin.com/company/workplacemanager"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Síguenos en LinkedIn"
+                class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-all duration-150"
+              >
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                </svg>
+              </a>
+            </div>
           </div>
 
           <!-- Links -->
           <div class="flex flex-wrap gap-x-8 gap-y-2 text-sm text-gray-500">
             <a href="#features" aria-label="Ver funcionalidades" class="hover:text-gray-900 transition-colors duration-150">Funciones</a>
             <a href="#how" aria-label="Cómo funciona la plataforma" class="hover:text-gray-900 transition-colors duration-150">Cómo funciona</a>
-            <NuxtLink to="/precios" class="hover:text-gray-900 transition-colors duration-150">Precios</NuxtLink>
+            <a href="#features" class="hover:text-gray-900 transition-colors duration-150">Precios</a>
             <NuxtLink to="/privacidad" class="hover:text-gray-900 transition-colors duration-150">Privacidad</NuxtLink>
             <NuxtLink to="/terminos" class="hover:text-gray-900 transition-colors duration-150">Términos</NuxtLink>
             <NuxtLink to="/soporte" class="hover:text-gray-900 transition-colors duration-150">Soporte</NuxtLink>
@@ -391,9 +479,13 @@
           role="dialog"
           aria-modal="true"
           aria-label="Demo de WorkPlace Manager"
-          @click.self="showDemo = false"
+          @click.self="closeDemo"
         >
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+          <div
+            ref="demoModalRef"
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+            tabindex="-1"
+          >
             <!-- Modal header -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div>
@@ -401,10 +493,11 @@
                 <p class="text-xs text-gray-400 mt-0.5">Explora la plataforma antes de registrarte</p>
               </div>
               <button
+                ref="demoCloseRef"
                 type="button"
                 aria-label="Cerrar demo"
                 class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
-                @click="showDemo = false"
+                @click="closeDemo"
               >
                 <XMarkIcon class="w-5 h-5" />
               </button>
@@ -437,7 +530,7 @@
               <NuxtLink
                 to="/register"
                 class="flex-1 inline-flex items-center justify-center gap-2 bg-workplace-red hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition-all duration-150 text-sm"
-                @click="showDemo = false"
+                @click="closeDemo"
               >
                 Crear cuenta gratis
                 <ArrowRightIcon class="w-4 h-4" />
@@ -445,7 +538,7 @@
               <button
                 type="button"
                 class="flex-1 inline-flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-6 py-3 rounded-xl transition-all duration-150 text-sm"
-                @click="showDemo = false"
+                @click="closeDemo"
               >
                 Seguir explorando
               </button>
@@ -459,6 +552,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import {
   ShoppingCartIcon,
   CubeIcon,
@@ -474,6 +568,7 @@ import {
   CogIcon,
   RocketLaunchIcon,
   XMarkIcon,
+  Bars3Icon,
 } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
 
@@ -481,6 +576,15 @@ definePageMeta({ layout: false })
 
 const config = useRuntimeConfig()
 const siteUrl = config.public.siteUrl as string
+
+// ─── SEO ──────────────────────────────────────────────────────────────────────
+
+const { stats: socialStats, testimonials, loading: loadingContent, load: loadLandingContent } = useLandingContent()
+
+const ratingCount = computed(() => {
+  const reviewsStat = socialStats.value.find(s => s.key === 'reviews')
+  return reviewsStat ? String(reviewsStat.rawValue ?? reviewsStat.value) : '500'
+})
 
 useHead({
   title: 'WorkPlace Manager — Gestiona tu restaurante sin complicaciones',
@@ -498,7 +602,7 @@ useHead({
     { name: 'twitter:description', content: 'La plataforma todo-en-uno para gestionar tu restaurante.' },
   ],
   link: [{ rel: 'canonical', href: siteUrl }],
-  script: [
+  script: computed(() => [
     {
       type: 'application/ld+json',
       innerHTML: JSON.stringify({
@@ -518,15 +622,95 @@ useHead({
         aggregateRating: {
           '@type': 'AggregateRating',
           ratingValue: '4.9',
-          ratingCount: '500',
+          ratingCount: ratingCount.value,
         },
       }),
     },
-  ],
+  ]),
 })
 
-const currentYear = new Date().getFullYear()
+// ─── SSR-safe currentYear ─────────────────────────────────────────────────────
+const currentYear = useState('currentYear', () => new Date().getFullYear())
+
+// ─── Mobile menu ─────────────────────────────────────────────────────────────
+const mobileMenuOpen = ref(false)
+
+// ─── Hero chart animation ─────────────────────────────────────────────────────
+const chartAnimated = ref(false)
+
+// ─── Demo modal + focus trap ──────────────────────────────────────────────────
 const showDemo = ref(false)
+const demoModalRef = ref<HTMLElement | null>(null)
+const demoCloseRef = ref<HTMLElement | null>(null)
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+function trapFocus(e: KeyboardEvent) {
+  if (!demoModalRef.value) return
+  const focusable = Array.from(demoModalRef.value.querySelectorAll<HTMLElement>(FOCUSABLE))
+  if (!focusable.length) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (e.shiftKey) {
+    if (document.activeElement === first) { e.preventDefault(); last.focus() }
+  } else {
+    if (document.activeElement === last) { e.preventDefault(); first.focus() }
+  }
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') closeDemo()
+  if (e.key === 'Tab') trapFocus(e)
+}
+
+async function openDemo() {
+  showDemo.value = true
+  await nextTick()
+  demoModalRef.value?.focus()
+  window.addEventListener('keydown', handleKeydown)
+}
+
+function closeDemo() {
+  showDemo.value = false
+  window.removeEventListener('keydown', handleKeydown)
+}
+
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+
+// ─── Dynamic landing content ──────────────────────────────────────────────────
+onMounted(() => {
+  loadLandingContent()
+
+  // Animate hero chart bars after a short delay
+  setTimeout(() => { chartAnimated.value = true }, 200)
+
+  // IntersectionObserver for feature card scroll-in animations
+  if (typeof IntersectionObserver !== 'undefined') {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const el = entry.target as HTMLElement
+            const idx = Number(el.dataset.index ?? 0)
+            setTimeout(() => {
+              el.classList.add('feature-visible')
+            }, idx * 80)
+            observer.unobserve(el)
+          }
+        })
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
+    )
+    document.querySelectorAll('.feature-card').forEach(el => observer.observe(el))
+  }
+})
+
+// ─── CTA banner restaurantCountLabel ─────────────────────────────────────────
+// Uses stat key for stability (admin can rename labels without breaking this)
+const restaurantCountLabel = computed(() => {
+  const restaurantStat = socialStats.value.find(s => s.key === 'restaurants')
+  return restaurantStat ? `más de ${restaurantStat.value}` : 'más de 500'
+})
 
 // ─── Hero mock data ──────────────────────────────────────────────────────────
 
@@ -552,19 +736,6 @@ const demoHighlights = [
   { label: 'Analytics en tiempo real', icon: ChartBarIcon, bg: 'bg-amber-500' },
   { label: 'CRM de clientes', icon: UsersIcon, bg: 'bg-pink-500' },
 ]
-
-// ─── Dynamic landing content ──────────────────────────────────────────────────
-
-const { stats: socialStats, testimonials, loading: loadingContent, load: loadLandingContent } = useLandingContent()
-onMounted(loadLandingContent)
-
-// CTA banner usa el primer stat de restaurantes (o fallback)
-const restaurantCountLabel = computed(() => {
-  const restaurantStat = socialStats.value.find(s =>
-    s.label.toLowerCase().includes('restaurante')
-  )
-  return restaurantStat ? `más de ${restaurantStat.value}` : 'más de 500'
-})
 
 // ─── Features ────────────────────────────────────────────────────────────────
 
@@ -629,6 +800,7 @@ const steps = [
 </script>
 
 <style scoped>
+/* Modal fade */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
@@ -636,5 +808,33 @@ const steps = [
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Mobile menu slide */
+.mobile-menu-enter-active,
+.mobile-menu-leave-active {
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+.mobile-menu-enter-from,
+.mobile-menu-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+.mobile-menu-enter-to,
+.mobile-menu-leave-from {
+  opacity: 1;
+  max-height: 400px;
+}
+
+/* Feature card scroll-in animation */
+.feature-card {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.feature-card.feature-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 </style>

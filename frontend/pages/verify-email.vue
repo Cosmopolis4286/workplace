@@ -136,10 +136,10 @@ import { useApi } from '~/composables/useApi'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
 
 const { user, fetchProfile } = useAuth()
+const route = useRoute()
 
 // email puede venir de ?email= cuando se llega desde register
 const displayEmail = computed(() => {
-  const route = useRoute()
   const emailParam = route.query.email as string | undefined
   return emailParam ? decodeURIComponent(emailParam) : (user.value?.email ?? 'tu correo')
 })
@@ -172,7 +172,7 @@ const resendVerification = async () => {
   resendError.value = ''
   try {
     const { post } = useApi()
-    const email = user.value?.email ?? (useRoute().query.email as string | undefined)
+    const email = user.value?.email ?? (route.query.email as string | undefined)
     if (user.value) {
       // Authenticated: use protected endpoint
       await post('/auth/send-verification', {})
@@ -192,7 +192,6 @@ const isVerifying = ref(false)
 const verificationError = ref('')
 
 onMounted(async () => {
-  const route = useRoute()
   const token = route.query.token as string
   if (token) {
     isVerifying.value = true

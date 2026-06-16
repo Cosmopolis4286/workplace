@@ -1,12 +1,16 @@
 <template>
   <div class="min-h-screen flex">
     <!-- Left Panel: Brand / Marketing -->
-    <div class="hidden lg:flex lg:w-[45%] xl:w-[42%] relative flex-col bg-gradient-to-br from-workplace-red via-red-600 to-workplace-darkRed overflow-hidden">
+    <div
+      class="hidden lg:flex lg:w-[45%] xl:w-[42%] relative flex-col bg-gradient-to-br from-workplace-red via-red-600 to-workplace-darkRed overflow-hidden"
+      role="complementary"
+      aria-label="Panel de marketing y estado de la plataforma"
+    >
       <!-- Geometric shapes (animated) -->
       <div class="absolute inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-32 -right-32 w-96 h-96 bg-white/10 rounded-full blur-2xl animate-blob"></div>
-        <div class="absolute -bottom-24 -left-24 w-80 h-80 bg-black/10 rounded-full blur-2xl animate-blob animation-delay-2000"></div>
-        <div class="absolute top-1/3 left-1/4 w-64 h-64 bg-white/5 rounded-full blur-3xl animate-blob animation-delay-4000"></div>
+        <div class="absolute -top-32 -right-32 w-96 h-96 bg-white/10 rounded-full blur-2xl animate-blob" style="will-change: transform;"></div>
+        <div class="absolute -bottom-24 -left-24 w-80 h-80 bg-black/10 rounded-full blur-2xl animate-blob animation-delay-2000" style="will-change: transform;"></div>
+        <div class="absolute top-1/3 left-1/4 w-64 h-64 bg-white/5 rounded-full blur-3xl animate-blob animation-delay-4000" style="will-change: transform;"></div>
         <!-- Decorative circles -->
         <div class="absolute top-16 left-16 w-4 h-4 bg-white/30 rounded-full animate-float"></div>
         <div class="absolute top-32 left-32 w-2 h-2 bg-white/20 rounded-full animate-float animation-delay-1000"></div>
@@ -129,11 +133,14 @@
                   </div>
                 </div>
                 <!-- Dots -->
-                <div class="flex gap-1.5 justify-center">
+                <div class="flex gap-1.5 justify-center" role="tablist" aria-label="Testimonios">
                   <button
                     v-for="(_, i) in testimonials"
                     :key="i"
                     type="button"
+                    role="tab"
+                    :aria-label="`Testimonio ${i + 1} de ${testimonials.length}`"
+                    :aria-selected="i === testimonialIndex"
                     class="rounded-full transition-all duration-300"
                     :class="i === testimonialIndex
                       ? 'w-5 h-1.5 bg-white'
@@ -235,53 +242,43 @@ import { StarIcon } from '@heroicons/vue/24/solid'
 
 defineProps({
   title: { type: String, required: true },
-  subtitle: { type: String, default: 'Sistema de gestión para restaurantes' },
   description: { type: String, default: '' }
 })
 
-const currentYear = new Date().getFullYear()
+// SSR-safe year
+const currentYear = useState('currentYear', () => new Date().getFullYear())
 const route = useRoute()
 const { user } = useAuth()
 const role = computed(() => user.value?.role ?? null)
 
 // ─── Health check realtime ────────────────────────────────────────────────────
 
-type HealthStatus = 'up' | 'degraded' | 'down' | 'loading'
-const healthStatus = ref<HealthStatus>('loading')
+type HealthStatus = 'up' | 'degraded' | 'down'
+const healthStatus = ref<HealthStatus>('up') // optimistic initial state
 
 const healthLabel = computed(() => ({
   up: 'Plataforma activa',
   degraded: 'Servicio degradado',
   down: 'Servicio interrumpido',
-  loading: 'Verificando...',
 }[healthStatus.value]))
+
+// apiUrl extracted at setup level — not inside setInterval callback
+const config = useRuntimeConfig()
+const apiUrl = config.public.apiUrl as string
 
 let healthTimer: ReturnType<typeof setInterval> | null = null
 
 async function checkHealth() {
-  try {
-    const config = useRuntimeConfig()
-    const res = await $fetch<{ status: string }>(`${config.public.apiUrl}/health`, {
-      timeout: 4000,
-    }).catch(() => null)
-    if (!res) { healthStatus.value = 'down'; return }
-    healthStatus.value = res.status === 'ok' ? 'up' : 'degraded'
-  } catch {
-    healthStatus.value = 'down'
-  }
+  const res = await $fetch<{ status: string }>(`${apiUrl}/health`, {
+    timeout: 4000,
+  }).catch(() => null)
+  if (!res) { healthStatus.value = 'down'; return }
+  healthStatus.value = res.status === 'ok' ? 'up' : 'degraded'
 }
-
-onMounted(() => {
-  checkHealth()
-  // Re-check cada 60 segundos mientras el panel está visible
-  healthTimer = setInterval(checkHealth, 60_000)
-})
-onUnmounted(() => { if (healthTimer) clearInterval(healthTimer) })
 
 // ─── Stats dinámicas ──────────────────────────────────────────────────────────
 
 const { stats: landingStats, testimonials: landingTestimonials, load: loadStats } = useLandingContent()
-onMounted(loadStats)
 
 const stats = computed(() =>
   landingStats.value.slice(0, 3).map(s => ({ value: s.value, label: s.label }))
@@ -305,8 +302,19 @@ function resetTestimonialTimer() {
   }
 }
 
-onMounted(resetTestimonialTimer)
-onUnmounted(() => { if (testimonialTimer) clearInterval(testimonialTimer) })
+// Start timer only once testimonials data has loaded (avoids race condition)
+watch(testimonials, resetTestimonialTimer, { once: true })
+
+onMounted(() => {
+  loadStats()
+  checkHealth()
+  healthTimer = setInterval(checkHealth, 60_000)
+})
+
+onUnmounted(() => {
+  if (healthTimer) clearInterval(healthTimer)
+  if (testimonialTimer) clearInterval(testimonialTimer)
+})
 
 // ─── Features por rol (fallback si no hay testimonios) ───────────────────────
 
@@ -345,9 +353,9 @@ interface PanelContext {
 }
 
 const panelCtx = computed<PanelContext>(() => {
-  const path = route.path
+  const name = route.name as string | undefined
 
-  if (path === '/register') {
+  if (name === 'register') {
     return {
       headline: 'Empieza gratis\nhoy mismo',
       subline: 'Crea tu cuenta en menos de 2 minutos y ten tu restaurante operativo desde el primer día.',
@@ -359,7 +367,7 @@ const panelCtx = computed<PanelContext>(() => {
     }
   }
 
-  if (path === '/verify-email') {
+  if (name === 'verify-email') {
     return {
       headline: 'Revisa\ntu correo',
       subline: 'Un clic y ya podrás acceder a tu panel completo. Revisa también la carpeta de spam.',
@@ -371,7 +379,7 @@ const panelCtx = computed<PanelContext>(() => {
     }
   }
 
-  if (path === '/recover-password') {
+  if (name === 'recover-password') {
     return {
       headline: 'Recupera\ntu acceso',
       subline: 'Te enviamos un enlace seguro para restablecer tu contraseña en segundos.',
@@ -379,7 +387,7 @@ const panelCtx = computed<PanelContext>(() => {
     }
   }
 
-  if (path === '/reset-password') {
+  if (name === 'reset-password') {
     return {
       headline: 'Nueva\ncontraseña',
       subline: 'Elige una contraseña segura. Recomendamos combinar letras, números y símbolos.',
@@ -387,7 +395,7 @@ const panelCtx = computed<PanelContext>(() => {
     }
   }
 
-  if (path === '/auth/2fa-verify') {
+  if (name === 'auth-2fa-verify') {
     return {
       headline: 'Verificación\nen dos pasos',
       subline: 'Tu cuenta está protegida con autenticación de dos factores. Ingresa el código de tu app.',

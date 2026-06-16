@@ -8,8 +8,10 @@ interface PublicTestimonial {
 }
 
 interface PublicStat {
+  key?: string
   value: string
   label: string
+  rawValue?: number
 }
 
 // Fallbacks shown while loading or if the API is unreachable
@@ -41,11 +43,11 @@ const FALLBACK_TESTIMONIALS: PublicTestimonial[] = [
 ]
 
 const FALLBACK_STATS: PublicStat[] = [
-  { value: '500+', label: 'Restaurantes activos' },
-  { value: '99.9%', label: 'Tiempo en línea' },
-  { value: '50k+', label: 'Pedidos procesados' },
-  { value: '4.9★', label: 'Valoración promedio' },
-  { value: '24/7', label: 'Soporte disponible' },
+  { key: 'restaurants', value: '500+', label: 'Restaurantes activos', rawValue: 500 },
+  { key: 'uptime', value: '99.9%', label: 'Tiempo en línea' },
+  { key: 'orders', value: '50k+', label: 'Pedidos procesados', rawValue: 50000 },
+  { key: 'reviews', value: '4.9★', label: 'Valoración promedio', rawValue: 500 },
+  { key: 'support', value: '24/7', label: 'Soporte disponible' },
 ]
 
 export const useLandingContent = () => {

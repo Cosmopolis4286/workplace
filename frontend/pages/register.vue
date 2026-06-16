@@ -69,14 +69,13 @@
         id="phone"
         v-model="form.phone"
         type="tel"
-        label="Teléfono"
+        label="Teléfono (opcional)"
         placeholder="+52 55 1234 5678"
         :icon="PhoneIcon"
         :error="errors.phone"
-        :show-valid="touched.phone"
+        :show-valid="touched.phone && !!form.phone && !errors.phone"
         autocomplete="tel"
         inputmode="tel"
-        required
         @blur="touch('phone')"
       />
 
@@ -259,7 +258,7 @@ const validationSchema = {
   firstName: [required('El nombre')],
   lastName: [required('El apellido')],
   email: [required('El correo'), email()],
-  phone: [required('El teléfono'), phone()],
+  phone: [phone()],
   commerceName: [required('El nombre del negocio'), minLength(2), maxLength(80)],
   password: [required('La contraseña'), minLength(8), passwordStrength()],
   confirmPassword: [required('Confirma la contraseña'), matches(() => form.password, 'Las contraseñas')]

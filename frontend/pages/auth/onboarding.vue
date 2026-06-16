@@ -56,7 +56,9 @@ import { useAuth } from '~/composables/useAuth'
 import { useFormValidation } from '~/composables/useFormValidation'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
 
-const { isAuthenticated, saveProfile } = useAuth()
+const { isAuthenticated, token } = useAuth()
+const config = useRuntimeConfig()
+const apiUrl = config.public.apiUrl as string
 const { required, minLength, maxLength, validate } = useFormValidation()
 
 onMounted(() => { if (!isAuthenticated.value) navigateTo('/login') })
@@ -79,9 +81,7 @@ const handleSubmit = async () => {
   isLoading.value = true
   generalError.value = ''
   try {
-    const config = useRuntimeConfig()
-    const { token } = useAuth()
-    await $fetch(`${config.public.apiUrl}/settings/restaurant`, {
+    await $fetch(`${apiUrl}/settings/restaurant`, {
       method: 'PATCH',
       credentials: 'include',
       headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
