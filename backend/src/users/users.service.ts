@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role, Sex } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 import { ChangePasswordDto } from '../auth/dto/change-password.dto';
@@ -31,6 +31,8 @@ export class UsersService {
     firstName: string;
     lastName: string;
     phone?: string;
+    birthDate?: string | Date;
+    sex?: Sex;
     commerceName?: string;
     role?: Role;
     categoryId?: string;
@@ -55,6 +57,8 @@ export class UsersService {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
+        birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+        sex: data.sex,
         role,
         ...(data.categoryId && { categoryId: data.categoryId }),
         ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),

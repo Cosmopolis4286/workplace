@@ -16,6 +16,8 @@ model User {
   firstName String
   lastName  String
   phone     String?
+  birthDate DateTime?
+  sex       Sex?
   avatar      String?
   coverImage  String?
   role        Role     @default(NORMAL)
@@ -356,6 +358,12 @@ enum UserType {
   DEMO     // Cuentas de demostración/test visibles en login
   TEST     // Cuentas de testing automatizado (no visibles)
   REGULAR  // Usuarios normales registrados
+}
+
+enum Sex {
+  MASCULINO
+  FEMENINO
+  OTRO
 }
 
 enum ProductStatus {

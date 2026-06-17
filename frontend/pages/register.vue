@@ -65,32 +65,38 @@
         @blur="touch('email')"
       />
 
-      <AuthInput
-        id="phone"
-        v-model="form.phone"
-        type="tel"
-        label="Teléfono (opcional)"
-        placeholder="+52 55 1234 5678"
-        :icon="PhoneIcon"
-        :error="errors.phone"
-        :show-valid="touched.phone && !!form.phone && !errors.phone"
-        autocomplete="tel"
-        inputmode="tel"
-        @blur="touch('phone')"
-      />
+      <div class="grid grid-cols-2 gap-4">
+        <AuthInput
+          id="birthDate"
+          v-model="form.birthDate"
+          type="date"
+          label="Fecha de nacimiento"
+          :icon="CakeIcon"
+          :error="errors.birthDate"
+          :show-valid="touched.birthDate && !errors.birthDate"
+          autocomplete="bday"
+          required
+          @blur="touch('birthDate')"
+        />
 
-      <AuthInput
-        id="commerceName"
-        v-model="form.commerceName"
-        label="Nombre de tu negocio"
-        placeholder="Ej: Restaurante El Sabor"
-        :icon="BuildingStorefrontIcon"
-        :error="errors.commerceName"
-        :show-valid="touched.commerceName"
-        autocomplete="organization"
-        required
-        @blur="touch('commerceName')"
-      />
+        <div class="space-y-1.5">
+          <label for="sex" class="block text-sm font-medium text-gray-700">Sexo</label>
+          <select
+            id="sex"
+            v-model="form.sex"
+            class="w-full h-11 px-3 rounded-xl border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-workplace-red/30"
+            :class="errors.sex && touched.sex ? 'border-red-300' : 'border-gray-300'"
+            required
+            @blur="touch('sex')"
+          >
+            <option value="" disabled>Selecciona</option>
+            <option value="MASCULINO">Masculino</option>
+            <option value="FEMENINO">Femenino</option>
+            <option value="OTRO">Otro</option>
+          </select>
+          <p v-if="errors.sex && touched.sex" class="text-xs text-red-500">{{ errors.sex }}</p>
+        </div>
+      </div>
 
       <AuthInput
         id="password"
@@ -172,7 +178,7 @@
         <span class="px-3 text-xs text-gray-400 font-medium">o regístrate con</span>
         <div class="flex-1 border-t border-gray-200"></div>
       </div>
-      <GoogleAuthButton label="Registrarse con Google" />
+      <AuthGoogleAuthButton label="Registrarse con Google" />
 
       <!-- reCAPTCHA notice -->
       <p v-if="recaptchaEnabled" class="text-center text-[11px] text-gray-400 leading-relaxed">
@@ -196,12 +202,11 @@ import { ref, reactive, computed } from 'vue'
 import {
   UserIcon,
   EnvelopeIcon,
-  PhoneIcon,
+  CakeIcon,
   LockClosedIcon,
   UserPlusIcon,
   ExclamationCircleIcon,
   CheckIcon,
-  BuildingStorefrontIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 import { useFormValidation } from '~/composables/useFormValidation'
@@ -210,27 +215,24 @@ import { getApiErrorMessage } from '~/composables/useApiErrors'
 
 const { register, isAuthenticated } = useAuth()
 const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha()
-const { required, email, minLength, maxLength, passwordStrength, matches, phone, validateAll, passwordScore, strengthLabel: slabel, strengthColor: scolor } = useFormValidation()
+const { required, email, minLength, maxLength, passwordStrength, matches, validateAll, passwordScore, strengthLabel: slabel, strengthColor: scolor } = useFormValidation()
 
 // F: auto-redirect si ya hay sesión activa
 onMounted(() => { if (isAuthenticated.value) navigateTo('/dashboard') })
 
 const form = reactive({
-  firstName: '', lastName: '', email: '', phone: '',
-  commerceName: '',
+  firstName: '', lastName: '', email: '', birthDate: '', sex: '',
   password: '', confirmPassword: '', acceptTerms: false
 })
 
 const errors = reactive({
-  firstName: '', lastName: '', email: '', phone: '',
-  commerceName: '',
+  firstName: '', lastName: '', email: '', birthDate: '', sex: '',
   password: '', confirmPassword: ''
 })
 
 type FormKey = keyof typeof errors
 const touched = reactive<Record<FormKey, boolean>>({
-  firstName: false, lastName: false, email: false, phone: false,
-  commerceName: false,
+  firstName: false, lastName: false, email: false, birthDate: false, sex: false,
   password: false, confirmPassword: false
 })
 
@@ -250,8 +252,19 @@ const validationSchema = {
   firstName: [required('El nombre')],
   lastName: [required('El apellido')],
   email: [required('El correo'), email()],
-  phone: [(v: string) => !v || phone()(v)],
-  commerceName: [required('El nombre del negocio'), minLength(2), maxLength(80)],
+  birthDate: [
+    required('La fecha de nacimiento'),
+    (v: string) => {
+      const birth = new Date(v)
+      if (Number.isNaN(birth.getTime())) return 'Fecha inválida'
+      const today = new Date()
+      let age = today.getFullYear() - birth.getFullYear()
+      const monthDiff = today.getMonth() - birth.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--
+      return age >= 18 ? true : 'Debes ser mayor de 18 años para registrarte'
+    },
+  ],
+  sex: [required('El sexo')],
   password: [required('La contraseña'), minLength(8), passwordStrength()],
   confirmPassword: [required('Confirma la contraseña'), matches(() => form.password, 'Las contraseñas')]
 }
@@ -283,9 +296,9 @@ const handleSubmit = async () => {
       firstName: form.firstName,
       lastName: form.lastName,
       email: form.email,
-      phone: form.phone,
+      birthDate: form.birthDate,
+      sex: form.sex as 'MASCULINO' | 'FEMENINO' | 'OTRO',
       password: form.password,
-      commerceName: form.commerceName,
       acceptTerms: form.acceptTerms,
       recaptchaToken
     })

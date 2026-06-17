@@ -45,8 +45,8 @@ interface RegisterCredentials {
   firstName: string
   lastName: string
   email: string
-  phone?: string
-  commerceName: string
+  birthDate: string
+  sex: 'MASCULINO' | 'FEMENINO' | 'OTRO'
   password: string
   acceptTerms: boolean
 }
@@ -164,8 +164,8 @@ export const useAuth = () => {
         firstName: credentials.firstName,
         lastName: credentials.lastName,
         email: credentials.email,
-        phone: credentials.phone || undefined,
-        commerceName: credentials.commerceName,
+        birthDate: credentials.birthDate,
+        sex: credentials.sex,
         password: credentials.password,
         acceptTerms: credentials.acceptTerms,
       },
