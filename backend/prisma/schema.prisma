@@ -1472,4 +1472,31 @@ model LandingStat {
   @@map("landing_stats")
 }
 
+model LandingFeature {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  icon        String   // nombre del componente Heroicons, ej: "ShoppingCartIcon"
+  bg          String   @default("bg-blue-500") // clase Tailwind del fondo del ícono
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("landing_features")
+}
+
+model LandingStep {
+  id        String   @id @default(uuid())
+  title     String
+  desc      String
+  icon      String   // nombre del componente Heroicons, ej: "UserPlusIcon"
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("landing_steps")
+}
+
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────

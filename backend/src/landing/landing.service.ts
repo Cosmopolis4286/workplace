@@ -1,12 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { RedisService } from '../redis/redis.service'
+import { LandingGateway } from './landing.gateway'
 import { CreateTestimonialDto } from './dto/create-testimonial.dto'
 import { UpdateTestimonialDto } from './dto/update-testimonial.dto'
 import { UpdateStatDto } from './dto/update-stat.dto'
+import { CreateFeatureDto } from './dto/create-feature.dto'
+import { UpdateFeatureDto } from './dto/update-feature.dto'
+import { CreateStepDto } from './dto/create-step.dto'
+import { UpdateStepDto } from './dto/update-step.dto'
 
 const CACHE_KEY_TESTIMONIALS = 'landing:testimonials'
 const CACHE_KEY_STATS = 'landing:stats'
+const CACHE_KEY_FEATURES = 'landing:features'
+const CACHE_KEY_STEPS = 'landing:steps'
 const CACHE_TTL = 3600 // 1 hour
 
 @Injectable()
@@ -14,6 +21,7 @@ export class LandingService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
+    private gateway: LandingGateway,
   ) {}
 
   // ─── Public endpoints ──────────────────────────────────────────────────────
@@ -42,14 +50,42 @@ export class LandingService {
 
     const stats = await Promise.all(
       dbStats.map(async (stat) => {
-        if (!stat.isDynamic) return { value: stat.value, label: stat.label }
+        if (!stat.isDynamic) return { key: stat.key, value: stat.value, label: stat.label }
         const computed = await this.computeDynamicStat(stat.key)
-        return { value: computed ?? stat.value, label: stat.label }
+        return { key: stat.key, value: computed ?? stat.value, label: stat.label }
       }),
     )
 
     await this.redis.setex(CACHE_KEY_STATS, CACHE_TTL, JSON.stringify(stats))
     return stats
+  }
+
+  async getPublicFeatures() {
+    const cached = await this.redis.get(CACHE_KEY_FEATURES)
+    if (cached) return JSON.parse(cached)
+
+    const features = await this.prisma.landingFeature.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, title: true, description: true, icon: true, bg: true },
+    })
+
+    await this.redis.setex(CACHE_KEY_FEATURES, CACHE_TTL, JSON.stringify(features))
+    return features
+  }
+
+  async getPublicSteps() {
+    const cached = await this.redis.get(CACHE_KEY_STEPS)
+    if (cached) return JSON.parse(cached)
+
+    const steps = await this.prisma.landingStep.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, title: true, desc: true, icon: true },
+    })
+
+    await this.redis.setex(CACHE_KEY_STEPS, CACHE_TTL, JSON.stringify(steps))
+    return steps
   }
 
   private async computeDynamicStat(key: string): Promise<string | null> {
@@ -60,11 +96,15 @@ export class LandingService {
       }
       case 'orders': {
         const count = await this.prisma.order.count()
-        return count > 1000 ? `${Math.floor(count / 1000)}k+` : count > 0 ? `${count}+` : null
+        return count > 1000 ? `${Math.floor(count / 1000)}k+` : `${count}+`
+      }
+      case 'freelancers': {
+        const count = await this.prisma.user.count({ where: { role: 'FREELANCER' } })
+        return `${count}+`
       }
       case 'rating': {
-        const result = await this.prisma.landingTestimonial.count({ where: { isActive: true } })
-        return result > 0 ? '4.9★' : null
+        const result = await this.prisma.review.aggregate({ _avg: { rating: true }, _count: true })
+        return result._count > 0 ? `${result._avg.rating!.toFixed(1)}★` : null
       }
       default:
         return null
@@ -81,6 +121,7 @@ export class LandingService {
     const initials = dto.initials ?? this.buildInitials(dto.name)
     const result = await this.prisma.landingTestimonial.create({ data: { ...dto, initials } })
     await this.invalidateCache()
+    this.gateway.broadcastUpdate('testimonials')
     return result
   }
 
@@ -88,6 +129,7 @@ export class LandingService {
     await this.findTestimonialOrFail(id)
     const result = await this.prisma.landingTestimonial.update({ where: { id }, data: dto })
     await this.invalidateCache()
+    this.gateway.broadcastUpdate('testimonials')
     return result
   }
 
@@ -95,6 +137,7 @@ export class LandingService {
     await this.findTestimonialOrFail(id)
     await this.prisma.landingTestimonial.delete({ where: { id } })
     await this.invalidateCache()
+    this.gateway.broadcastUpdate('testimonials')
   }
 
   // ─── Admin — Stats CRUD ────────────────────────────────────────────────────
@@ -110,7 +153,64 @@ export class LandingService {
       create: { key, label: dto.label ?? key, value: dto.value ?? '', ...dto },
     })
     await this.redis.del(CACHE_KEY_STATS)
+    this.gateway.broadcastUpdate('stats')
     return result
+  }
+
+  // ─── Admin — Features CRUD ─────────────────────────────────────────────────
+
+  async findAllFeatures() {
+    return this.prisma.landingFeature.findMany({ orderBy: { sortOrder: 'asc' } })
+  }
+
+  async createFeature(dto: CreateFeatureDto) {
+    const result = await this.prisma.landingFeature.create({ data: dto })
+    await this.redis.del(CACHE_KEY_FEATURES)
+    this.gateway.broadcastUpdate('features')
+    return result
+  }
+
+  async updateFeature(id: string, dto: UpdateFeatureDto) {
+    await this.findFeatureOrFail(id)
+    const result = await this.prisma.landingFeature.update({ where: { id }, data: dto })
+    await this.redis.del(CACHE_KEY_FEATURES)
+    this.gateway.broadcastUpdate('features')
+    return result
+  }
+
+  async deleteFeature(id: string) {
+    await this.findFeatureOrFail(id)
+    await this.prisma.landingFeature.delete({ where: { id } })
+    await this.redis.del(CACHE_KEY_FEATURES)
+    this.gateway.broadcastUpdate('features')
+  }
+
+  // ─── Admin — Steps CRUD ────────────────────────────────────────────────────
+
+  async findAllSteps() {
+    return this.prisma.landingStep.findMany({ orderBy: { sortOrder: 'asc' } })
+  }
+
+  async createStep(dto: CreateStepDto) {
+    const result = await this.prisma.landingStep.create({ data: dto })
+    await this.redis.del(CACHE_KEY_STEPS)
+    this.gateway.broadcastUpdate('steps')
+    return result
+  }
+
+  async updateStep(id: string, dto: UpdateStepDto) {
+    await this.findStepOrFail(id)
+    const result = await this.prisma.landingStep.update({ where: { id }, data: dto })
+    await this.redis.del(CACHE_KEY_STEPS)
+    this.gateway.broadcastUpdate('steps')
+    return result
+  }
+
+  async deleteStep(id: string) {
+    await this.findStepOrFail(id)
+    await this.prisma.landingStep.delete({ where: { id } })
+    await this.redis.del(CACHE_KEY_STEPS)
+    this.gateway.broadcastUpdate('steps')
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -119,6 +219,18 @@ export class LandingService {
     const t = await this.prisma.landingTestimonial.findUnique({ where: { id } })
     if (!t) throw new NotFoundException(`Testimonio ${id} no encontrado`)
     return t
+  }
+
+  private async findFeatureOrFail(id: string) {
+    const f = await this.prisma.landingFeature.findUnique({ where: { id } })
+    if (!f) throw new NotFoundException(`Función ${id} no encontrada`)
+    return f
+  }
+
+  private async findStepOrFail(id: string) {
+    const s = await this.prisma.landingStep.findUnique({ where: { id } })
+    if (!s) throw new NotFoundException(`Paso ${id} no encontrado`)
+    return s
   }
 
   private buildInitials(name: string) {
