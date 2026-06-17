@@ -78,35 +78,66 @@
           </div>
 
           <!-- Step indicator (register/verify flow) -->
-          <div v-if="panelCtx.steps.length > 0" class="space-y-2">
-            <p class="text-white/50 text-xs font-semibold uppercase tracking-widest mb-3">Tu progreso</p>
+          <div v-if="panelCtx.steps.length > 0" class="space-y-5">
             <div class="space-y-2">
-              <div
-                v-for="(step, i) in panelCtx.steps"
-                :key="i"
-                class="flex items-center gap-3"
-              >
+              <p class="text-white/50 text-xs font-semibold uppercase tracking-widest mb-3">Tu progreso</p>
+              <div class="space-y-2">
                 <div
-                  class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold border transition-all duration-300"
-                  :class="step.done
-                    ? 'bg-green-400 border-green-400 text-white'
-                    : step.current
-                      ? 'bg-white border-white text-workplace-red'
-                      : 'bg-white/10 border-white/20 text-white/40'"
+                  v-for="(step, i) in panelCtx.steps"
+                  :key="i"
+                  class="flex items-center gap-3"
                 >
-                  <CheckIcon v-if="step.done" class="w-3.5 h-3.5 stroke-[3]" />
-                  <span v-else>{{ i + 1 }}</span>
+                  <div
+                    class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold border transition-all duration-300"
+                    :class="step.done
+                      ? 'bg-green-400 border-green-400 text-white'
+                      : step.current
+                        ? 'bg-white border-white text-workplace-red'
+                        : 'bg-white/10 border-white/20 text-white/40'"
+                  >
+                    <CheckIcon v-if="step.done" class="w-3.5 h-3.5 stroke-[3]" />
+                    <span v-else>{{ i + 1 }}</span>
+                  </div>
+                  <span
+                    class="text-sm transition-all duration-300"
+                    :class="step.done
+                      ? 'text-green-300 line-through opacity-70'
+                      : step.current
+                        ? 'text-white font-semibold'
+                        : 'text-white/40'"
+                  >{{ step.label }}</span>
                 </div>
-                <span
-                  class="text-sm transition-all duration-300"
-                  :class="step.done
-                    ? 'text-green-300 line-through opacity-70'
-                    : step.current
-                      ? 'text-white font-semibold'
-                      : 'text-white/40'"
-                >{{ step.label }}</span>
               </div>
             </div>
+
+            <!-- Beneficios incluidos (solo register) -->
+            <div v-if="panelCtx.benefits.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/15 space-y-3">
+              <p class="text-white/50 text-xs font-semibold uppercase tracking-widest">Incluido sin costo</p>
+              <div class="space-y-2.5">
+                <div v-for="benefit in panelCtx.benefits" :key="benefit" class="flex items-center gap-2.5">
+                  <div class="w-5 h-5 rounded-full bg-green-400/20 flex items-center justify-center flex-shrink-0">
+                    <CheckIcon class="w-3 h-3 text-green-400 stroke-[3]" />
+                  </div>
+                  <span class="text-white/85 text-sm">{{ benefit }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mini testimonial rotativo (register) -->
+            <Transition name="fade-up" mode="out-in">
+              <div v-if="showTestimonial && currentTestimonial" :key="currentTestimonial.id" class="flex items-center gap-3 px-1">
+                <div
+                  class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white"
+                  :style="{ backgroundColor: currentTestimonial.avatarColor + '99' }"
+                >
+                  {{ currentTestimonial.initials }}
+                </div>
+                <div class="min-w-0">
+                  <p class="text-white/85 text-xs leading-snug italic truncate">"{{ currentTestimonial.quote }}"</p>
+                  <p class="text-white/50 text-[11px]">{{ currentTestimonial.name }} · {{ currentTestimonial.role }}</p>
+                </div>
+              </div>
+            </Transition>
           </div>
 
           <!-- Feature list or testimonial (when no steps) -->
@@ -279,7 +310,7 @@ async function checkHealth() {
 
 // ─── Stats dinámicas ──────────────────────────────────────────────────────────
 
-const { stats: landingStats, testimonials: landingTestimonials, load: loadStats } = useLandingContent()
+const { stats: landingStats, testimonials: landingTestimonials, load: loadStats, connectRealtime: connectLandingRealtime, disconnectRealtime: disconnectLandingRealtime } = useLandingContent()
 
 const stats = computed(() =>
   landingStats.value.slice(0, 3).map(s => ({ value: s.value, label: s.label }))
@@ -304,10 +335,11 @@ function resetTestimonialTimer() {
 }
 
 // immediate: true handles the case where useState already has fallback data on mount
-const unwatchTestimonials = watch(testimonials, (val) => {
+let unwatchTestimonials: (() => void) | null = null
+unwatchTestimonials = watch(testimonials, (val) => {
   if (val.length > 0) {
     resetTestimonialTimer()
-    unwatchTestimonials()
+    unwatchTestimonials?.()
   }
 }, { immediate: true })
 
@@ -315,11 +347,13 @@ onMounted(() => {
   loadStats()
   checkHealth()
   healthTimer = setInterval(checkHealth, 60_000)
+  connectLandingRealtime()
 })
 
 onUnmounted(() => {
   if (healthTimer) clearInterval(healthTimer)
   if (testimonialTimer) clearInterval(testimonialTimer)
+  disconnectLandingRealtime()
 })
 
 // ─── Features por rol (fallback si no hay testimonios) ───────────────────────
@@ -356,6 +390,7 @@ interface PanelContext {
   headline: string
   subline: string
   steps: PanelStep[]
+  benefits: string[]
 }
 
 const panelCtx = computed<PanelContext>(() => {
@@ -370,6 +405,11 @@ const panelCtx = computed<PanelContext>(() => {
         { label: 'Verifica tu correo', done: false, current: false },
         { label: 'Configura tu negocio', done: false, current: false },
       ],
+      benefits: [
+        'Sin tarjeta de crédito requerida',
+        'Soporte en español 24/7',
+        'Cancela cuando quieras',
+      ],
     }
   }
 
@@ -382,6 +422,10 @@ const panelCtx = computed<PanelContext>(() => {
         { label: 'Verifica tu correo', done: false, current: true },
         { label: 'Configura tu negocio', done: false, current: false },
       ],
+      benefits: [
+        'El enlace expira en 24 horas',
+        '¿No te llegó? Puedes reenviarlo',
+      ],
     }
   }
 
@@ -390,6 +434,7 @@ const panelCtx = computed<PanelContext>(() => {
       headline: 'Recupera\ntu acceso',
       subline: 'Te enviamos un enlace seguro para restablecer tu contraseña en segundos.',
       steps: [],
+      benefits: [],
     }
   }
 
@@ -398,6 +443,7 @@ const panelCtx = computed<PanelContext>(() => {
       headline: 'Nueva\ncontraseña',
       subline: 'Elige una contraseña segura. Recomendamos combinar letras, números y símbolos.',
       steps: [],
+      benefits: [],
     }
   }
 
@@ -406,6 +452,7 @@ const panelCtx = computed<PanelContext>(() => {
       headline: 'Verificación\nen dos pasos',
       subline: 'Tu cuenta está protegida con autenticación de dos factores. Ingresa el código de tu app.',
       steps: [],
+      benefits: [],
     }
   }
 
@@ -414,6 +461,7 @@ const panelCtx = computed<PanelContext>(() => {
     headline: 'Gestiona tu\nrestaurante\ncon precisión',
     subline: 'Todo lo que necesitas para administrar pedidos, inventario, clientes y más en un solo lugar.',
     steps: [],
+    benefits: [],
   }
 })
 </script>

@@ -110,7 +110,7 @@
       </div>
 
       <!-- Google OAuth -->
-      <GoogleAuthButton />
+      <AuthGoogleAuthButton />
 
       <!-- reCAPTCHA notice -->
       <p v-if="recaptchaEnabled" class="text-center text-[11px] text-gray-400 leading-relaxed">

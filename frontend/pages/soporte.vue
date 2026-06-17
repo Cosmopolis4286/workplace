@@ -187,6 +187,7 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ layout: 'public' })
 useHead({ title: 'Soporte — FoodManager' })
 
 const contactChannels = [

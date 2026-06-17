@@ -96,6 +96,7 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ layout: 'public' })
 useHead({ title: 'Términos de Servicio — FoodManager' })
 
 const sections = [

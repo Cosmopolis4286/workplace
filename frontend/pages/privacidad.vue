@@ -79,6 +79,7 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ layout: 'public' })
 useHead({ title: 'Privacidad — FoodManager' })
 
 const sections = [
