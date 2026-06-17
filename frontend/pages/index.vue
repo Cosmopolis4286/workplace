@@ -12,7 +12,7 @@
           <a href="#features" aria-label="Ver funcionalidades" class="hover:text-gray-900 transition-colors duration-150">Funciones</a>
           <a href="#how" aria-label="Cómo funciona la plataforma" class="hover:text-gray-900 transition-colors duration-150">Cómo funciona</a>
           <a href="#testimonials" aria-label="Testimonios de clientes" class="hover:text-gray-900 transition-colors duration-150">Testimonios</a>
-          <a href="#features" class="hover:text-gray-900 transition-colors duration-150">Precios</a>
+          <a href="#pricing" aria-label="Ver planes y precios" class="hover:text-gray-900 transition-colors duration-150">Precios</a>
         </div>
 
         <!-- CTA + Hamburger -->
@@ -63,7 +63,7 @@
               @click="mobileMenuOpen = false"
             >Testimonios</a>
             <a
-              href="#features"
+              href="#pricing"
               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
               @click="mobileMenuOpen = false"
             >Precios</a>
@@ -276,6 +276,77 @@
       </div>
     </section>
 
+    <!-- ─── Pricing ────────────────────────────────────────────────────────── -->
+    <section id="pricing" class="py-24 px-4 sm:px-6 lg:px-8 bg-gray-50">
+      <div class="max-w-6xl mx-auto">
+        <div class="text-center mb-16 space-y-3">
+          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">Precios</p>
+          <h2 class="text-4xl font-black text-gray-900 tracking-tight">Planes para cada etapa de tu negocio</h2>
+          <p class="text-gray-500 text-lg max-w-xl mx-auto">Sin sorpresas. Cambia o cancela tu plan cuando quieras.</p>
+        </div>
+
+        <!-- Skeleton while loading -->
+        <div v-if="loadingPlans" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div v-for="n in 3" :key="n" class="bg-white rounded-2xl p-7 border border-gray-100 shadow-sm space-y-4 animate-pulse">
+            <div class="h-4 w-20 bg-gray-200 rounded"></div>
+            <div class="h-8 w-28 bg-gray-200 rounded"></div>
+            <div class="space-y-2 pt-2">
+              <div class="h-3 bg-gray-100 rounded w-full"></div>
+              <div class="h-3 bg-gray-100 rounded w-4/5"></div>
+              <div class="h-3 bg-gray-100 rounded w-3/5"></div>
+            </div>
+            <div class="h-10 bg-gray-100 rounded-xl mt-4"></div>
+          </div>
+        </div>
+
+        <!-- Empty state (no plans configured yet) -->
+        <div v-else-if="publicPlans.length === 0" class="text-center py-12">
+          <p class="text-gray-400 text-sm">Los planes estarán disponibles muy pronto.</p>
+        </div>
+
+        <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div
+            v-for="plan in publicPlans"
+            :key="plan.id"
+            class="relative bg-white rounded-2xl p-7 border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col"
+            :class="plan.isPopular ? 'border-workplace-red ring-1 ring-workplace-red' : 'border-gray-100'"
+          >
+            <span
+              v-if="plan.isPopular"
+              class="absolute -top-3 left-1/2 -translate-x-1/2 bg-workplace-red text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wide"
+            >
+              Más popular
+            </span>
+
+            <p class="text-sm font-bold text-gray-500 uppercase tracking-wide">{{ plan.name }}</p>
+            <p class="mt-2">
+              <span class="text-3xl font-black text-gray-900">{{ formatPlanPrice(plan.price) }}</span>
+              <span v-if="plan.price > 0" class="text-gray-400 text-sm font-medium">/mes</span>
+            </p>
+            <p v-if="plan.description" class="text-sm text-gray-500 mt-2 leading-relaxed">{{ plan.description }}</p>
+
+            <ul class="space-y-2.5 mt-5 flex-1">
+              <li v-for="feat in plan.features" :key="feat" class="flex items-start gap-2 text-sm text-gray-600">
+                <CheckIcon class="w-4 h-4 text-green-500 stroke-[2.5] flex-shrink-0 mt-0.5" />
+                {{ feat }}
+              </li>
+            </ul>
+
+            <NuxtLink
+              to="/register"
+              class="mt-6 inline-flex items-center justify-center gap-2 font-bold px-5 py-3 rounded-xl transition-all duration-150 text-sm"
+              :class="plan.isPopular
+                ? 'bg-workplace-red hover:bg-red-700 text-white shadow-sm hover:shadow-md'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'"
+            >
+              Empezar ahora
+              <ArrowRightIcon class="w-4 h-4" />
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ─── How it works ───────────────────────────────────────────────────── -->
     <section id="how" class="py-24 px-4 sm:px-6 lg:px-8 bg-gray-50">
       <div class="max-w-5xl mx-auto">
@@ -457,7 +528,7 @@
           <div class="flex flex-wrap gap-x-8 gap-y-2 text-sm text-gray-500">
             <a href="#features" aria-label="Ver funcionalidades" class="hover:text-gray-900 transition-colors duration-150">Funciones</a>
             <a href="#how" aria-label="Cómo funciona la plataforma" class="hover:text-gray-900 transition-colors duration-150">Cómo funciona</a>
-            <a href="#features" class="hover:text-gray-900 transition-colors duration-150">Precios</a>
+            <a href="#pricing" aria-label="Ver planes y precios" class="hover:text-gray-900 transition-colors duration-150">Precios</a>
             <NuxtLink to="/privacidad" class="hover:text-gray-900 transition-colors duration-150">Privacidad</NuxtLink>
             <NuxtLink to="/terminos" class="hover:text-gray-900 transition-colors duration-150">Términos</NuxtLink>
             <NuxtLink to="/soporte" class="hover:text-gray-900 transition-colors duration-150">Soporte</NuxtLink>
@@ -483,11 +554,11 @@
         >
           <div
             ref="demoModalRef"
-            class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
             tabindex="-1"
           >
             <!-- Modal header -->
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <div>
                 <h3 id="demo-modal-title" class="font-bold text-gray-900">Demo interactiva</h3>
                 <p class="text-xs text-gray-400 mt-0.5">Explora la plataforma antes de registrarte</p>
@@ -496,15 +567,15 @@
                 ref="demoCloseRef"
                 type="button"
                 aria-label="Cerrar demo"
-                class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all flex-shrink-0"
                 @click="closeDemo"
               >
                 <XMarkIcon class="w-5 h-5" />
               </button>
             </div>
 
-            <!-- Modal body -->
-            <div class="p-6 space-y-5">
+            <!-- Modal body (scrollable) -->
+            <div class="p-6 space-y-5 overflow-y-auto">
               <!-- Preview image placeholder -->
               <div class="w-full aspect-video bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 flex flex-col items-center justify-center gap-3">
                 <div class="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center">
@@ -526,7 +597,7 @@
             </div>
 
             <!-- Modal footer -->
-            <div class="flex flex-col sm:flex-row gap-2.5 px-6 pb-6">
+            <div class="flex flex-col sm:flex-row gap-2.5 px-6 py-4 border-t border-gray-100 flex-shrink-0">
               <NuxtLink
                 to="/register"
                 class="flex-1 inline-flex items-center justify-center gap-2 bg-workplace-red hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition-all duration-150 text-sm"
@@ -579,12 +650,33 @@ const siteUrl = config.public.siteUrl as string
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
-const { stats: socialStats, testimonials, loading: loadingContent, load: loadLandingContent } = useLandingContent()
+const {
+  stats: socialStats,
+  testimonials,
+  features: dynamicFeatures,
+  steps: dynamicSteps,
+  loading: loadingContent,
+  load: loadLandingContent,
+  connectRealtime: connectLandingRealtime,
+  disconnectRealtime: disconnectLandingRealtime,
+} = useLandingContent()
+
+// Resuelve el nombre de ícono (string, desde el backend) al componente Heroicons real
+const ICON_MAP: Record<string, typeof ShoppingCartIcon> = {
+  ShoppingCartIcon, CubeIcon, ChartBarIcon, DocumentTextIcon, UsersIcon, TruckIcon,
+  UserPlusIcon, CogIcon, RocketLaunchIcon,
+}
+function resolveIcon(name: string) {
+  return ICON_MAP[name] ?? ShoppingCartIcon
+}
+
+// ─── Pricing (planes públicos desde el backend) ──────────────────────────────
+const { plans: publicPlans, loading: loadingPlans, fetchPublicPlans, formatPrice: formatPlanPrice } = usePlans()
 
 const ratingCount = computed(() => {
-  const reviewsStat = socialStats.value.find(s => s.key === 'reviews')
+  const ratingStat = socialStats.value.find(s => s.key === 'rating')
   // rawValue is guaranteed to be numeric; never use .value which may contain '4.9★'
-  return String(reviewsStat?.rawValue ?? 500)
+  return String(ratingStat?.rawValue ?? 500)
 })
 
 useHead(() => ({
@@ -686,12 +778,15 @@ function closeDemo() {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   document.body.style.overflow = ''
+  disconnectLandingRealtime()
 })
 
 // ─── Dynamic landing content ──────────────────────────────────────────────────
 onMounted(async () => {
   jsReady.value = true
   loadLandingContent()
+  fetchPublicPlans()
+  connectLandingRealtime()
 
   // Animate hero chart bars after a short delay
   setTimeout(() => { chartAnimated.value = true }, 200)
@@ -758,66 +853,26 @@ const demoHighlights = [
   { label: 'CRM de clientes', icon: UsersIcon, bg: 'bg-pink-500' },
 ]
 
-// ─── Features ────────────────────────────────────────────────────────────────
+// ─── Features (dinámico desde backend, con fallback) ─────────────────────────
 
-const features = [
-  {
-    title: 'Gestión de Pedidos',
-    description: 'Recibe y gestiona todos tus pedidos en tiempo real. Controla estados, tiempos y asignaciones desde un solo panel.',
-    icon: ShoppingCartIcon,
-    bg: 'bg-blue-500',
-  },
-  {
-    title: 'Control de Inventario',
-    description: 'Monitorea tu stock al instante. Recibe alertas automáticas de bajo inventario y evita pérdidas operativas.',
-    icon: CubeIcon,
-    bg: 'bg-violet-500',
-  },
-  {
-    title: 'Menú Digital',
-    description: 'Crea y actualiza tu menú con fotos, precios, categorías y disponibilidad en tiempo real.',
-    icon: DocumentTextIcon,
-    bg: 'bg-green-500',
-  },
-  {
-    title: 'Analytics y Reportes',
-    description: 'Visualiza el rendimiento de tu negocio con gráficas, KPIs e informes exportables.',
-    icon: ChartBarIcon,
-    bg: 'bg-amber-500',
-  },
-  {
-    title: 'CRM de Clientes',
-    description: 'Conoce a tus clientes: historial de pedidos, segmentos, frecuencia y valor de vida.',
-    icon: UsersIcon,
-    bg: 'bg-pink-500',
-  },
-  {
-    title: 'Control de Delivery',
-    description: 'Administra repartidores, rutas y tiempos de entrega. Asigna pedidos y haz seguimiento en vivo.',
-    icon: TruckIcon,
-    bg: 'bg-teal-500',
-  },
-]
+const features = computed(() =>
+  dynamicFeatures.value.map(f => ({
+    title: f.title,
+    description: f.description,
+    icon: resolveIcon(f.icon),
+    bg: f.bg,
+  }))
+)
 
-// ─── How it works ─────────────────────────────────────────────────────────────
+// ─── How it works (dinámico desde backend, con fallback) ─────────────────────
 
-const steps = [
-  {
-    icon: UserPlusIcon,
-    title: 'Crea tu cuenta',
-    desc: 'Regístrate gratis en menos de 2 minutos. Solo necesitas tu correo y el nombre de tu restaurante.',
-  },
-  {
-    icon: CogIcon,
-    title: 'Configura tu negocio',
-    desc: 'Agrega tu menú, productos y ajusta la configuración según tus necesidades operativas.',
-  },
-  {
-    icon: RocketLaunchIcon,
-    title: 'Comienza a gestionar',
-    desc: 'Recibe pedidos, controla inventario y analiza el rendimiento de tu restaurante en tiempo real.',
-  },
-]
+const steps = computed(() =>
+  dynamicSteps.value.map(s => ({
+    icon: resolveIcon(s.icon),
+    title: s.title,
+    desc: s.desc,
+  }))
+)
 </script>
 
 <style scoped>

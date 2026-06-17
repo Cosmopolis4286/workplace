@@ -5,7 +5,7 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-black text-gray-900">Contenido de la Landing</h1>
-        <p class="text-sm text-gray-500 mt-1">Gestiona testimonios y estadísticas públicas que se muestran en la página principal.</p>
+        <p class="text-sm text-gray-500 mt-1">Gestiona estadísticas, testimonios, funciones y pasos que se muestran en la página principal.</p>
       </div>
     </div>
 
@@ -136,6 +136,108 @@
       </div>
     </div>
 
+    <!-- ─── Funciones ──────────────────────────────────────────────────────── -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-bold text-gray-900">Funciones</h2>
+        <button
+          @click="openFeatureModal(null)"
+          class="text-sm font-semibold bg-workplace-red text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+        >
+          + Nueva
+        </button>
+      </div>
+
+      <div v-if="loadingFeatures" class="px-6 py-10 text-center text-sm text-gray-400">Cargando…</div>
+
+      <div v-else class="divide-y divide-gray-50">
+        <div
+          v-for="f in features"
+          :key="f.id"
+          class="px-6 py-4 flex items-start gap-4"
+        >
+          <div :class="['w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0', f.bg]">
+            {{ f.icon.replace('Icon', '').slice(0, 2) }}
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-bold text-gray-900">{{ f.title }}</p>
+            <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ f.description }}</p>
+          </div>
+
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span
+              class="text-xs font-semibold px-2 py-0.5 rounded-full"
+              :class="f.isActive ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'"
+            >
+              {{ f.isActive ? 'Activo' : 'Oculto' }}
+            </span>
+            <button @click="openFeatureModal(f)" class="p-1.5 text-gray-400 hover:text-gray-600 rounded">
+              <PencilIcon class="w-4 h-4" />
+            </button>
+            <button @click="deleteFeature(f.id)" class="p-1.5 text-gray-400 hover:text-red-500 rounded">
+              <TrashIcon class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div v-if="features.length === 0 && !loadingFeatures" class="px-6 py-10 text-center text-sm text-gray-400">
+          No hay funciones configuradas. Crea la primera.
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Cómo funciona ──────────────────────────────────────────────────── -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-bold text-gray-900">Cómo funciona</h2>
+        <button
+          @click="openStepModal(null)"
+          class="text-sm font-semibold bg-workplace-red text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+        >
+          + Nuevo
+        </button>
+      </div>
+
+      <div v-if="loadingSteps" class="px-6 py-10 text-center text-sm text-gray-400">Cargando…</div>
+
+      <div v-else class="divide-y divide-gray-50">
+        <div
+          v-for="(s, idx) in steps"
+          :key="s.id"
+          class="px-6 py-4 flex items-start gap-4"
+        >
+          <div class="w-10 h-10 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-workplace-red text-sm font-black flex-shrink-0">
+            {{ idx + 1 }}
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-bold text-gray-900">{{ s.title }}</p>
+            <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ s.desc }}</p>
+          </div>
+
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span
+              class="text-xs font-semibold px-2 py-0.5 rounded-full"
+              :class="s.isActive ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'"
+            >
+              {{ s.isActive ? 'Activo' : 'Oculto' }}
+            </span>
+            <button @click="openStepModal(s)" class="p-1.5 text-gray-400 hover:text-gray-600 rounded">
+              <PencilIcon class="w-4 h-4" />
+            </button>
+            <button @click="deleteStep(s.id)" class="p-1.5 text-gray-400 hover:text-red-500 rounded">
+              <TrashIcon class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div v-if="steps.length === 0 && !loadingSteps" class="px-6 py-10 text-center text-sm text-gray-400">
+          No hay pasos configurados. Crea el primero.
+        </div>
+      </div>
+    </div>
+
     <!-- ─── Modal Testimonio ───────────────────────────────────────────────── -->
     <Teleport to="body">
       <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -193,6 +295,102 @@
       </div>
     </Teleport>
 
+    <!-- ─── Modal Función ──────────────────────────────────────────────────── -->
+    <Teleport to="body">
+      <div v-if="showFeatureModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showFeatureModal = false" />
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+          <h3 class="font-black text-gray-900 text-lg">{{ editingFeatureId ? 'Editar función' : 'Nueva función' }}</h3>
+
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Título</label>
+              <input v-model="featureForm.title" class="mt-1 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200" placeholder="Ej: Gestión de Pedidos" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Descripción</label>
+              <textarea v-model="featureForm.description" rows="3" class="mt-1 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200 resize-none" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ícono</label>
+                <select v-model="featureForm.icon" class="mt-1 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200">
+                  <option v-for="i in ICON_OPTIONS" :key="i" :value="i">{{ i }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Color de fondo</label>
+                <select v-model="featureForm.bg" class="mt-1 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200">
+                  <option v-for="b in BG_OPTIONS" :key="b" :value="b">{{ b }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="checkbox" id="featureIsActive" v-model="featureForm.isActive" class="rounded" />
+              <label for="featureIsActive" class="text-sm text-gray-700">Mostrar en landing</label>
+            </div>
+          </div>
+
+          <div class="flex gap-3 pt-2">
+            <button @click="showFeatureModal = false" class="flex-1 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-50 text-sm">
+              Cancelar
+            </button>
+            <button
+              @click="saveFeature"
+              :disabled="savingFeatureModal || !featureForm.title || !featureForm.description"
+              class="flex-1 bg-workplace-red text-white font-semibold py-2.5 rounded-xl hover:bg-red-700 disabled:opacity-60 text-sm"
+            >
+              {{ savingFeatureModal ? 'Guardando…' : (editingFeatureId ? 'Actualizar' : 'Crear') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ─── Modal Paso ─────────────────────────────────────────────────────── -->
+    <Teleport to="body">
+      <div v-if="showStepModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showStepModal = false" />
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+          <h3 class="font-black text-gray-900 text-lg">{{ editingStepId ? 'Editar paso' : 'Nuevo paso' }}</h3>
+
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Título</label>
+              <input v-model="stepForm.title" class="mt-1 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200" placeholder="Ej: Crea tu cuenta" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Descripción</label>
+              <textarea v-model="stepForm.desc" rows="3" class="mt-1 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200 resize-none" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ícono</label>
+              <select v-model="stepForm.icon" class="mt-1 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200">
+                <option v-for="i in ICON_OPTIONS" :key="i" :value="i">{{ i }}</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="checkbox" id="stepIsActive" v-model="stepForm.isActive" class="rounded" />
+              <label for="stepIsActive" class="text-sm text-gray-700">Mostrar en landing</label>
+            </div>
+          </div>
+
+          <div class="flex gap-3 pt-2">
+            <button @click="showStepModal = false" class="flex-1 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-50 text-sm">
+              Cancelar
+            </button>
+            <button
+              @click="saveStep"
+              :disabled="savingStepModal || !stepForm.title || !stepForm.desc"
+              class="flex-1 bg-workplace-red text-white font-semibold py-2.5 rounded-xl hover:bg-red-700 disabled:opacity-60 text-sm"
+            >
+              {{ savingStepModal ? 'Guardando…' : (editingStepId ? 'Actualizar' : 'Crear') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
@@ -218,6 +416,25 @@ interface AdminStat {
   label: string
   value: string
   isDynamic: boolean
+  sortOrder: number
+}
+
+interface Feature {
+  id: string
+  title: string
+  description: string
+  icon: string
+  bg: string
+  isActive: boolean
+  sortOrder: number
+}
+
+interface Step {
+  id: string
+  title: string
+  desc: string
+  icon: string
+  isActive: boolean
   sortOrder: number
 }
 
@@ -349,14 +566,165 @@ async function deleteTestimonial(id: string) {
   if (!confirm('¿Eliminar este testimonio?')) return
   await $fetch(`${apiUrl}/landing/admin/testimonials/${id}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${auth.accessToken}` },
+    headers: authHeader.value,
   })
   testimonials.value = testimonials.value.filter((t) => t.id !== id)
+}
+
+// ─── Features ─────────────────────────────────────────────────────────────────
+const features = ref<Feature[]>([])
+const loadingFeatures = ref(false)
+const showFeatureModal = ref(false)
+const savingFeatureModal = ref(false)
+const editingFeatureId = ref<string | null>(null)
+
+const ICON_OPTIONS = ['ShoppingCartIcon', 'CubeIcon', 'ChartBarIcon', 'DocumentTextIcon', 'UsersIcon', 'TruckIcon', 'UserPlusIcon', 'CogIcon', 'RocketLaunchIcon']
+const BG_OPTIONS = ['bg-blue-500', 'bg-violet-500', 'bg-green-500', 'bg-amber-500', 'bg-pink-500', 'bg-teal-500']
+
+const featureForm = reactive({
+  title: '',
+  description: '',
+  icon: ICON_OPTIONS[0],
+  bg: BG_OPTIONS[0],
+  isActive: true,
+})
+
+async function loadFeatures() {
+  loadingFeatures.value = true
+  try {
+    const data = await $fetch<Feature[]>(`${apiUrl}/landing/admin/features`, {
+      headers: authHeader.value,
+    })
+    features.value = data
+  } finally {
+    loadingFeatures.value = false
+  }
+}
+
+function openFeatureModal(f: Feature | null) {
+  editingFeatureId.value = f?.id ?? null
+  Object.assign(featureForm, {
+    title: f?.title ?? '',
+    description: f?.description ?? '',
+    icon: f?.icon ?? ICON_OPTIONS[0],
+    bg: f?.bg ?? BG_OPTIONS[0],
+    isActive: f?.isActive ?? true,
+  })
+  showFeatureModal.value = true
+}
+
+async function saveFeature() {
+  if (!featureForm.title || !featureForm.description) return
+  savingFeatureModal.value = true
+  try {
+    if (editingFeatureId.value) {
+      const updated = await $fetch<Feature>(`${apiUrl}/landing/admin/features/${editingFeatureId.value}`, {
+        method: 'PUT',
+        headers: authHeader.value,
+        body: { ...featureForm },
+      })
+      const idx = features.value.findIndex((f) => f.id === editingFeatureId.value)
+      if (idx !== -1) features.value[idx] = updated
+    } else {
+      const created = await $fetch<Feature>(`${apiUrl}/landing/admin/features`, {
+        method: 'POST',
+        headers: authHeader.value,
+        body: { ...featureForm, sortOrder: features.value.length },
+      })
+      features.value.push(created)
+    }
+    showFeatureModal.value = false
+  } finally {
+    savingFeatureModal.value = false
+  }
+}
+
+async function deleteFeature(id: string) {
+  if (!confirm('¿Eliminar esta función?')) return
+  await $fetch(`${apiUrl}/landing/admin/features/${id}`, {
+    method: 'DELETE',
+    headers: authHeader.value,
+  })
+  features.value = features.value.filter((f) => f.id !== id)
+}
+
+// ─── Steps (Cómo funciona) ──────────────────────────────────────────────────
+const steps = ref<Step[]>([])
+const loadingSteps = ref(false)
+const showStepModal = ref(false)
+const savingStepModal = ref(false)
+const editingStepId = ref<string | null>(null)
+
+const stepForm = reactive({
+  title: '',
+  desc: '',
+  icon: ICON_OPTIONS[0],
+  isActive: true,
+})
+
+async function loadSteps() {
+  loadingSteps.value = true
+  try {
+    const data = await $fetch<Step[]>(`${apiUrl}/landing/admin/steps`, {
+      headers: authHeader.value,
+    })
+    steps.value = data
+  } finally {
+    loadingSteps.value = false
+  }
+}
+
+function openStepModal(s: Step | null) {
+  editingStepId.value = s?.id ?? null
+  Object.assign(stepForm, {
+    title: s?.title ?? '',
+    desc: s?.desc ?? '',
+    icon: s?.icon ?? ICON_OPTIONS[0],
+    isActive: s?.isActive ?? true,
+  })
+  showStepModal.value = true
+}
+
+async function saveStep() {
+  if (!stepForm.title || !stepForm.desc) return
+  savingStepModal.value = true
+  try {
+    if (editingStepId.value) {
+      const updated = await $fetch<Step>(`${apiUrl}/landing/admin/steps/${editingStepId.value}`, {
+        method: 'PUT',
+        headers: authHeader.value,
+        body: { ...stepForm },
+      })
+      const idx = steps.value.findIndex((s) => s.id === editingStepId.value)
+      if (idx !== -1) steps.value[idx] = updated
+    } else {
+      const created = await $fetch<Step>(`${apiUrl}/landing/admin/steps`, {
+        method: 'POST',
+        headers: authHeader.value,
+        body: { ...stepForm, sortOrder: steps.value.length },
+      })
+      steps.value.push(created)
+    }
+    showStepModal.value = false
+  } finally {
+    savingStepModal.value = false
+  }
+}
+
+async function deleteStep(id: string) {
+  if (!confirm('¿Eliminar este paso?')) return
+  await $fetch(`${apiUrl}/landing/admin/steps/${id}`, {
+    method: 'DELETE',
+    headers: authHeader.value,
+  })
+  steps.value = steps.value.filter((s) => s.id !== id)
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 onMounted(() => {
   loadStats()
   loadTestimonials()
+  loadFeatures()
+  loadSteps()
 })
 </script>
