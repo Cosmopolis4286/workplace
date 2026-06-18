@@ -16,19 +16,21 @@ export const SocketIOKey: InjectionKey<SocketIOPlugin> = Symbol('socket.io')
 
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
-  const apiBase = config.public.apiUrl as string
-  
+  // apiUrl incluye el prefijo REST '/api' (ej: http://localhost:3001/api),
+  // pero los namespaces de WebSocket cuelgan de la raíz del host, no de /api.
+  const wsBase = (config.public.apiUrl as string).replace(/\/api\/?$/, '')
+
   let socket: Socket | null = null
   const isConnected = ref(false)
-  
+
   const connect = (namespace: string, options: { token?: string; commerceId?: string } = {}) => {
     // Desconectar socket anterior si existe
     if (socket) {
       socket.disconnect()
     }
-    
+
     // Crear nueva conexión
-    socket = io(`${apiBase}${namespace}`, {
+    socket = io(`${wsBase}${namespace}`, {
       auth: { token: options.token },
       transports: ['websocket'],
       reconnection: true,

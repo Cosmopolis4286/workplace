@@ -6,6 +6,12 @@
     </NuxtLayout>
     <PwaPrompt />
     <AppLockScreen />
+    <Toaster
+      position="top-right"
+      rich-colors
+      close-button
+      :toast-options="{ classes: { toast: 'rounded-xl font-sans' } }"
+    />
   </div>
 </template>
 

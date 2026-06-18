@@ -1,13 +1,13 @@
 <template>
   <AuthLayout
-    title="Verifica tu correo"
-    description="Un paso más para comenzar"
+    :title="t('auth.verifyEmail.title')"
+    :description="t('auth.verifyEmail.description')"
   >
     <div class="flex flex-col items-center text-center gap-5 py-2">
       <!-- Verifying state -->
       <div v-if="isVerifying" class="flex flex-col items-center gap-4 py-8">
         <div class="w-12 h-12 border-4 border-workplace-red border-t-transparent rounded-full animate-spin" />
-        <p class="text-sm text-gray-500">Verificando tu correo...</p>
+        <p class="text-sm text-gray-500">{{ t('auth.verifyEmail.verifying') }}</p>
       </div>
 
       <!-- Error state -->
@@ -16,17 +16,16 @@
           <ExclamationTriangleIcon class="h-10 w-10 text-red-500" />
         </div>
         <div class="space-y-2 max-w-xs">
-          <h3 class="text-lg font-bold text-gray-900">Verificación fallida</h3>
+          <h3 class="text-lg font-bold text-gray-900">{{ t('auth.verifyEmail.failedTitle') }}</h3>
           <p class="text-sm text-red-600">{{ verificationError }}</p>
         </div>
         <AuthButton
           variant="primary"
-          text="Reenviar correo de verificación"
+          :text="t('auth.verifyEmail.resend')"
           :icon="ArrowPathIcon"
           :loading="isResending"
           @click="resendVerification"
         />
-        <p v-if="resendError" class="text-sm text-red-600">{{ resendError }}</p>
       </div>
 
       <!-- Success/Resent state -->
@@ -35,8 +34,8 @@
           <CheckIcon class="h-10 w-10 text-green-600" />
         </div>
         <div class="space-y-2 max-w-xs">
-          <h3 class="text-lg font-bold text-gray-900">¡Correo reenviado!</h3>
-          <p class="text-sm text-gray-500">Revisa tu bandeja de entrada para el nuevo enlace de verificación.</p>
+          <h3 class="text-lg font-bold text-gray-900">{{ t('auth.verifyEmail.resentTitle') }}</h3>
+          <p class="text-sm text-gray-500">{{ t('auth.verifyEmail.resentDesc') }}</p>
         </div>
       </div>
 
@@ -53,15 +52,15 @@
         </div>
 
         <div class="space-y-2 max-w-xs">
-          <h3 class="text-lg font-bold text-gray-900">¡Casi listo!</h3>
+          <h3 class="text-lg font-bold text-gray-900">{{ t('auth.verifyEmail.almostDoneTitle') }}</h3>
           <p class="text-sm text-gray-500 leading-relaxed">
-            Enviamos un correo de verificación a
+            {{ t('auth.verifyEmail.sentTo') }}
           </p>
           <p class="text-sm font-semibold text-workplace-red bg-red-50 px-3 py-1.5 rounded-lg inline-block">
             {{ displayEmail }}
           </p>
           <p class="text-sm text-gray-500 leading-relaxed">
-            Haz clic en el enlace del correo para activar tu cuenta y comenzar a usar WorkPlace Manager.
+            {{ t('auth.verifyEmail.instructions', { appName: t('common.appName') }) }}
           </p>
         </div>
 
@@ -89,36 +88,37 @@
         <!-- Info box -->
         <div class="w-full flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700">
           <ExclamationTriangleIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-500" />
-          <p>
-            El enlace expira en <strong>24 horas</strong>. Si no ves el correo, revisa tu carpeta de spam.
-          </p>
+          <i18n-t keypath="auth.verifyEmail.expiryNotice" tag="p">
+            <template #hours>
+              <strong>{{ t('auth.verifyEmail.expiryHours') }}</strong>
+            </template>
+          </i18n-t>
         </div>
 
         <!-- Actions -->
         <div class="flex flex-col gap-3 w-full">
           <AuthButton
             variant="primary"
-            text="Reenviar correo de verificación"
+            :text="t('auth.verifyEmail.resend')"
             :icon="ArrowPathIcon"
             :loading="isResending"
             @click="resendVerification"
           />
           <AuthButton
             variant="ghost"
-            text="Usar otro correo"
+            :text="t('auth.verifyEmail.useAnotherEmail')"
             :icon="ArrowLeftIcon"
             @click="navigateTo('/register')"
           />
         </div>
-        <p v-if="resendError" class="text-sm text-red-600">{{ resendError }}</p>
       </template>
     </div>
 
     <template #footer>
       <p class="text-sm text-gray-500">
-        ¿Ya verificaste tu cuenta?
+        {{ t('auth.verifyEmail.alreadyVerified') }}
         <NuxtLink to="/login" class="font-semibold text-workplace-red hover:underline ml-1">
-          Inicia sesión
+          {{ t('auth.verifyEmail.login') }}
         </NuxtLink>
       </p>
     </template>
@@ -127,22 +127,26 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
-useHead({ title: 'Verifica tu correo — WorkPlace Manager' })
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { EnvelopeIcon, CheckIcon, ArrowPathIcon, ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 import { useApi } from '~/composables/useApi'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
+import { useToast } from '~/composables/useToast'
+
+const { t } = useI18n()
+useHead({ title: () => `${t('auth.verifyEmail.title')} — ${t('common.appName')}` })
 
 const { user, fetchProfile } = useAuth()
 const { post } = useApi()
+const toast = useToast()
 const route = useRoute()
 
 // email puede venir de ?email= cuando se llega desde register
 const displayEmail = computed(() => {
   const emailParam = route.query.email as string | undefined
-  return emailParam ? decodeURIComponent(emailParam) : (user.value?.email ?? 'tu correo')
+  return emailParam ? decodeURIComponent(emailParam) : (user.value?.email ?? t('auth.verifyEmail.defaultEmail'))
 })
 
 // Polling: si el usuario verifica en otra pestaña, detectarlo y redirigir
@@ -171,17 +175,15 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
 
 const isResending = ref(false)
 const resentSuccess = ref(false)
-const resendError = ref('')
 
-const verifySteps = [
-  { label: 'Cuenta creada', desc: 'Tu cuenta ha sido registrada exitosamente', done: true },
-  { label: 'Verifica tu correo', desc: 'Haz clic en el enlace que te enviamos', done: false },
-  { label: 'Comienza a usar la plataforma', desc: 'Accede a tu panel de control', done: false },
-]
+const verifySteps = computed(() => [
+  { label: t('auth.verifyEmail.step1'), desc: t('auth.verifyEmail.step1Desc'), done: true },
+  { label: t('auth.verifyEmail.step2'), desc: t('auth.verifyEmail.step2Desc'), done: false },
+  { label: t('auth.verifyEmail.step3'), desc: t('auth.verifyEmail.step3Desc'), done: false },
+])
 
 const resendVerification = async () => {
   isResending.value = true
-  resendError.value = ''
   try {
     const email = user.value?.email ?? (route.query.email as string | undefined)
     if (user.value) {
@@ -193,7 +195,7 @@ const resendVerification = async () => {
     // Reiniciar polling para detectar verificación tras reenvío
     startPolling()
   } catch (err: unknown) {
-    resendError.value = getApiErrorMessage(err, 'No se pudo reenviar el correo. Inténtalo de nuevo.')
+    toast.error(getApiErrorMessage(err, t('auth.verifyEmail.resendErrorDefault')))
   } finally {
     isResending.value = false
   }
@@ -210,7 +212,7 @@ onMounted(async () => {
       await post('/auth/verify-email', { token })
       await navigateTo('/login?verified=true')
     } catch (err: unknown) {
-      verificationError.value = getApiErrorMessage(err, 'El enlace de verificación es inválido o ha expirado')
+      verificationError.value = getApiErrorMessage(err, t('auth.verifyEmail.verificationFailedDefault'))
     } finally {
       isVerifying.value = false
     }

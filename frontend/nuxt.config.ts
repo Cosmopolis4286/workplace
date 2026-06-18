@@ -22,7 +22,26 @@ export default defineNuxtConfig({
     '@vueuse/nuxt',
     '@vite-pwa/nuxt',
     '@pinia/nuxt',
+    '@nuxtjs/i18n',
+    'vue-sonner/nuxt',
   ],
+
+  i18n: {
+    locales: [
+      { code: 'es', name: 'Español', file: 'es.json' },
+      { code: 'en', name: 'English', file: 'en.json' },
+    ],
+    defaultLocale: 'es',
+    strategy: 'no_prefix',
+    bundle: {
+      optimizeTranslationDirective: false,
+    },
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'i18n_redirected',
+      redirectOn: 'root',
+    },
+  },
 
   tailwindcss: {
     cssPath: '~/assets/css/main.css',

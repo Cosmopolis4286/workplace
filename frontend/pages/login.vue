@@ -1,14 +1,14 @@
 <template>
   <AuthLayout
-    title="Bienvenido de vuelta"
-    description="Ingresa tus credenciales para acceder a tu panel"
+    :title="t('auth.login.title')"
+    :description="t('auth.login.description')"
   >
     <!-- Header action: link to register -->
     <template #header-action>
       <p class="text-sm text-gray-500">
-        ¿Sin cuenta?
+        {{ t('auth.login.noAccount') }}
         <NuxtLink to="/register" class="font-semibold text-workplace-red hover:underline ml-1">
-          Regístrate
+          {{ t('auth.login.register') }}
         </NuxtLink>
       </p>
     </template>
@@ -21,25 +21,15 @@
         role="alert"
       >
         <ClockIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-500" />
-        <span>Demasiados intentos. Espera <strong>{{ rateLimitSeconds }}s</strong> antes de reintentar.</span>
-      </div>
-
-      <!-- General error banner -->
-      <div
-        v-if="generalError && rateLimitSeconds === 0"
-        class="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700"
-        role="alert"
-      >
-        <ExclamationCircleIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-red-500" />
-        <span>{{ generalError }}</span>
+        <span>{{ t('auth.login.rateLimited', { seconds: rateLimitSeconds }) }}</span>
       </div>
 
       <AuthInput
         id="email"
         v-model="form.email"
         type="email"
-        label="Correo electrónico"
-        placeholder="tu@email.com"
+        :label="t('auth.login.emailLabel')"
+        :placeholder="t('auth.login.emailPlaceholder')"
         :icon="EnvelopeIcon"
         :error="errors.email"
         :show-valid="touched.email"
@@ -53,7 +43,7 @@
           id="password"
           v-model="form.password"
           type="password"
-          label="Contraseña"
+          :label="t('auth.login.passwordLabel')"
           placeholder="••••••••"
           :icon="LockClosedIcon"
           :error="errors.password"
@@ -67,7 +57,7 @@
             to="/recover-password"
             class="text-xs font-semibold text-workplace-red hover:text-red-700 hover:underline transition-colors duration-150"
           >
-            ¿Olvidaste tu contraseña?
+            {{ t('auth.login.forgotPassword') }}
           </NuxtLink>
         </div>
       </div>
@@ -90,12 +80,12 @@
             <CheckIcon v-if="form.rememberMe" class="w-2.5 h-2.5 text-white stroke-[3]" />
           </div>
         </div>
-        <span class="text-sm text-gray-600 select-none">Mantener sesión iniciada</span>
+        <span class="text-sm text-gray-600 select-none">{{ t('auth.login.rememberMe') }}</span>
       </label>
 
       <AuthButton
         type="submit"
-        text="Iniciar sesión"
+        :text="t('auth.login.submit')"
         :loading="isLoading"
         :disabled="rateLimitSeconds > 0"
         :icon="ArrowLeftEndOnRectangleIcon"
@@ -105,7 +95,7 @@
       <!-- Divider -->
       <div class="relative flex items-center">
         <div class="flex-1 border-t border-gray-200"></div>
-        <span class="px-3 text-xs text-gray-400 font-medium">o continúa con</span>
+        <span class="px-3 text-xs text-gray-400 font-medium">{{ t('auth.login.orContinueWith') }}</span>
         <div class="flex-1 border-t border-gray-200"></div>
       </div>
 
@@ -113,20 +103,21 @@
       <AuthGoogleAuthButton />
 
       <!-- reCAPTCHA notice -->
-      <p v-if="recaptchaEnabled" class="text-center text-[11px] text-gray-400 leading-relaxed">
-        Protegido por reCAPTCHA —
-        <a href="https://policies.google.com/privacy" target="_blank" class="hover:underline">Privacidad</a>
-        y
-        <a href="https://policies.google.com/terms" target="_blank" class="hover:underline">Términos</a>
-        de Google.
-      </p>
+      <i18n-t v-if="recaptchaEnabled" keypath="auth.login.recaptchaNotice" tag="p" class="text-center text-[11px] text-gray-400 leading-relaxed">
+        <template #privacy>
+          <a href="https://policies.google.com/privacy" target="_blank" class="hover:underline">{{ t('auth.login.privacy') }}</a>
+        </template>
+        <template #terms>
+          <a href="https://policies.google.com/terms" target="_blank" class="hover:underline">{{ t('auth.login.terms') }}</a>
+        </template>
+      </i18n-t>
     </form>
 
     <template #footer>
       <p class="text-sm text-gray-500">
-        ¿No tienes una cuenta?
+        {{ t('auth.login.noAccountFooter') }}
         <NuxtLink to="/register" class="font-semibold text-workplace-red hover:underline ml-1 transition-colors duration-150">
-          Créala gratis
+          {{ t('auth.login.createFree') }}
         </NuxtLink>
       </p>
     </template>
@@ -142,25 +133,28 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
-useHead({ title: 'Iniciar sesión — WorkPlace Manager' })
 
 import { ref, reactive } from 'vue'
 import {
   EnvelopeIcon,
   LockClosedIcon,
   ArrowLeftEndOnRectangleIcon,
-  ExclamationCircleIcon,
   CheckIcon,
   ClockIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 import { useFormValidation } from '~/composables/useFormValidation'
 import { useRecaptcha } from '~/composables/useRecaptcha'
-import { getApiErrorMessage } from '~/composables/useApiErrors'
+import { getApiErrorMessage, getRateLimitSeconds } from '~/composables/useApiErrors'
+import { useToast } from '~/composables/useToast'
+
+const { t } = useI18n()
+useHead({ title: () => `${t('auth.login.title')} — ${t('common.appName')}` })
 
 const { login, isAuthenticated } = useAuth()
 const { required, email, minLength, validateAll } = useFormValidation()
 const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha()
+const toast = useToast()
 const config = useRuntimeConfig()
 const route = useRoute()
 
@@ -176,7 +170,6 @@ const form = reactive({ email: '', password: '', rememberMe: false })
 const errors = reactive({ email: '', password: '' })
 const touched = reactive({ email: false, password: false })
 const isLoading = ref(false)
-const generalError = ref('')
 
 // E: rate-limit countdown
 const rateLimitSeconds = ref(0)
@@ -204,8 +197,8 @@ const runValidation = () => {
   const { errors: e } = validateAll(
     { email: form.email, password: form.password },
     {
-      email: [required('El correo'), email()],
-      password: [required('La contraseña'), minLength(6)]
+      email: [required(t('validation.fields.email')), email()],
+      password: [required(t('validation.fields.password')), minLength(6)]
     }
   )
   errors.email = touched.email ? e.email : ''
@@ -219,7 +212,6 @@ const handleLogin = async () => {
   if (!runValidation()) return
 
   isLoading.value = true
-  generalError.value = ''
 
   try {
     const recaptchaToken = await executeRecaptcha('login')
@@ -230,13 +222,11 @@ const handleLogin = async () => {
     }
     await navigateTo('/dashboard')
   } catch (err: unknown) {
-    const msg = getApiErrorMessage(err, 'Credenciales incorrectas')
-    // Detectar rate-limit con segundos para countdown
-    const match = msg.match(/(\d+)\s*segundo/i)
-    if (match) {
-      startRateLimitCountdown(parseInt(match[1], 10))
+    const seconds = getRateLimitSeconds(err)
+    if (seconds !== null) {
+      startRateLimitCountdown(seconds)
     } else {
-      generalError.value = msg
+      toast.error(getApiErrorMessage(err, t('auth.login.invalidCredentials')))
     }
   } finally {
     isLoading.value = false
@@ -255,7 +245,7 @@ const autoLoginDemo = async (creds: { email: string; password: string }) => {
     await navigateTo('/dashboard')
   } catch (err: unknown) {
     fillDemoCredentials(creds)
-    generalError.value = getApiErrorMessage(err, 'Error en demo login')
+    toast.error(getApiErrorMessage(err, t('auth.login.demoLoginError')))
   } finally {
     isLoading.value = false
   }

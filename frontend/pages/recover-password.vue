@@ -1,7 +1,7 @@
 <template>
   <AuthLayout
-    title="Recuperar contraseña"
-    description="Te enviaremos un enlace para restablecer tu acceso"
+    :title="t('auth.recoverPassword.title')"
+    :description="t('auth.recoverPassword.description')"
   >
     <template #header-action>
       <NuxtLink
@@ -9,30 +9,20 @@
         class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors duration-150"
       >
         <ArrowLeftIcon class="h-4 w-4" />
-        Volver al login
+        {{ t('auth.recoverPassword.backToLogin') }}
       </NuxtLink>
     </template>
 
     <!-- Step: form -->
     <template v-if="!emailSent">
       <form @submit.prevent="handleRecoverPassword" class="space-y-5" novalidate>
-        <!-- General error banner -->
-        <div
-          v-if="generalError"
-          class="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700"
-          role="alert"
-        >
-          <ExclamationCircleIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-red-500" />
-          <span>{{ generalError }}</span>
-        </div>
-
         <!-- Illustration -->
         <div class="flex flex-col items-center text-center gap-3 pb-2">
           <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-workplace-red/10 to-red-600/10 flex items-center justify-center border border-red-100">
             <KeyIcon class="h-7 w-7 text-workplace-red" />
           </div>
           <p class="text-sm text-gray-500 max-w-xs leading-relaxed">
-            Ingresa tu correo y te enviaremos las instrucciones para restablecer tu contraseña.
+            {{ t('auth.recoverPassword.prompt') }}
           </p>
         </div>
 
@@ -40,8 +30,8 @@
           id="email"
           v-model="form.email"
           type="email"
-          label="Correo electrónico"
-          placeholder="tu@email.com"
+          :label="t('auth.recoverPassword.emailLabel')"
+          :placeholder="t('auth.recoverPassword.emailPlaceholder')"
           :icon="EnvelopeIcon"
           :error="errors.email"
           :show-valid="touched && !errors.email && !!form.email"
@@ -52,7 +42,7 @@
 
         <AuthButton
           type="submit"
-          text="Enviar enlace de recuperación"
+          :text="t('auth.recoverPassword.submit')"
           :loading="isLoading"
           :icon="PaperAirplaneIcon"
           variant="primary"
@@ -69,9 +59,9 @@
         </div>
 
         <div class="space-y-2">
-          <h3 class="text-lg font-bold text-gray-900">¡Revisa tu bandeja!</h3>
+          <h3 class="text-lg font-bold text-gray-900">{{ t('auth.recoverPassword.successTitle') }}</h3>
           <p class="text-sm text-gray-500 leading-relaxed max-w-xs">
-            Enviamos las instrucciones a
+            {{ t('auth.recoverPassword.successDesc') }}
           </p>
           <p class="text-sm font-semibold text-workplace-red bg-red-50 px-3 py-1.5 rounded-lg inline-block">
             {{ form.email }}
@@ -81,22 +71,24 @@
         <!-- Info box -->
         <div class="w-full flex items-start gap-3 px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
           <InformationCircleIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-500" />
-          <p>
-            El correo puede tardar unos minutos. Si no lo ves, revisa tu carpeta de <strong>spam</strong>.
-          </p>
+          <i18n-t keypath="auth.recoverPassword.infoNotice" tag="p">
+            <template #spam>
+              <strong>{{ t('auth.recoverPassword.spam') }}</strong>
+            </template>
+          </i18n-t>
         </div>
 
         <div class="flex flex-col sm:flex-row gap-3 w-full">
           <AuthButton
             variant="outline"
-            text="Reenviar correo"
+            :text="t('auth.recoverPassword.resend')"
             :icon="ArrowPathIcon"
             :loading="isResending"
             @click="resendEmail"
           />
           <AuthButton
             variant="ghost"
-            text="Usar otro correo"
+            :text="t('auth.recoverPassword.useAnotherEmail')"
             :icon="ArrowLeftIcon"
             @click="resetForm"
           />
@@ -106,9 +98,9 @@
 
     <template #footer>
       <p class="text-sm text-gray-500">
-        ¿Recordaste tu contraseña?
+        {{ t('auth.recoverPassword.rememberedPassword') }}
         <NuxtLink to="/login" class="font-semibold text-workplace-red hover:underline ml-1">
-          Inicia sesión
+          {{ t('auth.recoverPassword.login') }}
         </NuxtLink>
       </p>
     </template>
@@ -116,15 +108,21 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Recuperar contraseña — WorkPlace Manager' })
+definePageMeta({ layout: 'auth' })
+
 import { ref, computed } from 'vue'
-import { EnvelopeIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline'
+import { EnvelopeIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
 import { KeyIcon, PaperAirplaneIcon, CheckCircleIcon, InformationCircleIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline'
 import { useFormValidation } from '~/composables/useFormValidation'
+import { useToast } from '~/composables/useToast'
+
+const { t } = useI18n()
+useHead({ title: () => `${t('auth.recoverPassword.title')} — ${t('common.appName')}` })
 
 const { required, email: emailRule, validate } = useFormValidation()
+const toast = useToast()
 
 const form = reactive({ email: '' })
 const errors = reactive({ email: '' })
@@ -132,25 +130,23 @@ const touched = ref(false)
 const isLoading = ref(false)
 const isResending = ref(false)
 const emailSent = ref(false)
-const generalError = ref('')
 
 watch(() => form.email, () => {
-  if (touched.value) errors.email = validate(form.email, [required('El correo'), emailRule()])
+  if (touched.value) errors.email = validate(form.email, [required(t('validation.fields.email')), emailRule()])
 })
 
 const handleRecoverPassword = async () => {
   touched.value = true
-  errors.email = validate(form.email, [required('El correo'), emailRule()])
+  errors.email = validate(form.email, [required(t('validation.fields.email')), emailRule()])
   if (errors.email) return
 
   isLoading.value = true
-  generalError.value = ''
   try {
     const { post } = useApi()
     await post('/auth/forgot-password', { email: form.email })
     emailSent.value = true
   } catch (err: unknown) {
-    generalError.value = getApiErrorMessage(err, 'Error al enviar el correo. Inténtalo de nuevo.')
+    toast.error(getApiErrorMessage(err, t('auth.recoverPassword.sendError')))
   } finally {
     isLoading.value = false
   }
@@ -158,12 +154,12 @@ const handleRecoverPassword = async () => {
 
 const resendEmail = async () => {
   isResending.value = true
-  generalError.value = ''
   try {
     const { post } = useApi()
     await post('/auth/forgot-password', { email: form.email })
+    toast.success(t('auth.recoverPassword.resendSuccess'))
   } catch (err: unknown) {
-    generalError.value = getApiErrorMessage(err, 'Error al reenviar el correo. Inténtalo de nuevo.')
+    toast.error(getApiErrorMessage(err, t('auth.recoverPassword.resendError')))
   } finally {
     isResending.value = false
   }
@@ -174,6 +170,5 @@ const resetForm = () => {
   form.email = ''
   errors.email = ''
   touched.value = false
-  generalError.value = ''
 }
 </script>

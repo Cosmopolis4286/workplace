@@ -1,7 +1,7 @@
 <template>
   <AuthLayout
-    title="Verificación en dos pasos"
-    description="Ingresa el código de tu app de autenticación para continuar"
+    :title="t('auth.twoFactor.title')"
+    :description="t('auth.twoFactor.description')"
   >
     <template #header-action>
       <NuxtLink
@@ -9,7 +9,7 @@
         class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors duration-150"
       >
         <ArrowLeftIcon class="h-4 w-4" />
-        Volver al login
+        {{ t('auth.twoFactor.backToLogin') }}
       </NuxtLink>
     </template>
 
@@ -19,10 +19,10 @@
         <ExclamationTriangleIcon class="h-9 w-9 text-red-500" />
       </div>
       <div class="space-y-2 max-w-xs">
-        <h3 class="text-lg font-bold text-gray-900">Sesión expirada</h3>
-        <p class="text-sm text-gray-500">La sesión de verificación expiró. Vuelve a iniciar sesión.</p>
+        <h3 class="text-lg font-bold text-gray-900">{{ t('auth.twoFactor.sessionExpiredTitle') }}</h3>
+        <p class="text-sm text-gray-500">{{ t('auth.twoFactor.sessionExpiredDesc') }}</p>
       </div>
-      <AuthButton variant="primary" text="Ir al login" :icon="ArrowRightIcon" @click="navigateTo('/login')" />
+      <AuthButton variant="primary" :text="t('auth.twoFactor.goToLogin')" :icon="ArrowRightIcon" @click="navigateTo('/login')" />
     </div>
 
     <!-- Formulario de verificación -->
@@ -32,19 +32,8 @@
           <ShieldCheckIcon class="h-7 w-7 text-workplace-red" />
         </div>
         <p class="text-sm text-gray-500 max-w-xs leading-relaxed">
-          {{ useBackupCode
-            ? 'Ingresa uno de tus códigos de respaldo (formato XXXX-XXXX).'
-            : 'Ingresa el código de 6 dígitos de tu app de autenticación.' }}
+          {{ useBackupCode ? t('auth.twoFactor.instructionsBackup') : t('auth.twoFactor.instructionsCode') }}
         </p>
-      </div>
-
-      <div
-        v-if="generalError"
-        class="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700"
-        role="alert"
-      >
-        <ExclamationCircleIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-red-500" />
-        <span>{{ generalError }}</span>
       </div>
 
       <AuthInput
@@ -52,7 +41,7 @@
         id="code"
         v-model="code"
         type="text"
-        label="Código de verificación"
+        :label="t('auth.twoFactor.codeLabel')"
         placeholder="123456"
         inputmode="numeric"
         :icon="KeyIcon"
@@ -66,7 +55,7 @@
         id="backup-code"
         v-model="code"
         type="text"
-        label="Código de respaldo"
+        :label="t('auth.twoFactor.backupCodeLabel')"
         placeholder="XXXX-XXXX"
         :icon="KeyIcon"
         autocomplete="one-time-code"
@@ -76,7 +65,7 @@
 
       <AuthButton
         type="submit"
-        text="Verificar"
+        :text="t('auth.twoFactor.submit')"
         :loading="isLoading"
         :icon="ShieldCheckIcon"
         variant="primary"
@@ -88,7 +77,7 @@
           class="text-xs font-semibold text-workplace-red hover:underline"
           @click="toggleBackupCode"
         >
-          {{ useBackupCode ? '¿Tienes tu app de autenticación? Usa el código de 6 dígitos' : '¿No tienes acceso? Usa un código de respaldo' }}
+          {{ useBackupCode ? t('auth.twoFactor.useAuthApp') : t('auth.twoFactor.useBackupCode') }}
         </button>
       </div>
     </form>
@@ -97,29 +86,31 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
-useHead({ title: 'Verificación en dos pasos — WorkPlace Manager' })
 
 import { ref } from 'vue'
 import {
   KeyIcon,
   ShieldCheckIcon,
-  ExclamationCircleIcon,
   ExclamationTriangleIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
+import { useToast } from '~/composables/useToast'
+
+const { t } = useI18n()
+useHead({ title: () => `${t('auth.twoFactor.title')} — ${t('common.appName')}` })
 
 const route = useRoute()
 const { verifyTwoFactor } = useAuth()
+const toast = useToast()
 
 const sessionId = route.query.sessionId as string
 
 const code = ref('')
 const useBackupCode = ref(false)
 const isLoading = ref(false)
-const generalError = ref('')
 const sessionExpired = ref(false)
 
 if (!sessionId) {
@@ -129,7 +120,6 @@ if (!sessionId) {
 const toggleBackupCode = () => {
   useBackupCode.value = !useBackupCode.value
   code.value = ''
-  generalError.value = ''
 }
 
 function onCodeInput() {
@@ -149,7 +139,6 @@ const handleVerify = async () => {
   if (!code.value) return
 
   isLoading.value = true
-  generalError.value = ''
 
   try {
     await verifyTwoFactor(sessionId, code.value)
@@ -164,7 +153,7 @@ const handleVerify = async () => {
         return
       }
     }
-    generalError.value = getApiErrorMessage(err, 'Código inválido o expirado. Intenta de nuevo.')
+    toast.error(getApiErrorMessage(err, t('auth.twoFactor.invalidCode')))
   } finally {
     isLoading.value = false
   }

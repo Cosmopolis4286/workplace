@@ -1,35 +1,25 @@
 <template>
   <AuthLayout
-    title="Crear tu cuenta"
-    description="Empieza gratis, sin tarjeta de crédito"
+    :title="t('auth.register.title')"
+    :description="t('auth.register.description')"
   >
     <template #header-action>
       <p class="text-sm text-gray-500">
-        ¿Ya tienes cuenta?
+        {{ t('auth.register.hasAccount') }}
         <NuxtLink to="/login" class="font-semibold text-workplace-red hover:underline ml-1">
-          Inicia sesión
+          {{ t('auth.register.login') }}
         </NuxtLink>
       </p>
     </template>
 
     <form @submit.prevent="handleSubmit" novalidate>
-      <!-- General error -->
-      <div
-        v-if="generalError"
-        class="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700"
-        role="alert"
-      >
-        <ExclamationCircleIcon class="h-4 w-4 flex-shrink-0 mt-0.5 text-red-500" />
-        <span>{{ generalError }}</span>
-      </div>
-
       <!-- Personal info -->
       <div class="grid grid-cols-2 gap-4">
         <AuthInput
           id="firstName"
           v-model="form.firstName"
-          label="Nombre"
-          placeholder="Juan"
+          :label="t('auth.register.firstNameLabel')"
+          :placeholder="t('auth.register.firstNamePlaceholder')"
           :icon="UserIcon"
           :error="errors.firstName"
           :show-valid="touched.firstName"
@@ -40,8 +30,8 @@
         <AuthInput
           id="lastName"
           v-model="form.lastName"
-          label="Apellido"
-          placeholder="Pérez"
+          :label="t('auth.register.lastNameLabel')"
+          :placeholder="t('auth.register.lastNamePlaceholder')"
           :icon="UserIcon"
           :error="errors.lastName"
           :show-valid="touched.lastName"
@@ -55,8 +45,8 @@
         id="email"
         v-model="form.email"
         type="email"
-        label="Correo electrónico"
-        placeholder="tu@email.com"
+        :label="t('auth.register.emailLabel')"
+        :placeholder="t('auth.register.emailPlaceholder')"
         :icon="EnvelopeIcon"
         :error="errors.email"
         :show-valid="touched.email"
@@ -70,7 +60,7 @@
           id="birthDate"
           v-model="form.birthDate"
           type="date"
-          label="Fecha de nacimiento"
+          :label="t('auth.register.birthDateLabel')"
           :icon="CakeIcon"
           :error="errors.birthDate"
           :show-valid="touched.birthDate && !errors.birthDate"
@@ -80,7 +70,7 @@
         />
 
         <div class="space-y-1.5">
-          <label for="sex" class="block text-sm font-medium text-gray-700">Sexo</label>
+          <label for="sex" class="block text-sm font-medium text-gray-700">{{ t('auth.register.sexLabel') }}</label>
           <select
             id="sex"
             v-model="form.sex"
@@ -89,10 +79,10 @@
             required
             @blur="touch('sex')"
           >
-            <option value="" disabled>Selecciona</option>
-            <option value="MASCULINO">Masculino</option>
-            <option value="FEMENINO">Femenino</option>
-            <option value="OTRO">Otro</option>
+            <option value="" disabled>{{ t('auth.register.sexPlaceholder') }}</option>
+            <option value="MASCULINO">{{ t('auth.register.sexMale') }}</option>
+            <option value="FEMENINO">{{ t('auth.register.sexFemale') }}</option>
+            <option value="OTRO">{{ t('auth.register.sexOther') }}</option>
           </select>
           <p v-if="errors.sex && touched.sex" class="text-xs text-red-500">{{ errors.sex }}</p>
         </div>
@@ -102,7 +92,7 @@
         id="password"
         v-model="form.password"
         type="password"
-        label="Contraseña"
+        :label="t('auth.register.passwordLabel')"
         placeholder="••••••••"
         :icon="LockClosedIcon"
         :error="errors.password"
@@ -123,7 +113,7 @@
           ></div>
         </div>
         <p class="text-xs" :class="pwScore >= 3 ? 'text-green-600' : pwScore >= 2 ? 'text-yellow-600' : 'text-red-500'">
-          Seguridad: <span class="font-semibold">{{ strengthLabel }}</span>
+          {{ t('auth.passwordStrengthCaption', { label: strengthLabel }) }}
         </p>
       </div>
 
@@ -131,7 +121,7 @@
         id="confirmPassword"
         v-model="form.confirmPassword"
         type="password"
-        label="Confirmar contraseña"
+        :label="t('auth.register.confirmPasswordLabel')"
         placeholder="••••••••"
         :icon="LockClosedIcon"
         :error="errors.confirmPassword"
@@ -155,10 +145,14 @@
           </div>
         </div>
         <span class="text-sm text-gray-600 leading-snug">
-          Acepto los
-          <NuxtLink to="/terminos" target="_blank" class="font-semibold text-workplace-red hover:underline">Términos y Condiciones</NuxtLink>
-          y la
-          <NuxtLink to="/privacidad" target="_blank" class="font-semibold text-workplace-red hover:underline">Política de Privacidad</NuxtLink>
+          <i18n-t keypath="auth.register.acceptTerms" tag="span">
+            <template #terms>
+              <NuxtLink to="/terminos" target="_blank" class="font-semibold text-workplace-red hover:underline">{{ t('auth.register.termsLink') }}</NuxtLink>
+            </template>
+            <template #privacy>
+              <NuxtLink to="/privacidad" target="_blank" class="font-semibold text-workplace-red hover:underline">{{ t('auth.register.privacyLink') }}</NuxtLink>
+            </template>
+          </i18n-t>
         </span>
       </label>
 
@@ -166,7 +160,7 @@
       <AuthButton
         type="submit"
         variant="primary"
-        text="Crear cuenta"
+        :text="t('auth.register.submit')"
         :loading="isLoading"
         :disabled="!form.acceptTerms"
         :icon="UserPlusIcon"
@@ -175,19 +169,20 @@
       <!-- Divider + social -->
       <div class="relative flex items-center">
         <div class="flex-1 border-t border-gray-200"></div>
-        <span class="px-3 text-xs text-gray-400 font-medium">o regístrate con</span>
+        <span class="px-3 text-xs text-gray-400 font-medium">{{ t('auth.register.orRegisterWith') }}</span>
         <div class="flex-1 border-t border-gray-200"></div>
       </div>
-      <AuthGoogleAuthButton label="Registrarse con Google" />
+      <AuthGoogleAuthButton :label="t('auth.register.registerWithGoogle')" />
 
       <!-- reCAPTCHA notice -->
-      <p v-if="recaptchaEnabled" class="text-center text-[11px] text-gray-400 leading-relaxed">
-        Protegido por reCAPTCHA —
-        <a href="https://policies.google.com/privacy" target="_blank" class="hover:underline">Privacidad</a>
-        y
-        <a href="https://policies.google.com/terms" target="_blank" class="hover:underline">Términos</a>
-        de Google.
-      </p>
+      <i18n-t v-if="recaptchaEnabled" keypath="auth.register.recaptchaNotice" tag="p" class="text-center text-[11px] text-gray-400 leading-relaxed">
+        <template #privacy>
+          <a href="https://policies.google.com/privacy" target="_blank" class="hover:underline">{{ t('auth.register.privacy') }}</a>
+        </template>
+        <template #terms>
+          <a href="https://policies.google.com/terms" target="_blank" class="hover:underline">{{ t('auth.register.terms') }}</a>
+        </template>
+      </i18n-t>
     </div>
     </form>
 
@@ -196,7 +191,6 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
-useHead({ title: 'Crear cuenta — WorkPlace Manager' })
 
 import { ref, reactive, computed } from 'vue'
 import {
@@ -205,16 +199,20 @@ import {
   CakeIcon,
   LockClosedIcon,
   UserPlusIcon,
-  ExclamationCircleIcon,
   CheckIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 import { useFormValidation } from '~/composables/useFormValidation'
 import { useRecaptcha } from '~/composables/useRecaptcha'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
+import { useToast } from '~/composables/useToast'
+
+const { t } = useI18n()
+useHead({ title: () => `${t('auth.register.title')} — ${t('common.appName')}` })
 
 const { register, isAuthenticated } = useAuth()
 const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha()
+const toast = useToast()
 const { required, email, minLength, maxLength, passwordStrength, matches, validateAll, passwordScore, strengthLabel: slabel, strengthColor: scolor } = useFormValidation()
 
 // F: auto-redirect si ya hay sesión activa
@@ -237,7 +235,6 @@ const touched = reactive<Record<FormKey, boolean>>({
 })
 
 const isLoading = ref(false)
-const generalError = ref('')
 
 const pwScore = computed(() => passwordScore(form.password))
 const strengthLabel = computed(() => slabel(pwScore.value))
@@ -249,24 +246,24 @@ const touch = (field: FormKey) => {
 }
 
 const validationSchema = {
-  firstName: [required('El nombre')],
-  lastName: [required('El apellido')],
-  email: [required('El correo'), email()],
+  firstName: [required(t('validation.fields.firstName'))],
+  lastName: [required(t('validation.fields.lastName'))],
+  email: [required(t('validation.fields.email')), email()],
   birthDate: [
-    required('La fecha de nacimiento'),
+    required(t('validation.fields.birthDate')),
     (v: string) => {
       const birth = new Date(v)
-      if (Number.isNaN(birth.getTime())) return 'Fecha inválida'
+      if (Number.isNaN(birth.getTime())) return t('validation.invalidDate')
       const today = new Date()
       let age = today.getFullYear() - birth.getFullYear()
       const monthDiff = today.getMonth() - birth.getMonth()
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--
-      return age >= 18 ? true : 'Debes ser mayor de 18 años para registrarte'
+      return age >= 18 ? true : t('validation.minAge')
     },
   ],
-  sex: [required('El sexo')],
-  password: [required('La contraseña'), minLength(8), passwordStrength()],
-  confirmPassword: [required('Confirma la contraseña'), matches(() => form.password, 'Las contraseñas')]
+  sex: [required(t('validation.fields.sex'))],
+  password: [required(t('validation.fields.password')), minLength(8), passwordStrength()],
+  confirmPassword: [required(t('validation.fields.confirmPassword')), matches(() => form.password, t('validation.fields.passwords'))]
 }
 
 const runValidation = (): boolean => {
@@ -289,7 +286,6 @@ const handleSubmit = async () => {
   if (!runValidation()) return
 
   isLoading.value = true
-  generalError.value = ''
   try {
     const recaptchaToken = await executeRecaptcha('register')
     await register({
@@ -304,7 +300,7 @@ const handleSubmit = async () => {
     })
     await navigateTo(`/verify-email?email=${encodeURIComponent(form.email)}`)
   } catch (err: unknown) {
-    generalError.value = getApiErrorMessage(err, 'Error al crear la cuenta')
+    toast.error(getApiErrorMessage(err, t('auth.register.createError')))
   } finally {
     isLoading.value = false
   }

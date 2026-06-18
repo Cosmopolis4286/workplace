@@ -1,7 +1,7 @@
 <template>
   <AuthLayout
-    title="Nueva contraseña"
-    description="Elige una contraseña segura para tu cuenta"
+    :title="t('auth.resetPassword.title')"
+    :description="t('auth.resetPassword.description')"
   >
     <template #header-action>
       <NuxtLink
@@ -9,7 +9,7 @@
         class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors duration-150"
       >
         <ArrowLeftIcon class="h-4 w-4" />
-        Volver al login
+        {{ t('auth.resetPassword.backToLogin') }}
       </NuxtLink>
     </template>
 
@@ -19,10 +19,10 @@
         <ExclamationTriangleIcon class="h-9 w-9 text-red-500" />
       </div>
       <div class="space-y-2 max-w-xs">
-        <h3 class="text-lg font-bold text-gray-900">Enlace inválido</h3>
+        <h3 class="text-lg font-bold text-gray-900">{{ t('auth.resetPassword.invalidLinkTitle') }}</h3>
         <p class="text-sm text-gray-500">{{ tokenError }}</p>
       </div>
-      <AuthButton variant="primary" text="Solicitar nuevo enlace" :icon="ArrowPathIcon" @click="navigateTo('/recover-password')" />
+      <AuthButton variant="primary" :text="t('auth.resetPassword.requestNewLink')" :icon="ArrowPathIcon" @click="navigateTo('/recover-password')" />
     </div>
 
     <!-- Success -->
@@ -31,10 +31,10 @@
         <CheckCircleIcon class="h-9 w-9 text-green-600" />
       </div>
       <div class="space-y-2 max-w-xs">
-        <h3 class="text-lg font-bold text-gray-900">¡Contraseña actualizada!</h3>
-        <p class="text-sm text-gray-500">Ya puedes iniciar sesión con tu nueva contraseña.</p>
+        <h3 class="text-lg font-bold text-gray-900">{{ t('auth.resetPassword.successTitle') }}</h3>
+        <p class="text-sm text-gray-500">{{ t('auth.resetPassword.successDesc') }}</p>
       </div>
-      <AuthButton variant="primary" text="Ir al login" :icon="ArrowRightIcon" @click="navigateTo('/login')" />
+      <AuthButton variant="primary" :text="t('auth.resetPassword.goToLogin')" :icon="ArrowRightIcon" @click="navigateTo('/login')" />
     </div>
 
     <!-- Form -->
@@ -44,7 +44,7 @@
           <LockClosedIcon class="h-7 w-7 text-workplace-red" />
         </div>
         <p class="text-sm text-gray-500 max-w-xs leading-relaxed">
-          Ingresa tu nueva contraseña. Debe tener al menos 8 caracteres con mayúsculas, minúsculas y números.
+          {{ t('auth.resetPassword.prompt') }}
         </p>
       </div>
 
@@ -53,7 +53,7 @@
           id="password"
           v-model="form.password"
           type="password"
-          label="Nueva contraseña"
+          :label="t('auth.resetPassword.newPasswordLabel')"
           placeholder="••••••••"
           :icon="LockClosedIcon"
           :error="errors.password"
@@ -74,7 +74,7 @@
             />
           </div>
           <p class="text-xs" :class="pwScore >= 3 ? 'text-green-600' : pwScore >= 2 ? 'text-yellow-600' : 'text-red-500'">
-            Seguridad: <span class="font-semibold">{{ strengthLabel }}</span>
+            {{ t('auth.passwordStrengthCaption', { label: strengthLabel }) }}
           </p>
         </div>
       </div>
@@ -83,7 +83,7 @@
         id="confirm"
         v-model="form.confirm"
         type="password"
-        label="Confirmar contraseña"
+        :label="t('auth.resetPassword.confirmPasswordLabel')"
         placeholder="••••••••"
         :icon="LockClosedIcon"
         :error="errors.confirm"
@@ -96,7 +96,7 @@
 
       <AuthButton
         type="submit"
-        text="Guardar contraseña"
+        :text="t('auth.resetPassword.submit')"
         :loading="isLoading"
         :icon="CheckCircleIcon"
         variant="primary"
@@ -107,7 +107,6 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
-useHead({ title: 'Nueva contraseña — WorkPlace Manager' })
 import { ref, computed } from 'vue'
 import { useApi } from '~/composables/useApi'
 import { getApiErrorMessage } from '~/composables/useApiErrors'
@@ -120,6 +119,9 @@ import {
   ArrowRightIcon,
   ArrowPathIcon,
 } from '@heroicons/vue/24/outline'
+
+const { t } = useI18n()
+useHead({ title: () => `${t('auth.resetPassword.title')} — ${t('common.appName')}` })
 
 const route = useRoute()
 const token = route.query.token as string
@@ -135,7 +137,7 @@ const success = ref(false)
 const tokenError = ref('')
 
 if (!token) {
-  tokenError.value = 'No se encontró un token de recuperación. Solicita un nuevo enlace.'
+  tokenError.value = t('auth.resetPassword.noTokenError')
 }
 
 const pwScore = computed(() => passwordScore(form.password))
@@ -145,18 +147,18 @@ const strengthColor = computed(() => scolor(pwScore.value))
 function touch(field: 'password' | 'confirm') {
   touched[field] = true
   if (field === 'password') {
-    errors.password = validate(form.password, [required('La contraseña'), minLength(8), passwordStrength()])
-    if (touched.confirm) errors.confirm = validate(form.confirm, [matches(() => form.password, 'Las contraseñas')])
+    errors.password = validate(form.password, [required(t('validation.fields.password')), minLength(8), passwordStrength()])
+    if (touched.confirm) errors.confirm = validate(form.confirm, [matches(() => form.password, t('validation.fields.passwords'))])
   } else {
-    errors.confirm = validate(form.confirm, [matches(() => form.password, 'Las contraseñas')])
+    errors.confirm = validate(form.confirm, [matches(() => form.password, t('validation.fields.passwords'))])
   }
 }
 
 const handleReset = async () => {
   touched.password = true
   touched.confirm = true
-  errors.password = validate(form.password, [required('La contraseña'), minLength(8), passwordStrength()])
-  errors.confirm = validate(form.confirm, [matches(() => form.password, 'Las contraseñas')])
+  errors.password = validate(form.password, [required(t('validation.fields.password')), minLength(8), passwordStrength()])
+  errors.confirm = validate(form.confirm, [matches(() => form.password, t('validation.fields.passwords'))])
   if (errors.password || errors.confirm) return
 
   isLoading.value = true
@@ -164,7 +166,7 @@ const handleReset = async () => {
     await post('/auth/reset-password', { token, password: form.password })
     success.value = true
   } catch (err: unknown) {
-    tokenError.value = getApiErrorMessage(err, 'El enlace es inválido o ha expirado.')
+    tokenError.value = getApiErrorMessage(err, t('auth.resetPassword.invalidOrExpired'))
   } finally {
     isLoading.value = false
   }

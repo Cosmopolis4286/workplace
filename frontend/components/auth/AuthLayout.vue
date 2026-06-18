@@ -4,7 +4,7 @@
     <div
       class="hidden lg:flex lg:w-[45%] xl:w-[42%] relative flex-col bg-gradient-to-br from-workplace-red via-red-600 to-workplace-darkRed overflow-hidden"
       role="complementary"
-      aria-label="Panel de marketing y estado de la plataforma"
+      :aria-label="t('auth.layout.marketingPanelLabel')"
     >
       <!-- Geometric shapes (animated) -->
       <div class="absolute inset-0 overflow-hidden pointer-events-none">
@@ -80,7 +80,7 @@
           <!-- Step indicator (register/verify flow) -->
           <div v-if="panelCtx.steps.length > 0" class="space-y-5">
             <div class="space-y-2">
-              <p class="text-white/50 text-xs font-semibold uppercase tracking-widest mb-3">Tu progreso</p>
+              <p class="text-white/50 text-xs font-semibold uppercase tracking-widest mb-3">{{ t('auth.layout.yourProgress') }}</p>
               <div class="space-y-2">
                 <div
                   v-for="(step, i) in panelCtx.steps"
@@ -112,7 +112,7 @@
 
             <!-- Beneficios incluidos (solo register) -->
             <div v-if="panelCtx.benefits.length > 0" class="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/15 space-y-3">
-              <p class="text-white/50 text-xs font-semibold uppercase tracking-widest">Incluido sin costo</p>
+              <p class="text-white/50 text-xs font-semibold uppercase tracking-widest">{{ t('auth.layout.includedFree') }}</p>
               <div class="space-y-2.5">
                 <div v-for="benefit in panelCtx.benefits" :key="benefit" class="flex items-center gap-2.5">
                   <div class="w-5 h-5 rounded-full bg-green-400/20 flex items-center justify-center flex-shrink-0">
@@ -164,13 +164,13 @@
                   </div>
                 </div>
                 <!-- Dots -->
-                <div class="flex gap-1.5 justify-center" role="tablist" aria-label="Testimonios">
+                <div class="flex gap-1.5 justify-center" role="tablist" :aria-label="t('auth.layout.testimonialsLabel')">
                   <button
                     v-for="(_, i) in testimonials"
                     :key="i"
                     type="button"
                     role="tab"
-                    :aria-label="`Testimonio ${i + 1} de ${testimonials.length}`"
+                    :aria-label="t('auth.layout.testimonialAriaLabel', { current: i + 1, total: testimonials.length })"
                     :aria-selected="i === testimonialIndex"
                     class="rounded-full transition-all duration-300"
                     :class="i === testimonialIndex
@@ -198,7 +198,7 @@
         </div>
 
         <!-- Stats row -->
-        <div class="grid grid-cols-3 gap-4 pt-8 border-t border-white/15">
+        <div class="grid grid-cols-4 gap-4 pt-8 border-t border-white/15">
           <div v-for="stat in stats" :key="stat.label" class="text-center">
             <Transition name="fade" mode="out-in">
               <p :key="stat.value" class="text-white font-black text-2xl">{{ stat.value }}</p>
@@ -247,12 +247,17 @@
       <!-- Bottom footer -->
       <div class="px-6 py-5 border-t border-gray-100 bg-white">
         <div class="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400 max-w-md mx-auto w-full">
-          <p>&copy; {{ currentYear }} WorkPlace Manager. Todos los derechos reservados.</p>
+          <p>{{ t('auth.layout.copyright', { year: currentYear, appName: t('common.appName') }) }}</p>
           <div class="flex items-center space-x-4">
-            <NuxtLink to="/privacidad" class="hover:text-gray-600 transition-colors duration-150">Privacidad</NuxtLink>
-            <NuxtLink to="/terminos" class="hover:text-gray-600 transition-colors duration-150">Términos</NuxtLink>
-            <NuxtLink to="/soporte" class="hover:text-gray-600 transition-colors duration-150">Soporte</NuxtLink>
+            <NuxtLink to="/privacidad" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.privacy') }}</NuxtLink>
+            <NuxtLink to="/terminos" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.terms') }}</NuxtLink>
+            <NuxtLink to="/soporte" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.support') }}</NuxtLink>
           </div>
+        </div>
+
+        <!-- Language switcher -->
+        <div class="flex justify-center mt-3">
+          <LanguageSwitcher />
         </div>
       </div>
     </div>
@@ -276,6 +281,8 @@ defineProps({
   description: { type: String, default: '' }
 })
 
+const { t } = useI18n()
+
 // SSR-safe year
 const currentYear = useState('currentYear', () => new Date().getFullYear())
 const route = useRoute()
@@ -288,10 +295,10 @@ type HealthStatus = 'up' | 'degraded' | 'down'
 const healthStatus = ref<HealthStatus>('up') // optimistic initial state
 
 const healthLabel = computed(() => ({
-  up: 'Plataforma activa',
-  degraded: 'Servicio degradado',
-  down: 'Servicio interrumpido',
-}[healthStatus.value] ?? 'Plataforma activa'))
+  up: t('auth.layout.platformActive'),
+  degraded: t('auth.layout.platformDegraded'),
+  down: t('auth.layout.platformDown'),
+}[healthStatus.value] ?? t('auth.layout.platformActive')))
 
 // apiUrl extracted at setup level — not inside setInterval callback
 const config = useRuntimeConfig()
@@ -313,7 +320,7 @@ async function checkHealth() {
 const { stats: landingStats, testimonials: landingTestimonials, load: loadStats, connectRealtime: connectLandingRealtime, disconnectRealtime: disconnectLandingRealtime } = useLandingContent()
 
 const stats = computed(() =>
-  landingStats.value.slice(0, 3).map(s => ({ value: s.value, label: s.label }))
+  landingStats.value.slice(0, 4).map(s => ({ value: s.value, label: s.label }))
 )
 
 // ─── Testimonial rotativo ─────────────────────────────────────────────────────
@@ -358,29 +365,27 @@ onUnmounted(() => {
 
 // ─── Features por rol (fallback si no hay testimonios) ───────────────────────
 
-const COMMERCE_FEATURES = [
-  { icon: ChartBarIcon, label: 'Analytics en tiempo real', desc: 'Métricas y reportes al instante' },
-  { icon: ShoppingBagIcon, label: 'Gestión de pedidos', desc: 'Control total del flujo de órdenes' },
-  { icon: UsersIcon, label: 'CRM de clientes', desc: 'Segmentación y fidelización' },
-  { icon: TruckIcon, label: 'Módulo de delivery', desc: 'Seguimiento de repartidores' },
-]
-
-const FREELANCER_FEATURES = [
-  { icon: WrenchScrewdriverIcon, label: 'Catálogo de servicios', desc: 'Publica y gestiona tus servicios' },
-  { icon: UsersIcon, label: 'Gestión de clientes', desc: 'Historial y seguimiento de solicitudes' },
-  { icon: ChartBarIcon, label: 'Reportes de actividad', desc: 'Visualiza tus ingresos y métricas' },
-]
-
-const NORMAL_FEATURES = [
-  { icon: ShoppingBagIcon, label: 'Marketplace', desc: 'Encuentra productos y servicios' },
-  { icon: BriefcaseIcon, label: 'Bolsa de trabajo', desc: 'Descubre oportunidades laborales' },
-  { icon: UsersIcon, label: 'Perfiles públicos', desc: 'Conecta con comercios y freelancers' },
-]
-
 const features = computed(() => {
-  if (role.value === 'FREELANCER') return FREELANCER_FEATURES
-  if (role.value === 'NORMAL') return NORMAL_FEATURES
-  return COMMERCE_FEATURES
+  if (role.value === 'FREELANCER') {
+    return [
+      { icon: WrenchScrewdriverIcon, label: t('auth.roleFeatures.freelancer.catalog.label'), desc: t('auth.roleFeatures.freelancer.catalog.desc') },
+      { icon: UsersIcon, label: t('auth.roleFeatures.freelancer.clients.label'), desc: t('auth.roleFeatures.freelancer.clients.desc') },
+      { icon: ChartBarIcon, label: t('auth.roleFeatures.freelancer.reports.label'), desc: t('auth.roleFeatures.freelancer.reports.desc') },
+    ]
+  }
+  if (role.value === 'NORMAL') {
+    return [
+      { icon: ShoppingBagIcon, label: t('auth.roleFeatures.normal.marketplace.label'), desc: t('auth.roleFeatures.normal.marketplace.desc') },
+      { icon: BriefcaseIcon, label: t('auth.roleFeatures.normal.jobs.label'), desc: t('auth.roleFeatures.normal.jobs.desc') },
+      { icon: UsersIcon, label: t('auth.roleFeatures.normal.profiles.label'), desc: t('auth.roleFeatures.normal.profiles.desc') },
+    ]
+  }
+  return [
+    { icon: ChartBarIcon, label: t('auth.roleFeatures.commerce.analytics.label'), desc: t('auth.roleFeatures.commerce.analytics.desc') },
+    { icon: ShoppingBagIcon, label: t('auth.roleFeatures.commerce.orders.label'), desc: t('auth.roleFeatures.commerce.orders.desc') },
+    { icon: UsersIcon, label: t('auth.roleFeatures.commerce.crm.label'), desc: t('auth.roleFeatures.commerce.crm.desc') },
+    { icon: TruckIcon, label: t('auth.roleFeatures.commerce.delivery.label'), desc: t('auth.roleFeatures.commerce.delivery.desc') },
+  ]
 })
 
 // ─── Contexto por ruta ────────────────────────────────────────────────────────
@@ -398,41 +403,41 @@ const panelCtx = computed<PanelContext>(() => {
 
   if (name === 'register') {
     return {
-      headline: 'Empieza gratis\nhoy mismo',
-      subline: 'Crea tu cuenta en menos de 2 minutos y ten tu restaurante operativo desde el primer día.',
+      headline: t('auth.layout.registerHeadline'),
+      subline: t('auth.layout.registerSubline'),
       steps: [
-        { label: 'Crea tu cuenta', done: false, current: true },
-        { label: 'Verifica tu correo', done: false, current: false },
-        { label: 'Configura tu negocio', done: false, current: false },
+        { label: t('auth.layout.registerStep1'), done: false, current: true },
+        { label: t('auth.layout.registerStep2'), done: false, current: false },
+        { label: t('auth.layout.registerStep3'), done: false, current: false },
       ],
       benefits: [
-        'Sin tarjeta de crédito requerida',
-        'Soporte en español 24/7',
-        'Cancela cuando quieras',
+        t('auth.layout.registerBenefit1'),
+        t('auth.layout.registerBenefit2'),
+        t('auth.layout.registerBenefit3'),
       ],
     }
   }
 
   if (name === 'verify-email') {
     return {
-      headline: 'Revisa\ntu correo',
-      subline: 'Un clic y ya podrás acceder a tu panel completo. Revisa también la carpeta de spam.',
+      headline: t('auth.layout.verifyEmailHeadline'),
+      subline: t('auth.layout.verifyEmailSubline'),
       steps: [
-        { label: 'Crea tu cuenta', done: true, current: false },
-        { label: 'Verifica tu correo', done: false, current: true },
-        { label: 'Configura tu negocio', done: false, current: false },
+        { label: t('auth.layout.registerStep1'), done: true, current: false },
+        { label: t('auth.layout.registerStep2'), done: false, current: true },
+        { label: t('auth.layout.registerStep3'), done: false, current: false },
       ],
       benefits: [
-        'El enlace expira en 24 horas',
-        '¿No te llegó? Puedes reenviarlo',
+        t('auth.layout.verifyEmailBenefit1'),
+        t('auth.layout.verifyEmailBenefit2'),
       ],
     }
   }
 
   if (name === 'recover-password') {
     return {
-      headline: 'Recupera\ntu acceso',
-      subline: 'Te enviamos un enlace seguro para restablecer tu contraseña en segundos.',
+      headline: t('auth.layout.recoverPasswordHeadline'),
+      subline: t('auth.layout.recoverPasswordSubline'),
       steps: [],
       benefits: [],
     }
@@ -440,8 +445,8 @@ const panelCtx = computed<PanelContext>(() => {
 
   if (name === 'reset-password') {
     return {
-      headline: 'Nueva\ncontraseña',
-      subline: 'Elige una contraseña segura. Recomendamos combinar letras, números y símbolos.',
+      headline: t('auth.layout.resetPasswordHeadline'),
+      subline: t('auth.layout.resetPasswordSubline'),
       steps: [],
       benefits: [],
     }
@@ -449,8 +454,8 @@ const panelCtx = computed<PanelContext>(() => {
 
   if (name === 'auth-2fa-verify') {
     return {
-      headline: 'Verificación\nen dos pasos',
-      subline: 'Tu cuenta está protegida con autenticación de dos factores. Ingresa el código de tu app.',
+      headline: t('auth.layout.twoFactorHeadline'),
+      subline: t('auth.layout.twoFactorSubline'),
       steps: [],
       benefits: [],
     }
@@ -458,8 +463,8 @@ const panelCtx = computed<PanelContext>(() => {
 
   // login (default)
   return {
-    headline: 'Gestiona tu\nrestaurante\ncon precisión',
-    subline: 'Todo lo que necesitas para administrar pedidos, inventario, clientes y más en un solo lugar.',
+    headline: t('auth.layout.loginHeadline'),
+    subline: t('auth.layout.loginSubline'),
     steps: [],
     benefits: [],
   }

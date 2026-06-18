@@ -6,34 +6,40 @@
 export type ValidationRule<T = string> = (value: T) => string | true
 
 export function useFormValidation() {
+  const { t } = useI18n()
+
   // ─── Reglas atómicas ────────────────────────────────────────────────────────
 
-  const required = (label = 'Este campo'): ValidationRule =>
-    (v) => (v && v.trim().length > 0 ? true : `${label} es requerido`)
+  const required = (label?: string): ValidationRule =>
+    (v) => (v && v.trim().length > 0
+      ? true
+      : label ? t('validation.required', { field: label }) : t('validation.requiredDefault'))
 
   const email = (): ValidationRule =>
-    (v) => (/^\S+@\S+\.\S+$/.test(v) ? true : 'Correo electrónico inválido')
+    (v) => (/^\S+@\S+\.\S+$/.test(v) ? true : t('validation.invalidEmail'))
 
   const minLength = (min: number): ValidationRule =>
-    (v) => (v.length >= min ? true : `Mínimo ${min} caracteres`)
+    (v) => (v.length >= min ? true : t('validation.minLength', { min }))
 
   const maxLength = (max: number): ValidationRule =>
-    (v) => (v.length <= max ? true : `Máximo ${max} caracteres`)
+    (v) => (v.length <= max ? true : t('validation.maxLength', { max }))
 
   const passwordStrength = (): ValidationRule =>
     (v) =>
       /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(v)
         ? true
-        : 'Debe incluir mayúsculas, minúsculas y números'
+        : t('validation.passwordStrength')
 
-  const matches = (other: () => string, label = 'Los campos'): ValidationRule =>
-    (v) => (v === other() ? true : `${label} no coinciden`)
+  const matches = (other: () => string, label?: string): ValidationRule =>
+    (v) => (v === other()
+      ? true
+      : label ? t('validation.matches', { field: label }) : t('validation.matchesDefault'))
 
   const phone = (): ValidationRule =>
     (v) =>
       /^\+?[\d\s\-().]{7,20}$/.test(v)
         ? true
-        : 'Número de teléfono inválido'
+        : t('validation.invalidPhone')
 
   // ─── Runner ─────────────────────────────────────────────────────────────────
 
@@ -84,7 +90,7 @@ export function useFormValidation() {
   }
 
   const strengthLabel = (score: number) =>
-    ['', 'Débil', 'Regular', 'Buena', 'Fuerte'][score] ?? ''
+    ['', t('auth.passwordStrengthLabel.weak'), t('auth.passwordStrengthLabel.fair'), t('auth.passwordStrengthLabel.good'), t('auth.passwordStrengthLabel.strong')][score] ?? ''
 
   const strengthColor = (score: number) =>
     ['', 'bg-red-500', 'bg-orange-400', 'bg-yellow-400', 'bg-green-500'][score] ?? ''
