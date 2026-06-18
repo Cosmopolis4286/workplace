@@ -102,6 +102,10 @@ export class LandingService {
         const count = await this.prisma.user.count({ where: { role: 'FREELANCER' } })
         return `${count}+`
       }
+      case 'services': {
+        const count = await this.prisma.serviceRequest.count({ where: { status: 'CERRADO' } })
+        return count > 1000 ? `${Math.floor(count / 1000)}k+` : `${count}+`
+      }
       case 'rating': {
         const result = await this.prisma.review.aggregate({ _avg: { rating: true }, _count: true })
         return result._count > 0 ? `${result._avg.rating!.toFixed(1)}★` : null
