@@ -9,31 +9,32 @@
 
         <!-- Desktop nav -->
         <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-          <a href="#features" aria-label="Ver funcionalidades" class="hover:text-gray-900 transition-colors duration-150">Funciones</a>
-          <a href="#how" aria-label="Cómo funciona la plataforma" class="hover:text-gray-900 transition-colors duration-150">Cómo funciona</a>
-          <a href="#testimonials" aria-label="Testimonios de clientes" class="hover:text-gray-900 transition-colors duration-150">Testimonios</a>
-          <a href="#pricing" aria-label="Ver planes y precios" class="hover:text-gray-900 transition-colors duration-150">Precios</a>
+          <a href="#features" :aria-label="t('landing.nav.featuresAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.features') }}</a>
+          <a href="#how" :aria-label="t('landing.nav.howAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.how') }}</a>
+          <a href="#testimonials" :aria-label="t('landing.nav.testimonialsAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.testimonials') }}</a>
+          <a href="#pricing" :aria-label="t('landing.nav.pricingAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.pricing') }}</a>
         </div>
 
         <!-- CTA + Hamburger -->
         <div class="flex items-center gap-2">
+          <LanguageSwitcher />
           <NuxtLink
             to="/login"
             class="hidden md:block text-sm font-semibold text-gray-700 hover:text-workplace-red px-4 py-2 rounded-lg hover:bg-red-50 transition-all duration-150"
           >
-            Iniciar sesión
+            {{ t('landing.nav.login') }}
           </NuxtLink>
           <NuxtLink
             to="/register"
             class="hidden md:inline-flex text-sm font-semibold text-white bg-workplace-red hover:bg-red-700 px-4 py-2 rounded-lg shadow-sm transition-all duration-150"
           >
-            Empezar gratis
+            {{ t('landing.nav.startFree') }}
           </NuxtLink>
           <!-- Mobile hamburger -->
           <button
             type="button"
             class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors duration-150"
-            :aria-label="mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'"
+            :aria-label="mobileMenuOpen ? t('landing.nav.closeMenu') : t('landing.nav.openMenu')"
             :aria-expanded="mobileMenuOpen"
             @click="mobileMenuOpen = !mobileMenuOpen"
           >
@@ -51,34 +52,34 @@
               href="#features"
               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
               @click="mobileMenuOpen = false"
-            >Funciones</a>
+            >{{ t('landing.nav.features') }}</a>
             <a
               href="#how"
               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
               @click="mobileMenuOpen = false"
-            >Cómo funciona</a>
+            >{{ t('landing.nav.how') }}</a>
             <a
               href="#testimonials"
               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
               @click="mobileMenuOpen = false"
-            >Testimonios</a>
+            >{{ t('landing.nav.testimonials') }}</a>
             <a
               href="#pricing"
               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
               @click="mobileMenuOpen = false"
-            >Precios</a>
+            >{{ t('landing.nav.pricing') }}</a>
           </div>
           <div class="px-4 pb-4 pt-2 border-t border-gray-100 flex flex-col gap-2">
             <NuxtLink
               to="/login"
               class="block text-center text-sm font-semibold text-gray-700 hover:text-workplace-red px-4 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-150"
               @click="mobileMenuOpen = false"
-            >Iniciar sesión</NuxtLink>
+            >{{ t('landing.nav.login') }}</NuxtLink>
             <NuxtLink
               to="/register"
               class="block text-center text-sm font-semibold text-white bg-workplace-red hover:bg-red-700 px-4 py-2.5 rounded-lg shadow-sm transition-all duration-150"
               @click="mobileMenuOpen = false"
-            >Empezar gratis</NuxtLink>
+            >{{ t('landing.nav.startFree') }}</NuxtLink>
           </div>
         </div>
       </Transition>
@@ -99,16 +100,15 @@
             <div class="space-y-4">
               <div class="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-workplace-red text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wide">
                 <span class="w-1.5 h-1.5 bg-workplace-red rounded-full animate-pulse"></span>
-                Plataforma todo-en-uno
+                {{ t('landing.hero.badge') }}
               </div>
               <h1 class="text-5xl sm:text-6xl font-black text-gray-900 leading-[1.05] tracking-tight">
-                Gestiona tu<br/>
-                restaurante<br/>
-                <span class="text-workplace-red">sin complicaciones</span>
+                {{ t('landing.hero.titleLine1') }}<br/>
+                {{ t('landing.hero.titleLine2') }}<br/>
+                <span class="text-workplace-red">{{ t('landing.hero.titleHighlight') }}</span>
               </h1>
               <p class="text-lg text-gray-500 leading-relaxed max-w-lg">
-                Pedidos, inventario, menú, clientes, delivery y reportes — todo desde un solo panel.
-                Diseñado para restaurantes que quieren crecer.
+                {{ t('landing.hero.description') }}
               </p>
             </div>
 
@@ -118,17 +118,17 @@
                 to="/register"
                 class="inline-flex items-center justify-center gap-2 bg-workplace-red hover:bg-red-700 text-white font-bold px-7 py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-150 text-base"
               >
-                Crear cuenta gratis
+                {{ t('landing.hero.createFreeAccount') }}
                 <ArrowRightIcon class="w-4 h-4" />
               </NuxtLink>
               <button
                 type="button"
-                aria-label="Ver demo de la plataforma"
+                :aria-label="t('landing.hero.viewDemoAria')"
                 class="inline-flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold px-7 py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-150 text-base"
                 @click="openDemo"
               >
                 <PlayIcon class="w-4 h-4 text-workplace-red" />
-                Ver demo
+                {{ t('landing.hero.viewDemo') }}
               </button>
             </div>
 
@@ -136,15 +136,15 @@
             <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-400">
               <span class="flex items-center gap-1.5">
                 <CheckIcon class="w-4 h-4 text-green-500 stroke-[2.5]" />
-                Sin tarjeta de crédito
+                {{ t('landing.hero.noCreditCard') }}
               </span>
               <span class="flex items-center gap-1.5">
                 <CheckIcon class="w-4 h-4 text-green-500 stroke-[2.5]" />
-                Configura en 5 minutos
+                {{ t('landing.hero.setupIn5Min') }}
               </span>
               <span class="flex items-center gap-1.5">
                 <CheckIcon class="w-4 h-4 text-green-500 stroke-[2.5]" />
-                Soporte 24/7
+                {{ t('landing.hero.support247') }}
               </span>
             </div>
           </div>
@@ -156,12 +156,12 @@
               <!-- Header -->
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-xs text-gray-400 font-medium">Panel general</p>
-                  <p class="font-black text-gray-900 text-lg">Mi Restaurante</p>
+                  <p class="text-xs text-gray-400 font-medium">{{ t('landing.hero.panelTitle') }}</p>
+                  <p class="font-black text-gray-900 text-lg">{{ t('landing.hero.panelRestaurant') }}</p>
                 </div>
                 <div class="flex items-center gap-1.5 bg-green-50 border border-green-100 text-green-600 text-xs font-semibold px-2.5 py-1 rounded-full">
                   <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                  En línea
+                  {{ t('landing.hero.online') }}
                 </div>
               </div>
 
@@ -178,7 +178,7 @@
 
               <!-- Mini bar chart (animated on mount) -->
               <div>
-                <p class="text-xs text-gray-400 font-medium mb-3">Ingresos esta semana</p>
+                <p class="text-xs text-gray-400 font-medium mb-3">{{ t('landing.hero.revenueThisWeek') }}</p>
                 <div class="flex items-end gap-1.5 h-16">
                   <div
                     v-for="(bar, i) in chartBars"
@@ -195,7 +195,7 @@
 
               <!-- Recent orders -->
               <div>
-                <p class="text-xs text-gray-400 font-medium mb-3">Pedidos recientes <span class="text-[10px] text-gray-300 font-normal">(demo)</span></p>
+                <p class="text-xs text-gray-400 font-medium mb-3">{{ t('landing.hero.recentOrders') }} <span class="text-[10px] text-gray-300 font-normal">{{ t('landing.hero.demoTag') }}</span></p>
                 <div class="space-y-2">
                   <div v-for="order in heroOrders" :key="order.id" class="flex items-center justify-between">
                     <div class="flex items-center gap-2.5">
@@ -222,7 +222,7 @@
                 <ArrowTrendingUpIcon class="w-5 h-5 text-green-500" />
               </div>
               <div>
-                <p class="text-xs text-gray-400">Ventas hoy</p>
+                <p class="text-xs text-gray-400">{{ t('landing.hero.salesToday') }}</p>
                 <p class="text-sm font-black text-gray-900">+$4,280 <span class="text-green-500 font-bold">↑12%</span></p>
               </div>
             </div>
@@ -254,9 +254,9 @@
     <section id="features" class="py-24 px-4 sm:px-6 lg:px-8">
       <div class="max-w-7xl mx-auto">
         <div class="text-center mb-16 space-y-3">
-          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">Funcionalidades</p>
-          <h2 class="text-4xl font-black text-gray-900 tracking-tight">Todo lo que necesita tu restaurante</h2>
-          <p class="text-gray-500 text-lg max-w-xl mx-auto">Herramientas profesionales, pensadas para el día a día de tu negocio.</p>
+          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">{{ t('landing.features.tag') }}</p>
+          <h2 class="text-4xl font-black text-gray-900 tracking-tight">{{ t('landing.features.title') }}</h2>
+          <p class="text-gray-500 text-lg max-w-xl mx-auto">{{ t('landing.features.subtitle') }}</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -280,9 +280,9 @@
     <section id="pricing" class="py-24 px-4 sm:px-6 lg:px-8 bg-gray-50">
       <div class="max-w-6xl mx-auto">
         <div class="text-center mb-16 space-y-3">
-          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">Precios</p>
-          <h2 class="text-4xl font-black text-gray-900 tracking-tight">Planes para cada etapa de tu negocio</h2>
-          <p class="text-gray-500 text-lg max-w-xl mx-auto">Sin sorpresas. Cambia o cancela tu plan cuando quieras.</p>
+          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">{{ t('landing.pricing.tag') }}</p>
+          <h2 class="text-4xl font-black text-gray-900 tracking-tight">{{ t('landing.pricing.title') }}</h2>
+          <p class="text-gray-500 text-lg max-w-xl mx-auto">{{ t('landing.pricing.subtitle') }}</p>
         </div>
 
         <!-- Skeleton while loading -->
@@ -301,7 +301,7 @@
 
         <!-- Empty state (no plans configured yet) -->
         <div v-else-if="publicPlans.length === 0" class="text-center py-12">
-          <p class="text-gray-400 text-sm">Los planes estarán disponibles muy pronto.</p>
+          <p class="text-gray-400 text-sm">{{ t('landing.pricing.comingSoon') }}</p>
         </div>
 
         <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -315,13 +315,13 @@
               v-if="plan.isPopular"
               class="absolute -top-3 left-1/2 -translate-x-1/2 bg-workplace-red text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wide"
             >
-              Más popular
+              {{ t('landing.pricing.mostPopular') }}
             </span>
 
             <p class="text-sm font-bold text-gray-500 uppercase tracking-wide">{{ plan.name }}</p>
             <p class="mt-2">
               <span class="text-3xl font-black text-gray-900">{{ formatPlanPrice(plan.price) }}</span>
-              <span v-if="plan.price > 0" class="text-gray-400 text-sm font-medium">/mes</span>
+              <span v-if="plan.price > 0" class="text-gray-400 text-sm font-medium">{{ t('landing.pricing.perMonth') }}</span>
             </p>
             <p v-if="plan.description" class="text-sm text-gray-500 mt-2 leading-relaxed">{{ plan.description }}</p>
 
@@ -339,7 +339,7 @@
                 ? 'bg-workplace-red hover:bg-red-700 text-white shadow-sm hover:shadow-md'
                 : 'bg-gray-100 hover:bg-gray-200 text-gray-700'"
             >
-              Empezar ahora
+              {{ t('landing.pricing.startNow') }}
               <ArrowRightIcon class="w-4 h-4" />
             </NuxtLink>
           </div>
@@ -351,9 +351,9 @@
     <section id="how" class="py-24 px-4 sm:px-6 lg:px-8 bg-gray-50">
       <div class="max-w-5xl mx-auto">
         <div class="text-center mb-16 space-y-3">
-          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">Cómo funciona</p>
-          <h2 class="text-4xl font-black text-gray-900 tracking-tight">Empieza en 3 pasos</h2>
-          <p class="text-gray-500 text-lg">Sin instalaciones, sin complicaciones.</p>
+          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">{{ t('landing.how.tag') }}</p>
+          <h2 class="text-4xl font-black text-gray-900 tracking-tight">{{ t('landing.how.title') }}</h2>
+          <p class="text-gray-500 text-lg">{{ t('landing.how.subtitle') }}</p>
         </div>
 
         <div class="grid md:grid-cols-3 gap-8 relative">
@@ -379,7 +379,7 @@
             to="/register"
             class="inline-flex items-center gap-2 bg-workplace-red hover:bg-red-700 text-white font-bold px-8 py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-150"
           >
-            Comenzar ahora — es gratis
+            {{ t('landing.how.startNowFree') }}
             <ArrowRightIcon class="w-4 h-4" />
           </NuxtLink>
         </div>
@@ -390,8 +390,8 @@
     <section id="testimonials" class="py-24 px-4 sm:px-6 lg:px-8">
       <div class="max-w-7xl mx-auto">
         <div class="text-center mb-16 space-y-3">
-          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">Testimonios</p>
-          <h2 class="text-4xl font-black text-gray-900 tracking-tight">Lo que dicen nuestros clientes</h2>
+          <p class="text-xs font-bold text-workplace-red uppercase tracking-widest">{{ t('landing.testimonials.tag') }}</p>
+          <h2 class="text-4xl font-black text-gray-900 tracking-tight">{{ t('landing.testimonials.title') }}</h2>
         </div>
 
         <!-- Skeleton while loading -->
@@ -449,9 +449,9 @@
 
         <div class="relative space-y-6">
           <div class="space-y-3">
-            <h2 class="text-3xl sm:text-4xl font-black text-white">¿Listo para transformar tu restaurante?</h2>
+            <h2 class="text-3xl sm:text-4xl font-black text-white">{{ t('landing.ctaBanner.title') }}</h2>
             <p class="text-red-100 text-lg max-w-xl mx-auto">
-              Únete a {{ restaurantCountLabel }} restaurantes que ya gestionan su negocio con WorkPlace Manager.
+              {{ t('landing.ctaBanner.subtitle', { count: restaurantCountLabel, appName: t('common.appName') }) }}
             </p>
           </div>
 
@@ -460,18 +460,18 @@
               to="/register"
               class="inline-flex items-center justify-center gap-2 bg-white text-workplace-red font-bold px-8 py-3.5 rounded-xl shadow-sm hover:shadow-md hover:bg-red-50 transition-all duration-150 text-base"
             >
-              Crear cuenta gratis
+              {{ t('landing.ctaBanner.createFreeAccount') }}
               <ArrowRightIcon class="w-4 h-4" />
             </NuxtLink>
             <NuxtLink
               to="/login"
               class="inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-white font-semibold px-8 py-3.5 rounded-xl border border-white/30 transition-all duration-150 text-base"
             >
-              Ya tengo cuenta
+              {{ t('landing.ctaBanner.alreadyHaveAccount') }}
             </NuxtLink>
           </div>
 
-          <p class="text-red-200 text-sm">Sin tarjeta de crédito · Configura en 5 min · Cancela cuando quieras</p>
+          <p class="text-red-200 text-sm">{{ t('landing.ctaBanner.footnote') }}</p>
         </div>
       </div>
     </section>
@@ -484,13 +484,13 @@
           <div class="space-y-3">
             <AppLogo size="sm" />
             <p class="text-sm text-gray-400 max-w-xs">
-              La plataforma de gestión más completa para restaurantes modernos.
+              {{ t('landing.footer.tagline') }}
             </p>
             <!-- Social links (placeholders — update hrefs when accounts are live) -->
             <div class="flex items-center gap-3 pt-1">
               <a
                 href="#"
-                aria-label="Twitter/X (próximamente)"
+                :aria-label="t('landing.footer.twitterSoon')"
                 aria-disabled="true"
                 class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 cursor-not-allowed"
                 @click.prevent
@@ -501,7 +501,7 @@
               </a>
               <a
                 href="#"
-                aria-label="Instagram (próximamente)"
+                :aria-label="t('landing.footer.instagramSoon')"
                 aria-disabled="true"
                 class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 cursor-not-allowed"
                 @click.prevent
@@ -512,7 +512,7 @@
               </a>
               <a
                 href="#"
-                aria-label="LinkedIn (próximamente)"
+                :aria-label="t('landing.footer.linkedinSoon')"
                 aria-disabled="true"
                 class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 cursor-not-allowed"
                 @click.prevent
@@ -526,17 +526,17 @@
 
           <!-- Links -->
           <div class="flex flex-wrap gap-x-8 gap-y-2 text-sm text-gray-500">
-            <a href="#features" aria-label="Ver funcionalidades" class="hover:text-gray-900 transition-colors duration-150">Funciones</a>
-            <a href="#how" aria-label="Cómo funciona la plataforma" class="hover:text-gray-900 transition-colors duration-150">Cómo funciona</a>
-            <a href="#pricing" aria-label="Ver planes y precios" class="hover:text-gray-900 transition-colors duration-150">Precios</a>
-            <NuxtLink to="/privacidad" class="hover:text-gray-900 transition-colors duration-150">Privacidad</NuxtLink>
-            <NuxtLink to="/terminos" class="hover:text-gray-900 transition-colors duration-150">Términos</NuxtLink>
-            <NuxtLink to="/soporte" class="hover:text-gray-900 transition-colors duration-150">Soporte</NuxtLink>
+            <a href="#features" :aria-label="t('landing.nav.featuresAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.features') }}</a>
+            <a href="#how" :aria-label="t('landing.nav.howAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.how') }}</a>
+            <a href="#pricing" :aria-label="t('landing.nav.pricingAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.pricing') }}</a>
+            <NuxtLink to="/privacidad" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.privacy') }}</NuxtLink>
+            <NuxtLink to="/terminos" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.terms') }}</NuxtLink>
+            <NuxtLink to="/soporte" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.support') }}</NuxtLink>
           </div>
         </div>
 
         <div class="mt-8 pt-6 border-t border-gray-100 text-center text-xs text-gray-400">
-          © {{ currentYear }} WorkPlace Manager. Todos los derechos reservados.
+          {{ t('landing.footer.copyright', { year: currentYear, appName: t('common.appName') }) }}
         </div>
       </div>
     </footer>
@@ -560,13 +560,13 @@
             <!-- Modal header -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <div>
-                <h3 id="demo-modal-title" class="font-bold text-gray-900">Demo interactiva</h3>
-                <p class="text-xs text-gray-400 mt-0.5">Explora la plataforma antes de registrarte</p>
+                <h3 id="demo-modal-title" class="font-bold text-gray-900">{{ t('landing.demoModal.title') }}</h3>
+                <p class="text-xs text-gray-400 mt-0.5">{{ t('landing.demoModal.subtitle') }}</p>
               </div>
               <button
                 ref="demoCloseRef"
                 type="button"
-                aria-label="Cerrar demo"
+                :aria-label="t('landing.demoModal.close')"
                 class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all flex-shrink-0"
                 @click="closeDemo"
               >
@@ -581,8 +581,8 @@
                 <div class="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center">
                   <PlayIcon class="w-7 h-7 text-workplace-red" />
                 </div>
-                <p class="text-sm font-semibold text-gray-700">Video demo próximamente</p>
-                <p class="text-xs text-gray-400 text-center max-w-xs">Mientras tanto, crea tu cuenta gratis y explora la plataforma completa.</p>
+                <p class="text-sm font-semibold text-gray-700">{{ t('landing.demoModal.videoSoon') }}</p>
+                <p class="text-xs text-gray-400 text-center max-w-xs">{{ t('landing.demoModal.meanwhile') }}</p>
               </div>
 
               <!-- Feature highlights -->
@@ -603,7 +603,7 @@
                 class="flex-1 inline-flex items-center justify-center gap-2 bg-workplace-red hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition-all duration-150 text-sm"
                 @click="closeDemo"
               >
-                Crear cuenta gratis
+                {{ t('landing.demoModal.createFreeAccount') }}
                 <ArrowRightIcon class="w-4 h-4" />
               </NuxtLink>
               <button
@@ -611,7 +611,7 @@
                 class="flex-1 inline-flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-6 py-3 rounded-xl transition-all duration-150 text-sm"
                 @click="closeDemo"
               >
-                Seguir explorando
+                {{ t('landing.demoModal.keepExploring') }}
               </button>
             </div>
           </div>
@@ -645,6 +645,7 @@ import { StarIcon } from '@heroicons/vue/24/solid'
 
 definePageMeta({ layout: false })
 
+const { t } = useI18n()
 const config = useRuntimeConfig()
 const siteUrl = config.public.siteUrl as string
 
@@ -680,19 +681,19 @@ const ratingCount = computed(() => {
 })
 
 useHead(() => ({
-  title: 'WorkPlace Manager — Gestiona tu restaurante sin complicaciones',
+  title: t('landing.seo.title'),
   meta: [
-    { name: 'description', content: 'Pedidos, inventario, menú, clientes, delivery y reportes todo desde un solo panel. La plataforma todo-en-uno diseñada para restaurantes que quieren crecer.' },
-    { name: 'keywords', content: 'gestión restaurante, software restaurante, pedidos online, inventario, delivery, analytics' },
-    { property: 'og:site_name', content: 'WorkPlace Manager' },
-    { property: 'og:title', content: 'WorkPlace Manager — Gestiona tu restaurante sin complicaciones' },
-    { property: 'og:description', content: 'Pedidos, inventario, menú, clientes, delivery y reportes — todo desde un solo panel.' },
+    { name: 'description', content: t('landing.seo.description') },
+    { name: 'keywords', content: t('landing.seo.keywords') },
+    { property: 'og:site_name', content: t('common.appName') },
+    { property: 'og:title', content: t('landing.seo.title') },
+    { property: 'og:description', content: t('landing.seo.ogDescription') },
     { property: 'og:type', content: 'website' },
     { property: 'og:url', content: siteUrl },
     { property: 'og:image', content: `${siteUrl}/og-image.png` },
     { name: 'twitter:card', content: 'summary_large_image' },
-    { name: 'twitter:title', content: 'WorkPlace Manager' },
-    { name: 'twitter:description', content: 'La plataforma todo-en-uno para gestionar tu restaurante.' },
+    { name: 'twitter:title', content: t('common.appName') },
+    { name: 'twitter:description', content: t('landing.seo.twitterDescription') },
   ],
   link: [{ rel: 'canonical', href: siteUrl }],
   script: [
@@ -701,16 +702,16 @@ useHead(() => ({
       innerHTML: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
-        name: 'WorkPlace Manager',
+        name: t('common.appName'),
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'Web',
         url: siteUrl,
-        description: 'Plataforma todo-en-uno para la gestión de restaurantes: pedidos, inventario, menú, clientes, delivery y reportes.',
+        description: t('landing.seo.schemaDescription'),
         offers: {
           '@type': 'Offer',
           price: '0',
           priceCurrency: 'USD',
-          description: 'Plan gratuito disponible',
+          description: t('landing.seo.freePlanAvailable'),
         },
         aggregateRating: {
           '@type': 'AggregateRating',
@@ -822,36 +823,36 @@ onMounted(async () => {
 // Uses stat key for stability (admin can rename labels without breaking this)
 const restaurantCountLabel = computed(() => {
   const restaurantStat = socialStats.value.find(s => s.key === 'restaurants')
-  if (!restaurantStat) return 'más de 500'
-  // Strip trailing + to avoid "más de 500+" — the phrase already implies "more than"
+  if (!restaurantStat) return t('landing.ctaBanner.moreThanFallback')
+  // Strip trailing + to avoid "more than 500+" — the phrase already implies "more than"
   const cleanValue = restaurantStat.value.replace(/\+$/, '')
-  return `más de ${cleanValue}`
+  return t('landing.ctaBanner.moreThan', { value: cleanValue })
 })
 
 // ─── Hero mock data ──────────────────────────────────────────────────────────
 
-const heroKpis = [
-  { label: 'Ventas hoy', value: '$4.2k', trend: 12 },
-  { label: 'Pedidos', value: '38', trend: 8 },
-  { label: 'Clientes', value: '124', trend: -3 },
-]
+const heroKpis = computed(() => [
+  { label: t('landing.hero.salesToday'), value: '$4.2k', trend: 12 },
+  { label: t('landing.hero.kpiOrders'), value: '38', trend: 8 },
+  { label: t('landing.hero.kpiCustomers'), value: '124', trend: -3 },
+])
 
 const chartBars = [45, 62, 55, 78, 70, 88, 100]
 
-const heroOrders = [
-  { id: 1, initials: 'JG', name: 'Juan García', time: 'hace 2 min', amount: '$320', status: 'Nuevo', statusClass: 'bg-blue-50 text-blue-600' },
-  { id: 2, initials: 'ML', name: 'María López', time: 'hace 8 min', amount: '$185', status: 'Preparando', statusClass: 'bg-yellow-50 text-yellow-600' },
-  { id: 3, initials: 'CR', name: 'Carlos R.', time: 'hace 15 min', amount: '$560', status: 'Listo', statusClass: 'bg-green-50 text-green-600' },
-]
+const heroOrders = computed(() => [
+  { id: 1, initials: 'JG', name: 'Juan García', time: t('landing.hero.minutesAgo', { minutes: 2 }), amount: '$320', status: t('landing.hero.orderStatusNew'), statusClass: 'bg-blue-50 text-blue-600' },
+  { id: 2, initials: 'ML', name: 'María López', time: t('landing.hero.minutesAgo', { minutes: 8 }), amount: '$185', status: t('landing.hero.orderStatusPreparing'), statusClass: 'bg-yellow-50 text-yellow-600' },
+  { id: 3, initials: 'CR', name: 'Carlos R.', time: t('landing.hero.minutesAgo', { minutes: 15 }), amount: '$560', status: t('landing.hero.orderStatusReady'), statusClass: 'bg-green-50 text-green-600' },
+])
 
 // ─── Demo modal highlights ────────────────────────────────────────────────────
 
-const demoHighlights = [
-  { label: 'Gestión de pedidos', icon: ShoppingCartIcon, bg: 'bg-blue-500' },
-  { label: 'Control de inventario', icon: CubeIcon, bg: 'bg-violet-500' },
-  { label: 'Analytics en tiempo real', icon: ChartBarIcon, bg: 'bg-amber-500' },
-  { label: 'CRM de clientes', icon: UsersIcon, bg: 'bg-pink-500' },
-]
+const demoHighlights = computed(() => [
+  { label: t('landing.demoModal.highlightOrders'), icon: ShoppingCartIcon, bg: 'bg-blue-500' },
+  { label: t('landing.demoModal.highlightInventory'), icon: CubeIcon, bg: 'bg-violet-500' },
+  { label: t('landing.demoModal.highlightAnalytics'), icon: ChartBarIcon, bg: 'bg-amber-500' },
+  { label: t('landing.demoModal.highlightCrm'), icon: UsersIcon, bg: 'bg-pink-500' },
+])
 
 // ─── Features (dinámico desde backend, con fallback) ─────────────────────────
 

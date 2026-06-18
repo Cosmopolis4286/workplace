@@ -233,5 +233,115 @@
         "profiles": { "label": "Perfiles públicos", "desc": "Conecta con comercios y freelancers" }
       }
     }
+  },
+  "landing": {
+    "nav": {
+      "features": "Funciones",
+      "featuresAria": "Ver funcionalidades",
+      "how": "Cómo funciona",
+      "howAria": "Cómo funciona la plataforma",
+      "testimonials": "Testimonios",
+      "testimonialsAria": "Testimonios de clientes",
+      "pricing": "Precios",
+      "pricingAria": "Ver planes y precios",
+      "login": "Iniciar sesión",
+      "startFree": "Empezar gratis",
+      "openMenu": "Abrir menú",
+      "closeMenu": "Cerrar menú"
+    },
+    "hero": {
+      "badge": "Plataforma todo-en-uno",
+      "titleLine1": "Gestiona tu",
+      "titleLine2": "restaurante",
+      "titleHighlight": "sin complicaciones",
+      "description": "Pedidos, inventario, menú, clientes, delivery y reportes — todo desde un solo panel. Diseñado para restaurantes que quieren crecer.",
+      "createFreeAccount": "Crear cuenta gratis",
+      "viewDemo": "Ver demo",
+      "viewDemoAria": "Ver demo de la plataforma",
+      "noCreditCard": "Sin tarjeta de crédito",
+      "setupIn5Min": "Configura en 5 minutos",
+      "support247": "Soporte 24/7",
+      "panelTitle": "Panel general",
+      "panelRestaurant": "Mi Restaurante",
+      "online": "En línea",
+      "revenueThisWeek": "Ingresos esta semana",
+      "recentOrders": "Pedidos recientes",
+      "demoTag": "(demo)",
+      "salesToday": "Ventas hoy",
+      "kpiOrders": "Pedidos",
+      "kpiCustomers": "Clientes",
+      "orderStatusNew": "Nuevo",
+      "orderStatusPreparing": "Preparando",
+      "orderStatusReady": "Listo",
+      "minutesAgo": "hace {minutes} min"
+    },
+    "social": {
+      "restaurants": "Restaurantes activos"
+    },
+    "features": {
+      "tag": "Funcionalidades",
+      "title": "Todo lo que necesita tu restaurante",
+      "subtitle": "Herramientas profesionales, pensadas para el día a día de tu negocio."
+    },
+    "pricing": {
+      "tag": "Precios",
+      "title": "Planes para cada etapa de tu negocio",
+      "subtitle": "Sin sorpresas. Cambia o cancela tu plan cuando quieras.",
+      "comingSoon": "Los planes estarán disponibles muy pronto.",
+      "mostPopular": "Más popular",
+      "perMonth": "/mes",
+      "startNow": "Empezar ahora"
+    },
+    "how": {
+      "tag": "Cómo funciona",
+      "title": "Empieza en 3 pasos",
+      "subtitle": "Sin instalaciones, sin complicaciones.",
+      "startNowFree": "Comenzar ahora — es gratis"
+    },
+    "testimonials": {
+      "tag": "Testimonios",
+      "title": "Lo que dicen nuestros clientes"
+    },
+    "ctaBanner": {
+      "title": "¿Listo para transformar tu restaurante?",
+      "subtitle": "Únete a {count} restaurantes que ya gestionan su negocio con {appName}.",
+      "moreThan": "más de {value}",
+      "moreThanFallback": "más de 500",
+      "createFreeAccount": "Crear cuenta gratis",
+      "alreadyHaveAccount": "Ya tengo cuenta",
+      "footnote": "Sin tarjeta de crédito · Configura en 5 min · Cancela cuando quieras"
+    },
+    "footer": {
+      "tagline": "La plataforma de gestión más completa para restaurantes modernos.",
+      "twitterSoon": "Twitter/X (próximamente)",
+      "instagramSoon": "Instagram (próximamente)",
+      "linkedinSoon": "LinkedIn (próximamente)",
+      "privacy": "Privacidad",
+      "terms": "Términos",
+      "support": "Soporte",
+      "copyright": "© {year} {appName}. Todos los derechos reservados."
+    },
+    "demoModal": {
+      "title": "Demo interactiva",
+      "subtitle": "Explora la plataforma antes de registrarte",
+      "close": "Cerrar demo",
+      "videoSoon": "Video demo próximamente",
+      "meanwhile": "Mientras tanto, crea tu cuenta gratis y explora la plataforma completa.",
+      "createFreeAccount": "Crear cuenta gratis",
+      "keepExploring": "Seguir explorando",
+      "highlightOrders": "Gestión de pedidos",
+      "highlightInventory": "Control de inventario",
+      "highlightAnalytics": "Analytics en tiempo real",
+      "highlightCrm": "CRM de clientes"
+    },
+    "seo": {
+      "title": "WorkPlace Manager — Gestiona tu restaurante sin complicaciones",
+      "description": "Pedidos, inventario, menú, clientes, delivery y reportes todo desde un solo panel. La plataforma todo-en-uno diseñada para restaurantes que quieren crecer.",
+      "keywords": "gestión restaurante, software restaurante, pedidos online, inventario, delivery, analytics",
+      "ogDescription": "Pedidos, inventario, menú, clientes, delivery y reportes — todo desde un solo panel.",
+      "twitterDescription": "La plataforma todo-en-uno para gestionar tu restaurante.",
+      "schemaDescription": "Plataforma todo-en-uno para la gestión de restaurantes: pedidos, inventario, menú, clientes, delivery y reportes.",
+      "freePlanAvailable": "Plan gratuito disponible"
+    }
   }
 }

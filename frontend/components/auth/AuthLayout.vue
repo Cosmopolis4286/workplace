@@ -219,8 +219,11 @@
         </div>
         <div class="hidden lg:block"></div>
 
-        <!-- Nav links slot -->
-        <slot name="header-action" />
+        <div class="flex items-center gap-4">
+          <!-- Nav links slot -->
+          <slot name="header-action" />
+          <LanguageSwitcher />
+        </div>
       </div>
 
       <!-- Main form area -->
@@ -253,11 +256,6 @@
             <NuxtLink to="/terminos" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.terms') }}</NuxtLink>
             <NuxtLink to="/soporte" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.support') }}</NuxtLink>
           </div>
-        </div>
-
-        <!-- Language switcher -->
-        <div class="flex justify-center mt-3">
-          <LanguageSwitcher />
         </div>
       </div>
     </div>

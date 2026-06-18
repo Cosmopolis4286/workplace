@@ -233,5 +233,115 @@
         "profiles": { "label": "Public profiles", "desc": "Connect with businesses and freelancers" }
       }
     }
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "featuresAria": "View features",
+      "how": "How it works",
+      "howAria": "How the platform works",
+      "testimonials": "Testimonials",
+      "testimonialsAria": "Customer testimonials",
+      "pricing": "Pricing",
+      "pricingAria": "View plans and pricing",
+      "login": "Sign in",
+      "startFree": "Start for free",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu"
+    },
+    "hero": {
+      "badge": "All-in-one platform",
+      "titleLine1": "Manage your",
+      "titleLine2": "restaurant",
+      "titleHighlight": "without complications",
+      "description": "Orders, inventory, menu, customers, delivery and reports — all from a single panel. Designed for restaurants that want to grow.",
+      "createFreeAccount": "Create free account",
+      "viewDemo": "View demo",
+      "viewDemoAria": "View platform demo",
+      "noCreditCard": "No credit card required",
+      "setupIn5Min": "Set up in 5 minutes",
+      "support247": "24/7 support",
+      "panelTitle": "Overview",
+      "panelRestaurant": "My Restaurant",
+      "online": "Online",
+      "revenueThisWeek": "Revenue this week",
+      "recentOrders": "Recent orders",
+      "demoTag": "(demo)",
+      "salesToday": "Sales today",
+      "kpiOrders": "Orders",
+      "kpiCustomers": "Customers",
+      "orderStatusNew": "New",
+      "orderStatusPreparing": "Preparing",
+      "orderStatusReady": "Ready",
+      "minutesAgo": "{minutes} min ago"
+    },
+    "social": {
+      "restaurants": "Active restaurants"
+    },
+    "features": {
+      "tag": "Features",
+      "title": "Everything your restaurant needs",
+      "subtitle": "Professional tools, designed for your business's day-to-day."
+    },
+    "pricing": {
+      "tag": "Pricing",
+      "title": "Plans for every stage of your business",
+      "subtitle": "No surprises. Change or cancel your plan whenever you want.",
+      "comingSoon": "Plans will be available soon.",
+      "mostPopular": "Most popular",
+      "perMonth": "/mo",
+      "startNow": "Get started"
+    },
+    "how": {
+      "tag": "How it works",
+      "title": "Get started in 3 steps",
+      "subtitle": "No installations, no complications.",
+      "startNowFree": "Get started now — it's free"
+    },
+    "testimonials": {
+      "tag": "Testimonials",
+      "title": "What our customers say"
+    },
+    "ctaBanner": {
+      "title": "Ready to transform your restaurant?",
+      "subtitle": "Join {count} restaurants already managing their business with {appName}.",
+      "moreThan": "more than {value}",
+      "moreThanFallback": "more than 500",
+      "createFreeAccount": "Create free account",
+      "alreadyHaveAccount": "I already have an account",
+      "footnote": "No credit card · Set up in 5 min · Cancel anytime"
+    },
+    "footer": {
+      "tagline": "The most complete management platform for modern restaurants.",
+      "twitterSoon": "Twitter/X (coming soon)",
+      "instagramSoon": "Instagram (coming soon)",
+      "linkedinSoon": "LinkedIn (coming soon)",
+      "privacy": "Privacy",
+      "terms": "Terms",
+      "support": "Support",
+      "copyright": "© {year} {appName}. All rights reserved."
+    },
+    "demoModal": {
+      "title": "Interactive demo",
+      "subtitle": "Explore the platform before signing up",
+      "close": "Close demo",
+      "videoSoon": "Demo video coming soon",
+      "meanwhile": "Meanwhile, create your free account and explore the full platform.",
+      "createFreeAccount": "Create free account",
+      "keepExploring": "Keep exploring",
+      "highlightOrders": "Order management",
+      "highlightInventory": "Inventory control",
+      "highlightAnalytics": "Real-time analytics",
+      "highlightCrm": "Customer CRM"
+    },
+    "seo": {
+      "title": "WorkPlace Manager — Manage your restaurant without complications",
+      "description": "Orders, inventory, menu, customers, delivery and reports all from a single panel. The all-in-one platform designed for restaurants that want to grow.",
+      "keywords": "restaurant management, restaurant software, online orders, inventory, delivery, analytics",
+      "ogDescription": "Orders, inventory, menu, customers, delivery and reports — all from a single panel.",
+      "twitterDescription": "The all-in-one platform to manage your restaurant.",
+      "schemaDescription": "All-in-one platform for restaurant management: orders, inventory, menu, customers, delivery and reports.",
+      "freePlanAvailable": "Free plan available"
+    }
   }
 }
