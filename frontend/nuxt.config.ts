@@ -56,6 +56,7 @@ export default defineNuxtConfig({
   ],
 
   plugins: [
+    '~/plugins/runtime-config-host.client.ts',
     '~/plugins/color-mode.client.ts',
     '~/plugins/chart.client.ts',
     '~/plugins/auth.client.ts',

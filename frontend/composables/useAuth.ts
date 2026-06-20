@@ -119,6 +119,8 @@ function rehydrate(): void {
 
 export const useAuth = () => {
   // useRuntimeConfig debe llamarse dentro del composable (contexto Nuxt)
+  // El plugin runtime-config-host.client.ts ajusta apiUrl si la página se
+  // abrió desde otro host (LAN/móvil) y apiUrl apuntaba a "localhost".
   const config = useRuntimeConfig()
   const apiUrl = config.public.apiUrl as string
 
