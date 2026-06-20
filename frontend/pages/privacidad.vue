@@ -123,5 +123,15 @@ const sections = [
       'Eliminar tu cuenta y todos los datos asociados contactándonos.',
     ],
   },
+  {
+    title: 'Uso de cookies',
+    iconPath: 'M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z',
+    items: [
+      '"access_token" y "refresh_token": cookies propias, técnicas y estrictamente necesarias para mantener tu sesión iniciada de forma segura (no accesibles desde JavaScript). Expiran a los 15 minutos y 7 días respectivamente.',
+      '"i18n_redirected": cookie propia y funcional que recuerda el idioma que seleccionaste o detectamos en tu navegador.',
+      'Google reCAPTCHA: al iniciar sesión o registrarte, Google puede establecer sus propias cookies para verificar que no eres un robot. Esto se rige por la Política de Privacidad de Google.',
+      'No utilizamos cookies de publicidad ni de seguimiento (analytics) de terceros. Al ser todas nuestras cookies estrictamente necesarias o funcionales, no se requiere tu consentimiento previo, pero puedes bloquearlas desde la configuración de tu navegador (esto puede impedir que la plataforma funcione correctamente).',
+    ],
+  },
 ]
 </script>
