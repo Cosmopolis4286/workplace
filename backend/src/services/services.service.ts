@@ -316,6 +316,12 @@ export class ServicesService {
     dto: CreateServiceRequestDto,
     requesterId?: string
   ) {
+    const preferredDate = new Date(dto.preferredDate);
+    if (dto.preferredTime) {
+      const [hours, minutes] = dto.preferredTime.split(':').map(Number);
+      preferredDate.setHours(hours, minutes, 0, 0);
+    }
+
     const request = await this.prisma.serviceRequest.create({
       data: {
         serviceId: dto.serviceId,
@@ -323,7 +329,7 @@ export class ServicesService {
         providerId: dto.providerId,
         providerName: dto.providerName,
         modality: dto.modality ?? 'CUALQUIERA',
-        preferredDate: new Date(dto.preferredDate),
+        preferredDate,
         address: dto.address,
         city: dto.city,
         clientName: dto.clientName,

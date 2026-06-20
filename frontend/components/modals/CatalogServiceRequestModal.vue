@@ -86,16 +86,33 @@
                 </div>
               </div>
 
-              <!-- Fecha preferida -->
-              <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1.5">Fecha preferida <span class="text-blue-500">*</span></label>
-                <input
-                  v-model="form.preferredDate"
-                  type="date"
-                  required
-                  :min="minDate"
-                  class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                />
+              <!-- Fecha y hora preferida -->
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-gray-700 mb-1.5">Fecha preferida <span class="text-blue-500">*</span></label>
+                  <input
+                    v-model="form.preferredDate"
+                    type="date"
+                    required
+                    :min="minDate"
+                    class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                    :class="fieldErrors.preferredDate ? 'border-red-300' : 'border-gray-200'"
+                    @blur="touch('preferredDate')"
+                  />
+                  <p v-if="fieldErrors.preferredDate" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.preferredDate }}</p>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-gray-700 mb-1.5">Hora preferida <span class="text-blue-500">*</span></label>
+                  <input
+                    v-model="form.preferredTime"
+                    type="time"
+                    required
+                    class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                    :class="fieldErrors.preferredTime ? 'border-red-300' : 'border-gray-200'"
+                    @blur="touch('preferredTime')"
+                  />
+                  <p v-if="fieldErrors.preferredTime" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.preferredTime }}</p>
+                </div>
               </div>
 
               <!-- Dirección (solo presencial) -->
@@ -108,6 +125,16 @@
                 leave-to-class="opacity-0 -translate-y-2"
               >
                 <div v-if="form.modality === 'PRESENCIAL'" class="space-y-3">
+                  <!-- Aviso de alcance del prestador -->
+                  <div v-if="providerLocationLabel" class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                    <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <p class="text-[11px] text-amber-700 leading-snug">
+                      Este proveedor atiende en <strong>{{ providerLocationLabel }}</strong>. Si tu dirección queda fuera de esa zona, puede que no acepte la solicitud.
+                    </p>
+                  </div>
+
                   <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">Dirección <span class="text-blue-500">*</span></label>
                     <input
@@ -115,17 +142,26 @@
                       type="text"
                       placeholder="Calle, número, barrio..."
                       required
-                      class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                      minlength="5"
+                      maxlength="200"
+                      class="w-full px-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                      :class="fieldErrors.address ? 'border-red-300' : 'border-gray-200'"
+                      @blur="touch('address')"
                     />
+                    <p v-if="fieldErrors.address" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.address }}</p>
                   </div>
                   <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">Ciudad</label>
                     <input
                       v-model="form.city"
                       type="text"
-                      placeholder="Ciudad"
+                      :placeholder="providerCity ? `Ej: ${providerCity}` : 'Ciudad'"
+                      maxlength="100"
                       class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                     />
+                    <p v-if="cityMismatch" class="text-[11px] text-amber-600 mt-1">
+                      ⚠ El proveedor opera en {{ providerLocationLabel }}, no en "{{ form.city }}".
+                    </p>
                   </div>
                 </div>
               </Transition>
@@ -134,28 +170,44 @@
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-2">Tus datos de contacto</label>
                 <div class="space-y-2.5">
-                  <input
-                    v-model="form.clientName"
-                    type="text"
-                    placeholder="Nombre completo *"
-                    required
-                    maxlength="100"
-                    class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                  />
-                  <input
-                    v-model="form.clientPhone"
-                    type="tel"
-                    placeholder="Teléfono / WhatsApp *"
-                    required
-                    maxlength="30"
-                    class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                  />
-                  <input
-                    v-model="form.clientEmail"
-                    type="email"
-                    placeholder="Correo electrónico (opcional)"
-                    class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                  />
+                  <div>
+                    <input
+                      v-model="form.clientName"
+                      type="text"
+                      placeholder="Nombre completo *"
+                      required
+                      minlength="3"
+                      maxlength="100"
+                      class="w-full px-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                      :class="fieldErrors.clientName ? 'border-red-300' : 'border-gray-200'"
+                      @blur="touch('clientName')"
+                    />
+                    <p v-if="fieldErrors.clientName" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.clientName }}</p>
+                  </div>
+                  <div>
+                    <input
+                      v-model="form.clientPhone"
+                      type="tel"
+                      placeholder="Teléfono / WhatsApp *"
+                      required
+                      maxlength="30"
+                      class="w-full px-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                      :class="fieldErrors.clientPhone ? 'border-red-300' : 'border-gray-200'"
+                      @blur="touch('clientPhone')"
+                    />
+                    <p v-if="fieldErrors.clientPhone" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.clientPhone }}</p>
+                  </div>
+                  <div>
+                    <input
+                      v-model="form.clientEmail"
+                      type="email"
+                      placeholder="Correo electrónico (opcional)"
+                      class="w-full px-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                      :class="fieldErrors.clientEmail ? 'border-red-300' : 'border-gray-200'"
+                      @blur="touch('clientEmail')"
+                    />
+                    <p v-if="fieldErrors.clientEmail" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.clientEmail }}</p>
+                  </div>
                 </div>
               </div>
 
@@ -168,7 +220,9 @@
                   maxlength="600"
                   rows="3"
                   class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
+                  @blur="touch('description')"
                 />
+                <p class="text-[11px] text-gray-400 mt-1 text-right">{{ form.description.length }}/600</p>
               </div>
 
               <!-- Precio -->
@@ -258,11 +312,23 @@ const modalityOptions = computed(() => {
 
 const minDate = new Date().toISOString().split('T')[0]
 
+const providerCity = computed(() => props.service?.user?.city ?? '')
+const providerState = computed(() => props.service?.user?.state ?? '')
+const providerLocationLabel = computed(() => {
+  if (providerCity.value && providerState.value) return `${providerCity.value}, ${providerState.value}`
+  return providerCity.value || providerState.value || ''
+})
+const cityMismatch = computed(() => {
+  if (!form.value.city.trim() || !providerCity.value) return false
+  return form.value.city.trim().toLowerCase() !== providerCity.value.trim().toLowerCase()
+})
+
 const defaultForm = () => ({
   modality: (modalityOptions.value[0]?.value ?? 'CUALQUIERA') as string,
   preferredDate: '',
+  preferredTime: '',
   address: '',
-  city: '',
+  city: providerCity.value || '',
   clientName: user.value ? `${user.value.firstName} ${user.value.lastName}`.trim() : '',
   clientPhone: (user.value as any)?.phone ?? '',
   clientEmail: user.value?.email ?? '',
@@ -272,6 +338,41 @@ const defaultForm = () => ({
 const form = ref(defaultForm())
 const sending = ref(false)
 const errorMsg = ref('')
+
+const touched = ref<Record<string, boolean>>({})
+function touch(field: string) {
+  touched.value[field] = true
+}
+
+const PHONE_REGEX = /^[+]?[\d\s()-]{7,20}$/
+const EMAIL_REGEX = /^\S+@\S+\.\S+$/
+
+const fieldErrors = computed(() => {
+  const e: Record<string, string> = {}
+
+  if (touched.value.preferredDate && form.value.preferredDate) {
+    const selected = new Date(form.value.preferredDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (selected < today) e.preferredDate = 'La fecha no puede ser en el pasado'
+  }
+  if (touched.value.preferredTime && !form.value.preferredTime) {
+    e.preferredTime = 'Selecciona una hora'
+  }
+  if (touched.value.address && form.value.modality === 'PRESENCIAL' && form.value.address.trim().length < 5) {
+    e.address = 'Ingresa una dirección más detallada'
+  }
+  if (touched.value.clientName && form.value.clientName.trim().length < 3) {
+    e.clientName = 'Ingresa tu nombre completo'
+  }
+  if (touched.value.clientPhone && !PHONE_REGEX.test(form.value.clientPhone.trim())) {
+    e.clientPhone = 'Ingresa un teléfono válido'
+  }
+  if (touched.value.clientEmail && form.value.clientEmail && !EMAIL_REGEX.test(form.value.clientEmail.trim())) {
+    e.clientEmail = 'Ingresa un correo válido'
+  }
+  return e
+})
 
 watch(() => props.service, () => {
   form.value = defaultForm()
@@ -301,14 +402,36 @@ function formatPrice(price: number): string {
   return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
 }
 
+function validateAll(): boolean {
+  touched.value = {
+    preferredDate: true,
+    preferredTime: true,
+    address: true,
+    clientName: true,
+    clientPhone: true,
+    clientEmail: true,
+  }
+
+  if (!form.value.preferredDate) {
+    errorMsg.value = 'Selecciona una fecha preferida.'
+    return false
+  }
+  if (form.value.modality === 'PRESENCIAL' && !form.value.address.trim()) {
+    errorMsg.value = 'La dirección es requerida para modalidad presencial.'
+    return false
+  }
+  if (Object.keys(fieldErrors.value).length > 0) {
+    errorMsg.value = 'Revisa los campos marcados antes de continuar.'
+    return false
+  }
+  return true
+}
+
 async function submit() {
   if (!props.service) return
   errorMsg.value = ''
 
-  if (form.value.modality === 'PRESENCIAL' && !form.value.address.trim()) {
-    errorMsg.value = 'La dirección es requerida para modalidad presencial.'
-    return
-  }
+  if (!validateAll()) return
 
   sending.value = true
   try {
@@ -320,6 +443,7 @@ async function submit() {
       providerName: `${props.service.user.firstName} ${props.service.user.lastName}`,
       modality: form.value.modality,
       preferredDate: form.value.preferredDate,
+      preferredTime: form.value.preferredTime || undefined,
       address: form.value.address || undefined,
       city: form.value.city || undefined,
       clientName: form.value.clientName,
@@ -332,6 +456,7 @@ async function submit() {
     emit('update:modelValue', false)
     emit('success')
     form.value = defaultForm()
+    touched.value = {}
   } catch (e: any) {
     errorMsg.value = e?.data?.message ?? 'No se pudo enviar la solicitud. Intenta de nuevo.'
   } finally {
