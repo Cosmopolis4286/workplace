@@ -129,6 +129,65 @@ export class LandingService {
     return result
   }
 
+  // Lista reseñas reales con buen rating (4-5★) y comentario, verificadas por
+  // una transacción real y aún no usadas como testimonio, para que el admin
+  // pueda convertirlas en uno con un clic.
+  async findVerifiedReviewCandidates() {
+    const usedReviewIds = (
+      await this.prisma.landingTestimonial.findMany({
+        where: { sourceReviewId: { not: null } },
+        select: { sourceReviewId: true },
+      })
+    ).map((t) => t.sourceReviewId as string)
+
+    return this.prisma.review.findMany({
+      where: {
+        rating: { gte: 4 },
+        comment: { not: null },
+        isHidden: false,
+        id: { notIn: usedReviewIds },
+        OR: [{ verifiedOrderId: { not: null } }, { verifiedRequestId: { not: null } }],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: {
+        author: { select: { id: true, firstName: true, lastName: true } },
+        target: { select: { id: true, commerce: { select: { name: true, type: true } } } },
+      },
+    })
+  }
+
+  async createTestimonialFromReview(reviewId: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      include: {
+        author: { select: { firstName: true, lastName: true } },
+        target: { select: { commerce: { select: { name: true, type: true } } } },
+      },
+    })
+    if (!review) throw new NotFoundException('Reseña no encontrada')
+    if (!review.comment) throw new NotFoundException('La reseña no tiene comentario para usar como cita')
+
+    const name = `${review.author.firstName} ${review.author.lastName}`
+    const role = review.target.commerce
+      ? `Cliente, ${review.target.commerce.name}`
+      : 'Cliente verificado'
+
+    const result = await this.prisma.landingTestimonial.create({
+      data: {
+        quote: review.comment,
+        name,
+        role,
+        initials: this.buildInitials(name),
+        sourceReviewId: review.id,
+        isActive: true,
+      },
+    })
+    await this.invalidateCache()
+    this.gateway.broadcastUpdate('testimonials')
+    return result
+  }
+
   async updateTestimonial(id: string, dto: UpdateTestimonialDto) {
     await this.findTestimonialOrFail(id)
     const result = await this.prisma.landingTestimonial.update({ where: { id }, data: dto })
@@ -142,6 +201,20 @@ export class LandingService {
     await this.prisma.landingTestimonial.delete({ where: { id } })
     await this.invalidateCache()
     this.gateway.broadcastUpdate('testimonials')
+  }
+
+  async reorderTestimonials(orderedIds: string[]) {
+    await this.prisma.$transaction(
+      orderedIds.map((id, index) =>
+        this.prisma.landingTestimonial.update({
+          where: { id },
+          data: { sortOrder: index },
+        }),
+      ),
+    )
+    await this.invalidateCache()
+    this.gateway.broadcastUpdate('testimonials')
+    return this.findAllTestimonials()
   }
 
   // ─── Admin — Stats CRUD ────────────────────────────────────────────────────

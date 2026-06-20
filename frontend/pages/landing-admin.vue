@@ -81,26 +81,106 @@
       </div>
     </div>
 
+    <!-- ─── Reseñas reportadas ─────────────────────────────────────────────── -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-bold text-gray-900">Reseñas reportadas</h2>
+        <span v-if="reportedReviews.length > 0" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
+          {{ reportedReviews.length }} pendiente{{ reportedReviews.length === 1 ? '' : 's' }}
+        </span>
+      </div>
+
+      <div v-if="loadingReports" class="px-6 py-10 text-center text-sm text-gray-400">Cargando…</div>
+
+      <div v-else class="divide-y divide-gray-50">
+        <div v-for="report in reportedReviews" :key="report.id" class="px-6 py-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="text-sm text-gray-700">
+              <span class="font-bold">{{ report.review.author.firstName }} {{ report.review.author.lastName }}</span>
+              reseñó a
+              <span class="font-bold">{{ report.review.target.firstName }} {{ report.review.target.lastName }}</span>
+              — {{ report.review.rating }}★
+              <span v-if="report.review.isHidden" class="ml-1 text-xs font-semibold text-gray-400">(oculta)</span>
+            </p>
+          </div>
+          <p v-if="report.review.comment" class="text-sm text-gray-500 italic">"{{ report.review.comment }}"</p>
+          <p class="text-xs text-gray-400">Motivo del reporte: {{ report.reason }}</p>
+          <div class="flex gap-2 pt-1">
+            <button
+              v-if="!report.review.isHidden"
+              @click="moderate(report.review.id, 'HIDE')"
+              class="text-xs font-semibold border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50"
+            >
+              Ocultar reseña
+            </button>
+            <button
+              v-else
+              @click="moderate(report.review.id, 'RESTORE')"
+              class="text-xs font-semibold border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50"
+            >
+              Restaurar reseña
+            </button>
+            <button
+              @click="moderate(report.review.id, 'DISMISS_REPORTS')"
+              class="text-xs font-semibold text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-50"
+            >
+              Descartar reporte
+            </button>
+          </div>
+        </div>
+
+        <div v-if="reportedReviews.length === 0 && !loadingReports" class="px-6 py-10 text-center text-sm text-gray-400">
+          No hay reseñas reportadas pendientes.
+        </div>
+      </div>
+    </div>
+
     <!-- ─── Testimonios ────────────────────────────────────────────────────── -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
       <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
         <h2 class="font-bold text-gray-900">Testimonios</h2>
-        <button
-          @click="openTestimonialModal(null)"
-          class="text-sm font-semibold bg-workplace-red text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-        >
-          + Nuevo
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            @click="showCandidatesModal = true; loadReviewCandidates()"
+            class="text-sm font-semibold border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Crear desde reseña verificada
+          </button>
+          <button
+            @click="openTestimonialModal(null)"
+            class="text-sm font-semibold bg-workplace-red text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+          >
+            + Nuevo
+          </button>
+        </div>
       </div>
 
       <div v-if="loadingTestimonials" class="px-6 py-10 text-center text-sm text-gray-400">Cargando…</div>
 
       <div v-else class="divide-y divide-gray-50">
         <div
-          v-for="t in testimonials"
+          v-for="(t, idx) in testimonials"
           :key="t.id"
           class="px-6 py-4 flex items-start gap-4"
         >
+          <!-- Reorder -->
+          <div class="flex flex-col gap-0.5 flex-shrink-0">
+            <button
+              :disabled="idx === 0"
+              @click="moveTestimonial(idx, -1)"
+              class="p-0.5 text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+            >
+              <ChevronUpIcon class="w-4 h-4" />
+            </button>
+            <button
+              :disabled="idx === testimonials.length - 1"
+              @click="moveTestimonial(idx, 1)"
+              class="p-0.5 text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+            >
+              <ChevronDownIcon class="w-4 h-4" />
+            </button>
+          </div>
+
           <!-- Avatar preview -->
           <div
             class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
@@ -110,7 +190,12 @@
           </div>
 
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-bold text-gray-900">{{ t.name }} <span class="font-normal text-gray-400 text-xs">— {{ t.role }}</span></p>
+            <p class="text-sm font-bold text-gray-900">
+              {{ t.name }} <span class="font-normal text-gray-400 text-xs">— {{ t.role }}</span>
+              <span v-if="t.sourceReviewId" class="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-50 text-green-600" title="Originado de una reseña real verificada">
+                ✓ Verificado
+              </span>
+            </p>
             <p class="text-sm text-gray-500 mt-1 line-clamp-2 italic">"{{ t.quote }}"</p>
           </div>
 
@@ -237,6 +322,41 @@
         </div>
       </div>
     </div>
+
+    <!-- ─── Modal Candidatos a testimonio (reseñas verificadas) ──────────────── -->
+    <Teleport to="body">
+      <div v-if="showCandidatesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showCandidatesModal = false" />
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+          <h3 class="font-black text-gray-900 text-lg">Reseñas verificadas con buen rating</h3>
+          <p class="text-sm text-gray-500">Solo se muestran reseñas de 4-5★ con comentario, originadas en una compra o servicio real, aún no usadas como testimonio.</p>
+
+          <div v-if="loadingCandidates" class="text-center text-sm text-gray-400 py-6">Cargando…</div>
+          <div v-else-if="reviewCandidates.length === 0" class="text-center text-sm text-gray-400 py-6">
+            No hay reseñas verificadas disponibles por ahora.
+          </div>
+          <div v-else class="space-y-2">
+            <div v-for="c in reviewCandidates" :key="c.id" class="border border-gray-100 rounded-xl p-3 flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-bold text-gray-900">{{ c.author.firstName }} {{ c.author.lastName }} <span class="text-amber-500">{{ '★'.repeat(c.rating) }}</span></p>
+                <p class="text-sm text-gray-500 italic line-clamp-2">"{{ c.comment }}"</p>
+              </div>
+              <button
+                @click="useAsTestimonial(c.id)"
+                :disabled="creatingFromReview === c.id"
+                class="text-xs font-semibold bg-workplace-red text-white px-3 py-1.5 rounded-lg disabled:opacity-50 flex-shrink-0"
+              >
+                {{ creatingFromReview === c.id ? 'Creando…' : 'Usar' }}
+              </button>
+            </div>
+          </div>
+
+          <button @click="showCandidatesModal = false" class="w-full border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-50 text-sm">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- ─── Modal Testimonio ───────────────────────────────────────────────── -->
     <Teleport to="body">
@@ -395,9 +515,22 @@
 </template>
 
 <script setup lang="ts">
-import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'
 
 definePageMeta({ middleware: ['auth'] })
+
+interface ReportedReview {
+  id: string
+  reason: string
+  review: {
+    id: string
+    rating: number
+    comment?: string
+    isHidden: boolean
+    author: { firstName: string; lastName: string }
+    target: { firstName: string; lastName: string }
+  }
+}
 
 interface Testimonial {
   id: string
@@ -408,6 +541,14 @@ interface Testimonial {
   avatarColor: string
   isActive: boolean
   sortOrder: number
+  sourceReviewId?: string | null
+}
+
+interface ReviewCandidate {
+  id: string
+  rating: number
+  comment: string
+  author: { firstName: string; lastName: string }
 }
 
 interface AdminStat {
@@ -495,6 +636,31 @@ async function addStat() {
   newStatValue.value = ''
 }
 
+// ─── Reseñas reportadas ─────────────────────────────────────────────────────
+const reportedReviews = ref<ReportedReview[]>([])
+const loadingReports = ref(false)
+
+async function loadReportedReviews() {
+  loadingReports.value = true
+  try {
+    const data = await $fetch<ReportedReview[]>(`${apiUrl}/profiles/admin/reviews/reported`, {
+      headers: authHeader.value,
+    })
+    reportedReviews.value = data
+  } finally {
+    loadingReports.value = false
+  }
+}
+
+async function moderate(reviewId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS_REPORTS') {
+  await $fetch(`${apiUrl}/profiles/admin/reviews/${reviewId}/moderate`, {
+    method: 'PATCH',
+    headers: authHeader.value,
+    body: { action },
+  })
+  await loadReportedReviews()
+}
+
 // ─── Testimonials ─────────────────────────────────────────────────────────────
 const testimonials = ref<Testimonial[]>([])
 const loadingTestimonials = ref(false)
@@ -569,6 +735,49 @@ async function deleteTestimonial(id: string) {
     headers: authHeader.value,
   })
   testimonials.value = testimonials.value.filter((t) => t.id !== id)
+}
+
+const showCandidatesModal = ref(false)
+const reviewCandidates = ref<ReviewCandidate[]>([])
+const loadingCandidates = ref(false)
+const creatingFromReview = ref<string | null>(null)
+
+async function loadReviewCandidates() {
+  loadingCandidates.value = true
+  try {
+    reviewCandidates.value = await $fetch<ReviewCandidate[]>(`${apiUrl}/landing/admin/testimonials/review-candidates`, {
+      headers: authHeader.value,
+    })
+  } finally {
+    loadingCandidates.value = false
+  }
+}
+
+async function useAsTestimonial(reviewId: string) {
+  creatingFromReview.value = reviewId
+  try {
+    const created = await $fetch<Testimonial>(`${apiUrl}/landing/admin/testimonials/from-review/${reviewId}`, {
+      method: 'POST',
+      headers: authHeader.value,
+    })
+    testimonials.value.push(created)
+    reviewCandidates.value = reviewCandidates.value.filter((c: ReviewCandidate) => c.id !== reviewId)
+  } finally {
+    creatingFromReview.value = null
+  }
+}
+
+async function moveTestimonial(idx: number, direction: -1 | 1) {
+  const targetIdx = idx + direction
+  if (targetIdx < 0 || targetIdx >= testimonials.value.length) return
+  const reordered = [...testimonials.value]
+  ;[reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]]
+  testimonials.value = reordered
+  await $fetch(`${apiUrl}/landing/admin/testimonials/reorder`, {
+    method: 'PATCH',
+    headers: authHeader.value,
+    body: { orderedIds: reordered.map((t) => t.id) },
+  })
 }
 
 // ─── Features ─────────────────────────────────────────────────────────────────
@@ -723,6 +932,7 @@ async function deleteStep(id: string) {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 onMounted(() => {
   loadStats()
+  loadReportedReviews()
   loadTestimonials()
   loadFeatures()
   loadSteps()

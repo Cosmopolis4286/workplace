@@ -78,6 +78,27 @@ export class LandingController {
     return this.landingService.deleteTestimonial(id)
   }
 
+  @Patch('admin/testimonials/reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  reorderTestimonials(@Body('orderedIds') orderedIds: string[]) {
+    return this.landingService.reorderTestimonials(orderedIds)
+  }
+
+  @Get('admin/testimonials/review-candidates')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  findVerifiedReviewCandidates() {
+    return this.landingService.findVerifiedReviewCandidates()
+  }
+
+  @Post('admin/testimonials/from-review/:reviewId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  createTestimonialFromReview(@Param('reviewId') reviewId: string) {
+    return this.landingService.createTestimonialFromReview(reviewId)
+  }
+
   // ─── Admin — Stats ─────────────────────────────────────────────────────────
 
   @Get('admin/stats')
