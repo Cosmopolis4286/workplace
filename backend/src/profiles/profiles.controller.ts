@@ -17,15 +17,21 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { extensionForMimetype } from '../common/utils/upload-extension.util';
 import { ProfilesService } from './profiles.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { QueryPostsDto } from './dto/query-profile.dto';
+import { RespondReviewDto } from './dto/respond-review.dto';
+import { ReportReviewDto } from './dto/report-review.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 
 @Controller('profiles')
 export class ProfilesController {
@@ -70,11 +76,14 @@ export class ProfilesController {
         },
         filename: (_req, file, cb) => {
           const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, unique + extname(file.originalname));
+          cb(null, unique + extensionForMimetype(file.mimetype));
         },
       }),
       fileFilter: (_req, file, cb) => {
-        if (!file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/)) {
+        if (
+          !file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/) ||
+          !extensionForMimetype(file.mimetype)
+        ) {
           return cb(
             new BadRequestException(
               'Solo se permiten imágenes (jpeg, png, webp, gif)'
@@ -129,14 +138,15 @@ export class ProfilesController {
         },
         filename: (_req, file, cb) => {
           const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, unique + extname(file.originalname));
+          cb(null, unique + extensionForMimetype(file.mimetype));
         },
       }),
       fileFilter: (_req, file, cb) => {
         if (
           !file.mimetype.match(
-            /^(image\/(jpeg|png|webp|gif)|video\/(mp4|webm|mov))$/
-          )
+            /^(image\/(jpeg|png|webp|gif)|video\/(mp4|webm|quicktime))$/
+          ) ||
+          !extensionForMimetype(file.mimetype)
         ) {
           return cb(
             new BadRequestException(
@@ -268,5 +278,54 @@ export class ProfilesController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number
   ) {
     return this.profilesService.getReviews(username, page, limit);
+  }
+
+  // ─── Reviews — respuesta del negocio/freelancer ────────────────────────────
+
+  @Patch('reviews/:id/response')
+  @UseGuards(JwtAuthGuard)
+  respondToReview(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: RespondReviewDto
+  ) {
+    return this.profilesService.respondToReview(user.id, id, dto);
+  }
+
+  @Delete('reviews/:id/response')
+  @UseGuards(JwtAuthGuard)
+  deleteReviewResponse(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.profilesService.deleteReviewResponse(user.id, id);
+  }
+
+  // ─── Reviews — reportar abuso ───────────────────────────────────────────────
+
+  @Post('reviews/:id/report')
+  @UseGuards(JwtAuthGuard)
+  reportReview(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: ReportReviewDto
+  ) {
+    return this.profilesService.reportReview(user.id, id, dto);
+  }
+
+  // ─── Reviews — moderación (SUPERADMIN/ADMIN) ───────────────────────────────
+
+  @Get('admin/reviews/reported')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  listReportedReviews() {
+    return this.profilesService.listReportedReviews();
+  }
+
+  @Patch('admin/reviews/:id/moderate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  moderateReview(
+    @Param('id') id: string,
+    @Body('action') action: 'HIDE' | 'RESTORE' | 'DISMISS_REPORTS'
+  ) {
+    return this.profilesService.moderateReview(id, action);
   }
 }

@@ -11,6 +11,8 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { QueryPostsDto } from './dto/query-profile.dto';
+import { RespondReviewDto } from './dto/respond-review.dto';
+import { ReportReviewDto } from './dto/report-review.dto';
 
 const SOCIAL_ROLES: Role[] = [
   Role.COMMERCE,
@@ -54,7 +56,7 @@ export class ProfilesService {
 
     // Rating aggregado
     const ratingAgg = await this.prisma.review.aggregate({
-      where: { targetId: user.id },
+      where: { targetId: user.id, isHidden: false },
       _avg: { rating: true },
       _count: { rating: true },
     });
@@ -283,10 +285,11 @@ export class ProfilesService {
   async getReviews(username: string, page = 1, limit = 10) {
     const user = await this.findSocialUser(username);
     const skip = (page - 1) * limit;
+    const where = { targetId: user.id, isHidden: false };
 
     const [reviews, total, agg] = await Promise.all([
       this.prisma.review.findMany({
-        where: { targetId: user.id },
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -302,9 +305,9 @@ export class ProfilesService {
           },
         },
       }),
-      this.prisma.review.count({ where: { targetId: user.id } }),
+      this.prisma.review.count({ where }),
       this.prisma.review.aggregate({
-        where: { targetId: user.id },
+        where,
         _avg: { rating: true },
         _count: { rating: true },
       }),
@@ -333,6 +336,16 @@ export class ProfilesService {
     });
     if (!target || !SOCIAL_ROLES.includes(target.role)) {
       throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const verification = await this.findVerifiedTransaction(
+      authorId,
+      dto.targetId,
+    );
+    if (!verification) {
+      throw new ForbiddenException(
+        'Solo puedes reseñar a usuarios con los que hayas completado una compra o servicio',
+      );
     }
 
     const existing = await this.prisma.review.findUnique({
@@ -364,6 +377,8 @@ export class ProfilesService {
         targetId: dto.targetId,
         rating: dto.rating,
         comment: dto.comment,
+        verifiedOrderId: verification.orderId,
+        verifiedRequestId: verification.requestId,
       },
       include: {
         author: {
@@ -379,6 +394,41 @@ export class ProfilesService {
     });
   }
 
+  // Busca una transacción real completada entre author → target: una
+  // ServiceRequest cerrada al proveedor, o un CatalogOrder cerrado al
+  // comercio (resuelto via Restaurant.userId).
+  private async findVerifiedTransaction(
+    authorId: string,
+    targetId: string,
+  ): Promise<{ orderId?: string; requestId?: string } | null> {
+    const request = await this.prisma.serviceRequest.findFirst({
+      where: {
+        requesterId: authorId,
+        providerId: targetId,
+        status: 'CERRADO',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (request) return { requestId: request.id };
+
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { userId: targetId },
+    });
+    if (restaurant) {
+      const order = await this.prisma.catalogOrder.findFirst({
+        where: {
+          requesterId: authorId,
+          commerceId: restaurant.id,
+          status: 'CERRADO',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (order) return { orderId: order.id };
+    }
+
+    return null;
+  }
+
   async deleteReview(authorId: string, reviewId: string) {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
@@ -388,6 +438,108 @@ export class ProfilesService {
       throw new ForbiddenException('No puedes eliminar esta reseña');
     await this.prisma.review.delete({ where: { id: reviewId } });
     return { message: 'Reseña eliminada' };
+  }
+
+  // Solo el usuario reseñado puede responder públicamente a su reseña
+  async respondToReview(
+    targetUserId: string,
+    reviewId: string,
+    dto: RespondReviewDto,
+  ) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+    });
+    if (!review) throw new NotFoundException('Reseña no encontrada');
+    if (review.targetId !== targetUserId)
+      throw new ForbiddenException('No puedes responder a esta reseña');
+
+    return this.prisma.review.update({
+      where: { id: reviewId },
+      data: { response: dto.response, respondedAt: new Date() },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+  }
+
+  async deleteReviewResponse(targetUserId: string, reviewId: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+    });
+    if (!review) throw new NotFoundException('Reseña no encontrada');
+    if (review.targetId !== targetUserId)
+      throw new ForbiddenException('No puedes editar esta respuesta');
+
+    return this.prisma.review.update({
+      where: { id: reviewId },
+      data: { response: null, respondedAt: null },
+    });
+  }
+
+  async reportReview(reporterId: string, reviewId: string, dto: ReportReviewDto) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+    });
+    if (!review) throw new NotFoundException('Reseña no encontrada');
+    if (review.authorId === reporterId)
+      throw new BadRequestException('No puedes reportar tu propia reseña');
+
+    return this.prisma.reviewReport.create({
+      data: { reviewId, reporterId, reason: dto.reason },
+    });
+  }
+
+  // ─── Moderación (SUPERADMIN/ADMIN) ────────────────────────────────────────
+
+  async listReportedReviews() {
+    return this.prisma.reviewReport.findMany({
+      where: { status: 'PENDIENTE' },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        review: {
+          include: {
+            author: {
+              select: { id: true, username: true, firstName: true, lastName: true },
+            },
+            target: {
+              select: { id: true, username: true, firstName: true, lastName: true },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async moderateReview(
+    reviewId: string,
+    action: 'HIDE' | 'RESTORE' | 'DISMISS_REPORTS',
+  ) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+    });
+    if (!review) throw new NotFoundException('Reseña no encontrada');
+
+    if (action === 'HIDE' || action === 'RESTORE') {
+      await this.prisma.review.update({
+        where: { id: reviewId },
+        data: { isHidden: action === 'HIDE' },
+      });
+    }
+
+    await this.prisma.reviewReport.updateMany({
+      where: { reviewId, status: 'PENDIENTE' },
+      data: { status: action === 'DISMISS_REPORTS' ? 'DESCARTADO' : 'REVISADO' },
+    });
+
+    return { message: 'Moderación aplicada' };
   }
 
   // ─── Likes ────────────────────────────────────────────────────────────────

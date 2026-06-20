@@ -493,17 +493,95 @@
                       </span>
                     </span>
                   </div>
+                  <span
+                    v-if="review.verifiedOrderId || review.verifiedRequestId"
+                    class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 flex-shrink-0"
+                    title="El autor completó una compra o servicio real con este perfil"
+                  >
+                    ✓ Compra verificada
+                  </span>
                   <span class="text-xs text-gray-400 ml-auto">{{ formatDateTime(review.createdAt) }}</span>
                 </div>
                 <p v-if="review.comment" class="text-sm text-gray-600">{{ review.comment }}</p>
+
+                <!-- Respuesta del negocio/freelancer reseñado -->
+                <div v-if="review.response" class="mt-3 ml-2 pl-3 border-l-2 border-gray-200">
+                  <p class="text-xs font-semibold text-gray-700">Respuesta de {{ profile?.firstName }}</p>
+                  <p class="text-sm text-gray-600 mt-0.5">{{ review.response }}</p>
+                  <button
+                    v-if="currentUser?.id === profile?.id"
+                    class="text-xs text-gray-400 hover:text-red-500 mt-1"
+                    @click="handleDeleteResponse(review.id)"
+                  >
+                    Eliminar respuesta
+                  </button>
+                </div>
+                <button
+                  v-else-if="currentUser?.id === profile?.id"
+                  class="text-xs font-semibold text-workplace-red hover:underline mt-2"
+                  @click="openResponseForm(review)"
+                >
+                  Responder
+                </button>
+
+                <!-- Form de respuesta inline -->
+                <div v-if="respondingReviewId === review.id" class="mt-2 flex gap-2">
+                  <input
+                    v-model="responseDraft"
+                    type="text"
+                    maxlength="1000"
+                    placeholder="Escribe una respuesta pública…"
+                    class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-200"
+                    @keyup.enter="handleSubmitResponse"
+                  />
+                  <button
+                    :disabled="savingResponse || !responseDraft.trim()"
+                    class="text-xs font-semibold bg-workplace-red text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                    @click="handleSubmitResponse"
+                  >
+                    Enviar
+                  </button>
+                  <button class="text-xs text-gray-400 px-2" @click="respondingReviewId = null">Cancelar</button>
+                </div>
+
+                <!-- Form de reporte inline -->
+                <div v-if="reportingReviewId === review.id" class="mt-2 flex gap-2">
+                  <input
+                    v-model="reportReason"
+                    type="text"
+                    maxlength="500"
+                    placeholder="¿Por qué reportas esta reseña? (mín. 5 caracteres)"
+                    class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-200"
+                    @keyup.enter="handleSubmitReport"
+                  />
+                  <button
+                    :disabled="sendingReport || reportReason.trim().length < 5"
+                    class="text-xs font-semibold bg-gray-800 text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                    @click="handleSubmitReport"
+                  >
+                    Reportar
+                  </button>
+                  <button class="text-xs text-gray-400 px-2" @click="reportingReviewId = null">Cancelar</button>
+                </div>
               </div>
-              <button
-                v-if="currentUser?.id === review.author.id"
-                class="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
-                @click="handleDeleteReview(review.id)"
-              >
-                <XMarkIcon class="h-4 w-4" />
-              </button>
+              <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                <button
+                  v-if="currentUser?.id === review.author.id"
+                  class="text-gray-300 hover:text-red-500 transition-colors"
+                  title="Eliminar mi reseña"
+                  @click="handleDeleteReview(review.id)"
+                >
+                  <XMarkIcon class="h-4 w-4" />
+                </button>
+                <button
+                  v-else-if="currentUser && currentUser.id !== profile?.id"
+                  class="text-gray-300 hover:text-amber-500 transition-colors text-xs"
+                  title="Reportar reseña"
+                  @click="openReportForm(review.id)"
+                >
+                  ⚑
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1079,6 +1157,7 @@ const {
   fetchProfile, fetchPosts, uploadMedia, uploadCover, createPost, deletePost, updatePostCaption,
   likePost, unlikePost, fetchComments, createComment, deleteComment, updateComment,
   follow, unfollow, fetchReviews, submitReview, deleteReview, updateProfileSettings,
+  respondToReview, deleteReviewResponse, reportReview,
   getFollowers, getFollowing,
 } = useProfiles()
 
@@ -1224,6 +1303,7 @@ const loadingFollowList = ref(false)
 const showReviewForm = ref(false)
 const reviewForm = ref({ rating: 0, comment: '' })
 const savingReview = ref(false)
+const reviewError = ref('')
 
 // Avatar upload
 const avatarFileInput = ref<HTMLInputElement | null>(null)
@@ -1560,11 +1640,13 @@ async function handleSubmitReview() {
   if (!profile.value || reviewForm.value.rating === 0) return
   savingReview.value = true
   try {
-    await submitReview(profile.value.id, reviewForm.value.rating, reviewForm.value.comment)
+    await submitReview(username.value, profile.value.id, reviewForm.value.rating, reviewForm.value.comment)
     showReviewForm.value = false
     reviewForm.value = { rating: 0, comment: '' }
     // Recargar stats del perfil (rating promedio y conteo) sin reemplazar la lista de reseñas
     if (profile.value?.username) fetchProfile(profile.value.username)
+  } catch (e: any) {
+    reviewError.value = e?.data?.message ?? 'No se pudo enviar la reseña'
   } finally {
     savingReview.value = false
   }
@@ -1572,8 +1654,58 @@ async function handleSubmitReview() {
 
 async function handleDeleteReview(id: string) {
   if (!confirm('¿Eliminar tu reseña?')) return
-  await deleteReview(id)
+  await deleteReview(username.value, id)
   if (profile.value?.username) await fetchProfile(profile.value.username)
+}
+
+// Respuesta del negocio/freelancer a una reseña recibida
+const respondingReviewId = ref<string | null>(null)
+const responseDraft = ref('')
+const savingResponse = ref(false)
+
+function openResponseForm(review: { id: string; response?: string | null }) {
+  respondingReviewId.value = review.id
+  responseDraft.value = review.response ?? ''
+}
+
+async function handleSubmitResponse() {
+  if (!respondingReviewId.value || !responseDraft.value.trim()) return
+  savingResponse.value = true
+  try {
+    await respondToReview(respondingReviewId.value, responseDraft.value.trim())
+    respondingReviewId.value = null
+    responseDraft.value = ''
+  } finally {
+    savingResponse.value = false
+  }
+}
+
+async function handleDeleteResponse(reviewId: string) {
+  if (!confirm('¿Eliminar tu respuesta?')) return
+  await deleteReviewResponse(reviewId)
+}
+
+// Reportar una reseña ajena por abuso
+const reportingReviewId = ref<string | null>(null)
+const reportReason = ref('')
+const sendingReport = ref(false)
+
+function openReportForm(reviewId: string) {
+  reportingReviewId.value = reviewId
+  reportReason.value = ''
+}
+
+async function handleSubmitReport() {
+  if (!reportingReviewId.value || reportReason.value.trim().length < 5) return
+  sendingReport.value = true
+  try {
+    await reportReview(reportingReviewId.value, reportReason.value.trim())
+    reportingReviewId.value = null
+    serviceToast.value = 'Reporte enviado. Gracias por ayudarnos a moderar.'
+    setTimeout(() => { serviceToast.value = '' }, 3000)
+  } finally {
+    sendingReport.value = false
+  }
 }
 
 // ─── Follow list modal ────────────────────────────────────────────────────────

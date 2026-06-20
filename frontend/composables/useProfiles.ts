@@ -53,6 +53,10 @@ export interface ProfileReview {
   comment?: string
   createdAt: string
   author: { id: string; username?: string; firstName: string; lastName: string; avatar?: string }
+  verifiedOrderId?: string | null
+  verifiedRequestId?: string | null
+  response?: string | null
+  respondedAt?: string | null
 }
 
 export interface ReviewStats {
@@ -206,48 +210,52 @@ export function useProfiles() {
     }
   }
 
-  async function submitReview(targetId: string, rating: number, comment: string) {
+  async function submitReview(username: string, targetId: string, rating: number, comment: string) {
     const review = await $fetch<ProfileReview>(`${apiUrl}/profiles/reviews`, {
       method: 'POST',
       headers: getHeaders(),
       body: { targetId, rating, comment: comment || undefined },
     })
-    // Actualizar localmente sin sobreescribir las reseñas existentes de otros usuarios
-    const idx = reviews.value.findIndex(r => r.author.id === review.author.id)
-    if (idx !== -1) {
-      // Actualizar reseña existente del mismo autor (mantiene las de otros intactas)
-      const oldRating = reviews.value[idx].rating
-      reviews.value[idx] = review
-      // Recalcular promedio localmente
-      const total = reviews.value.reduce((sum, r) => sum + r.rating, 0)
-      reviewStats.value = {
-        reviewsCount: reviewStats.value.reviewsCount,
-        averageRating: Number((total / reviews.value.length).toFixed(2)),
-      }
-    } else {
-      // Nueva reseña: agregar al inicio y actualizar conteo
-      reviews.value.unshift(review)
-      const total = reviews.value.reduce((sum, r) => sum + r.rating, 0)
-      reviewStats.value = {
-        reviewsCount: reviewStats.value.reviewsCount + 1,
-        averageRating: Number((total / reviews.value.length).toFixed(2)),
-      }
-    }
+    // Re-sincroniza desde el backend: el promedio/conteo exactos solo viven ahí,
+    // estimarlos con la página cargada en memoria desincroniza si hay paginación.
+    await fetchReviews(username, 1)
     return review
   }
 
-  async function deleteReview(reviewId: string) {
+  async function deleteReview(username: string, reviewId: string) {
     await $fetch(`${apiUrl}/profiles/reviews/${reviewId}`, {
       method: 'DELETE',
       headers: getHeaders(),
     })
-    reviews.value = reviews.value.filter(r => r.id !== reviewId)
-    const newCount = reviewStats.value.reviewsCount - 1
-    const total = reviews.value.reduce((sum, r) => sum + r.rating, 0)
-    reviewStats.value = {
-      reviewsCount: newCount,
-      averageRating: newCount > 0 ? Number((total / reviews.value.length).toFixed(2)) : null,
-    }
+    await fetchReviews(username, 1)
+  }
+
+  async function respondToReview(reviewId: string, response: string) {
+    const updated = await $fetch<ProfileReview>(`${apiUrl}/profiles/reviews/${reviewId}/response`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: { response },
+    })
+    const idx = reviews.value.findIndex(r => r.id === reviewId)
+    if (idx !== -1) reviews.value[idx] = updated
+    return updated
+  }
+
+  async function deleteReviewResponse(reviewId: string) {
+    await $fetch(`${apiUrl}/profiles/reviews/${reviewId}/response`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    })
+    const idx = reviews.value.findIndex(r => r.id === reviewId)
+    if (idx !== -1) reviews.value[idx] = { ...reviews.value[idx], response: null, respondedAt: null }
+  }
+
+  async function reportReview(reviewId: string, reason: string) {
+    return $fetch(`${apiUrl}/profiles/reviews/${reviewId}/report`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: { reason },
+    })
   }
 
   // ─── Likes ───────────────────────────────────────────────────────────────
@@ -356,6 +364,9 @@ export function useProfiles() {
     fetchReviews,
     submitReview,
     deleteReview,
+    respondToReview,
+    deleteReviewResponse,
+    reportReview,
     updateProfileSettings,
   }
 }

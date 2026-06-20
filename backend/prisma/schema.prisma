@@ -888,6 +888,12 @@ model Follow {
   @@map("follows")
 }
 
+enum ReviewReportStatus {
+  PENDIENTE
+  REVISADO
+  DESCARTADO
+}
+
 model Review {
   id        String   @id @default(uuid())
   rating    Int
@@ -896,12 +902,39 @@ model Review {
   author    User     @relation("ReviewsGiven", fields: [authorId], references: [id], onDelete: Cascade)
   targetId  String
   target    User     @relation("ReviewsReceived", fields: [targetId], references: [id], onDelete: Cascade)
+
+  // Verificación de transacción real: referencia a la orden/solicitud que habilitó la reseña
+  verifiedOrderId   String?
+  verifiedRequestId String?
+
+  // Respuesta pública del negocio/freelancer reseñado
+  response    String?
+  respondedAt DateTime?
+
+  // Moderación
+  isHidden Boolean  @default(false)
+  reports  ReviewReport[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([authorId, targetId])
   @@index([targetId])
   @@map("reviews")
+}
+
+model ReviewReport {
+  id         String             @id @default(uuid())
+  reviewId   String
+  review     Review             @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reporterId String
+  reason     String
+  status     ReviewReportStatus @default(PENDIENTE)
+  createdAt  DateTime           @default(now())
+
+  @@index([reviewId])
+  @@index([status])
+  @@map("review_reports")
 }
 
 // ─── Permission Matrix ────────────────────────────────────────────────────────
@@ -1549,6 +1582,10 @@ model LandingTestimonial {
   avatarColor String   @default("#EF4444")
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
+
+  // Si se origina en una reseña real verificada, queda enlazada aquí (auditable, no editable)
+  sourceReviewId String? @unique
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
