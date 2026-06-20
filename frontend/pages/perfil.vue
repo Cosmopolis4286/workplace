@@ -462,6 +462,57 @@
           </div>
         </div>
 
+        <!-- Accesos Rápidos -->
+        <div id="accesos-rapidos" class="card-premium p-6">
+          <div class="flex items-center mb-2">
+            <div class="p-3 bg-gradient-to-br from-workplace-red to-red-700 rounded-xl shadow-lg mr-3">
+              <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-gray-900">Accesos Rápidos</h3>
+              <p class="text-sm text-gray-500">Elige hasta {{ MAX_QUICK_ACCESS }} accesos para tu sidebar</p>
+            </div>
+          </div>
+
+          <div v-if="quickAccessAvailable.length === 0" class="text-sm text-gray-500 py-4">
+            No tienes accesos disponibles para configurar.
+          </div>
+
+          <div v-else class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <button
+              v-for="item in quickAccessAvailable"
+              :key="item.id"
+              type="button"
+              @click="toggleQuickAccess(item.id)"
+              :disabled="!quickAccessSelection.includes(item.id) && quickAccessSelection.length >= MAX_QUICK_ACCESS"
+              class="relative flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl text-white overflow-hidden transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+              :class="[item.gradient, quickAccessSelection.includes(item.id) ? 'ring-2 ring-offset-2 ring-workplace-red scale-[1.02]' : 'hover:scale-[1.02]']"
+            >
+              <svg v-if="quickAccessSelection.includes(item.id)" class="absolute top-1.5 right-1.5 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+              </svg>
+              <span class="text-xs font-semibold leading-none">{{ item.label }}</span>
+            </button>
+          </div>
+
+          <div class="mt-5 flex items-center gap-3">
+            <button
+              type="button"
+              @click="saveQuickAccess"
+              :disabled="savingQuickAccess"
+              class="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <span v-if="savingQuickAccess" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              {{ savingQuickAccess ? 'Guardando...' : 'Guardar Accesos' }}
+            </button>
+            <transition name="fade">
+              <span v-if="quickAccessMsg" class="text-sm font-medium text-green-700">{{ quickAccessMsg }}</span>
+            </transition>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -470,7 +521,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import {
   UserCircleIcon,
   LockClosedIcon,
@@ -486,10 +537,43 @@ import Swal from 'sweetalert2'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useAuth, type Session } from '~/composables/useAuth'
 import { useCamera } from '~/composables/useCamera'
+import { useQuickAccess, MAX_QUICK_ACCESS } from '~/composables/useQuickAccess'
 
 const auth = useAuth()
 const { checkUsername } = auth
 const { takePhoto } = useCamera()
+
+// ─── Accesos rápidos ────────────────────────────────────────────────────────
+const { availableItems: quickAccessAvailable, savedIds: quickAccessSavedIds, setQuickAccessIds, saving: savingQuickAccess } = useQuickAccess()
+const quickAccessSelection = ref<string[]>([])
+const quickAccessMsg = ref('')
+
+watch(quickAccessSavedIds, (ids) => {
+  quickAccessSelection.value = ids.length > 0
+    ? [...ids]
+    : quickAccessAvailable.value.slice(0, MAX_QUICK_ACCESS).map(i => i.id)
+}, { immediate: true })
+
+function toggleQuickAccess(id: string) {
+  const idx = quickAccessSelection.value.indexOf(id)
+  if (idx !== -1) {
+    quickAccessSelection.value.splice(idx, 1)
+  } else {
+    if (quickAccessSelection.value.length >= MAX_QUICK_ACCESS) return
+    quickAccessSelection.value.push(id)
+  }
+}
+
+async function saveQuickAccess() {
+  quickAccessMsg.value = ''
+  try {
+    await setQuickAccessIds(quickAccessSelection.value)
+    quickAccessMsg.value = 'Accesos rápidos actualizados'
+    setTimeout(() => { quickAccessMsg.value = '' }, 2500)
+  } catch {
+    quickAccessMsg.value = 'No se pudo guardar'
+  }
+}
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const loadingProfile = ref(false)
@@ -884,6 +968,12 @@ onMounted(async () => {
   }
   syncFormFromUser()
   await Promise.all([fetchCategories(), fetchSubcategories(), fetchSessions()])
+
+  if (useRoute().query.tab === 'accesos-rapidos') {
+    nextTick(() => {
+      document.getElementById('accesos-rapidos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
 })
 
 // Sync form if user changes after fetch

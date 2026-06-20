@@ -28,6 +28,11 @@ interface User {
   state?: string
   city?: string
   twoFactorEnabled?: boolean
+  profileSettings?: {
+    showCatalog: boolean
+    showServices: boolean
+    quickAccessIds: string[]
+  } | null
 }
 
 interface AuthResponse {
