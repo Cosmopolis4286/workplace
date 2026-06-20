@@ -478,7 +478,7 @@ export class AuthService {
     }
   }
 
-  async getActiveSessions(userId: string, securityContext?: any) {
+  async getActiveSessions(userId: string, currentRefreshToken?: string) {
     const sessions = await this.prisma.refreshToken.findMany({
       where: {
         userId,
@@ -488,6 +488,7 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
+        token: true,
         ipAddress: true,
         deviceInfo: true,
         createdAt: true,
@@ -495,12 +496,9 @@ export class AuthService {
       },
     });
 
-    return sessions.map((session) => ({
+    return sessions.map(({ token, ...session }) => ({
       ...session,
-      isCurrent:
-        !!securityContext &&
-        session.ipAddress === securityContext.ipAddress &&
-        session.deviceInfo === securityContext.userAgent,
+      isCurrent: !!currentRefreshToken && token === currentRefreshToken,
     }));
   }
 

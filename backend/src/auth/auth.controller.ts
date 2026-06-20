@@ -317,7 +317,8 @@ export class AuthController {
   @Get('sessions')
   @UseGuards(JwtAuthGuard)
   async getSessions(@CurrentUser() user: any, @Request() req: any) {
-    return this.authService.getActiveSessions(user.id, req.securityContext);
+    const currentRefreshToken = req?.cookies?.['refresh_token'];
+    return this.authService.getActiveSessions(user.id, currentRefreshToken);
   }
 
   @Delete('sessions/:id')
