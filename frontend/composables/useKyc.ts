@@ -90,6 +90,20 @@ export function useKyc() {
     return patch<IdentityVerification>(`/kyc/admin/${id}/review`, { status, rejectionReason })
   }
 
+  /**
+   * Las imágenes de KYC no son públicas — hay que pedirlas con el token y
+   * convertirlas en un blob URL para poder usarlas en un <img src>.
+   */
+  async function fetchImageBlobUrl(verificationId: string, field: 'frontImageUrl' | 'backImageUrl' | 'selfieImageUrl'): Promise<string> {
+    const res = await fetch(`${apiUrl}/kyc/${verificationId}/image/${field}`, {
+      credentials: 'include',
+      headers: getHeaders(),
+    })
+    if (!res.ok) throw new Error(`No se pudo cargar la imagen (${res.status})`)
+    const blob = await res.blob()
+    return URL.createObjectURL(blob)
+  }
+
   return {
     myStatus,
     loading,
@@ -98,5 +112,6 @@ export function useKyc() {
     fetchPending,
     fetchOne,
     review,
+    fetchImageBlobUrl,
   }
 }
