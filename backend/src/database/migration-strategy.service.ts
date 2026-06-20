@@ -1,5 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+
+const SQL_IDENTIFIER_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function assertSafeIdentifier(value: string, label: string): void {
+  if (!SQL_IDENTIFIER_PATTERN.test(value)) {
+    throw new BadRequestException(`${label} contiene caracteres no permitidos: ${value}`);
+  }
+}
 
 @Injectable()
 export class MigrationStrategyService {
@@ -16,8 +24,10 @@ export class MigrationStrategyService {
     columnType: string,
     defaultValue?: any
   ): Promise<void> {
+    assertSafeIdentifier(tableName, 'tableName');
+    assertSafeIdentifier(columnName, 'columnName');
     this.logger.log(`➕ Agregando columna ${columnName} a ${tableName}`);
-    
+
     try {
       // 1. Agregar columna como nullable (siempre safe)
       const nullableColumn = `${columnName}_new`;
@@ -55,8 +65,11 @@ export class MigrationStrategyService {
     oldColumnName: string,
     newColumnName: string
   ): Promise<void> {
+    assertSafeIdentifier(tableName, 'tableName');
+    assertSafeIdentifier(oldColumnName, 'oldColumnName');
+    assertSafeIdentifier(newColumnName, 'newColumnName');
     this.logger.log(`🏷️ Renombrando columna ${oldColumnName} → ${newColumnName} en ${tableName}`);
-    
+
     try {
       // Fase 1: Agregar nueva columna
       await this.addColumnSafely(tableName, newColumnName, 'TEXT');
@@ -86,8 +99,10 @@ export class MigrationStrategyService {
     columnName: string,
     newType: string
   ): Promise<void> {
+    assertSafeIdentifier(tableName, 'tableName');
+    assertSafeIdentifier(columnName, 'columnName');
     this.logger.log(`🔄 Cambiando tipo de columna ${columnName} en ${tableName} a ${newType}`);
-    
+
     try {
       // 1. Agregar nueva columna con nuevo tipo
       const tempColumn = `${columnName}_typed`;
@@ -116,8 +131,9 @@ export class MigrationStrategyService {
    * Estrategia para eliminar tablas (backward compatible)
    */
   async dropTableSafely(tableName: string): Promise<void> {
+    assertSafeIdentifier(tableName, 'tableName');
     this.logger.log(`🗑️ Preparando eliminación de tabla ${tableName}`);
-    
+
     try {
       // 1. Renombrar tabla con sufijo _deprecated
       const deprecatedName = `${tableName}_deprecated_${Date.now()}`;
@@ -146,8 +162,11 @@ export class MigrationStrategyService {
     columns: string[],
     unique = false
   ): Promise<void> {
+    assertSafeIdentifier(tableName, 'tableName');
+    assertSafeIdentifier(indexName, 'indexName');
+    columns.forEach(col => assertSafeIdentifier(col, 'column'));
     this.logger.log(`📊 Agregando índice ${indexName} a ${tableName}`);
-    
+
     try {
       const uniqueClause = unique ? 'UNIQUE' : '';
       const columnsStr = columns.map(col => `"${col}"`).join(', ');
@@ -171,8 +190,9 @@ export class MigrationStrategyService {
     migrationSQL: string,
     batchSize = 1000
   ): Promise<void> {
+    assertSafeIdentifier(tableName, 'tableName');
     this.logger.log(`🔄 Migrando datos en ${tableName} (batch size: ${batchSize})`);
-    
+
     try {
       // 1. Contar registros a migrar
       const countResult = await this.prisma.$queryRawUnsafe(
