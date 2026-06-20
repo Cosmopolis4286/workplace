@@ -118,6 +118,9 @@
                   <button v-if="canManage && rate.code === 'VES' && rate.autoSync" class="p-1.5 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors" title="Sincronizar BCV" :disabled="syncingCode === rate.code" @click="handleManualSyncFromTable(rate)">
                     <ArrowPathIcon class="h-3.5 w-3.5" :class="{ 'animate-spin': syncingCode === rate.code }" />
                   </button>
+                  <button class="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors" title="Historial de cambios" @click="openHistory(rate)">
+                    <ClockIcon class="h-3.5 w-3.5" />
+                  </button>
                   <button v-if="canManage" class="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors" title="Editar" @click="openModal(rate)">
                     <PencilIcon class="h-3.5 w-3.5" />
                   </button>
@@ -320,6 +323,67 @@
       </Transition>
     </Teleport>
 
+    <!-- ── Modal historial de auditoría ────────────────────────────────────── -->
+    <Teleport to="body">
+      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
+        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="historyRate" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="historyRate = null">
+          <div class="absolute inset-0 bg-black/40" @click="historyRate = null" />
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 class="text-base font-bold text-gray-900 flex items-center gap-2">
+                  <ClockIcon class="h-4.5 w-4.5 text-indigo-500" />
+                  Historial — {{ historyRate.code }}
+                </h2>
+                <p class="text-xs text-gray-400 mt-0.5">{{ historyRate.name }}</p>
+              </div>
+              <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" @click="historyRate = null"><XMarkIcon class="h-5 w-5" /></button>
+            </div>
+
+            <div class="p-6">
+              <!-- Loading -->
+              <div v-if="loadingHistory" class="space-y-3">
+                <div v-for="i in 4" :key="i" class="skeleton h-14 rounded-xl" />
+              </div>
+
+              <!-- Vacío -->
+              <div v-else-if="history.length === 0" class="text-center py-10">
+                <ClockIcon class="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                <p class="text-sm text-gray-500">Sin cambios registrados todavía.</p>
+              </div>
+
+              <!-- Timeline -->
+              <ol v-else class="relative border-l-2 border-gray-100 ml-2 space-y-5">
+                <li v-for="entry in history" :key="entry.id" class="ml-4">
+                  <span
+                    class="absolute -left-[7px] w-3 h-3 rounded-full ring-2 ring-white"
+                    :class="entry.newRate > (entry.previousRate ?? 0) ? 'bg-green-500' : entry.newRate < (entry.previousRate ?? Infinity) ? 'bg-red-500' : 'bg-gray-300'"
+                  />
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm font-semibold text-gray-900">
+                      <template v-if="entry.previousRate !== null">
+                        {{ entry.previousRate.toLocaleString('es-VE', { maximumFractionDigits: 6 }) }}
+                        <span class="text-gray-400 mx-1">→</span>
+                      </template>
+                      {{ entry.newRate.toLocaleString('es-VE', { maximumFractionDigits: 6 }) }}
+                      <span class="text-gray-400 font-normal">{{ entry.code }}</span>
+                    </p>
+                    <span class="badge flex-shrink-0" :class="sourceBadgeClass(entry.source)">{{ sourceLabel(entry.source) }}</span>
+                  </div>
+                  <p class="text-xs text-gray-400 mt-0.5">
+                    {{ formatDateTime(entry.createdAt) }}
+                    <span v-if="entry.changedBy"> · por usuario {{ entry.changedBy.slice(0, 8) }}…</span>
+                    <span v-else> · automático</span>
+                  </p>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- Toast -->
     <Teleport to="body">
       <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
@@ -338,10 +402,10 @@ import { ref, computed, onMounted } from 'vue'
 import {
   CurrencyDollarIcon, PlusIcon, XMarkIcon, MagnifyingGlassIcon,
   PencilIcon, TrashIcon, ArrowPathIcon, StarIcon,
-  NoSymbolIcon, CheckCircleIcon,
+  NoSymbolIcon, CheckCircleIcon, ClockIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useExchangeRates, type ExchangeRate } from '~/composables/useExchangeRates'
+import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry } from '~/composables/useExchangeRates'
 import { usePermissions } from '~/composables/usePermissions'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
@@ -349,7 +413,7 @@ definePageMeta({ layout: 'default', middleware: ['auth'] })
 const { can } = usePermissions()
 const canManage = computed(() => can('exchange_rates:manage'))
 
-const { rates, stats, loading, error, activeRates, fetchRates, fetchStats, createRate, updateRate, setDefault, toggleStatus, deleteRate, manualSync, formatConversion } = useExchangeRates()
+const { rates, stats, loading, error, activeRates, fetchRates, fetchStats, createRate, updateRate, setDefault, toggleStatus, deleteRate, manualSync, formatConversion, fetchHistory } = useExchangeRates()
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 const showInactive   = ref(true)
@@ -437,6 +501,37 @@ const togglingRate      = ref<ExchangeRate | null>(null)
 function handleDelete(rate: ExchangeRate)     { deletingRate.value = rate }
 function handleSetDefault(rate: ExchangeRate) { settingDefaultRate.value = rate }
 function handleToggle(rate: ExchangeRate)     { togglingRate.value = rate }
+
+// ─── Historial de auditoría ───────────────────────────────────────────────────
+const historyRate    = ref<ExchangeRate | null>(null)
+const history         = ref<ExchangeRateHistoryEntry[]>([])
+const loadingHistory  = ref(false)
+
+async function openHistory(rate: ExchangeRate) {
+  historyRate.value = rate
+  loadingHistory.value = true
+  history.value = []
+  try {
+    history.value = await fetchHistory(rate.id)
+  } catch (e: any) {
+    showToast(e?.data?.message ?? 'No se pudo cargar el historial')
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  MANUAL: 'Manual',
+  CREATE: 'Creación',
+  BCV_SCRAPING: 'BCV (auto)',
+  API_FALLBACK: 'API (auto)',
+}
+function sourceLabel(source: string) { return SOURCE_LABELS[source] ?? source }
+function sourceBadgeClass(source: string) {
+  if (source === 'MANUAL') return 'bg-blue-100 text-blue-700'
+  if (source === 'CREATE') return 'bg-gray-100 text-gray-600'
+  return 'bg-green-100 text-green-700'
+}
 
 async function confirmDelete() {
   if (!deletingRate.value) return; saving.value = true

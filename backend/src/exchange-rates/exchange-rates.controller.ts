@@ -126,6 +126,13 @@ export class ExchangeRatesController {
     return this.exchangeRatesService.findOne(id);
   }
 
+  @Get(':id/history')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('exchange_rates:view')
+  getHistory(@Param('id') id: string, @Query('limit') limit?: string) {
+    return this.exchangeRatesService.getHistory(id, limit ? parseInt(limit, 10) : undefined);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermission('exchange_rates:manage')

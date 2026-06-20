@@ -308,7 +308,11 @@ export class BcvSyncService {
     currencyCode: string,
     result: BCVRateResult,
   ): Promise<void> {
-    await this.prisma.exchangeRate.update({
+    const existing = await this.prisma.exchangeRate.findUnique({
+      where: { code: currencyCode.toUpperCase() },
+    });
+
+    const updated = await this.prisma.exchangeRate.update({
       where: { code: currencyCode.toUpperCase() },
       data: {
         rateToUsd: result.rate,
@@ -319,6 +323,19 @@ export class BcvSyncService {
         syncAttempts: 0,
       },
     });
+
+    if (existing && existing.rateToUsd !== result.rate) {
+      await this.prisma.exchangeRateHistory.create({
+        data: {
+          exchangeRateId: updated.id,
+          code: updated.code,
+          previousRate: existing.rateToUsd,
+          newRate: result.rate,
+          source: result.source,
+          changedBy: null,
+        },
+      });
+    }
   }
 
   private async incrementSyncAttempts(currencyCode: string, error: string): Promise<void> {

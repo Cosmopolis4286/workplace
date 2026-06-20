@@ -29,6 +29,17 @@ export interface ExchangeRateStats {
   defaultRate: number | null
 }
 
+export interface ExchangeRateHistoryEntry {
+  id: string
+  exchangeRateId: string
+  code: string
+  previousRate: number | null
+  newRate: number
+  source: string
+  changedBy: string | null
+  createdAt: string
+}
+
 // ─── Singleton state ──────────────────────────────────────────────────────────
 
 const rates = ref<ExchangeRate[]>([])
@@ -157,6 +168,10 @@ export function useExchangeRates() {
     return await apiFetch(`/exchange-rates/sync-status/${code}`)
   }
 
+  async function fetchHistory(id: string, limit = 50): Promise<ExchangeRateHistoryEntry[]> {
+    return await apiFetch(`/exchange-rates/${id}/history?limit=${limit}`)
+  }
+
   // ─── Public utils ─────────────────────────────────────────────────────────────
 
   async function fetchPublicRates() {
@@ -207,6 +222,7 @@ export function useExchangeRates() {
     toggleAutoSync,
     manualSync,
     getSyncStatus,
+    fetchHistory,
     fetchPublicRates,
     convertAmount,
     formatRate,

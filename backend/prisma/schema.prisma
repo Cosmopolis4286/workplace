@@ -1333,7 +1333,25 @@ model ExchangeRate {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  history ExchangeRateHistory[]
+
   @@map("exchange_rates")
+}
+
+model ExchangeRateHistory {
+  id             String       @id @default(uuid())
+  exchangeRateId String
+  exchangeRate   ExchangeRate @relation(fields: [exchangeRateId], references: [id], onDelete: Cascade)
+  code           String       // denormalizado: sigue siendo legible si se elimina la moneda
+  previousRate   Float?       // null en el alta inicial
+  newRate        Float
+  source         String       // "MANUAL" | "BCV_SCRAPING" | "API_FALLBACK" | "CREATE"
+  changedBy      String?      // userId si fue manual; null si fue automático (cron)
+  createdAt      DateTime     @default(now())
+
+  @@index([exchangeRateId])
+  @@index([createdAt(sort: Desc)])
+  @@map("exchange_rate_history")
 }
 
 // ─── Jobs / Empleos ───────────────────────────────────────────────────────────

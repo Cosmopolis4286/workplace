@@ -60,7 +60,7 @@ export class ExchangeRatesService {
       });
     }
 
-    return this.prisma.exchangeRate.create({
+    const rate = await this.prisma.exchangeRate.create({
       data: {
         ...dto,
         code: dto.code.toUpperCase(),
@@ -69,10 +69,23 @@ export class ExchangeRatesService {
         updatedBy: userId,
       },
     });
+
+    await this.prisma.exchangeRateHistory.create({
+      data: {
+        exchangeRateId: rate.id,
+        code: rate.code,
+        previousRate: null,
+        newRate: rate.rateToUsd,
+        source: 'CREATE',
+        changedBy: userId,
+      },
+    });
+
+    return rate;
   }
 
   async update(id: string, dto: UpdateExchangeRateDto, userId: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
 
     // Check code uniqueness if changing code
     if (dto.code) {
@@ -94,13 +107,40 @@ export class ExchangeRatesService {
       });
     }
 
-    return this.prisma.exchangeRate.update({
+    const updated = await this.prisma.exchangeRate.update({
       where: { id },
       data: {
         ...dto,
         ...(dto.code ? { code: dto.code.toUpperCase() } : {}),
         updatedBy: userId,
       },
+    });
+
+    if (
+      typeof dto.rateToUsd === 'number' &&
+      dto.rateToUsd !== existing.rateToUsd
+    ) {
+      await this.prisma.exchangeRateHistory.create({
+        data: {
+          exchangeRateId: updated.id,
+          code: updated.code,
+          previousRate: existing.rateToUsd,
+          newRate: updated.rateToUsd,
+          source: 'MANUAL',
+          changedBy: userId,
+        },
+      });
+    }
+
+    return updated;
+  }
+
+  async getHistory(id: string, limit = 50) {
+    await this.findOne(id);
+    return this.prisma.exchangeRateHistory.findMany({
+      where: { exchangeRateId: id },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
     });
   }
 
