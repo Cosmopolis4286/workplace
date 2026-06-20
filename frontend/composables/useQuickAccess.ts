@@ -35,18 +35,33 @@ export const MAX_QUICK_ACCESS = 3
 
 export function useQuickAccess() {
   const { user, updateLocalUser, getHeaders } = useAuth()
+  const { can, userCategory } = usePermissions()
+  const { hasModule } = useModules()
   const config = useRuntimeConfig()
   const apiUrl = config.public.apiUrl as string
 
   const savedIds = computed<string[]>(() => user.value?.profileSettings?.quickAccessIds ?? [])
+  const role = computed(() => user.value?.role ?? 'NORMAL')
 
-  function availableFor(role: string, canSee: (permission: string | null, to?: string) => boolean): QuickAccessCandidate[] {
+  function canSee(permission: string | null, to?: string): boolean {
+    if (permission === null) return true
+    const module = permission.split(':')[0]
+    if (permission === 'menu:view') {
+      return can(permission) && hasModule(module) && userCategory.value === 'Comida'
+    }
+    if (to === '/pedidos' && role.value === 'NORMAL') return false
+    return can(permission) && hasModule(module)
+  }
+
+  function availableFor(forRole: string, canSeeFn: (permission: string | null, to?: string) => boolean = canSee): QuickAccessCandidate[] {
     return QUICK_ACCESS_CANDIDATES.filter(i => {
-      if (i.normalOnly && role !== 'NORMAL') return false
-      if (!i.normalOnly && role === 'NORMAL') return false
-      return canSee(i.permission, i.to)
+      if (i.normalOnly && forRole !== 'NORMAL') return false
+      if (!i.normalOnly && forRole === 'NORMAL') return false
+      return canSeeFn(i.permission, i.to)
     })
   }
+
+  const availableItems = computed(() => availableFor(role.value))
 
   const saving = ref(false)
   const error = ref<string | null>(null)
@@ -79,5 +94,5 @@ export function useQuickAccess() {
     }
   }
 
-  return { QUICK_ACCESS_CANDIDATES, MAX_QUICK_ACCESS, savedIds, availableFor, setQuickAccessIds, saving, error }
+  return { QUICK_ACCESS_CANDIDATES, MAX_QUICK_ACCESS, savedIds, availableFor, availableItems, setQuickAccessIds, saving, error }
 }

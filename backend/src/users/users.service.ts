@@ -330,7 +330,7 @@ export class UsersService {
   async findById(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { commerce: true, category: true },
+      include: { commerce: true, category: true, profileSettings: true },
     });
     if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
     const { password, twoFactorSecret, ...result } = user;
@@ -427,7 +427,7 @@ export class UsersService {
         ...(dto.state !== undefined && { state: dto.state || null }),
         ...(dto.city !== undefined && { city: dto.city || null }),
       },
-      include: { commerce: true },
+      include: { commerce: true, profileSettings: true },
     });
 
     if (previousEmail) {
