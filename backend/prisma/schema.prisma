@@ -37,6 +37,11 @@ model User {
 
   emailVerified   Boolean  @default(false)
 
+  // Denormalizado para checks rápidos en guards (sin join); la fuente de
+  // verdad detallada vive en IdentityVerification.
+  kycStatus       KycStatus @default(NONE)
+  identityVerifications IdentityVerification[]
+
   termsAcceptedAt   DateTime?
   termsVersion      String?
   privacyAcceptedAt DateTime?
@@ -586,6 +591,49 @@ enum WalletTransactionStatus {
   COMPLETED
   FAILED
   CANCELLED
+}
+
+enum KycStatus {
+  NONE       // nunca envió una solicitud
+  PENDING    // documentos enviados, esperando revisión
+  APPROVED
+  REJECTED
+}
+
+enum KycDocumentType {
+  CEDULA
+  DNI
+  PASSPORT
+  DRIVERS_LICENSE
+}
+
+model IdentityVerification {
+  id           String          @id @default(uuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  documentType   KycDocumentType
+  documentNumber String
+  fullName       String        // nombre legal tal como aparece en el documento
+  birthDate      DateTime?
+
+  frontImageUrl  String
+  backImageUrl   String?
+  selfieImageUrl String
+
+  status         KycStatus     @default(PENDING)
+  rejectionReason String?
+
+  reviewedBy     String?       // userId del admin que aprobó/rechazó
+  reviewedAt     DateTime?
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("identity_verifications")
 }
 
 model Wallet {

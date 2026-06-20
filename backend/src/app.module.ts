@@ -28,6 +28,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { SystemModulesModule } from './system-modules/system-modules.module';
 import { ProfilesModule } from './profiles/profiles.module';
+import { KycModule } from './kyc/kyc.module';
 import { AuditModule } from './audit/audit.module';
 import { ServicesModule } from './services/services.module';
 import { PlansModule } from './plans/plans.module';
@@ -80,6 +81,7 @@ import { LandingModule } from './landing/landing.module';
     PermissionsModule,
     SystemModulesModule,
     ProfilesModule,
+    KycModule,
     AuditModule,
     ServicesModule,
     PlansModule,

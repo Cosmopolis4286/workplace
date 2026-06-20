@@ -139,4 +139,39 @@ export class MailService {
       );
     }
   }
+
+  async sendKycStatusUpdate(
+    email: string,
+    firstName: string,
+    status: 'APPROVED' | 'REJECTED',
+    rejectionReason?: string,
+  ) {
+    const isApproved = status === 'APPROVED';
+    const subject = isApproved
+      ? 'Tu identidad fue verificada — WorkPlace Manager'
+      : 'No pudimos verificar tu identidad — WorkPlace Manager';
+    try {
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to: email,
+        subject,
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+            <h2>Hola, ${firstName}</h2>
+            ${
+              isApproved
+                ? `<p>¡Buenas noticias! Tu identidad ha sido <strong>verificada</strong> exitosamente. Ya puedes realizar retiros y transferencias sin restricciones.</p>`
+                : `<p>No pudimos verificar tu identidad con los documentos enviados.</p>
+                   ${rejectionReason ? `<p style="color:#dc2626"><strong>Motivo:</strong> ${rejectionReason}</p>` : ''}
+                   <p>Puedes volver a intentarlo desde tu perfil con documentos más claros.</p>`
+            }
+          </div>
+        `,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Could not send KYC status email to ${email}: ${err.message}`
+      );
+    }
+  }
 }

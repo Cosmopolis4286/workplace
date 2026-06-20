@@ -13,6 +13,7 @@ import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { EmailVerifiedGuard } from '../common/guards/email-verified.guard';
+import { KycApprovedGuard } from '../common/guards/kyc-approved.guard';
 import { RateLimitGuard, RateLimit } from '../common/guards/rate-limit.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -89,21 +90,21 @@ export class WalletsController {
   }
 
   @Post('me/withdraw')
-  @UseGuards(EmailVerifiedGuard)
+  @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:withdraw:${(req as any).user?.id}` })
   withdraw(@CurrentUser() user: any, @Body() dto: WithdrawDto) {
     return this.walletsService.withdraw(user.id, user.role, dto);
   }
 
   @Post('me/transfer')
-  @UseGuards(EmailVerifiedGuard)
+  @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:transfer:${(req as any).user?.id}` })
   transfer(@CurrentUser() user: any, @Body() dto: TransferDto) {
     return this.walletsService.transfer(user.id, user.role, dto);
   }
 
   @Post('me/payment')
-  @UseGuards(EmailVerifiedGuard)
+  @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `wallet:payment:${(req as any).user?.id}` })
   payment(@CurrentUser() user: any, @Body() dto: PaymentDto) {
     return this.walletsService.payment(user.id, user.role, dto);
