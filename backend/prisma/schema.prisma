@@ -88,6 +88,8 @@ model ProfileSettings {
   showCatalog  Boolean @default(true)
   showServices Boolean @default(true)
 
+  quickAccessIds String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -175,6 +177,11 @@ model RestaurantSettings {
   notifyLowStock       Boolean @default(true)
   notifyDailyReports   Boolean @default(false)
   notifyCustomerReviews Boolean @default(true)
+
+  // Modules: self-service opt-out — modules included in the plan that the
+  // commerce itself chose to hide from its own sidebar (does not grant access
+  // beyond the plan, only restricts further).
+  disabledModules String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -898,6 +905,20 @@ model UserPermission {
   @@index([userId])
   @@index([permissionId])
   @@map("user_permissions")
+}
+
+// Global kill-switch: when a module is disabled here, it disappears from
+// EVERY user's sidebar regardless of role, plan, or category — including
+// SUPERADMIN. Intended for maintenance windows / staged rollouts, not RBAC.
+model SystemModule {
+  id        String   @id @default(uuid())
+  module    String   @unique
+  enabled   Boolean  @default(true)
+  label     String?
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@map("system_modules")
 }
 
 // ─── Audit & Logs ─────────────────────────────────────────────────────────────

@@ -45,7 +45,12 @@ export class ProfilesController {
   @UseGuards(JwtAuthGuard)
   updateSettings(
     @CurrentUser() user: any,
-    @Body() dto: { showCatalog?: boolean; showServices?: boolean }
+    @Body()
+    dto: {
+      showCatalog?: boolean;
+      showServices?: boolean;
+      quickAccessIds?: string[];
+    }
   ) {
     return this.profilesService.updateProfileSettings(user.id, dto);
   }

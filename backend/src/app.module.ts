@@ -26,6 +26,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { BranchesModule } from './branches/branches.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { PermissionsModule } from './permissions/permissions.module';
+import { SystemModulesModule } from './system-modules/system-modules.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { AuditModule } from './audit/audit.module';
 import { ServicesModule } from './services/services.module';
@@ -77,6 +78,7 @@ import { LandingModule } from './landing/landing.module';
     BranchesModule,
     CatalogModule,
     PermissionsModule,
+    SystemModulesModule,
     ProfilesModule,
     AuditModule,
     ServicesModule,

@@ -532,13 +532,20 @@ export class ProfilesService {
 
   async updateProfileSettings(
     userId: string,
-    dto: { showCatalog?: boolean; showServices?: boolean }
+    dto: {
+      showCatalog?: boolean;
+      showServices?: boolean;
+      quickAccessIds?: string[];
+    }
   ) {
+    if (dto.quickAccessIds && dto.quickAccessIds.length > 6) {
+      throw new BadRequestException('Máximo 6 accesos rápidos');
+    }
     return this.prisma.profileSettings.upsert({
       where: { userId },
       create: { userId, ...dto },
       update: dto,
-      select: { showCatalog: true, showServices: true },
+      select: { showCatalog: true, showServices: true, quickAccessIds: true },
     });
   }
 

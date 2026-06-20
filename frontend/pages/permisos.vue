@@ -77,6 +77,39 @@
         <span>{{ successMsg }}</span>
       </div>
 
+      <!-- Módulos del sistema (kill-switch global) -->
+      <div class="mb-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
+          <h2 class="font-semibold text-gray-800 text-sm">Módulos del sistema</h2>
+          <p class="text-xs text-gray-500 mt-0.5">
+            Apagar un módulo aquí lo oculta del sidebar de <strong>todos</strong> los usuarios, incluido SUPERADMIN.
+            Úsalo para mantenimiento o lanzamientos por etapas — no reemplaza la matriz de permisos.
+          </p>
+        </div>
+        <div v-if="loadingModules" class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          <div v-for="i in 8" :key="i" class="h-9 bg-gray-100 rounded-lg animate-pulse"/>
+        </div>
+        <div v-else class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          <label
+            v-for="m in systemModules"
+            :key="m.module"
+            class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
+            :class="m.enabled ? 'border-gray-200 hover:border-gray-300' : 'border-red-200 bg-red-50/50'"
+          >
+            <input
+              type="checkbox"
+              :checked="m.enabled"
+              :disabled="togglingModule === m.module"
+              @change="toggleSystemModule(m, ($event.target as HTMLInputElement).checked)"
+              class="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 focus:ring-2 disabled:opacity-40"
+            />
+            <span class="text-sm" :class="m.enabled ? 'text-gray-700' : 'text-red-600 font-medium'">
+              {{ MODULE_LABELS[m.module] ?? m.module }}
+            </span>
+          </label>
+        </div>
+      </div>
+
       <!-- Loading skeleton -->
       <div v-if="loading && permissions.length === 0" class="space-y-2">
         <div v-for="i in 12" :key="i" class="h-10 bg-gray-200 rounded-lg animate-pulse"/>
@@ -349,11 +382,15 @@ const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 
 interface PlanInfo { id: string; name: string; color: string; enabledModules: string[] }
+interface SystemModuleRow { module: string; enabled: boolean; label: string | null }
 
 const permissions = ref<PermissionRow[]>([])
 const localMatrix = ref<Record<string, Record<Role, boolean>>>({})
 const pendingChanges = ref<PendingChange[]>([])
 const plans = ref<PlanInfo[]>([])
+const systemModules = ref<SystemModuleRow[]>([])
+const loadingModules = ref(false)
+const togglingModule = ref<string | null>(null)
 
 const loading = ref(false)
 const saving = ref(false)
@@ -446,6 +483,31 @@ async function loadPlans() {
   } catch { /* non-critical */ }
 }
 
+async function loadSystemModules() {
+  loadingModules.value = true
+  try {
+    systemModules.value = await get('/system-modules')
+  } catch { /* non-critical */ } finally {
+    loadingModules.value = false
+  }
+}
+
+async function toggleSystemModule(m: SystemModuleRow, enabled: boolean) {
+  togglingModule.value = m.module
+  const previous = m.enabled
+  m.enabled = enabled // optimistic
+  try {
+    await patch('/system-modules/toggle', { module: m.module, enabled })
+    successMsg.value = `Módulo "${MODULE_LABELS[m.module] ?? m.module}" ${enabled ? 'activado' : 'desactivado'} para toda la plataforma.`
+    setTimeout(() => { successMsg.value = null }, 4000)
+  } catch (e: any) {
+    m.enabled = previous // rollback
+    error.value = e.message || 'No se pudo actualizar el módulo'
+  } finally {
+    togglingModule.value = null
+  }
+}
+
 async function reloadUserPermissions() {
   reloadingPerms.value = true
   error.value = null
@@ -529,5 +591,5 @@ async function confirmDelete(perm: PermissionRow) {
   }
 }
 
-onMounted(() => { loadMatrix(); loadPlans() })
+onMounted(() => { loadMatrix(); loadPlans(); loadSystemModules() })
 </script>

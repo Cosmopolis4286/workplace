@@ -3,7 +3,21 @@
 
     <!-- ── Quick access (solo expandido) ───────────────────────────────── -->
     <div v-if="hasQuickAccess && !collapsed" class="px-3 pt-4 pb-3 border-b" :class="dark ? 'border-white/10' : 'border-gray-100'">
-      <p class="mb-2 px-1 text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Acceso rápido</p>
+      <div class="mb-2 px-1 flex items-center justify-between">
+        <p class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Acceso rápido</p>
+        <NuxtLink
+          to="/perfil?tab=accesos-rapidos"
+          title="Configurar accesos rápidos"
+          class="rounded-md p-0.5 transition-colors duration-150"
+          :class="dark ? 'text-gray-500 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-workplace-red hover:bg-gray-100'"
+          @click="$emit('navigate')"
+        >
+          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </NuxtLink>
+      </div>
       <div class="grid grid-cols-3 gap-1.5">
         <NuxtLink
           v-for="item in quickAccessItems"
@@ -151,6 +165,10 @@
       <NavLink v-if="navReady && can('settings:view')" to="/configuracion" label="Configuración" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.ops_group" class="h-5 w-5" /></template>
       </NavLink>
+      <!-- Módulos: self-service para que el propio comercio oculte secciones de su menú -->
+      <NavLink v-if="role === 'COMMERCE' || role === 'FREELANCER'" to="/modulos" label="Módulos" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+        <template #icon><component :is="NAV_ICONS.modules" class="h-5 w-5" /></template>
+      </NavLink>
       <!-- Mi Plan: solo para comercios/freelancers que pueden tener una suscripción propia -->
       <NavLink v-if="role === 'COMMERCE' || role === 'FREELANCER'" to="/mi-plan" label="Mi Plan" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.sales" class="h-5 w-5" /></template>
@@ -165,33 +183,62 @@
     <!-- ── Footer / user ───────────────────────────────────────────────── -->
     <div
       class="flex-shrink-0 border-t"
-      :class="[collapsed ? 'px-1.5 py-2' : 'px-3 py-2.5', dark ? 'border-white/10' : 'border-gray-100']"
+      :class="[collapsed ? 'px-1.5 py-2' : 'px-2.5 py-2', dark ? 'border-white/10' : 'border-gray-100']"
     >
-      <div class="flex items-center" :class="collapsed ? 'justify-center' : 'gap-2.5'">
-        <!-- Avatar -->
-        <div
-          class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden ring-2"
-          :class="dark ? 'bg-gray-700 ring-white/10' : 'bg-gray-100 ring-gray-200'"
+      <div class="flex items-center" :class="collapsed ? 'flex-col gap-1.5' : 'gap-1'">
+        <!-- User -> /perfil -->
+        <NuxtLink
+          to="/perfil"
+          class="group flex items-center rounded-lg transition-colors duration-150 min-w-0"
+          :class="[
+            collapsed ? 'justify-center w-10 h-10 mx-auto' : 'flex-1 gap-2.5 px-2 py-1.5',
+            dark ? 'hover:bg-white/10' : 'hover:bg-gray-50',
+          ]"
+          :title="collapsed ? `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() : undefined"
+          @click="$emit('navigate')"
         >
-          <img v-if="user?.avatar" :src="useAssetUrl().getAssetUrl(user.avatar)" class="w-full h-full object-cover" />
-          <svg v-else class="w-4 h-4" :class="dark ? 'text-gray-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
-          </svg>
-        </div>
-        <!-- Info -->
-        <Transition name="fade-text">
-          <div v-if="!collapsed" class="flex-1 min-w-0">
-            <p class="text-sm font-semibold truncate leading-tight" :class="dark ? 'text-white' : 'text-gray-900'">
-              {{ user?.firstName }} {{ user?.lastName }}
-            </p>
-            <p v-if="user?.username && can('services:view')" class="text-xs text-workplace-red truncate leading-tight">
-              <NuxtLink :to="`/p/${user.username}`" class="hover:underline">@{{ user.username }}</NuxtLink>
-            </p>
-            <p v-else class="text-xs truncate leading-tight" :class="dark ? 'text-gray-500' : 'text-gray-400'">
-              {{ user?.role }}
-            </p>
+          <!-- Avatar -->
+          <div
+            class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden ring-2 transition-shadow duration-150 group-hover:ring-workplace-red/40"
+            :class="dark ? 'bg-gray-700 ring-white/10' : 'bg-gray-100 ring-gray-200'"
+          >
+            <img v-if="user?.avatar" :src="useAssetUrl().getAssetUrl(user.avatar)" class="w-full h-full object-cover" />
+            <svg v-else class="w-4 h-4" :class="dark ? 'text-gray-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+            </svg>
           </div>
-        </Transition>
+          <!-- Info -->
+          <Transition name="fade-text">
+            <div v-if="!collapsed" class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate leading-tight" :class="dark ? 'text-white group-hover:text-white' : 'text-gray-900'">
+                {{ user?.firstName }} {{ user?.lastName }}
+              </p>
+              <p v-if="user?.username && can('services:view')" class="text-xs text-workplace-red truncate leading-tight">
+                @{{ user.username }}
+              </p>
+              <p v-else class="text-xs truncate leading-tight" :class="dark ? 'text-gray-500' : 'text-gray-400'">
+                {{ user?.role }}
+              </p>
+            </div>
+          </Transition>
+        </NuxtLink>
+
+        <!-- Logout -->
+        <button
+          type="button"
+          class="flex-shrink-0 flex items-center justify-center rounded-lg transition-colors duration-150"
+          :class="[
+            collapsed ? 'w-10 h-10' : 'w-9 h-9',
+            dark ? 'text-gray-400 hover:bg-red-500/15 hover:text-red-400' : 'text-gray-400 hover:bg-red-50 hover:text-red-600',
+          ]"
+          title="Cerrar sesión"
+          aria-label="Cerrar sesión"
+          @click="handleLogout"
+        >
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -201,11 +248,13 @@
 <script setup lang="ts">
 import { h, ref, computed, watch, nextTick, onMounted, defineComponent, resolveComponent } from 'vue'
 import { useRoute } from 'vue-router'
+import { MAX_QUICK_ACCESS, type QuickAccessCandidate } from '~/composables/useQuickAccess'
 
 const route = useRoute()
-const { user } = useAuth()
+const { user, logout } = useAuth()
 const { can, userCategory, initialized: permissionsInitialized, fetchPermissions } = usePermissions()
 const { hasModule, loaded: modulesLoaded, loadModules } = useModules()
+const { savedIds: savedQuickAccessIds, availableFor: availableQuickAccess } = useQuickAccess()
 
 onMounted(() => {
   loadModules()
@@ -230,6 +279,14 @@ const ADMIN_PERMISSIONS = [
   'audit:view', 'logs:view', 'plans:view', 'exchange_rates:view',
 ]
 const hasAdminItems = computed(() => navReady.value && ADMIN_PERMISSIONS.some(p => can(p)))
+
+async function handleLogout() {
+  try {
+    await logout()
+  } finally {
+    await navigateTo('/login')
+  }
+}
 
 const props = withDefaults(
   defineProps<{ collapsed?: boolean; dark?: boolean }>(),
@@ -309,6 +366,7 @@ const NAV_ICONS: Record<string, ReturnType<typeof svgIcon>> = {
   delivery:     svgIcon('M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'),
   employees:    svgIcon('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'),
   branches:     svgIcon('M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'),
+  modules:      svgIcon('M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'),
 }
 
 const QUICK_ICONS = NAV_ICONS
@@ -316,7 +374,6 @@ const QUICK_ICONS = NAV_ICONS
 // ─── Nav data ────────────────────────────────────────────────────────────────
 interface NavItem { to: string; label: string; permission: string | null; icon: string }
 interface NavGroup extends NavItem { items: NavItem[]; routes: string[]; key: string }
-interface QuickItem extends NavItem { gradient: string }
 
 interface NavItemExtended extends NavItem { commerceOnly?: boolean; normalOnly?: boolean }
 const topNavItemsDef: NavItemExtended[] = [
@@ -367,24 +424,18 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-interface QuickItemExtended extends QuickItem { normalOnly?: boolean }
-const QUICK_ACCESS: QuickItemExtended[] = [
-  { to: '/pedidos',              label: 'Pedidos',     permission: 'orders:view',           icon: 'orders',    gradient: 'bg-gradient-to-br from-workplace-red to-red-700',         normalOnly: false },
-  { to: '/mis-pedidos',          label: 'Pedidos',     permission: null,                    icon: 'orders',    gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',    normalOnly: true  },
-  { to: '/solicitudes-servicio', label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  gradient: 'bg-gradient-to-br from-red-400 to-rose-600',              normalOnly: false },
-  { to: '/gastos',               label: 'Gastos',      permission: 'expenses:view',         icon: 'sales',     gradient: 'bg-gradient-to-br from-red-600 to-rose-800',              normalOnly: false },
-  { to: '/servicios',            label: 'Servicios',   permission: 'services:view',         icon: 'services',  gradient: 'bg-gradient-to-br from-gray-700 to-gray-900',             normalOnly: false },
-  { to: '/cliente-dashboard',    label: 'Mi Panel',    permission: 'orders:view',           icon: 'customers', gradient: 'bg-gradient-to-br from-rose-500 to-workplace-red',        normalOnly: false },
-  { to: '/dashboard',            label: 'Dashboard',   permission: 'dashboard:view',        icon: 'dashboard', gradient: 'bg-gradient-to-br from-workplace-red to-red-800',         normalOnly: false },
-]
-
-const quickAccessItems = computed(() =>
-  QUICK_ACCESS.filter(i => {
-    if (i.normalOnly && role.value !== 'NORMAL') return false
-    if (!i.normalOnly && role.value === 'NORMAL') return false
-    return canSee(i.permission, i.to)
-  }).slice(0, 3)
-)
+// El catálogo de candidatos y MAX_QUICK_ACCESS viven en useQuickAccess.ts,
+// compartido con la página de configuración (perfil.vue).
+const quickAccessItems = computed(() => {
+  const available = availableQuickAccess(role.value, canSee)
+  const savedIds = savedQuickAccessIds.value
+  if (savedIds.length > 0) {
+    const byId = new Map(available.map(i => [i.id, i]))
+    const chosen = savedIds.map(id => byId.get(id)).filter((i): i is QuickAccessCandidate => !!i)
+    if (chosen.length > 0) return chosen.slice(0, MAX_QUICK_ACCESS)
+  }
+  return available.slice(0, MAX_QUICK_ACCESS)
+})
 const hasQuickAccess = computed(() => quickAccessItems.value.length > 0)
 
 function canSee(permission: string | null, to?: string): boolean {

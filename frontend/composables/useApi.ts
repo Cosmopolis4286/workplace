@@ -23,7 +23,7 @@ export function useApi() {
       ...(options.headers as Record<string, string> ?? {}),
     }
 
-    const res = await fetch(`${base}${url}`, { ...options, headers })
+    const res = await fetch(`${base}${url}`, { ...options, headers, credentials: 'include' })
 
     // Token expirado, intentar refresh
     if (res.status === 401) {
@@ -33,7 +33,7 @@ export function useApi() {
           'Content-Type': 'application/json',
           ...getHeaders(),
         }
-        const retry = await fetch(`${base}${url}`, { ...options, headers: retryHeaders })
+        const retry = await fetch(`${base}${url}`, { ...options, headers: retryHeaders, credentials: 'include' })
         if (!retry.ok) {
           const body = await retry.json().catch(() => ({}))
           throw new Error(body.message ?? `Error ${retry.status}`)

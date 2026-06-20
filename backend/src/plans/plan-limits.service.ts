@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
+import { SystemModulesService } from '../system-modules/system-modules.service';
 
 // All modules that exist in the system (match Permission.module values in seed)
 export const ALL_MODULES = [
@@ -75,7 +76,10 @@ const FREE_LIMITS: PlanLimits = {
 
 @Injectable()
 export class PlanLimitsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly systemModulesService: SystemModulesService
+  ) {}
 
   // ─── Core: plan limits + effective modules ──────────────────────────────────
 
@@ -85,13 +89,22 @@ export class PlanLimitsService {
       select: { role: true, categoryId: true },
     });
 
-    // ADMIN/SUPERADMIN/NORMAL: unrestricted
+    // Global kill-switch applies to EVERYONE, including SUPERADMIN — it's a
+    // maintenance/feature-flag layer, not an RBAC concern.
+    const globallyDisabled = await this.systemModulesService.getDisabledModules();
+
+    // ADMIN/SUPERADMIN/NORMAL: unrestricted by plan/category
     if (
       user?.role === Role.SUPERADMIN ||
       user?.role === Role.ADMIN ||
       user?.role === Role.NORMAL
     ) {
-      return UNLIMITED_LIMITS;
+      return {
+        ...UNLIMITED_LIMITS,
+        effectiveModules: UNLIMITED_LIMITS.effectiveModules.filter(
+          (m) => !globallyDisabled.includes(m)
+        ),
+      };
     }
 
     // Get active subscription
@@ -123,16 +136,27 @@ export class PlanLimitsService {
         };
 
     // Intersect with category allowed modules
-    const effectiveModules = await this.intersectWithCategory(
+    const categoryFiltered = await this.intersectWithCategory(
       planModules,
       user?.categoryId ?? null
+    );
+
+    // Intersect with the commerce's own self-service opt-outs
+    const restaurantFiltered = await this.intersectWithRestaurantPreference(
+      categoryFiltered,
+      userId
+    );
+
+    // Finally, the global kill-switch — overrides everything above
+    const effectiveModules = restaurantFiltered.filter(
+      (m) => !globallyDisabled.includes(m)
     );
 
     return {
       ...planLimitsBase,
       effectiveModules,
       categoryName:
-        effectiveModules !== planModules
+        categoryFiltered !== planModules
           ? ((
               await this.prisma.userCategory.findUnique({
                 where: { id: user!.categoryId! },
@@ -141,6 +165,36 @@ export class PlanLimitsService {
             )?.name ?? null)
           : null,
     };
+  }
+
+  /**
+   * Modules the commerce's plan + category grant, after the global kill-switch
+   * but BEFORE the commerce's own self-service opt-outs — i.e. the full set of
+   * checkboxes available to toggle in the self-service modules page.
+   */
+  async getSelectableModules(userId: string): Promise<string[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, categoryId: true },
+    });
+    const globallyDisabled = await this.systemModulesService.getDisabledModules();
+
+    if (
+      user?.role === Role.SUPERADMIN ||
+      user?.role === Role.ADMIN ||
+      user?.role === Role.NORMAL
+    ) {
+      return UNLIMITED_LIMITS.effectiveModules.filter((m) => !globallyDisabled.includes(m));
+    }
+
+    const sub = await this.prisma.subscription.findFirst({
+      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+      include: { plan: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const planModules = sub?.plan.enabledModules ?? FREE_MODULES;
+    const categoryFiltered = await this.intersectWithCategory(planModules, user?.categoryId ?? null);
+    return categoryFiltered.filter((m) => !globallyDisabled.includes(m));
   }
 
   // Returns plan.enabledModules ∩ category.allowedModules
@@ -160,6 +214,22 @@ export class PlanLimitsService {
     if (!category || category.allowedModules.length === 0) return planModules;
 
     return planModules.filter((m) => category.allowedModules.includes(m));
+  }
+
+  // Removes modules the commerce itself chose to hide from its own sidebar.
+  // Self-service only restricts further — it can never grant access beyond
+  // what the plan/category already allow.
+  private async intersectWithRestaurantPreference(
+    modules: string[],
+    userId: string
+  ): Promise<string[]> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { userId },
+      select: { settings: { select: { disabledModules: true } } },
+    });
+    const disabled = restaurant?.settings?.disabledModules ?? [];
+    if (disabled.length === 0) return modules;
+    return modules.filter((m) => !disabled.includes(m));
   }
 
   // ─── Module access ──────────────────────────────────────────────────────────

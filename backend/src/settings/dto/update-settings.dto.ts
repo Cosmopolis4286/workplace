@@ -108,3 +108,9 @@ export class UpdateNotificationSettingsDto {
   @IsBoolean()
   notifyCustomerReviews?: boolean;
 }
+
+export class UpdateModuleSettingsDto {
+  @IsArray()
+  @IsString({ each: true })
+  disabledModules: string[];
+}

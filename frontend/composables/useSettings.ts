@@ -58,7 +58,7 @@ export const useSettings = () => {
       ...getHeaders(),
       ...(options.headers as Record<string, string> || {}),
     }
-    return $fetch<T>(`${apiUrl}/settings${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
+    return $fetch<T>(`${apiUrl}/settings${path}`, { ...options, headers, credentials: 'include' } as Parameters<typeof $fetch>[1])
   }
 
   async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -180,6 +180,36 @@ export const useSettings = () => {
     }
   }
 
+  // ─── Module settings (self-service opt-out) ─────────────────────────────────
+
+  async function loadModuleSettings(): Promise<{ availableModules: string[]; disabledModules: string[] } | null> {
+    try {
+      return await withAuthRetry(() =>
+        apiFetch<{ availableModules: string[]; disabledModules: string[] }>('/modules'),
+      )
+    } catch (err: unknown) {
+      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar los módulos'
+      return null
+    }
+  }
+
+  async function saveModuleSettings(disabledModules: string[]): Promise<boolean> {
+    saving.value = 'modules'
+    error.value = null
+    try {
+      await withAuthRetry(() =>
+        apiFetch('/modules', { method: 'PATCH', body: JSON.stringify({ disabledModules }) }),
+      )
+      showSuccess('Módulos actualizados')
+      return true
+    } catch (err: unknown) {
+      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al guardar los módulos'
+      return false
+    } finally {
+      saving.value = null
+    }
+  }
+
   return {
     // state
     restaurant,
@@ -194,5 +224,7 @@ export const useSettings = () => {
     savePaymentSettings,
     saveOperationSettings,
     saveNotificationSettings,
+    loadModuleSettings,
+    saveModuleSettings,
   }
 }

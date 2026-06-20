@@ -9,6 +9,7 @@ import {
   UpdatePaymentSettingsDto,
   UpdateOperationSettingsDto,
   UpdateNotificationSettingsDto,
+  UpdateModuleSettingsDto,
 } from './dto/update-settings.dto';
 
 @Controller('settings')
@@ -56,5 +57,20 @@ export class SettingsController {
     @Body() dto: UpdateNotificationSettingsDto
   ) {
     return this.settingsService.updateNotificationSettings(user.id, dto);
+  }
+
+  @Get('modules')
+  @RequirePermission('settings:view')
+  getModuleSettings(@CurrentUser() user: { id: string }) {
+    return this.settingsService.getModuleSettings(user.id);
+  }
+
+  @Patch('modules')
+  @RequirePermission('settings:edit')
+  updateModuleSettings(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateModuleSettingsDto
+  ) {
+    return this.settingsService.updateModuleSettings(user.id, dto);
   }
 }

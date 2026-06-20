@@ -13,6 +13,29 @@
 
 import { ref, computed } from 'vue'
 
+export const MODULE_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard',
+  menu: 'Menú',
+  inventory: 'Inventario',
+  orders: 'Pedidos',
+  customers: 'Clientes',
+  appointments: 'Agendamientos',
+  delivery: 'Delivery',
+  expenses: 'Gastos',
+  analytics: 'Analytics',
+  reports: 'Reportes',
+  sales: 'Ventas',
+  employees: 'Empleados',
+  branches: 'Sucursales',
+  settings: 'Configuración',
+  notifications: 'Notificaciones',
+  services: 'Servicios',
+  service_requests: 'Solicitudes de servicio',
+  catalog: 'Catálogo',
+  corridas: 'Corridas',
+  wallets: 'Billetera',
+}
+
 const effectiveModules = ref<string[]>([])
 const loaded = ref(false)
 
@@ -25,6 +48,7 @@ export function useModules() {
     try {
       const res = await fetch(`${config.public.apiUrl}/plans/usage`, {
         headers: { 'Content-Type': 'application/json', ...getHeaders() },
+        credentials: 'include',
       })
       if (!res.ok) return
       const data = await res.json()

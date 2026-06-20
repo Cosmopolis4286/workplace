@@ -1,15 +1,20 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PlanLimitsService } from '../plans/plan-limits.service';
 import {
   UpdateRestaurantInfoDto,
   UpdatePaymentSettingsDto,
   UpdateOperationSettingsDto,
   UpdateNotificationSettingsDto,
+  UpdateModuleSettingsDto,
 } from './dto/update-settings.dto';
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly planLimitsService: PlanLimitsService
+  ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -101,6 +106,36 @@ export class SettingsService {
     return this.prisma.restaurantSettings.update({
       where: { commerceId: restaurant.id },
       data: dto,
+    });
+  }
+
+  // ─── Module settings (self-service opt-out) ─────────────────────────────────
+
+  /** Modules the commerce's plan/category include, plus which of those it has hidden. */
+  async getModuleSettings(userId: string) {
+    const restaurant = await this.getRestaurant(userId);
+    const settings = await this.getOrCreateSettings(restaurant.id);
+    const availableModules = await this.planLimitsService.getSelectableModules(userId);
+    return { availableModules, disabledModules: settings.disabledModules };
+  }
+
+  async updateModuleSettings(userId: string, dto: UpdateModuleSettingsDto) {
+    const restaurant = await this.getRestaurant(userId);
+    await this.getOrCreateSettings(restaurant.id);
+
+    // Self-service can only hide modules the plan/category already grant —
+    // it can never be used to sneak in access to a module outside the plan.
+    const selectable = await this.planLimitsService.getSelectableModules(userId);
+    const invalid = dto.disabledModules.filter((m) => !selectable.includes(m));
+    if (invalid.length > 0) {
+      throw new BadRequestException(
+        `Los siguientes módulos no pertenecen a tu plan: ${invalid.join(', ')}`
+      );
+    }
+
+    return this.prisma.restaurantSettings.update({
+      where: { commerceId: restaurant.id },
+      data: { disabledModules: dto.disabledModules },
     });
   }
 }
