@@ -4,7 +4,17 @@
       title="Mi Perfil"
       description="Gestiona tu información personal y preferencias"
       :icon="UserCircleIcon"
-    />
+    >
+      <template v-if="canSeeSettings" #actions>
+        <NuxtLink
+          to="/configuracion"
+          class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-semibold rounded-xl shadow-sm hover:shadow-md hover:border-workplace-red/30 hover:text-workplace-red transition-all duration-200"
+        >
+          <Cog6ToothIcon class="h-5 w-5" />
+          Ir a Configuración
+        </NuxtLink>
+      </template>
+    </PageHeader>
 
     <!-- Loading skeleton -->
     <div v-if="loadingProfile" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -532,6 +542,7 @@ import {
   CameraIcon,
   ComputerDesktopIcon,
   XMarkIcon,
+  Cog6ToothIcon,
 } from '@heroicons/vue/24/outline'
 import Swal from 'sweetalert2'
 import PageHeader from '~/components/ui/PageHeader.vue'
@@ -542,6 +553,8 @@ import { useQuickAccess, MAX_QUICK_ACCESS } from '~/composables/useQuickAccess'
 const auth = useAuth()
 const { checkUsername } = auth
 const { takePhoto } = useCamera()
+const { can } = usePermissions()
+const canSeeSettings = computed(() => can('settings:view'))
 
 // ─── Accesos rápidos ────────────────────────────────────────────────────────
 const { availableItems: quickAccessAvailable, savedIds: quickAccessSavedIds, setQuickAccessIds, saving: savingQuickAccess } = useQuickAccess()
