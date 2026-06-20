@@ -30,15 +30,17 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  const isDev = process.env.APP_ENV !== 'production';
   // La app Android (Capacitor, androidScheme: 'https') sirve el WebView desde
   // el origen https://localhost, distinto del dominio del FRONTEND_URL web.
+  // Nunca reflejar origin:true con credentials:true — siempre validar contra
+  // una whitelist explícita, incluso en desarrollo, para evitar exponer
+  // cookies httpOnly a cualquier origen si APP_ENV queda mal configurado.
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'http://localhost:3000',
     'https://localhost',
   ];
   app.enableCors({
-    origin: isDev ? true : allowedOrigins,
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
