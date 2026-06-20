@@ -20,6 +20,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
 import { canAssignRole } from '../common/utils/role-hierarchy.util';
 
 @Controller('users')
@@ -177,13 +178,13 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async updateOwnProfile(
     @Param('id') id: string,
-    @Body() dto: { categoryId?: string },
+    @Body() dto: UpdateOwnProfileDto,
     @CurrentUser() caller: { id: string; role: Role }
   ) {
     if (caller.id !== id) {
       throw new ForbiddenException(this.i18n.t('users.permissions.edit_own_profile_only'));
     }
-    return this.usersService.updateUser(id, dto);
+    return this.usersService.updateOwnProfile(id, dto);
   }
 
   @Patch(':id/toggle-status')

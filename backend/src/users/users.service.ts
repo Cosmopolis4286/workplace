@@ -13,6 +13,7 @@ import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 import { ChangePasswordDto } from '../auth/dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
 import { MailService } from '../mail/mail.service';
 
 export const CURRENT_TERMS_VERSION = '2.0';
@@ -169,6 +170,24 @@ export class UsersService {
         ...(dto.phone !== undefined && { phone: dto.phone || null }),
         ...(dto.role !== undefined && { role: dto.role }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        ...(dto.categoryId !== undefined && {
+          categoryId: dto.categoryId || null,
+        }),
+        ...(dto.subcategoryId !== undefined && {
+          subcategoryId: dto.subcategoryId || null,
+        }),
+      },
+      include: { commerce: true, category: true, subcategory: true },
+    });
+
+    const { password, twoFactorSecret, ...result } = user;
+    return result;
+  }
+
+  async updateOwnProfile(id: string, dto: UpdateOwnProfileDto) {
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: {
         ...(dto.categoryId !== undefined && {
           categoryId: dto.categoryId || null,
         }),
