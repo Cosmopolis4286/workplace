@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFiles,
@@ -15,6 +16,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import type { Response } from 'express';
 import { extensionForMimetype } from '../common/utils/upload-extension.util';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -25,6 +27,8 @@ import { RateLimitGuard, RateLimit } from '../common/guards/rate-limit.guard';
 import { KycService } from './kyc.service';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { ReviewVerificationDto } from './dto/review-verification.dto';
+
+const KYC_UPLOADS_DIR = join(process.cwd(), 'uploads', 'kyc');
 
 const kycImageStorage = diskStorage({
   destination: (_req, _file, cb) => {
@@ -83,6 +87,21 @@ export class KycController {
       backImageUrl: files?.backImage?.[0] ? `/uploads/kyc/${files.backImage[0].filename}` : undefined,
       selfieImageUrl: `/uploads/kyc/${selfieImage.filename}`,
     });
+  }
+
+  // ─── Imágenes (dueño o admin) ─────────────────────────────────────────────────
+  // Las fotos de documento/selfie son PII sensible: no se sirven desde la carpeta
+  // estática pública (ver app.module.ts), sólo a través de este endpoint autenticado.
+
+  @Get(':id/image/:field')
+  async getImage(
+    @Param('id') id: string,
+    @Param('field') field: string,
+    @CurrentUser() user: any,
+    @Res() res: Response,
+  ) {
+    const filename = await this.kycService.resolveImageFilename(id, field, user.id, user.role);
+    return res.sendFile(filename, { root: KYC_UPLOADS_DIR });
   }
 
   // ─── Admin ────────────────────────────────────────────────────────────────────

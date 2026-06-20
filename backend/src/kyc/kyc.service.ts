@@ -1,9 +1,12 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { KycStatus } from '@prisma/client';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { KycStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { ReviewVerificationDto } from './dto/review-verification.dto';
+
+const IMAGE_FIELDS = ['frontImageUrl', 'backImageUrl', 'selfieImageUrl'] as const;
+type ImageField = (typeof IMAGE_FIELDS)[number];
 
 @Injectable()
 export class KycService {
@@ -70,6 +73,38 @@ export class KycService {
     });
 
     return verification;
+  }
+
+  // ─── Imágenes ──────────────────────────────────────────────────────────────────
+
+  async resolveImageFilename(
+    verificationId: string,
+    field: string,
+    requesterId: string,
+    requesterRole: Role,
+  ): Promise<string> {
+    if (!IMAGE_FIELDS.includes(field as ImageField)) {
+      throw new BadRequestException('Campo de imagen inválido');
+    }
+
+    const verification = await this.prisma.identityVerification.findUnique({
+      where: { id: verificationId },
+      select: { userId: true, frontImageUrl: true, backImageUrl: true, selfieImageUrl: true },
+    });
+    if (!verification) throw new NotFoundException('Solicitud de verificación no encontrada');
+
+    const isOwner = verification.userId === requesterId;
+    const isAdmin = requesterRole === Role.SUPERADMIN || requesterRole === Role.ADMIN;
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException('No tienes permiso para ver esta imagen');
+    }
+
+    const url = verification[field as ImageField];
+    if (!url) throw new NotFoundException('Imagen no encontrada');
+
+    // Las URLs guardadas tienen forma "/uploads/kyc/{filename}"; nos quedamos
+    // solo con el nombre de archivo para evitar cualquier path traversal.
+    return url.split('/').pop()!;
   }
 
   // ─── Admin ────────────────────────────────────────────────────────────────────

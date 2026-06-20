@@ -31,7 +31,7 @@ const loading = ref(false)
 export function useKyc() {
   const config = useRuntimeConfig()
   const apiUrl = config.public.apiUrl as string
-  const { getHeaders, refreshAccessToken } = useAuth()
+  const { getHeaders } = useAuth()
 
   async function fetchMyStatus() {
     loading.value = true
