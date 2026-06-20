@@ -22,8 +22,9 @@ import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { extensionForMimetype } from '../common/utils/upload-extension.util';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -216,11 +217,14 @@ export class AuthController {
         },
         filename: (_req, file, cb) => {
           const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, unique + extname(file.originalname));
+          cb(null, unique + extensionForMimetype(file.mimetype));
         },
       }),
       fileFilter: (_req, file, cb) => {
-        if (!file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/)) {
+        if (
+          !file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/) ||
+          !extensionForMimetype(file.mimetype)
+        ) {
           return cb(
             new BadRequestException(
               'Solo se permiten imágenes (jpeg, png, webp, gif)'
