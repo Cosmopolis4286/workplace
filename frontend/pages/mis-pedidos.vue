@@ -455,11 +455,11 @@ const confirmingCatalogOrder = ref(false)
 const filteredCatalogOrders = computed(() =>
   activeCatalogFilter.value === 'ALL'
     ? catalogOrders.value
-    : catalogOrders.value.filter(o => o.status === activeCatalogFilter.value)
+    : catalogOrders.value.filter((o: CatalogOrder) => o.status === activeCatalogFilter.value)
 )
 
 function countByCatalogStatus(status: string) {
-  return catalogOrders.value.filter(o => o.status === status).length
+  return catalogOrders.value.filter((o: CatalogOrder) => o.status === status).length
 }
 
 function catalogStatusAvatarClass(status: CatalogOrder['status']) {
@@ -495,14 +495,14 @@ async function confirmCatalogOrderCompletion() {
       headers: getHeaders(),
     })
     selectedCatalogOrder.value.status = 'CERRADO'
-    const idx = catalogOrders.value.findIndex(o => o.id === selectedCatalogOrder.value!.id)
+    const idx = catalogOrders.value.findIndex((o: CatalogOrder) => o.id === selectedCatalogOrder.value!.id)
     if (idx !== -1) catalogOrders.value[idx].status = 'CERRADO'
   } finally {
     confirmingCatalogOrder.value = false
   }
 }
 
-watch(activeSource, (src) => {
+watch(activeSource, (src: 'restaurant' | 'catalog') => {
   if (src === 'catalog' && catalogOrders.value.length === 0) fetchCatalogOrders()
 })
 

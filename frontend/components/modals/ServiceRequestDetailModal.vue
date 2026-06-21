@@ -405,7 +405,7 @@ async function confirmCompletion() {
   try {
     const { patch } = useApi()
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/confirm-completion`, {})
-    emit('updated', { ...props.req, status: 'CERRADO', ...updated })
+    emit('updated', { ...props.req, ...updated, status: 'CERRADO' })
   } catch { /* silently ignore */ } finally {
     confirming.value = false
   }
