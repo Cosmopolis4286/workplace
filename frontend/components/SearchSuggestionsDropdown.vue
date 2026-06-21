@@ -1,9 +1,9 @@
 <template>
   <div
-    :class="staticPosition
-      ? 'mt-2'
-      : 'absolute left-0 right-0 mt-2 rounded-2xl shadow-2xl border z-50 max-h-96 overflow-y-auto'"
-    :class="!staticPosition && (isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100')"
+    :class="[
+      staticPosition ? 'mt-2' : 'absolute left-0 right-0 mt-2 rounded-2xl shadow-2xl border z-50 max-h-96 overflow-y-auto',
+      !staticPosition && (isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'),
+    ]"
   >
     <!-- Vacío -->
     <div v-if="!query || query.trim().length < 2" class="px-4 py-6 text-center text-sm" :class="isDark ? 'text-gray-500' : 'text-gray-400'">
