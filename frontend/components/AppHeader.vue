@@ -54,6 +54,11 @@
           </div>
         </div>
 
+        <!-- Search -->
+        <div class="flex-1 flex items-center justify-center px-2 sm:px-4">
+          <GlobalSearchBar />
+        </div>
+
         <!-- Right side -->
         <div class="flex items-center gap-3">
           <!-- Commerce badge -->

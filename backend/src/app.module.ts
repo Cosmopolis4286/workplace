@@ -40,6 +40,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { WalletsModule } from './wallets/wallets.module'
 import { SearchTabsModule } from './search-tabs/search-tabs.module';
+import { SearchModule } from './search/search.module';
 import { LandingModule } from './landing/landing.module';
 
 @Module({
@@ -93,6 +94,7 @@ import { LandingModule } from './landing/landing.module';
     TelegramModule,
     WalletsModule,
     SearchTabsModule,
+    SearchModule,
     LandingModule,
   ],
   providers: [

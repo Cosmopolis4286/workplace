@@ -1276,6 +1276,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import type { CatalogProduct, CatalogSortBy } from '~/composables/useCatalog'
 import type { CatalogService } from '~/composables/useServices'
 import type { Job } from '~/composables/useJobs'
@@ -1344,6 +1345,7 @@ const { defaultRate, fetchRates } = useExchangeRates()
 const { tabs: searchTabs, loadTabs: loadSearchTabs } = useSearchTabs()
 
 // ─── Estado local ─────────────────────────────────────────────────────────────
+const route = useRoute()
 const activeTab = ref<string>('productos')
 const searchInput = ref('')
 const searchFocused = ref(false)
@@ -1772,9 +1774,20 @@ onMounted(async () => {
     jLoadCategories(), jLoadJobs(),
     fetchRates(false, true),
   ])
-  // Set initial tab to first enabled tab from API (if loaded)
-  if (searchTabs.value.length > 0) {
+  // Tab/búsqueda inicial desde query params (ej. al venir del buscador global)
+  const tabFromQuery = typeof route.query.tab === 'string' ? route.query.tab : null
+  const qFromQuery = typeof route.query.q === 'string' ? route.query.q : null
+
+  if (tabFromQuery && searchTabs.value.some(t => t.key === tabFromQuery)) {
+    activeTab.value = tabFromQuery
+  } else if (searchTabs.value.length > 0) {
+    // Set initial tab to first enabled tab from API (if loaded)
     activeTab.value = searchTabs.value[0].key
+  }
+
+  if (qFromQuery) {
+    searchInput.value = qFromQuery
+    handleSearchInput()
   }
 })
 
