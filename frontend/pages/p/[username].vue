@@ -450,6 +450,64 @@
           </div>
         </div>
 
+        <!-- Escribir / editar reseña -->
+        <div v-if="currentUser && currentUser.id !== profile?.id" class="card-premium p-5 mb-6">
+          <template v-if="!showReviewForm">
+            <div v-if="profile?.canReview" class="flex items-center justify-between gap-3 flex-wrap">
+              <p class="text-sm text-gray-600">
+                {{ profile.hasReviewed ? 'Ya dejaste una reseña. Puedes editarla.' : 'Completaste una compra o servicio aquí. Ya puedes dejar tu reseña.' }}
+              </p>
+              <button
+                class="text-sm font-semibold bg-workplace-red text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex-shrink-0"
+                @click="openReviewForm"
+              >
+                {{ profile.hasReviewed ? 'Editar mi reseña' : 'Escribir reseña' }}
+              </button>
+            </div>
+            <div v-else class="flex items-center gap-2 text-sm text-gray-400">
+              <InformationCircleIcon class="h-4 w-4 flex-shrink-0" />
+              Solo puedes reseñar a este perfil si completaste una compra o servicio real con él.
+            </div>
+          </template>
+
+          <template v-else>
+            <p class="text-sm font-bold text-gray-900 mb-3">{{ profile?.hasReviewed ? 'Editar tu reseña' : 'Tu reseña' }}</p>
+            <div class="flex gap-1 mb-3">
+              <button
+                v-for="i in 5" :key="i"
+                type="button"
+                class="p-0.5"
+                @click="reviewForm.rating = i"
+              >
+                <StarIcon class="h-7 w-7" :class="i <= reviewForm.rating ? 'text-amber-400' : 'text-gray-200'" />
+              </button>
+            </div>
+            <textarea
+              v-model="reviewForm.comment"
+              rows="3"
+              maxlength="1000"
+              placeholder="Cuenta tu experiencia (opcional)…"
+              class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"
+            />
+            <p v-if="reviewError" class="text-xs text-red-600 mt-2">{{ reviewError }}</p>
+            <div class="flex gap-3 mt-3">
+              <button
+                class="flex-1 border border-gray-200 text-gray-700 font-semibold py-2 rounded-xl hover:bg-gray-50 text-sm"
+                @click="showReviewForm = false"
+              >
+                Cancelar
+              </button>
+              <button
+                :disabled="savingReview || reviewForm.rating === 0"
+                class="flex-1 bg-workplace-red text-white font-semibold py-2 rounded-xl hover:bg-red-700 disabled:opacity-60 text-sm"
+                @click="handleSubmitReview"
+              >
+                {{ savingReview ? 'Guardando…' : 'Publicar reseña' }}
+              </button>
+            </div>
+          </template>
+        </div>
+
         <!-- Reviews list -->
         <div v-if="loadingReviews" class="space-y-3">
           <div v-for="i in 3" :key="i" class="card-premium p-4 animate-pulse">
@@ -1140,10 +1198,11 @@ import {
   PlusCircleIcon,
   PlayCircleIcon,
   SquaresPlusIcon,
+  InformationCircleIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import Swal from 'sweetalert2'
-import { useProfiles, type ProfilePost, type PostComment } from '~/composables/useProfiles'
+import { useProfiles, type ProfilePost, type PostComment, type ProfileReview } from '~/composables/useProfiles'
 import { useAuth } from '~/composables/useAuth'
 
 definePageMeta({ layout: false })
@@ -1636,6 +1695,13 @@ async function handleCreatePost() {
 }
 
 // Reviews
+function openReviewForm() {
+  const own = reviews.value.find(r => r.author.id === currentUser.value?.id)
+  reviewForm.value = own ? { rating: own.rating, comment: own.comment ?? '' } : { rating: 0, comment: '' }
+  reviewError.value = ''
+  showReviewForm.value = true
+}
+
 async function handleSubmitReview() {
   if (!profile.value || reviewForm.value.rating === 0) return
   savingReview.value = true
@@ -1756,6 +1822,7 @@ onMounted(async () => {
 })
 
 watch(username, async (u) => {
+  showReviewForm.value = false
   await fetchProfile(u)
   if (profile.value?.username) await fetchPosts(profile.value.username)
 })

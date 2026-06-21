@@ -45,6 +45,8 @@ export interface PublicProfile {
   rating: number | null
   reviewsCount: number
   isFollowing: boolean
+  canReview: boolean
+  hasReviewed: boolean
 }
 
 export interface ProfileReview {

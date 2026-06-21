@@ -63,16 +63,27 @@ export class ProfilesService {
 
     // ¿El usuario actual sigue a este perfil?
     let isFollowing = false;
+    // ¿El usuario actual puede reseñar a este perfil? (compra/servicio verificado)
+    let canReview = false;
+    let hasReviewed = false;
     if (currentUserId && currentUserId !== user.id) {
-      const follow = await this.prisma.follow.findUnique({
-        where: {
-          followerId_followingId: {
-            followerId: currentUserId,
-            followingId: user.id,
+      const [follow, existingReview, verification] = await Promise.all([
+        this.prisma.follow.findUnique({
+          where: {
+            followerId_followingId: {
+              followerId: currentUserId,
+              followingId: user.id,
+            },
           },
-        },
-      });
+        }),
+        this.prisma.review.findUnique({
+          where: { authorId_targetId: { authorId: currentUserId, targetId: user.id } },
+        }),
+        this.findVerifiedTransaction(currentUserId, user.id),
+      ]);
       isFollowing = !!follow;
+      hasReviewed = !!existingReview;
+      canReview = !!verification || hasReviewed;
     }
 
     return {
@@ -96,6 +107,8 @@ export class ProfilesService {
         : null,
       reviewsCount: ratingAgg._count.rating,
       isFollowing,
+      canReview,
+      hasReviewed,
     };
   }
 
