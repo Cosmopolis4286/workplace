@@ -2,12 +2,13 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
-import { SubscriptionStatus } from '@prisma/client';
+import { SubscriptionStatus, KycStatus } from '@prisma/client';
 
 @Injectable()
 export class PlansService {
@@ -307,6 +308,15 @@ export class PlansService {
 
     const targetRole = this.getTargetRole(subscription.plan);
     if (!targetRole) throw new ConflictException('El plan asociado no permite cambio de rol');
+
+    // El rol COMMERCE/FREELANCER habilita operar como negocio (catálogo público,
+    // recibir pedidos y dinero en wallet) — exigimos identidad verificada antes
+    // de otorgarlo, no solo al momento de retirar fondos.
+    if (subscription.user.kycStatus !== KycStatus.APPROVED) {
+      throw new ForbiddenException(
+        'El usuario debe completar y aprobar la verificación de identidad (KYC) antes de aprobar este upgrade'
+      );
+    }
 
     // Cancelar otras suscripciones activas del usuario
     await this.prisma.subscription.updateMany({

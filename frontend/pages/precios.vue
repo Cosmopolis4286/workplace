@@ -220,6 +220,13 @@
             <div class="mt-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 leading-relaxed">
               Al confirmar, tu solicitud quedará en revisión y un administrador deberá aprobarla antes de activar tu nuevo rol.
             </div>
+            <div
+              v-if="myKycStatus?.kycStatus !== 'APPROVED'"
+              class="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700 leading-relaxed"
+            >
+              Además, tu administrador no podrá aprobar este upgrade hasta que verifiques tu identidad (KYC).
+              <NuxtLink to="/perfil" class="font-semibold underline">Completa la verificación desde tu perfil</NuxtLink>.
+            </div>
           </template>
 
           <!-- Step 3: Listo -->
@@ -493,6 +500,7 @@ import {
 import { useApi } from '~/composables/useApi'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { usePlans } from '~/composables/usePlans'
+import { useKyc } from '~/composables/useKyc'
 
 definePageMeta({})
 
@@ -519,6 +527,7 @@ interface Category { id: string; name: string; icon?: string }
 interface Subcategory { id: string; name: string }
 
 const { user, isAuthenticated, fetchProfile } = useAuth()
+const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
 const { mySubscription, pendingSubscription, myPlan, fetchMySubscription, daysRemaining } = usePlans()
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
@@ -680,6 +689,7 @@ onMounted(async () => {
   if (isNormalUser.value) {
     await fetchMySubscription()
     if (!pendingSubscription.value) loadCategories()
+    fetchMyKycStatus()
   }
   if (canChangePlan.value) fetchMySubscription()
 })
