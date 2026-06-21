@@ -166,6 +166,12 @@ export class ServicesController {
     return this.servicesService.updateServiceRequestStatus(id, user.id, status);
   }
 
+  @Patch('requests/:id/confirm-completion')
+  @UseGuards(JwtAuthGuard)
+  confirmCompletion(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.servicesService.confirmServiceRequestCompletion(id, user.id);
+  }
+
   // ─── Categories (admin) ───────────────────────────────────────────────────
 
   @Get('categories')

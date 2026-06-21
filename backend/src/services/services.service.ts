@@ -391,6 +391,24 @@ export class ServicesService {
     return this.updateServiceRequest(id, userId, { status });
   }
 
+  // El cliente (requester) confirma que el servicio se completó realmente.
+  // Solo desde CONTACTADO, para evitar que se cierre algo que nunca avanzó,
+  // y habilita la reseña verificada del proveedor.
+  async confirmServiceRequestCompletion(id: string, userId: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.requesterId !== userId)
+      throw new ForbiddenException('No tienes permiso');
+    if (req.status !== 'CONTACTADO')
+      throw new ForbiddenException(
+        'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor',
+      );
+    return this.prisma.serviceRequest.update({
+      where: { id },
+      data: { status: 'CERRADO', statusUpdatedAt: new Date() },
+    });
+  }
+
   // ─── Tracking & Metrics ───────────────────────────────────────────────────
 
   async trackEvent(

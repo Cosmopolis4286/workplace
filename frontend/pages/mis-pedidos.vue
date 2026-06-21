@@ -16,7 +16,124 @@
       </button>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Toggle origen: pedidos de restaurante vs. pedidos del marketplace de catálogo -->
+    <div class="card p-1 flex gap-1 mb-4 w-fit">
+      <button
+        class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+        :class="activeSource === 'restaurant' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
+        @click="activeSource = 'restaurant'"
+      >
+        Restaurante
+      </button>
+      <button
+        class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+        :class="activeSource === 'catalog' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
+        @click="activeSource = 'catalog'"
+      >
+        Catálogo
+      </button>
+    </div>
+
+    <!-- ── Vista: pedidos de catálogo (marketplace) ──────────────────────────── -->
+    <div v-if="activeSource === 'catalog'" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 space-y-4">
+        <div class="card p-1 flex gap-1 overflow-x-auto scrollbar-none">
+          <button
+            v-for="f in catalogFilters"
+            :key="f.value"
+            class="flex-shrink-0 flex-1 text-sm py-2 px-3 rounded-lg font-medium transition-colors whitespace-nowrap"
+            :class="activeCatalogFilter === f.value
+              ? 'bg-red-600 text-white shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
+            @click="activeCatalogFilter = f.value"
+          >
+            {{ f.label }}
+            <span
+              v-if="f.value !== 'ALL' && countByCatalogStatus(f.value) > 0"
+              class="ml-1.5 text-xs px-1.5 py-0.5 rounded-full"
+              :class="activeCatalogFilter === f.value ? 'bg-red-500/30 text-red-100' : 'bg-gray-100 text-gray-500'"
+            >{{ countByCatalogStatus(f.value) }}</span>
+          </button>
+        </div>
+
+        <div class="card divide-y divide-gray-100">
+          <template v-if="loadingCatalog">
+            <div v-for="n in 4" :key="n" class="p-4 flex items-center gap-4">
+              <div class="skeleton h-11 w-11 rounded-xl flex-shrink-0" />
+              <div class="flex-1 space-y-2">
+                <div class="skeleton h-4 w-36 rounded" />
+                <div class="skeleton h-3 w-52 rounded" />
+              </div>
+              <div class="skeleton h-6 w-20 rounded-full" />
+            </div>
+          </template>
+
+          <div v-else-if="filteredCatalogOrders.length === 0" class="p-12 text-center">
+            <ShoppingBagIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p class="text-gray-500 font-medium">
+              {{ activeCatalogFilter === 'ALL' ? 'Aún no has hecho pedidos en el catálogo' : 'No hay pedidos con este filtro' }}
+            </p>
+            <p class="text-sm text-gray-400 mt-1">Explora el catálogo de comercios y haz tu primer pedido.</p>
+          </div>
+
+          <template v-else>
+            <div
+              v-for="order in filteredCatalogOrders"
+              :key="order.id"
+              class="p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors cursor-pointer"
+              @click="selectedCatalogOrder = order"
+            >
+              <div
+                class="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-sm"
+                :class="catalogStatusAvatarClass(order.status)"
+              >
+                {{ order.restaurantName?.[0]?.toUpperCase() ?? 'C' }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between gap-2 mb-1">
+                  <div class="min-w-0">
+                    <p class="text-sm font-semibold text-gray-900 truncate">{{ order.restaurantName }}</p>
+                    <p class="text-xs text-red-600 font-medium truncate">{{ order.quantity }}× {{ order.productName }}</p>
+                  </div>
+                  <span class="badge flex-shrink-0" :class="CATALOG_STATUS_CLASSES[order.status]">
+                    {{ CATALOG_STATUS_LABELS[order.status] }}
+                  </span>
+                </div>
+                <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400 mt-1">
+                  <span v-if="order.totalEstimate" class="flex items-center gap-1">
+                    <CurrencyDollarIcon class="h-3 w-3" />
+                    {{ formatCurrency(order.totalEstimate) }}
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <CalendarIcon class="h-3 w-3" />
+                    {{ formatDate(order.createdAt) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <p v-if="!loadingCatalog && filteredCatalogOrders.length > 0" class="text-xs text-gray-400 text-right px-1">
+          {{ filteredCatalogOrders.length }} pedido{{ filteredCatalogOrders.length !== 1 ? 's' : '' }} de catálogo
+        </p>
+      </div>
+
+      <div class="space-y-4">
+        <div class="card p-5 border-l-4 border-l-blue-400">
+          <div class="flex items-center gap-2 mb-1">
+            <InformationCircleIcon class="h-4 w-4 text-blue-500" />
+            <p class="text-sm font-semibold text-gray-700">¿Cómo funciona?</p>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">
+            Cuando el comercio te contacte y recibas tu pedido, ábrelo y confirma la recepción. Esto habilita tu reseña verificada para ese comercio.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Vista: pedidos de restaurante (Order) ─────────────────────────────── -->
+    <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
       <!-- ── Lista principal ─────────────────────────────────────────────── -->
       <div class="lg:col-span-2 space-y-4">
@@ -217,13 +334,67 @@
 
       </div>
     </div>
+
+    <!-- ── Modal detalle pedido de catálogo ───────────────────────────────────── -->
+    <Teleport to="body">
+      <div v-if="selectedCatalogOrder" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="selectedCatalogOrder = null" />
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+          <div class="p-6 border-b border-gray-100 flex items-start justify-between">
+            <div>
+              <h3 class="font-black text-gray-900">{{ selectedCatalogOrder.restaurantName }}</h3>
+              <p class="text-sm text-gray-500 mt-0.5">{{ selectedCatalogOrder.quantity }}× {{ selectedCatalogOrder.productName }}</p>
+            </div>
+            <span class="badge flex-shrink-0" :class="CATALOG_STATUS_CLASSES[selectedCatalogOrder.status]">
+              {{ CATALOG_STATUS_LABELS[selectedCatalogOrder.status] }}
+            </span>
+          </div>
+          <div class="p-6 space-y-3">
+            <div v-if="selectedCatalogOrder.totalEstimate" class="flex justify-between text-sm">
+              <span class="text-gray-500">Total estimado</span>
+              <span class="font-bold text-gray-900">{{ formatCurrency(selectedCatalogOrder.totalEstimate) }}</span>
+            </div>
+            <div v-if="selectedCatalogOrder.address" class="flex justify-between text-sm">
+              <span class="text-gray-500">Dirección</span>
+              <span class="text-gray-900 text-right">{{ selectedCatalogOrder.address }}{{ selectedCatalogOrder.city ? `, ${selectedCatalogOrder.city}` : '' }}</span>
+            </div>
+            <div v-if="selectedCatalogOrder.notes" class="text-sm">
+              <span class="text-gray-500">Notas: </span>
+              <span class="text-gray-900 italic">"{{ selectedCatalogOrder.notes }}"</span>
+            </div>
+            <p class="text-xs text-gray-400">Pedido realizado {{ timeAgo(selectedCatalogOrder.createdAt) }}</p>
+          </div>
+
+          <!-- Confirmar recepción: solo si el comercio ya contactó -->
+          <div v-if="selectedCatalogOrder.status === 'CONTACTADO'" class="p-4 border-t border-gray-100 bg-blue-50">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <p class="text-xs text-blue-700">Confirma cuando recibas tu pedido para poder dejar tu reseña.</p>
+              <button
+                :disabled="confirmingCatalogOrder"
+                class="px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex-shrink-0"
+                @click="confirmCatalogOrderCompletion"
+              >
+                {{ confirmingCatalogOrder ? 'Confirmando…' : 'Confirmar recibido' }}
+              </button>
+            </div>
+          </div>
+          <div v-else-if="selectedCatalogOrder.status === 'CERRADO'" class="p-4 border-t border-gray-100 bg-green-50">
+            <p class="text-xs text-green-700 font-medium">Pedido completado. Ya puedes dejar una reseña verificada en el perfil del comercio.</p>
+          </div>
+
+          <div class="p-4 border-t border-gray-100 flex justify-end">
+            <button class="text-sm font-semibold text-gray-500 hover:text-gray-700" @click="selectedCatalogOrder = null">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
   ShoppingBagIcon,
   XMarkIcon,
@@ -233,12 +404,107 @@ import {
   BoltIcon,
   MapPinIcon,
   ChevronDownIcon,
+  InformationCircleIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 const config = useRuntimeConfig()
 const apiUrl  = config.public.apiUrl as string
 const { getHeaders } = useAuth()
+
+// ─── Toggle de origen ───────────────────────────────────────────────────────────
+const activeSource = ref<'restaurant' | 'catalog'>('restaurant')
+
+// ─── Pedidos de catálogo (CatalogOrder) ────────────────────────────────────────
+interface CatalogOrder {
+  id: string
+  productName: string
+  restaurantName: string
+  quantity: number
+  totalEstimate?: number
+  address?: string
+  city?: string
+  notes?: string
+  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
+  createdAt: string
+}
+
+const CATALOG_STATUS_LABELS: Record<CatalogOrder['status'], string> = {
+  PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Completado',
+}
+const CATALOG_STATUS_CLASSES: Record<CatalogOrder['status'], string> = {
+  PENDIENTE:  'bg-yellow-100 text-yellow-800',
+  VISTO:      'bg-gray-100 text-gray-600',
+  CONTACTADO: 'bg-blue-100 text-blue-700',
+  CERRADO:    'bg-green-100 text-green-700',
+}
+
+const catalogFilters = [
+  { value: 'ALL',        label: 'Todos'      },
+  { value: 'PENDIENTE',  label: 'Pendientes' },
+  { value: 'CONTACTADO', label: 'Contactados' },
+  { value: 'CERRADO',    label: 'Completados' },
+]
+
+const catalogOrders = ref<CatalogOrder[]>([])
+const loadingCatalog = ref(false)
+const activeCatalogFilter = ref('ALL')
+const selectedCatalogOrder = ref<CatalogOrder | null>(null)
+const confirmingCatalogOrder = ref(false)
+
+const filteredCatalogOrders = computed(() =>
+  activeCatalogFilter.value === 'ALL'
+    ? catalogOrders.value
+    : catalogOrders.value.filter(o => o.status === activeCatalogFilter.value)
+)
+
+function countByCatalogStatus(status: string) {
+  return catalogOrders.value.filter(o => o.status === status).length
+}
+
+function catalogStatusAvatarClass(status: CatalogOrder['status']) {
+  const map: Record<CatalogOrder['status'], string> = {
+    PENDIENTE:  'bg-yellow-100 text-yellow-700',
+    VISTO:      'bg-gray-100 text-gray-600',
+    CONTACTADO: 'bg-blue-100 text-blue-700',
+    CERRADO:    'bg-green-100 text-green-700',
+  }
+  return map[status]
+}
+
+async function fetchCatalogOrders() {
+  loadingCatalog.value = true
+  try {
+    const res = await $fetch<{ data: CatalogOrder[] }>(`${apiUrl}/catalog/orders/sent`, {
+      headers: getHeaders(),
+    })
+    catalogOrders.value = res.data
+  } catch {
+    // non-critical
+  } finally {
+    loadingCatalog.value = false
+  }
+}
+
+async function confirmCatalogOrderCompletion() {
+  if (!selectedCatalogOrder.value) return
+  confirmingCatalogOrder.value = true
+  try {
+    await $fetch(`${apiUrl}/catalog/orders/${selectedCatalogOrder.value.id}/confirm-completion`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    })
+    selectedCatalogOrder.value.status = 'CERRADO'
+    const idx = catalogOrders.value.findIndex(o => o.id === selectedCatalogOrder.value!.id)
+    if (idx !== -1) catalogOrders.value[idx].status = 'CERRADO'
+  } finally {
+    confirmingCatalogOrder.value = false
+  }
+}
+
+watch(activeSource, (src) => {
+  if (src === 'catalog' && catalogOrders.value.length === 0) fetchCatalogOrders()
+})
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface OrderItem {

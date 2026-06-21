@@ -214,15 +214,34 @@
             </div>
           </div>
 
-          <!-- Footer — cliente (solo lectura) -->
+          <!-- Footer — cliente: confirmar finalización -->
+          <div v-else-if="!isProvider && req.status === 'CONTACTADO'" class="p-4 border-t border-gray-100 bg-blue-50">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <div class="flex items-start gap-2">
+                <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p class="text-xs text-blue-700">
+                  El proveedor ya se contactó contigo. Cuando recibas el servicio, confirma para poder dejar tu reseña.
+                </p>
+              </div>
+              <button
+                :disabled="confirming"
+                class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex-shrink-0"
+                @click="confirmCompletion"
+              >
+                <CheckCircleIcon class="h-4 w-4" />
+                {{ confirming ? 'Confirmando…' : 'Confirmar recibido' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Footer — cliente (solo lectura, resto de estados) -->
           <div v-else-if="!isProvider" class="p-4 border-t border-gray-100 bg-blue-50">
             <div class="flex items-center gap-2">
               <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0" />
               <p class="text-xs text-blue-700">
                 <template v-if="req.status === 'PENDIENTE'">Tu solicitud está en espera de respuesta del proveedor.</template>
                 <template v-else-if="req.status === 'VISTO'">El proveedor ya vio tu solicitud y pronto se pondrá en contacto.</template>
-                <template v-else-if="req.status === 'CONTACTADO'">El proveedor ya se contactó contigo. Revisa tu teléfono o email.</template>
-                <template v-else>Este servicio fue cerrado/completado.</template>
+                <template v-else>Este servicio fue cerrado/completado. Ya puedes dejar una reseña verificada en el perfil del proveedor.</template>
               </p>
             </div>
           </div>
@@ -375,6 +394,20 @@ async function doStatusChange(status: string) {
     emit('updated', { ...props.req, status: status as ServiceRequest['status'], statusUpdatedAt: new Date().toISOString(), ...updated })
   } catch { /* silently ignore */ } finally {
     updating.value = false
+  }
+}
+
+// Confirmación del cliente: marca la solicitud como CERRADO y habilita su reseña verificada
+const confirming = ref(false)
+
+async function confirmCompletion() {
+  confirming.value = true
+  try {
+    const { patch } = useApi()
+    const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/confirm-completion`, {})
+    emit('updated', { ...props.req, status: 'CERRADO', ...updated })
+  } catch { /* silently ignore */ } finally {
+    confirming.value = false
   }
 }
 

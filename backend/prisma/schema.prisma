@@ -921,6 +921,7 @@ model Review {
 
   @@unique([authorId, targetId])
   @@index([targetId])
+  @@index([targetId, isHidden])
   @@map("reviews")
 }
 

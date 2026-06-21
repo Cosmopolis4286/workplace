@@ -92,4 +92,25 @@ export class CatalogController {
       status
     );
   }
+
+  @Patch('orders/:id/confirm-completion')
+  @UseGuards(JwtAuthGuard)
+  confirmCompletion(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.catalogService.confirmOrderCompletion(id, user.id);
+  }
+
+  @Get('orders/sent')
+  @UseGuards(JwtAuthGuard)
+  getOrdersSent(
+    @CurrentUser() user: any,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.catalogService.getOrdersSentByRequester(user.id, {
+      status,
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 50,
+    });
+  }
 }

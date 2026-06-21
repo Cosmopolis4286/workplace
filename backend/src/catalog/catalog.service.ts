@@ -431,6 +431,36 @@ export class CatalogService {
     };
   }
 
+  // Pedidos enviados por el comprador (vista del lado cliente, no del comercio)
+  async getOrdersSentByRequester(
+    requesterId: string,
+    query?: { status?: string; page?: number; limit?: number }
+  ) {
+    const page = Math.max(1, query?.page ?? 1);
+    const limit = Math.min(100, query?.limit ?? 50);
+    const skip = (page - 1) * limit;
+
+    const where: any = { requesterId };
+    if (query?.status) where.status = query.status;
+
+    const [orders, total] = await Promise.all([
+      this.prisma.catalogOrder.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.catalogOrder.count({ where }),
+    ]);
+    return {
+      data: orders,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
   async updateOrderStatus(
     id: string,
     commerceId: string,
@@ -442,6 +472,23 @@ export class CatalogService {
     const updated = await this.prisma.catalogOrder.update({
       where: { id },
       data: { status },
+    });
+    return { data: updated };
+  }
+
+  // El comprador (requester) confirma que recibió el pedido. Solo desde
+  // CONTACTADO, y habilita la reseña verificada del comercio.
+  async confirmOrderCompletion(id: string, requesterId: string) {
+    const order = await this.prisma.catalogOrder.findUnique({ where: { id } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    if (order.requesterId !== requesterId) throw new ForbiddenException();
+    if (order.status !== 'CONTACTADO')
+      throw new ForbiddenException(
+        'Solo puedes confirmar un pedido que ya fue contactado por el comercio',
+      );
+    const updated = await this.prisma.catalogOrder.update({
+      where: { id },
+      data: { status: 'CERRADO' },
     });
     return { data: updated };
   }
