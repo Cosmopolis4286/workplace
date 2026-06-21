@@ -1696,7 +1696,7 @@ async function handleCreatePost() {
 
 // Reviews
 function openReviewForm() {
-  const own = reviews.value.find(r => r.author.id === currentUser.value?.id)
+  const own = reviews.value.find((r: ProfileReview) => r.author.id === currentUser.value?.id)
   reviewForm.value = own ? { rating: own.rating, comment: own.comment ?? '' } : { rating: 0, comment: '' }
   reviewError.value = ''
   showReviewForm.value = true
