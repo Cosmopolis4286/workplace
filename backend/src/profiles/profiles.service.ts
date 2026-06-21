@@ -6,6 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Role } from '@prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -23,7 +24,10 @@ const SOCIAL_ROLES: Role[] = [
 
 @Injectable()
 export class ProfilesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   // ─── Public profile ───────────────────────────────────────────────────────
 
@@ -701,16 +705,25 @@ export class ProfilesService {
       showCatalog?: boolean;
       showServices?: boolean;
       quickAccessIds?: string[];
+      dashboardQuickActionIds?: string[];
     }
   ) {
     if (dto.quickAccessIds && dto.quickAccessIds.length > 6) {
       throw new BadRequestException('Máximo 6 accesos rápidos');
     }
+    if (dto.dashboardQuickActionIds && dto.dashboardQuickActionIds.length > 6) {
+      throw new BadRequestException('Máximo 6 acciones rápidas');
+    }
     return this.prisma.profileSettings.upsert({
       where: { userId },
       create: { userId, ...dto },
       update: dto,
-      select: { showCatalog: true, showServices: true, quickAccessIds: true },
+      select: {
+        showCatalog: true,
+        showServices: true,
+        quickAccessIds: true,
+        dashboardQuickActionIds: true,
+      },
     });
   }
 

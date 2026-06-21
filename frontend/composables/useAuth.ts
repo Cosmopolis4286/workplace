@@ -32,6 +32,7 @@ interface User {
     showCatalog: boolean
     showServices: boolean
     quickAccessIds: string[]
+    dashboardQuickActionIds: string[]
   } | null
 }
 

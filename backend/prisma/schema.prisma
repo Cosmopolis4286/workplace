@@ -94,6 +94,7 @@ model ProfileSettings {
   showServices Boolean @default(true)
 
   quickAccessIds String[] @default([])
+  dashboardQuickActionIds String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

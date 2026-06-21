@@ -56,6 +56,7 @@ export class ProfilesController {
       showCatalog?: boolean;
       showServices?: boolean;
       quickAccessIds?: string[];
+      dashboardQuickActionIds?: string[];
     }
   ) {
     return this.profilesService.updateProfileSettings(user.id, dto);

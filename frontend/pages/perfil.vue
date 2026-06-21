@@ -531,6 +531,55 @@
           </div>
         </div>
 
+        <!-- Acciones Rápidas (dashboard) -->
+        <div id="acciones-rapidas" class="card-premium p-6">
+          <div class="flex items-center mb-2">
+            <div class="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg mr-3">
+              <CogIcon class="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-gray-900">Acciones Rápidas</h3>
+              <p class="text-sm text-gray-500">Elige hasta {{ MAX_DASHBOARD_QUICK_ACTIONS }} acciones para tu dashboard</p>
+            </div>
+          </div>
+
+          <div v-if="dashboardActionsAvailable.length === 0" class="text-sm text-gray-500 py-4">
+            No tienes acciones disponibles para configurar.
+          </div>
+
+          <div v-else class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <button
+              v-for="action in dashboardActionsAvailable"
+              :key="action.id"
+              type="button"
+              @click="toggleDashboardAction(action.id)"
+              :disabled="!dashboardActionsSelection.includes(action.id) && dashboardActionsSelection.length >= MAX_DASHBOARD_QUICK_ACTIONS"
+              class="relative flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl text-white overflow-hidden transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+              :class="[dashboardGradientClasses[action.color], dashboardActionsSelection.includes(action.id) ? 'ring-2 ring-offset-2 ring-purple-600 scale-[1.02]' : 'hover:scale-[1.02]']"
+            >
+              <svg v-if="dashboardActionsSelection.includes(action.id)" class="absolute top-1.5 right-1.5 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+              </svg>
+              <span class="text-xs font-semibold leading-none">{{ action.name }}</span>
+            </button>
+          </div>
+
+          <div class="mt-5 flex items-center gap-3">
+            <button
+              type="button"
+              @click="saveDashboardActions"
+              :disabled="savingDashboardActions"
+              class="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <span v-if="savingDashboardActions" class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              {{ savingDashboardActions ? 'Guardando...' : 'Guardar Acciones' }}
+            </button>
+            <transition name="fade">
+              <span v-if="dashboardActionsMsg" class="text-sm font-medium text-green-700">{{ dashboardActionsMsg }}</span>
+            </transition>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -554,12 +603,14 @@ import {
   ComputerDesktopIcon,
   XMarkIcon,
   Cog6ToothIcon,
+  CogIcon,
 } from '@heroicons/vue/24/outline'
 import Swal from 'sweetalert2'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useAuth, type Session } from '~/composables/useAuth'
 import { useCamera } from '~/composables/useCamera'
 import { useQuickAccess, MAX_QUICK_ACCESS } from '~/composables/useQuickAccess'
+import { useDashboardQuickActions, MAX_DASHBOARD_QUICK_ACTIONS } from '~/composables/useDashboardQuickActions'
 import { useKyc } from '~/composables/useKyc'
 
 const auth = useAuth()
@@ -611,6 +662,53 @@ async function saveQuickAccess() {
     setTimeout(() => { quickAccessMsg.value = '' }, 2500)
   } catch {
     quickAccessMsg.value = 'No se pudo guardar'
+  }
+}
+
+// ─── Acciones rápidas (dashboard) ──────────────────────────────────────────────
+const dashboardGradientClasses: Record<string, string> = {
+  blue: 'bg-gradient-to-br from-blue-500 to-blue-600',
+  green: 'bg-gradient-to-br from-green-500 to-green-600',
+  purple: 'bg-gradient-to-br from-purple-500 to-purple-600',
+  yellow: 'bg-gradient-to-br from-yellow-500 to-orange-500',
+  red: 'bg-gradient-to-br from-red-500 to-red-600',
+  teal: 'bg-gradient-to-br from-teal-500 to-teal-600',
+  indigo: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+  orange: 'bg-gradient-to-br from-orange-500 to-orange-600',
+}
+const {
+  availableItems: dashboardActionsAvailable,
+  savedIds: dashboardActionsSavedIds,
+  setDashboardQuickActionIds,
+  saving: savingDashboardActions,
+} = useDashboardQuickActions()
+const dashboardActionsSelection = ref<string[]>([])
+const dashboardActionsMsg = ref('')
+
+watch(dashboardActionsSavedIds, (ids) => {
+  dashboardActionsSelection.value = ids.length > 0
+    ? [...ids]
+    : dashboardActionsAvailable.value.slice(0, MAX_DASHBOARD_QUICK_ACTIONS).map(a => a.id)
+}, { immediate: true })
+
+function toggleDashboardAction(id: string) {
+  const idx = dashboardActionsSelection.value.indexOf(id)
+  if (idx !== -1) {
+    dashboardActionsSelection.value.splice(idx, 1)
+  } else {
+    if (dashboardActionsSelection.value.length >= MAX_DASHBOARD_QUICK_ACTIONS) return
+    dashboardActionsSelection.value.push(id)
+  }
+}
+
+async function saveDashboardActions() {
+  dashboardActionsMsg.value = ''
+  try {
+    await setDashboardQuickActionIds(dashboardActionsSelection.value)
+    dashboardActionsMsg.value = 'Acciones rápidas actualizadas'
+    setTimeout(() => { dashboardActionsMsg.value = '' }, 2500)
+  } catch {
+    dashboardActionsMsg.value = 'No se pudo guardar'
   }
 }
 
@@ -1008,9 +1106,10 @@ onMounted(async () => {
   syncFormFromUser()
   await Promise.all([fetchCategories(), fetchSubcategories(), fetchSessions()])
 
-  if (useRoute().query.tab === 'accesos-rapidos') {
+  const targetTab = useRoute().query.tab
+  if (targetTab === 'accesos-rapidos' || targetTab === 'acciones-rapidas') {
     nextTick(() => {
-      document.getElementById('accesos-rapidos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      document.getElementById(targetTab as string)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
 })

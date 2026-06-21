@@ -7,6 +7,7 @@ import {
   type WidgetConfig,
   type QuickActionConfig,
 } from '~/config/dashboard.config'
+import { useDashboardQuickActions } from '~/composables/useDashboardQuickActions'
 
 export interface DashboardWidget extends WidgetConfig {
   visible: boolean
@@ -18,6 +19,7 @@ export interface DashboardAction extends QuickActionConfig {
 
 export const useDashboardWidgets = () => {
   const { user } = useAuth()
+  const { selectedItems: selectedQuickActions } = useDashboardQuickActions()
 
   const userRole = computed<UserRole | null>(() => user.value?.role || null)
 
@@ -39,10 +41,8 @@ export const useDashboardWidgets = () => {
     return QUICK_ACTIONS.filter(action => action.roles.includes(role))
   })
 
-  // Solo las acciones destacadas (primeras 6)
-  const quickActions = computed<QuickActionConfig[]>(() => {
-    return availableActions.value.slice(0, 6)
-  })
+  // Acciones elegidas por el usuario (o las primeras 6 si no ha configurado nada)
+  const quickActions = computed<QuickActionConfig[]>(() => selectedQuickActions.value)
 
   // Configuración del hero según rol
   const heroConfig = computed(() => {
