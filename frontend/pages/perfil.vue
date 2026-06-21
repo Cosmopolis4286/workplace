@@ -74,6 +74,14 @@
             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold" :class="roleStyle.badge">
               {{ roleStyle.label }}
             </span>
+            <NuxtLink
+              to="/verificacion"
+              class="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition-colors"
+              :class="kycBadge.class"
+            >
+              <component :is="kycBadge.icon" class="h-3.5 w-3.5" />
+              {{ kycBadge.label }}
+            </NuxtLink>
             <div v-if="auth.user.value?.username && (isCommerce || auth.user.value?.role === 'FREELANCER')" class="mt-3">
               <NuxtLink
                 :to="`/p/${auth.user.value.username}`"
@@ -536,7 +544,10 @@ import {
   UserCircleIcon,
   LockClosedIcon,
   CheckCircleIcon,
+  CheckBadgeIcon,
   ExclamationCircleIcon,
+  ClockIcon,
+  ShieldExclamationIcon,
   EyeIcon,
   EyeSlashIcon,
   CameraIcon,
@@ -549,11 +560,26 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import { useAuth, type Session } from '~/composables/useAuth'
 import { useCamera } from '~/composables/useCamera'
 import { useQuickAccess, MAX_QUICK_ACCESS } from '~/composables/useQuickAccess'
+import { useKyc } from '~/composables/useKyc'
 
 const auth = useAuth()
 const { checkUsername } = auth
 const { takePhoto } = useCamera()
 const { can } = usePermissions()
+
+// ─── Estado de verificación de identidad (KYC) ────────────────────────────────
+const { myStatus: kycMyStatus, fetchMyStatus: fetchKycStatus } = useKyc()
+onMounted(() => { fetchKycStatus() })
+
+const kycBadge = computed(() => {
+  const status = kycMyStatus.value?.kycStatus ?? 'NONE'
+  return ({
+    NONE: { label: 'Identidad sin verificar', icon: ShieldExclamationIcon, class: 'bg-gray-100 text-gray-500 hover:bg-gray-200' },
+    PENDING: { label: 'Verificación en revisión', icon: ClockIcon, class: 'bg-amber-100 text-amber-700 hover:bg-amber-200' },
+    APPROVED: { label: 'Identidad verificada', icon: CheckBadgeIcon, class: 'bg-green-100 text-green-700 hover:bg-green-200' },
+    REJECTED: { label: 'Verificación rechazada', icon: ExclamationCircleIcon, class: 'bg-red-100 text-red-600 hover:bg-red-200' },
+  })[status]
+})
 const canSeeSettings = computed(() => can('settings:view'))
 
 // ─── Accesos rápidos ────────────────────────────────────────────────────────
