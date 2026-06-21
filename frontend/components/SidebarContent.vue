@@ -136,6 +136,13 @@
             </svg>
           </template>
         </NavLink>
+        <NavLink v-if="['SUPERADMIN', 'ADMIN'].includes(role)" to="/kyc-admin" label="Verificaciones KYC" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+          <template #icon>
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </template>
+        </NavLink>
         <NavLink v-if="can('audit:view')" to="/auditoria" label="Auditoría" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
           <template #icon><component :is="NAV_ICONS.orders" class="h-5 w-5" /></template>
         </NavLink>
@@ -161,6 +168,13 @@
       </template>
       <NavLink to="/perfil" label="Mi Perfil" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.customers" class="h-5 w-5" /></template>
+      </NavLink>
+      <NavLink to="/verificacion" label="Verificación de Identidad" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+        <template #icon>
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </template>
       </NavLink>
       <NavLink v-if="navReady && can('settings:view')" to="/configuracion" label="Configuración" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.ops_group" class="h-5 w-5" /></template>
