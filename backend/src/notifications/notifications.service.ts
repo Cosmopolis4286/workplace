@@ -172,6 +172,54 @@ export class NotificationsService {
     });
   }
 
+  async notifyNewReview(
+    targetUserId: string,
+    authorName: string,
+    rating: number,
+    targetUsername?: string
+  ) {
+    return this.createForUser(targetUserId, {
+      type: NotificationType.REVIEW,
+      title: '⭐ Nueva reseña recibida',
+      message: `${authorName} te dejó una reseña de ${rating}★`,
+      link: targetUsername ? `/p/${targetUsername}` : undefined,
+      metadata: { authorName, rating },
+    });
+  }
+
+  async notifyReviewResponse(
+    authorUserId: string,
+    targetName: string,
+    targetUsername?: string
+  ) {
+    return this.createForUser(authorUserId, {
+      type: NotificationType.REVIEW,
+      title: '💬 Respondieron tu reseña',
+      message: `${targetName} respondió a la reseña que dejaste`,
+      link: targetUsername ? `/p/${targetUsername}` : undefined,
+      metadata: { targetName },
+    });
+  }
+
+  // Avisa a todo el equipo de moderación (SUPERADMIN/ADMIN) de un nuevo reporte
+  async notifyReviewReported(reason: string) {
+    const moderators = await this.prisma.user.findMany({
+      where: { role: { in: ['SUPERADMIN', 'ADMIN'] } },
+      select: { id: true },
+    });
+    await Promise.all(
+      moderators.map((m) =>
+        this.createForUser(m.id, {
+          type: NotificationType.REVIEW,
+          title: '🚩 Reseña reportada',
+          message: `Motivo: ${reason}`,
+          link: '/landing-admin',
+          metadata: { reason },
+        }).catch(() => {})
+      )
+    );
+  }
+
   // ── REST handlers ─────────────────────────────────────────────────────────
   private scopeWhere(scope: { commerceId?: string; userId?: string }) {
     return scope.commerceId
@@ -282,6 +330,7 @@ export class NotificationsService {
       INVENTORY: 'ExclamationTriangleIcon',
       APPOINTMENT: 'CalendarIcon',
       EXPENSE: 'BanknotesIcon',
+      REVIEW: 'StarIcon',
       SYSTEM: 'BellIcon',
     };
     return map[type] ?? 'BellIcon';
@@ -294,6 +343,7 @@ export class NotificationsService {
       INVENTORY: 'yellow',
       APPOINTMENT: 'purple',
       EXPENSE: 'red',
+      REVIEW: 'amber',
       SYSTEM: 'gray',
     };
     return map[type] ?? 'gray';

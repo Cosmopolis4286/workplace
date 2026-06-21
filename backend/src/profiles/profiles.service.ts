@@ -388,7 +388,7 @@ export class ProfilesService {
       });
     }
 
-    return this.prisma.review.create({
+    const review = await this.prisma.review.create({
       data: {
         authorId,
         targetId: dto.targetId,
@@ -409,6 +409,17 @@ export class ProfilesService {
         },
       },
     });
+
+    this.notifications
+      .notifyNewReview(
+        dto.targetId,
+        `${review.author.firstName} ${review.author.lastName}`,
+        dto.rating,
+        target.username ?? undefined,
+      )
+      .catch(() => {});
+
+    return review;
   }
 
   // Busca una transacción real completada entre author → target: una
@@ -470,7 +481,7 @@ export class ProfilesService {
     if (review.targetId !== targetUserId)
       throw new ForbiddenException('No puedes responder a esta reseña');
 
-    return this.prisma.review.update({
+    const updated = await this.prisma.review.update({
       where: { id: reviewId },
       data: { response: dto.response, respondedAt: new Date() },
       include: {
@@ -483,8 +494,19 @@ export class ProfilesService {
             avatar: true,
           },
         },
+        target: { select: { firstName: true, lastName: true, username: true } },
       },
     });
+
+    this.notifications
+      .notifyReviewResponse(
+        review.authorId,
+        `${updated.target.firstName} ${updated.target.lastName}`,
+        updated.target.username ?? undefined,
+      )
+      .catch(() => {});
+
+    return updated;
   }
 
   async deleteReviewResponse(targetUserId: string, reviewId: string) {

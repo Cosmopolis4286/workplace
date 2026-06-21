@@ -544,6 +544,7 @@ enum NotificationType {
   INVENTORY
   APPOINTMENT
   EXPENSE
+  REVIEW
   SYSTEM
 }
 
