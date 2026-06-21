@@ -29,9 +29,8 @@ import { ReportReviewDto } from './dto/report-review.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 
 @Controller('profiles')
 export class ProfilesController {
@@ -311,18 +310,18 @@ export class ProfilesController {
     return this.profilesService.reportReview(user.id, id, dto);
   }
 
-  // ─── Reviews — moderación (SUPERADMIN/ADMIN) ───────────────────────────────
+  // ─── Reviews — moderación (permiso reviews:moderate) ───────────────────────
 
   @Get('admin/reviews/reported')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('reviews:moderate')
   listReportedReviews() {
     return this.profilesService.listReportedReviews();
   }
 
   @Patch('admin/reviews/:id/moderate')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('reviews:moderate')
   moderateReview(
     @Param('id') id: string,
     @Body('action') action: 'HIDE' | 'RESTORE' | 'DISMISS_REPORTS'

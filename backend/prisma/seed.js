@@ -150,6 +150,7 @@ const PERMISSIONS = [
   { key: 'wallets:manage',           module: 'wallets',        action: 'manage',        label: 'Gestionar Billeteras (Admin)',  isSystem: true },
   { key: 'search_tabs:view',         module: 'search_tabs',    action: 'view',          label: 'Ver Tabs de Búsqueda',         isSystem: true },
   { key: 'search_tabs:manage',       module: 'search_tabs',    action: 'manage',        label: 'Gestionar Tabs de Búsqueda',   isSystem: true },
+  { key: 'reviews:moderate',         module: 'reviews',        action: 'moderate',      label: 'Moderar Reseñas Reportadas',   isSystem: true },
 ]
 
 const COMMERCE_KEYS = [
@@ -196,6 +197,7 @@ const ROLE_DEFAULTS = {
     'subcategories_global:delete',
     'wallets:use', 'wallets:manage',
     'search_tabs:view', 'search_tabs:manage',
+    'reviews:moderate',
   ],
   COMMERCE: COMMERCE_KEYS,
   FREELANCER: [
