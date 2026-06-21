@@ -3,6 +3,15 @@ import * as nodemailer from 'nodemailer';
 import * as fs from 'fs';
 import * as path from 'path';
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -162,7 +171,7 @@ export class MailService {
               isApproved
                 ? `<p>¡Buenas noticias! Tu identidad ha sido <strong>verificada</strong> exitosamente. Ya puedes realizar retiros y transferencias sin restricciones.</p>`
                 : `<p>No pudimos verificar tu identidad con los documentos enviados.</p>
-                   ${rejectionReason ? `<p style="color:#dc2626"><strong>Motivo:</strong> ${rejectionReason}</p>` : ''}
+                   ${rejectionReason ? `<p style="color:#dc2626"><strong>Motivo:</strong> ${escapeHtml(rejectionReason)}</p>` : ''}
                    <p>Puedes volver a intentarlo desde tu perfil con documentos más claros.</p>`
             }
           </div>

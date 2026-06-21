@@ -632,6 +632,7 @@ model IdentityVerification {
 
   @@index([userId])
   @@index([status])
+  @@index([status, createdAt])
   @@index([createdAt(sort: Desc)])
   @@map("identity_verifications")
 }

@@ -28,13 +28,15 @@ import { KycService } from './kyc.service';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { ReviewVerificationDto } from './dto/review-verification.dto';
 
-const KYC_UPLOADS_DIR = join(process.cwd(), 'uploads', 'kyc');
+// Fuera del árbol "uploads/" (montado públicamente por ServeStaticModule en
+// app.module.ts) para que estas imágenes NUNCA sean accesibles sin pasar por
+// el endpoint autenticado de abajo, sin depender de un patrón "exclude".
+const KYC_UPLOADS_DIR = join(process.cwd(), 'private-uploads', 'kyc');
 
 const kycImageStorage = diskStorage({
   destination: (_req, _file, cb) => {
-    const uploadPath = join(process.cwd(), 'uploads', 'kyc');
-    if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
+    if (!existsSync(KYC_UPLOADS_DIR)) mkdirSync(KYC_UPLOADS_DIR, { recursive: true });
+    cb(null, KYC_UPLOADS_DIR);
   },
   filename: (_req, file, cb) => {
     const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -82,10 +84,12 @@ export class KycController {
     if (!frontImage) throw new BadRequestException('Falta la foto frontal del documento');
     if (!selfieImage) throw new BadRequestException('Falta la selfie de verificación');
 
+    // No son URLs públicas reales — solo se guarda el nombre de archivo bajo un
+    // prefijo identificable; resolveImageFilename() solo usa la última parte.
     return this.kycService.submit(user.id, dto, {
-      frontImageUrl: `/uploads/kyc/${frontImage.filename}`,
-      backImageUrl: files?.backImage?.[0] ? `/uploads/kyc/${files.backImage[0].filename}` : undefined,
-      selfieImageUrl: `/uploads/kyc/${selfieImage.filename}`,
+      frontImageUrl: `private-kyc/${frontImage.filename}`,
+      backImageUrl: files?.backImage?.[0] ? `private-kyc/${files.backImage[0].filename}` : undefined,
+      selfieImageUrl: `private-kyc/${selfieImage.filename}`,
     });
   }
 
@@ -114,8 +118,8 @@ export class KycController {
 
   @Get('admin/:id')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  findOne(@Param('id') id: string) {
-    return this.kycService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.kycService.findOne(id, user.role);
   }
 
   @Patch('admin/:id/review')

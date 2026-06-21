@@ -61,10 +61,6 @@ import { LandingModule } from './landing/landing.module';
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
-      // Las imágenes de KYC (documento de identidad + selfie) son PII sensible:
-      // se excluyen del static serving público y se sirven vía un endpoint
-      // autenticado (ver KycController) que solo el dueño o un admin puede usar.
-      exclude: ['/uploads/kyc/(.*)'],
     }),
     PrismaModule,
     RedisModule,

@@ -126,7 +126,10 @@ export class KycService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, requesterRole: Role) {
+    if (requesterRole !== Role.SUPERADMIN && requesterRole !== Role.ADMIN) {
+      throw new ForbiddenException('No tienes permiso para ver esta solicitud');
+    }
     const verification = await this.prisma.identityVerification.findUnique({
       where: { id },
       include: {
