@@ -35,12 +35,31 @@ async function bootstrap() {
   // Nunca reflejar origin:true con credentials:true — siempre validar contra
   // una whitelist explícita, incluso en desarrollo, para evitar exponer
   // cookies httpOnly a cualquier origen si APP_ENV queda mal configurado.
-  const allowedOrigins = [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'https://localhost',
-  ];
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const allowedOrigins = [frontendUrl, 'https://localhost'];
+
+  // En desarrollo, el frontend (pnpm dev) corre en el host y puede probarse
+  // desde otros dispositivos en la misma red (p.ej. http://192.168.x.x:3000).
+  // Esa IP no se conoce de antemano, así que en dev (nunca en producción)
+  // aceptamos cualquier IP privada que use el mismo puerto que FRONTEND_URL.
+  const isDev = process.env.APP_ENV === 'development';
+  const frontendPort = new URL(frontendUrl).port;
+  const isPrivateLan = (origin: string): boolean => {
+    try {
+      const { hostname, port } = new URL(origin);
+      if (port !== frontendPort) return false;
+      return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(hostname);
+    } catch {
+      return false;
+    }
+  };
+
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      if (isDev && isPrivateLan(origin)) return callback(null, true);
+      callback(new Error('Not allowed by CORS'), false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
