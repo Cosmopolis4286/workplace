@@ -531,9 +531,13 @@ export class ProfilesService {
     if (review.authorId === reporterId)
       throw new BadRequestException('No puedes reportar tu propia reseña');
 
-    return this.prisma.reviewReport.create({
+    const report = await this.prisma.reviewReport.create({
       data: { reviewId, reporterId, reason: dto.reason },
     });
+
+    this.notifications.notifyReviewReported(dto.reason).catch(() => {});
+
+    return report;
   }
 
   // ─── Moderación (SUPERADMIN/ADMIN) ────────────────────────────────────────
