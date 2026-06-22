@@ -370,6 +370,32 @@ export class WalletsService {
     return result;
   }
 
+  // Débito de comisión de plataforma, iniciado por el sistema (no por el
+  // usuario): no requiere PIN ni valida saldo suficiente, porque es una
+  // obligación de la transacción completada, no una operación voluntaria.
+  // Autocrea el wallet si el proveedor/comercio/conductor aún no tiene uno.
+  async chargePlatformFee(userId: string, amount: number, reference: string, metadata: Record<string, unknown>) {
+    this.assertPositiveAmount(amount);
+    const wallet = await this.ensureWalletForUser(userId);
+    const newBalance = wallet.balance - amount;
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.wallet.update({ where: { id: wallet.id }, data: { balance: newBalance } });
+      const transaction = await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id, userId,
+          type: WalletTransactionType.DEBIT,
+          status: WalletTransactionStatus.COMPLETED,
+          amount, balanceAfter: newBalance,
+          description: 'Comisión de plataforma',
+          reference,
+          metadata: metadata as any,
+        },
+      });
+      return { wallet: updated, transaction };
+    });
+  }
+
   async adjust(targetUserId: string, actorId: string, actorRole: Role, dto: AdjustDto) {
     this.assertAdmin(actorRole);
     const { wallet } = await this.getActiveWallet(targetUserId);

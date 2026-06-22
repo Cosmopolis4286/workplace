@@ -107,6 +107,48 @@ export class NotificationsService {
     });
   }
 
+  async notifyServiceRequestCancelled(
+    providerId: string,
+    clientName: string,
+    serviceName: string,
+  ) {
+    return this.createForUser(providerId, {
+      type: NotificationType.ORDER,
+      title: '🚫 Solicitud cancelada',
+      message: `${clientName} canceló su solicitud de "${serviceName}"`,
+      link: '/solicitudes-servicio',
+      metadata: { clientName, serviceName },
+    });
+  }
+
+  async notifyServiceRequestNoResponse(
+    clientId: string,
+    providerName: string,
+    serviceName: string,
+  ) {
+    return this.createForUser(clientId, {
+      type: NotificationType.ORDER,
+      title: '⏳ Sin respuesta aún',
+      message: `${providerName} no ha respondido tu solicitud de "${serviceName}". Puedes seguir esperando o buscar otro proveedor.`,
+      link: '/solicitudes-servicio',
+      metadata: { providerName, serviceName },
+    });
+  }
+
+  async notifyReviewReminder(
+    clientId: string,
+    providerName: string,
+    providerUsername?: string | null,
+  ) {
+    return this.createForUser(clientId, {
+      type: NotificationType.REVIEW,
+      title: '⭐ ¿Cómo te fue?',
+      message: `Tu trato con ${providerName} fue cerrado. Cuéntale a otros cómo te fue dejando una reseña.`,
+      link: providerUsername ? `/p/${providerUsername}?review=1` : undefined,
+      metadata: { providerName },
+    });
+  }
+
   async notifyProposedCategoryReviewed(
     proposerId: string,
     categoryName: string,
@@ -219,6 +261,25 @@ export class NotificationsService {
       color: 'yellow',
       link: '/menu',
       metadata: { productName, stock },
+    });
+  }
+
+  async notifyPlatformFeeCharged(
+    userId: string,
+    type: 'ORDER' | 'SERVICE_REQUEST' | 'CORRIDA',
+    feeAmount: number
+  ) {
+    const labels: Record<string, string> = {
+      ORDER: 'pedido',
+      SERVICE_REQUEST: 'servicio',
+      CORRIDA: 'viaje',
+    };
+    return this.createForUser(userId, {
+      type: NotificationType.SYSTEM,
+      title: '💸 Comisión de plataforma cobrada',
+      message: `Se descontó una comisión de $${feeAmount.toFixed(2)} de tu billetera por un ${labels[type] ?? 'transacción'} completado`,
+      link: '/billetera',
+      metadata: { feeType: type, feeAmount },
     });
   }
 

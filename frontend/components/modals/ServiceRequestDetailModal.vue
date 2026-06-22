@@ -63,6 +63,23 @@
                 </div>
               </div>
 
+              <!-- Comisión de plataforma (solo visible al proveedor, payer=PROVIDER) -->
+              <div v-if="isProvider && req.platformFeePayer === 'PROVIDER' && req.platformFeeAmount" class="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-1.5">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-amber-700 font-semibold">Precio acordado</span>
+                  <span class="text-gray-700 font-medium">${{ formatPrice(req.price ?? 0) }}</span>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-amber-700 font-semibold">Comisión de plataforma ({{ req.platformFeeRate }}%)</span>
+                  <span class="text-red-600 font-medium">-${{ formatPrice(req.platformFeeAmount) }}</span>
+                </div>
+                <div class="h-px bg-amber-200" />
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-amber-800 font-bold">Recibirás</span>
+                  <span class="text-amber-800 font-bold">${{ formatPrice((req.price ?? 0) - req.platformFeeAmount) }}</span>
+                </div>
+              </div>
+
               <!-- Ubicación (presencial) -->
               <div v-if="req.address" class="flex items-start gap-3 bg-gray-50 rounded-xl p-4">
                 <MapPinIcon class="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
@@ -192,6 +209,17 @@
                   </template>
 
                   <template v-else>
+                    <div class="flex flex-wrap gap-1.5 mb-2">
+                      <button
+                        v-for="tpl in QUICK_REPLY_TEMPLATES"
+                        :key="tpl"
+                        type="button"
+                        class="text-[11px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        @click="applyQuickReply(tpl)"
+                      >
+                        {{ tpl }}
+                      </button>
+                    </div>
                     <textarea
                       v-model="notesInput"
                       rows="4"
@@ -211,6 +239,15 @@
                             class="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                           />
                         </div>
+                        <button
+                          v-if="req.suggestedPrice != null && !priceInput"
+                          type="button"
+                          class="mt-1 flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium"
+                          @click="useSuggestedPrice"
+                        >
+                          <SparklesIcon class="h-3 w-3" />
+                          Sugerido: ${{ formatPrice(req.suggestedPrice) }} (prom. {{ req.suggestedPriceBasedOn }} trato{{ req.suggestedPriceBasedOn === 1 ? '' : 's' }})
+                        </button>
                       </div>
                       <div>
                         <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Unidad (opcional)</label>
@@ -283,20 +320,39 @@
             </div>
           </div>
 
-          <!-- Footer — cliente (solo lectura, resto de estados) -->
+          <!-- Footer — cliente (solo lectura / cancelar, PENDIENTE/VISTO/CANCELADO) -->
           <div v-else-if="!isProvider" class="p-4 border-t border-gray-100 bg-blue-50">
-            <div class="flex items-center gap-2">
-              <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0" />
-              <p class="text-xs text-blue-700">
-                <template v-if="req.status === 'PENDIENTE'">Tu solicitud está en espera de respuesta del proveedor.</template>
-                <template v-else-if="req.status === 'VISTO'">El proveedor ya vio tu solicitud y pronto se pondrá en contacto.</template>
-                <template v-else>Este servicio fue cerrado/completado. Ya puedes dejar una reseña verificada en el perfil del proveedor.</template>
-              </p>
+            <div v-if="confirmingCancel" class="space-y-2">
+              <p class="text-xs text-gray-700 font-medium">¿Seguro? Esta acción no se puede deshacer.</p>
+              <div class="flex justify-end gap-2">
+                <button class="btn-secondary text-xs py-1.5 px-3" :disabled="cancelling" @click="confirmingCancel = false">No</button>
+                <button class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50" :disabled="cancelling" @click="cancelRequest">
+                  {{ cancelling ? 'Cancelando…' : 'Sí, cancelar' }}
+                </button>
+              </div>
+            </div>
+            <div v-else class="flex items-center justify-between gap-3 flex-wrap">
+              <div class="flex items-start gap-2">
+                <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p class="text-xs text-blue-700">
+                  <template v-if="req.status === 'PENDIENTE'">Tu solicitud está en espera de respuesta del proveedor.</template>
+                  <template v-else-if="req.status === 'VISTO'">El proveedor ya vio tu solicitud y pronto se pondrá en contacto.</template>
+                  <template v-else-if="req.status === 'CANCELADO'">Cancelaste esta solicitud.</template>
+                  <template v-else>Este servicio fue cerrado/completado. Ya puedes dejar una reseña verificada en el perfil del proveedor.</template>
+                </p>
+              </div>
+              <button
+                v-if="canCancel"
+                class="text-xs font-semibold text-gray-500 hover:text-red-600 flex-shrink-0"
+                @click="confirmingCancel = true"
+              >
+                Cancelar solicitud
+              </button>
             </div>
           </div>
 
           <!-- Reportar problema (cliente) -->
-          <div v-if="!isProvider" class="px-4 pb-3 text-center">
+          <div v-if="!isProvider && req.status !== 'CANCELADO'" class="px-4 pb-3 text-center">
             <button class="text-xs text-gray-400 hover:text-red-500 font-medium" @click="showReportModal = true">
               ¿Tuviste un problema con esta solicitud? Reportarlo
             </button>
@@ -326,6 +382,8 @@ import {
   PhoneArrowUpRightIcon,
   CheckCircleIcon,
   InformationCircleIcon,
+  XCircleIcon,
+  SparklesIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useExchangeRates } from '~/composables/useExchangeRates'
@@ -354,10 +412,15 @@ interface ServiceRequest {
   price?: number
   priceUnit?: string
   providerNotes?: string
-  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
+  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO' | 'CANCELADO'
   createdAt: string
   statusUpdatedAt?: string
   items?: ServiceRequestItem[]
+  suggestedPrice?: number | null
+  suggestedPriceBasedOn?: number
+  platformFeeRate?: number | null
+  platformFeeAmount?: number | null
+  platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
 }
 
 const props = defineProps<{ show: boolean; req: ServiceRequest; isProvider: boolean }>()
@@ -372,17 +435,25 @@ function mediaUrl(path: string) {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Cerrado',
+  PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Cerrado', CANCELADO: 'Cancelado',
 }
 const STATUS_CLASSES: Record<string, string> = {
   PENDIENTE: 'bg-yellow-100 text-yellow-800',
   VISTO: 'bg-gray-100 text-gray-600',
   CONTACTADO: 'bg-blue-100 text-blue-700',
   CERRADO: 'bg-green-100 text-green-700',
+  CANCELADO: 'bg-gray-100 text-gray-500',
 }
 const STATUS_ICONS: Record<string, any> = {
-  PENDIENTE: ClockIcon, VISTO: EyeIcon, CONTACTADO: PhoneArrowUpRightIcon, CERRADO: CheckCircleIcon,
+  PENDIENTE: ClockIcon, VISTO: EyeIcon, CONTACTADO: PhoneArrowUpRightIcon, CERRADO: CheckCircleIcon, CANCELADO: XCircleIcon,
 }
+
+const QUICK_REPLY_TEMPLATES = [
+  'Te contacto en breve',
+  'No disponible esta fecha, ¿flexibilidad?',
+  'Confirmado, llevo todo lo necesario',
+  'Necesito más información del trabajo',
+]
 const MODALITY_LABELS: Record<string, string> = {
   PRESENCIAL: '📍 Presencial', REMOTO: '💻 Remoto', CUALQUIERA: '🤝 Cualquiera',
 }
@@ -491,6 +562,33 @@ async function confirmCompletion() {
   } catch { /* silently ignore */ } finally {
     confirming.value = false
   }
+}
+
+// Cancelación del cliente: solo disponible en PENDIENTE/VISTO, con confirmación inline
+const canCancel = computed(() => !props.isProvider && ['PENDIENTE', 'VISTO'].includes(props.req.status))
+const confirmingCancel = ref(false)
+const cancelling = ref(false)
+
+async function cancelRequest() {
+  cancelling.value = true
+  try {
+    const { patch } = useApi()
+    const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/cancel`, {})
+    emit('updated', { ...props.req, ...updated, status: 'CANCELADO' })
+    confirmingCancel.value = false
+  } catch { /* silently ignore */ } finally {
+    cancelling.value = false
+  }
+}
+
+// Plantillas de respuesta rápida (proveedor): rellenan el textarea de observaciones
+function applyQuickReply(template: string) {
+  notesInput.value = template
+}
+
+// Precio sugerido: solo lo usa el proveedor cuando aún no fijó un precio
+function useSuggestedPrice() {
+  if (props.req.suggestedPrice != null) priceInput.value = props.req.suggestedPrice
 }
 
 function formatDate(d: string) {

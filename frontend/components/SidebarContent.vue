@@ -162,6 +162,9 @@
         <NavLink v-if="can('exchange_rates:view')" to="/tasas-cambio" label="Tasas de Cambio" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
           <template #icon><component :is="NAV_ICONS.analytics" class="h-5 w-5" /></template>
         </NavLink>
+        <NavLink v-if="can('platform_fees:view')" to="/comisiones" label="Comisiones" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+          <template #icon><component :is="NAV_ICONS.sales" class="h-5 w-5" /></template>
+        </NavLink>
       </template>
 
       <!-- Configuración -->
@@ -304,7 +307,7 @@ const navReady = computed(() => {
 // Sección Administración visible si el usuario tiene al menos un permiso admin
 const ADMIN_PERMISSIONS = [
   'users:view', 'categories_global:view', 'permissions:manage',
-  'audit:view', 'logs:view', 'plans:view', 'exchange_rates:view',
+  'audit:view', 'logs:view', 'plans:view', 'exchange_rates:view', 'platform_fees:view',
 ]
 const hasAdminItems = computed(() => navReady.value && ADMIN_PERMISSIONS.some(p => can(p)))
 

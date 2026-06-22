@@ -126,6 +126,18 @@
                 </div>
               </div>
 
+              <!-- Comisión de plataforma (solo si la paga el comercio) -->
+              <div v-if="order.platformFeePayer === 'PROVIDER' && order.platformFeeAmount" class="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3 space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-amber-700 font-semibold">Comisión de plataforma ({{ order.platformFeeRate }}%)</span>
+                  <span class="text-red-600 font-medium">-{{ formatCurrency(order.platformFeeAmount) }}</span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-amber-800 font-bold">Recibirás</span>
+                  <span class="text-amber-800 font-bold">{{ formatCurrency(order.total - order.platformFeeAmount) }}</span>
+                </div>
+              </div>
+
               <!-- Payment status badge -->
               <div class="mt-3 flex items-center gap-2">
                 <span

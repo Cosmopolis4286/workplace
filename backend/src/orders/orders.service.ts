@@ -11,6 +11,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { OrderStatus } from '@prisma/client';
 import { PlanLimitsService } from '../plans/plan-limits.service';
+import { PlatformFeesService } from '../platform-fees/platform-fees.service';
 
 // Valid status transitions for business logic enforcement
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -30,6 +31,7 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
     private readonly planLimits: PlanLimitsService,
     private readonly telegram: TelegramService,
+    private readonly platformFees: PlatformFeesService,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -176,8 +178,15 @@ export class OrdersService {
     const tax = Math.round(subtotal * (taxRate / 100) * 100) / 100;
     const deliveryFee = dto.deliveryFee ?? 0;
     const discount = dto.discount ?? 0;
+
+    const feeConfig = await this.platformFees.resolveFeeConfig('ORDER', userId);
+    let platformFeeAmount = 0;
+    if (feeConfig?.payer === 'CLIENT') {
+      platformFeeAmount = this.platformFees.calculateFee(subtotal, feeConfig).feeAmount;
+    }
+
     const total =
-      Math.round((subtotal + tax + deliveryFee - discount) * 100) / 100;
+      Math.round((subtotal + tax + deliveryFee - discount + platformFeeAmount) * 100) / 100;
 
     // Generate order number
     const count = await this.prisma.order.count({ where: { commerceId } });
@@ -201,6 +210,9 @@ export class OrdersService {
         deliveryFee,
         discount,
         total,
+        platformFeeRate: feeConfig?.payer === 'CLIENT' ? feeConfig.rate : undefined,
+        platformFeeAmount: feeConfig?.payer === 'CLIENT' ? platformFeeAmount : undefined,
+        platformFeePayer: feeConfig?.payer === 'CLIENT' ? 'CLIENT' : undefined,
         items: {
           create: dto.items.map((item) => ({
             productId: item.productId,
@@ -268,6 +280,29 @@ export class OrdersService {
           where: { id: existing.customerId },
           data: { totalSpent: { increment: existing.total } },
         });
+      }
+
+      // Comisión de plataforma a cargo del comercio, si aplica
+      if (!existing.platformFeePayer) {
+        const restaurant = await this.prisma.restaurant.findUnique({
+          where: { id: commerceId },
+          select: { userId: true },
+        });
+        const feeConfig = restaurant
+          ? await this.platformFees.resolveFeeConfig('ORDER', restaurant.userId)
+          : null;
+        if (feeConfig?.payer === 'PROVIDER' && restaurant) {
+          const { feeAmount } = this.platformFees.calculateFee(existing.total, feeConfig);
+          await this.platformFees.chargeProviderFee(
+            restaurant.userId,
+            feeAmount,
+            `FEE-ORDER-${id}`,
+            { orderId: id },
+          );
+          data.platformFeeRate = feeConfig.rate;
+          data.platformFeeAmount = feeAmount;
+          data.platformFeePayer = 'PROVIDER';
+        }
       }
     }
     if (dto.status === 'CANCELADO') {

@@ -38,6 +38,7 @@ export class UsersController {
     @Query('role') roleFilter?: Role,
     @Query('categoryId') categoryId?: string,
     @Query('subcategoryId') subcategoryId?: string,
+    @Query('search') search?: string,
     @Query('page') page = '1',
     @Query('limit') limit = '20'
   ) {
@@ -58,6 +59,7 @@ export class UsersController {
       allowedRoles,
       categoryId,
       subcategoryId,
+      search,
       page: parseInt(page),
       limit: parseInt(limit),
     });

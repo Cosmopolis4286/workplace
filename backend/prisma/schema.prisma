@@ -60,6 +60,7 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   subscriptions           Subscription[]
+  feeOverrides            PlatformFeeOverride[]
   posts                   Post[]
   postLikes               PostLike[]               @relation("PostLikes")
   postComments            PostComment[]            @relation("PostComments")
@@ -143,8 +144,8 @@ model Restaurant {
   state   String?
   city    String?
 
-  userId            String              @unique
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String                 @unique
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   categories        Category[]
   products          Product[]
   customers         Customer[]
@@ -511,33 +512,36 @@ enum PaymentStatus {
 }
 
 model Order {
-  id              String        @id @default(uuid())
-  orderNumber     String        @unique
-  customerName    String
-  customerPhone   String?
-  customerEmail   String?
-  deliveryAddress String?
-  notes           String?
-  status          OrderStatus   @default(PENDIENTE)
-  orderType       OrderType     @default(INMEDIATO)
-  paymentMethod   PaymentMethod @default(EFECTIVO)
-  paymentStatus   PaymentStatus @default(PENDIENTE)
-  subtotal        Float         @default(0)
-  tax             Float         @default(0)
-  deliveryFee     Float         @default(0)
-  discount        Float         @default(0)
-  total           Float
-  scheduledAt     DateTime?
-  completedAt     DateTime?
-  cancelledAt     DateTime?
-  cancelReason    String?
-  customerId      String?
-  customer        Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  commerceId      String
-  commerce        Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  items           OrderItem[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                String        @id @default(uuid())
+  orderNumber       String        @unique
+  customerName      String
+  customerPhone     String?
+  customerEmail     String?
+  deliveryAddress   String?
+  notes             String?
+  status            OrderStatus   @default(PENDIENTE)
+  orderType         OrderType     @default(INMEDIATO)
+  paymentMethod     PaymentMethod @default(EFECTIVO)
+  paymentStatus     PaymentStatus @default(PENDIENTE)
+  subtotal          Float         @default(0)
+  tax               Float         @default(0)
+  deliveryFee       Float         @default(0)
+  discount          Float         @default(0)
+  total             Float
+  platformFeeRate   Float?
+  platformFeeAmount Float?
+  platformFeePayer  FeePayer?
+  scheduledAt       DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  cancelReason      String?
+  customerId        String?
+  customer          Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  commerceId        String
+  commerce          Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  items             OrderItem[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@map("orders")
 }
@@ -1217,6 +1221,7 @@ enum ServiceRequestStatus {
   VISTO
   CONTACTADO
   CERRADO
+  CANCELADO
 }
 
 enum ServiceRequestModality {
@@ -1226,30 +1231,36 @@ enum ServiceRequestModality {
 }
 
 model ServiceRequest {
-  id              String                 @id @default(uuid())
-  serviceId       String
-  service         Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  serviceName     String
-  providerId      String
-  providerName    String
-  modality        ServiceRequestModality @default(CUALQUIERA)
-  preferredDate   DateTime
-  address         String?
-  city            String?
-  clientName      String
-  clientPhone     String
-  clientEmail     String?
-  description     String?
-  price           Float?
-  priceUnit       String?
-  status          ServiceRequestStatus   @default(PENDIENTE)
-  providerNotes   String?
-  statusUpdatedAt DateTime?
-  requesterId     String?
-  requester       User?                  @relation(fields: [requesterId], references: [id], onDelete: SetNull)
-  items           ServiceRequestItem[]
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
+  id                String                 @id @default(uuid())
+  serviceId         String
+  service           Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceName       String
+  providerId        String
+  providerName      String
+  modality          ServiceRequestModality @default(CUALQUIERA)
+  preferredDate     DateTime
+  address           String?
+  city              String?
+  clientName        String
+  clientPhone       String
+  clientEmail       String?
+  description       String?
+  price             Float?
+  priceUnit         String?
+  platformFeeRate   Float?
+  platformFeeAmount Float?
+  platformFeePayer  FeePayer?
+  status            ServiceRequestStatus   @default(PENDIENTE)
+  providerNotes     String?
+  statusUpdatedAt   DateTime?
+  // Marca cuándo se envió el recordatorio automático por falta de respuesta del
+  // proveedor (cron); evita reenviarlo en cada corrida del scheduler.
+  reminderSentAt    DateTime?
+  requesterId       String?
+  requester         User?                  @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  items             ServiceRequestItem[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
   @@index([serviceId])
   @@index([providerId])
@@ -1324,18 +1335,18 @@ enum ReportStatus {
 }
 
 model Report {
-  id         String           @id @default(uuid())
-  entityType ReportEntityType
-  entityId   String? // null cuando entityType = GENERAL
-  reason     String
+  id          String           @id @default(uuid())
+  entityType  ReportEntityType
+  entityId    String? // null cuando entityType = GENERAL
+  reason      String
   description String?
-  status     ReportStatus     @default(PENDIENTE)
-  adminNotes String?
-  reporterId String
-  reporter   User             @relation(fields: [reporterId], references: [id], onDelete: Cascade)
-  resolvedAt DateTime?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  status      ReportStatus     @default(PENDIENTE)
+  adminNotes  String?
+  reporterId  String
+  reporter    User             @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@index([entityType, entityId])
   @@index([status])
@@ -1397,6 +1408,7 @@ model Plan {
   enabledModules String[] @default([])
 
   subscriptions Subscription[]
+  feeOverrides  PlatformFeeOverride[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1432,6 +1444,56 @@ model Subscription {
   @@index([planId])
   @@index([status])
   @@map("subscriptions")
+}
+
+// ─── Platform Fees ────────────────────────────────────────────────────────────
+
+enum FeeTransactionType {
+  ORDER
+  SERVICE_REQUEST
+  CORRIDA
+}
+
+enum FeePayer {
+  CLIENT // se suma al total que paga el cliente
+  PROVIDER // se descuenta de lo que recibe el proveedor/comercio/conductor (vía Wallet)
+}
+
+// Tasa global por tipo de transacción, gestionada por SUPERADMIN.
+model PlatformFeeRate {
+  id          String             @id @default(uuid())
+  type        FeeTransactionType
+  rate        Float // porcentaje, ej. 10 = 10%
+  payer       FeePayer
+  isActive    Boolean            @default(true)
+  updatedById String? // SUPERADMIN que hizo el cambio
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, isActive])
+  @@map("platform_fee_rates")
+}
+
+// Override opcional por plan o por usuario específico. Prioridad de resolución:
+// override por userId > override por planId > PlatformFeeRate global.
+model PlatformFeeOverride {
+  id       String             @id @default(uuid())
+  type     FeeTransactionType
+  rate     Float
+  payer    FeePayer? // null = hereda el payer del rate global
+  planId   String?
+  plan     Plan?              @relation(fields: [planId], references: [id], onDelete: Cascade)
+  userId   String?
+  user     User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isActive Boolean            @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, userId])
+  @@index([type, planId])
+  @@map("platform_fee_overrides")
 }
 
 // ─── Auth Tokens ─────────────────────────────────────────────────────────────
@@ -1478,23 +1540,26 @@ enum CorridaVehicleType {
 }
 
 model Corrida {
-  id             String             @id @default(uuid())
-  origin         String
-  destination    String
-  originLat      Float?
-  originLng      Float?
-  destinationLat Float?
-  destinationLng Float?
-  status         CorridaStatus      @default(PENDING)
-  vehicleType    CorridaVehicleType @default(MOTO)
-  price          Float?
-  distance       Float?
-  duration       Int? // minutes
-  notes          String?
-  acceptedAt     DateTime?
-  startedAt      DateTime?
-  completedAt    DateTime?
-  cancelledAt    DateTime?
+  id                String             @id @default(uuid())
+  origin            String
+  destination       String
+  originLat         Float?
+  originLng         Float?
+  destinationLat    Float?
+  destinationLng    Float?
+  status            CorridaStatus      @default(PENDING)
+  vehicleType       CorridaVehicleType @default(MOTO)
+  price             Float?
+  distance          Float?
+  duration          Int? // minutes
+  platformFeeRate   Float?
+  platformFeeAmount Float?
+  platformFeePayer  FeePayer?
+  notes             String?
+  acceptedAt        DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
 
   passengerId String
   passenger   User    @relation("PassengerCorridas", fields: [passengerId], references: [id], onDelete: Cascade)

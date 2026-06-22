@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CorridaStatus, CorridaVehicleType } from '@prisma/client';
 import { CreateCorridaDto } from './dto/create-corrida.dto';
 import { CalculatePriceDto } from './dto/calculate-price.dto';
+import { PlatformFeesService } from '../platform-fees/platform-fees.service';
 
 const PRICE_PER_KM: Record<CorridaVehicleType, number> = { MOTO: 8, AUTO: 12 };
 const BASE_FARE: Record<CorridaVehicleType, number> = { MOTO: 20, AUTO: 35 };
@@ -91,7 +92,10 @@ const ALLOWED_TRANSITIONS: Partial<Record<CorridaStatus, CorridaStatus[]>> = {
 
 @Injectable()
 export class CorridasService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformFees: PlatformFeesService,
+  ) {}
 
   calculatePrice(dto: CalculatePriceDto) {
     return calcPrice(dto.originLat, dto.originLng, dto.destinationLat, dto.destinationLng, dto.vehicleType);
@@ -115,6 +119,13 @@ export class CorridasService {
       duration = est.duration;
     }
 
+    const feeConfig = await this.platformFees.resolveFeeConfig('CORRIDA', passengerId);
+    let platformFeeAmount: number | undefined;
+    if (feeConfig?.payer === 'CLIENT' && price != null) {
+      platformFeeAmount = this.platformFees.calculateFee(price, feeConfig).feeAmount;
+      price = Math.round((price + platformFeeAmount) * 100) / 100;
+    }
+
     const corrida = await this.prisma.corrida.create({
       data: {
         origin: dto.origin,
@@ -129,6 +140,9 @@ export class CorridasService {
         distance,
         duration,
         passengerId,
+        platformFeeRate: feeConfig?.payer === 'CLIENT' ? feeConfig.rate : undefined,
+        platformFeeAmount: feeConfig?.payer === 'CLIENT' ? platformFeeAmount : undefined,
+        platformFeePayer: feeConfig?.payer === 'CLIENT' ? 'CLIENT' : undefined,
       },
       select: CORRIDA_SELECT,
     });
@@ -204,9 +218,27 @@ export class CorridasService {
       throw new ForbiddenException('Solo el conductor asignado puede actualizar el estado');
     }
 
-    const extra: Partial<{ startedAt: Date; completedAt: Date }> = {};
+    const extra: Partial<{ startedAt: Date; completedAt: Date; platformFeeRate: number; platformFeeAmount: number; platformFeePayer: 'PROVIDER' }> = {};
     if (status === CorridaStatus.IN_PROGRESS) extra.startedAt = new Date();
-    if (status === CorridaStatus.COMPLETED) extra.completedAt = new Date();
+    if (status === CorridaStatus.COMPLETED) {
+      extra.completedAt = new Date();
+
+      if (!corrida.platformFeePayer && corrida.price && corrida.driverId) {
+        const feeConfig = await this.platformFees.resolveFeeConfig('CORRIDA', corrida.driverId);
+        if (feeConfig?.payer === 'PROVIDER') {
+          const { feeAmount } = this.platformFees.calculateFee(corrida.price, feeConfig);
+          await this.platformFees.chargeProviderFee(
+            corrida.driverId,
+            feeAmount,
+            `FEE-RIDE-${corridaId}`,
+            { corridaId },
+          );
+          extra.platformFeeRate = feeConfig.rate;
+          extra.platformFeeAmount = feeAmount;
+          extra.platformFeePayer = 'PROVIDER';
+        }
+      }
+    }
 
     const updated = await this.prisma.corrida.update({
       where: { id: corridaId },

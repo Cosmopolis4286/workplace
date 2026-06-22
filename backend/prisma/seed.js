@@ -143,6 +143,8 @@ const PERMISSIONS = [
   { key: 'logs:view',                module: 'logs',          action: 'view',           label: 'Ver Logs del Sistema',        isSystem: true },
   { key: 'plans:view',               module: 'plans',         action: 'view',           label: 'Ver Planes y Suscripciones',  isSystem: true },
   { key: 'plans:manage',             module: 'plans',         action: 'manage',         label: 'Gestionar Planes',            isSystem: true },
+  { key: 'platform_fees:view',       module: 'platform_fees', action: 'view',           label: 'Ver Comisiones de Plataforma', isSystem: true },
+  { key: 'platform_fees:manage',     module: 'platform_fees', action: 'manage',         label: 'Gestionar Comisiones de Plataforma', isSystem: true },
   { key: 'exchange_rates:view',      module: 'exchange_rates', action: 'view',          label: 'Ver Tasas de Cambio',         isSystem: true },
   { key: 'exchange_rates:manage',    module: 'exchange_rates', action: 'manage',        label: 'Gestionar Tasas de Cambio',   isSystem: true },
   { key: 'search:view',              module: 'search',         action: 'view',          label: 'Ver Búsqueda' },
@@ -188,7 +190,7 @@ const ROLE_DEFAULTS = {
   ADMIN: [
     ...ADMIN_KEYS, 
     'users:view', 'users:manage', 
-    'plans:view', 'exchange_rates:view',
+    'plans:view', 'exchange_rates:view', 'platform_fees:view',
     // Permisos para categorías globales
     'categories_global:view',
     'categories_global:create',

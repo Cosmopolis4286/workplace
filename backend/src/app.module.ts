@@ -40,6 +40,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { ProposedCategoriesModule } from './proposed-categories/proposed-categories.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { WalletsModule } from './wallets/wallets.module'
+import { PlatformFeesModule } from './platform-fees/platform-fees.module';
 import { SearchTabsModule } from './search-tabs/search-tabs.module';
 import { SearchModule } from './search/search.module';
 import { LandingModule } from './landing/landing.module';
@@ -96,6 +97,7 @@ import { ReportsModule } from './reports/reports.module';
     ProposedCategoriesModule,
     TelegramModule,
     WalletsModule,
+    PlatformFeesModule,
     SearchTabsModule,
     SearchModule,
     LandingModule,

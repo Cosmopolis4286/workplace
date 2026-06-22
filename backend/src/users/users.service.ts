@@ -103,10 +103,11 @@ export class UsersService {
     allowedRoles?: Role[];
     categoryId?: string;
     subcategoryId?: string;
+    search?: string;
     page: number;
     limit: number;
   }) {
-    const { roleFilter, allowedRoles, categoryId, subcategoryId, page, limit } =
+    const { roleFilter, allowedRoles, categoryId, subcategoryId, search, page, limit } =
       options;
     const skip = (page - 1) * limit;
 
@@ -123,6 +124,13 @@ export class UsersService {
     }
     if (categoryId) where.categoryId = categoryId;
     if (subcategoryId) where.subcategoryId = subcategoryId;
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
