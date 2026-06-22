@@ -53,8 +53,8 @@ export function useApi() {
   /**
    * GET request simplificado
    */
-  async function get<T>(url: string): Promise<T> {
-    return apiFetch<T>(url, { method: 'GET' })
+  async function get<T>(url: string, options: RequestInit = {}): Promise<T> {
+    return apiFetch<T>(url, { ...options, method: 'GET' })
   }
 
   /**

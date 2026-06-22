@@ -30,7 +30,8 @@
           v-for="s in group.items"
           :key="s.id"
           class="w-full flex items-center gap-3 px-4 py-2 text-left transition-colors"
-          :class="isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'"
+          :class="isItemHighlighted(s) ? (isDark ? 'bg-white/10' : 'bg-gray-100') : (isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50')"
+          @mouseenter="$emit('hover', flatIndex(s))"
           @click="$emit('select', s)"
         >
           <div class="h-9 w-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" :class="isDark ? 'bg-gray-700' : 'bg-gray-100'">
@@ -63,8 +64,9 @@ const props = defineProps({
   suggestions: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   staticPosition: { type: Boolean, default: false },
+  highlightedIndex: { type: Number, default: -1 },
 })
-defineEmits(['select', 'see-all'])
+defineEmits(['select', 'see-all', 'hover'])
 
 const { isDark } = useColorMode()
 const { getAssetUrl } = useAssetUrl()
@@ -78,6 +80,14 @@ const groupedSuggestions = computed(() => {
     .map(tab => ({ tab, items: props.suggestions.filter(s => s.tab === tab) }))
     .filter(group => group.items.length > 0)
 })
+
+function flatIndex(suggestion) {
+  return props.suggestions.indexOf(suggestion)
+}
+
+function isItemHighlighted(suggestion) {
+  return props.highlightedIndex >= 0 && flatIndex(suggestion) === props.highlightedIndex
+}
 
 function resolveImage(image) {
   return getAssetUrl(image)

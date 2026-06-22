@@ -14,6 +14,8 @@
             : 'bg-gray-50 border-gray-200 text-gray-800 placeholder:text-gray-400'"
           @input="onInput"
           @focus="open = true"
+          @keydown.down.prevent="moveHighlight(1)"
+          @keydown.up.prevent="moveHighlight(-1)"
           @keydown.enter="onEnter"
           @keydown.escape="closeAndBlur"
         >
@@ -31,6 +33,7 @@
         :query="inputValue"
         :suggestions="suggestions"
         :loading="loading"
+        :highlighted-index="highlightedIndex"
         @select="handleSelect"
         @see-all="handleSeeAll"
       />
@@ -70,6 +73,8 @@
                   ? 'bg-gray-800 border-gray-700 text-gray-100 placeholder:text-gray-500'
                   : 'bg-gray-50 border-gray-200 text-gray-800 placeholder:text-gray-400'"
                 @input="onInput"
+                @keydown.down.prevent="moveHighlight(1)"
+                @keydown.up.prevent="moveHighlight(-1)"
                 @keydown.enter="onEnter"
                 @keydown.escape="closeOverlay"
               >
@@ -90,6 +95,7 @@
               :query="inputValue"
               :suggestions="suggestions"
               :loading="loading"
+              :highlighted-index="highlightedIndex"
               @select="handleSelect"
               @see-all="handleSeeAll"
             />
@@ -107,7 +113,7 @@ import { useGlobalSearch } from '~/composables/useGlobalSearch'
 import SearchSuggestionsDropdown from '~/components/SearchSuggestionsDropdown.vue'
 
 const { isDark } = useColorMode()
-const { query, suggestions, loading, search, clear, goToSuggestion, goToTabWithQuery } = useGlobalSearch()
+const { query, suggestions, loading, highlightedIndex, search, clear, moveHighlight, getHighlighted, goToSuggestion, goToTabWithQuery } = useGlobalSearch()
 
 const inputValue = ref(query.value)
 const open = ref(false)
@@ -122,6 +128,11 @@ function onInput() {
 
 function onEnter() {
   if (!inputValue.value.trim()) return
+  const highlighted = getHighlighted()
+  if (highlighted) {
+    handleSelect(highlighted)
+    return
+  }
   goToTabWithQuery('productos')
   closeOverlay()
 }
