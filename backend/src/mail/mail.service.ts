@@ -183,4 +183,39 @@ export class MailService {
       );
     }
   }
+
+  async sendProposedCategoryStatusUpdate(
+    email: string,
+    firstName: string,
+    categoryName: string,
+    status: 'APPROVED' | 'REJECTED',
+    rejectionReason?: string,
+  ) {
+    const isApproved = status === 'APPROVED';
+    const subject = isApproved
+      ? 'Tu categoría propuesta fue aprobada — WorkPlace Manager'
+      : 'Tu categoría propuesta fue rechazada — WorkPlace Manager';
+    try {
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to: email,
+        subject,
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+            <h2>Hola, ${firstName}</h2>
+            ${
+              isApproved
+                ? `<p>¡Buenas noticias! Tu categoría propuesta "<strong>${escapeHtml(categoryName)}</strong>" fue <strong>aprobada</strong> y ya está disponible en los filtros de búsqueda.</p>`
+                : `<p>Tu categoría propuesta "<strong>${escapeHtml(categoryName)}</strong>" fue rechazada.</p>
+                   ${rejectionReason ? `<p style="color:#dc2626"><strong>Motivo:</strong> ${escapeHtml(rejectionReason)}</p>` : ''}`
+            }
+          </div>
+        `,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Could not send proposed category status email to ${email}: ${err.message}`
+      );
+    }
+  }
 }

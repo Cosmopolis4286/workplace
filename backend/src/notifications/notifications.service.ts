@@ -74,6 +74,23 @@ export class NotificationsService {
     });
   }
 
+  async notifyProposedCategoryReviewed(
+    proposerId: string,
+    categoryName: string,
+    status: 'APPROVED' | 'REJECTED',
+  ) {
+    const isApproved = status === 'APPROVED';
+    return this.createForUser(proposerId, {
+      type: NotificationType.SYSTEM,
+      title: isApproved ? '✅ Categoría aprobada' : '❌ Categoría rechazada',
+      message: isApproved
+        ? `Tu categoría "${categoryName}" fue aprobada y ya aparece en los filtros de búsqueda`
+        : `Tu categoría "${categoryName}" fue rechazada`,
+      link: '/search',
+      metadata: { categoryName, status },
+    });
+  }
+
   // ── Convenience factory methods ───────────────────────────────────────────
   async notifyNewOrder(commerceId: string, orderNumber: string, total: number) {
     return this.create(commerceId, {

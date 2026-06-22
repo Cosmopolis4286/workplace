@@ -1,0 +1,172 @@
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ProposalStatus, ProposedCategoryTarget } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ProposeCategoryDto } from './dto/propose-category.dto';
+import { ReviewProposedCategoryDto } from './dto/review-proposed-category.dto';
+
+@Injectable()
+export class ProposedCategoriesService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mail: MailService,
+    private readonly notifications: NotificationsService,
+  ) {}
+
+  async propose(userId: string, dto: ProposeCategoryDto) {
+    const existingPending = await this.prisma.proposedCategory.findFirst({
+      where: {
+        proposedBy: userId,
+        target: dto.target,
+        status: ProposalStatus.PENDING,
+        name: { equals: dto.name, mode: 'insensitive' },
+      },
+    });
+    if (existingPending) {
+      throw new ConflictException('Ya tienes una propuesta pendiente con ese nombre');
+    }
+
+    const existingReal = await this.nameExistsInRealTable(dto.target, dto.name);
+    if (existingReal) {
+      throw new ConflictException('Ya existe una categoría con ese nombre');
+    }
+
+    return this.prisma.proposedCategory.create({
+      data: {
+        name: dto.name,
+        description: dto.description,
+        color: dto.color,
+        icon: dto.icon,
+        target: dto.target,
+        proposedBy: userId,
+      },
+    });
+  }
+
+  async findMine(userId: string) {
+    return this.prisma.proposedCategory.findMany({
+      where: { proposedBy: userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findAllPending(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.prisma.proposedCategory.findMany({
+        where: { status: ProposalStatus.PENDING },
+        orderBy: { createdAt: 'asc' },
+        skip,
+        take: limit,
+        include: {
+          proposer: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+        },
+      }),
+      this.prisma.proposedCategory.count({ where: { status: ProposalStatus.PENDING } }),
+    ]);
+    return { data, total, page, limit };
+  }
+
+  async review(id: string, reviewerId: string, dto: ReviewProposedCategoryDto) {
+    const proposal = await this.prisma.proposedCategory.findUnique({ where: { id } });
+    if (!proposal) throw new NotFoundException('Propuesta no encontrada');
+    if (proposal.status !== ProposalStatus.PENDING) {
+      throw new BadRequestException('Esta propuesta ya fue revisada');
+    }
+
+    let resultingCategoryId: string | null = null;
+    if (dto.status === ProposalStatus.APPROVED) {
+      resultingCategoryId = await this.createRealCategory(proposal.target, {
+        name: proposal.name,
+        color: proposal.color,
+        icon: proposal.icon,
+        description: proposal.description,
+      });
+    }
+
+    const updated = await this.prisma.proposedCategory.update({
+      where: { id },
+      data: {
+        status: dto.status,
+        rejectionReason: dto.status === ProposalStatus.REJECTED ? dto.rejectionReason : null,
+        reviewedBy: reviewerId,
+        reviewedAt: new Date(),
+        resultingCategoryId,
+      },
+    });
+
+    const proposer = await this.prisma.user.findUnique({
+      where: { id: proposal.proposedBy },
+      select: { email: true, firstName: true },
+    });
+    if (proposer) {
+      this.mail
+        .sendProposedCategoryStatusUpdate(proposer.email, proposer.firstName, proposal.name, dto.status, dto.rejectionReason)
+        .catch(() => undefined);
+      this.notifications
+        .notifyProposedCategoryReviewed(proposal.proposedBy, proposal.name, dto.status)
+        .catch(() => undefined);
+    }
+
+    return updated;
+  }
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  private async nameExistsInRealTable(target: ProposedCategoryTarget, name: string): Promise<boolean> {
+    if (target === ProposedCategoryTarget.PRODUCTO) {
+      const found = await this.prisma.category.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' }, isGlobal: true },
+      });
+      return !!found;
+    }
+    if (target === ProposedCategoryTarget.SERVICIO) {
+      const found = await this.prisma.serviceCategory.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' } },
+      });
+      return !!found;
+    }
+    const found = await this.prisma.jobCategory.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } },
+    });
+    return !!found;
+  }
+
+  private async createRealCategory(
+    target: ProposedCategoryTarget,
+    data: { name: string; color: string | null; icon: string | null; description: string | null },
+  ): Promise<string> {
+    if (target === ProposedCategoryTarget.PRODUCTO) {
+      const created = await this.prisma.category.create({
+        data: {
+          name: data.name,
+          color: data.color ?? undefined,
+          icon: data.icon,
+          description: data.description,
+          isGlobal: true,
+        },
+      });
+      return created.id;
+    }
+    if (target === ProposedCategoryTarget.SERVICIO) {
+      const created = await this.prisma.serviceCategory.create({
+        data: {
+          name: data.name,
+          color: data.color ?? undefined,
+          icon: data.icon,
+        },
+      });
+      return created.id;
+    }
+    const created = await this.prisma.jobCategory.create({
+      data: {
+        name: data.name,
+        color: data.color ?? undefined,
+        icon: data.icon,
+        description: data.description,
+      },
+    });
+    return created.id;
+  }
+}

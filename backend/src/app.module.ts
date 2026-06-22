@@ -37,6 +37,7 @@ import { HealthModule } from './health/health.module';
 import { CategoriesGlobalModule } from './categories-global/categories-global.module';
 import { CorridasModule } from './corridas/corridas.module';
 import { JobsModule } from './jobs/jobs.module';
+import { ProposedCategoriesModule } from './proposed-categories/proposed-categories.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { WalletsModule } from './wallets/wallets.module'
 import { SearchTabsModule } from './search-tabs/search-tabs.module';
@@ -91,6 +92,7 @@ import { LandingModule } from './landing/landing.module';
     CategoriesGlobalModule,
     CorridasModule,
     JobsModule,
+    ProposedCategoriesModule,
     TelegramModule,
     WalletsModule,
     SearchTabsModule,

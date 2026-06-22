@@ -133,6 +133,9 @@ const PERMISSIONS = [
   { key: 'subcategories_global:create', module: 'categories_global', action: 'create_subcategories', label: 'Crear Subcategorías Globales', isSystem: true },
   { key: 'subcategories_global:edit',   module: 'categories_global', action: 'edit_subcategories',   label: 'Editar Subcategorías Globales', isSystem: true },
   { key: 'subcategories_global:delete', module: 'categories_global', action: 'delete_subcategories', label: 'Eliminar Subcategorías Globales', isSystem: true },
+  // 🏷️ Categorías propuestas por usuarios (pendientes de aprobación admin)
+  { key: 'categories_user:propose', module: 'categories_user', action: 'propose', label: 'Proponer Categoría', isSystem: true },
+  { key: 'categories_user:manage',  module: 'categories_user', action: 'manage',  label: 'Aprobar/Rechazar Categorías Propuestas', isSystem: true },
   { key: 'users:view',               module: 'users',         action: 'view',           label: 'Ver Usuarios',                isSystem: true },
   { key: 'users:manage',             module: 'users',         action: 'manage',         label: 'Gestionar Usuarios',          isSystem: true },
   { key: 'permissions:manage',       module: 'permissions',   action: 'manage',         label: 'Gestionar Matriz de Permisos', isSystem: true },
@@ -198,13 +201,15 @@ const ROLE_DEFAULTS = {
     'wallets:use', 'wallets:manage',
     'search_tabs:view', 'search_tabs:manage',
     'reviews:moderate',
+    'categories_user:manage',
   ],
-  COMMERCE: COMMERCE_KEYS,
+  COMMERCE: [...COMMERCE_KEYS, 'categories_user:propose'],
   FREELANCER: [
     ...COMMERCE_KEYS.filter(k => !k.startsWith('employees:') && !k.startsWith('branches:')),
     'catalog:view',
     'service_requests:view',
     'corridas:view', 'corridas:create',
+    'categories_user:propose',
   ],
   NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view'],
 }
