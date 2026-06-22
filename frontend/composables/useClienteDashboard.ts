@@ -46,6 +46,9 @@ export interface Order {
   deliveryFee: number
   discount: number
   total: number
+  platformFeeRate?: number | null
+  platformFeeAmount?: number | null
+  platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
   scheduledAt?: string
   completedAt?: string
   cancelledAt?: string
