@@ -142,6 +142,12 @@ export function useDashboard() {
 
   // ── Update single order status (optimistic) ──────────────────────────────────
   async function updateOrderStatus(id: string, status: OrderStatus, cancelReason?: string): Promise<boolean> {
+    const current = activeOrders.value.find(o => o.id === id)
+    if (current && !NEXT_STATUS[current.status]?.includes(status)) {
+      error.value = `No se puede cambiar de "${current.status}" a "${status}"`
+      return false
+    }
+
     try {
       const updated = await apiFetch(`/orders/${id}/status`, {
         method: 'PATCH',
