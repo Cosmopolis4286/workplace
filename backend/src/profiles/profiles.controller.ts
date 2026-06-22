@@ -22,6 +22,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { extensionForMimetype } from '../common/utils/upload-extension.util';
 import { ProfilesService } from './profiles.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { QueryPostsDto } from './dto/query-profile.dto';
 import { RespondReviewDto } from './dto/respond-review.dto';
@@ -269,7 +270,7 @@ export class ProfilesController {
     return this.profilesService.getFollowing(username);
   }
 
-  // ─── Reviews (read-only) ──────────────────────────────────────────────────
+  // ─── Reviews ──────────────────────────────────────────────────────────────
 
   @Get(':username/reviews')
   getReviews(
@@ -278,6 +279,18 @@ export class ProfilesController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number
   ) {
     return this.profilesService.getReviews(username, page, limit);
+  }
+
+  @Post('reviews')
+  @UseGuards(JwtAuthGuard)
+  createReview(@CurrentUser() user: any, @Body() dto: CreateReviewDto) {
+    return this.profilesService.createReview(user.id, dto);
+  }
+
+  @Delete('reviews/:id')
+  @UseGuards(JwtAuthGuard)
+  deleteReview(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.profilesService.deleteReview(user.id, id);
   }
 
   // ─── Reviews — respuesta del negocio/freelancer ────────────────────────────

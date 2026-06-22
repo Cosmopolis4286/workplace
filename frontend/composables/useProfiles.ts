@@ -44,6 +44,7 @@ export interface PublicProfile {
   postsCount: number
   rating: number | null
   reviewsCount: number
+  avgResponseHours: number | null
   isFollowing: boolean
   canReview: boolean
   hasReviewed: boolean

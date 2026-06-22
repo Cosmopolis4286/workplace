@@ -65,6 +65,8 @@ export class ProfilesService {
       _count: { rating: true },
     });
 
+    const avgResponseHours = await this.getAvgResponseHours(user.id);
+
     // ¿El usuario actual sigue a este perfil?
     let isFollowing = false;
     // ¿El usuario actual puede reseñar a este perfil? (compra/servicio verificado)
@@ -110,10 +112,36 @@ export class ProfilesService {
         ? Number(ratingAgg._avg.rating.toFixed(2))
         : null,
       reviewsCount: ratingAgg._count.rating,
+      avgResponseHours,
       isFollowing,
       canReview,
       hasReviewed,
     };
+  }
+
+  // Promedio de tiempo entre la creación de una solicitud de servicio y la
+  // primera reacción real del proveedor (VISTO/CONTACTADO/CERRADO). Se excluyen
+  // PENDIENTE (sin respuesta) y CANCELADO (no hubo respuesta real del proveedor).
+  // Limitado a las últimas 50 para no escanear todo el histórico en cada visita.
+  private async getAvgResponseHours(providerId: string): Promise<number | null> {
+    const responded = await this.prisma.serviceRequest.findMany({
+      where: {
+        providerId,
+        status: { in: ['VISTO', 'CONTACTADO', 'CERRADO'] },
+        statusUpdatedAt: { not: null },
+      },
+      select: { createdAt: true, statusUpdatedAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    if (responded.length === 0) return null;
+
+    const totalHours = responded.reduce((sum, r) => {
+      const diffMs = r.statusUpdatedAt!.getTime() - r.createdAt.getTime();
+      return sum + diffMs / (1000 * 60 * 60);
+    }, 0);
+
+    return Number((totalHours / responded.length).toFixed(1));
   }
 
   // ─── Posts ────────────────────────────────────────────────────────────────
