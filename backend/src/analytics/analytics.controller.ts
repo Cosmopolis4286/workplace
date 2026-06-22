@@ -19,4 +19,13 @@ export class AnalyticsController {
   ) {
     return this.analyticsService.getOverview(user.id, query);
   }
+
+  // Sparklines de 7 días para los widgets KPI del dashboard: pedidos
+  // activos, clientes nuevos y bajo stock (basado en Order/Customer/
+  // ProductStockSnapshot, no en el proxy de citas que usa /overview).
+  @Get('dashboard-trends')
+  @RequirePermission('analytics:view')
+  getDashboardTrends(@CurrentUser() user: { id: string }) {
+    return this.analyticsService.getDashboardTrends(user.id);
+  }
 }

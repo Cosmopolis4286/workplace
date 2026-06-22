@@ -21,6 +21,14 @@ export interface DashboardKpis {
   customerSatisfaction: number
 }
 
+export interface DashboardTrends {
+  labels: string[]
+  salesToday: number[]
+  activeOrders: number[]
+  newCustomers: number[]
+  lowStock: (number | null)[]
+}
+
 // ─── Global state (module-level singleton) ────────────────────────────────────
 
 const kpis = ref<DashboardKpis>({
@@ -42,6 +50,7 @@ const prevLowStock = ref<number | null>(null)
 
 const activeOrders = ref<Order[]>([])
 const orderStats   = ref<OrderStats | null>(null)
+const trends       = ref<DashboardTrends | null>(null)
 const loading      = ref(false)
 const error        = ref<string | null>(null)
 const lastUpdated  = ref<Date | null>(null)
@@ -75,14 +84,18 @@ export function useDashboard() {
 
       const ACTIVE_STATUSES: OrderStatus[] = ['PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
 
-      const [ordersRes, statsRes, analyticsRes] = await Promise.allSettled([
+      const [ordersRes, statsRes, analyticsRes, trendsRes] = await Promise.allSettled([
         // Pedidos activos: todos los statuses no-terminales en un solo roundtrip
         apiFetch(`/orders?status=${ACTIVE_STATUSES.join(',')}&limit=100`),
         // Order stats
         apiFetch('/orders/stats'),
         // Analytics overview para el período seleccionado
         apiFetch(`/analytics/overview?period=${period}&compareWith=previous`),
+        // Sparklines de 7 días para los widgets KPI
+        apiFetch('/analytics/dashboard-trends'),
       ])
+
+      trends.value = trendsRes.status === 'fulfilled' ? trendsRes.value : null
 
       const allActive: Order[] = ordersRes.status === 'fulfilled' ? (ordersRes.value?.data ?? []) : []
 
@@ -215,6 +228,7 @@ export function useDashboard() {
     kpis,
     activeOrders,
     orderStats,
+    trends,
     loading,
     error,
     lastUpdated,

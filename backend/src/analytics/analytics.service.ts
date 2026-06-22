@@ -398,6 +398,82 @@ export class AnalyticsService {
     };
   }
 
+  // ─── Dashboard KPI sparklines (7 días, datos reales) ──────────────────────
+
+  async getDashboardTrends(userId: string) {
+    const commerceId = await this.getCommerceId(userId);
+
+    const days = 7;
+    const today = startOfDay(new Date());
+    const from = new Date(today);
+    from.setDate(from.getDate() - (days - 1));
+
+    const labels: string[] = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(from);
+      d.setDate(d.getDate() + i);
+      labels.push(d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }));
+    }
+
+    const [orders, customers, stockSnapshots] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { commerceId, createdAt: { gte: from, lte: endOfDay(today) } },
+        select: { createdAt: true, total: true },
+      }),
+      this.prisma.customer.findMany({
+        where: { commerceId, createdAt: { gte: from, lte: endOfDay(today) } },
+        select: { createdAt: true },
+      }),
+      this.prisma.productStockSnapshot.findMany({
+        where: { commerceId, date: { gte: from, lte: today } },
+        select: { date: true, lowStockCount: true },
+      }),
+    ]);
+
+    const dayIndex = (date: Date) =>
+      Math.floor(
+        (startOfDay(new Date(date)).getTime() - from.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+    const bucketByDay = (rows: { createdAt: Date }[]): number[] => {
+      const values = Array(days).fill(0);
+      rows.forEach((r) => {
+        const idx = dayIndex(r.createdAt);
+        if (idx >= 0 && idx < days) values[idx]++;
+      });
+      return values;
+    };
+
+    const ordersValues = bucketByDay(orders);
+    const customersValues = bucketByDay(customers);
+
+    const salesValues = Array(days).fill(0);
+    orders.forEach((o) => {
+      const idx = dayIndex(o.createdAt);
+      if (idx >= 0 && idx < days) salesValues[idx] += Number(o.total);
+    });
+
+    // Bajo stock: usar el snapshot del día si existe; si falta (días sin
+    // job corrido aún), null para que el frontend lo distinga de un 0 real.
+    const lowStockValues: (number | null)[] = labels.map((_, i) => {
+      const d = new Date(from);
+      d.setDate(d.getDate() + i);
+      const snap = stockSnapshots.find(
+        (s) => startOfDay(new Date(s.date)).getTime() === d.getTime()
+      );
+      return snap ? snap.lowStockCount : null;
+    });
+
+    return {
+      labels,
+      salesToday: salesValues.map((v) => Math.round(v * 100) / 100),
+      activeOrders: ordersValues,
+      newCustomers: customersValues,
+      lowStock: lowStockValues,
+    };
+  }
+
   // ─── Performance metrics ─────────────────────────────────────────────────
 
   private async getPerformanceMetrics(

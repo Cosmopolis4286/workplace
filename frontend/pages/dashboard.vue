@@ -104,24 +104,28 @@
             :change="kpis.salesTodayChange"
             :label="PERIOD_SALES_LABELS[selectedPeriod]"
             :loading="loading"
+            :trend="trends?.salesToday ?? []"
           />
           <ActiveOrdersWidget
             v-else-if="item.id === 'activeOrders'"
             :count="kpis.activeOrders"
             :change="kpis.activeOrdersChange"
             :loading="loading"
+            :trend="trends?.activeOrders ?? []"
           />
           <LowStockWidget
             v-else-if="item.id === 'lowStock'"
             :count="kpis.lowStockProducts"
             :change="kpis.lowStockChange"
             :loading="loading"
+            :trend="trends?.lowStock ?? []"
           />
           <NewCustomersWidget
             v-else-if="item.id === 'newCustomers'"
             :count="kpis.newCustomers"
             :change="kpis.newCustomersChange"
             :label="PERIOD_CUSTOMERS_LABELS[selectedPeriod]"
+            :trend="trends?.newCustomers ?? []"
             :loading="loading"
           />
         </DraggableWidget>
@@ -224,6 +228,7 @@ import OrderDetailModal from '~/components/modals/OrderDetailModal.vue'
 const {
   kpis,
   activeOrders,
+  trends,
   loading,
   error,
   lastUpdated,

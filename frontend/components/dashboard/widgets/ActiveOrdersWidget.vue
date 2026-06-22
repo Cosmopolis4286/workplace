@@ -14,37 +14,31 @@
     </div>
     <div v-if="loading" class="h-7 bg-gray-100 rounded animate-pulse mb-1 w-12" />
     <div v-else class="text-xl font-bold text-gray-900 mb-0.5">{{ count }}</div>
-    <p class="text-xs text-gray-400 font-medium">Pedidos activos</p>
-    <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-      <div
-        class="h-full bg-blue-500 rounded-full transition-all duration-700"
-        :style="{ width: progressWidth }"
-      />
-    </div>
+    <p class="text-xs text-gray-400 font-medium mb-3">Pedidos activos</p>
+    <Sparkline v-if="trend?.length" :values="trend" color="blue" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ShoppingCartIcon } from '@heroicons/vue/24/outline'
+import Sparkline from './Sparkline.vue'
 
 interface Props {
   count: number
   change?: number | null
   loading?: boolean
+  trend?: (number | null)[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
   change: null,
   loading: false,
+  trend: () => [],
 })
 
 const formattedChange = computed(() => {
   if (props.change === null) return ''
   const sign = props.change >= 0 ? '+' : ''
   return `${sign}${props.change.toFixed(1)}%`
-})
-
-const progressWidth = computed(() => {
-  return `${Math.min(100, props.count * 5)}%`
 })
 </script>

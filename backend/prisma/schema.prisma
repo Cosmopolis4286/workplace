@@ -158,6 +158,7 @@ model Restaurant {
   notifications     Notification[]
   employees         Employee[]
   branches          Branch[]
+  stockSnapshots    ProductStockSnapshot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -360,6 +361,22 @@ model Product {
   updatedAt       DateTime      @updatedAt
 
   @@map("products")
+}
+
+// Snapshot diario del conteo de productos en BAJO_STOCK por comercio.
+// El stock es mutable y no versionado, así que esto es lo único que permite
+// graficar una tendencia real en vez de recalcular un historial inexistente.
+model ProductStockSnapshot {
+  id            String     @id @default(uuid())
+  commerceId    String
+  commerce      Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  lowStockCount Int
+  date          DateTime   @db.Date
+  createdAt     DateTime   @default(now())
+
+  @@unique([commerceId, date])
+  @@index([commerceId, date])
+  @@map("product_stock_snapshots")
 }
 
 enum Role {

@@ -14,27 +14,28 @@
     </div>
     <div v-if="loading" class="h-7 bg-gray-100 rounded animate-pulse mb-1 w-24" />
     <div v-else class="text-xl font-bold text-gray-900 mb-0.5">{{ formattedSales }}</div>
-    <p class="text-xs text-gray-400 font-medium">{{ label }}</p>
-    <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-      <div class="h-full bg-red-500 rounded-full transition-all duration-700" :style="{ width: progressWidth }" />
-    </div>
+    <p class="text-xs text-gray-400 font-medium mb-3">{{ label }}</p>
+    <Sparkline v-if="trend?.length" :values="trend" color="red" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { CurrencyDollarIcon } from '@heroicons/vue/24/outline'
+import Sparkline from './Sparkline.vue'
 
 interface Props {
   sales: number
   change?: number | null
   loading?: boolean
   label?: string
+  trend?: (number | null)[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
   change: null,
   loading: false,
   label: 'Ventas Hoy',
+  trend: () => [],
 })
 
 const formattedSales = computed(() => {
@@ -49,12 +50,5 @@ const formattedChange = computed(() => {
   if (props.change === null) return ''
   const sign = props.change >= 0 ? '+' : ''
   return `${sign}${props.change.toFixed(1)}%`
-})
-
-const progressWidth = computed(() => {
-  // Máximo objetivo de $100k para la barra de progreso
-  const target = 100000
-  const percentage = Math.min(100, ((props.sales || 0) / target) * 100)
-  return `${percentage}%`
 })
 </script>
