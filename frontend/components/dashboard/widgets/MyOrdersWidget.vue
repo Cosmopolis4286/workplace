@@ -38,7 +38,7 @@
     </div>
 
     <!-- Orders List -->
-    <div v-else class="space-y-2">
+    <div v-else class="space-y-2 max-h-80 overflow-y-auto pr-1">
       <NuxtLink
         v-for="order in orders.slice(0, 5)"
         :key="order.id"

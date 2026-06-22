@@ -3,6 +3,9 @@
     <!-- Hero Section - Personalizado por Rol -->
     <DashboardHero :config="personalizedHeroConfig" />
 
+    <!-- Quick Actions - Filtradas por rol -->
+    <QuickActions :actions="quickActions" class="mb-8" />
+
     <!-- Error Banner -->
     <div v-if="error" class="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
       <ExclamationTriangleIcon class="h-5 w-5 text-red-500 flex-shrink-0" />
@@ -125,7 +128,7 @@
       </template>
     </div>
 
-    <!-- Main Content Grid - Pedidos + Acciones Rápidas -->
+    <!-- Main Content Grid - Pedidos -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
       <!-- Orders List - Solo si el rol puede verlo -->
       <OrdersListWidget
@@ -151,9 +154,6 @@
         :requests="myServiceRequests"
         :loading="loadingMyServiceRequests"
       />
-
-      <!-- Quick Actions - Filtradas por rol -->
-      <QuickActions :actions="quickActions" :class="{ 'lg:col-span-2': userRole === 'NORMAL' }" />
     </div>
 
     <!-- Analytics Overview - Solo ADMIN/SUPERADMIN -->

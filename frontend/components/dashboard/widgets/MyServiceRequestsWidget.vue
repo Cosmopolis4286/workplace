@@ -38,7 +38,7 @@
     </div>
 
     <!-- Requests List -->
-    <div v-else class="space-y-2">
+    <div v-else class="space-y-2 max-h-80 overflow-y-auto pr-1">
       <NuxtLink
         v-for="req in requests.slice(0, 5)"
         :key="req.id"
