@@ -249,6 +249,17 @@
             </button>
           </template>
 
+          <button
+            v-if="canProposeCategory"
+            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+            @click="proposeModalOpen = true"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+            </svg>
+            Proponer categoría
+          </button>
+
           <div class="flex-1 min-w-2"></div>
 
           <!-- Botón zona (abre selector país/estado/ciudad) -->
@@ -1207,6 +1218,9 @@
       <!-- Modal solicitud de servicio -->
       <ModalsCatalogServiceRequestModal v-model="showServiceRequestModal" :service="serviceRequestTarget" @success="onServiceRequestSuccess" />
 
+      <!-- Modal proponer categoría -->
+      <ModalsProposeCategoryModal :is-open="proposeModalOpen" :target="proposeCategoryTarget" @close="proposeModalOpen = false" @success="onProposeCategorySuccess" />
+
       <!-- Carrito drawer (solo en tab productos) -->
       <CartDrawer v-if="activeTab === 'productos'" />
 
@@ -1256,6 +1270,15 @@
         <div v-if="serviceToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
           ¡Solicitud enviada! El proveedor se pondrá en contacto contigo.
+        </div>
+      </Transition>
+
+      <!-- Toast éxito propuesta de categoría -->
+      <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="categoryProposalToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] bg-gray-800 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          ¡Propuesta enviada! Un administrador la revisará pronto.
         </div>
       </Transition>
     </Teleport>
@@ -1356,6 +1379,8 @@ const serviceToast = ref(false)
 const pShowFavoritesOnly = ref(false)
 const locationFilterOpen = ref(false)
 const locationFilterRef = ref<HTMLElement | null>(null)
+const proposeModalOpen = ref(false)
+const categoryProposalToast = ref(false)
 
 const pSelectedSort = ref<CatalogSortBy>('relevance')
 const sSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name' | 'newest'>('relevance')
@@ -1421,6 +1446,17 @@ const firstName = computed(() => user.value?.firstName || 'Usuario')
 const activeTabData = computed(() =>
   searchTabs.value.find(t => t.key === activeTab.value) ?? null,
 )
+
+const canProposeCategory = computed(() => ['COMMERCE', 'FREELANCER'].includes(user.value?.role ?? ''))
+const proposeCategoryTarget = computed<'PRODUCTO' | 'SERVICIO' | 'EMPLEO'>(() => {
+  if (activeTab.value === 'productos') return 'PRODUCTO'
+  if (activeTab.value === 'servicios') return 'SERVICIO'
+  return 'EMPLEO'
+})
+function onProposeCategorySuccess() {
+  categoryProposalToast.value = true
+  setTimeout(() => { categoryProposalToast.value = false }, 4000)
+}
 
 const heroTitle = computed(() => {
   if (activeTab.value === 'productos') return '¿Qué vas a pedir hoy?'
