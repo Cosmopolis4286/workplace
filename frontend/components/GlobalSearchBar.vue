@@ -32,6 +32,7 @@
         v-if="open"
         :query="inputValue"
         :suggestions="suggestions"
+        :counts="counts"
         :loading="loading"
         :highlighted-index="highlightedIndex"
         @select="handleSelect"
@@ -113,7 +114,7 @@ import { useGlobalSearch } from '~/composables/useGlobalSearch'
 import SearchSuggestionsDropdown from '~/components/SearchSuggestionsDropdown.vue'
 
 const { isDark } = useColorMode()
-const { query, suggestions, loading, highlightedIndex, search, clear, moveHighlight, getHighlighted, goToSuggestion, goToTabWithQuery } = useGlobalSearch()
+const { query, suggestions, counts, loading, highlightedIndex, search, clear, moveHighlight, getHighlighted, goToSuggestion, goToTabWithQuery } = useGlobalSearch()
 
 const inputValue = ref(query.value)
 const open = ref(false)

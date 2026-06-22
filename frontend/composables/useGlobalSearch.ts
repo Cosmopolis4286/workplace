@@ -6,15 +6,33 @@ export interface SearchSuggestion {
   title: string
   subtitle?: string | null
   image?: string | null
+  price?: number | null
+  priceUnit?: string | null
+  category?: { name: string; color: string | null } | null
+  rating?: number | null
+  salaryMin?: number | null
+  salaryMax?: number | null
+  salaryCurrency?: string | null
+}
+
+export interface SearchTabCount {
+  tab: SearchTabKey
+  total: number
+}
+
+interface SuggestCache {
+  suggestions: SearchSuggestion[]
+  counts: SearchTabCount[]
 }
 
 const query = ref('')
 const suggestions = ref<SearchSuggestion[]>([])
+const counts = ref<SearchTabCount[]>([])
 const loading = ref(false)
 const highlightedIndex = ref(-1)
 
 const CACHE_MAX = 20
-const cache = new Map<string, SearchSuggestion[]>()
+const cache = new Map<string, SuggestCache>()
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let abortController: AbortController | null = null
@@ -30,13 +48,15 @@ export function useGlobalSearch() {
     if (trimmed.length < 2) {
       abortController?.abort()
       suggestions.value = []
+      counts.value = []
       loading.value = false
       return
     }
 
     const cached = cache.get(trimmed.toLowerCase())
     if (cached) {
-      suggestions.value = cached
+      suggestions.value = cached.suggestions
+      counts.value = cached.counts
       loading.value = false
       return
     }
@@ -49,7 +69,7 @@ export function useGlobalSearch() {
 
       try {
         const { get } = useApi()
-        const result = await get<{ query: string; suggestions: SearchSuggestion[] }>(
+        const result = await get<{ query: string; suggestions: SearchSuggestion[]; counts: SearchTabCount[] }>(
           `/search/suggest?q=${encodeURIComponent(trimmed)}`,
           { signal: abortController.signal },
         )
@@ -57,7 +77,8 @@ export function useGlobalSearch() {
         if (trimmed !== lastRequestedTerm) return
 
         suggestions.value = result.suggestions
-        cache.set(trimmed.toLowerCase(), result.suggestions)
+        counts.value = result.counts ?? []
+        cache.set(trimmed.toLowerCase(), { suggestions: result.suggestions, counts: result.counts ?? [] })
         if (cache.size > CACHE_MAX) {
           const oldestKey = cache.keys().next().value
           if (oldestKey !== undefined) cache.delete(oldestKey)
@@ -65,6 +86,7 @@ export function useGlobalSearch() {
       } catch (e: any) {
         if (e?.name === 'AbortError') return
         suggestions.value = []
+        counts.value = []
       } finally {
         if (trimmed === lastRequestedTerm) loading.value = false
       }
@@ -76,6 +98,7 @@ export function useGlobalSearch() {
     abortController?.abort()
     query.value = ''
     suggestions.value = []
+    counts.value = []
     loading.value = false
     highlightedIndex.value = -1
   }
@@ -107,6 +130,7 @@ export function useGlobalSearch() {
   return {
     query,
     suggestions,
+    counts,
     loading,
     highlightedIndex,
     search,
