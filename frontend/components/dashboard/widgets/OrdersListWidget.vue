@@ -1,25 +1,20 @@
 <template>
-  <div class="card-premium p-6 flex flex-col h-[600px]">
-    <div class="flex items-center justify-between mb-6 flex-shrink-0">
-      <div class="flex items-center">
-        <div class="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg mr-3">
-          <ShoppingCartIcon class="h-6 w-6 text-white" />
-        </div>
-        <h3 class="text-xl font-bold text-gray-900">Pedidos Activos</h3>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+  <div class="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col h-[600px]">
+    <div class="flex items-center justify-between mb-5 flex-shrink-0">
+      <div class="flex items-center gap-2.5">
+        <h3 class="text-sm font-semibold text-gray-900 tracking-tight">Pedidos activos</h3>
+        <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-semibold">
           {{ orders.length }}
         </span>
-        <button
-          class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          :class="{ 'animate-spin': loading }"
-          @click="$emit('refresh')"
-          title="Actualizar"
-        >
-          <ArrowPathIcon class="h-4 w-4" />
-        </button>
       </div>
+      <button
+        class="p-1.5 text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
+        :class="{ 'animate-spin': loading }"
+        @click="$emit('refresh')"
+        title="Actualizar"
+      >
+        <ArrowPathIcon class="h-4 w-4" />
+      </button>
     </div>
 
     <!-- Loading skeleton -->
@@ -46,7 +41,7 @@
     </div>
 
     <p v-if="lastUpdated" class="text-xs text-gray-400 text-right mt-2 flex-shrink-0">
-      Actualizado {{ formattedLastUpdated }}
+      Actualizado {{ timeAgo(lastUpdated) }}
     </p>
   </div>
 </template>
@@ -55,6 +50,7 @@
 import { ShoppingCartIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
 import OrderCard from '~/components/OrderCard.vue'
 import type { Order } from '~/composables/useClienteDashboard'
+import { useRelativeTime } from '~/composables/useRelativeTime'
 
 interface Props {
   orders: Order[]
@@ -62,7 +58,7 @@ interface Props {
   lastUpdated?: Date | null
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   loading: false,
   lastUpdated: null,
 })
@@ -73,14 +69,5 @@ defineEmits<{
   'status-change': [payload: { id: string; status: string }]
 }>()
 
-const formattedLastUpdated = computed(() => {
-  if (!props.lastUpdated) return ''
-  const now = new Date()
-  const diff = Math.floor((now.getTime() - props.lastUpdated.getTime()) / 1000)
-
-  if (diff < 60) return 'hace un momento'
-  if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`
-  if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`
-  return props.lastUpdated.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-})
+const { timeAgo } = useRelativeTime()
 </script>

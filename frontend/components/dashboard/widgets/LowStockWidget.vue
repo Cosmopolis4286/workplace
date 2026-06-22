@@ -1,27 +1,27 @@
 <template>
-  <div class="card-premium p-6">
+  <div class="bg-white rounded-2xl border border-gray-100 p-5">
     <div class="flex items-center justify-between mb-4">
-      <div class="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg">
-        <ExclamationTriangleIcon class="h-6 w-6 text-white" />
+      <div class="flex items-center justify-center w-10 h-10 rounded-full bg-amber-50">
+        <ExclamationTriangleIcon class="h-5 w-5 text-amber-600" />
       </div>
       <!-- Para bajo stock: más productos = peor → invertir colores -->
       <span
         v-if="change !== null"
         class="text-xs font-semibold px-2 py-0.5 rounded-full"
-        :class="change > 0 ? 'bg-red-100 text-red-700' : change < 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'"
+        :class="change > 0 ? 'bg-red-50 text-red-700' : change < 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
       >
         {{ formattedChange }}
       </span>
-      <span v-else-if="count > 0" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+      <span v-else-if="count > 0" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
         Atención
       </span>
     </div>
-    <div v-if="loading" class="h-8 bg-gray-200 rounded animate-pulse mb-1" />
-    <div v-else class="text-2xl font-black text-gray-900 mb-1">{{ count }}</div>
-    <p class="text-sm text-gray-500 font-medium">Productos Bajo Stock</p>
+    <div v-if="loading" class="h-7 bg-gray-100 rounded animate-pulse mb-1 w-12" />
+    <div v-else class="text-xl font-bold text-gray-900 mb-0.5">{{ count }}</div>
+    <p class="text-xs text-gray-400 font-medium">Productos bajo stock</p>
     <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
       <div
-        class="h-full bg-gradient-to-r from-amber-500 to-orange-400 rounded-full transition-all duration-700"
+        class="h-full bg-amber-500 rounded-full transition-all duration-700"
         :style="{ width: progressWidth }"
       />
     </div>

@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useAuthFetch } from './useAuthFetch'
 import { useUserPreferences } from './useUserPreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -178,39 +178,10 @@ const totalCount     = ref(0)
 const currentPage    = ref(1)
 
 export function useClienteDashboard() {
-  const { token, refreshTokens } = useAuth()
+  const { apiFetch } = useAuthFetch()
 
   const activeOrders  = computed(() => orders.value.filter(o => ACTIVE_STATUSES.includes(o.status)))
   const recentOrders  = computed(() => orders.value.filter(o => !ACTIVE_STATUSES.includes(o.status)))
-
-  // ── Auth-aware fetch ────────────────────────────────────────────────────────
-  async function apiFetch(path: string, options: RequestInit = {}) {
-    const config = useRuntimeConfig()
-    const base   = config.public.apiUrl
-
-    const doRequest = async (tkn: string) => {
-      return fetch(`${base}${path}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tkn}`,
-          ...(options.headers ?? {}),
-        },
-      })
-    }
-
-    let res = await doRequest(token.value)
-    if (res.status === 401) {
-      const ok = await refreshTokens()
-      if (!ok) throw new Error('Sesión expirada')
-      res = await doRequest(token.value)
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.message ?? `Error ${res.status}`)
-    }
-    return res.json()
-  }
 
   // ── Load stats ──────────────────────────────────────────────────────────────
   async function loadStats() {

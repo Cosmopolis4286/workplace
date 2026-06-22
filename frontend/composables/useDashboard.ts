@@ -1,5 +1,6 @@
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useAuth } from './useAuth'
+import { useAuthFetch } from './useAuthFetch'
 import { type Order, type OrderStats, type OrderStatus, NEXT_STATUS } from './useClienteDashboard'
 import { useUserPreferences } from './useUserPreferences'
 import { type DashboardPeriod } from './useDashboardPeriod'
@@ -48,35 +49,8 @@ const lastUpdated  = ref<Date | null>(null)
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export function useDashboard() {
-  const { token, refreshTokens, user } = useAuth()
-
-  // ── Auth-aware fetch ────────────────────────────────────────────────────────
-  async function apiFetch(path: string, options: RequestInit = {}) {
-    const config = useRuntimeConfig()
-    const base   = config.public.apiUrl
-
-    const doRequest = async (tkn: string) =>
-      fetch(`${base}${path}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tkn}`,
-          ...(options.headers ?? {}),
-        },
-      })
-
-    let res = await doRequest(token.value)
-    if (res.status === 401) {
-      const ok = await refreshTokens()
-      if (!ok) throw new Error('Sesión expirada')
-      res = await doRequest(token.value)
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.message ?? `Error ${res.status}`)
-    }
-    return res.json()
-  }
+  const { user } = useAuth()
+  const { apiFetch } = useAuthFetch()
 
   // ── Load all dashboard data in parallel ─────────────────────────────────────
   async function loadDashboard(period: DashboardPeriod = '30d') {
@@ -99,29 +73,18 @@ export function useDashboard() {
         return
       }
 
+      const ACTIVE_STATUSES: OrderStatus[] = ['PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
+
       const [ordersRes, statsRes, analyticsRes] = await Promise.allSettled([
-        // Active orders (non-terminal statuses)
-        apiFetch('/orders?status=PENDIENTE&limit=20'),
+        // Pedidos activos: todos los statuses no-terminales en un solo roundtrip
+        apiFetch(`/orders?status=${ACTIVE_STATUSES.join(',')}&limit=100`),
         // Order stats
         apiFetch('/orders/stats'),
         // Analytics overview para el período seleccionado
         apiFetch(`/analytics/overview?period=${period}&compareWith=previous`),
       ])
 
-      // Active orders — merge PENDIENTE + CONFIRMADO + PREPARANDO + LISTO + EN_ENTREGA
-      let allActive: Order[] = []
-      if (ordersRes.status === 'fulfilled') {
-        allActive = ordersRes.value?.data ?? []
-      }
-
-      // Also fetch other active statuses concurrently
-      const otherStatuses: OrderStatus[] = ['CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
-      const otherResults = await Promise.allSettled(
-        otherStatuses.map(s => apiFetch(`/orders?status=${s}&limit=20`))
-      )
-      otherResults.forEach(r => {
-        if (r.status === 'fulfilled') allActive = [...allActive, ...(r.value?.data ?? [])]
-      })
+      const allActive: Order[] = ordersRes.status === 'fulfilled' ? (ordersRes.value?.data ?? []) : []
 
       // Sort by createdAt desc
       activeOrders.value = allActive.sort(

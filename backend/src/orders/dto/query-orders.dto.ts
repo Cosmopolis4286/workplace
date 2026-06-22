@@ -1,10 +1,16 @@
-import { IsOptional, IsEnum, IsNumberString, IsString } from 'class-validator';
-import { OrderStatus, OrderType } from '@prisma/client';
+import { IsOptional, IsEnum, IsNumberString, IsString, Matches } from 'class-validator';
+import { OrderType } from '@prisma/client';
+
+const STATUS_LIST_PATTERN =
+  /^(PENDIENTE|CONFIRMADO|PREPARANDO|LISTO|EN_ENTREGA|ENTREGADO|CANCELADO)(,(PENDIENTE|CONFIRMADO|PREPARANDO|LISTO|EN_ENTREGA|ENTREGADO|CANCELADO))*$/;
 
 export class QueryOrdersDto {
+  // Acepta un status único ("PENDIENTE") o varios separados por coma
+  // ("PENDIENTE,CONFIRMADO,PREPARANDO") para evitar múltiples roundtrips.
   @IsOptional()
-  @IsEnum(OrderStatus)
-  status?: OrderStatus;
+  @IsString()
+  @Matches(STATUS_LIST_PATTERN)
+  status?: string;
 
   @IsOptional()
   @IsEnum(OrderType)

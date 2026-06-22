@@ -170,14 +170,14 @@
     />
 
     <!-- System Health - Solo SUPERADMIN -->
-    <div v-if="canViewWidget('systemHealth')" class="card-premium p-6 mb-8">
-      <div class="flex items-center mb-4">
-        <div class="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg mr-3">
-          <ServerIcon class="h-6 w-6 text-white" />
+    <div v-if="canViewWidget('systemHealth')" class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6 mb-8">
+      <div class="flex items-center gap-2.5 mb-3">
+        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-50">
+          <ServerIcon class="h-4 w-4 text-purple-600" />
         </div>
-        <h3 class="text-xl font-bold text-gray-900">Estado del Sistema</h3>
+        <h3 class="text-sm font-semibold text-gray-900 tracking-tight">Estado del sistema</h3>
       </div>
-      <p class="text-gray-500">Vista de administrador del sistema</p>
+      <p class="text-sm text-gray-400">Vista de administrador del sistema</p>
     </div>
 
     <!-- Order Detail Modal -->
@@ -199,6 +199,7 @@ definePageMeta({
 
 import { ExclamationTriangleIcon, ServerIcon, AdjustmentsHorizontalIcon } from '@heroicons/vue/24/outline'
 import { useDashboard } from '~/composables/useDashboard'
+import { useCustomerDashboard } from '~/composables/useCustomerDashboard'
 import { useDashboardWidgets } from '~/composables/useDashboardWidgets'
 import { useDashboardPeriod, type DashboardPeriod } from '~/composables/useDashboardPeriod'
 import { useDashboardLayout } from '~/composables/useDashboardLayout'
@@ -243,40 +244,8 @@ function handlePeriodChange(p: DashboardPeriod) {
 const { kpiLayout, load: loadLayout, toggleVisibility, reorder, reset: resetLayout, widgetName } = useDashboardLayout()
 const showCustomizePanel = ref(false)
 
-// Customer-specific data (for NORMAL users)
-const myOrders = ref([])
-const myServiceRequests = ref([])
-const loadingMyOrders = ref(false)
-const loadingMyServiceRequests = ref(false)
-
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
-const { getHeaders } = useAuth()
-
-// Load customer data
-async function loadCustomerData() {
-  // Load my orders
-  loadingMyOrders.value = true
-  try {
-    const res = await $fetch(`${apiUrl}/orders/mine`, { headers: getHeaders() })
-    myOrders.value = res.data ?? []
-  } catch (e) {
-    console.error('Error loading my orders:', e)
-  } finally {
-    loadingMyOrders.value = false
-  }
-
-  // Load my service requests
-  loadingMyServiceRequests.value = true
-  try {
-    const res = await $fetch(`${apiUrl}/services/requests/mine?as=client`, { headers: getHeaders() })
-    myServiceRequests.value = res.data ?? []
-  } catch (e) {
-    console.error('Error loading service requests:', e)
-  } finally {
-    loadingMyServiceRequests.value = false
-  }
-}
+// Datos del propio usuario NORMAL: pedidos hechos y solicitudes de servicio enviadas
+const { myOrders, myServiceRequests, loadingMyOrders, loadingMyServiceRequests, loadCustomerData } = useCustomerDashboard()
 
 // Widget visibility by role
 const { heroConfig, quickActions, canViewWidget } = useDashboardWidgets()

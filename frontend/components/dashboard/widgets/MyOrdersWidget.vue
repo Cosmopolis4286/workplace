@@ -1,6 +1,6 @@
 <template>
-  <div class="card bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-    <div class="flex items-center justify-between mb-4">
+  <div class="card bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col h-[420px]">
+    <div class="flex items-center justify-between mb-4 flex-shrink-0">
       <div class="flex items-center gap-3">
         <div class="p-2 bg-blue-100 rounded-xl">
           <ShoppingBagIcon class="w-5 h-5 text-blue-600" />
@@ -24,8 +24,8 @@
     </div>
 
     <!-- Empty -->
-    <div v-else-if="orders.length === 0" class="text-center py-8">
-      <ShoppingBagIcon class="w-10 h-10 text-gray-300 mx-auto mb-2" />
+    <div v-else-if="orders.length === 0" class="flex-1 flex flex-col items-center justify-center text-center">
+      <ShoppingBagIcon class="w-10 h-10 text-gray-300 mb-2" />
       <p class="text-sm font-medium text-gray-700">No tienes pedidos aún</p>
       <p class="text-xs text-gray-400 mt-1">Cuando hagas un pedido, aparecerá aquí</p>
       <NuxtLink
@@ -38,7 +38,7 @@
     </div>
 
     <!-- Orders List -->
-    <div v-else class="space-y-2 max-h-80 overflow-y-auto pr-1">
+    <div v-else class="space-y-2 flex-1 overflow-y-auto pr-1">
       <NuxtLink
         v-for="order in orders.slice(0, 5)"
         :key="order.id"
@@ -75,7 +75,7 @@
     </div>
 
     <!-- Footer summary -->
-    <div v-if="!loading && orders.length > 0" class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+    <div v-if="!loading && orders.length > 0" class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs flex-shrink-0">
       <span class="text-gray-400">{{ orders.length }} pedido{{ orders.length !== 1 ? 's' : '' }} reciente{{ orders.length !== 1 ? 's' : '' }}</span>
       <span v-if="activeCount > 0" class="font-semibold text-blue-600">{{ activeCount }} en proceso</span>
     </div>
@@ -84,6 +84,7 @@
 
 <script setup lang="ts">
 import { ShoppingBagIcon, MagnifyingGlassIcon, ClockIcon } from '@heroicons/vue/24/outline'
+import { useRelativeTime } from '~/composables/useRelativeTime'
 
 interface OrderItem {
   productName: string
@@ -168,15 +169,5 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value)
 }
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'justo ahora'
-  if (mins < 60) return `hace ${mins} min`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `hace ${hrs}h`
-  const days = Math.floor(hrs / 24)
-  if (days < 7) return `hace ${days}d`
-  return new Date(dateStr).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
-}
+const { timeAgo } = useRelativeTime()
 </script>

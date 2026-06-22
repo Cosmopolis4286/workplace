@@ -96,7 +96,10 @@ export class OrdersService {
 
     const where: any = { commerceId };
 
-    if (query.status) where.status = query.status;
+    if (query.status) {
+      const statuses = query.status.split(',');
+      where.status = statuses.length > 1 ? { in: statuses } : statuses[0];
+    }
     if (query.orderType) where.orderType = query.orderType;
     if (query.search) {
       where.OR = [
