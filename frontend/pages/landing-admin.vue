@@ -596,7 +596,7 @@ interface ReportedReview {
 
 interface UserReport {
   id: string
-  entityType: 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'GENERAL'
+  entityType: 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'ORDER' | 'GENERAL'
   reason: string
   description?: string
   status: 'PENDIENTE' | 'EN_REVISION' | 'RESUELTO' | 'DESCARTADO'
@@ -740,8 +740,9 @@ const loadingUserReports = ref(false)
 const reportStatusFilter = ref('')
 
 const ENTITY_TYPE_LABELS: Record<UserReport['entityType'], string> = {
-  CATALOG_ORDER: 'un pedido',
+  CATALOG_ORDER: 'un pedido de catálogo',
   SERVICE_REQUEST: 'una solicitud de servicio',
+  ORDER: 'un pedido de restaurante',
   GENERAL: 'un problema general de la app',
 }
 
