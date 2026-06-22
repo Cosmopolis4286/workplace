@@ -236,6 +236,12 @@
                       {{ order.deliveryAddress }}
                     </span>
                   </div>
+                  <button
+                    class="text-[11px] text-gray-400 hover:text-red-500 font-medium mt-1.5"
+                    @click.stop="openOrderReport(order)"
+                  >
+                    ¿Tuviste un problema? Reportarlo
+                  </button>
                 </div>
 
                 <!-- Chevron expandible -->
@@ -383,7 +389,7 @@
           </div>
 
           <div class="p-4 border-t border-gray-100 flex items-center justify-between">
-            <button class="text-xs text-gray-400 hover:text-red-500 font-medium" @click="showReportModal = true">
+            <button class="text-xs text-gray-400 hover:text-red-500 font-medium" @click="showCatalogReportModal = true">
               ¿Tuviste un problema? Reportarlo
             </button>
             <button class="text-sm font-semibold text-gray-500 hover:text-gray-700" @click="selectedCatalogOrder = null">Cerrar</button>
@@ -394,9 +400,16 @@
 
     <ReportProblemModal
       v-if="selectedCatalogOrder"
-      v-model="showReportModal"
+      v-model="showCatalogReportModal"
       entity-type="CATALOG_ORDER"
       :entity-id="selectedCatalogOrder.id"
+    />
+
+    <ReportProblemModal
+      v-if="orderForReport"
+      v-model="showOrderReportModal"
+      entity-type="ORDER"
+      :entity-id="orderForReport.id"
     />
   </div>
 </template>
@@ -461,8 +474,15 @@ const catalogOrders = ref<CatalogOrder[]>([])
 const loadingCatalog = ref(false)
 const activeCatalogFilter = ref('ALL')
 const selectedCatalogOrder = ref<CatalogOrder | null>(null)
-const showReportModal = ref(false)
+const showCatalogReportModal = ref(false)
 const confirmingCatalogOrder = ref(false)
+const orderForReport = ref<Order | null>(null)
+const showOrderReportModal = ref(false)
+
+function openOrderReport(order: Order) {
+  orderForReport.value = order
+  showOrderReportModal.value = true
+}
 
 const filteredCatalogOrders = computed(() =>
   activeCatalogFilter.value === 'ALL'
