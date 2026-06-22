@@ -25,6 +25,7 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServicesDto } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
+import { UpdateServiceRequestDto } from './dto/update-service-request.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -198,7 +199,7 @@ export class ServicesController {
   updateRequest(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @Body() body: { status?: string; providerNotes?: string }
+    @Body() body: UpdateServiceRequestDto
   ) {
     return this.servicesService.updateServiceRequest(id, user.id, body);
   }

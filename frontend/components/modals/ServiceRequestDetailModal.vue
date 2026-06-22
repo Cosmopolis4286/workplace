@@ -177,7 +177,7 @@
                     @click="startEditNotes"
                   >
                     <PencilIcon class="h-3.5 w-3.5" />
-                    {{ req.providerNotes ? 'Editar' : 'Agregar' }}
+                    {{ req.providerNotes || req.price ? 'Editar' : 'Agregar' }}
                   </button>
                 </div>
 
@@ -195,10 +195,34 @@
                     <textarea
                       v-model="notesInput"
                       rows="4"
-                      placeholder="Ej: Acordamos el lunes 15 a las 10am. Llevar herramientas propias. Precio final $80..."
+                      placeholder="Ej: Acordamos el lunes 15 a las 10am. Llevar herramientas propias..."
                       class="w-full text-sm border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
                     />
-                    <div class="flex justify-end gap-2 mt-2">
+                    <div class="grid grid-cols-2 gap-2 mt-3">
+                      <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Precio acordado</label>
+                        <div class="relative">
+                          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                          <input
+                            v-model.number="priceInput"
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            class="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Unidad (opcional)</label>
+                        <input
+                          v-model="priceUnitInput"
+                          type="text"
+                          placeholder="Ej: hora, proyecto"
+                          class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                        />
+                      </div>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-3">
                       <button class="btn-secondary text-xs py-1.5 px-3" @click="cancelEditNotes">Cancelar</button>
                       <button class="btn-primary text-xs py-1.5 px-3" :disabled="savingNotes" @click="saveNotes">
                         {{ savingNotes ? 'Guardando...' : 'Guardar' }}
@@ -408,13 +432,17 @@ const nextActions = computed(() => {
   return []
 })
 
-// Observaciones
+// Observaciones + precio acordado
 const editingNotes = ref(false)
 const notesInput = ref('')
+const priceInput = ref<number | null>(null)
+const priceUnitInput = ref('')
 const savingNotes = ref(false)
 
 function startEditNotes() {
   notesInput.value = props.req.providerNotes ?? ''
+  priceInput.value = props.req.price ?? null
+  priceUnitInput.value = props.req.priceUnit ?? ''
   editingNotes.value = true
 }
 function cancelEditNotes() {
@@ -425,7 +453,10 @@ async function saveNotes() {
   savingNotes.value = true
   try {
     const { patch } = useApi()
-    const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}`, { providerNotes: notesInput.value })
+    const body: Record<string, unknown> = { providerNotes: notesInput.value }
+    if (priceInput.value !== null && !Number.isNaN(priceInput.value)) body.price = priceInput.value
+    if (priceUnitInput.value.trim()) body.priceUnit = priceUnitInput.value.trim()
+    const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}`, body)
     emit('updated', { ...props.req, providerNotes: notesInput.value, ...updated })
     editingNotes.value = false
   } catch { /* silently ignore */ } finally {

@@ -390,18 +390,49 @@ export class ServicesService {
     return req;
   }
 
-  async updateServiceRequest(id: string, userId: string, data: { status?: string; providerNotes?: string }) {
+  // Transiciones válidas: el flujo solo avanza, nunca retrocede, y CERRADO es terminal.
+  // PENDIENTE puede saltar directo a CONTACTADO (el proveedor llamó sin pasar por "visto" en la app).
+  private static readonly VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
+    PENDIENTE: ['VISTO', 'CONTACTADO', 'CERRADO'],
+    VISTO: ['CONTACTADO', 'CERRADO'],
+    CONTACTADO: ['CERRADO'],
+    CERRADO: [],
+  };
+
+  private assertValidStatusTransition(from: string, to: string) {
+    if (from === to) return;
+    const allowed = ServicesService.VALID_STATUS_TRANSITIONS[from] ?? [];
+    if (!allowed.includes(to)) {
+      throw new ForbiddenException(
+        `No puedes cambiar el estado de ${from} a ${to}`,
+      );
+    }
+  }
+
+  async updateServiceRequest(id: string, userId: string, data: { status?: string; providerNotes?: string; price?: number; priceUnit?: string }) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.providerId !== userId)
       throw new ForbiddenException('No tienes permiso');
     const update: any = {};
     if (data.status !== undefined) {
+      this.assertValidStatusTransition(req.status, data.status);
       update.status = data.status;
       update.statusUpdatedAt = new Date();
     }
     if (data.providerNotes !== undefined) update.providerNotes = data.providerNotes;
-    return this.prisma.serviceRequest.update({ where: { id }, data: update });
+    if (data.price !== undefined) update.price = data.price;
+    if (data.priceUnit !== undefined) update.priceUnit = data.priceUnit;
+
+    const updated = await this.prisma.serviceRequest.update({ where: { id }, data: update });
+
+    if (data.status !== undefined && data.status !== req.status && req.requesterId && ['VISTO', 'CONTACTADO', 'CERRADO'].includes(data.status)) {
+      this.notifications
+        .notifyServiceRequestStatusChanged(req.requesterId, req.providerName, req.serviceName, data.status as 'VISTO' | 'CONTACTADO' | 'CERRADO')
+        .catch(() => {});
+    }
+
+    return updated;
   }
 
   async updateServiceRequestStatus(id: string, userId: string, status: string) {

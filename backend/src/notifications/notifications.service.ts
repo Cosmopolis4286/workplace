@@ -74,6 +74,39 @@ export class NotificationsService {
     });
   }
 
+  async notifyServiceRequestStatusChanged(
+    clientId: string,
+    providerName: string,
+    serviceName: string,
+    status: 'VISTO' | 'CONTACTADO' | 'CERRADO',
+  ) {
+    const STATUS_COPY: Record<typeof status, { icon: string; title: string; message: string }> = {
+      VISTO: {
+        icon: '👀',
+        title: 'Tu solicitud fue vista',
+        message: `${providerName} vio tu solicitud de "${serviceName}" y pronto se pondrá en contacto.`,
+      },
+      CONTACTADO: {
+        icon: '📞',
+        title: '¡Te van a contactar!',
+        message: `${providerName} marcó tu solicitud de "${serviceName}" como contactada.`,
+      },
+      CERRADO: {
+        icon: '✅',
+        title: 'Solicitud cerrada',
+        message: `Tu solicitud de "${serviceName}" con ${providerName} fue marcada como cerrada.`,
+      },
+    };
+    const copy = STATUS_COPY[status];
+    return this.createForUser(clientId, {
+      type: NotificationType.ORDER,
+      title: `${copy.icon} ${copy.title}`,
+      message: copy.message,
+      link: '/solicitudes-servicio',
+      metadata: { providerName, serviceName, status },
+    });
+  }
+
   async notifyProposedCategoryReviewed(
     proposerId: string,
     categoryName: string,

@@ -36,6 +36,22 @@
       </button>
     </div>
 
+    <!-- Actualización disponible (vía notificación en vivo) -->
+    <Transition enter-active-class="duration-200 ease-out" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0">
+      <div v-if="hasLiveUpdate" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between gap-3">
+        <p class="text-blue-700 text-sm flex items-center gap-2">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+          </span>
+          Hay actualizaciones nuevas en tus solicitudes
+        </p>
+        <button class="text-xs font-semibold text-blue-700 hover:text-blue-900 flex-shrink-0" @click="applyLiveUpdate">
+          Actualizar ahora
+        </button>
+      </div>
+    </Transition>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
       <!-- Lista principal -->
@@ -252,7 +268,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
   ClipboardDocumentListIcon,
   XMarkIcon,
@@ -271,6 +287,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import ServiceRequestDetailModal from '~/components/modals/ServiceRequestDetailModal.vue'
 import { useApi } from '~/composables/useApi'
 import { useExchangeRates } from '~/composables/useExchangeRates'
+import { useNotifications, type Notification } from '~/composables/useNotifications'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -456,9 +473,29 @@ function timeAgo(date: string) {
   return `hace ${years} año${years !== 1 ? 's' : ''}`
 }
 
+// ─── Refresco en vivo vía notificaciones WebSocket ──────────────────────────
+const { notifications } = useNotifications()
+const hasLiveUpdate = ref(false)
+let lastSeenNotificationCount = 0
+
+watch(notifications, (list: Notification[]) => {
+  if (list.length <= lastSeenNotificationCount) return
+  const isRelevant = list
+    .slice(0, list.length - lastSeenNotificationCount)
+    .some((n) => n.link === '/solicitudes-servicio')
+  lastSeenNotificationCount = list.length
+  if (isRelevant) hasLiveUpdate.value = true
+})
+
+async function applyLiveUpdate() {
+  hasLiveUpdate.value = false
+  await fetchRequests()
+}
+
 onMounted(() => {
   fetchRequests()
   fetchRates(false, true)
+  lastSeenNotificationCount = notifications.value.length
 })
 </script>
 
