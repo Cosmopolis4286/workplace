@@ -5,6 +5,9 @@ import {
   IsDateString,
   IsEmail,
   IsEnum,
+  IsArray,
+  ArrayMaxSize,
+  ValidateNested,
   Matches,
   MinLength,
   MaxLength,
@@ -12,6 +15,8 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateServiceRequestItemDto } from './create-service-request-item.dto';
 
 @ValidatorConstraint({ name: 'isFutureDate' })
 class IsFutureDateConstraint implements ValidatorConstraintInterface {
@@ -101,4 +106,11 @@ export class CreateServiceRequestDto {
   @IsOptional()
   @MaxLength(50)
   priceUnit?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => CreateServiceRequestItemDto)
+  items?: CreateServiceRequestItemDto[];
 }

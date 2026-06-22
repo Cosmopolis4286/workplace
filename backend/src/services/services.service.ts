@@ -23,6 +23,7 @@ const SERVICE_SELECT = {
   status: true,
   tags: true,
   modalities: true,
+  itemFields: true,
   createdAt: true,
   category: { select: { id: true, name: true, color: true, icon: true } },
   user: {
@@ -339,7 +340,19 @@ export class ServicesService {
         price: dto.price,
         priceUnit: dto.priceUnit,
         requesterId: requesterId ?? null,
+        items: dto.items?.length
+          ? {
+              create: dto.items.map((item, i) => ({
+                fields: item.fields ?? {},
+                notes: item.notes,
+                photos: item.photos ?? [],
+                videos: item.videos ?? [],
+                sortOrder: i,
+              })),
+            }
+          : undefined,
       },
+      include: { items: true },
     });
     // Fire-and-forget notification to the provider
     this.notifications
@@ -359,6 +372,7 @@ export class ServicesService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: { items: { orderBy: { sortOrder: 'asc' } } },
       }),
       this.prisma.serviceRequest.count({ where }),
     ]);
@@ -366,7 +380,10 @@ export class ServicesService {
   }
 
   async getServiceRequest(id: string, userId: string) {
-    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    const req = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
+    });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.providerId !== userId && req.requesterId !== userId)
       throw new ForbiddenException('No tienes permiso');

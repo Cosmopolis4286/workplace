@@ -281,6 +281,14 @@ const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
 
 const isNormal = computed(() => user.value?.role === 'NORMAL')
 
+interface ServiceRequestItem {
+  id: string
+  fields: Record<string, string>
+  notes?: string
+  photos: string[]
+  videos: string[]
+}
+
 interface ServiceRequest {
   id: string
   serviceName: string
@@ -299,6 +307,7 @@ interface ServiceRequest {
   status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
   createdAt: string
   statusUpdatedAt?: string
+  items?: ServiceRequestItem[]
 }
 
 const STATUS_LABELS: Record<ServiceRequest['status'], string> = {

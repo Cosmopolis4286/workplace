@@ -382,6 +382,43 @@
                 <p class="mt-1.5 text-xs text-gray-400">Selecciona una o más. Los clientes solo verán las que hayas activado.</p>
               </div>
 
+              <!-- Campos por ítem -->
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Campos por ítem</label>
+                <div class="flex flex-wrap gap-1.5 mb-2">
+                  <span
+                    v-for="field in form.itemFields"
+                    :key="field"
+                    class="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full"
+                  >
+                    {{ field }}
+                    <button type="button" @click="removeItemField(field)" class="hover:text-blue-900">
+                      <XMarkIcon class="h-3 w-3" />
+                    </button>
+                  </span>
+                </div>
+                <div class="flex gap-2">
+                  <input
+                    v-model="itemFieldInput"
+                    @keydown.enter.prevent="addItemField"
+                    type="text"
+                    placeholder="Ej: Marca, Modelo, Tipo de máquina..."
+                    maxlength="40"
+                    class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
+                  />
+                  <button
+                    type="button"
+                    @click="addItemField"
+                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors"
+                  >
+                    Agregar
+                  </button>
+                </div>
+                <p class="mt-1.5 text-xs text-gray-400">
+                  Define qué información pedirás por cada ítem/equipo que el cliente quiera reparar (ej. Marca, Modelo, Tipo de máquina). Déjalo vacío si tu servicio no maneja ítems individuales.
+                </p>
+              </div>
+
               <!-- Image URL -->
               <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">URL de imagen</label>
@@ -914,10 +951,12 @@ const emptyForm = () => ({
   status: 'ACTIVO' as Service['status'],
   tags: [] as string[],
   modalities: [] as string[],
+  itemFields: [] as string[],
   categoryId: '',
 })
 
 const form = ref(emptyForm())
+const itemFieldInput = ref('')
 
 const headerStats = computed(() => [
   { label: 'Servicios activos', value: String(stats.value.activos) },
@@ -971,6 +1010,7 @@ function openEdit(service: Service) {
     status: service.status,
     tags: [...service.tags],
     modalities: [...(service.modalities ?? [])],
+    itemFields: [...(service.itemFields ?? [])],
     categoryId: service.categoryId ?? '',
   }
   formError.value = null
@@ -985,6 +1025,16 @@ function addTag() {
 
 function removeTag(tag: string) {
   form.value.tags = form.value.tags.filter(t => t !== tag)
+}
+
+function addItemField() {
+  const f = itemFieldInput.value.trim()
+  if (f && !form.value.itemFields.includes(f) && form.value.itemFields.length < 10) form.value.itemFields.push(f)
+  itemFieldInput.value = ''
+}
+
+function removeItemField(field: string) {
+  form.value.itemFields = form.value.itemFields.filter(f => f !== field)
 }
 
 async function handleSubmit() {
@@ -1002,6 +1052,7 @@ async function handleSubmit() {
       status: form.value.status,
       tags: form.value.tags,
       modalities: form.value.modalities,
+      itemFields: form.value.itemFields,
       categoryId: form.value.categoryId || undefined,
     }
     if (editing.value) {

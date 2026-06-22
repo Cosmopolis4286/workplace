@@ -7,6 +7,7 @@ import {
   Min,
   MaxLength,
   IsInt,
+  ArrayMaxSize,
 } from 'class-validator';
 import { ServiceStatus } from '@prisma/client';
 
@@ -51,6 +52,13 @@ export class CreateServiceDto {
   @IsArray()
   @IsString({ each: true })
   modalities?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  itemFields?: string[];
 
   @IsOptional()
   @IsString()

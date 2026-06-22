@@ -81,6 +81,31 @@
                 </div>
               </div>
 
+              <!-- Ítems solicitados -->
+              <div v-if="req.items?.length">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ítems solicitados ({{ req.items.length }})</p>
+                <div class="space-y-3">
+                  <div v-for="(item, idx) in req.items" :key="item.id" class="border border-gray-200 rounded-xl p-4">
+                    <p class="text-xs font-bold text-gray-600 mb-2">Ítem {{ idx + 1 }}</p>
+                    <div v-if="Object.keys(item.fields ?? {}).length" class="grid grid-cols-2 gap-2 mb-2">
+                      <div v-for="[key, value] in Object.entries(item.fields ?? {})" :key="key">
+                        <p class="text-[10px] text-gray-400 uppercase">{{ key }}</p>
+                        <p class="text-sm text-gray-900 font-medium">{{ value || '—' }}</p>
+                      </div>
+                    </div>
+                    <p v-if="item.notes" class="text-sm text-gray-700 italic mb-2">"{{ item.notes }}"</p>
+                    <div v-if="item.photos?.length" class="grid grid-cols-6 gap-1.5 mb-1.5">
+                      <a v-for="(photo, pi) in item.photos" :key="pi" :href="mediaUrl(photo)" target="_blank" class="aspect-square rounded-lg overflow-hidden bg-gray-100 block">
+                        <img :src="mediaUrl(photo)" class="w-full h-full object-cover" />
+                      </a>
+                    </div>
+                    <div v-if="item.videos?.length" class="grid grid-cols-3 gap-1.5">
+                      <video v-for="(video, vi) in item.videos" :key="vi" :src="mediaUrl(video)" controls class="w-full h-20 rounded-lg bg-gray-100 object-cover" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Datos de contacto (solo proveedor) -->
               <div v-if="isProvider" class="border border-gray-200 rounded-xl p-4">
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Datos de contacto</p>
@@ -272,6 +297,14 @@ import {
 import { useApi } from '~/composables/useApi'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 
+interface ServiceRequestItem {
+  id: string
+  fields: Record<string, string>
+  notes?: string
+  photos: string[]
+  videos: string[]
+}
+
 interface ServiceRequest {
   id: string
   serviceName: string
@@ -290,12 +323,19 @@ interface ServiceRequest {
   status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
   createdAt: string
   statusUpdatedAt?: string
+  items?: ServiceRequestItem[]
 }
 
 const props = defineProps<{ show: boolean; req: ServiceRequest; isProvider: boolean }>()
 const emit = defineEmits<{ close: []; updated: [ServiceRequest] }>()
 
 const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
+const config = useRuntimeConfig()
+const apiUrl = config.public.apiUrl as string
+
+function mediaUrl(path: string) {
+  return path.startsWith('http') ? path : `${apiUrl}${path}`
+}
 
 const STATUS_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Cerrado',

@@ -9,8 +9,15 @@ import {
   Body,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
   HttpCode,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { Role, ServiceEventType } from '@prisma/client';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
@@ -23,6 +30,17 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
+import { extensionForMimetype } from '../common/utils/upload-extension.util';
+
+const ALLOWED_MEDIA_MIMETYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+];
 
 @Controller('services')
 export class ServicesController {
@@ -114,6 +132,35 @@ export class ServicesController {
   }
 
   // ─── Service Requests ─────────────────────────────────────────────────────
+
+  @Post('requests/upload-media')
+  @UseGuards(OptionalJwtAuthGuard)
+  @UseInterceptors(
+    FilesInterceptor('files', 8, {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = join(process.cwd(), 'uploads', 'service-requests');
+          if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true });
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const ext = extensionForMimetype(file.mimetype) || extname(file.originalname);
+          cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+        },
+      }),
+      limits: { fileSize: 50 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (!ALLOWED_MEDIA_MIMETYPES.includes(file.mimetype)) {
+          cb(new BadRequestException('Tipo de archivo no permitido'), false);
+          return;
+        }
+        cb(null, true);
+      },
+    })
+  )
+  uploadRequestMedia(@UploadedFiles() files: Express.Multer.File[]) {
+    return { urls: files.map((f) => `/uploads/service-requests/${f.filename}`) };
+  }
 
   @Post('requests')
   @UseGuards(OptionalJwtAuthGuard)

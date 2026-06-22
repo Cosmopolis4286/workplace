@@ -225,6 +225,94 @@
                 <p class="text-[11px] text-gray-400 mt-1 text-right">{{ form.description.length }}/600</p>
               </div>
 
+              <!-- Ítems a reparar/solicitar -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="block text-xs font-bold text-gray-700">Ítems a reparar/solicitar</label>
+                  <span class="text-[11px] text-gray-400">{{ items.length }} ítem{{ items.length === 1 ? '' : 's' }}</span>
+                </div>
+
+                <div class="space-y-3">
+                  <div
+                    v-for="(item, idx) in items" :key="idx"
+                    class="border-2 border-gray-100 rounded-xl p-3 space-y-2.5"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-bold text-gray-600">Ítem {{ idx + 1 }}</span>
+                      <button type="button" class="text-[11px] text-red-500 hover:text-red-700 font-semibold" @click="removeItem(idx)">
+                        Quitar
+                      </button>
+                    </div>
+
+                    <div v-if="itemFieldNames.length" class="grid grid-cols-2 gap-2">
+                      <input
+                        v-for="fieldName in itemFieldNames" :key="fieldName"
+                        v-model="item.fields[fieldName]"
+                        type="text"
+                        :placeholder="fieldName"
+                        class="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                      />
+                    </div>
+
+                    <textarea
+                      v-model="item.notes"
+                      placeholder="Notas de este ítem (opcional)"
+                      maxlength="300"
+                      rows="2"
+                      class="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
+                    />
+
+                    <!-- Fotos -->
+                    <div>
+                      <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-semibold text-gray-500">Fotos ({{ item.photoFiles.length }}/{{ MAX_PHOTOS_PER_ITEM }})</span>
+                        <label class="text-[11px] text-blue-600 font-semibold cursor-pointer hover:text-blue-700">
+                          + Agregar
+                          <input type="file" accept="image/*" multiple class="hidden" @change="onPhotosSelected(idx, $event)" />
+                        </label>
+                      </div>
+                      <div v-if="item.photoFiles.length" class="grid grid-cols-6 gap-1.5">
+                        <div v-for="(file, fi) in item.photoFiles" :key="fi" class="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                          <img :src="previewUrl(file)" class="w-full h-full object-cover" />
+                          <button type="button" class="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center" @click="removePhoto(idx, fi)">
+                            <XMarkIcon class="w-2.5 h-2.5 text-white" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Videos -->
+                    <div>
+                      <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-semibold text-gray-500">Videos ({{ item.videoFiles.length }}/{{ MAX_VIDEOS_PER_ITEM }}, máx 2 min)</span>
+                        <label class="text-[11px] text-blue-600 font-semibold cursor-pointer hover:text-blue-700">
+                          + Agregar
+                          <input type="file" accept="video/*" multiple class="hidden" @change="onVideosSelected(idx, $event)" />
+                        </label>
+                      </div>
+                      <div v-if="item.videoFiles.length" class="grid grid-cols-3 gap-1.5">
+                        <div v-for="(file, fi) in item.videoFiles" :key="fi" class="relative rounded-lg overflow-hidden bg-gray-100">
+                          <video :src="previewUrl(file)" class="w-full h-16 object-cover" />
+                          <button type="button" class="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center" @click="removeVideo(idx, fi)">
+                            <XMarkIcon class="w-2.5 h-2.5 text-white" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p v-if="itemErrors[idx]" class="text-[11px] text-red-500">{{ itemErrors[idx] }}</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  class="mt-2 w-full py-2 border-2 border-dashed border-gray-200 rounded-xl text-xs font-semibold text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"
+                  @click="addItem"
+                >
+                  + Agregar otro ítem
+                </button>
+              </div>
+
               <!-- Precio -->
               <div class="flex items-center justify-between bg-blue-50 rounded-2xl px-4 py-3">
                 <span class="text-xs font-bold text-blue-700">Precio del servicio</span>
@@ -271,6 +359,15 @@ import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
 import { useExchangeRates } from '~/composables/useExchangeRates'
+import {
+  useServiceRequestItems,
+  emptyServiceRequestItem,
+  validatePhotoFile,
+  validateVideoFile,
+  MAX_PHOTOS_PER_ITEM,
+  MAX_VIDEOS_PER_ITEM,
+  type ServiceRequestItemForm,
+} from '~/composables/useServiceRequestItems'
 
 const props = defineProps<{
   modelValue: boolean
@@ -339,6 +436,68 @@ const form = ref(defaultForm())
 const sending = ref(false)
 const errorMsg = ref('')
 
+const { uploadMedia } = useServiceRequestItems()
+const itemFieldNames = computed(() => props.service?.itemFields ?? [])
+const items = ref<ServiceRequestItemForm[]>([])
+const itemErrors = ref<Record<number, string>>({})
+
+function addItem() {
+  items.value.push(emptyServiceRequestItem(itemFieldNames.value))
+}
+
+function removeItem(idx: number) {
+  items.value.splice(idx, 1)
+  delete itemErrors.value[idx]
+}
+
+function previewUrl(file: File) {
+  return URL.createObjectURL(file)
+}
+
+async function onPhotosSelected(idx: number, e: Event) {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  const item = items.value[idx]
+  if (!item) return
+  itemErrors.value[idx] = ''
+  for (const file of files) {
+    if (item.photoFiles.length >= MAX_PHOTOS_PER_ITEM) {
+      itemErrors.value[idx] = `Máximo ${MAX_PHOTOS_PER_ITEM} fotos por ítem`
+      break
+    }
+    const err = validatePhotoFile(file)
+    if (err) { itemErrors.value[idx] = err; continue }
+    item.photoFiles.push(file)
+  }
+}
+
+async function onVideosSelected(idx: number, e: Event) {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  const item = items.value[idx]
+  if (!item) return
+  itemErrors.value[idx] = ''
+  for (const file of files) {
+    if (item.videoFiles.length >= MAX_VIDEOS_PER_ITEM) {
+      itemErrors.value[idx] = `Máximo ${MAX_VIDEOS_PER_ITEM} videos por ítem`
+      break
+    }
+    const err = await validateVideoFile(file)
+    if (err) { itemErrors.value[idx] = err; continue }
+    item.videoFiles.push(file)
+  }
+}
+
+function removePhoto(idx: number, fileIdx: number) {
+  items.value[idx]?.photoFiles.splice(fileIdx, 1)
+}
+
+function removeVideo(idx: number, fileIdx: number) {
+  items.value[idx]?.videoFiles.splice(fileIdx, 1)
+}
+
 const touched = ref<Record<string, boolean>>({})
 function touch(field: string) {
   touched.value[field] = true
@@ -377,6 +536,8 @@ const fieldErrors = computed(() => {
 watch(() => props.service, () => {
   form.value = defaultForm()
   errorMsg.value = ''
+  items.value = []
+  itemErrors.value = {}
 })
 
 watch(() => props.modelValue, (isOpen) => {
@@ -435,6 +596,18 @@ async function submit() {
 
   sending.value = true
   try {
+    const itemsPayload = []
+    for (const item of items.value) {
+      const photos = item.photoFiles.length ? await uploadMedia(item.photoFiles) : []
+      const videos = item.videoFiles.length ? await uploadMedia(item.videoFiles) : []
+      itemsPayload.push({
+        fields: item.fields,
+        notes: item.notes || undefined,
+        photos,
+        videos,
+      })
+    }
+
     const { post } = useApi()
     await post('/services/requests', {
       serviceId: props.service.id,
@@ -452,11 +625,14 @@ async function submit() {
       description: form.value.description || undefined,
       price: props.service.price,
       priceUnit: props.service.priceUnit || undefined,
+      items: itemsPayload,
     })
     emit('update:modelValue', false)
     emit('success')
     form.value = defaultForm()
     touched.value = {}
+    items.value = []
+    itemErrors.value = {}
   } catch (e: any) {
     errorMsg.value = e?.data?.message ?? 'No se pudo enviar la solicitud. Intenta de nuevo.'
   } finally {

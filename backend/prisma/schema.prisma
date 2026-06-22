@@ -8,76 +8,79 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  username          String?  @unique
+  id                String    @id @default(uuid())
+  email             String    @unique
+  username          String?   @unique
   usernameUpdatedAt DateTime?
-  password  String
-  firstName String
-  lastName  String
-  phone     String?
-  birthDate DateTime?
-  sex       Sex?
-  avatar      String?
-  coverImage  String?
-  role        Role     @default(NORMAL)
-  userType    UserType @default(REGULAR)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  password          String
+  firstName         String
+  lastName          String
+  phone             String?
+  birthDate         DateTime?
+  sex               Sex?
+  avatar            String?
+  coverImage        String?
+  role              Role      @default(NORMAL)
+  userType          UserType  @default(REGULAR)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  country       String?
-  state         String?
-  city          String?
+  country String?
+  state   String?
+  city    String?
 
   categoryId    String?
   subcategoryId String?
   category      UserCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   subcategory   UserSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
 
-  emailVerified   Boolean  @default(false)
+  emailVerified Boolean @default(false)
 
   // Denormalizado para checks rápidos en guards (sin join); la fuente de
   // verdad detallada vive en IdentityVerification.
-  kycStatus       KycStatus @default(NONE)
+  kycStatus             KycStatus              @default(NONE)
   identityVerifications IdentityVerification[]
+
+  proposedCategories         ProposedCategory[] @relation("ProposedCategoryProposer")
+  reviewedProposedCategories ProposedCategory[] @relation("ProposedCategoryReviewer")
 
   termsAcceptedAt   DateTime?
   termsVersion      String?
   privacyAcceptedAt DateTime?
 
-  twoFactorEnabled     Boolean   @default(false)
+  twoFactorEnabled     Boolean               @default(false)
   twoFactorSecret      String?
   twoFactorEnabledAt   DateTime?
   twoFactorBackupCodes TwoFactorBackupCode[]
 
-  commerce        Restaurant?
-  profileSettings ProfileSettings?
-  refreshTokens   RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
+  commerce                Restaurant?
+  profileSettings         ProfileSettings?
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
-  subscriptions   Subscription[]
-  posts           Post[]
-  postLikes       PostLike[]    @relation("PostLikes")
-  postComments    PostComment[] @relation("PostComments")
-  following       Follow[]      @relation("UserFollowing")
-  followers       Follow[]      @relation("UserFollowers")
-  reviewsGiven    Review[]      @relation("ReviewsGiven")
-  reviewsReceived Review[]      @relation("ReviewsReceived")
-  services         Service[]
-  catalogOrders    CatalogOrder[]
-  serviceRequests  ServiceRequest[]
-  notifications    Notification[]
-  deviceTokens     DeviceToken[]
-  wallet           Wallet?
-  walletTransactions WalletTransaction[]
-  userPermissions  UserPermission[]
-  corridasAsPassenger Corrida[]     @relation("PassengerCorridas")
-  corridasAsDriver    Corrida[]     @relation("DriverCorridas")
+  subscriptions           Subscription[]
+  posts                   Post[]
+  postLikes               PostLike[]               @relation("PostLikes")
+  postComments            PostComment[]            @relation("PostComments")
+  following               Follow[]                 @relation("UserFollowing")
+  followers               Follow[]                 @relation("UserFollowers")
+  reviewsGiven            Review[]                 @relation("ReviewsGiven")
+  reviewsReceived         Review[]                 @relation("ReviewsReceived")
+  services                Service[]
+  catalogOrders           CatalogOrder[]
+  serviceRequests         ServiceRequest[]
+  notifications           Notification[]
+  deviceTokens            DeviceToken[]
+  wallet                  Wallet?
+  walletTransactions      WalletTransaction[]
+  userPermissions         UserPermission[]
+  corridasAsPassenger     Corrida[]                @relation("PassengerCorridas")
+  corridasAsDriver        Corrida[]                @relation("DriverCorridas")
 
   // Jobs / Empleos
-  jobsPosted         Job[]           @relation("UserJobs")
-  jobApplications    JobApplication[]
+  jobsPosted      Job[]            @relation("UserJobs")
+  jobApplications JobApplication[]
 
   @@map("users")
 }
@@ -85,7 +88,7 @@ model User {
 // ─── Profile Settings ─────────────────────────────────────────────────────────
 
 model ProfileSettings {
-  id     String @id @default(uuid())
+  id String @id @default(uuid())
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -93,7 +96,7 @@ model ProfileSettings {
   showCatalog  Boolean @default(true)
   showServices Boolean @default(true)
 
-  quickAccessIds String[] @default([])
+  quickAccessIds          String[] @default([])
   dashboardQuickActionIds String[] @default([])
 
   createdAt DateTime @default(now())
@@ -127,25 +130,25 @@ model UserSubcategory {
 }
 
 model Restaurant {
-  id      String  @id @default(uuid())
-  name    String
-  type    String?
-  address String?
-  phone   String?
-  email   String?
+  id       String  @id @default(uuid())
+  name     String
+  type     String?
+  address  String?
+  phone    String?
+  email    String?
   schedule String?
 
-  country   String?
-  state     String?
-  city      String?
+  country String?
+  state   String?
+  city    String?
 
-  userId     String     @unique
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categories Category[]
-  products   Product[]
-  customers     Customer[]
-  appointments  Appointment[]
-  settings      RestaurantSettings?
+  userId            String              @unique
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories        Category[]
+  products          Product[]
+  customers         Customer[]
+  appointments      Appointment[]
+  settings          RestaurantSettings?
   drivers           Driver[]
   deliveries        Delivery[]
   orders            Order[]
@@ -162,26 +165,26 @@ model Restaurant {
 }
 
 model RestaurantSettings {
-  id           String @id @default(uuid())
-  commerceId String @unique
+  id         String     @id @default(uuid())
+  commerceId String     @unique
   commerce   Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
 
   // Payment
-  currency     String  @default("MXN")
-  tax          Float   @default(16)
-  suggestedTip Float   @default(10)
+  currency       String   @default("MXN")
+  tax            Float    @default(16)
+  suggestedTip   Float    @default(10)
   paymentMethods String[] @default(["cash", "card", "transfer"])
 
   // Operations
-  avgPrepTime          Int   @default(20)
-  avgDeliveryTime      Int   @default(30)
-  deliveryFee          Float @default(35)
-  freeDeliveryMinimum  Float @default(200)
+  avgPrepTime         Int   @default(20)
+  avgDeliveryTime     Int   @default(30)
+  deliveryFee         Float @default(35)
+  freeDeliveryMinimum Float @default(200)
 
   // Notifications
-  notifyNewOrders      Boolean @default(true)
-  notifyLowStock       Boolean @default(true)
-  notifyDailyReports   Boolean @default(false)
+  notifyNewOrders       Boolean @default(true)
+  notifyLowStock        Boolean @default(true)
+  notifyDailyReports    Boolean @default(false)
   notifyCustomerReviews Boolean @default(true)
 
   // Modules: self-service opt-out — modules included in the plan that the
@@ -196,43 +199,43 @@ model RestaurantSettings {
 }
 
 model Customer {
-  id              String          @id @default(uuid())
-  name            String
-  email           String?
-  phone           String?
-  address         String?
-  notes           String?
-  segment         CustomerSegment @default(NUEVO)
-  totalOrders     Int             @default(0)
-  totalSpent      Float           @default(0)
-  isActive        Boolean         @default(true)
-  telegramChatId  String?
-  commerceId      String
-  commerce        Restaurant      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  appointments    Appointment[]
-  orders          Order[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id             String          @id @default(uuid())
+  name           String
+  email          String?
+  phone          String?
+  address        String?
+  notes          String?
+  segment        CustomerSegment @default(NUEVO)
+  totalOrders    Int             @default(0)
+  totalSpent     Float           @default(0)
+  isActive       Boolean         @default(true)
+  telegramChatId String?
+  commerceId     String
+  commerce       Restaurant      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  appointments   Appointment[]
+  orders         Order[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@unique([email, commerceId])
   @@map("customers")
 }
 
 model Appointment {
-  id           String            @id @default(uuid())
-  customerName String
+  id            String            @id @default(uuid())
+  customerName  String
   customerPhone String?
-  customerId   String?
-  customer     Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  date         DateTime
-  partySize    Int               @default(1)
-  tableNumber  Int?
-  notes        String?
-  status       AppointmentStatus @default(PENDIENTE)
-  commerceId String
-  commerce   Restaurant        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  customerId    String?
+  customer      Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  date          DateTime
+  partySize     Int               @default(1)
+  tableNumber   Int?
+  notes         String?
+  status        AppointmentStatus @default(PENDIENTE)
+  commerceId    String
+  commerce      Restaurant        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@map("appointments")
 }
@@ -260,13 +263,13 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
-  
+
   // Nuevos campos para sistema robusto
-  revokedAt DateTime?  // Cuando se revoca (logout)
-  replacedByTokenId String?  // Si fue reemplazado por refresh
-  deviceInfo String?   // Info del dispositivo (opcional)
-  ipAddress  String?   // IP de creación (opcional)
-  
+  revokedAt         DateTime? // Cuando se revoca (logout)
+  replacedByTokenId String? // Si fue reemplazado por refresh
+  deviceInfo        String? // Info del dispositivo (opcional)
+  ipAddress         String? // IP de creación (opcional)
+
   @@index([userId])
   @@index([token])
   @@index([expiresAt])
@@ -286,24 +289,24 @@ model TwoFactorBackupCode {
 }
 
 model Category {
-  id           String    @id @default(uuid())
-  name         String
-  description  String?
-  icon         String?
-  color        String    @default("#6b7280")
-  sortOrder    Int       @default(0)
-  
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  icon        String?
+  color       String  @default("#6b7280")
+  sortOrder   Int     @default(0)
+
   // Categoría global (opcional) - solo si es global
-  isGlobal     Boolean   @default(false)
-  
+  isGlobal Boolean @default(false)
+
   // Categoría de comercio específico (opcional) - solo si es de un comercio
-  commerceId   String?
-  commerce     Restaurant? @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  
-  products     Product[]
+  commerceId String?
+  commerce   Restaurant? @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+
+  products      Product[]
   subcategories Subcategory[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@unique([name, commerceId])
   @@unique([name, isGlobal]) // Solo una categoría global con el mismo nombre
@@ -311,18 +314,18 @@ model Category {
 }
 
 model Subcategory {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   name        String
   description String?
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  
-  products    Product[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@unique([name, categoryId])
   @@map("subcategories")
@@ -350,8 +353,8 @@ model Product {
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   subcategoryId   String?
   subcategory     Subcategory?  @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
-  commerceId    String
-  commerce      Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerceId      String
+  commerce        Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -367,10 +370,10 @@ enum Role {
 }
 
 enum UserType {
-  APP      // Usuarios propios de la app (superadmin, admins del sistema)
-  DEMO     // Cuentas de demostración/test visibles en login
-  TEST     // Cuentas de testing automatizado (no visibles)
-  REGULAR  // Usuarios normales registrados
+  APP // Usuarios propios de la app (superadmin, admins del sistema)
+  DEMO // Cuentas de demostración/test visibles en login
+  TEST // Cuentas de testing automatizado (no visibles)
+  REGULAR // Usuarios normales registrados
 }
 
 enum Sex {
@@ -415,21 +418,21 @@ enum DeliveryStatus {
 }
 
 model Driver {
-  id           String       @id @default(uuid())
-  name         String
-  phone        String?
-  vehicleType  VehicleType  @default(MOTO)
-  vehiclePlate String?
-  vehicleModel String?
-  status       DriverStatus @default(DISPONIBLE)
-  isActive     Boolean      @default(true)
-  rating       Float        @default(5.0)
-  totalDeliveries Int       @default(0)
-  commerceId String
-  commerce   Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  deliveries   Delivery[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id              String       @id @default(uuid())
+  name            String
+  phone           String?
+  vehicleType     VehicleType  @default(MOTO)
+  vehiclePlate    String?
+  vehicleModel    String?
+  status          DriverStatus @default(DISPONIBLE)
+  isActive        Boolean      @default(true)
+  rating          Float        @default(5.0)
+  totalDeliveries Int          @default(0)
+  commerceId      String
+  commerce        Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  deliveries      Delivery[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@map("drivers")
 }
@@ -444,13 +447,13 @@ model Delivery {
   total           Float
   deliveryFee     Float          @default(0)
   status          DeliveryStatus @default(PENDIENTE)
-  estimatedTime   Int?           // minutes
+  estimatedTime   Int? // minutes
   pickedUpAt      DateTime?
   deliveredAt     DateTime?
   driverId        String?
   driver          Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  commerceId    String
-  commerce      Restaurant     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerceId      String
+  commerce        Restaurant     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -512,8 +515,8 @@ model Order {
   cancelReason    String?
   customerId      String?
   customer        Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  commerceId    String
-  commerce      Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerceId      String
+  commerce        Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   items           OrderItem[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -549,21 +552,21 @@ enum NotificationType {
 }
 
 model Notification {
-  id           String           @id @default(uuid())
-  type         NotificationType @default(SYSTEM)
-  title        String
-  message      String
-  read         Boolean          @default(false)
-  readAt       DateTime?
-  icon         String           @default("BellIcon")
-  color        String           @default("gray")
-  link         String?
-  metadata     Json?
+  id         String           @id @default(uuid())
+  type       NotificationType @default(SYSTEM)
+  title      String
+  message    String
+  read       Boolean          @default(false)
+  readAt     DateTime?
+  icon       String           @default("BellIcon")
+  color      String           @default("gray")
+  link       String?
+  metadata   Json?
   commerceId String?
   commerce   Restaurant?      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  userId       String?
-  user         User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt    DateTime         @default(now())
+  userId     String?
+  user       User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
 
   @@index([commerceId, createdAt(sort: Desc)])
   @@index([commerceId, read])
@@ -596,8 +599,8 @@ enum WalletTransactionStatus {
 }
 
 enum KycStatus {
-  NONE       // nunca envió una solicitud
-  PENDING    // documentos enviados, esperando revisión
+  NONE // nunca envió una solicitud
+  PENDING // documentos enviados, esperando revisión
   APPROVED
   REJECTED
 }
@@ -610,33 +613,74 @@ enum KycDocumentType {
 }
 
 model IdentityVerification {
-  id           String          @id @default(uuid())
-  userId       String
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   documentType   KycDocumentType
   documentNumber String
-  fullName       String        // nombre legal tal como aparece en el documento
+  fullName       String // nombre legal tal como aparece en el documento
   birthDate      DateTime?
 
   frontImageUrl  String
   backImageUrl   String?
   selfieImageUrl String
 
-  status         KycStatus     @default(PENDING)
+  status          KycStatus @default(PENDING)
   rejectionReason String?
 
-  reviewedBy     String?       // userId del admin que aprobó/rechazó
-  reviewedAt     DateTime?
+  reviewedBy String? // userId del admin que aprobó/rechazó
+  reviewedAt DateTime?
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([status])
   @@index([status, createdAt])
   @@index([createdAt(sort: Desc)])
   @@map("identity_verifications")
+}
+
+enum ProposedCategoryTarget {
+  PRODUCTO
+  SERVICIO
+  EMPLEO
+}
+
+enum ProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ProposedCategory {
+  id          String                 @id @default(uuid())
+  name        String
+  description String?
+  color       String?
+  icon        String?
+  target      ProposedCategoryTarget
+
+  proposedBy String
+  proposer   User   @relation("ProposedCategoryProposer", fields: [proposedBy], references: [id], onDelete: Cascade)
+
+  status          ProposalStatus @default(PENDING)
+  rejectionReason String?
+
+  reviewedBy String?
+  reviewer   User?     @relation("ProposedCategoryReviewer", fields: [reviewedBy], references: [id])
+  reviewedAt DateTime?
+
+  // id de la categoría real creada en Category/ServiceCategory/JobCategory al aprobar
+  resultingCategoryId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([target, status])
+  @@map("proposed_categories")
 }
 
 model Wallet {
@@ -647,11 +691,11 @@ model Wallet {
   balance  Float        @default(0)
   status   WalletStatus @default(ACTIVE)
 
-  pin      String?      // bcrypt hash of 6-digit PIN
+  pin      String? // bcrypt hash of 6-digit PIN
   pinSetAt DateTime?
 
-  frozenAt   DateTime?  // set when admin freezes; null = not frozen
-  frozenBy   String?    // userId of admin who froze
+  frozenAt DateTime? // set when admin freezes; null = not frozen
+  frozenBy String? // userId of admin who froze
 
   transactions WalletTransaction[]
 
@@ -705,15 +749,15 @@ enum ExpensePaymentMethod {
 }
 
 model ExpenseCategory {
-  id           String    @id @default(uuid())
-  name         String
-  color        String    @default("#6b7280")
-  budget       Float     @default(0)
+  id         String     @id @default(uuid())
+  name       String
+  color      String     @default("#6b7280")
+  budget     Float      @default(0)
   commerceId String
   commerce   Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  expenses     Expense[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  expenses   Expense[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@unique([name, commerceId])
   @@map("expense_categories")
@@ -732,8 +776,8 @@ model Expense {
   notes         String?
   categoryId    String?
   category      ExpenseCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  commerceId  String
-  commerce    Restaurant           @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerceId    String
+  commerce      Restaurant           @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
@@ -778,8 +822,8 @@ model Employee {
   emergencyPhone   String?
   notes            String?
   isActive         Boolean        @default(true)
-  commerceId     String
-  commerce       Restaurant     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerceId       String
+  commerce         Restaurant     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -808,8 +852,8 @@ model Branch {
   status       BranchStatus @default(ACTIVA)
   color        String       @default("#6b7280")
   notes        String?
-  commerceId String
-  commerce   Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerceId   String
+  commerce     Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -898,13 +942,13 @@ enum ReviewReportStatus {
 }
 
 model Review {
-  id        String   @id @default(uuid())
-  rating    Int
-  comment   String?
-  authorId  String
-  author    User     @relation("ReviewsGiven", fields: [authorId], references: [id], onDelete: Cascade)
-  targetId  String
-  target    User     @relation("ReviewsReceived", fields: [targetId], references: [id], onDelete: Cascade)
+  id       String  @id @default(uuid())
+  rating   Int
+  comment  String?
+  authorId String
+  author   User    @relation("ReviewsGiven", fields: [authorId], references: [id], onDelete: Cascade)
+  targetId String
+  target   User    @relation("ReviewsReceived", fields: [targetId], references: [id], onDelete: Cascade)
 
   // Verificación de transacción real: referencia a la orden/solicitud que habilitó la reseña
   verifiedOrderId   String?
@@ -915,7 +959,7 @@ model Review {
   respondedAt DateTime?
 
   // Moderación
-  isHidden Boolean  @default(false)
+  isHidden Boolean        @default(false)
   reports  ReviewReport[]
 
   createdAt DateTime @default(now())
@@ -981,8 +1025,8 @@ model UserPermission {
   permissionId String
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
   granted      Boolean    @default(true) // true = concedido, false = denegado explícitamente
-  reason       String?    // Razón de la asignación especial
-  expiresAt    DateTime?  // Expiración opcional
+  reason       String? // Razón de la asignación especial
+  expiresAt    DateTime? // Expiración opcional
   updatedAt    DateTime   @updatedAt
   updatedBy    String?
 
@@ -1064,24 +1108,24 @@ enum CatalogOrderStatus {
 }
 
 model CatalogOrder {
-  id               String              @id @default(uuid())
-  productId        String
-  productName      String
+  id             String              @id @default(uuid())
+  productId      String
+  productName    String
   commerceId     String
-  restaurantName   String
-  quantity         Int                 @default(1)
-  deliveryType     CatalogDeliveryType @default(DOMICILIO)
-  address          String?
-  city             String?
-  buyerName        String
-  buyerPhone       String
-  buyerEmail       String?
-  notes            String?
-  totalEstimate    Float?
-  status           CatalogOrderStatus  @default(PENDIENTE)
-  requesterId      String?
-  requester        User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
-  createdAt        DateTime            @default(now())
+  restaurantName String
+  quantity       Int                 @default(1)
+  deliveryType   CatalogDeliveryType @default(DOMICILIO)
+  address        String?
+  city           String?
+  buyerName      String
+  buyerPhone     String
+  buyerEmail     String?
+  notes          String?
+  totalEstimate  Float?
+  status         CatalogOrderStatus  @default(PENDIENTE)
+  requesterId    String?
+  requester      User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  createdAt      DateTime            @default(now())
 
   @@index([commerceId])
   @@index([status])
@@ -1098,13 +1142,13 @@ enum ServiceStatus {
 }
 
 model ServiceCategory {
-  id           String    @id @default(uuid())
-  name         String
-  color        String    @default("#3B82F6")
-  icon         String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  services     Service[]
+  id        String    @id @default(uuid())
+  name      String
+  color     String    @default("#3B82F6")
+  icon      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  services  Service[]
 
   @@map("service_categories")
 }
@@ -1123,30 +1167,31 @@ model ServiceModality {
 }
 
 model Service {
-  id           String          @id @default(uuid())
-  name         String
-  description  String?
-  price        Float
-  priceUnit    String?
-  duration     Int?            // minutos estimados
-  image        String?
-  status       ServiceStatus   @default(ACTIVO)
-  tags         String[]
-  modalities   String[]
-  categoryId   String?
-  category     ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  userId       String
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id              String           @id @default(uuid())
+  name            String
+  description     String?
+  price           Float
+  priceUnit       String?
+  duration        Int? // minutos estimados
+  image           String?
+  status          ServiceStatus    @default(ACTIVO)
+  tags            String[]
+  modalities      String[]
+  itemFields      String[]         @default([]) // plantilla de campos por ítem, ej. ["Marca", "Modelo"]
+  categoryId      String?
+  category        ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  serviceRequests ServiceRequest[]
+  serviceEvents   ServiceEvent[]
 
   @@index([userId])
   @@index([categoryId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("services")
-  serviceRequests ServiceRequest[]
-  serviceEvents   ServiceEvent[]
 }
 
 enum ServiceRequestStatus {
@@ -1163,29 +1208,30 @@ enum ServiceRequestModality {
 }
 
 model ServiceRequest {
-  id           String                 @id @default(uuid())
-  serviceId    String
-  service      Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  serviceName  String
-  providerId   String
-  providerName String
-  modality     ServiceRequestModality @default(CUALQUIERA)
-  preferredDate DateTime
-  address      String?
-  city         String?
-  clientName   String
-  clientPhone  String
-  clientEmail  String?
-  description  String?
-  price        Float?
-  priceUnit    String?
-  status           ServiceRequestStatus   @default(PENDIENTE)
-  providerNotes    String?
-  statusUpdatedAt  DateTime?
-  requesterId  String?
-  requester    User?                  @relation(fields: [requesterId], references: [id], onDelete: SetNull)
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
+  id              String                 @id @default(uuid())
+  serviceId       String
+  service         Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceName     String
+  providerId      String
+  providerName    String
+  modality        ServiceRequestModality @default(CUALQUIERA)
+  preferredDate   DateTime
+  address         String?
+  city            String?
+  clientName      String
+  clientPhone     String
+  clientEmail     String?
+  description     String?
+  price           Float?
+  priceUnit       String?
+  status          ServiceRequestStatus   @default(PENDIENTE)
+  providerNotes   String?
+  statusUpdatedAt DateTime?
+  requesterId     String?
+  requester       User?                  @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  items           ServiceRequestItem[]
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   @@index([serviceId])
   @@index([providerId])
@@ -1194,10 +1240,25 @@ model ServiceRequest {
   @@map("service_requests")
 }
 
+model ServiceRequestItem {
+  id               String         @id @default(uuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  fields           Json           @default("{}") // { "Marca": "Bosch", "Modelo": "X200" } — claves = itemFields del Service
+  notes            String?
+  photos           String[]       @default([]) // hasta 6 URLs
+  videos           String[]       @default([]) // hasta 2 URLs
+  sortOrder        Int            @default(0)
+  createdAt        DateTime       @default(now())
+
+  @@index([serviceRequestId])
+  @@map("service_request_items")
+}
+
 enum ServiceEventType {
-  VIEW           // alguien abrió el anuncio del servicio
-  PROFILE_VISIT  // alguien hizo click en "Ver perfil" del proveedor
-  REQUEST        // alguien envió una solicitud de servicio
+  VIEW // alguien abrió el anuncio del servicio
+  PROFILE_VISIT // alguien hizo click en "Ver perfil" del proveedor
+  REQUEST // alguien envió una solicitud de servicio
 }
 
 model ServiceEvent {
@@ -1205,7 +1266,7 @@ model ServiceEvent {
   serviceId String
   service   Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   type      ServiceEventType
-  viewerId  String?          // usuario autenticado que generó el evento (opcional)
+  viewerId  String? // usuario autenticado que generó el evento (opcional)
   createdAt DateTime         @default(now())
 
   @@index([serviceId])
@@ -1253,7 +1314,7 @@ model Plan {
   name        String
   description String?
   price       Float
-  priceAnnual Float?     // descuento anual (opcional)
+  priceAnnual Float? // descuento anual (opcional)
   status      PlanStatus @default(ACTIVE)
   isPopular   Boolean    @default(false)
   color       String     @default("#3B82F6")
@@ -1268,11 +1329,11 @@ model Plan {
   categoryIds String[] @default([])
 
   // Límites (-1 = ilimitado)
-  maxProducts   Int @default(50)
-  maxEmployees  Int @default(5)
-  maxBranches   Int @default(1)
-  maxOrders     Int @default(-1) // por mes
-  maxStorage    Int @default(1)  // GB
+  maxProducts  Int @default(50)
+  maxEmployees Int @default(5)
+  maxBranches  Int @default(1)
+  maxOrders    Int @default(-1) // por mes
+  maxStorage   Int @default(1) // GB
 
   // Features habilitadas (bullets de marketing)
   features Json @default("[]") // string[]
@@ -1321,26 +1382,26 @@ model Subscription {
 // ─── Auth Tokens ─────────────────────────────────────────────────────────────
 
 model PasswordResetToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
+  id        String    @id @default(uuid())
+  token     String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@map("password_reset_tokens")
 }
 
 model EmailVerificationToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
+  id        String    @id @default(uuid())
+  token     String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@map("email_verification_tokens")
@@ -1373,20 +1434,20 @@ model Corrida {
   vehicleType    CorridaVehicleType @default(MOTO)
   price          Float?
   distance       Float?
-  duration       Int?               // minutes
+  duration       Int? // minutes
   notes          String?
   acceptedAt     DateTime?
   startedAt      DateTime?
   completedAt    DateTime?
   cancelledAt    DateTime?
 
-  passengerId    String
-  passenger      User               @relation("PassengerCorridas", fields: [passengerId], references: [id], onDelete: Cascade)
-  driverId       String?
-  driver         User?              @relation("DriverCorridas", fields: [driverId], references: [id], onDelete: SetNull)
+  passengerId String
+  passenger   User    @relation("PassengerCorridas", fields: [passengerId], references: [id], onDelete: Cascade)
+  driverId    String?
+  driver      User?   @relation("DriverCorridas", fields: [driverId], references: [id], onDelete: SetNull)
 
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([passengerId])
   @@index([driverId])
@@ -1397,26 +1458,26 @@ model Corrida {
 // ─── Exchange Rates ───────────────────────────────────────────────────────────
 
 model ExchangeRate {
-  id           String   @id @default(uuid())
-  code         String   @unique // e.g. "VES", "COP", "EUR"
-  name         String   // e.g. "Bolívar Venezolano"
-  symbol       String   // e.g. "Bs.", "COP", "€"
-  rateToUsd    Float    // how many units of this currency equal 1 USD
-  isActive     Boolean  @default(true)
-  isDefault    Boolean  @default(false) // only one can be default
-  source       String?  // e.g. "BCV", "Paralelo", "Manual"
-  notes        String?
-  updatedBy    String?  // userId of last editor
+  id        String  @id @default(uuid())
+  code      String  @unique // e.g. "VES", "COP", "EUR"
+  name      String // e.g. "Bolívar Venezolano"
+  symbol    String // e.g. "Bs.", "COP", "€"
+  rateToUsd Float // how many units of this currency equal 1 USD
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false) // only one can be default
+  source    String? // e.g. "BCV", "Paralelo", "Manual"
+  notes     String?
+  updatedBy String? // userId of last editor
 
   // Auto-sync tracking fields
-  autoSync      Boolean  @default(false) // enable auto-sync for this currency
-  lastSyncAt    DateTime? // last successful sync timestamp
-  syncSource    String?  // actual source used: "BCV_SCRAPING", "BCV_API", "MANUAL"
-  syncError     String?  // last sync error message if failed
-  syncAttempts  Int      @default(0) // consecutive failed attempts
+  autoSync     Boolean   @default(false) // enable auto-sync for this currency
+  lastSyncAt   DateTime? // last successful sync timestamp
+  syncSource   String? // actual source used: "BCV_SCRAPING", "BCV_API", "MANUAL"
+  syncError    String? // last sync error message if failed
+  syncAttempts Int       @default(0) // consecutive failed attempts
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   history ExchangeRateHistory[]
 
@@ -1427,11 +1488,11 @@ model ExchangeRateHistory {
   id             String       @id @default(uuid())
   exchangeRateId String
   exchangeRate   ExchangeRate @relation(fields: [exchangeRateId], references: [id], onDelete: Cascade)
-  code           String       // denormalizado: sigue siendo legible si se elimina la moneda
-  previousRate   Float?       // null en el alta inicial
+  code           String // denormalizado: sigue siendo legible si se elimina la moneda
+  previousRate   Float? // null en el alta inicial
   newRate        Float
-  source         String       // "MANUAL" | "BCV_SCRAPING" | "API_FALLBACK" | "CREATE"
-  changedBy      String?      // userId si fue manual; null si fue automático (cron)
+  source         String // "MANUAL" | "BCV_SCRAPING" | "API_FALLBACK" | "CREATE"
+  changedBy      String? // userId si fue manual; null si fue automático (cron)
   createdAt      DateTime     @default(now())
 
   @@index([exchangeRateId])
@@ -1495,24 +1556,24 @@ model Job {
   location        String?
   type            JobType     @default(TIEMPO_COMPLETO)
   modality        JobModality @default(PRESENCIAL)
-  experienceLevel String?     // Junior, Mid, Senior, etc.
+  experienceLevel String? // Junior, Mid, Senior, etc.
   tags            String[]
   status          JobStatus   @default(ACTIVO)
   expiresAt       DateTime?
 
   // Relations
-  categoryId    String?
-  category        JobCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  employerId      String
-  employer        User         @relation("UserJobs", fields: [employerId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   JobCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  employerId String
+  employer   User         @relation("UserJobs", fields: [employerId], references: [id], onDelete: Cascade)
 
   // For commerce users
-  commerceId      String?
+  commerceId String?
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  applications    JobApplication[]
+  applications JobApplication[]
 
   @@index([employerId])
   @@index([categoryId])
@@ -1524,23 +1585,23 @@ model Job {
 }
 
 model JobApplication {
-  id          String                @id @default(uuid())
+  id          String               @id @default(uuid())
   jobId       String
-  job         Job                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job         Job                  @relation(fields: [jobId], references: [id], onDelete: Cascade)
   applicantId String
-  applicant   User                  @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicant   User                 @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   coverLetter String?
   resumeUrl   String?
   phone       String?
   email       String?
-  status      JobApplicationStatus  @default(PENDIENTE)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  status      JobApplicationStatus @default(PENDIENTE)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
 
+  @@unique([jobId, applicantId])
   @@index([jobId])
   @@index([applicantId])
   @@index([status])
-  @@unique([jobId, applicantId])
   @@map("job_applications")
 }
 
@@ -1548,9 +1609,9 @@ model JobApplication {
 
 model SearchTab {
   id        String   @id @default(uuid())
-  key       String   @unique  // "productos" | "servicios" | "empleos" | custom
+  key       String   @unique // "productos" | "servicios" | "empleos" | custom
   label     String
-  icon      String?           // SVG path string or icon name
+  icon      String? // SVG path string or icon name
   color     String   @default("#EF4444")
   isEnabled Boolean  @default(true)
   sortOrder Int      @default(0)
@@ -1565,7 +1626,7 @@ model SearchTab {
 model DeviceToken {
   id        String   @id @default(uuid())
   token     String   @unique
-  platform  String   // "android" | "ios" | "web"
+  platform  String // "android" | "ios" | "web"
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -1578,20 +1639,20 @@ model DeviceToken {
 // ─── Landing Content ──────────────────────────────────────────────────────────
 
 model LandingTestimonial {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   quote       String
   name        String
   role        String
-  initials    String   @default("")
-  avatarColor String   @default("#EF4444")
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
+  initials    String  @default("")
+  avatarColor String  @default("#EF4444")
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
 
   // Si se origina en una reseña real verificada, queda enlazada aquí (auditable, no editable)
   sourceReviewId String? @unique
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("landing_testimonials")
 }
@@ -1600,7 +1661,7 @@ model LandingStat {
   id        String   @id @default(uuid())
   key       String   @unique // "restaurants" | "uptime" | "orders" | "rating" | "support"
   label     String
-  value     String   // valor display, ej: "500+" o se calcula dinámicamente
+  value     String // valor display, ej: "500+" o se calcula dinámicamente
   isDynamic Boolean  @default(false) // true = se calcula desde la BD en cada request
   sortOrder Int      @default(0)
   updatedAt DateTime @updatedAt
@@ -1612,7 +1673,7 @@ model LandingFeature {
   id          String   @id @default(uuid())
   title       String
   description String
-  icon        String   // nombre del componente Heroicons, ej: "ShoppingCartIcon"
+  icon        String // nombre del componente Heroicons, ej: "ShoppingCartIcon"
   bg          String   @default("bg-blue-500") // clase Tailwind del fondo del ícono
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
@@ -1626,7 +1687,7 @@ model LandingStep {
   id        String   @id @default(uuid())
   title     String
   desc      String
-  icon      String   // nombre del componente Heroicons, ej: "UserPlusIcon"
+  icon      String // nombre del componente Heroicons, ej: "UserPlusIcon"
   isActive  Boolean  @default(true)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
