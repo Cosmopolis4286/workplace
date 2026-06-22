@@ -19,7 +19,7 @@
           leave-from-class="opacity-100 translate-y-0 sm:scale-100"
           leave-to-class="opacity-0 translate-y-full sm:translate-y-4 sm:scale-95"
         >
-          <div v-if="modelValue" class="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div v-if="modelValue" class="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto custom-scrollbar">
 
             <!-- Handle mobile -->
             <div class="flex justify-center pt-3 pb-1 sm:hidden">
@@ -314,17 +314,32 @@
               </div>
 
               <!-- Precio -->
-              <div class="flex items-center justify-between bg-blue-50 rounded-2xl px-4 py-3">
-                <span class="text-xs font-bold text-blue-700">Precio del servicio</span>
-                <div class="text-right">
-                  <div>
-                    <span class="text-xl font-black text-blue-600">${{ formatPrice(service?.price ?? 0) }}</span>
-                    <span v-if="service?.priceUnit" class="text-xs text-blue-400 ml-1">/ {{ service.priceUnit }}</span>
+              <div class="bg-blue-50 rounded-2xl px-4 py-3.5 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-blue-700">Precio base del servicio</span>
+                  <div class="text-right">
+                    <div>
+                      <span class="text-lg font-black text-blue-600">${{ formatPrice(service?.price ?? 0) }}</span>
+                      <span v-if="service?.priceUnit" class="text-xs text-blue-400 ml-1">/ {{ service.priceUnit }}</span>
+                    </div>
+                    <div v-if="convertedPrice && defaultRate" class="text-[11px] text-blue-400 mt-0.5">
+                      {{ defaultRate.symbol }} {{ convertedPrice.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                      <span v-if="service?.priceUnit"> / {{ service.priceUnit }}</span>
+                    </div>
                   </div>
-                  <div v-if="convertedPrice && defaultRate" class="text-xs text-blue-400 mt-0.5">
-                    {{ defaultRate.symbol }} {{ convertedPrice.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                    <span v-if="service?.priceUnit"> / {{ service.priceUnit }}</span>
-                  </div>
+                </div>
+
+                <div class="h-px bg-blue-100" />
+
+                <div class="flex items-start gap-2">
+                  <svg class="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <p class="text-[11px] text-blue-600 leading-snug">
+                    Este es el precio publicado por el proveedor para <strong>{{ modalityOptions.find(o => o.value === form.modality)?.label?.toLowerCase() ?? 'este servicio' }}</strong>.
+                    El monto final se confirma con el proveedor según el alcance real del trabajo
+                    <span v-if="items.length">y los {{ items.length }} ítem{{ items.length === 1 ? '' : 's' }} solicitados</span>.
+                  </p>
                 </div>
               </div>
 
