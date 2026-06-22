@@ -11,6 +11,7 @@ import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PlatformFeesService } from '../platform-fees/platform-fees.service';
 
 const SERVICE_SELECT = {
   id: true,
@@ -57,7 +58,8 @@ function attachRating<T extends { user: { reviewsReceived: { rating: number }[],
 export class ServicesService {
   constructor(
     private prisma: PrismaService,
-    private notifications: NotificationsService
+    private notifications: NotificationsService,
+    private platformFees: PlatformFeesService
   ) {}
 
   // ─── Catalog (public) ─────────────────────────────────────────────────────
@@ -387,16 +389,44 @@ export class ServicesService {
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.providerId !== userId && req.requesterId !== userId)
       throw new ForbiddenException('No tienes permiso');
+
+    // Sugerencia de precio para el proveedor: solo tiene sentido antes de cerrar el trato.
+    if (req.providerId === userId && !req.price && ['PENDIENTE', 'VISTO'].includes(req.status)) {
+      const suggestion = await this.getSuggestedPrice(req.serviceId, req.providerId);
+      return { ...req, ...suggestion };
+    }
+
     return req;
   }
 
-  // Transiciones válidas: el flujo solo avanza, nunca retrocede, y CERRADO es terminal.
+  // Promedio del precio realmente acordado en tratos cerrados anteriores para este
+  // mismo servicio y proveedor — más útil que el precio de lista (Service.price),
+  // que es estático y no refleja lo que de verdad se negoció.
+  async getSuggestedPrice(serviceId: string, providerId: string) {
+    const closed = await this.prisma.serviceRequest.findMany({
+      where: { serviceId, providerId, status: 'CERRADO', price: { not: null } },
+      select: { price: true },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    if (closed.length === 0) return { suggestedPrice: null, suggestedPriceBasedOn: 0 };
+    const sum = closed.reduce((acc, r) => acc + (r.price ?? 0), 0);
+    return {
+      suggestedPrice: Math.round(sum / closed.length),
+      suggestedPriceBasedOn: closed.length,
+    };
+  }
+
+  // Transiciones válidas: el flujo solo avanza, nunca retrocede, y CERRADO/CANCELADO son terminales.
   // PENDIENTE puede saltar directo a CONTACTADO (el proveedor llamó sin pasar por "visto" en la app).
+  // CANCELADO solo es alcanzable desde PENDIENTE/VISTO (el cliente cancela antes de que el
+  // proveedor invierta tiempo en contactarlo); no se puede cancelar desde CONTACTADO/CERRADO.
   private static readonly VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
-    PENDIENTE: ['VISTO', 'CONTACTADO', 'CERRADO'],
-    VISTO: ['CONTACTADO', 'CERRADO'],
+    PENDIENTE: ['VISTO', 'CONTACTADO', 'CERRADO', 'CANCELADO'],
+    VISTO: ['CONTACTADO', 'CERRADO', 'CANCELADO'],
     CONTACTADO: ['CERRADO'],
     CERRADO: [],
+    CANCELADO: [],
   };
 
   private assertValidStatusTransition(from: string, to: string) {
@@ -421,8 +451,20 @@ export class ServicesService {
       update.statusUpdatedAt = new Date();
     }
     if (data.providerNotes !== undefined) update.providerNotes = data.providerNotes;
-    if (data.price !== undefined) update.price = data.price;
     if (data.priceUnit !== undefined) update.priceUnit = data.priceUnit;
+
+    if (data.price !== undefined) {
+      const feeConfig = await this.platformFees.resolveFeeConfig('SERVICE_REQUEST', req.providerId);
+      if (feeConfig?.payer === 'CLIENT') {
+        const { feeAmount } = this.platformFees.calculateFee(data.price, feeConfig);
+        update.price = data.price + feeAmount;
+        update.platformFeeRate = feeConfig.rate;
+        update.platformFeeAmount = feeAmount;
+        update.platformFeePayer = 'CLIENT';
+      } else {
+        update.price = data.price;
+      }
+    }
 
     const updated = await this.prisma.serviceRequest.update({ where: { id }, data: update });
 
@@ -430,9 +472,23 @@ export class ServicesService {
       this.notifications
         .notifyServiceRequestStatusChanged(req.requesterId, req.providerName, req.serviceName, data.status as 'VISTO' | 'CONTACTADO' | 'CERRADO')
         .catch(() => {});
+
+      if (data.status === 'CERRADO') {
+        this.sendReviewReminder(req.requesterId, req.providerId, req.providerName).catch(() => {});
+      }
     }
 
     return updated;
+  }
+
+  // Empuja al cliente a dejar una reseña verificada apenas se cierra el trato,
+  // en vez de depender de que la descubra por su cuenta al visitar el perfil.
+  private async sendReviewReminder(clientId: string, providerId: string, providerName: string) {
+    const provider = await this.prisma.user.findUnique({
+      where: { id: providerId },
+      select: { username: true },
+    });
+    return this.notifications.notifyReviewReminder(clientId, providerName, provider?.username);
   }
 
   async updateServiceRequestStatus(id: string, userId: string, status: string) {
@@ -451,10 +507,51 @@ export class ServicesService {
       throw new ForbiddenException(
         'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor',
       );
-    return this.prisma.serviceRequest.update({
+
+    const update: any = { status: 'CERRADO', statusUpdatedAt: new Date() };
+
+    if (!req.platformFeePayer && req.price) {
+      const feeConfig = await this.platformFees.resolveFeeConfig('SERVICE_REQUEST', req.providerId);
+      if (feeConfig?.payer === 'PROVIDER') {
+        const { feeAmount } = this.platformFees.calculateFee(req.price, feeConfig);
+        await this.platformFees.chargeProviderFee(
+          req.providerId,
+          feeAmount,
+          `FEE-SVC-${id}`,
+          { serviceRequestId: id },
+        );
+        update.platformFeeRate = feeConfig.rate;
+        update.platformFeeAmount = feeAmount;
+        update.platformFeePayer = 'PROVIDER';
+      }
+    }
+
+    const updated = await this.prisma.serviceRequest.update({ where: { id }, data: update });
+
+    this.sendReviewReminder(userId, req.providerId, req.providerName).catch(() => {});
+
+    return updated;
+  }
+
+  // El cliente (requester) cancela su propia solicitud antes de que el proveedor
+  // invierta tiempo contactándolo. Solo válido desde PENDIENTE/VISTO.
+  async cancelServiceRequest(id: string, userId: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.requesterId !== userId)
+      throw new ForbiddenException('No tienes permiso');
+    this.assertValidStatusTransition(req.status, 'CANCELADO');
+
+    const updated = await this.prisma.serviceRequest.update({
       where: { id },
-      data: { status: 'CERRADO', statusUpdatedAt: new Date() },
+      data: { status: 'CANCELADO', statusUpdatedAt: new Date() },
     });
+
+    this.notifications
+      .notifyServiceRequestCancelled(req.providerId, req.clientName, req.serviceName)
+      .catch(() => {});
+
+    return updated;
   }
 
   // ─── Tracking & Metrics ───────────────────────────────────────────────────

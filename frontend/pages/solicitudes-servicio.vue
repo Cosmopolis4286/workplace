@@ -282,6 +282,7 @@ import {
   EyeIcon,
   PhoneArrowUpRightIcon,
   CheckCircleIcon,
+  XCircleIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ServiceRequestDetailModal from '~/components/modals/ServiceRequestDetailModal.vue'
@@ -321,7 +322,7 @@ interface ServiceRequest {
   price?: number
   priceUnit?: string
   providerNotes?: string
-  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
+  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO' | 'CANCELADO'
   createdAt: string
   statusUpdatedAt?: string
   items?: ServiceRequestItem[]
@@ -332,6 +333,7 @@ const STATUS_LABELS: Record<ServiceRequest['status'], string> = {
   VISTO:      'Visto',
   CONTACTADO: 'Contactado',
   CERRADO:    'Cerrado',
+  CANCELADO:  'Cancelado',
 }
 
 const STATUS_CLASSES: Record<ServiceRequest['status'], string> = {
@@ -339,6 +341,7 @@ const STATUS_CLASSES: Record<ServiceRequest['status'], string> = {
   VISTO:      'bg-gray-100 text-gray-600',
   CONTACTADO: 'bg-blue-100 text-blue-700',
   CERRADO:    'bg-green-100 text-green-700',
+  CANCELADO:  'bg-gray-100 text-gray-500',
 }
 
 const STATUS_ICONS: Record<ServiceRequest['status'], any> = {
@@ -346,6 +349,7 @@ const STATUS_ICONS: Record<ServiceRequest['status'], any> = {
   VISTO:      EyeIcon,
   CONTACTADO: PhoneArrowUpRightIcon,
   CERRADO:    CheckCircleIcon,
+  CANCELADO:  XCircleIcon,
 }
 
 const MODALITY_LABELS: Record<string, string> = {
@@ -360,6 +364,7 @@ const filters = [
   { value: 'VISTO',      label: 'Vistas' },
   { value: 'CONTACTADO', label: 'Contactados' },
   { value: 'CERRADO',    label: 'Cerrados' },
+  { value: 'CANCELADO',  label: 'Cancelados' },
 ]
 
 const requests     = ref<ServiceRequest[]>([])
@@ -392,6 +397,7 @@ const statusSummary = computed(() => [
   { status: 'VISTO',      label: 'Vistos',       count: countByStatus('VISTO'),      dot: 'bg-gray-400'   },
   { status: 'CONTACTADO', label: 'Contactados',  count: countByStatus('CONTACTADO'), dot: 'bg-blue-400'   },
   { status: 'CERRADO',    label: 'Cerrados',     count: countByStatus('CERRADO'),    dot: 'bg-green-400'  },
+  { status: 'CANCELADO',  label: 'Cancelados',   count: countByStatus('CANCELADO'),  dot: 'bg-gray-300'   },
 ])
 
 async function openDetail(req: ServiceRequest) {

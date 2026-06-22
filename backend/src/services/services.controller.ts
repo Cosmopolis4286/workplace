@@ -220,6 +220,12 @@ export class ServicesController {
     return this.servicesService.confirmServiceRequestCompletion(id, user.id);
   }
 
+  @Patch('requests/:id/cancel')
+  @UseGuards(JwtAuthGuard)
+  cancelRequest(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.servicesService.cancelServiceRequest(id, user.id);
+  }
+
   // ─── Categories (admin) ───────────────────────────────────────────────────
 
   @Get('categories')

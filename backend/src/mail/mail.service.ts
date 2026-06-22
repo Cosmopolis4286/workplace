@@ -218,4 +218,30 @@ export class MailService {
       );
     }
   }
+
+  async sendServiceRequestReminder(
+    email: string,
+    firstName: string,
+    providerName: string,
+    serviceName: string,
+  ) {
+    try {
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to: email,
+        subject: 'Tu solicitud sigue esperando respuesta — WorkPlace Manager',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+            <h2>Hola, ${firstName}</h2>
+            <p>Tu solicitud de "<strong>${escapeHtml(serviceName)}</strong>" con <strong>${escapeHtml(providerName)}</strong> lleva más de 24 horas sin respuesta.</p>
+            <p>Puedes seguir esperando o explorar otros proveedores disponibles para este servicio.</p>
+          </div>
+        `,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Could not send service request reminder email to ${email}: ${err.message}`
+      );
+    }
+  }
 }
