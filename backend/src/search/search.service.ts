@@ -9,6 +9,18 @@ export interface SearchSuggestion {
   title: string;
   subtitle?: string;
   image?: string | null;
+  price?: number | null;
+  priceUnit?: string | null;
+  category?: { name: string; color: string | null } | null;
+  rating?: number | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  salaryCurrency?: string | null;
+}
+
+export interface SearchTabCount {
+  tab: 'productos' | 'servicios' | 'empleos';
+  total: number;
 }
 
 const SUGGESTIONS_PER_TAB = 5;
@@ -21,10 +33,10 @@ export class SearchService {
     private readonly jobsService: JobsService,
   ) {}
 
-  async suggest(q?: string): Promise<{ query: string; suggestions: SearchSuggestion[] }> {
+  async suggest(q?: string): Promise<{ query: string; suggestions: SearchSuggestion[]; counts: SearchTabCount[] }> {
     const query = (q ?? '').trim();
     if (query.length < 2) {
-      return { query, suggestions: [] };
+      return { query, suggestions: [], counts: [] };
     }
 
     const [products, services, jobs] = await Promise.allSettled([
@@ -41,6 +53,8 @@ export class SearchService {
             title: p.name,
             subtitle: p.commerce?.name,
             image: p.image,
+            price: p.price,
+            category: p.category ? { name: p.category.name, color: p.category.color } : null,
           }))
         : []),
       ...(services.status === 'fulfilled'
@@ -50,6 +64,9 @@ export class SearchService {
             title: s.name,
             subtitle: s.category?.name,
             image: s.image,
+            price: s.price,
+            priceUnit: s.priceUnit,
+            rating: s.user?.rating ?? null,
           }))
         : []),
       ...(jobs.status === 'fulfilled'
@@ -59,10 +76,19 @@ export class SearchService {
             title: j.title,
             subtitle: j.location ?? j.employer?.firstName,
             image: null,
+            salaryMin: j.salaryMin,
+            salaryMax: j.salaryMax,
+            salaryCurrency: j.salaryCurrency,
           }))
         : []),
     ];
 
-    return { query, suggestions };
+    const counts: SearchTabCount[] = [
+      { tab: 'productos', total: products.status === 'fulfilled' ? products.value.total : 0 },
+      { tab: 'servicios', total: services.status === 'fulfilled' ? services.value.total : 0 },
+      { tab: 'empleos', total: jobs.status === 'fulfilled' ? jobs.value.total : 0 },
+    ];
+
+    return { query, suggestions, counts };
   }
 }
