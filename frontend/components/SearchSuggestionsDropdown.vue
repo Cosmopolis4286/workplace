@@ -5,9 +5,33 @@
       !staticPosition && (isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'),
     ]"
   >
-    <!-- Vacío -->
-    <div v-if="!query || query.trim().length < 2" class="px-4 py-6 text-center text-sm" :class="isDark ? 'text-gray-500' : 'text-gray-400'">
-      Escribe al menos 2 letras para buscar…
+    <!-- Vacío: búsquedas recientes -->
+    <div v-if="!query || query.trim().length < 2">
+      <template v-if="recentTerms.length > 0">
+        <p class="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide" :class="isDark ? 'text-gray-500' : 'text-gray-400'">
+          Búsquedas recientes
+        </p>
+        <button
+          v-for="term in recentTerms"
+          :key="term"
+          class="w-full flex items-center gap-2.5 px-4 py-2 text-left transition-colors group"
+          :class="isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'"
+          @click="$emit('recent-select', term)"
+        >
+          <ClockIcon class="h-4 w-4 flex-shrink-0" :class="isDark ? 'text-gray-500' : 'text-gray-300'" />
+          <span class="flex-1 truncate text-sm" :class="isDark ? 'text-gray-200' : 'text-gray-700'">{{ term }}</span>
+          <span
+            class="opacity-0 group-hover:opacity-100 p-1 rounded-lg flex-shrink-0 transition-opacity"
+            :class="isDark ? 'hover:bg-white/10 text-gray-500' : 'hover:bg-gray-200 text-gray-400'"
+            @click.stop="$emit('recent-remove', term)"
+          >
+            <XMarkIcon class="h-3.5 w-3.5" />
+          </span>
+        </button>
+      </template>
+      <div v-else class="px-4 py-6 text-center text-sm" :class="isDark ? 'text-gray-500' : 'text-gray-400'">
+        Escribe al menos 2 letras para buscar…
+      </div>
     </div>
 
     <!-- Loading -->
@@ -65,7 +89,17 @@
                 <StarIcon class="h-3 w-3" />
                 {{ s.rating.toFixed(1) }}
               </span>
+
+              <span v-if="s.nearYou" class="flex items-center gap-0.5 text-[10px] font-semibold flex-shrink-0" :class="isDark ? 'text-blue-400' : 'text-blue-600'">
+                <MapPinIcon class="h-3 w-3" />
+                Cerca de ti
+              </span>
             </div>
+
+            <span v-if="s.lowStock" class="inline-flex items-center gap-0.5 mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+              <ExclamationTriangleIcon class="h-3 w-3" />
+              Pocas unidades
+            </span>
           </div>
 
           <div class="flex-shrink-0 text-right">
@@ -97,7 +131,10 @@
 
 <script setup>
 import { computed } from 'vue'
-import { ShoppingBagIcon, WrenchScrewdriverIcon, BriefcaseIcon, MagnifyingGlassIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
+import {
+  ShoppingBagIcon, WrenchScrewdriverIcon, BriefcaseIcon, MagnifyingGlassIcon,
+  ChevronRightIcon, ClockIcon, XMarkIcon, MapPinIcon, ExclamationTriangleIcon,
+} from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
 import { useAssetUrl } from '~/composables/useAssetUrl'
 
@@ -105,11 +142,12 @@ const props = defineProps({
   query: { type: String, default: '' },
   suggestions: { type: Array, default: () => [] },
   counts: { type: Array, default: () => [] },
+  recentTerms: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   staticPosition: { type: Boolean, default: false },
   highlightedIndex: { type: Number, default: -1 },
 })
-defineEmits(['select', 'see-all', 'hover'])
+defineEmits(['select', 'see-all', 'hover', 'recent-select', 'recent-remove'])
 
 const { isDark } = useColorMode()
 const { getAssetUrl } = useAssetUrl()

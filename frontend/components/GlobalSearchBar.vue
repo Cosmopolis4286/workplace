@@ -33,10 +33,13 @@
         :query="inputValue"
         :suggestions="suggestions"
         :counts="counts"
+        :recent-terms="recentTerms"
         :loading="loading"
         :highlighted-index="highlightedIndex"
         @select="handleSelect"
         @see-all="handleSeeAll"
+        @recent-select="handleRecentSelect"
+        @recent-remove="removeRecentTerm"
       />
     </div>
 
@@ -95,10 +98,14 @@
               static-position
               :query="inputValue"
               :suggestions="suggestions"
+              :counts="counts"
+              :recent-terms="recentTerms"
               :loading="loading"
               :highlighted-index="highlightedIndex"
               @select="handleSelect"
               @see-all="handleSeeAll"
+              @recent-select="handleRecentSelect"
+              @recent-remove="removeRecentTerm"
             />
           </div>
         </div>
@@ -114,7 +121,11 @@ import { useGlobalSearch } from '~/composables/useGlobalSearch'
 import SearchSuggestionsDropdown from '~/components/SearchSuggestionsDropdown.vue'
 
 const { isDark } = useColorMode()
-const { query, suggestions, counts, loading, highlightedIndex, search, clear, moveHighlight, getHighlighted, goToSuggestion, goToTabWithQuery } = useGlobalSearch()
+const {
+  query, suggestions, counts, recentTerms, loading, highlightedIndex,
+  search, clear, moveHighlight, getHighlighted, goToSuggestion, goToTabWithQuery,
+  applyRecentTerm, removeRecentTerm,
+} = useGlobalSearch()
 
 const inputValue = ref(query.value)
 const open = ref(false)
@@ -141,6 +152,11 @@ function onEnter() {
 function handleSelect(suggestion) {
   goToSuggestion(suggestion)
   closeOverlay()
+}
+
+function handleRecentSelect(term) {
+  inputValue.value = term
+  applyRecentTerm(term)
 }
 
 function handleSeeAll(tab) {

@@ -13,6 +13,8 @@ export interface SearchSuggestion {
   salaryMin?: number | null
   salaryMax?: number | null
   salaryCurrency?: string | null
+  lowStock?: boolean
+  nearYou?: boolean
 }
 
 export interface SearchTabCount {
@@ -37,6 +39,43 @@ const cache = new Map<string, SuggestCache>()
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let abortController: AbortController | null = null
 let lastRequestedTerm = ''
+
+// ─── Búsquedas recientes (header global) ──────────────────────────────────
+const RECENT_KEY = 'global_search_recent'
+const MAX_RECENT = 8
+const recentTerms = ref<string[]>([])
+
+function loadRecentTerms() {
+  if (!process.client) return
+  try {
+    const stored = localStorage.getItem(RECENT_KEY)
+    recentTerms.value = stored ? JSON.parse(stored) : []
+  } catch {
+    recentTerms.value = []
+  }
+}
+
+function persistRecentTerms() {
+  if (!process.client) return
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recentTerms.value))
+}
+
+function addRecentTerm(term: string) {
+  const trimmed = term.trim()
+  if (!trimmed) return
+  recentTerms.value = [
+    trimmed,
+    ...recentTerms.value.filter((t: string) => t.toLowerCase() !== trimmed.toLowerCase()),
+  ].slice(0, MAX_RECENT)
+  persistRecentTerms()
+}
+
+function removeRecentTerm(term: string) {
+  recentTerms.value = recentTerms.value.filter((t: string) => t !== term)
+  persistRecentTerms()
+}
+
+if (process.client) loadRecentTerms()
 
 export function useGlobalSearch() {
   function search(q: string) {
@@ -117,14 +156,20 @@ export function useGlobalSearch() {
   }
 
   function goToSuggestion(s: SearchSuggestion) {
+    addRecentTerm(s.title)
     clear()
     navigateTo(`/search?tab=${s.tab}&q=${encodeURIComponent(s.title)}`)
   }
 
   function goToTabWithQuery(tab: SearchTabKey) {
     const q = query.value.trim()
+    if (q) addRecentTerm(q)
     clear()
     navigateTo(`/search?tab=${tab}${q ? `&q=${encodeURIComponent(q)}` : ''}`)
+  }
+
+  function applyRecentTerm(term: string) {
+    search(term)
   }
 
   return {
@@ -133,11 +178,14 @@ export function useGlobalSearch() {
     counts,
     loading,
     highlightedIndex,
+    recentTerms,
     search,
     clear,
     moveHighlight,
     getHighlighted,
     goToSuggestion,
     goToTabWithQuery,
+    applyRecentTerm,
+    removeRecentTerm,
   }
 }

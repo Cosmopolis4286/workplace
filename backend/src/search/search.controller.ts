@@ -1,5 +1,6 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RateLimit } from '../common/guards/rate-limit.guard';
 import { SearchService } from './search.service';
 
@@ -14,7 +15,10 @@ export class SearchController {
     maxRequests: 20,
     keyGenerator: (req) => `search:suggest:${req.ip}`,
   })
-  suggest(@Query('q') q?: string) {
-    return this.searchService.suggest(q);
+  suggest(@Query('q') q?: string, @CurrentUser() user?: any) {
+    return this.searchService.suggest(q, {
+      city: user?.city ?? null,
+      state: user?.state ?? null,
+    });
   }
 }

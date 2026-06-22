@@ -16,11 +16,18 @@ export interface SearchSuggestion {
   salaryMin?: number | null;
   salaryMax?: number | null;
   salaryCurrency?: string | null;
+  lowStock?: boolean;
+  nearYou?: boolean;
 }
 
 export interface SearchTabCount {
   tab: 'productos' | 'servicios' | 'empleos';
   total: number;
+}
+
+export interface SearchLocationHint {
+  city?: string | null;
+  state?: string | null;
 }
 
 const SUGGESTIONS_PER_TAB = 5;
@@ -33,7 +40,10 @@ export class SearchService {
     private readonly jobsService: JobsService,
   ) {}
 
-  async suggest(q?: string): Promise<{ query: string; suggestions: SearchSuggestion[]; counts: SearchTabCount[] }> {
+  async suggest(
+    q?: string,
+    location?: SearchLocationHint,
+  ): Promise<{ query: string; suggestions: SearchSuggestion[]; counts: SearchTabCount[] }> {
     const query = (q ?? '').trim();
     if (query.length < 2) {
       return { query, suggestions: [], counts: [] };
@@ -45,6 +55,18 @@ export class SearchService {
       this.jobsService.getCatalogJobs({ search: query, page: 1, limit: SUGGESTIONS_PER_TAB }),
     ]);
 
+    const isNear = (entityLocation?: { city?: string | null; state?: string | null }) => {
+      if (!location?.city && !location?.state) return false;
+      if (!entityLocation) return false;
+      if (location.city && entityLocation.city) {
+        return entityLocation.city.toLowerCase() === location.city.toLowerCase();
+      }
+      if (location.state && entityLocation.state) {
+        return entityLocation.state.toLowerCase() === location.state.toLowerCase();
+      }
+      return false;
+    };
+
     const suggestions: SearchSuggestion[] = [
       ...(products.status === 'fulfilled'
         ? products.value.data.map((p: any): SearchSuggestion => ({
@@ -55,6 +77,8 @@ export class SearchService {
             image: p.image,
             price: p.price,
             category: p.category ? { name: p.category.name, color: p.category.color } : null,
+            lowStock: p.status === 'BAJO_STOCK',
+            nearYou: isNear(p.commerce),
           }))
         : []),
       ...(services.status === 'fulfilled'
@@ -67,6 +91,7 @@ export class SearchService {
             price: s.price,
             priceUnit: s.priceUnit,
             rating: s.user?.rating ?? null,
+            nearYou: isNear(s.user),
           }))
         : []),
       ...(jobs.status === 'fulfilled'
@@ -79,6 +104,7 @@ export class SearchService {
             salaryMin: j.salaryMin,
             salaryMax: j.salaryMax,
             salaryCurrency: j.salaryCurrency,
+            nearYou: isNear(j.employer),
           }))
         : []),
     ];
