@@ -259,6 +259,7 @@
               </span>
             </p>
             <p class="text-sm text-gray-500 mt-1 line-clamp-2 italic">"{{ t.quote }}"</p>
+            <p class="text-[11px] text-gray-400 mt-1">Creado el {{ formatTestimonialDate(t.createdAt) }}</p>
           </div>
 
           <div class="flex items-center gap-2 flex-shrink-0">
@@ -615,6 +616,7 @@ interface Testimonial {
   isActive: boolean
   sortOrder: number
   sourceReviewId?: string | null
+  createdAt: string
 }
 
 interface ReviewCandidate {
@@ -654,6 +656,10 @@ interface Step {
 
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl
+
+function formatTestimonialDate(dateStr: string) {
+  return new Date(dateStr).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
 
 // ─── Auth check ───────────────────────────────────────────────────────────────
 const { user, token } = useAuth()

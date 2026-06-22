@@ -432,7 +432,10 @@
               </div>
               <div>
                 <p class="text-sm font-bold text-gray-900">{{ t.name }}</p>
-                <p class="text-xs text-gray-400">{{ t.role }}</p>
+                <p class="text-xs text-gray-400">
+                  {{ t.role }}
+                  <span v-if="t.createdAt"> · {{ formatTestimonialDate(t.createdAt) }}</span>
+                </p>
               </div>
             </div>
           </div>
@@ -645,9 +648,13 @@ import { StarIcon } from '@heroicons/vue/24/solid'
 
 definePageMeta({ layout: false })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const config = useRuntimeConfig()
 const siteUrl = config.public.siteUrl as string
+
+function formatTestimonialDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString(locale.value, { month: 'long', year: 'numeric' })
+}
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 

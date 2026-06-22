@@ -33,7 +33,15 @@ export class LandingService {
     const testimonials = await this.prisma.landingTestimonial.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, quote: true, name: true, role: true, initials: true, avatarColor: true },
+      select: {
+        id: true,
+        quote: true,
+        name: true,
+        role: true,
+        initials: true,
+        avatarColor: true,
+        createdAt: true,
+      },
     })
 
     await this.redis.setex(CACHE_KEY_TESTIMONIALS, CACHE_TTL, JSON.stringify(testimonials))

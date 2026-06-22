@@ -5,6 +5,7 @@ interface PublicTestimonial {
   role: string
   initials: string
   avatarColor: string
+  createdAt?: string
 }
 
 interface PublicStat {
