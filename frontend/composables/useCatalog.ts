@@ -44,6 +44,9 @@ export interface CatalogQuery {
   limit: number
   sort: CatalogSortBy
   nearMe: boolean
+  country: string
+  state: string
+  city: string
 }
 
 export type LocationTier = 'city' | 'state' | 'country' | null
@@ -70,6 +73,9 @@ const query = ref<CatalogQuery>({
   limit: 20,
   sort: 'relevance',
   nearMe: false,
+  country: '',
+  state: '',
+  city: '',
 })
 
 // ─── Favorites (localStorage) ─────────────────────────────────────────────
@@ -158,6 +164,10 @@ export const useCatalog = () => {
         if (u?.city) params.set('city', u.city)
         if (u?.state) params.set('state', u.state)
         if (u?.country) params.set('country', u.country)
+      } else {
+        if (q.city) params.set('city', q.city)
+        if (q.state) params.set('state', q.state)
+        if (q.country) params.set('country', q.country)
       }
 
       const res = await apiFetch<{
@@ -171,7 +181,7 @@ export const useCatalog = () => {
       products.value = res.data
       total.value = res.total
       totalPages.value = res.totalPages
-      locationTier.value = q.nearMe ? (res.locationTier ?? null) : null
+      locationTier.value = (q.nearMe || q.country || q.state || q.city) ? (res.locationTier ?? null) : null
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : 'Error al cargar productos'
     } finally {
@@ -235,12 +245,22 @@ export const useCatalog = () => {
     query.value = {
       search: '', categoryName: '', commerceId: '', priceMin: null, priceMax: null,
       page: 1, limit: 20, sort: 'relevance', nearMe: false,
+      country: '', state: '', city: '',
     }
     loadProducts()
   }
 
   function toggleNearMe() {
     query.value.nearMe = !query.value.nearMe
+    query.value.page = 1
+    loadProducts()
+  }
+
+  function filterByLocation(country: string, state: string, city: string) {
+    query.value.country = country
+    query.value.state = state
+    query.value.city = city
+    query.value.nearMe = false
     query.value.page = 1
     loadProducts()
   }
@@ -293,6 +313,7 @@ export const useCatalog = () => {
     changeSort,
     resetFilters,
     toggleNearMe,
+    filterByLocation,
     toggleFavorite,
     isFavorite,
     clearAllFavorites,

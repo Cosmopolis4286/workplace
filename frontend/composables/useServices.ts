@@ -31,6 +31,7 @@ export interface CatalogService {
   status: string
   tags: string[]
   modalities: string[]
+  itemFields: string[]
   createdAt: string
   category: { id: string; name: string; color: string; icon: string | null } | null
   user: {
@@ -59,6 +60,9 @@ export interface ServiceQuery {
   sort: ServiceSortBy
   page: number
   nearMe: boolean
+  country: string
+  state: string
+  city: string
 }
 
 // ─── Module-level singleton state ─────────────────────────────────────────────
@@ -80,6 +84,9 @@ const query = ref<ServiceQuery>({
   sort: 'relevance',
   page: 1,
   nearMe: false,
+  country: '',
+  state: '',
+  city: '',
 })
 
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
@@ -134,6 +141,10 @@ export const useServices = () => {
         if (u?.city) params.city = u.city
         if (u?.state) params.state = u.state
         if (u?.country) params.country = u.country
+      } else {
+        if (q.city) params.city = q.city
+        if (q.state) params.state = q.state
+        if (q.country) params.country = q.country
       }
 
       const res = await $fetch<{ data: CatalogService[]; total: number; totalPages: number; locationTier?: LocationTier }>(
@@ -143,7 +154,7 @@ export const useServices = () => {
       services.value = res.data
       total.value = res.total
       totalPages.value = res.totalPages
-      locationTier.value = q.nearMe ? (res.locationTier ?? null) : null
+      locationTier.value = (q.nearMe || q.country || q.state || q.city) ? (res.locationTier ?? null) : null
     } catch (e: any) {
       error.value = e?.data?.message ?? 'Error al cargar servicios'
     } finally {
@@ -185,12 +196,24 @@ export const useServices = () => {
   }
 
   function resetFilters() {
-    query.value = { search: '', categoryId: null, userId: null, sort: 'relevance', page: 1, nearMe: false }
+    query.value = {
+      search: '', categoryId: null, userId: null, sort: 'relevance', page: 1, nearMe: false,
+      country: '', state: '', city: '',
+    }
     loadServices()
   }
 
   function toggleNearMe() {
     query.value.nearMe = !query.value.nearMe
+    query.value.page = 1
+    loadServices()
+  }
+
+  function filterByLocation(country: string, state: string, city: string) {
+    query.value.country = country
+    query.value.state = state
+    query.value.city = city
+    query.value.nearMe = false
     query.value.page = 1
     loadServices()
   }
@@ -243,6 +266,7 @@ export const useServices = () => {
     changePage,
     resetFilters,
     toggleNearMe,
+    filterByLocation,
     trackServiceEvent,
   }
 }

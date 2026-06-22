@@ -36,6 +36,7 @@
     "@vueuse/core": "^13.7.0",
     "@vueuse/nuxt": "^13.7.0",
     "chart.js": "^4.5.0",
+    "country-state-city": "3.2.1",
     "date-fns": "^4.1.0",
     "lucide-vue-next": "^0.540.0",
     "nuxt": "^3.13.0",

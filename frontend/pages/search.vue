@@ -251,43 +251,31 @@
 
           <div class="flex-1 min-w-2"></div>
 
-          <!-- Toggle "Cerca de mí" -->
-          <button
-            v-if="hasLocation && activeTab === 'productos'"
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
-            :class="pNearMe ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-            @click="pToggleNearMe"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-            </svg>
-            Cerca de mí
-          </button>
-          <button
-            v-else-if="hasLocation && activeTab === 'servicios'"
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
-            :class="sNearMe ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-            @click="sToggleNearMe"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-            </svg>
-            Cerca de mí
-          </button>
-          <button
-            v-else-if="hasLocation && activeTab === 'empleos'"
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
-            :class="jNearMe ? 'bg-emerald-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-            @click="jToggleNearMe"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-            </svg>
-            Cerca de mí
-          </button>
+          <!-- Botón zona (abre selector país/estado/ciudad) -->
+          <div ref="locationFilterRef" class="relative flex-shrink-0">
+            <button
+              class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+              :class="hasActiveLocationFilter
+                ? (activeTab === 'productos' ? 'bg-red-600 text-white shadow-sm' : activeTab === 'servicios' ? 'bg-blue-600 text-white shadow-sm' : 'bg-emerald-600 text-white shadow-sm')
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              @click="locationFilterOpen = !locationFilterOpen"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Zona
+            </button>
+            <div v-if="locationFilterOpen" class="absolute right-0 top-full mt-2 w-72 z-40">
+              <LocationFilter
+                :model-country="activeLocationQuery.country"
+                :model-state="activeLocationQuery.state"
+                :model-city="activeLocationQuery.city"
+                :accent="activeTab === 'productos' ? 'red' : activeTab === 'servicios' ? 'blue' : 'emerald'"
+                @apply="onLocationApply"
+              />
+            </div>
+          </div>
 
         </div>
       </div>
@@ -1276,7 +1264,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import type { CatalogProduct, CatalogSortBy } from '~/composables/useCatalog'
 import type { CatalogService } from '~/composables/useServices'
 import type { Job } from '~/composables/useJobs'
@@ -1288,6 +1276,7 @@ import { useCatalogFilters } from '~/composables/useCatalogFilters'
 import PriceRangeFilter from '~/components/search/PriceRangeFilter.vue'
 import SortDropdown from '~/components/search/SortDropdown.vue'
 import ActiveFilterChips from '~/components/search/ActiveFilterChips.vue'
+import LocationFilter from '~/components/search/LocationFilter.vue'
 
 definePageMeta({ layout: 'default' })
 
@@ -1307,6 +1296,7 @@ const {
   search: pSearch, filterByCategory: pFilterByCategory, filterByRestaurant: pFilterByRestaurant,
   filterByPriceRange: pFilterByPriceRange,
   changePage: pChangePage, changeSort: pChangeSort, resetFilters: pResetFilters, toggleNearMe: pToggleNearMe,
+  filterByLocation: pFilterByLocation,
   toggleFavorite, isFavorite, favorites: pFavorites,
 } = useCatalog()
 
@@ -1319,6 +1309,7 @@ const {
   loadCategories: sLoadCategories, loadProviders: sLoadProviders, loadServices: sLoadServices,
   search: sSearch, filterByCategory: sFilterByCategory, filterByProvider: sFilterByProvider,
   changePage: sChangePage, changeSort: sChangeSort, resetFilters: sResetFilters, toggleNearMe: sToggleNearMe,
+  filterByLocation: sFilterByLocation,
   trackServiceEvent,
 } = useServices()
 
@@ -1332,6 +1323,7 @@ const {
   search: jSearch, filterByCategory: jFilterByCategory,
   filterByType: jFilterByType, filterByModality: jFilterByModality,
   changePage: jChangePage, changeSort: jChangeSort, resetFilters: jResetFilters, toggleNearMe: jToggleNearMe,
+  filterByLocation: jFilterByLocation,
 } = useJobs()
 
 const { getHeaders } = useAuth()
@@ -1346,6 +1338,8 @@ const { tabs: searchTabs, loadTabs: loadSearchTabs } = useSearchTabs()
 
 // ─── Estado local ─────────────────────────────────────────────────────────────
 const route = useRoute()
+const router = useRouter()
+const initialized = ref(false)
 const activeTab = ref<string>('productos')
 const searchInput = ref('')
 const searchFocused = ref(false)
@@ -1360,6 +1354,8 @@ const showServiceRequestModal = ref(false)
 const serviceRequestTarget = ref<CatalogService | null>(null)
 const serviceToast = ref(false)
 const pShowFavoritesOnly = ref(false)
+const locationFilterOpen = ref(false)
+const locationFilterRef = ref<HTMLElement | null>(null)
 
 const pSelectedSort = ref<CatalogSortBy>('relevance')
 const sSelectedSort = ref<'relevance' | 'price_asc' | 'price_desc' | 'name' | 'newest'>('relevance')
@@ -1396,8 +1392,28 @@ const { activeChips: pActiveChips } = useCatalogFilters({
   filterByCategory: pFilterByCategory,
   filterByRestaurant: pFilterByRestaurant,
   filterByPriceRange: pFilterByPriceRange,
+  filterByLocation: pFilterByLocation,
   search: pSearch,
 })
+
+// ─── Zona (selector país/estado/ciudad) ────────────────────────────────────────
+const activeLocationQuery = computed(() => {
+  if (activeTab.value === 'productos') return { country: pQuery.value.country, state: pQuery.value.state, city: pQuery.value.city }
+  if (activeTab.value === 'servicios') return { country: sQuery.value.country, state: sQuery.value.state, city: sQuery.value.city }
+  return { country: jQuery.value.country, state: jQuery.value.state, city: jQuery.value.city }
+})
+
+const hasActiveLocationFilter = computed(() => {
+  const q = activeLocationQuery.value
+  return !!(q.country || q.state || q.city)
+})
+
+function onLocationApply(country: string, state: string, city: string) {
+  if (activeTab.value === 'productos') pFilterByLocation(country, state, city)
+  else if (activeTab.value === 'servicios') sFilterByLocation(country, state, city)
+  else jFilterByLocation(country, state, city)
+  locationFilterOpen.value = false
+}
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 const firstName = computed(() => user.value?.firstName || 'Usuario')
@@ -1431,21 +1447,34 @@ const jActiveCategoryId = computed(() => jQuery.value.categoryId)
 const jActiveType = computed(() => jQuery.value.type)
 const jActiveModality = computed(() => jQuery.value.modality)
 
-// ─── Cerca de mí ────────────────────────────────────────────────────────────
-const hasLocation = computed(() => !!(user.value?.city || user.value?.state || user.value?.country))
-const pNearMe = computed(() => pQuery.value.nearMe)
-const sNearMe = computed(() => sQuery.value.nearMe)
-const jNearMe = computed(() => jQuery.value.nearMe)
-
-const locationTierLabel = (tier: 'city' | 'state' | 'country' | null | undefined): string | null => {
-  if (tier === 'city') return `Mostrando resultados en ${user.value?.city}`
-  if (tier === 'state') return `Sin resultados en tu ciudad. Mostrando resultados en ${user.value?.state}`
-  if (tier === 'country') return `Sin resultados en tu zona. Mostrando resultados en ${user.value?.country}`
+// ─── Zona / Cerca de mí ─────────────────────────────────────────────────────
+function locationTierLabel(
+  tier: 'city' | 'state' | 'country' | null | undefined,
+  loc: { city: string; state: string; country: string },
+): string | null {
+  if (tier === 'city') return `Mostrando resultados en ${loc.city}`
+  if (tier === 'state') return `Sin resultados en esa ciudad. Mostrando resultados en ${loc.state}`
+  if (tier === 'country') return `Sin resultados en esa zona. Mostrando resultados en ${loc.country}`
   return null
 }
-const pLocationTierLabel = computed(() => pNearMe.value ? locationTierLabel(pLocationTier.value) : null)
-const sLocationTierLabel = computed(() => sNearMe.value ? locationTierLabel(sLocationTier.value) : null)
-const jLocationTierLabel = computed(() => jNearMe.value ? locationTierLabel(jLocationTier.value) : null)
+const pLocationTierLabel = computed(() => {
+  const q = pQuery.value
+  if (!q.nearMe && !q.country && !q.state && !q.city) return null
+  const loc = q.nearMe ? { city: user.value?.city ?? '', state: user.value?.state ?? '', country: user.value?.country ?? '' } : q
+  return locationTierLabel(pLocationTier.value, loc)
+})
+const sLocationTierLabel = computed(() => {
+  const q = sQuery.value
+  if (!q.nearMe && !q.country && !q.state && !q.city) return null
+  const loc = q.nearMe ? { city: user.value?.city ?? '', state: user.value?.state ?? '', country: user.value?.country ?? '' } : q
+  return locationTierLabel(sLocationTier.value, loc)
+})
+const jLocationTierLabel = computed(() => {
+  const q = jQuery.value
+  if (!q.nearMe && !q.country && !q.state && !q.city) return null
+  const loc = q.nearMe ? { city: user.value?.city ?? '', state: user.value?.state ?? '', country: user.value?.country ?? '' } : q
+  return locationTierLabel(jLocationTier.value, loc)
+})
 
 // ─── Sugerencia de categoría según rubro del usuario ──────────────────────────
 const userCategoryName = computed(() => user.value?.category?.name ?? null)
@@ -1762,11 +1791,17 @@ function trackProfileVisit(srv: CatalogService) {
 }
 
 function handleScroll() { showScrollTop.value = window.scrollY > 400 }
+function handleClickOutsideLocation(e: MouseEvent) {
+  if (locationFilterOpen.value && locationFilterRef.value && !locationFilterRef.value.contains(e.target as Node)) {
+    locationFilterOpen.value = false
+  }
+}
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 onMounted(async () => {
   window.addEventListener('scroll', handleScroll, { passive: true })
+  document.addEventListener('click', handleClickOutsideLocation)
   await Promise.all([
     loadSearchTabs(),
     pLoadCategories(), pLoadRestaurants(), pLoadProducts(),
@@ -1789,10 +1824,19 @@ onMounted(async () => {
     searchInput.value = qFromQuery
     handleSearchInput()
   }
+
+  initialized.value = true
+})
+
+// Sincroniza tab + término de búsqueda en la URL para permitir compartir/refrescar
+watch([activeTab, searchInput], ([tab, q]) => {
+  if (!initialized.value) return
+  router.replace({ query: { ...route.query, tab, q: q || undefined } })
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  document.removeEventListener('click', handleClickOutsideLocation)
 })
 </script>
 

@@ -16,6 +16,7 @@ interface UseCatalogFiltersOptions {
   filterByCategory: (name: string) => void
   filterByRestaurant: (id: string) => void
   filterByPriceRange: (min: number | null, max: number | null) => void
+  filterByLocation?: (country: string, state: string, city: string) => void
   search: (term: string) => void
 }
 
@@ -30,7 +31,7 @@ function formatChipPrice(value: number): string {
 export function useCatalogFilters(options: UseCatalogFiltersOptions) {
   const {
     query, categories, restaurants, searchInput,
-    filterByCategory, filterByRestaurant, filterByPriceRange, search,
+    filterByCategory, filterByRestaurant, filterByPriceRange, filterByLocation, search,
   } = options
 
   const activeChips = computed<FilterChip[]>(() => {
@@ -77,6 +78,15 @@ export function useCatalogFilters(options: UseCatalogFiltersOptions) {
         id: 'price',
         label,
         onRemove: () => filterByPriceRange(null, null),
+      })
+    }
+
+    if (!q.nearMe && (q.country || q.state || q.city)) {
+      const label = [q.city, q.state, q.country].filter(Boolean).join(', ')
+      chips.push({
+        id: 'location',
+        label: `Zona: ${label}`,
+        onRemove: () => filterByLocation?.('', '', ''),
       })
     }
 

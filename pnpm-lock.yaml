@@ -288,6 +288,9 @@ importers:
       chart.js:
         specifier: ^4.5.0
         version: 4.5.1
+      country-state-city:
+        specifier: 3.2.1
+        version: 3.2.1
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -4588,6 +4591,9 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  country-state-city@3.2.1:
+    resolution: {integrity: sha512-kxbanqMc6izjhc/EHkGPCTabSPZ2G6eG4/97akAYHJUN4stzzFEvQPZoF8oXDQ+10gM/O/yUmISCR1ZVxyb6EA==}
 
   crc-32@1.2.2:
     resolution: {integrity: sha512-ROmzCKrTnOwybPcJApAA6WBWij23HVfGVNKqqrZpuyZOHqK2CwHSvpGuyt/UNNvaIjEd8X5IFGp4Mh+Ie1IHJQ==}
@@ -13984,6 +13990,8 @@ snapshots:
       path-type: 4.0.0
     optionalDependencies:
       typescript: 5.7.2
+
+  country-state-city@3.2.1: {}
 
   crc-32@1.2.2: {}
 

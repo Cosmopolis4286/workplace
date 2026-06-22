@@ -28,6 +28,7 @@ export interface Service {
   status: 'ACTIVO' | 'INACTIVO' | 'PAUSADO'
   tags: string[]
   modalities: string[]
+  itemFields: string[]
   categoryId?: string
   category?: MyServiceCategory
   requestCount?: number
