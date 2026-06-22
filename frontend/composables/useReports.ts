@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { useAuth } from './useAuth'
 
-export type ReportEntityType = 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'GENERAL'
+export type ReportEntityType = 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'ORDER' | 'GENERAL'
 
 export interface Report {
   id: string
