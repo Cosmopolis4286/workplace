@@ -135,6 +135,68 @@
       </div>
     </div>
 
+    <!-- ─── Reportes de usuarios (pedidos, servicios, app general) ───────────── -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-bold text-gray-900">Reportes de usuarios</h2>
+        <div class="flex items-center gap-2">
+          <select v-model="reportStatusFilter" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5" @change="loadUserReports">
+            <option value="">Todos</option>
+            <option value="PENDIENTE">Pendientes</option>
+            <option value="EN_REVISION">En revisión</option>
+            <option value="RESUELTO">Resueltos</option>
+            <option value="DESCARTADO">Descartados</option>
+          </select>
+        </div>
+      </div>
+
+      <div v-if="loadingUserReports" class="px-6 py-10 text-center text-sm text-gray-400">Cargando…</div>
+
+      <div v-else class="divide-y divide-gray-50">
+        <div v-for="r in userReports" :key="r.id" class="px-6 py-4 space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm text-gray-700">
+              <span class="font-bold">{{ r.reporter.firstName }} {{ r.reporter.lastName }}</span>
+              reportó
+              <span class="font-semibold">{{ ENTITY_TYPE_LABELS[r.entityType] }}</span>
+            </p>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="REPORT_STATUS_CLASSES[r.status]">
+              {{ REPORT_STATUS_LABELS[r.status] }}
+            </span>
+          </div>
+          <p class="text-sm text-gray-900 font-medium">{{ r.reason }}</p>
+          <p v-if="r.description" class="text-sm text-gray-500 italic">"{{ r.description }}"</p>
+          <p v-if="r.adminNotes" class="text-xs text-gray-400">Nota interna: {{ r.adminNotes }}</p>
+
+          <div v-if="r.status === 'PENDIENTE' || r.status === 'EN_REVISION'" class="flex gap-2 pt-1">
+            <button
+              v-if="r.status === 'PENDIENTE'"
+              @click="moderateUserReport(r.id, 'EN_REVISION')"
+              class="text-xs font-semibold border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50"
+            >
+              Marcar en revisión
+            </button>
+            <button
+              @click="moderateUserReport(r.id, 'RESUELTO')"
+              class="text-xs font-semibold bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700"
+            >
+              Marcar resuelto
+            </button>
+            <button
+              @click="moderateUserReport(r.id, 'DESCARTADO')"
+              class="text-xs font-semibold text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-50"
+            >
+              Descartar
+            </button>
+          </div>
+        </div>
+
+        <div v-if="userReports.length === 0 && !loadingUserReports" class="px-6 py-10 text-center text-sm text-gray-400">
+          No hay reportes de usuarios.
+        </div>
+      </div>
+    </div>
+
     <!-- ─── Testimonios ────────────────────────────────────────────────────── -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
       <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -532,6 +594,17 @@ interface ReportedReview {
   }
 }
 
+interface UserReport {
+  id: string
+  entityType: 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'GENERAL'
+  reason: string
+  description?: string
+  status: 'PENDIENTE' | 'EN_REVISION' | 'RESUELTO' | 'DESCARTADO'
+  adminNotes?: string
+  reporter: { firstName: string; lastName: string }
+  createdAt: string
+}
+
 interface Testimonial {
   id: string
   quote: string
@@ -659,6 +732,52 @@ async function moderate(reviewId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS_
     body: { action },
   })
   await loadReportedReviews()
+}
+
+// ─── Reportes de usuarios (pedidos, servicios, app general) ────────────────
+const userReports = ref<UserReport[]>([])
+const loadingUserReports = ref(false)
+const reportStatusFilter = ref('')
+
+const ENTITY_TYPE_LABELS: Record<UserReport['entityType'], string> = {
+  CATALOG_ORDER: 'un pedido',
+  SERVICE_REQUEST: 'una solicitud de servicio',
+  GENERAL: 'un problema general de la app',
+}
+
+const REPORT_STATUS_LABELS: Record<UserReport['status'], string> = {
+  PENDIENTE: 'Pendiente',
+  EN_REVISION: 'En revisión',
+  RESUELTO: 'Resuelto',
+  DESCARTADO: 'Descartado',
+}
+
+const REPORT_STATUS_CLASSES: Record<UserReport['status'], string> = {
+  PENDIENTE: 'bg-yellow-50 text-yellow-700',
+  EN_REVISION: 'bg-blue-50 text-blue-700',
+  RESUELTO: 'bg-green-50 text-green-700',
+  DESCARTADO: 'bg-gray-100 text-gray-400',
+}
+
+async function loadUserReports() {
+  loadingUserReports.value = true
+  try {
+    const query = reportStatusFilter.value ? `?status=${reportStatusFilter.value}` : ''
+    userReports.value = await $fetch<UserReport[]>(`${apiUrl}/reports/admin${query}`, {
+      headers: authHeader.value,
+    })
+  } finally {
+    loadingUserReports.value = false
+  }
+}
+
+async function moderateUserReport(id: string, status: UserReport['status']) {
+  await $fetch(`${apiUrl}/reports/admin/${id}`, {
+    method: 'PATCH',
+    headers: authHeader.value,
+    body: { status },
+  })
+  await loadUserReports()
 }
 
 // ─── Testimonials ─────────────────────────────────────────────────────────────
@@ -933,6 +1052,7 @@ async function deleteStep(id: string) {
 onMounted(() => {
   loadStats()
   loadReportedReviews()
+  loadUserReports()
   loadTestimonials()
   loadFeatures()
   loadSteps()

@@ -43,6 +43,7 @@ import { WalletsModule } from './wallets/wallets.module'
 import { SearchTabsModule } from './search-tabs/search-tabs.module';
 import { SearchModule } from './search/search.module';
 import { LandingModule } from './landing/landing.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import { LandingModule } from './landing/landing.module';
     SearchTabsModule,
     SearchModule,
     LandingModule,
+    ReportsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },

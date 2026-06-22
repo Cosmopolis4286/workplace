@@ -77,6 +77,7 @@ model User {
   userPermissions         UserPermission[]
   corridasAsPassenger     Corrida[]                @relation("PassengerCorridas")
   corridasAsDriver        Corrida[]                @relation("DriverCorridas")
+  reportsFiled            Report[]
 
   // Jobs / Empleos
   jobsPosted      Job[]            @relation("UserJobs")
@@ -1287,6 +1288,43 @@ model SystemLog {
   @@index([level])
   @@index([createdAt(sort: Desc)])
   @@map("system_logs")
+}
+
+// ─── Reportes de usuario (problemas con pedidos, servicios, o la app) ────────
+
+enum ReportEntityType {
+  CATALOG_ORDER
+  SERVICE_REQUEST
+  ORDER
+  GENERAL
+}
+
+enum ReportStatus {
+  PENDIENTE
+  EN_REVISION
+  RESUELTO
+  DESCARTADO
+}
+
+model Report {
+  id         String           @id @default(uuid())
+  entityType ReportEntityType
+  entityId   String? // null cuando entityType = GENERAL
+  reason     String
+  description String?
+  status     ReportStatus     @default(PENDIENTE)
+  adminNotes String?
+  reporterId String
+  reporter   User             @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([reporterId])
+  @@index([createdAt(sort: Desc)])
+  @@map("reports")
 }
 
 // ─── Plans & Subscriptions ────────────────────────────────────────────────────

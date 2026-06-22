@@ -271,10 +271,19 @@
             </div>
           </div>
 
+          <!-- Reportar problema (cliente) -->
+          <div v-if="!isProvider" class="px-4 pb-3 text-center">
+            <button class="text-xs text-gray-400 hover:text-red-500 font-medium" @click="showReportModal = true">
+              ¿Tuviste un problema con esta solicitud? Reportarlo
+            </button>
+          </div>
+
         </div>
       </div>
     </Transition>
   </Teleport>
+
+  <ReportProblemModal v-model="showReportModal" entity-type="SERVICE_REQUEST" :entity-id="req.id" />
 </template>
 
 <script setup lang="ts">
@@ -296,6 +305,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useExchangeRates } from '~/composables/useExchangeRates'
+import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 
 interface ServiceRequestItem {
   id: string
@@ -439,6 +449,7 @@ async function doStatusChange(status: string) {
 
 // Confirmación del cliente: marca la solicitud como CERRADO y habilita su reseña verificada
 const confirming = ref(false)
+const showReportModal = ref(false)
 
 async function confirmCompletion() {
   confirming.value = true

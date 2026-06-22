@@ -220,20 +220,39 @@ export class NotificationsService {
 
   // Avisa a todo el equipo de moderación (SUPERADMIN/ADMIN) de un nuevo reporte
   async notifyReviewReported(reason: string) {
+    await this.notifyModerators({
+      type: NotificationType.REVIEW,
+      title: '🚩 Reseña reportada',
+      message: `Motivo: ${reason}`,
+      link: '/landing-admin',
+      metadata: { reason },
+    });
+  }
+
+  async notifyReportFiled(entityType: string, reason: string) {
+    const labels: Record<string, string> = {
+      CATALOG_ORDER: 'un pedido',
+      SERVICE_REQUEST: 'una solicitud de servicio',
+      ORDER: 'un pedido de restaurante',
+      GENERAL: 'la app',
+    };
+    const label = labels[entityType] ?? entityType.toLowerCase();
+    await this.notifyModerators({
+      type: NotificationType.SYSTEM,
+      title: '🚩 Problema reportado',
+      message: `Un usuario reportó un problema con ${label}: ${reason}`,
+      link: '/landing-admin',
+      metadata: { entityType, reason },
+    });
+  }
+
+  private async notifyModerators(dto: CreateNotificationDto) {
     const moderators = await this.prisma.user.findMany({
       where: { role: { in: ['SUPERADMIN', 'ADMIN'] } },
       select: { id: true },
     });
     await Promise.all(
-      moderators.map((m) =>
-        this.createForUser(m.id, {
-          type: NotificationType.REVIEW,
-          title: '🚩 Reseña reportada',
-          message: `Motivo: ${reason}`,
-          link: '/landing-admin',
-          metadata: { reason },
-        }).catch(() => {})
-      )
+      moderators.map((m) => this.createForUser(m.id, dto).catch(() => {}))
     );
   }
 
