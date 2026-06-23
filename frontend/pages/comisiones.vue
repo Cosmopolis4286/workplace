@@ -266,7 +266,7 @@ const editForm = ref<{ rate: number; payer: FeePayer }>({ rate: 0, payer: 'CLIEN
 const saving = ref(false)
 
 function openEdit(type: FeeTransactionType) {
-  const existing = rateFor(type)
+  const existing = rateByType.value.get(type)
   editForm.value = { rate: existing?.rate ?? 0, payer: existing?.payer ?? 'CLIENT' }
   editingType.value = type
 }

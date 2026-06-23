@@ -85,7 +85,11 @@ export function usePlatformFees() {
   }
 
   async function upsertRate(type: FeeTransactionType, rate: number, payer: FeePayer): Promise<PlatformFeeRate> {
-    return put(`/platform-fees/rates/${type}`, { rate, payer })
+    const result = await put<PlatformFeeRate>(`/platform-fees/rates/${type}`, { rate, payer })
+    // Invalida el caché de tasas públicas para que los modales de creación
+    // no sigan mostrando un desglose con la tasa anterior tras este cambio.
+    loadedPublic = false
+    return result
   }
 
   async function fetchOverrides(): Promise<PlatformFeeOverride[]> {
