@@ -42,7 +42,7 @@
       <NuxtLink
         v-for="req in requests.slice(0, 5)"
         :key="req.id"
-        to="/solicitudes-servicio"
+        :to="`/solicitudes-servicio?open=${req.id}`"
         class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
       >
         <div class="flex items-center gap-3 min-w-0">

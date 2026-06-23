@@ -269,6 +269,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   ClipboardDocumentListIcon,
   XMarkIcon,
@@ -292,6 +293,8 @@ import { useNotifications, type Notification } from '~/composables/useNotificati
 
 definePageMeta({ middleware: 'auth' })
 
+const route = useRoute()
+const router = useRouter()
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 const { getHeaders, user } = useAuth()
@@ -310,7 +313,9 @@ interface ServiceRequestItem {
 interface ServiceRequest {
   id: string
   serviceName: string
+  providerId?: string
   providerName: string
+  requesterId?: string | null
   modality: string
   preferredDate: string
   address?: string
@@ -440,6 +445,43 @@ async function fetchRequests() {
   }
 }
 
+// Abre el modal de una solicitud específica enlazada por id (ej. desde el
+// widget del dashboard) — busca primero en la lista ya cargada (evita un
+// fetch redundante), y si no está ahí (otra vista o filtro la oculta) la
+// trae directo por id. Limpia el query param para que un refresh no la reabra.
+async function openFromQuery() {
+  const id = route.query.open
+  if (typeof id !== 'string') return
+
+  router.replace({ query: { ...route.query, open: undefined } })
+  activeFilter.value = 'ALL'
+
+  const existing = requests.value.find(r => r.id === id)
+  if (existing && matchesCurrentView(existing)) {
+    await openDetail(existing)
+    return
+  }
+
+  try {
+    const req = await $fetch<ServiceRequest>(`${apiUrl}/services/requests/${id}`, { headers: getHeaders() })
+    // El rol del usuario en ESTA solicitud puede no coincidir con la vista activa
+    // (ej. un FREELANCER también pidió un servicio como cliente) — la sincronizamos
+    // para que el modal muestre los datos correctos (contacto, próximas acciones, etc).
+    const role: 'provider' | 'client' = req.providerId === user.value?.id ? 'provider' : 'client'
+    if (role !== viewAs.value) {
+      viewAs.value = role
+      await fetchRequests()
+    }
+    await openDetail(req)
+  } catch { /* silently ignore: solicitud no encontrada o sin permiso */ }
+}
+
+function matchesCurrentView(req: ServiceRequest): boolean {
+  return viewAs.value === 'provider'
+    ? req.providerId === user.value?.id
+    : req.requesterId === user.value?.id
+}
+
 function switchView(v: 'provider' | 'client') {
   if (viewAs.value === v) return
   viewAs.value = v
@@ -498,10 +540,11 @@ async function applyLiveUpdate() {
   await fetchRequests()
 }
 
-onMounted(() => {
-  fetchRequests()
+onMounted(async () => {
+  await fetchRequests()
   fetchRates(false, true)
   lastSeenNotificationCount = notifications.value.length
+  await openFromQuery()
 })
 </script>
 
