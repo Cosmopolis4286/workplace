@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ServiceStatus, ServiceEventType, Prisma } from '@prisma/client';
@@ -315,10 +316,59 @@ export class ServicesService {
 
   // ─── Service Requests ─────────────────────────────────────────────────────
 
+  // Estados que cuentan como "trato abierto": el proveedor todavía no resolvió la solicitud.
+  private static readonly OPEN_REQUEST_STATUSES = ['PENDIENTE', 'VISTO', 'CONTACTADO'];
+
   async createServiceRequest(
     dto: CreateServiceRequestDto,
     requesterId?: string
   ) {
+    const service = await this.prisma.service.findUnique({
+      where: { id: dto.serviceId },
+      select: { id: true, userId: true, status: true },
+    });
+    if (!service || service.status !== ServiceStatus.ACTIVO) {
+      throw new NotFoundException('El servicio no existe o ya no está disponible');
+    }
+    if (service.userId !== dto.providerId) {
+      throw new BadRequestException('El proveedor no coincide con el dueño del servicio');
+    }
+    if (requesterId && requesterId === dto.providerId) {
+      throw new BadRequestException('No puedes solicitar tu propio servicio');
+    }
+
+    // Evita que el mismo cliente le abra varias solicitudes seguidas al mismo proveedor
+    // para el mismo servicio mientras ya tiene una en curso sin resolver.
+    const duplicateWhere: Prisma.ServiceRequestWhereInput = {
+      serviceId: dto.serviceId,
+      providerId: dto.providerId,
+      status: { in: ServicesService.OPEN_REQUEST_STATUSES as any },
+      ...(requesterId ? { requesterId } : { clientPhone: dto.clientPhone }),
+    };
+    const existingOpen = await this.prisma.serviceRequest.findFirst({ where: duplicateWhere });
+    if (existingOpen) {
+      throw new BadRequestException(
+        'Ya tienes una solicitud en curso para este servicio con este proveedor. Espera a que el proveedor responda antes de enviar otra.'
+      );
+    }
+
+    // Anti-spam: tope de solicitudes nuevas (a cualquier proveedor) en una ventana corta,
+    // tanto para usuarios autenticados como anónimos (identificados por teléfono).
+    const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+    const RATE_LIMIT_MAX = 5;
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
+    const recentCount = await this.prisma.serviceRequest.count({
+      where: {
+        createdAt: { gte: windowStart },
+        ...(requesterId ? { requesterId } : { clientPhone: dto.clientPhone }),
+      },
+    });
+    if (recentCount >= RATE_LIMIT_MAX) {
+      throw new BadRequestException(
+        'Has enviado demasiadas solicitudes en poco tiempo. Espera unos minutos antes de intentar de nuevo.'
+      );
+    }
+
     const preferredDate = new Date(dto.preferredDate);
     if (dto.preferredTime) {
       const [hours, minutes] = dto.preferredTime.split(':').map(Number);
@@ -429,7 +479,14 @@ export class ServicesService {
     CANCELADO: [],
   };
 
+  private static readonly TERMINAL_STATUSES = ['CERRADO', 'CANCELADO'];
+
   private assertValidStatusTransition(from: string, to: string) {
+    // Un estado terminal no admite ningún cambio, ni siquiera a sí mismo: evita que
+    // un doble-click reintente acciones (y sus efectos secundarios, ej. notificaciones).
+    if (ServicesService.TERMINAL_STATUSES.includes(from)) {
+      throw new ForbiddenException(`No puedes cambiar el estado de ${from} a ${to}`);
+    }
     if (from === to) return;
     const allowed = ServicesService.VALID_STATUS_TRANSITIONS[from] ?? [];
     if (!allowed.includes(to)) {
@@ -515,6 +572,7 @@ export class ServicesService {
       if (feeConfig?.payer === 'PROVIDER') {
         const { feeAmount } = this.platformFees.calculateFee(req.price, feeConfig);
         await this.platformFees.chargeProviderFee(
+          'SERVICE_REQUEST',
           req.providerId,
           feeAmount,
           `FEE-SVC-${id}`,

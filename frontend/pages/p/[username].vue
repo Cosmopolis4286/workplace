@@ -123,6 +123,10 @@
                   </div>
                   <div class="text-xs text-gray-500">{{ profile.reviewsCount }} reseñas</div>
                 </button>
+                <div v-if="profile.avgResponseHours != null">
+                  <div class="text-xl font-bold text-gray-900">{{ formatResponseTime(profile.avgResponseHours) }}</div>
+                  <div class="text-xs text-gray-500">tiempo de respuesta</div>
+                </div>
               </div>
             </div>
 
@@ -451,7 +455,7 @@
         </div>
 
         <!-- Escribir / editar reseña -->
-        <div v-if="currentUser && currentUser.id !== profile?.id" class="card-premium p-5 mb-6">
+        <div v-if="currentUser && currentUser.id !== profile?.id" id="review-form-section" class="card-premium p-5 mb-6">
           <template v-if="!showReviewForm">
             <div v-if="profile?.canReview" class="flex items-center justify-between gap-3 flex-wrap">
               <p class="text-sm text-gray-600">
@@ -1189,7 +1193,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, reactive } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   StarIcon,
@@ -1273,6 +1277,11 @@ function formatDate(iso: string) {
 }
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat('es', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+}
+function formatResponseTime(hours: number) {
+  if (hours < 1) return '<1h'
+  if (hours < 48) return `~${Math.round(hours)}h`
+  return `~${Math.round(hours / 24)}d`
 }
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
@@ -1818,6 +1827,15 @@ onMounted(async () => {
   await fetchProfile(username.value)
   if (profile.value?.username) {
     await fetchPosts(profile.value.username)
+  }
+
+  // Empujón a reseñar: el backend notifica al cerrar un trato con un link
+  // a /p/{username}?review=1 — auto-abrimos el formulario si ya puede reseñar.
+  if (route.query.review === '1' && profile.value?.canReview && !profile.value.hasReviewed) {
+    activeTab.value = 'reviews'
+    await nextTick()
+    openReviewForm()
+    document.getElementById('review-form-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 })
 

@@ -135,6 +135,20 @@ export class NotificationsService {
     });
   }
 
+  async notifyServiceRequestAtRisk(
+    providerId: string,
+    clientName: string,
+    serviceName: string,
+  ) {
+    return this.createForUser(providerId, {
+      type: NotificationType.ORDER,
+      title: '⚠️ Estás por perder este trato',
+      message: `${clientName} lleva más de 24h esperando respuesta sobre "${serviceName}". Respóndele antes de que busque otro proveedor.`,
+      link: '/solicitudes-servicio',
+      metadata: { clientName, serviceName },
+    });
+  }
+
   async notifyReviewReminder(
     clientId: string,
     providerName: string,

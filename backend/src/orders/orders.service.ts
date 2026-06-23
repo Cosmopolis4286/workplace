@@ -294,6 +294,7 @@ export class OrdersService {
         if (feeConfig?.payer === 'PROVIDER' && restaurant) {
           const { feeAmount } = this.platformFees.calculateFee(existing.total, feeConfig);
           await this.platformFees.chargeProviderFee(
+            'ORDER',
             restaurant.userId,
             feeAmount,
             `FEE-ORDER-${id}`,

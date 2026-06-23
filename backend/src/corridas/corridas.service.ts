@@ -228,6 +228,7 @@ export class CorridasService {
         if (feeConfig?.payer === 'PROVIDER') {
           const { feeAmount } = this.platformFees.calculateFee(corrida.price, feeConfig);
           await this.platformFees.chargeProviderFee(
+            'CORRIDA',
             corrida.driverId,
             feeAmount,
             `FEE-RIDE-${corridaId}`,

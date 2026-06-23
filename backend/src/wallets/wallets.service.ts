@@ -377,16 +377,21 @@ export class WalletsService {
   async chargePlatformFee(userId: string, amount: number, reference: string, metadata: Record<string, unknown>) {
     this.assertPositiveAmount(amount);
     const wallet = await this.ensureWalletForUser(userId);
-    const newBalance = wallet.balance - amount;
 
+    // decrement es atómico a nivel de fila — evita el race condition de leer
+    // balance, calcular en memoria y luego escribir (dos cargos concurrentes
+    // sobre el mismo wallet podrían pisarse el uno al otro).
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.wallet.update({ where: { id: wallet.id }, data: { balance: newBalance } });
+      const updated = await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: { decrement: amount } },
+      });
       const transaction = await tx.walletTransaction.create({
         data: {
           walletId: wallet.id, userId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount, balanceAfter: newBalance,
+          amount, balanceAfter: updated.balance,
           description: 'Comisión de plataforma',
           reference,
           metadata: metadata as any,

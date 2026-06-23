@@ -407,6 +407,9 @@
 
                 <div class="flex-shrink-0 text-right space-y-2">
                   <p class="font-bold text-gray-900">${{ corrida.price ?? '--' }}</p>
+                  <p v-if="canManageCorridas && corrida.platformFeePayer === 'PROVIDER' && corrida.platformFeeAmount" class="text-[10px] text-amber-600">
+                    -${{ corrida.platformFeeAmount.toFixed(2) }} comisión
+                  </p>
 
                   <!-- Acciones pasajero -->
                   <button

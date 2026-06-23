@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RedisService } from '../redis/redis.service';
 import { Role } from '@prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -22,11 +23,15 @@ const SOCIAL_ROLES: Role[] = [
   Role.ADMIN,
 ];
 
+const AVG_RESPONSE_CACHE_TTL = 60 * 60; // 1h: cambia poco, no necesita estar siempre fresco
+const avgResponseCacheKey = (providerId: string) => `profile:avg-response:${providerId}`;
+
 @Injectable()
 export class ProfilesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private redis: RedisService,
   ) {}
 
   // ─── Public profile ───────────────────────────────────────────────────────
@@ -124,6 +129,9 @@ export class ProfilesService {
   // PENDIENTE (sin respuesta) y CANCELADO (no hubo respuesta real del proveedor).
   // Limitado a las últimas 50 para no escanear todo el histórico en cada visita.
   private async getAvgResponseHours(providerId: string): Promise<number | null> {
+    const cached = await this.redis.get(avgResponseCacheKey(providerId));
+    if (cached !== null) return cached === 'null' ? null : Number(cached);
+
     const responded = await this.prisma.serviceRequest.findMany({
       where: {
         providerId,
@@ -134,14 +142,18 @@ export class ProfilesService {
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
-    if (responded.length === 0) return null;
 
-    const totalHours = responded.reduce((sum, r) => {
-      const diffMs = r.statusUpdatedAt!.getTime() - r.createdAt.getTime();
-      return sum + diffMs / (1000 * 60 * 60);
-    }, 0);
+    let result: number | null = null;
+    if (responded.length > 0) {
+      const totalHours = responded.reduce((sum, r) => {
+        const diffMs = r.statusUpdatedAt!.getTime() - r.createdAt.getTime();
+        return sum + diffMs / (1000 * 60 * 60);
+      }, 0);
+      result = Number((totalHours / responded.length).toFixed(1));
+    }
 
-    return Number((totalHours / responded.length).toFixed(1));
+    await this.redis.setex(avgResponseCacheKey(providerId), AVG_RESPONSE_CACHE_TTL, String(result));
+    return result;
   }
 
   // ─── Posts ────────────────────────────────────────────────────────────────

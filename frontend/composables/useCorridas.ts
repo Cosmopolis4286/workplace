@@ -23,6 +23,9 @@ export interface Corrida {
   createdAt: string
   updatedAt: string
   completedAt?: string
+  platformFeeRate?: number | null
+  platformFeeAmount?: number | null
+  platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
 }
 
 export interface CreateCorridaDto {

@@ -274,6 +274,10 @@
                       </span>
                       <span class="text-gray-500 flex-shrink-0 ml-3">{{ formatCurrency(item.subtotal) }}</span>
                     </div>
+                    <div v-if="order.platformFeePayer === 'CLIENT' && order.platformFeeAmount" class="border-t border-gray-200 pt-1.5 flex justify-between text-xs text-blue-600">
+                      <span>Tasa de servicio ({{ order.platformFeeRate }}%)</span>
+                      <span>+{{ formatCurrency(order.platformFeeAmount) }}</span>
+                    </div>
                     <div class="border-t border-gray-200 pt-1.5 flex justify-between text-xs font-bold text-gray-900">
                       <span>Total</span>
                       <span>{{ formatCurrency(order.total) }}</span>
@@ -550,6 +554,7 @@ interface Order {
   status: 'PENDIENTE' | 'CONFIRMADO' | 'PREPARANDO' | 'LISTO' | 'EN_ENTREGA' | 'ENTREGADO' | 'CANCELADO'
   orderType: 'INMEDIATO' | 'PROGRAMADO'
   paymentMethod: string; total: number; itemCount: number
+  platformFeeRate?: number | null; platformFeeAmount?: number | null; platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
   items: OrderItem[]; commerce?: { id: string; name: string }; createdAt: string
 }
 

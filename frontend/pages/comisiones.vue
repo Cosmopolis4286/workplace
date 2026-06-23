@@ -31,12 +31,12 @@
           </template>
 
           <div v-else class="divide-y divide-gray-100">
-            <div v-for="type in FEE_TYPES" :key="type" class="px-5 py-3.5 grid grid-cols-12 gap-3 items-center hover:bg-gray-50 transition-colors">
+            <div v-for="row in feeRows" :key="row.type" class="px-5 py-3.5 grid grid-cols-12 gap-3 items-center hover:bg-gray-50 transition-colors">
               <div class="col-span-4">
-                <span class="font-semibold text-gray-900 text-sm">{{ FEE_TYPE_LABELS[type] }}</span>
+                <span class="font-semibold text-gray-900 text-sm">{{ FEE_TYPE_LABELS[row.type] }}</span>
               </div>
 
-              <template v-if="editingType === type">
+              <template v-if="editingType === row.type">
                 <div class="col-span-3">
                   <input v-model.number="editForm.rate" type="number" min="0" max="100" step="0.1" class="input-field py-1.5 text-sm" />
                 </div>
@@ -47,7 +47,7 @@
                   </select>
                 </div>
                 <div class="col-span-1 flex items-center justify-end gap-1">
-                  <button class="p-1.5 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600" :disabled="saving" @click="confirmEdit(type)">
+                  <button class="p-1.5 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600" :disabled="saving" @click="confirmEdit(row.type)">
                     <CheckIcon class="h-4 w-4" />
                   </button>
                   <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" @click="editingType = null">
@@ -58,17 +58,17 @@
 
               <template v-else>
                 <div class="col-span-3">
-                  <span v-if="rateFor(type)" class="font-mono font-semibold text-gray-900 text-sm">{{ rateFor(type)!.rate }}%</span>
+                  <span v-if="row.rate" class="font-mono font-semibold text-gray-900 text-sm">{{ row.rate.rate }}%</span>
                   <span v-else class="text-xs text-gray-400">Sin configurar</span>
                 </div>
                 <div class="col-span-4">
-                  <span v-if="rateFor(type)" class="badge" :class="rateFor(type)!.payer === 'CLIENT' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'">
-                    {{ FEE_PAYER_LABELS[rateFor(type)!.payer] }}
+                  <span v-if="row.rate" class="badge" :class="row.rate.payer === 'CLIENT' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'">
+                    {{ FEE_PAYER_LABELS[row.rate.payer] }}
                   </span>
                   <span v-else class="text-xs text-gray-400">No se cobra comisión</span>
                 </div>
                 <div class="col-span-1 flex justify-end">
-                  <button class="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors" title="Editar" @click="openEdit(type)">
+                  <button class="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors" title="Editar" @click="openEdit(row.type)">
                     <PencilIcon class="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -256,9 +256,9 @@ const overrides = ref<PlatformFeeOverride[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-function rateFor(type: FeeTransactionType) {
-  return rates.value.find(r => r.type === type) ?? null
-}
+const rateByType = computed(() => new Map(rates.value.map(r => [r.type, r])))
+
+const feeRows = computed(() => FEE_TYPES.map(type => ({ type, rate: rateByType.value.get(type) ?? null })))
 
 // ─── Edición inline de tasa global ─────────────────────────────────────────
 const editingType = ref<FeeTransactionType | null>(null)

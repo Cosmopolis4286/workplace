@@ -33,14 +33,18 @@ export class PlatformFeesService {
   // ─── Resolución de la tasa efectiva ──────────────────────────────────────────
   // Prioridad: override por userId > override por planId > tasa global activa.
   // Devuelve null si no hay ninguna tasa configurada (no se cobra nada).
+  // El payer de un override puede venir vacío (hereda de la tasa global); si
+  // tampoco hay tasa global, el override igual aplica con el único payer que
+  // tenga sentido en ese momento — nunca se descarta silenciosamente.
   async resolveFeeConfig(type: FeeTransactionType, userId?: string): Promise<FeeConfig | null> {
+    const global = await this.getGlobalRate(type);
+
     if (userId) {
       const userOverride = await this.prisma.platformFeeOverride.findFirst({
         where: { type, userId, isActive: true },
       });
       if (userOverride) {
-        const fallbackPayer = userOverride.payer ?? (await this.getGlobalRate(type))?.payer;
-        if (fallbackPayer) return { rate: userOverride.rate, payer: fallbackPayer };
+        return { rate: userOverride.rate, payer: userOverride.payer ?? global?.payer ?? 'PROVIDER' };
       }
 
       const subscription = await this.prisma.subscription.findFirst({
@@ -53,13 +57,11 @@ export class PlatformFeesService {
           where: { type, planId: subscription.planId, isActive: true },
         });
         if (planOverride) {
-          const fallbackPayer = planOverride.payer ?? (await this.getGlobalRate(type))?.payer;
-          if (fallbackPayer) return { rate: planOverride.rate, payer: fallbackPayer };
+          return { rate: planOverride.rate, payer: planOverride.payer ?? global?.payer ?? 'PROVIDER' };
         }
       }
     }
 
-    const global = await this.getGlobalRate(type);
     return global ? { rate: global.rate, payer: global.payer } : null;
   }
 
@@ -74,6 +76,7 @@ export class PlatformFeesService {
 
   // Débito automático al proveedor/comercio/conductor cuando payer=PROVIDER.
   async chargeProviderFee(
+    type: FeeTransactionType,
     userId: string,
     feeAmount: number,
     reference: string,
@@ -81,11 +84,7 @@ export class PlatformFeesService {
   ) {
     if (feeAmount <= 0) return null;
     const result = await this.wallets.chargePlatformFee(userId, feeAmount, reference, metadata);
-    const feeType = (metadata.orderId ? 'ORDER' : metadata.serviceRequestId ? 'SERVICE_REQUEST' : 'CORRIDA') as
-      | 'ORDER'
-      | 'SERVICE_REQUEST'
-      | 'CORRIDA';
-    this.notifications.notifyPlatformFeeCharged(userId, feeType, feeAmount).catch(() => {});
+    this.notifications.notifyPlatformFeeCharged(userId, type, feeAmount).catch(() => {});
     return result;
   }
 

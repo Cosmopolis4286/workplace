@@ -52,6 +52,10 @@ export class ServiceRequestReminderScheduler {
         .sendServiceRequestReminder(req.requester.email, req.requester.firstName, req.providerName, req.serviceName)
         .catch(() => {});
 
+      this.notifications
+        .notifyServiceRequestAtRisk(req.providerId, req.clientName, req.serviceName)
+        .catch(() => {});
+
       await this.prisma.serviceRequest.update({
         where: { id: req.id },
         data: { reminderSentAt: now },

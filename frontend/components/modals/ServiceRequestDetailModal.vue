@@ -63,7 +63,7 @@
                 </div>
               </div>
 
-              <!-- Comisión de plataforma (solo visible al proveedor, payer=PROVIDER) -->
+              <!-- Comisión de plataforma — proveedor: lo que descuenta su billetera -->
               <div v-if="isProvider && req.platformFeePayer === 'PROVIDER' && req.platformFeeAmount" class="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-1.5">
                 <div class="flex items-center justify-between text-xs">
                   <span class="text-amber-700 font-semibold">Precio acordado</span>
@@ -77,6 +77,23 @@
                 <div class="flex items-center justify-between text-sm">
                   <span class="text-amber-800 font-bold">Recibirás</span>
                   <span class="text-amber-800 font-bold">${{ formatPrice((req.price ?? 0) - req.platformFeeAmount) }}</span>
+                </div>
+              </div>
+
+              <!-- Comisión de plataforma — cliente: por qué el precio final incluye un cargo -->
+              <div v-if="!isProvider && req.platformFeePayer === 'CLIENT' && req.platformFeeAmount" class="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-1.5">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-blue-700 font-semibold">Precio base del servicio</span>
+                  <span class="text-gray-700 font-medium">${{ formatPrice((req.price ?? 0) - req.platformFeeAmount) }}</span>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-blue-700 font-semibold">Tasa de servicio ({{ req.platformFeeRate }}%)</span>
+                  <span class="text-gray-700 font-medium">+${{ formatPrice(req.platformFeeAmount) }}</span>
+                </div>
+                <div class="h-px bg-blue-200" />
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-blue-800 font-bold">Total a pagar</span>
+                  <span class="text-blue-800 font-bold">${{ formatPrice(req.price ?? 0) }}</span>
                 </div>
               </div>
 

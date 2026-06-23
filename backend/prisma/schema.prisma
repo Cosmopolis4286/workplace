@@ -1266,6 +1266,12 @@ model ServiceRequest {
   @@index([providerId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
+  // Acelera el scheduler de recordatorios: WHERE status='PENDIENTE' AND createdAt<=X AND reminderSentAt IS NULL
+  @@index([status, reminderSentAt, createdAt])
+  // Acelera getAvgResponseHours/getSuggestedPrice: WHERE providerId=X AND status IN (...)
+  @@index([providerId, status])
+  // Acelera getSuggestedPrice: WHERE serviceId=X AND providerId=Y AND status='CERRADO'
+  @@index([serviceId, providerId, status])
   @@map("service_requests")
 }
 
