@@ -18,6 +18,12 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { logger: auditLogger });
 
+  // Hay exactamente un proxy (Traefik/nginx) delante del backend: solo ese
+  // hop puede sobrescribir x-forwarded-for de forma confiable. Sin esto,
+  // Express ignora el proxy y RateLimitGuard/ThrottlerGuard leen el header
+  // crudo, que cualquier cliente puede falsificar para resetear su límite.
+  app.set('trust proxy', 1);
+
   app.use(
     helmet({
       // API-only backend (no HTML views) — CSP/COEP can break cross-origin

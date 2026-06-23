@@ -111,25 +111,12 @@ export class RateLimitGuard implements CanActivate {
     return `rate-limit:${ip}:${path}`;
   }
 
+  // request.ip ya resuelve correctamente x-forwarded-for según la cantidad
+  // de proxies configurada en `app.set('trust proxy', N)` (ver main.ts).
+  // Leer los headers a mano aquí permitiría que cualquier cliente los
+  // falsifique para resetear su propio rate limit en cada request.
   private getClientIP(request: Request): string {
-    const forwarded = request.headers['x-forwarded-for'] as string;
-    const realIp = request.headers['x-real-ip'] as string;
-    const cfConnectingIp = request.headers['cf-connecting-ip'] as string;
-    
-    if (forwarded) {
-      return forwarded.split(',')[0].trim();
-    }
-    if (realIp) {
-      return realIp;
-    }
-    if (cfConnectingIp) {
-      return cfConnectingIp;
-    }
-    
-    return request.connection?.remoteAddress || 
-           request.socket?.remoteAddress || 
-           (request.connection as any)?.socket?.remoteAddress || 
-           '127.0.0.1';
+    return request.ip || request.socket?.remoteAddress || '127.0.0.1';
   }
 }
 
