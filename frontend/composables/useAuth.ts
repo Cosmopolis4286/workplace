@@ -93,6 +93,11 @@ const accessToken = ref<string | null>(null)
 const refreshToken = ref<string | null>(null)
 const initialized = ref(false)
 
+// El middleware de rutas espera esta promesa antes de decidir si una ruta
+// protegida se permite, para no confiar ciegamente en el currentUser
+// cacheado en localStorage mientras el servidor no confirme la sesión.
+let sessionVerification: Promise<void> | null = null
+
 function rehydrate(): void {
   if (initialized.value || !process.client) return
   initialized.value = true
@@ -303,6 +308,20 @@ export const useAuth = () => {
     }
   }
 
+  // Confirma con el servidor que la sesión cacheada en localStorage sigue
+  // siendo válida. Se ejecuta una sola vez por carga de la app (las llamadas
+  // subsecuentes reciben la misma promesa ya resuelta) para que el middleware
+  // de rutas no deje pasar a páginas protegidas con un usuario "fantasma"
+  // cuyo token ya expiró.
+  function ensureSessionVerified(): Promise<void> {
+    if (!process.client) return Promise.resolve()
+    if (!currentUser.value) return Promise.resolve()
+    if (!sessionVerification) {
+      sessionVerification = fetchProfile().then(() => undefined)
+    }
+    return sessionVerification
+  }
+
   function updateLocalUser(data: Partial<User>): void {
     if (!currentUser.value) return
     currentUser.value = { ...currentUser.value, ...data }
@@ -393,6 +412,7 @@ export const useAuth = () => {
     revokeSession,
     uploadAvatar,
     fetchProfile,
+    ensureSessionVerified,
     refreshAccessToken,
     getHeaders,
     checkUsername,

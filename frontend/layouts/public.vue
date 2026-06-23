@@ -20,18 +20,28 @@
 
           <!-- Acciones -->
           <div class="flex items-center gap-3">
-            <NuxtLink
-              to="/login"
-              class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-workplace-red transition-colors duration-200"
-            >
-              Iniciar sesión
-            </NuxtLink>
-            <NuxtLink
-              to="/register"
-              class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-workplace-red to-red-600 rounded-xl shadow hover:shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-200"
-            >
-              Registrarse
-            </NuxtLink>
+            <template v-if="isAuthenticated">
+              <NuxtLink
+                to="/dashboard"
+                class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-workplace-red to-red-600 rounded-xl shadow hover:shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-200"
+              >
+                Ir a mi cuenta
+              </NuxtLink>
+            </template>
+            <template v-else>
+              <NuxtLink
+                to="/login"
+                class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-workplace-red transition-colors duration-200"
+              >
+                Iniciar sesión
+              </NuxtLink>
+              <NuxtLink
+                to="/register"
+                class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-workplace-red to-red-600 rounded-xl shadow hover:shadow-md hover:from-red-600 hover:to-red-700 transition-all duration-200"
+              >
+                Registrarse
+              </NuxtLink>
+            </template>
           </div>
         </div>
       </div>
@@ -44,3 +54,12 @@
     <AppFooter />
   </div>
 </template>
+
+<script setup lang="ts">
+const { isAuthenticated, ensureSessionVerified } = useAuth()
+
+// Layout público: la sesión cacheada podría estar caducada (token expirado).
+// Confirmamos contra el servidor antes de decidir qué CTA mostrar, en vez de
+// confiar ciegamente en localStorage como ya hace el middleware de rutas.
+await ensureSessionVerified()
+</script>
