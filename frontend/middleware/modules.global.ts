@@ -36,7 +36,10 @@ const UNRESTRICTED_ROLES = ['SUPERADMIN', 'ADMIN', 'NORMAL']
 export default defineNuxtRouteMiddleware(async (to: any) => {
   if (process.server) return
 
-  const { isAuthenticated, user } = useAuth()
+  const auth = useAuth()
+  const { isAuthenticated, user } = auth
+  if (!isAuthenticated.value) return
+  await auth.ensureSessionVerified()
   if (!isAuthenticated.value || !user.value) return
 
   const role = user.value.role

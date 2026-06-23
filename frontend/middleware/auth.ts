@@ -1,6 +1,7 @@
 import { navigateTo, defineNuxtRouteMiddleware } from 'nuxt/app'
 import { useAuth } from '~/composables/useAuth'
 import { usePermissions } from '~/composables/usePermissions'
+import { isPublicRoute } from '~/utils/publicRoutes'
 
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 
@@ -10,14 +11,6 @@ const COMMERCE_ROLES:           Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE']
 const FREELANCER_COMMERCE:      Role[] = ['COMMERCE', 'FREELANCER']
 const ALL_EXCEPT_NORMAL:        Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER']
 const SERVICE_REQUEST_ROLES:    Role[] = ['COMMERCE', 'FREELANCER', 'NORMAL']
-
-// ─── Rutas públicas (no requieren sesión) ─────────────────────────────────────
-const PUBLIC_ROUTES: string[] = [
-  '/', '/precios', '/login', '/register',
-  '/recover-password', '/reset-password',
-  '/verify-email', '/auth/google/callback', '/auth/2fa-verify',
-  '/privacidad', '/terminos', '/soporte',
-]
 
 // ─── Rutas que solo pueden ver usuarios NO autenticados ───────────────────────
 // (autenticado → redirige al dashboard)
@@ -68,10 +61,25 @@ const PERMISSION_ROUTE_MAP: Record<string, string> = {
 
   // Billetera
   '/billetera': 'wallets:use',
+
+  // Comisiones de plataforma / tabs de búsqueda (permission matrix real)
+  '/comisiones':   'platform_fees:view',
+  '/search-tabs':  'search_tabs:view',
 }
 
+// ─── Rutas restringidas a SUPERADMIN/ADMIN sin permission matrix propia ───────
+// (el backend las protege con @Roles(SUPERADMIN, ADMIN) fijo, no con
+// PermissionsGuard, así que aquí se replica el mismo criterio en vez de
+// inventar un permiso que no existe)
+const ADMIN_ONLY_ROUTES: string[] = [
+  '/kyc-admin', '/landing-admin', '/categorias-propuestas-admin',
+]
+
 // Rutas que no necesitan permiso específico pero sí autenticación
-const NEEDS_AUTH_ONLY: string[] = ['/dashboard', '/perfil', '/configuracion', '/mi-plan', '/onboarding', '/search']
+const NEEDS_AUTH_ONLY: string[] = [
+  '/dashboard', '/perfil', '/configuracion', '/mi-plan', '/onboarding', '/search',
+  '/reportar-problema', '/verificacion', '/modulos', '/mis-pedidos',
+]
 
 // ─── Excluidas del chequeo de onboarding ─────────────────────────────────────
 const ONBOARDING_EXCLUDED: string[] = [
@@ -84,20 +92,28 @@ function defaultDest(_role?: Role): string {
   return '/dashboard'
 }
 
-export default defineNuxtRouteMiddleware((to: any) => {
+export default defineNuxtRouteMiddleware(async (to: any) => {
   if (process.server) return
 
-  const { isAuthenticated, user } = useAuth()
+  const auth = useAuth()
+  const { isAuthenticated, user } = auth
   const { can, userCategory, initialized } = usePermissions()
 
   const path  = to.path as string
+
+  // ── 1. Rutas completamente públicas → siempre permitir ────────────────────
+  if (isPublicRoute(path)) return
+
+  // ── 2. La sesión cacheada en localStorage no implica que el token siga
+  // siendo válido en el servidor. Antes de decidir sobre cualquier ruta que
+  // no sea pública, confirmamos la sesión una vez por carga de la app — si
+  // el token expiró, esto la limpia (clearSession) antes de renderizar nada.
+  await auth.ensureSessionVerified()
+
   const role  = (user.value?.role ?? 'NORMAL') as Role
   const authed = isAuthenticated.value
 
-  // ── 1. Rutas completamente públicas → siempre permitir ────────────────────
-  if (PUBLIC_ROUTES.some(r => path === r || path.startsWith('/p/'))) return
-
-  // ── 2. Rutas solo para invitados (no autenticado) ─────────────────────────
+  // ── 3. Rutas solo para invitados (no autenticado) ─────────────────────────
   if (GUEST_ONLY_ROUTES.includes(path)) {
     if (authed) {
       // /verify-email: permite acceso aunque estés autenticado
@@ -107,17 +123,20 @@ export default defineNuxtRouteMiddleware((to: any) => {
     return
   }
 
-  // ── 3. No autenticado → login ─────────────────────────────────────────────
+  // ── 4. No autenticado → login ─────────────────────────────────────────────
   if (!authed) {
-    // Si la ruta está en el mapa de permisos o en auth routes, requiere sesión
+    // Cualquier ruta mapeada (por permiso, admin-only, o auth-only) requiere sesión.
+    // Sin este chequeo, una ruta nueva que no se agregue a ninguna lista queda
+    // accesible sin login por defecto — el "fail open" que causó este bug.
     const needsAuth =
       Object.keys(PERMISSION_ROUTE_MAP).some(r => path.startsWith(r)) ||
+      ADMIN_ONLY_ROUTES.some(r => path.startsWith(r)) ||
       NEEDS_AUTH_ONLY.some(r => path.startsWith(r))
     if (needsAuth) return navigateTo(`/login?redirect=${encodeURIComponent(path)}`)
     return
   }
 
-  // ── 4. Usuario autenticado ────────────────────────────────────────────────
+  // ── 5. Usuario autenticado ────────────────────────────────────────────────
   if (!user.value) return
 
   // ── 4b. Onboarding: COMMERCE/FREELANCER sin categoría ────────────────────
@@ -152,7 +171,12 @@ export default defineNuxtRouteMiddleware((to: any) => {
     return navigateTo('/mis-pedidos')
   }
 
-  // ── 4d. Verificar permiso por ruta (usando la tabla PERMISSION_ROUTE_MAP) ─
+  // ── 4d. Rutas SUPERADMIN/ADMIN sin permission matrix propia ───────────────
+  if (ADMIN_ONLY_ROUTES.some(r => path.startsWith(r)) && !ADMIN_ROLES.includes(role)) {
+    return navigateTo(defaultDest(role))
+  }
+
+  // ── 4e. Verificar permiso por ruta (usando la tabla PERMISSION_ROUTE_MAP) ─
   // Solo verificar si los permisos ya están inicializados (evitar falsos negativos)
   if (initialized.value) {
     const matchedRoute = Object.keys(PERMISSION_ROUTE_MAP).find(r => path.startsWith(r))

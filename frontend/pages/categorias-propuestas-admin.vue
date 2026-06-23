@@ -86,14 +86,9 @@ definePageMeta({ middleware: ['auth'] })
 
 import { ref, onMounted } from 'vue'
 import { CheckCircleIcon } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
 import { useProposedCategories, type ProposedCategory, type ProposedCategoryTarget } from '~/composables/useProposedCategories'
 
-const { user } = useAuth()
-if (!['SUPERADMIN', 'ADMIN'].includes(user.value?.role ?? '')) {
-  navigateTo('/dashboard')
-}
-
+// El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
 const { fetchPending, review } = useProposedCategories()
 
 const items = ref<ProposedCategory[]>([])

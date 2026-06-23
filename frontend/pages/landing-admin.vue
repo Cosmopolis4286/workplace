@@ -661,11 +661,8 @@ function formatTestimonialDate(dateStr: string) {
   return new Date(dateStr).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-// ─── Auth check ───────────────────────────────────────────────────────────────
-const { user, token } = useAuth()
-if (!['SUPERADMIN', 'ADMIN'].includes(user.value?.role ?? '')) {
-  navigateTo('/dashboard')
-}
+// El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
+const { token } = useAuth()
 const authHeader = computed(() => ({ Authorization: `Bearer ${token.value}` }))
 
 // ─── Stats ────────────────────────────────────────────────────────────────────

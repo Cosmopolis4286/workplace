@@ -90,15 +90,12 @@ definePageMeta({ middleware: ['auth'] })
 
 import { ref, onMounted } from 'vue'
 import { CheckCircleIcon } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
 import { useKyc, type IdentityVerification, type KycDocumentType } from '~/composables/useKyc'
 import KycImagePreview from '~/components/kyc/KycImagePreview.vue'
 
-const { user } = useAuth()
-if (!['SUPERADMIN', 'ADMIN'].includes(user.value?.role ?? '')) {
-  navigateTo('/dashboard')
-}
-
+// El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts
+// (ADMIN_ONLY_ROUTES), que además espera la verificación real de sesión
+// antes de decidir — este chequeo inline corría antes de esa verificación.
 const { fetchPending, review } = useKyc()
 
 const items = ref<IdentityVerification[]>([])

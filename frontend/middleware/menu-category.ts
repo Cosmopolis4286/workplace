@@ -2,14 +2,17 @@ import { navigateTo, defineNuxtRouteMiddleware } from "nuxt/app"
 import { useAuth } from "~/composables/useAuth"
 import { usePermissions } from "~/composables/usePermissions"
 
-export default defineNuxtRouteMiddleware((to: any) => {
+export default defineNuxtRouteMiddleware(async (to: any) => {
   if (process.server) return
-
-  const { isAuthenticated, user } = useAuth()
-  const { userCategory } = usePermissions()
 
   // Only apply to menu routes
   if (!to.path.startsWith('/menu')) return
+
+  const auth = useAuth()
+  const { isAuthenticated, user } = auth
+  const { userCategory } = usePermissions()
+
+  await auth.ensureSessionVerified()
 
   // User must be authenticated
   if (!isAuthenticated.value) {
