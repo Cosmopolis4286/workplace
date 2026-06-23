@@ -1,4 +1,5 @@
 <template>
+  <NuxtLayout :name="layout">
   <div>
     <PageHeader
       title="Planes y Precios"
@@ -489,6 +490,7 @@
     </section>
 
   </div>
+  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -502,7 +504,11 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import { usePlans } from '~/composables/usePlans'
 import { useKyc } from '~/composables/useKyc'
 
-definePageMeta({})
+// Página híbrida: visitantes anónimos la ven como landing pública (layout
+// 'public'), usuarios con sesión la ven dentro del backoffice (layout
+// 'default', con sidebar) para poder cambiar de plan. Mismo patrón que
+// pages/p/[username].vue.
+definePageMeta({ layout: false })
 
 interface Plan {
   id: string
@@ -526,9 +532,14 @@ interface Plan {
 interface Category { id: string; name: string; icon?: string }
 interface Subcategory { id: string; name: string }
 
-const { user, isAuthenticated, fetchProfile } = useAuth()
+const { user, isAuthenticated, fetchProfile, ensureSessionVerified } = useAuth()
 const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
 const { mySubscription, pendingSubscription, myPlan, fetchMySubscription, daysRemaining } = usePlans()
+
+// La sesión cacheada podría estar caducada (token expirado); confirmamos
+// contra el servidor antes de decidir qué layout/contenido mostrar.
+await ensureSessionVerified()
+const layout = computed(() => isAuthenticated.value ? 'default' : 'public')
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 const plans        = ref<Plan[]>([])
