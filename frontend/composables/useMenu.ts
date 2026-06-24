@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 
 export type ProductStatus = 'DISPONIBLE' | 'AGOTADO' | 'BAJO_STOCK' | 'NO_DISPONIBLE'
 
@@ -41,9 +41,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 
 export const useMenu = () => {
-  const { getHeaders, refreshAccessToken, clearSession: _clearSession } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 
   // ─── Computed ──────────────────────────────────────────────────────────────
@@ -59,48 +57,21 @@ export const useMenu = () => {
   const availableProducts = computed(() => products.value.filter((p) => p.status === 'DISPONIBLE').length)
   const lowStockProducts = computed(() => products.value.filter((p) => p.status === 'BAJO_STOCK'))
 
-  // ─── API helper ────────────────────────────────────────────────────────────
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = { 'Content-Type': 'application/json', ...getHeaders(), ...(options.headers as Record<string, string> || {}) }
-    const res = await $fetch<T>(`${apiUrl}/menu${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
-    return res
-  }
-
-  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status = (err as { status?: number; statusCode?: number })?.status
-        ?? (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) {
-          router.push('/login')
-          throw err
-        }
-        return await fn()
-      }
-      throw err
-    }
-  }
-
   // ─── Load all ──────────────────────────────────────────────────────────────
 
   async function loadMenu() {
     loading.value = true
     error.value = null
     try {
-      const [cats, prods] = await withAuthRetry(() =>
-        Promise.all([
-          apiFetch<Category[]>('/categories'),
-          apiFetch<Product[]>('/products'),
-        ]),
-      )
+      const [cats, prods] = await Promise.all([
+        get<Category[]>('/menu/categories'),
+        get<Product[]>('/menu/products'),
+      ])
       categories.value = cats
       products.value = prods
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar el menú'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar el menú'
+      if (err?.status === 401) router.push('/login')
     } finally {
       loading.value = false
     }
@@ -110,38 +81,34 @@ export const useMenu = () => {
 
   async function createCategory(data: { name: string; color?: string }): Promise<Category | null> {
     try {
-      const category = await withAuthRetry(() =>
-        apiFetch<Category>('/categories', { method: 'POST', body: JSON.stringify(data) }),
-      )
+      const category = await post<Category>('/menu/categories', data)
       categories.value.push(category)
       return category
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al crear la categoría'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al crear la categoría'
       return null
     }
   }
 
   async function updateCategory(id: string, data: { name?: string; color?: string }): Promise<Category | null> {
     try {
-      const category = await withAuthRetry(() =>
-        apiFetch<Category>(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-      )
+      const category = await put<Category>(`/menu/categories/${id}`, data)
       const idx = categories.value.findIndex((c) => c.id === id)
       if (idx !== -1) categories.value[idx] = category
       return category
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al actualizar la categoría'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al actualizar la categoría'
       return null
     }
   }
 
   async function deleteCategory(id: string): Promise<boolean> {
     try {
-      await withAuthRetry(() => apiFetch(`/categories/${id}`, { method: 'DELETE' }))
+      await del(`/menu/categories/${id}`)
       categories.value = categories.value.filter((c) => c.id !== id)
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al eliminar la categoría'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al eliminar la categoría'
       return false
     }
   }
@@ -150,52 +117,46 @@ export const useMenu = () => {
 
   async function createProduct(data: Partial<Product>): Promise<Product | null> {
     try {
-      const product = await withAuthRetry(() =>
-        apiFetch<Product>('/products', { method: 'POST', body: JSON.stringify(data) }),
-      )
+      const product = await post<Product>('/menu/products', data)
       products.value.push(product)
       return product
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al crear el producto'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al crear el producto'
       return null
     }
   }
 
   async function updateProduct(id: string, data: Partial<Product>): Promise<Product | null> {
     try {
-      const product = await withAuthRetry(() =>
-        apiFetch<Product>(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-      )
+      const product = await put<Product>(`/menu/products/${id}`, data)
       const idx = products.value.findIndex((p) => p.id === id)
       if (idx !== -1) products.value[idx] = product
       return product
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al actualizar el producto'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al actualizar el producto'
       return null
     }
   }
 
   async function deleteProduct(id: string): Promise<boolean> {
     try {
-      await withAuthRetry(() => apiFetch(`/products/${id}`, { method: 'DELETE' }))
+      await del(`/menu/products/${id}`)
       products.value = products.value.filter((p) => p.id !== id)
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al eliminar el producto'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al eliminar el producto'
       return false
     }
   }
 
   async function toggleProductStatus(id: string): Promise<Product | null> {
     try {
-      const product = await withAuthRetry(() =>
-        apiFetch<Product>(`/products/${id}/toggle-status`, { method: 'PATCH' }),
-      )
+      const product = await patch<Product>(`/menu/products/${id}/toggle-status`, {})
       const idx = products.value.findIndex((p) => p.id === id)
       if (idx !== -1) products.value[idx] = product
       return product
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cambiar el estado'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cambiar el estado'
       return null
     }
   }
@@ -204,18 +165,12 @@ export const useMenu = () => {
     try {
       const formData = new FormData()
       formData.append('image', file)
-      const product = await withAuthRetry(() =>
-        $fetch<Product>(`${apiUrl}/menu/products/${id}/image`, {
-          method: 'POST',
-          headers: getHeaders(),
-          body: formData,
-        }),
-      )
+      const product = await post<Product>(`/menu/products/${id}/image`, formData)
       const idx = products.value.findIndex((p) => p.id === id)
       if (idx !== -1) products.value[idx] = product
       return product
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al subir la imagen'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al subir la imagen'
       return null
     }
   }

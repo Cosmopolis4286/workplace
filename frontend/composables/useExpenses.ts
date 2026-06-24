@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 import { useUserPreferences } from './useUserPreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -141,7 +141,7 @@ const currentPage       = ref(1)
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export function useExpenses() {
-  const { token, refreshTokens, getHeaders } = useAuth()
+  const { get, post, put, patch, del } = useApi()
 
   // ── Computed ───────────────────────────────────────────────────────────────
   const pendingExpenses = computed(() => expenses.value.filter(e => e.status === 'PENDIENTE'))
@@ -150,41 +150,13 @@ export function useExpenses() {
   const { formatCurrency: _fmt } = useUserPreferences()
   function formatCurrency(value: number) { return _fmt.value(value) }
 
-  // ── Auth-aware fetch ───────────────────────────────────────────────────────
-  async function apiFetch(path: string, options: RequestInit = {}) {
-    const config = useRuntimeConfig()
-    const base   = config.public.apiUrl
-
-    const doRequest = async (tkn: string) =>
-      fetch(`${base}${path}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tkn}`,
-          ...(options.headers ?? {}),
-        },
-      })
-
-    let res = await doRequest(token.value)
-    if (res.status === 401) {
-      const ok = await refreshTokens()
-      if (!ok) throw new Error('Sesión expirada')
-      res = await doRequest(token.value)
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.message ?? `Error ${res.status}`)
-    }
-    return res.json()
-  }
-
   // ── Stats ──────────────────────────────────────────────────────────────────
   async function loadStats() {
     loadingStats.value = true
     try {
-      stats.value = await apiFetch('/expenses/stats')
+      stats.value = await get<ExpenseStats>('/expenses/stats')
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     } finally {
       loadingStats.value = false
     }
@@ -194,35 +166,29 @@ export function useExpenses() {
   async function loadCategories() {
     loadingCategories.value = true
     try {
-      categories.value = await apiFetch('/expenses/categories')
+      categories.value = await get<ExpenseCategory[]>('/expenses/categories')
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     } finally {
       loadingCategories.value = false
     }
   }
 
   async function createCategory(payload: { name: string; color?: string; budget?: number }) {
-    const cat = await apiFetch('/expenses/categories', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
+    const cat = await post<ExpenseCategory>('/expenses/categories', payload)
     categories.value.push(cat)
     return cat
   }
 
   async function updateCategory(id: string, payload: { name?: string; color?: string; budget?: number }) {
-    const updated = await apiFetch(`/expenses/categories/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    })
+    const updated = await put<ExpenseCategory>(`/expenses/categories/${id}`, payload)
     const idx = categories.value.findIndex(c => c.id === id)
     if (idx !== -1) categories.value[idx] = updated
     return updated
   }
 
   async function deleteCategory(id: string) {
-    await apiFetch(`/expenses/categories/${id}`, { method: 'DELETE' })
+    await del(`/expenses/categories/${id}`)
     categories.value = categories.value.filter(c => c.id !== id)
   }
 
@@ -236,12 +202,12 @@ export function useExpenses() {
         if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
       })
       const qs  = params.toString()
-      const res = await apiFetch(`/expenses${qs ? '?' + qs : ''}`)
+      const res = await get<{ data: Expense[]; total: number; page: number }>(`/expenses${qs ? '?' + qs : ''}`)
       expenses.value    = res.data
       totalCount.value  = res.total
       currentPage.value = res.page
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     } finally {
       loading.value = false
     }
@@ -251,16 +217,13 @@ export function useExpenses() {
     loading.value = true
     error.value   = null
     try {
-      const expense = await apiFetch('/expenses', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
+      const expense = await post<Expense>('/expenses', payload)
       expenses.value.unshift(expense)
       totalCount.value++
       await loadStats()
       return expense
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return null
     } finally {
       loading.value = false
@@ -270,16 +233,13 @@ export function useExpenses() {
   async function updateExpense(id: string, payload: Partial<CreateExpensePayload>): Promise<Expense | null> {
     error.value = null
     try {
-      const updated = await apiFetch(`/expenses/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      })
+      const updated = await put<Expense>(`/expenses/${id}`, payload)
       const idx = expenses.value.findIndex(e => e.id === id)
       if (idx !== -1) expenses.value[idx] = updated
       await loadStats()
       return updated
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return null
     }
   }
@@ -287,16 +247,13 @@ export function useExpenses() {
   async function updateExpenseStatus(id: string, status: ExpenseStatus): Promise<boolean> {
     error.value = null
     try {
-      const updated = await apiFetch(`/expenses/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      })
+      const updated = await patch<Expense>(`/expenses/${id}/status`, { status })
       const idx = expenses.value.findIndex(e => e.id === id)
       if (idx !== -1) expenses.value[idx] = { ...expenses.value[idx], status: updated.status }
       await loadStats()
       return true
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return false
     }
   }
@@ -304,13 +261,13 @@ export function useExpenses() {
   async function deleteExpense(id: string): Promise<boolean> {
     error.value = null
     try {
-      await apiFetch(`/expenses/${id}`, { method: 'DELETE' })
+      await del(`/expenses/${id}`)
       expenses.value = expenses.value.filter(e => e.id !== id)
       totalCount.value--
       await loadStats()
       return true
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return false
     }
   }
@@ -318,19 +275,14 @@ export function useExpenses() {
   async function uploadReceipt(id: string, file: File): Promise<Expense | null> {
     error.value = null
     try {
-      const config = useRuntimeConfig()
       const formData = new FormData()
       formData.append('receipt', file)
-      const updated = await $fetch<Expense>(`${config.public.apiUrl}/expenses/${id}/receipt`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: formData,
-      })
+      const updated = await post<Expense>(`/expenses/${id}/receipt`, formData)
       const idx = expenses.value.findIndex(e => e.id === id)
       if (idx !== -1) expenses.value[idx] = updated
       return updated
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return null
     }
   }

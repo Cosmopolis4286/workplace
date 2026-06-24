@@ -1,4 +1,5 @@
 // Composable para gestión de permisos de usuarios
+import { useApi } from './useApi'
 import type { Role } from '~/config/dashboard.config'
 
 export interface User {
@@ -35,36 +36,10 @@ export interface UserPermissionsResponse {
 }
 
 export const useUserPermissions = () => {
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get, post, del } = useApi()
 
   const loading = ref(false)
   const error = ref<string | null>(null)
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const doFetch = () =>
-      fetch(`${apiUrl}${path}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...getHeaders(),
-          ...(options.headers as Record<string, string> ?? {}),
-        },
-      })
-
-    let res = await doFetch()
-    if (res.status === 401) {
-      const ok = await refreshAccessToken()
-      if (!ok) throw new Error('Sesión expirada')
-      res = await doFetch()
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { message?: string }
-      throw new Error(body.message ?? `Error ${res.status}`)
-    }
-    return res.json() as Promise<T>
-  }
 
   // Listar usuarios con búsqueda
   async function listUsers(params: {
@@ -79,14 +54,14 @@ export const useUserPermissions = () => {
     if (params.page) query.set('page', params.page.toString())
     if (params.limit) query.set('limit', params.limit.toString())
 
-    return apiFetch<{ users: User[]; pagination: { page: number; limit: number; total: number; pages: number } }>(
+    return get<{ users: User[]; pagination: { page: number; limit: number; total: number; pages: number } }>(
       `/permissions/users?${query.toString()}`
     )
   }
 
   // Obtener permisos de un usuario específico
   async function getUserPermissions(userId: string) {
-    return apiFetch<UserPermissionsResponse>(`/permissions/users/${userId}`)
+    return get<UserPermissionsResponse>(`/permissions/users/${userId}`)
   }
 
   // Actualizar permiso de un usuario
@@ -99,24 +74,17 @@ export const useUserPermissions = () => {
       expiresAt?: string
     }
   ) {
-    return apiFetch<{ success: boolean }>(`/permissions/users/${userId}`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
+    return post<{ success: boolean }>(`/permissions/users/${userId}`, data)
   }
 
   // Eliminar permiso individual de un usuario
   async function removeUserPermission(userId: string, permissionId: string) {
-    return apiFetch<{ success: boolean }>(`/permissions/users/${userId}/${permissionId}`, {
-      method: 'DELETE',
-    })
+    return del<{ success: boolean }>(`/permissions/users/${userId}/${permissionId}`)
   }
 
   // Resetear todos los permisos individuales del usuario
   async function resetUserPermissions(userId: string) {
-    return apiFetch<{ success: boolean; message?: string }>(`/permissions/users/${userId}/reset`, {
-      method: 'POST',
-    })
+    return post<{ success: boolean; message?: string }>(`/permissions/users/${userId}/reset`, {})
   }
 
   return {
