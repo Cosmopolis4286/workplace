@@ -1,4 +1,5 @@
 import type { Socket } from 'socket.io-client'
+import { useApi } from './useApi'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,34 +35,8 @@ let socketRestaurantId: string | null = null
 
 export const useNotifications = () => {
   const { $socketio } = useNuxtApp()
-  const { token, refreshAccessToken: refreshTokens } = useAuth()
-  const config = useRuntimeConfig()
-  const apiBase = config.public.apiUrl as string
-
-  // ── Auth-aware fetch ──────────────────────────────────────────────────────
-  async function apiFetch(path: string, options: RequestInit = {}) {
-    const doRequest = async (tkn: string) =>
-      fetch(`${apiBase}${path}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tkn}`,
-          ...(options.headers ?? {}),
-        },
-      })
-
-    let res = await doRequest(token.value)
-    if (res.status === 401) {
-      const ok = await refreshTokens()
-      if (!ok) throw new Error('Sesión expirada')
-      res = await doRequest(token.value)
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.message ?? `Error ${res.status}`)
-    }
-    return res.json()
-  }
+  const { token } = useAuth()
+  const { get, patch, del } = useApi()
 
   // ── REST: load notifications ──────────────────────────────────────────────
   async function fetchNotifications(opts: { unread?: boolean; page?: number; limit?: number } = {}) {
@@ -73,11 +48,11 @@ export const useNotifications = () => {
       if (opts.page)    params.set('page',   String(opts.page))
       if (opts.limit)   params.set('limit',  String(opts.limit))
       const qs = params.toString()
-      const res = await apiFetch(`/notifications${qs ? '?' + qs : ''}`)
+      const res = await get<{ data: Notification[]; total: number }>(`/notifications${qs ? '?' + qs : ''}`)
       notifications.value = res.data
       totalCount.value     = res.total
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     } finally {
       loading.value = false
     }
@@ -91,7 +66,7 @@ export const useNotifications = () => {
     n.read   = true
     n.readAt = new Date().toISOString()
     try {
-      await apiFetch(`/notifications/${id}/read`, { method: 'PATCH' })
+      await patch(`/notifications/${id}/read`, {})
     } catch {
       n.read   = false
       n.readAt = null
@@ -102,9 +77,9 @@ export const useNotifications = () => {
   async function markAllAsRead() {
     notifications.value.forEach(n => { n.read = true; n.readAt = new Date().toISOString() })
     try {
-      await apiFetch('/notifications/read-all', { method: 'PATCH' })
+      await patch('/notifications/read-all', {})
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     }
   }
 
@@ -112,9 +87,9 @@ export const useNotifications = () => {
   async function deleteNotification(id: string) {
     notifications.value = notifications.value.filter(n => n.id !== id)
     try {
-      await apiFetch(`/notifications/${id}`, { method: 'DELETE' })
+      await del(`/notifications/${id}`)
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     }
   }
 
@@ -123,9 +98,9 @@ export const useNotifications = () => {
     notifications.value = []
     totalCount.value    = 0
     try {
-      await apiFetch('/notifications/clear-all', { method: 'DELETE' })
+      await del('/notifications/clear-all')
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     }
   }
 

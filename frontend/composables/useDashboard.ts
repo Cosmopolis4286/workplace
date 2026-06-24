@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { useAuth } from './useAuth'
-import { useAuthFetch } from './useAuthFetch'
+import { useApi } from './useApi'
 import { type Order, type OrderStats, type OrderStatus, NEXT_STATUS } from './useClienteDashboard'
 import { useUserPreferences } from './useUserPreferences'
 import { type DashboardPeriod } from './useDashboardPeriod'
@@ -59,7 +59,7 @@ const lastUpdated  = ref<Date | null>(null)
 
 export function useDashboard() {
   const { user } = useAuth()
-  const { apiFetch } = useAuthFetch()
+  const { get, put, patch } = useApi()
 
   // ── Load all dashboard data in parallel ─────────────────────────────────────
   async function loadDashboard(period: DashboardPeriod = '30d') {
@@ -86,13 +86,13 @@ export function useDashboard() {
 
       const [ordersRes, statsRes, analyticsRes, trendsRes] = await Promise.allSettled([
         // Pedidos activos: todos los statuses no-terminales en un solo roundtrip
-        apiFetch(`/orders?status=${ACTIVE_STATUSES.join(',')}&limit=100`),
+        get<{ data: Order[] }>(`/orders?status=${ACTIVE_STATUSES.join(',')}&limit=100`),
         // Order stats
-        apiFetch('/orders/stats'),
+        get<OrderStats>('/orders/stats'),
         // Analytics overview para el período seleccionado
-        apiFetch(`/analytics/overview?period=${period}&compareWith=previous`),
+        get<any>(`/analytics/overview?period=${period}&compareWith=previous`),
         // Sparklines de 7 días para los widgets KPI
-        apiFetch('/analytics/dashboard-trends'),
+        get<DashboardTrends>('/analytics/dashboard-trends'),
       ])
 
       trends.value = trendsRes.status === 'fulfilled' ? trendsRes.value : null
@@ -118,7 +118,7 @@ export function useDashboard() {
       // Low-stock count — fetch aggregate
       let lowStock = 0
       try {
-        const lowStockRes = await apiFetch('/menu/products?status=BAJO_STOCK&limit=50')
+        const lowStockRes = await get<any>('/menu/products?status=BAJO_STOCK&limit=50')
         lowStock = lowStockRes?.total ?? lowStockRes?.data?.length ?? 0
       } catch {}
 
@@ -147,7 +147,7 @@ export function useDashboard() {
 
       lastUpdated.value = new Date()
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     } finally {
       loading.value = false
     }
@@ -162,10 +162,7 @@ export function useDashboard() {
     }
 
     try {
-      const updated = await apiFetch(`/orders/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status, cancelReason }),
-      })
+      const updated = await patch<Order>(`/orders/${id}/status`, { status, cancelReason })
 
       const idx = activeOrders.value.findIndex(o => o.id === id)
       if (idx !== -1) {
@@ -174,19 +171,19 @@ export function useDashboard() {
           // Remove from active list
           activeOrders.value.splice(idx, 1)
         } else {
-          activeOrders.value[idx] = { ...updated, itemCount: updated.items?.length ?? 0 }
+          activeOrders.value[idx] = { ...updated, itemCount: (updated as any).items?.length ?? 0 }
         }
       }
 
       // Refresh stats
       try {
-        orderStats.value = await apiFetch('/orders/stats')
+        orderStats.value = await get<OrderStats>('/orders/stats')
         kpis.value = { ...kpis.value, activeOrders: orderStats.value?.activeOrders ?? kpis.value.activeOrders }
       } catch {}
 
       return true
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return false
     }
   }
@@ -194,15 +191,12 @@ export function useDashboard() {
   // ── Mark order as paid ────────────────────────────────────────────────────────
   async function markOrderPaid(id: string): Promise<boolean> {
     try {
-      const updated = await apiFetch(`/orders/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ paymentStatus: 'PAGADO' }),
-      })
+      const updated = await put<Order>(`/orders/${id}`, { paymentStatus: 'PAGADO' })
       const idx = activeOrders.value.findIndex(o => o.id === id)
-      if (idx !== -1) activeOrders.value[idx] = { ...updated, itemCount: updated.items?.length ?? 0 }
+      if (idx !== -1) activeOrders.value[idx] = { ...updated, itemCount: (updated as any).items?.length ?? 0 }
       return true
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return false
     }
   }

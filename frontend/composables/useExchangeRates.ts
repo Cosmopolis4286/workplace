@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { useApi } from './useApi'
 
 export interface ExchangeRate {
   id: string
@@ -49,35 +50,7 @@ const loadingStats = ref(false)
 const error = ref<string | null>(null)
 
 export function useExchangeRates() {
-  const config = useRuntimeConfig()
-  const base = config.public.apiUrl as string
-  const { getHeaders, refreshAccessToken } = useAuth()
-
-  async function apiFetch(url: string, options: RequestInit = {}) {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> ?? {}),
-    }
-    const res = await fetch(`${base}${url}`, { ...options, headers })
-    if (res.status === 401) {
-      const refreshed = await refreshAccessToken()
-      if (refreshed) {
-        const retryHeaders = { 'Content-Type': 'application/json', ...getHeaders() }
-        const retry = await fetch(`${base}${url}`, { ...options, headers: retryHeaders })
-        if (!retry.ok) {
-          const body = await retry.json().catch(() => ({}))
-          throw new Error(body.message ?? `Error ${retry.status}`)
-        }
-        return retry.json()
-      }
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.message ?? `Error ${res.status}`)
-    }
-    return res.json()
-  }
+  const { get, post, put, patch, del } = useApi()
 
   // ─── Fetch ────────────────────────────────────────────────────────────────────
 
@@ -86,10 +59,10 @@ export function useExchangeRates() {
     error.value = null
     try {
       const url = publicOnly ? '/exchange-rates/active' : `/exchange-rates?includeInactive=${includeInactive}`
-      const data = await apiFetch(url)
+      const data = await get<ExchangeRate[]>(url)
       rates.value = data
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     } finally {
       loading.value = false
     }
@@ -98,7 +71,7 @@ export function useExchangeRates() {
   async function fetchStats() {
     loadingStats.value = true
     try {
-      stats.value = await apiFetch('/exchange-rates/stats')
+      stats.value = await get<ExchangeRateStats>('/exchange-rates/stats')
     } catch {
       // non-critical
     } finally {
@@ -109,26 +82,20 @@ export function useExchangeRates() {
   // ─── Mutations ────────────────────────────────────────────────────────────────
 
   async function createRate(dto: Partial<ExchangeRate>) {
-    const data = await apiFetch('/exchange-rates', {
-      method: 'POST',
-      body: JSON.stringify(dto),
-    })
+    const data = await post<ExchangeRate>('/exchange-rates', dto)
     rates.value.push(data)
     return data
   }
 
   async function updateRate(id: string, dto: Partial<ExchangeRate>) {
-    const data = await apiFetch(`/exchange-rates/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(dto),
-    })
+    const data = await put<ExchangeRate>(`/exchange-rates/${id}`, dto)
     const idx = rates.value.findIndex((r: ExchangeRate) => r.id === id)
     if (idx >= 0) rates.value[idx] = data
     return data
   }
 
   async function setDefault(id: string) {
-    const data = await apiFetch(`/exchange-rates/${id}/set-default`, { method: 'PATCH' })
+    const data = await patch<ExchangeRate>(`/exchange-rates/${id}/set-default`, {})
     // update local state: clear previous default, set new one
     rates.value = rates.value.map((r: ExchangeRate) => ({ ...r, isDefault: r.id === id ? data.isDefault : false }))
     rates.value[rates.value.findIndex((r: ExchangeRate) => r.id === id)] = data
@@ -136,22 +103,19 @@ export function useExchangeRates() {
   }
 
   async function toggleStatus(id: string) {
-    const data = await apiFetch(`/exchange-rates/${id}/toggle-status`, { method: 'PATCH' })
+    const data = await patch<ExchangeRate>(`/exchange-rates/${id}/toggle-status`, {})
     const idx = rates.value.findIndex((r: ExchangeRate) => r.id === id)
     if (idx >= 0) rates.value[idx] = data
     return data
   }
 
   async function deleteRate(id: string) {
-    await apiFetch(`/exchange-rates/${id}`, { method: 'DELETE' })
+    await del(`/exchange-rates/${id}`)
     rates.value = rates.value.filter((r: ExchangeRate) => r.id !== id)
   }
 
   async function toggleAutoSync(code: string, enabled: boolean) {
-    const data = await apiFetch(`/exchange-rates/${code}/auto-sync`, {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled }),
-    })
+    const data = await patch<ExchangeRate>(`/exchange-rates/${code}/auto-sync`, { enabled })
     // Update local state
     const idx = rates.value.findIndex((r: ExchangeRate) => r.code === code)
     if (idx >= 0) {
@@ -161,22 +125,22 @@ export function useExchangeRates() {
   }
 
   async function manualSync(code: string) {
-    return await apiFetch(`/exchange-rates/sync/${code}`, { method: 'POST' })
+    return await post(`/exchange-rates/sync/${code}`, {})
   }
 
   async function getSyncStatus(code: string) {
-    return await apiFetch(`/exchange-rates/sync-status/${code}`)
+    return await get(`/exchange-rates/sync-status/${code}`)
   }
 
   async function fetchHistory(id: string, limit = 50): Promise<ExchangeRateHistoryEntry[]> {
-    return await apiFetch(`/exchange-rates/${id}/history?limit=${limit}`)
+    return await get<ExchangeRateHistoryEntry[]>(`/exchange-rates/${id}/history?limit=${limit}`)
   }
 
   // ─── Public utils ─────────────────────────────────────────────────────────────
 
   async function fetchPublicRates() {
     try {
-      return await apiFetch('/exchange-rates/public')
+      return await get('/exchange-rates/public')
     } catch {
       return []
     }
@@ -184,7 +148,7 @@ export function useExchangeRates() {
 
   async function convertAmount(amountUsd: number) {
     try {
-      return await apiFetch(`/exchange-rates/convert?amount=${amountUsd}`)
+      return await get(`/exchange-rates/convert?amount=${amountUsd}`)
     } catch {
       return []
     }

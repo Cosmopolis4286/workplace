@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuthFetch } from './useAuthFetch'
+import { useApi } from './useApi'
 import { useUserPreferences } from './useUserPreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -181,7 +181,7 @@ const totalCount     = ref(0)
 const currentPage    = ref(1)
 
 export function useClienteDashboard() {
-  const { apiFetch } = useAuthFetch()
+  const { get, post, put, patch, del } = useApi()
 
   const activeOrders  = computed(() => orders.value.filter(o => ACTIVE_STATUSES.includes(o.status)))
   const recentOrders  = computed(() => orders.value.filter(o => !ACTIVE_STATUSES.includes(o.status)))
@@ -190,9 +190,9 @@ export function useClienteDashboard() {
   async function loadStats() {
     loadingStats.value = true
     try {
-      stats.value = await apiFetch('/orders/stats')
+      stats.value = await get<OrderStats>('/orders/stats')
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     } finally {
       loadingStats.value = false
     }
@@ -208,12 +208,12 @@ export function useClienteDashboard() {
         if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
       })
       const qs = params.toString()
-      const res = await apiFetch(`/orders${qs ? '?' + qs : ''}`)
+      const res = await get<{ data: Order[]; total: number; page: number }>(`/orders${qs ? '?' + qs : ''}`)
       orders.value   = res.data
       totalCount.value = res.total
       currentPage.value = res.page
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
     } finally {
       loading.value = false
     }
@@ -224,15 +224,12 @@ export function useClienteDashboard() {
     loading.value = true
     error.value   = null
     try {
-      const order = await apiFetch('/orders', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
+      const order = await post<Order>('/orders', payload)
       orders.value.unshift({ ...order, itemCount: order.items?.length ?? 0 })
       await loadStats()
       return order
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return null
     } finally {
       loading.value = false
@@ -242,16 +239,13 @@ export function useClienteDashboard() {
   // ── Update order (full) ─────────────────────────────────────────────────────
   async function updateOrder(id: string, payload: UpdateOrderPayload): Promise<Order | null> {
     try {
-      const updated = await apiFetch(`/orders/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      })
+      const updated = await put<Order>(`/orders/${id}`, payload)
       const idx = orders.value.findIndex(o => o.id === id)
       if (idx !== -1) orders.value[idx] = { ...updated, itemCount: updated.items?.length ?? 0 }
       await loadStats()
       return updated
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return null
     }
   }
@@ -259,16 +253,13 @@ export function useClienteDashboard() {
   // ── Patch status ────────────────────────────────────────────────────────────
   async function updateStatus(id: string, status: OrderStatus, cancelReason?: string): Promise<boolean> {
     try {
-      const updated = await apiFetch(`/orders/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status, cancelReason }),
-      })
+      const updated = await patch<Order>(`/orders/${id}/status`, { status, cancelReason })
       const idx = orders.value.findIndex(o => o.id === id)
       if (idx !== -1) orders.value[idx] = { ...updated, itemCount: updated.items?.length ?? 0 }
       await loadStats()
       return true
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return false
     }
   }
@@ -276,12 +267,12 @@ export function useClienteDashboard() {
   // ── Delete order ─────────────────────────────────────────────────────────────
   async function deleteOrder(id: string): Promise<boolean> {
     try {
-      await apiFetch(`/orders/${id}`, { method: 'DELETE' })
+      await del(`/orders/${id}`)
       orders.value = orders.value.filter(o => o.id !== id)
       await loadStats()
       return true
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return false
     }
   }
@@ -289,9 +280,9 @@ export function useClienteDashboard() {
   // ── Get single ───────────────────────────────────────────────────────────────
   async function getOrder(id: string): Promise<Order | null> {
     try {
-      return await apiFetch(`/orders/${id}`)
+      return await get<Order>(`/orders/${id}`)
     } catch (e: any) {
-      error.value = e.message
+      error.value = e?.message
       return null
     }
   }
