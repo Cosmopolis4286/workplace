@@ -53,17 +53,13 @@ export function validatePhotoFile(file: File): string | null {
 }
 
 export function useServiceRequestItems() {
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { post } = useApi()
 
   async function uploadMedia(files: File[]): Promise<string[]> {
     if (!files.length) return []
     const formData = new FormData()
     files.forEach(f => formData.append('files', f))
-    const res = await $fetch<{ urls: string[] }>(`${apiUrl}/services/requests/upload-media`, {
-      method: 'POST',
-      body: formData,
-    })
+    const res = await post<{ urls: string[] }>('/services/requests/upload-media', formData)
     return res.urls
   }
 

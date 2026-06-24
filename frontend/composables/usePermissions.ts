@@ -131,9 +131,8 @@ rehydrate()
 
 // ─── Composable ───────────────────────────────────────────────────────────
 export const usePermissions = () => {
-  const { token, isAuthenticated, refreshAccessToken, getHeaders } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { isAuthenticated } = useAuth()
+  const { get } = useApi()
 
   // ── Checkers ─────────────────────────────────────────────────────────────
   const can    = (permission: string)            => permissionKeys.value.includes(permission)
@@ -141,6 +140,9 @@ export const usePermissions = () => {
   const canAll = (...permissions: string[])      => permissions.every(p => permissionKeys.value.includes(p))
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
+  // Nota: useApi() ya maneja el refresh-on-401 internamente. Si el refresh
+  // falla (sesión realmente inválida) limpiamos; cualquier otro error
+  // (red caída, etc.) se degrada en silencio y sigue usando el cache.
   async function fetchPermissions(force = false): Promise<void> {
     if (!isAuthenticated.value || loading.value) return
 
@@ -148,23 +150,12 @@ export const usePermissions = () => {
 
     loading.value = true
     try {
-      const doFetch = () =>
-        fetch(`${apiUrl}/permissions/me`, { headers: { ...getHeaders() } })
-
-      let res = await doFetch()
-      if (res.status === 401) {
-        const ok = await refreshAccessToken()
-        if (!ok) { clearPermissions(); return }
-        res = await doFetch()
-      }
-      if (!res.ok) throw new Error(`${res.status}`)
-
-      const data = await res.json() as {
+      const data = await get<{
         keys:        string[]
         category?:   string | null
         subcategory?: string | null
         version?:    string | null
-      }
+      }>('/permissions/me')
 
       permissionKeys.value  = data.keys
       userCategory.value    = data.category    ?? null
@@ -179,8 +170,10 @@ export const usePermissions = () => {
       }
 
       setCache(data.keys, data.version)
-    } catch {
-      // Degradación elegante: usa cache si existe
+    } catch (err: any) {
+      // 401 con refresh fallido: la sesión ya no es válida, limpiar.
+      // Cualquier otro error: degradación elegante, mantener cache existente.
+      if (err?.status === 401) clearPermissions()
     } finally {
       loading.value = false
     }
