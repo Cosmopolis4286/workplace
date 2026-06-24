@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 
 export type EmployeeRole = 'GERENTE' | 'SUPERVISOR' | 'COCINERO' | 'MESERO' | 'CAJERO' | 'REPARTIDOR' | 'LIMPIEZA' | 'SEGURIDAD' | 'OTRO'
 export type EmployeeStatus = 'ACTIVO' | 'INACTIVO' | 'VACACIONES' | 'LICENCIA' | 'SUSPENDIDO'
@@ -98,9 +98,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 
 export const useEmpleados = () => {
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 
   // ─── Computed ──────────────────────────────────────────────────────────────
@@ -111,51 +109,21 @@ export const useEmpleados = () => {
     employees.value.filter((e) => e.role === 'GERENTE' || e.role === 'SUPERVISOR').length,
   )
 
-  // ─── API helper ────────────────────────────────────────────────────────────
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> || {}),
-    }
-    return $fetch<T>(`${apiUrl}/employees${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
-  }
-
-  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status = (err as { status?: number; statusCode?: number })?.status
-        ?? (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) {
-          router.push('/login')
-          throw err
-        }
-        return await fn()
-      }
-      throw err
-    }
-  }
-
   // ─── Load ──────────────────────────────────────────────────────────────────
 
   async function loadEmpleados() {
     loading.value = true
     error.value = null
     try {
-      const [data, statsData] = await withAuthRetry(() =>
-        Promise.all([
-          apiFetch<Employee[]>(''),
-          apiFetch<EmployeeStats>('/stats'),
-        ]),
-      )
+      const [data, statsData] = await Promise.all([
+        get<Employee[]>('/employees'),
+        get<EmployeeStats>('/employees/stats'),
+      ])
       employees.value = data
       stats.value = statsData
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar los empleados'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar los empleados'
+      if (err?.status === 401) router.push('/login')
     } finally {
       loading.value = false
     }
@@ -165,58 +133,52 @@ export const useEmpleados = () => {
 
   async function createEmpleado(payload: CreateEmployeePayload): Promise<Employee | null> {
     try {
-      const employee = await withAuthRetry(() =>
-        apiFetch<Employee>('', { method: 'POST', body: JSON.stringify(payload) }),
-      )
+      const employee = await post<Employee>('/employees', payload)
       employees.value.push(employee)
       stats.value.total++
       if (employee.isActive) stats.value.active++
       return employee
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al crear el empleado'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al crear el empleado'
       return null
     }
   }
 
   async function updateEmpleado(id: string, payload: UpdateEmployeePayload): Promise<Employee | null> {
     try {
-      const employee = await withAuthRetry(() =>
-        apiFetch<Employee>(`/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-      )
+      const employee = await put<Employee>(`/employees/${id}`, payload)
       const idx = employees.value.findIndex((e) => e.id === id)
       if (idx !== -1) employees.value[idx] = employee
       return employee
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al actualizar el empleado'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al actualizar el empleado'
       return null
     }
   }
 
   async function deleteEmpleado(id: string): Promise<boolean> {
     try {
-      await withAuthRetry(() => apiFetch(`/${id}`, { method: 'DELETE' }))
+      await del(`/employees/${id}`)
       const removed = employees.value.find((e) => e.id === id)
       employees.value = employees.value.filter((e) => e.id !== id)
       stats.value.total = Math.max(0, stats.value.total - 1)
       if (removed?.isActive) stats.value.active = Math.max(0, stats.value.active - 1)
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al eliminar el empleado'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al eliminar el empleado'
       return false
     }
   }
 
   async function toggleStatus(id: string): Promise<Employee | null> {
     try {
-      const employee = await withAuthRetry(() =>
-        apiFetch<Employee>(`/${id}/toggle-status`, { method: 'PATCH' }),
-      )
+      const employee = await patch<Employee>(`/employees/${id}/toggle-status`, {})
       const idx = employees.value.findIndex((e) => e.id === id)
       if (idx !== -1) employees.value[idx] = employee
       stats.value.active = employees.value.filter((e) => e.isActive).length
       return employee
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cambiar el estado'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cambiar el estado'
       return null
     }
   }

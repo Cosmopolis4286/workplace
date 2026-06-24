@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 import { useUserPreferences } from './useUserPreferences'
 
 export type AnalyticsPeriod = 'today' | '7d' | 'week' | '30d' | 'quarter' | '90d' | '1y' | 'custom'
@@ -84,9 +84,7 @@ const ANALYTICS_PERIOD_LABELS: Record<AnalyticsPeriod, string> = {
 }
 
 export const useAnalytics = () => {
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get } = useApi()
   const router = useRouter()
 
   // ─── Computed chart data (Chart.js ready) ──────────────────────────────────
@@ -240,36 +238,6 @@ export const useAnalytics = () => {
     URL.revokeObjectURL(url)
   }
 
-  // ─── API ──────────────────────────────────────────────────────────────────
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> || {}),
-    }
-    return $fetch<T>(`${apiUrl}/analytics${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
-  }
-
-  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status =
-        (err as { status?: number; statusCode?: number })?.status ??
-        (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) {
-          router.push('/login')
-          throw err
-        }
-        return await fn()
-      }
-      throw err
-    }
-  }
-
   // ─── Load ─────────────────────────────────────────────────────────────────
 
   async function loadOverview(
@@ -286,13 +254,11 @@ export const useAnalytics = () => {
         params.set('dateFrom', dateFrom)
         params.set('dateTo', dateTo)
       }
-      const data = await withAuthRetry(() =>
-        apiFetch<AnalyticsOverview>(`/overview?${params.toString()}`),
-      )
+      const data = await get<AnalyticsOverview>(`/analytics/overview?${params.toString()}`)
       overview.value = data
-    } catch (err: unknown) {
-      error.value =
-        (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar los reportes'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar los reportes'
+      if (err?.status === 401) router.push('/login')
     } finally {
       loading.value = false
     }

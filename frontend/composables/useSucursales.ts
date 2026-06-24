@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 
 export type BranchStatus = 'ACTIVA' | 'INACTIVA' | 'EN_CONSTRUCCION' | 'CERRADA'
 
@@ -68,9 +68,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 
 export const useSucursales = () => {
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 
   // ─── Computed ──────────────────────────────────────────────────────────────
@@ -79,51 +77,21 @@ export const useSucursales = () => {
   const activeBranches = computed(() => branches.value.filter((b) => b.status === 'ACTIVA').length)
   const inConstructionCount = computed(() => branches.value.filter((b) => b.status === 'EN_CONSTRUCCION').length)
 
-  // ─── API helper ────────────────────────────────────────────────────────────
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> || {}),
-    }
-    return $fetch<T>(`${apiUrl}/branches${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
-  }
-
-  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status = (err as { status?: number; statusCode?: number })?.status
-        ?? (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) {
-          router.push('/login')
-          throw err
-        }
-        return await fn()
-      }
-      throw err
-    }
-  }
-
   // ─── Load ──────────────────────────────────────────────────────────────────
 
   async function loadSucursales() {
     loading.value = true
     error.value = null
     try {
-      const [data, statsData] = await withAuthRetry(() =>
-        Promise.all([
-          apiFetch<Branch[]>(''),
-          apiFetch<BranchStats>('/stats'),
-        ]),
-      )
+      const [data, statsData] = await Promise.all([
+        get<Branch[]>('/branches'),
+        get<BranchStats>('/branches/stats'),
+      ])
       branches.value = data
       stats.value = statsData
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar las sucursales'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar las sucursales'
+      if (err?.status === 401) router.push('/login')
     } finally {
       loading.value = false
     }
@@ -133,59 +101,53 @@ export const useSucursales = () => {
 
   async function createSucursal(payload: CreateBranchPayload): Promise<Branch | null> {
     try {
-      const branch = await withAuthRetry(() =>
-        apiFetch<Branch>('', { method: 'POST', body: JSON.stringify(payload) }),
-      )
+      const branch = await post<Branch>('/branches', payload)
       branches.value.push(branch)
       stats.value.total++
       if (branch.status === 'ACTIVA') stats.value.active++
       return branch
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al crear la sucursal'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al crear la sucursal'
       return null
     }
   }
 
   async function updateSucursal(id: string, payload: UpdateBranchPayload): Promise<Branch | null> {
     try {
-      const branch = await withAuthRetry(() =>
-        apiFetch<Branch>(`/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-      )
+      const branch = await put<Branch>(`/branches/${id}`, payload)
       const idx = branches.value.findIndex((b) => b.id === id)
       if (idx !== -1) branches.value[idx] = branch
       stats.value.active = branches.value.filter((b) => b.status === 'ACTIVA').length
       return branch
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al actualizar la sucursal'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al actualizar la sucursal'
       return null
     }
   }
 
   async function deleteSucursal(id: string): Promise<boolean> {
     try {
-      await withAuthRetry(() => apiFetch(`/${id}`, { method: 'DELETE' }))
+      await del(`/branches/${id}`)
       const removed = branches.value.find((b) => b.id === id)
       branches.value = branches.value.filter((b) => b.id !== id)
       stats.value.total = Math.max(0, stats.value.total - 1)
       if (removed?.status === 'ACTIVA') stats.value.active = Math.max(0, stats.value.active - 1)
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al eliminar la sucursal'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al eliminar la sucursal'
       return false
     }
   }
 
   async function updateStatus(id: string, status: BranchStatus): Promise<Branch | null> {
     try {
-      const branch = await withAuthRetry(() =>
-        apiFetch<Branch>(`/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-      )
+      const branch = await patch<Branch>(`/branches/${id}/status`, { status })
       const idx = branches.value.findIndex((b) => b.id === id)
       if (idx !== -1) branches.value[idx] = branch
       stats.value.active = branches.value.filter((b) => b.status === 'ACTIVA').length
       return branch
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cambiar el estado'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cambiar el estado'
       return null
     }
   }

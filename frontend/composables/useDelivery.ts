@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -184,9 +184,7 @@ const totalCount = ref(0)
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export const useDelivery = () => {
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 
   // ─── Computed ──────────────────────────────────────────────────────────────
@@ -201,44 +199,16 @@ export const useDelivery = () => {
     drivers.value.filter((d) => d.status === 'DISPONIBLE'),
   )
 
-  // ─── API helper ────────────────────────────────────────────────────────────
-
-  function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> || {}),
-    }
-    return $fetch<T>(`${apiUrl}/delivery${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
-  }
-
-  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status = (err as { status?: number; statusCode?: number })?.status
-        ?? (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) {
-          router.push('/login')
-          throw err
-        }
-        return await fn()
-      }
-      throw err
-    }
-  }
-
-  function extractMessage(err: unknown, fallback: string): string {
-    return (err as { data?: { message?: string } })?.data?.message ?? fallback
+  function extractMessage(err: any, fallback: string): string {
+    if (err?.status === 401) router.push('/login')
+    return err?.message ?? fallback
   }
 
   // ─── Load stats ────────────────────────────────────────────────────────────
 
   async function loadStats() {
     try {
-      stats.value = await withAuthRetry(() => apiFetch<DeliveryStats>('/stats'))
+      stats.value = await get<DeliveryStats>('/delivery/stats')
     } catch (err) {
       error.value = extractMessage(err, 'Error al cargar estadísticas')
     }
@@ -259,12 +229,10 @@ export const useDelivery = () => {
       if (filters.limit) params.set('limit', String(filters.limit))
 
       const query = params.toString() ? `?${params.toString()}` : ''
-      const [page, statsData] = await withAuthRetry(() =>
-        Promise.all([
-          apiFetch<DeliveryPage>(query),
-          apiFetch<DeliveryStats>('/stats'),
-        ]),
-      )
+      const [page, statsData] = await Promise.all([
+        get<DeliveryPage>(`/delivery${query}`),
+        get<DeliveryStats>('/delivery/stats'),
+      ])
       deliveries.value = page.items
       totalCount.value = page.total
       stats.value = statsData
@@ -280,7 +248,7 @@ export const useDelivery = () => {
   async function loadDrivers() {
     loadingDrivers.value = true
     try {
-      drivers.value = await withAuthRetry(() => apiFetch<Driver[]>('/drivers'))
+      drivers.value = await get<Driver[]>('/delivery/drivers')
     } catch (err) {
       error.value = extractMessage(err, 'Error al cargar los repartidores')
     } finally {
@@ -292,9 +260,7 @@ export const useDelivery = () => {
 
   async function createDelivery(payload: CreateDeliveryPayload): Promise<Delivery | null> {
     try {
-      const item = await withAuthRetry(() =>
-        apiFetch<Delivery>('', { method: 'POST', body: JSON.stringify(payload) }),
-      )
+      const item = await post<Delivery>('/delivery', payload)
       deliveries.value.unshift(item)
       totalCount.value++
       await loadStats()
@@ -307,9 +273,7 @@ export const useDelivery = () => {
 
   async function updateDelivery(id: string, payload: Partial<CreateDeliveryPayload>): Promise<Delivery | null> {
     try {
-      const item = await withAuthRetry(() =>
-        apiFetch<Delivery>(`/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-      )
+      const item = await put<Delivery>(`/delivery/${id}`, payload)
       const idx = deliveries.value.findIndex((d) => d.id === id)
       if (idx !== -1) deliveries.value[idx] = item
       return item
@@ -321,7 +285,7 @@ export const useDelivery = () => {
 
   async function deleteDelivery(id: string): Promise<boolean> {
     try {
-      await withAuthRetry(() => apiFetch(`/${id}`, { method: 'DELETE' }))
+      await del(`/delivery/${id}`)
       deliveries.value = deliveries.value.filter((d) => d.id !== id)
       totalCount.value = Math.max(0, totalCount.value - 1)
       await loadStats()
@@ -334,9 +298,7 @@ export const useDelivery = () => {
 
   async function updateDeliveryStatus(id: string, status: DeliveryStatus): Promise<Delivery | null> {
     try {
-      const item = await withAuthRetry(() =>
-        apiFetch<Delivery>(`/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-      )
+      const item = await patch<Delivery>(`/delivery/${id}/status`, { status })
       const idx = deliveries.value.findIndex((d) => d.id === id)
       if (idx !== -1) deliveries.value[idx] = item
       // Refresh stats and drivers to reflect status changes
@@ -350,9 +312,7 @@ export const useDelivery = () => {
 
   async function assignDriver(deliveryId: string, driverId: string): Promise<Delivery | null> {
     try {
-      const item = await withAuthRetry(() =>
-        apiFetch<Delivery>(`/${deliveryId}/assign`, { method: 'PATCH', body: JSON.stringify({ driverId }) }),
-      )
+      const item = await patch<Delivery>(`/delivery/${deliveryId}/assign`, { driverId })
       const idx = deliveries.value.findIndex((d) => d.id === deliveryId)
       if (idx !== -1) deliveries.value[idx] = item
       await Promise.all([loadStats(), loadDrivers()])
@@ -367,9 +327,7 @@ export const useDelivery = () => {
 
   async function createDriver(payload: CreateDriverPayload): Promise<Driver | null> {
     try {
-      const driver = await withAuthRetry(() =>
-        apiFetch<Driver>('/drivers', { method: 'POST', body: JSON.stringify(payload) }),
-      )
+      const driver = await post<Driver>('/delivery/drivers', payload)
       drivers.value.push(driver)
       await loadStats()
       return driver
@@ -381,9 +339,7 @@ export const useDelivery = () => {
 
   async function updateDriver(id: string, payload: Partial<CreateDriverPayload & { isActive?: boolean }>): Promise<Driver | null> {
     try {
-      const driver = await withAuthRetry(() =>
-        apiFetch<Driver>(`/drivers/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-      )
+      const driver = await put<Driver>(`/delivery/drivers/${id}`, payload)
       const idx = drivers.value.findIndex((d) => d.id === id)
       if (idx !== -1) drivers.value[idx] = driver
       return driver
@@ -395,7 +351,7 @@ export const useDelivery = () => {
 
   async function deleteDriver(id: string): Promise<boolean> {
     try {
-      await withAuthRetry(() => apiFetch(`/drivers/${id}`, { method: 'DELETE' }))
+      await del(`/delivery/drivers/${id}`)
       drivers.value = drivers.value.filter((d) => d.id !== id)
       await loadStats()
       return true
@@ -407,9 +363,7 @@ export const useDelivery = () => {
 
   async function updateDriverStatus(id: string, status: DriverStatus): Promise<Driver | null> {
     try {
-      const driver = await withAuthRetry(() =>
-        apiFetch<Driver>(`/drivers/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-      )
+      const driver = await patch<Driver>(`/delivery/drivers/${id}/status`, { status })
       const idx = drivers.value.findIndex((d) => d.id === id)
       if (idx !== -1) drivers.value[idx] = driver
       await loadStats()

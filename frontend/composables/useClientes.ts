@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 
 export type CustomerSegment = 'VIP' | 'PREMIUM' | 'REGULAR' | 'NUEVO'
 
@@ -46,9 +46,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 
 export const useClientes = () => {
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 
   // ─── Computed ──────────────────────────────────────────────────────────────
@@ -57,51 +55,21 @@ export const useClientes = () => {
   const activeClients = computed(() => customers.value.filter((c) => c.isActive).length)
   const vipClients = computed(() => customers.value.filter((c) => c.segment === 'VIP').length)
 
-  // ─── API helper ────────────────────────────────────────────────────────────
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> || {}),
-    }
-    return $fetch<T>(`${apiUrl}/customers${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
-  }
-
-  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status = (err as { status?: number; statusCode?: number })?.status
-        ?? (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) {
-          router.push('/login')
-          throw err
-        }
-        return await fn()
-      }
-      throw err
-    }
-  }
-
   // ─── Load ──────────────────────────────────────────────────────────────────
 
   async function loadClientes() {
     loading.value = true
     error.value = null
     try {
-      const [data, statsData] = await withAuthRetry(() =>
-        Promise.all([
-          apiFetch<Customer[]>(''),
-          apiFetch<CustomerStats>('/stats'),
-        ]),
-      )
+      const [data, statsData] = await Promise.all([
+        get<Customer[]>('/customers'),
+        get<CustomerStats>('/customers/stats'),
+      ])
       customers.value = data
       stats.value = statsData
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar los clientes'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar los clientes'
+      if (err?.status === 401) router.push('/login')
     } finally {
       loading.value = false
     }
@@ -111,59 +79,53 @@ export const useClientes = () => {
 
   async function createCliente(payload: CreateCustomerPayload): Promise<Customer | null> {
     try {
-      const customer = await withAuthRetry(() =>
-        apiFetch<Customer>('', { method: 'POST', body: JSON.stringify(payload) }),
-      )
+      const customer = await post<Customer>('/customers', payload)
       customers.value.push(customer)
       stats.value.totalClients++
       if (customer.isActive) stats.value.activeClients++
       return customer
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al crear el cliente'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al crear el cliente'
       return null
     }
   }
 
   async function updateCliente(id: string, payload: UpdateCustomerPayload): Promise<Customer | null> {
     try {
-      const customer = await withAuthRetry(() =>
-        apiFetch<Customer>(`/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-      )
+      const customer = await put<Customer>(`/customers/${id}`, payload)
       const idx = customers.value.findIndex((c) => c.id === id)
       if (idx !== -1) customers.value[idx] = customer
       return customer
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al actualizar el cliente'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al actualizar el cliente'
       return null
     }
   }
 
   async function deleteCliente(id: string): Promise<boolean> {
     try {
-      await withAuthRetry(() => apiFetch(`/${id}`, { method: 'DELETE' }))
+      await del(`/customers/${id}`)
       const removed = customers.value.find((c) => c.id === id)
       customers.value = customers.value.filter((c) => c.id !== id)
       stats.value.totalClients = Math.max(0, stats.value.totalClients - 1)
       if (removed?.isActive) stats.value.activeClients = Math.max(0, stats.value.activeClients - 1)
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al eliminar el cliente'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al eliminar el cliente'
       return false
     }
   }
 
   async function toggleStatus(id: string): Promise<Customer | null> {
     try {
-      const customer = await withAuthRetry(() =>
-        apiFetch<Customer>(`/${id}/toggle-status`, { method: 'PATCH' }),
-      )
+      const customer = await patch<Customer>(`/customers/${id}/toggle-status`, {})
       const idx = customers.value.findIndex((c) => c.id === id)
       if (idx !== -1) customers.value[idx] = customer
       // recalculate active count
       stats.value.activeClients = customers.value.filter((c) => c.isActive).length
       return customer
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cambiar el estado'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cambiar el estado'
       return null
     }
   }

@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 
 export type AppointmentStatus =
   | 'PENDIENTE'
@@ -103,44 +103,13 @@ export const STATUS_CLASSES: Record<AppointmentStatus, string> = {
 }
 
 export const useAgendamientos = () => {
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 
   // ─── Computed ──────────────────────────────────────────────────────────────
 
   const pendingCount = computed(() => appointments.value.filter((a) => a.status === 'PENDIENTE').length)
   const confirmedCount = computed(() => appointments.value.filter((a) => a.status === 'CONFIRMADA').length)
-
-  // ─── API helper ────────────────────────────────────────────────────────────
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> || {}),
-    }
-    return $fetch<T>(`${apiUrl}/appointments${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
-  }
-
-  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status = (err as { status?: number; statusCode?: number })?.status
-        ?? (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) {
-          router.push('/login')
-          throw err
-        }
-        return await fn()
-      }
-      throw err
-    }
-  }
 
   // ─── Load ──────────────────────────────────────────────────────────────────
 
@@ -156,17 +125,16 @@ export const useAgendamientos = () => {
       if (filters.limit) params.set('limit', String(filters.limit))
 
       const query = params.toString() ? `?${params.toString()}` : ''
-      const [page, statsData] = await withAuthRetry(() =>
-        Promise.all([
-          apiFetch<AppointmentPage>(query),
-          apiFetch<AppointmentStats>('/stats'),
-        ]),
-      )
+      const [page, statsData] = await Promise.all([
+        get<AppointmentPage>(`/appointments${query}`),
+        get<AppointmentStats>('/appointments/stats'),
+      ])
       appointments.value = page.items
       totalCount.value = page.total
       stats.value = statsData
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar los agendamientos'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar los agendamientos'
+      if (err?.status === 401) router.push('/login')
     } finally {
       loading.value = false
     }
@@ -176,38 +144,34 @@ export const useAgendamientos = () => {
 
   async function createAgendamiento(payload: CreateAppointmentPayload): Promise<Appointment | null> {
     try {
-      const item = await withAuthRetry(() =>
-        apiFetch<Appointment>('', { method: 'POST', body: JSON.stringify(payload) }),
-      )
+      const item = await post<Appointment>('/appointments', payload)
       appointments.value.unshift(item)
       totalCount.value++
       stats.value.total++
       if (item.status === 'PENDIENTE') stats.value.pending++
       else if (item.status === 'CONFIRMADA') stats.value.confirmed++
       return item
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al crear el agendamiento'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al crear el agendamiento'
       return null
     }
   }
 
   async function updateAgendamiento(id: string, payload: UpdateAppointmentPayload): Promise<Appointment | null> {
     try {
-      const item = await withAuthRetry(() =>
-        apiFetch<Appointment>(`/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-      )
+      const item = await put<Appointment>(`/appointments/${id}`, payload)
       const idx = appointments.value.findIndex((a) => a.id === id)
       if (idx !== -1) appointments.value[idx] = item
       return item
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al actualizar el agendamiento'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al actualizar el agendamiento'
       return null
     }
   }
 
   async function deleteAgendamiento(id: string): Promise<boolean> {
     try {
-      await withAuthRetry(() => apiFetch(`/${id}`, { method: 'DELETE' }))
+      await del(`/appointments/${id}`)
       const removed = appointments.value.find((a) => a.id === id)
       appointments.value = appointments.value.filter((a) => a.id !== id)
       totalCount.value = Math.max(0, totalCount.value - 1)
@@ -218,25 +182,23 @@ export const useAgendamientos = () => {
         else if (removed.status === 'CANCELADA') stats.value.cancelled = Math.max(0, stats.value.cancelled - 1)
       }
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al eliminar el agendamiento'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al eliminar el agendamiento'
       return false
     }
   }
 
   async function updateStatus(id: string, status: AppointmentStatus): Promise<Appointment | null> {
     try {
-      const item = await withAuthRetry(() =>
-        apiFetch<Appointment>(`/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-      )
+      const item = await patch<Appointment>(`/appointments/${id}/status`, { status })
       const idx = appointments.value.findIndex((a) => a.id === id)
       if (idx !== -1) appointments.value[idx] = item
       // Refresh stats from server to keep accurate
-      const statsData = await withAuthRetry(() => apiFetch<AppointmentStats>('/stats'))
+      const statsData = await get<AppointmentStats>('/appointments/stats')
       stats.value = statsData
       return item
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cambiar el estado'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cambiar el estado'
       return null
     }
   }

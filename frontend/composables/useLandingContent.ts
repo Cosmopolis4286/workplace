@@ -1,3 +1,5 @@
+import { useApi } from './useApi'
+
 interface PublicTestimonial {
   id: string
   quote: string
@@ -84,8 +86,7 @@ const FALLBACK_STEPS: PublicStep[] = [
 type LandingSection = 'testimonials' | 'stats' | 'features' | 'steps'
 
 export const useLandingContent = () => {
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl
+  const { get } = useApi()
 
   const testimonials = useState<PublicTestimonial[]>('landing-testimonials', () => FALLBACK_TESTIMONIALS)
   const stats = useState<PublicStat[]>('landing-stats', () => FALLBACK_STATS)
@@ -98,22 +99,22 @@ export const useLandingContent = () => {
   async function fetchSection(section: LandingSection) {
     switch (section) {
       case 'testimonials': {
-        const t = await $fetch<PublicTestimonial[]>(`${apiUrl}/landing/testimonials`).catch(() => null)
+        const t = await get<PublicTestimonial[]>('/landing/testimonials').catch(() => null)
         if (t && t.length > 0) testimonials.value = t
         break
       }
       case 'stats': {
-        const s = await $fetch<PublicStat[]>(`${apiUrl}/landing/stats`).catch(() => null)
+        const s = await get<PublicStat[]>('/landing/stats').catch(() => null)
         if (s && s.length > 0) stats.value = s
         break
       }
       case 'features': {
-        const f = await $fetch<PublicFeature[]>(`${apiUrl}/landing/features`).catch(() => null)
+        const f = await get<PublicFeature[]>('/landing/features').catch(() => null)
         if (f && f.length > 0) features.value = f
         break
       }
       case 'steps': {
-        const st = await $fetch<PublicStep[]>(`${apiUrl}/landing/steps`).catch(() => null)
+        const st = await get<PublicStep[]>('/landing/steps').catch(() => null)
         if (st && st.length > 0) steps.value = st
         break
       }
