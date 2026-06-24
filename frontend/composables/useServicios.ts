@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 
 export interface MyServiceCategory {
   id: string
@@ -56,31 +56,7 @@ const totalCount = ref(0)
 const currentPage = ref(1)
 
 export function useServicios() {
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = { 'Content-Type': 'application/json', ...getHeaders(), ...(options.headers as Record<string, string> || {}) }
-    return $fetch<T>(`${apiUrl}/services${path}`, { ...options, headers } as Parameters<typeof $fetch>[1])
-  }
-
-  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status = (err as { status?: number; statusCode?: number })?.status
-        ?? (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) {
-          throw err
-        }
-        return await fn()
-      }
-      throw err
-    }
-  }
+  const { get, post, put, patch, del } = useApi()
 
   const stats = computed(() => ({
     total: services.value.length,
@@ -98,14 +74,12 @@ export function useServicios() {
       query.set('page', String(params.page ?? 1))
       query.set('limit', '50')
 
-      const res = await withAuthRetry(() =>
-        apiFetch<{ data: Service[]; total: number; page: number }>(`/mine?${query}`)
-      )
+      const res = await get<{ data: Service[]; total: number; page: number }>(`/services/mine?${query}`)
       services.value = res.data
       totalCount.value = res.total
       currentPage.value = res.page
-    } catch (e: unknown) {
-      error.value = (e as { data?: { message?: string } })?.data?.message ?? 'Error al cargar servicios'
+    } catch (e: any) {
+      error.value = e?.message ?? 'Error al cargar servicios'
     } finally {
       loading.value = false
     }
@@ -113,7 +87,7 @@ export function useServicios() {
 
   async function fetchCatalogCategories() {
     try {
-      const res = await $fetch<{ data: MyServiceCategory[] }>(`${apiUrl}/services/catalog/categories`)
+      const res = await get<{ data: MyServiceCategory[] }>('/services/catalog/categories')
       catalogCategories.value = res.data
     } catch {
       // non-blocking
@@ -121,56 +95,55 @@ export function useServicios() {
   }
 
   async function createService(data: Partial<Service>) {
-    const res = await withAuthRetry(() => apiFetch<Service>('', { method: 'POST', body: JSON.stringify(data) }))
+    const res = await post<Service>('/services', data)
     services.value.unshift(res)
     totalCount.value++
     return res
   }
 
   async function updateService(id: string, data: Partial<Service>) {
-    const res = await withAuthRetry(() => apiFetch<Service>(`/${id}`, { method: 'PUT', body: JSON.stringify(data) }))
+    const res = await put<Service>(`/services/${id}`, data)
     const idx = services.value.findIndex(s => s.id === id)
     if (idx !== -1) services.value[idx] = res
     return res
   }
 
   async function toggleStatus(id: string) {
-    const res = await withAuthRetry(() => apiFetch<Service>(`/${id}/toggle`, { method: 'PATCH' }))
+    const res = await patch<Service>(`/services/${id}/toggle`, {})
     const idx = services.value.findIndex(s => s.id === id)
     if (idx !== -1) services.value[idx] = res
     return res
   }
 
   async function deleteService(id: string) {
-    await withAuthRetry(() => apiFetch(`/${id}`, { method: 'DELETE' }))
+    await del(`/services/${id}`)
     services.value = services.value.filter(s => s.id !== id)
     totalCount.value--
   }
 
   async function fetchModalities() {
     try {
-      const res = await $fetch<ServiceModality[]>(`${apiUrl}/services/modalities`)
-      modalities.value = res
+      modalities.value = await get<ServiceModality[]>('/services/modalities')
     } catch {
       // non-blocking
     }
   }
 
   async function createModality(data: { name: string; value: string; emoji?: string; sortOrder?: number }) {
-    const res = await withAuthRetry(() => apiFetch<ServiceModality>('/modalities', { method: 'POST', body: JSON.stringify(data) }))
+    const res = await post<ServiceModality>('/services/modalities', data)
     modalities.value.push(res)
     return res
   }
 
   async function updateModality(id: string, data: Partial<ServiceModality>) {
-    const res = await withAuthRetry(() => apiFetch<ServiceModality>(`/modalities/${id}`, { method: 'PUT', body: JSON.stringify(data) }))
+    const res = await put<ServiceModality>(`/services/modalities/${id}`, data)
     const idx = modalities.value.findIndex((m: ServiceModality) => m.id === id)
     if (idx !== -1) modalities.value[idx] = res
     return res
   }
 
   async function deleteModality(id: string) {
-    await withAuthRetry(() => apiFetch(`/modalities/${id}`, { method: 'DELETE' }))
+    await del(`/services/modalities/${id}`)
     modalities.value = modalities.value.filter((m: ServiceModality) => m.id !== id)
   }
 

@@ -96,36 +96,12 @@ if (process.client) initFavorites()
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
 export const useCatalog = () => {
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
-  const { getHeaders, refreshAccessToken } = useAuth()
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = { ...getHeaders(), 'Content-Type': 'application/json', ...options.headers }
-    const res = await fetch(`${apiUrl}${path}`, { ...options, headers })
-
-    if (res.status === 401) {
-      const refreshed = await refreshAccessToken()
-      if (refreshed) {
-        const retryHeaders = { ...getHeaders(), 'Content-Type': 'application/json' }
-        const retry = await fetch(`${apiUrl}${path}`, { ...options, headers: retryHeaders })
-        if (!retry.ok) throw new Error(`HTTP ${retry.status}`)
-        return retry.json()
-      }
-      throw new Error('No autorizado')
-    }
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body?.message || `HTTP ${res.status}`)
-    }
-    return res.json()
-  }
+  const { get } = useApi()
 
   async function loadCategories() {
     loadingCategories.value = true
     try {
-      const res = await apiFetch<{ data: CatalogCategory[] }>('/catalog/categories')
+      const res = await get<{ data: CatalogCategory[] }>('/catalog/categories')
       categories.value = res.data
     } catch {
       // non-fatal
@@ -136,7 +112,7 @@ export const useCatalog = () => {
 
   async function loadRestaurants() {
     try {
-      const res = await apiFetch<{ data: CatalogRestaurant[] }>('/catalog/restaurants')
+      const res = await get<{ data: CatalogRestaurant[] }>('/catalog/restaurants')
       restaurants.value = res.data
     } catch {
       // non-fatal
@@ -170,7 +146,7 @@ export const useCatalog = () => {
         if (q.country) params.set('country', q.country)
       }
 
-      const res = await apiFetch<{
+      const res = await get<{
         data: CatalogProduct[]
         total: number
         totalPages: number
@@ -193,7 +169,7 @@ export const useCatalog = () => {
     loadingDetail.value = true
     productDetail.value = null
     try {
-      const res = await apiFetch<{ data: CatalogProductDetail }>(`/catalog/products/${id}`)
+      const res = await get<{ data: CatalogProductDetail }>(`/catalog/products/${id}`)
       productDetail.value = res.data
       return res.data
     } catch {

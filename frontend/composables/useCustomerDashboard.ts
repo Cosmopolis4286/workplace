@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 import type { Order } from './useClienteDashboard'
 
 export interface MyServiceRequest {
@@ -21,17 +21,15 @@ const loadingMyServiceRequests = ref(false)
 // Datos del propio usuario NORMAL (no del comercio): pedidos hechos y
 // solicitudes de servicio enviadas como cliente.
 export function useCustomerDashboard() {
-  const { getHeaders } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get } = useApi()
 
   async function loadCustomerData() {
     loadingMyOrders.value = true
     loadingMyServiceRequests.value = true
 
     const [ordersRes, requestsRes] = await Promise.allSettled([
-      $fetch<{ data: Order[] }>(`${apiUrl}/orders/mine`, { headers: getHeaders() }),
-      $fetch<{ data: MyServiceRequest[] }>(`${apiUrl}/services/requests/mine?as=client`, { headers: getHeaders() }),
+      get<{ data: Order[] }>('/orders/mine'),
+      get<{ data: MyServiceRequest[] }>('/services/requests/mine?as=client'),
     ])
 
     if (ordersRes.status === 'fulfilled') {

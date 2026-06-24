@@ -29,10 +29,6 @@ const myStatus = ref<MyKycStatus | null>(null)
 const loading = ref(false)
 
 export function useKyc() {
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
-  const { getHeaders } = useAuth()
-
   async function fetchMyStatus() {
     loading.value = true
     try {
@@ -61,12 +57,8 @@ export function useKyc() {
     if (payload.backImage) form.append('backImage', payload.backImage)
     form.append('selfieImage', payload.selfieImage)
 
-    const result = await $fetch<IdentityVerification>(`${apiUrl}/kyc/me/submit`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: getHeaders(),
-      body: form,
-    })
+    const { post } = useApi()
+    const result = await post<IdentityVerification>('/kyc/me/submit', form)
     await fetchMyStatus()
     return result
   }
@@ -95,12 +87,8 @@ export function useKyc() {
    * convertirlas en un blob URL para poder usarlas en un <img src>.
    */
   async function fetchImageBlobUrl(verificationId: string, field: 'frontImageUrl' | 'backImageUrl' | 'selfieImageUrl'): Promise<string> {
-    const res = await fetch(`${apiUrl}/kyc/${verificationId}/image/${field}`, {
-      credentials: 'include',
-      headers: getHeaders(),
-    })
-    if (!res.ok) throw new Error(`No se pudo cargar la imagen (${res.status})`)
-    const blob = await res.blob()
+    const { get } = useApi()
+    const blob = await get<Blob>(`/kyc/${verificationId}/image/${field}`, { parseAs: 'blob' })
     return URL.createObjectURL(blob)
   }
 

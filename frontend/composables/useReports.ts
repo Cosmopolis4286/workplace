@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 
 export type ReportEntityType = 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'ORDER' | 'GENERAL'
 
@@ -15,9 +15,7 @@ export interface Report {
 }
 
 export function useReports() {
-  const { getHeaders } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { post, get } = useApi()
 
   const sending = ref(false)
   const error = ref('')
@@ -31,13 +29,9 @@ export function useReports() {
     sending.value = true
     error.value = ''
     try {
-      return await $fetch<Report>(`${apiUrl}/reports`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: { entityType, entityId, reason, description },
-      })
+      return await post<Report>('/reports', { entityType, entityId, reason, description })
     } catch (e: any) {
-      error.value = e?.data?.message ?? 'No se pudo enviar el reporte'
+      error.value = e?.message ?? 'No se pudo enviar el reporte'
       throw e
     } finally {
       sending.value = false
@@ -45,7 +39,7 @@ export function useReports() {
   }
 
   async function fetchMyReports() {
-    return $fetch<Report[]>(`${apiUrl}/reports/mine`, { headers: getHeaders() })
+    return get<Report[]>('/reports/mine')
   }
 
   return { sending, error, fileReport, fetchMyReports }

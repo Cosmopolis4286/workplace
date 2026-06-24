@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useAuth } from './useAuth'
+import { useApi } from './useApi'
 
 export interface RestaurantInfo {
   id: string
@@ -45,39 +45,8 @@ const error = ref<string | null>(null)
 const successMsg = ref<string | null>(null)
 
 export const useSettings = () => {
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { get, patch } = useApi()
   const router = useRouter()
-
-  // ─── API helper ────────────────────────────────────────────────────────────
-
-  async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...getHeaders(),
-      ...(options.headers as Record<string, string> || {}),
-    }
-    return $fetch<T>(`${apiUrl}/settings${path}`, { ...options, headers, credentials: 'include' } as Parameters<typeof $fetch>[1])
-  }
-
-  async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const status = (err as { status?: number; statusCode?: number })?.status
-        ?? (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) {
-          router.push('/login')
-          throw err
-        }
-        return await fn()
-      }
-      throw err
-    }
-  }
 
   function showSuccess(msg: string) {
     successMsg.value = msg
@@ -90,11 +59,12 @@ export const useSettings = () => {
     loading.value = true
     error.value = null
     try {
-      const data = await withAuthRetry(() => apiFetch<FullSettings>('/'))
+      const data = await get<FullSettings>('/settings')
       restaurant.value = data.restaurant
       settings.value = data.settings
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar la configuración'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar la configuración'
+      if (err?.status === 401) router.push('/login')
     } finally {
       loading.value = false
     }
@@ -106,14 +76,12 @@ export const useSettings = () => {
     saving.value = 'restaurant'
     error.value = null
     try {
-      const updated = await withAuthRetry(() =>
-        apiFetch<RestaurantInfo>('/restaurant', { method: 'PATCH', body: JSON.stringify(data) }),
-      )
+      const updated = await patch<RestaurantInfo>('/settings/restaurant', data)
       restaurant.value = updated
       showSuccess('Información del restaurante guardada')
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al guardar la información'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar la información'
       return false
     } finally {
       saving.value = null
@@ -126,14 +94,12 @@ export const useSettings = () => {
     saving.value = 'payment'
     error.value = null
     try {
-      const updated = await withAuthRetry(() =>
-        apiFetch<RestaurantSettings>('/payment', { method: 'PATCH', body: JSON.stringify(data) }),
-      )
+      const updated = await patch<RestaurantSettings>('/settings/payment', data)
       settings.value = { ...settings.value!, ...updated }
       showSuccess('Configuración de pagos guardada')
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al guardar configuración de pagos'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar configuración de pagos'
       return false
     } finally {
       saving.value = null
@@ -146,14 +112,12 @@ export const useSettings = () => {
     saving.value = 'operations'
     error.value = null
     try {
-      const updated = await withAuthRetry(() =>
-        apiFetch<RestaurantSettings>('/operations', { method: 'PATCH', body: JSON.stringify(data) }),
-      )
+      const updated = await patch<RestaurantSettings>('/settings/operations', data)
       settings.value = { ...settings.value!, ...updated }
       showSuccess('Configuración de operaciones guardada')
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al guardar configuración de operaciones'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar configuración de operaciones'
       return false
     } finally {
       saving.value = null
@@ -166,14 +130,12 @@ export const useSettings = () => {
     saving.value = 'notifications'
     error.value = null
     try {
-      const updated = await withAuthRetry(() =>
-        apiFetch<RestaurantSettings>('/notifications', { method: 'PATCH', body: JSON.stringify(data) }),
-      )
+      const updated = await patch<RestaurantSettings>('/settings/notifications', data)
       settings.value = { ...settings.value!, ...updated }
       showSuccess('Preferencias de notificaciones guardadas')
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al guardar notificaciones'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar notificaciones'
       return false
     } finally {
       saving.value = null
@@ -184,11 +146,9 @@ export const useSettings = () => {
 
   async function loadModuleSettings(): Promise<{ availableModules: string[]; disabledModules: string[] } | null> {
     try {
-      return await withAuthRetry(() =>
-        apiFetch<{ availableModules: string[]; disabledModules: string[] }>('/modules'),
-      )
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al cargar los módulos'
+      return await get<{ availableModules: string[]; disabledModules: string[] }>('/settings/modules')
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar los módulos'
       return null
     }
   }
@@ -197,13 +157,11 @@ export const useSettings = () => {
     saving.value = 'modules'
     error.value = null
     try {
-      await withAuthRetry(() =>
-        apiFetch('/modules', { method: 'PATCH', body: JSON.stringify({ disabledModules }) }),
-      )
+      await patch('/settings/modules', { disabledModules })
       showSuccess('Módulos actualizados')
       return true
-    } catch (err: unknown) {
-      error.value = (err as { data?: { message?: string } })?.data?.message ?? 'Error al guardar los módulos'
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar los módulos'
       return false
     } finally {
       saving.value = null
