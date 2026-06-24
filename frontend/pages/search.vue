@@ -1349,8 +1349,6 @@ const {
   filterByLocation: jFilterByLocation,
 } = useJobs()
 
-const { getHeaders } = useAuth()
-
 const { user } = useAuth()
 
 // Obtener tasa de cambio para conversión
@@ -1781,7 +1779,7 @@ function openProduct(product: CatalogProduct) {
 function openService(srv: CatalogService) {
   selectedService.value = srv
   if (!isOwnService(srv)) {
-    trackServiceEvent(srv.id, 'VIEW', getHeaders())
+    trackServiceEvent(srv.id, 'VIEW')
   }
   addRecentlyViewed({
     type: 'servicio',
@@ -1817,12 +1815,12 @@ function onServiceRequestSuccess() {
   setTimeout(() => { serviceToast.value = false }, 4000)
   // Trackear REQUEST (evento ya guardado como ServiceRequest en BD, pero registramos el evento también)
   if (serviceRequestTarget.value && !isOwnService(serviceRequestTarget.value)) {
-    trackServiceEvent(serviceRequestTarget.value.id, 'REQUEST', getHeaders())
+    trackServiceEvent(serviceRequestTarget.value.id, 'REQUEST')
   }
 }
 function trackProfileVisit(srv: CatalogService) {
   if (!isOwnService(srv)) {
-    trackServiceEvent(srv.id, 'PROFILE_VISIT', getHeaders())
+    trackServiceEvent(srv.id, 'PROFILE_VISIT')
   }
 }
 

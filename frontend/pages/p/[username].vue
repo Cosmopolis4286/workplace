@@ -1500,8 +1500,9 @@ async function fetchCatalogProducts(page = 1) {
   if (!profile.value?.restaurant?.id) return
   catalogLoading.value = true
   try {
-    const res = await $fetch<{ data: any[]; total: number; totalPages: number }>(
-      `${apiUrl}/catalog/products?commerceId=${profile.value.restaurant.id}&limit=12&page=${page}`,
+    const { get } = useApi()
+    const res = await get<{ data: any[]; total: number; totalPages: number }>(
+      `/catalog/products?commerceId=${profile.value.restaurant.id}&limit=12&page=${page}`,
     )
     if (page === 1) catalogProducts.value = res.data
     else catalogProducts.value.push(...res.data)
@@ -1533,8 +1534,9 @@ async function fetchProfileServices() {
   if (!profile.value?.id) return
   servicesLoading.value = true
   try {
-    const res = await $fetch<{ data: any[] }>(
-      `${apiUrl}/services/catalog?userId=${profile.value.id}&limit=20`,
+    const { get } = useApi()
+    const res = await get<{ data: any[] }>(
+      `/services/catalog?userId=${profile.value.id}&limit=20`,
     )
     profileServices.value = res.data
   } finally {
@@ -1543,8 +1545,6 @@ async function fetchProfileServices() {
 }
 
 function trackSvcEvent(serviceId: string, type: 'VIEW' | 'PROFILE_VISIT' | 'REQUEST') {
-  const config = useRuntimeConfig()
-  const base = `${(config.public.apiUrl as string)}/api/services`
   let sid = ''
   if (typeof sessionStorage !== 'undefined') {
     sid = sessionStorage.getItem('_svcSid') ?? ''
@@ -1554,7 +1554,7 @@ function trackSvcEvent(serviceId: string, type: 'VIEW' | 'PROFILE_VISIT' | 'REQU
     }
   }
   const { post } = useApi()
-  post('/track', { serviceId, type, sessionId: sid }).catch(() => {})
+  post('/services/track', { serviceId, type, sessionId: sid }).catch(() => {})
 }
 
 function openServiceReqModal(srv: any) {
@@ -1789,9 +1789,9 @@ watch(showFollowersModal, async (val) => {
   if (!val || !profile.value?.username) return
   loadingFollowList.value = true
   try {
-    const res = await $fetch<{ data: typeof followList.value }>(
-      `${apiUrl}/profiles/${profile.value.username}/followers`,
-      { headers: useAuth().getHeaders() },
+    const { get } = useApi()
+    const res = await get<{ data: typeof followList.value }>(
+      `/profiles/${profile.value.username}/followers`,
     )
     followList.value = res.data
   } finally { loadingFollowList.value = false }
@@ -1801,9 +1801,9 @@ watch(showFollowingModal, async (val) => {
   if (!val || !profile.value?.username) return
   loadingFollowList.value = true
   try {
-    const res = await $fetch<{ data: typeof followList.value }>(
-      `${apiUrl}/profiles/${profile.value.username}/following`,
-      { headers: useAuth().getHeaders() },
+    const { get } = useApi()
+    const res = await get<{ data: typeof followList.value }>(
+      `/profiles/${profile.value.username}/following`,
     )
     followList.value = res.data
   } finally { loadingFollowList.value = false }

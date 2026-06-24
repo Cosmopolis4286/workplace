@@ -1096,7 +1096,7 @@ async function doToggleStatus() {
     await toggleServiceStatus(toggleTarget.value.id)
     toggleTarget.value = null
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Error al cambiar estado'
+    error.value = e?.message ?? 'Error al cambiar estado'
   } finally {
     saving.value = false
   }
@@ -1107,31 +1107,17 @@ async function openMetrics(service: Service) {
   metricsData.value = null
   metricsError.value = null
   metricsLoading.value = true
-  const { getHeaders, refreshAccessToken } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
-  const fetchMetrics = () => $fetch<{
-    views: number
-    profileVisits: number
-    requests: number
-    conversionRate: number
-    viewsByDay: { date: string; count: number }[]
-  }>(`${apiUrl}/services/${service.id}/metrics`, {
-    headers: { 'Content-Type': 'application/json', ...getHeaders() },
-  })
+  const { get } = useApi()
   try {
-    let res = await fetchMetrics().catch(async (err: any) => {
-      const status = err?.status ?? err?.statusCode
-      if (status === 401) {
-        const ok = await refreshAccessToken()
-        if (!ok) throw err
-        return fetchMetrics()
-      }
-      throw err
-    })
-    metricsData.value = res
+    metricsData.value = await get<{
+      views: number
+      profileVisits: number
+      requests: number
+      conversionRate: number
+      viewsByDay: { date: string; count: number }[]
+    }>(`/services/${service.id}/metrics`)
   } catch (e: any) {
-    metricsError.value = e?.data?.message ?? 'No se pudieron cargar las métricas'
+    metricsError.value = e?.message ?? 'No se pudieron cargar las métricas'
   } finally {
     metricsLoading.value = false
   }

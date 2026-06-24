@@ -295,9 +295,8 @@ definePageMeta({ middleware: 'auth' })
 
 const route = useRoute()
 const router = useRouter()
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
-const { getHeaders, user } = useAuth()
+const { user } = useAuth()
+const { get, patch } = useApi()
 const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
 
 const isNormal = computed(() => user.value?.role === 'NORMAL')
@@ -410,7 +409,6 @@ async function openDetail(req: ServiceRequest) {
   // Auto-marcar VISTO cuando el proveedor abre una solicitud PENDIENTE
   if (viewAs.value === 'provider' && req.status === 'PENDIENTE') {
     try {
-      const { patch } = useApi()
       await patch(`/services/requests/${req.id}/status`, { status: 'VISTO' })
       const idx = requests.value.findIndex(r => r.id === req.id)
       if (idx !== -1) {
@@ -432,14 +430,13 @@ async function fetchRequests() {
   error.value = null
   requests.value = []
   try {
-    const res = await $fetch<{ data: ServiceRequest[]; total: number }>(
-      `${apiUrl}/services/requests/mine?as=${viewAs.value}`,
-      { headers: getHeaders() }
+    const res = await get<{ data: ServiceRequest[]; total: number }>(
+      `/services/requests/mine?as=${viewAs.value}`,
     )
     requests.value = res.data
     total.value = res.total
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Error al cargar solicitudes'
+    error.value = e?.message ?? 'Error al cargar solicitudes'
   } finally {
     loading.value = false
   }
@@ -463,7 +460,6 @@ async function openFromQuery() {
   }
 
   try {
-    const { get } = useApi()
     const req = await get<ServiceRequest>(`/services/requests/${id}`)
     // El rol del usuario en ESTA solicitud puede no coincidir con la vista activa
     // (ej. un FREELANCER también pidió un servicio como cliente) — la sincronizamos

@@ -540,12 +540,8 @@ const telegramToast       = ref<string | null>(null)
 async function sendTelegramLink(client: Customer) {
   telegramLinkLoading.value = client.id
   try {
-    const config = useRuntimeConfig()
-    const token = useCookie('access_token').value
-    const res = await fetch(`${config.public.apiUrl}/telegram/link/${client.id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    const data = await res.json()
+    const { get } = useApi()
+    const data = await get<{ url?: string; linked?: boolean }>(`/telegram/link/${client.id}`)
     if (data.url) {
       await navigator.clipboard.writeText(data.url)
       telegramToast.value = `¡Link copiado! Envíaselo a ${client.name} por Telegram.`
