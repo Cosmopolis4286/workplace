@@ -156,13 +156,9 @@
 import { ref, onMounted } from 'vue'
 import { ServerIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useAuth } from '~/composables/useAuth'
+import { useApi } from '~/composables/useApi'
 
 definePageMeta({ middleware: 'auth' })
-
-const { getHeaders } = useAuth()
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -189,7 +185,8 @@ async function load(page = currentPage.value) {
     if (filters.value.dateFrom) params.set('dateFrom', filters.value.dateFrom)
     if (filters.value.dateTo) params.set('dateTo', filters.value.dateTo)
 
-    const res = await $fetch<any>(`${apiUrl}/audit/logs?${params}`, { headers: getHeaders() })
+    const { get } = useApi()
+    const res = await get<any>(`/audit/logs?${params}`)
     logs.value = res.data
     total.value = res.total
     totalPages.value = res.totalPages
@@ -200,7 +197,8 @@ async function load(page = currentPage.value) {
 }
 
 async function loadStats() {
-  logStats.value = await $fetch<any>(`${apiUrl}/audit/logs/stats`, { headers: getHeaders() })
+  const { get } = useApi()
+  logStats.value = await get<any>('/audit/logs/stats')
 }
 
 function changePage(page: number) { load(page) }

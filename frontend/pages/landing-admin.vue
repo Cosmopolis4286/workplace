@@ -579,6 +579,7 @@
 
 <script setup lang="ts">
 import { PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'
+import { useApi } from '~/composables/useApi'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -654,16 +655,11 @@ interface Step {
   sortOrder: number
 }
 
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl
-
 function formatTestimonialDate(dateStr: string) {
   return new Date(dateStr).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
-const { token } = useAuth()
-const authHeader = computed(() => ({ Authorization: `Bearer ${token.value}` }))
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 const editableStats = ref<AdminStat[]>([])
@@ -674,23 +670,18 @@ const newStatValue = ref('')
 
 async function loadStats() {
   try {
-    const data = await $fetch<AdminStat[]>(`${apiUrl}/landing/admin/stats`, {
-      headers: authHeader.value,
-    })
-    editableStats.value = data
+    const { get } = useApi()
+    editableStats.value = await get<AdminStat[]>('/landing/admin/stats')
   } catch {}
 }
 
 async function saveStats() {
   savingStats.value = true
   try {
+    const { patch } = useApi()
     await Promise.all(
       editableStats.value.map((s) =>
-        $fetch(`${apiUrl}/landing/admin/stats/${s.key}`, {
-          method: 'PATCH',
-          headers: authHeader.value,
-          body: { label: s.label, value: s.value, isDynamic: s.isDynamic },
-        }),
+        patch(`/landing/admin/stats/${s.key}`, { label: s.label, value: s.value, isDynamic: s.isDynamic }),
       ),
     )
   } finally {
@@ -719,21 +710,16 @@ const loadingReports = ref(false)
 async function loadReportedReviews() {
   loadingReports.value = true
   try {
-    const data = await $fetch<ReportedReview[]>(`${apiUrl}/profiles/admin/reviews/reported`, {
-      headers: authHeader.value,
-    })
-    reportedReviews.value = data
+    const { get } = useApi()
+    reportedReviews.value = await get<ReportedReview[]>('/profiles/admin/reviews/reported')
   } finally {
     loadingReports.value = false
   }
 }
 
 async function moderate(reviewId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS_REPORTS') {
-  await $fetch(`${apiUrl}/profiles/admin/reviews/${reviewId}/moderate`, {
-    method: 'PATCH',
-    headers: authHeader.value,
-    body: { action },
-  })
+  const { patch } = useApi()
+  await patch(`/profiles/admin/reviews/${reviewId}/moderate`, { action })
   await loadReportedReviews()
 }
 
@@ -767,20 +753,16 @@ async function loadUserReports() {
   loadingUserReports.value = true
   try {
     const query = reportStatusFilter.value ? `?status=${reportStatusFilter.value}` : ''
-    userReports.value = await $fetch<UserReport[]>(`${apiUrl}/reports/admin${query}`, {
-      headers: authHeader.value,
-    })
+    const { get } = useApi()
+    userReports.value = await get<UserReport[]>(`/reports/admin${query}`)
   } finally {
     loadingUserReports.value = false
   }
 }
 
 async function moderateUserReport(id: string, status: UserReport['status']) {
-  await $fetch(`${apiUrl}/reports/admin/${id}`, {
-    method: 'PATCH',
-    headers: authHeader.value,
-    body: { status },
-  })
+  const { patch } = useApi()
+  await patch(`/reports/admin/${id}`, { status })
   await loadUserReports()
 }
 
@@ -803,10 +785,8 @@ const form = reactive({
 async function loadTestimonials() {
   loadingTestimonials.value = true
   try {
-    const data = await $fetch<Testimonial[]>(`${apiUrl}/landing/admin/testimonials`, {
-      headers: authHeader.value,
-    })
-    testimonials.value = data
+    const { get } = useApi()
+    testimonials.value = await get<Testimonial[]>('/landing/admin/testimonials')
   } finally {
     loadingTestimonials.value = false
   }
@@ -829,20 +809,13 @@ async function saveTestimonial() {
   if (!form.quote || !form.name) return
   savingModal.value = true
   try {
+    const { put, post } = useApi()
     if (editingId.value) {
-      const updated = await $fetch<Testimonial>(`${apiUrl}/landing/admin/testimonials/${editingId.value}`, {
-        method: 'PUT',
-        headers: authHeader.value,
-        body: { ...form },
-      })
+      const updated = await put<Testimonial>(`/landing/admin/testimonials/${editingId.value}`, { ...form })
       const idx = testimonials.value.findIndex((t) => t.id === editingId.value)
       if (idx !== -1) testimonials.value[idx] = updated
     } else {
-      const created = await $fetch<Testimonial>(`${apiUrl}/landing/admin/testimonials`, {
-        method: 'POST',
-        headers: authHeader.value,
-        body: { ...form },
-      })
+      const created = await post<Testimonial>('/landing/admin/testimonials', { ...form })
       testimonials.value.push(created)
     }
     showModal.value = false
@@ -853,10 +826,8 @@ async function saveTestimonial() {
 
 async function deleteTestimonial(id: string) {
   if (!confirm('¿Eliminar este testimonio?')) return
-  await $fetch(`${apiUrl}/landing/admin/testimonials/${id}`, {
-    method: 'DELETE',
-    headers: authHeader.value,
-  })
+  const { del } = useApi()
+  await del(`/landing/admin/testimonials/${id}`)
   testimonials.value = testimonials.value.filter((t) => t.id !== id)
 }
 
@@ -868,9 +839,8 @@ const creatingFromReview = ref<string | null>(null)
 async function loadReviewCandidates() {
   loadingCandidates.value = true
   try {
-    reviewCandidates.value = await $fetch<ReviewCandidate[]>(`${apiUrl}/landing/admin/testimonials/review-candidates`, {
-      headers: authHeader.value,
-    })
+    const { get } = useApi()
+    reviewCandidates.value = await get<ReviewCandidate[]>('/landing/admin/testimonials/review-candidates')
   } finally {
     loadingCandidates.value = false
   }
@@ -879,10 +849,8 @@ async function loadReviewCandidates() {
 async function useAsTestimonial(reviewId: string) {
   creatingFromReview.value = reviewId
   try {
-    const created = await $fetch<Testimonial>(`${apiUrl}/landing/admin/testimonials/from-review/${reviewId}`, {
-      method: 'POST',
-      headers: authHeader.value,
-    })
+    const { post } = useApi()
+    const created = await post<Testimonial>(`/landing/admin/testimonials/from-review/${reviewId}`, {})
     testimonials.value.push(created)
     reviewCandidates.value = reviewCandidates.value.filter((c: ReviewCandidate) => c.id !== reviewId)
   } finally {
@@ -896,11 +864,8 @@ async function moveTestimonial(idx: number, direction: -1 | 1) {
   const reordered = [...testimonials.value]
   ;[reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]]
   testimonials.value = reordered
-  await $fetch(`${apiUrl}/landing/admin/testimonials/reorder`, {
-    method: 'PATCH',
-    headers: authHeader.value,
-    body: { orderedIds: reordered.map((t) => t.id) },
-  })
+  const { patch } = useApi()
+  await patch('/landing/admin/testimonials/reorder', { orderedIds: reordered.map((t) => t.id) })
 }
 
 // ─── Features ─────────────────────────────────────────────────────────────────
@@ -924,10 +889,8 @@ const featureForm = reactive({
 async function loadFeatures() {
   loadingFeatures.value = true
   try {
-    const data = await $fetch<Feature[]>(`${apiUrl}/landing/admin/features`, {
-      headers: authHeader.value,
-    })
-    features.value = data
+    const { get } = useApi()
+    features.value = await get<Feature[]>('/landing/admin/features')
   } finally {
     loadingFeatures.value = false
   }
@@ -949,20 +912,13 @@ async function saveFeature() {
   if (!featureForm.title || !featureForm.description) return
   savingFeatureModal.value = true
   try {
+    const { put, post } = useApi()
     if (editingFeatureId.value) {
-      const updated = await $fetch<Feature>(`${apiUrl}/landing/admin/features/${editingFeatureId.value}`, {
-        method: 'PUT',
-        headers: authHeader.value,
-        body: { ...featureForm },
-      })
+      const updated = await put<Feature>(`/landing/admin/features/${editingFeatureId.value}`, { ...featureForm })
       const idx = features.value.findIndex((f) => f.id === editingFeatureId.value)
       if (idx !== -1) features.value[idx] = updated
     } else {
-      const created = await $fetch<Feature>(`${apiUrl}/landing/admin/features`, {
-        method: 'POST',
-        headers: authHeader.value,
-        body: { ...featureForm, sortOrder: features.value.length },
-      })
+      const created = await post<Feature>('/landing/admin/features', { ...featureForm, sortOrder: features.value.length })
       features.value.push(created)
     }
     showFeatureModal.value = false
@@ -973,10 +929,8 @@ async function saveFeature() {
 
 async function deleteFeature(id: string) {
   if (!confirm('¿Eliminar esta función?')) return
-  await $fetch(`${apiUrl}/landing/admin/features/${id}`, {
-    method: 'DELETE',
-    headers: authHeader.value,
-  })
+  const { del } = useApi()
+  await del(`/landing/admin/features/${id}`)
   features.value = features.value.filter((f) => f.id !== id)
 }
 
@@ -997,10 +951,8 @@ const stepForm = reactive({
 async function loadSteps() {
   loadingSteps.value = true
   try {
-    const data = await $fetch<Step[]>(`${apiUrl}/landing/admin/steps`, {
-      headers: authHeader.value,
-    })
-    steps.value = data
+    const { get } = useApi()
+    steps.value = await get<Step[]>('/landing/admin/steps')
   } finally {
     loadingSteps.value = false
   }
@@ -1021,20 +973,13 @@ async function saveStep() {
   if (!stepForm.title || !stepForm.desc) return
   savingStepModal.value = true
   try {
+    const { put, post } = useApi()
     if (editingStepId.value) {
-      const updated = await $fetch<Step>(`${apiUrl}/landing/admin/steps/${editingStepId.value}`, {
-        method: 'PUT',
-        headers: authHeader.value,
-        body: { ...stepForm },
-      })
+      const updated = await put<Step>(`/landing/admin/steps/${editingStepId.value}`, { ...stepForm })
       const idx = steps.value.findIndex((s) => s.id === editingStepId.value)
       if (idx !== -1) steps.value[idx] = updated
     } else {
-      const created = await $fetch<Step>(`${apiUrl}/landing/admin/steps`, {
-        method: 'POST',
-        headers: authHeader.value,
-        body: { ...stepForm, sortOrder: steps.value.length },
-      })
+      const created = await post<Step>('/landing/admin/steps', { ...stepForm, sortOrder: steps.value.length })
       steps.value.push(created)
     }
     showStepModal.value = false
@@ -1045,10 +990,8 @@ async function saveStep() {
 
 async function deleteStep(id: string) {
   if (!confirm('¿Eliminar este paso?')) return
-  await $fetch(`${apiUrl}/landing/admin/steps/${id}`, {
-    method: 'DELETE',
-    headers: authHeader.value,
-  })
+  const { del } = useApi()
+  await del(`/landing/admin/steps/${id}`)
   steps.value = steps.value.filter((s) => s.id !== id)
 }
 

@@ -463,7 +463,8 @@ async function openFromQuery() {
   }
 
   try {
-    const req = await $fetch<ServiceRequest>(`${apiUrl}/services/requests/${id}`, { headers: getHeaders() })
+    const { get } = useApi()
+    const req = await get<ServiceRequest>(`/services/requests/${id}`)
     // El rol del usuario en ESTA solicitud puede no coincidir con la vista activa
     // (ej. un FREELANCER también pidió un servicio como cliente) — la sincronizamos
     // para que el modal muestre los datos correctos (contacto, próximas acciones, etc).

@@ -755,8 +755,6 @@ const mktTotalPages = ref(1)
 const mktStatusFilter = ref('')
 const mktPending = computed(() => mktOrders.value.filter(o => o.status === 'PENDIENTE').length)
 
-const config = useRuntimeConfig()
-const { getHeaders } = useAuth()
 const { usage, fetchUsage } = usePlans()
 
 async function loadMktOrders() {
@@ -764,7 +762,8 @@ async function loadMktOrders() {
   try {
     const params = new URLSearchParams({ page: String(mktPage.value), limit: '50' })
     if (mktStatusFilter.value) params.set('status', mktStatusFilter.value)
-    const res = await $fetch<{ data: MktOrder[]; totalPages: number }>(`${config.public.apiUrl}/catalog/orders/mine?${params}`, { headers: getHeaders() })
+    const { get } = useApi()
+    const res = await get<{ data: MktOrder[]; totalPages: number }>(`/catalog/orders/mine?${params}`)
     mktOrders.value = res.data; mktTotalPages.value = res.totalPages
   } catch { } finally { mktLoading.value = false }
 }

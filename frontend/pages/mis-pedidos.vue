@@ -435,10 +435,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
-
-const config = useRuntimeConfig()
-const apiUrl  = config.public.apiUrl as string
-const { getHeaders } = useAuth()
+import { useApi } from '~/composables/useApi'
 
 // ─── Toggle de origen ───────────────────────────────────────────────────────────
 const activeSource = ref<'restaurant' | 'catalog'>('restaurant')
@@ -511,9 +508,8 @@ function catalogStatusAvatarClass(status: CatalogOrder['status']) {
 async function fetchCatalogOrders() {
   loadingCatalog.value = true
   try {
-    const res = await $fetch<{ data: CatalogOrder[] }>(`${apiUrl}/catalog/orders/sent`, {
-      headers: getHeaders(),
-    })
+    const { get } = useApi()
+    const res = await get<{ data: CatalogOrder[] }>('/catalog/orders/sent')
     catalogOrders.value = res.data
   } catch {
     // non-critical
@@ -526,10 +522,8 @@ async function confirmCatalogOrderCompletion() {
   if (!selectedCatalogOrder.value) return
   confirmingCatalogOrder.value = true
   try {
-    await $fetch(`${apiUrl}/catalog/orders/${selectedCatalogOrder.value.id}/confirm-completion`, {
-      method: 'PATCH',
-      headers: getHeaders(),
-    })
+    const { patch } = useApi()
+    await patch(`/catalog/orders/${selectedCatalogOrder.value.id}/confirm-completion`, {})
     selectedCatalogOrder.value.status = 'CERRADO'
     const idx = catalogOrders.value.findIndex((o: CatalogOrder) => o.id === selectedCatalogOrder.value!.id)
     if (idx !== -1) catalogOrders.value[idx].status = 'CERRADO'
@@ -698,10 +692,8 @@ async function fetchOrders() {
   error.value   = null
   page.value    = 1
   try {
-    const res = await $fetch<{ data: Order[]; total: number }>(
-      `${apiUrl}/orders/mine?page=1&limit=${limit}`,
-      { headers: getHeaders() }
-    )
+    const { get } = useApi()
+    const res = await get<{ data: Order[]; total: number }>(`/orders/mine?page=1&limit=${limit}`)
     orders.value = res.data
     total.value  = res.total
   } catch (e: any) {
@@ -715,10 +707,8 @@ async function loadMore() {
   loadingMore.value = true
   try {
     const nextPage = page.value + 1
-    const res = await $fetch<{ data: Order[]; total: number }>(
-      `${apiUrl}/orders/mine?page=${nextPage}&limit=${limit}`,
-      { headers: getHeaders() }
-    )
+    const { get } = useApi()
+    const res = await get<{ data: Order[]; total: number }>(`/orders/mine?page=${nextPage}&limit=${limit}`)
     orders.value = [...orders.value, ...res.data]
     total.value  = res.total
     page.value   = nextPage
@@ -731,7 +721,8 @@ async function loadMore() {
 
 async function fetchStats() {
   try {
-    stats.value = await $fetch<MyOrdersStats>(`${apiUrl}/orders/stats/mine`, { headers: getHeaders() })
+    const { get } = useApi()
+    stats.value = await get<MyOrdersStats>('/orders/stats/mine')
   } catch {
     // non-critical
   }
