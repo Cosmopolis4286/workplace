@@ -8,13 +8,13 @@
  * Si el usuario no ha elegido nada, se usa el orden por defecto (primeras 6).
  */
 import { QUICK_ACTIONS, type QuickActionConfig } from '~/config/dashboard.config'
+import { useApi } from './useApi'
 
 export const MAX_DASHBOARD_QUICK_ACTIONS = 6
 
 export function useDashboardQuickActions() {
-  const { user, updateLocalUser, getHeaders } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { user, updateLocalUser } = useAuth()
+  const { patch } = useApi()
 
   const role = computed(() => user.value?.role ?? 'NORMAL')
   const savedIds = computed<string[]>(() => user.value?.profileSettings?.dashboardQuickActionIds ?? [])
@@ -41,14 +41,9 @@ export function useDashboardQuickActions() {
     saving.value = true
     error.value = null
     try {
-      const updated = await $fetch<{ showCatalog: boolean; showServices: boolean; quickAccessIds: string[]; dashboardQuickActionIds: string[] }>(
-        `${apiUrl}/profiles/settings`,
-        {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: getHeaders(),
-          body: { dashboardQuickActionIds: ids },
-        }
+      const updated = await patch<{ showCatalog: boolean; showServices: boolean; quickAccessIds: string[]; dashboardQuickActionIds: string[] }>(
+        '/profiles/settings',
+        { dashboardQuickActionIds: ids },
       )
       updateLocalUser({
         profileSettings: {
@@ -59,7 +54,7 @@ export function useDashboardQuickActions() {
         },
       })
     } catch (err: any) {
-      error.value = err?.data?.message ?? 'No se pudo guardar la preferencia'
+      error.value = err?.message ?? 'No se pudo guardar la preferencia'
       throw err
     } finally {
       saving.value = false

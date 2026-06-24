@@ -34,11 +34,10 @@ export const QUICK_ACCESS_CANDIDATES: QuickAccessCandidate[] = [
 export const MAX_QUICK_ACCESS = 3
 
 export function useQuickAccess() {
-  const { user, updateLocalUser, getHeaders } = useAuth()
+  const { user, updateLocalUser } = useAuth()
   const { can, userCategory } = usePermissions()
   const { hasModule } = useModules()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
+  const { patch } = useApi()
 
   const savedIds = computed<string[]>(() => user.value?.profileSettings?.quickAccessIds ?? [])
   const role = computed(() => user.value?.role ?? 'NORMAL')
@@ -70,14 +69,9 @@ export function useQuickAccess() {
     saving.value = true
     error.value = null
     try {
-      const updated = await $fetch<{ showCatalog: boolean; showServices: boolean; quickAccessIds: string[] }>(
-        `${apiUrl}/profiles/settings`,
-        {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: getHeaders(),
-          body: { quickAccessIds: ids },
-        }
+      const updated = await patch<{ showCatalog: boolean; showServices: boolean; quickAccessIds: string[] }>(
+        '/profiles/settings',
+        { quickAccessIds: ids },
       )
       updateLocalUser({
         profileSettings: {
@@ -87,7 +81,7 @@ export function useQuickAccess() {
         },
       })
     } catch (err: any) {
-      error.value = err?.data?.message ?? 'No se pudo guardar la preferencia'
+      error.value = err?.message ?? 'No se pudo guardar la preferencia'
       throw err
     } finally {
       saving.value = false

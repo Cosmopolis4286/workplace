@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { useApi } from './useApi'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -98,16 +99,14 @@ let searchDebounce: ReturnType<typeof setTimeout> | null = null
 // ─── Composable ──────────────────────────────────────────────────────────────
 
 export const useJobs = () => {
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
-  const base = `${apiUrl}/jobs`
+  const { get } = useApi()
 
   // ─── Fetch helpers ──────────────────────────────────────────────────────
 
   async function loadCategories() {
     loadingCategories.value = true
     try {
-      const res = await $fetch<{ data: JobCategory[] }>(`${base}/categories`)
+      const res = await get<{ data: JobCategory[] }>('/jobs/categories')
       categories.value = res.data
     } catch {
       // silently fail
@@ -121,38 +120,37 @@ export const useJobs = () => {
     error.value = null
     try {
       const q = query.value
-      const params: Record<string, string> = {
+      const params = new URLSearchParams({
         page: String(q.page),
         limit: '16',
         sort: q.sort,
-      }
-      if (q.search) params.search = q.search
-      if (q.categoryId) params.categoryId = q.categoryId
-      if (q.type) params.type = q.type
-      if (q.modality) params.modality = q.modality
+      })
+      if (q.search) params.set('search', q.search)
+      if (q.categoryId) params.set('categoryId', q.categoryId)
+      if (q.type) params.set('type', q.type)
+      if (q.modality) params.set('modality', q.modality)
 
       if (q.nearMe) {
         const { user } = useAuth()
         const u = user.value
-        if (u?.city) params.city = u.city
-        if (u?.state) params.state = u.state
-        if (u?.country) params.country = u.country
+        if (u?.city) params.set('city', u.city)
+        if (u?.state) params.set('state', u.state)
+        if (u?.country) params.set('country', u.country)
       } else {
-        if (q.city) params.city = q.city
-        if (q.state) params.state = q.state
-        if (q.country) params.country = q.country
+        if (q.city) params.set('city', q.city)
+        if (q.state) params.set('state', q.state)
+        if (q.country) params.set('country', q.country)
       }
 
-      const res = await $fetch<{ data: Job[]; total: number; totalPages: number; locationTier?: LocationTier }>(
-        `${base}/catalog`,
-        { params },
+      const res = await get<{ data: Job[]; total: number; totalPages: number; locationTier?: LocationTier }>(
+        `/jobs/catalog?${params}`,
       )
       jobs.value = res.data
       total.value = res.total
       totalPages.value = res.totalPages
       locationTier.value = (q.nearMe || q.country || q.state || q.city) ? (res.locationTier ?? null) : null
     } catch (e: any) {
-      error.value = e?.data?.message ?? 'Error al cargar empleos'
+      error.value = e?.message ?? 'Error al cargar empleos'
     } finally {
       loading.value = false
     }

@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { useApi } from './useApi'
 import type { ProductStatus, Category, Product } from './useMenu'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -36,10 +37,7 @@ const error = ref<string | null>(null)
 // ─── Composable ──────────────────────────────────────────────────────────────
 
 export const useInventory = () => {
-  const { getHeaders } = useAuth()
-  const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl as string
-  const base = `${apiUrl}/menu`
+  const { get, post, put, patch, del } = useApi()
 
   // ─── Computed ───────────────────────────────────────────────────────────────
 
@@ -63,9 +61,7 @@ export const useInventory = () => {
     loading.value = true
     error.value = null
     try {
-      categories.value = await $fetch<Category[]>(`${base}/categories`, {
-        headers: getHeaders(),
-      })
+      categories.value = await get<Category[]>('/menu/categories')
     } catch (err: unknown) {
       error.value = extractMessage(err, 'Error al cargar categorías')
     } finally {
@@ -75,11 +71,7 @@ export const useInventory = () => {
 
   async function addCategory(payload: { name: string; color?: string }): Promise<Category | null> {
     try {
-      const created = await $fetch<Category>(`${base}/categories`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: payload,
-      })
+      const created = await post<Category>('/menu/categories', payload)
       categories.value.push(created)
       return created
     } catch (err: unknown) {
@@ -93,11 +85,7 @@ export const useInventory = () => {
     payload: { name?: string; color?: string },
   ): Promise<Category | null> {
     try {
-      const updated = await $fetch<Category>(`${base}/categories/${id}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: payload,
-      })
+      const updated = await put<Category>(`/menu/categories/${id}`, payload)
       const idx = categories.value.findIndex((c) => c.id === id)
       if (idx !== -1) categories.value[idx] = updated
       return updated
@@ -109,10 +97,7 @@ export const useInventory = () => {
 
   async function deleteCategory(id: string): Promise<boolean> {
     try {
-      await $fetch(`${base}/categories/${id}`, {
-        method: 'DELETE',
-        headers: getHeaders(),
-      })
+      await del(`/menu/categories/${id}`)
       categories.value = categories.value.filter((c) => c.id !== id)
       return true
     } catch (err: unknown) {
@@ -127,9 +112,7 @@ export const useInventory = () => {
     loading.value = true
     error.value = null
     try {
-      products.value = await $fetch<Product[]>(`${base}/products`, {
-        headers: getHeaders(),
-      })
+      products.value = await get<Product[]>('/menu/products')
     } catch (err: unknown) {
       error.value = extractMessage(err, 'Error al cargar productos')
     } finally {
@@ -139,11 +122,7 @@ export const useInventory = () => {
 
   async function addProduct(payload: CreateProductPayload): Promise<Product | null> {
     try {
-      const created = await $fetch<Product>(`${base}/products`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: payload,
-      })
+      const created = await post<Product>('/menu/products', payload)
       products.value.push(created)
       return created
     } catch (err: unknown) {
@@ -157,11 +136,7 @@ export const useInventory = () => {
     payload: UpdateProductPayload,
   ): Promise<Product | null> {
     try {
-      const updated = await $fetch<Product>(`${base}/products/${id}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: payload,
-      })
+      const updated = await put<Product>(`/menu/products/${id}`, payload)
       const idx = products.value.findIndex((p) => p.id === id)
       if (idx !== -1) products.value[idx] = updated
       return updated
@@ -173,10 +148,7 @@ export const useInventory = () => {
 
   async function deleteProduct(id: string): Promise<boolean> {
     try {
-      await $fetch(`${base}/products/${id}`, {
-        method: 'DELETE',
-        headers: getHeaders(),
-      })
+      await del(`/menu/products/${id}`)
       products.value = products.value.filter((p) => p.id !== id)
       return true
     } catch (err: unknown) {
@@ -191,11 +163,7 @@ export const useInventory = () => {
     type: StockUpdateType = 'set',
   ): Promise<Product | null> {
     try {
-      const updated = await $fetch<Product>(`${base}/products/${id}/stock`, {
-        method: 'PATCH',
-        headers: getHeaders(),
-        body: { quantity, type },
-      })
+      const updated = await patch<Product>(`/menu/products/${id}/stock`, { quantity, type })
       const idx = products.value.findIndex((p) => p.id === id)
       if (idx !== -1) products.value[idx] = updated
       return updated
@@ -207,10 +175,7 @@ export const useInventory = () => {
 
   async function toggleProductStatus(id: string): Promise<Product | null> {
     try {
-      const updated = await $fetch<Product>(`${base}/products/${id}/toggle-status`, {
-        method: 'PATCH',
-        headers: getHeaders(),
-      })
+      const updated = await patch<Product>(`/menu/products/${id}/toggle-status`, {})
       const idx = products.value.findIndex((p) => p.id === id)
       if (idx !== -1) products.value[idx] = updated
       return updated
@@ -255,11 +220,7 @@ export const useInventory = () => {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function extractMessage(err: unknown, fallback: string): string {
-  if (typeof err === 'object' && err !== null) {
-    const data = (err as any)?.data
-    if (data?.message) return Array.isArray(data.message) ? data.message[0] : data.message
-    const msg = (err as any)?.message
-    if (msg) return msg
-  }
+  const msg = (err as any)?.message
+  if (msg) return Array.isArray(msg) ? msg[0] : msg
   return fallback
 }

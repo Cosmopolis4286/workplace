@@ -6,6 +6,7 @@
  *   const { defaultRate, convert, convertLabel } = useDefaultRate()
  */
 import { ref, computed } from 'vue'
+import { useApi } from './useApi'
 
 interface ExchangeRate {
   id: string
@@ -24,27 +25,13 @@ const loading = ref(false)
 let fetched = false
 
 export function useDefaultRate() {
-  const config = useRuntimeConfig()
-  const base = config.public.apiUrl as string
-  const { getHeaders, refreshAccessToken } = useAuth()
+  const { get } = useApi()
 
   async function load() {
     if (fetched || loading.value) return
     loading.value = true
     try {
-      const headers = { 'Content-Type': 'application/json', ...getHeaders() }
-      let res = await fetch(`${base}/exchange-rates/default`, { headers })
-      if (res.status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (refreshed) {
-          const retryHeaders = { 'Content-Type': 'application/json', ...getHeaders() }
-          res = await fetch(`${base}/exchange-rates/default`, { headers: retryHeaders })
-        }
-      }
-      if (res.ok) {
-        const data = await res.json()
-        defaultRate.value = data   // null body → rate stays null
-      }
+      defaultRate.value = await get<ExchangeRate | null>('/exchange-rates/default')
       fetched = true
     } catch {
       // non-critical: price cards just won't show conversion

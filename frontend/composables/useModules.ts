@@ -12,6 +12,7 @@
  */
 
 import { ref, computed } from 'vue'
+import { useApi } from './useApi'
 
 export const MODULE_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -40,18 +41,13 @@ const effectiveModules = ref<string[]>([])
 const loaded = ref(false)
 
 export function useModules() {
-  const config = useRuntimeConfig()
-  const { getHeaders, user } = useAuth()
+  const { user } = useAuth()
+  const { get } = useApi()
 
   async function loadModules() {
     if (loaded.value) return
     try {
-      const res = await fetch(`${config.public.apiUrl}/plans/usage`, {
-        headers: { 'Content-Type': 'application/json', ...getHeaders() },
-        credentials: 'include',
-      })
-      if (!res.ok) return
-      const data = await res.json()
+      const data = await get<{ limits?: { effectiveModules?: string[] } }>('/plans/usage')
       if (data?.limits?.effectiveModules) {
         effectiveModules.value = data.limits.effectiveModules
         loaded.value = true
