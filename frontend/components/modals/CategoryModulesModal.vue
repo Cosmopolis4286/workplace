@@ -122,9 +122,6 @@ interface Cat { id: string; name: string; icon?: string; allowedModules: string[
 
 const emit = defineEmits(['close', 'updated'])
 
-const config = useRuntimeConfig()
-const { getHeaders } = useAuth()
-
 const localCategories = ref<Cat[]>([])
 const newName = ref('')
 const newIcon = ref('')
@@ -137,7 +134,7 @@ const error = ref<string | null>(null)
 const { get, post, put, del } = useApi()
 
 async function load() {
-  localCategories.value = await apiFetch<Cat[]>('/users/categories')
+  localCategories.value = await get<Cat[]>('/users/categories')
 }
 
 async function addCategory() {

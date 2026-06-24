@@ -465,7 +465,7 @@ function confirmDeleteSelected() {
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
-const { apiFetch, get, put, post, patch, del } = useApi()
+const { get, put, post, patch, del } = useApi()
 
 async function loadCategories() {
   try { categories.value = await get<UserCategory[]>('/users/categories') } catch { }
@@ -478,9 +478,9 @@ async function load() {
     if (roleFilter.value)        params.set('role', roleFilter.value)
     if (categoryFilter.value)    params.set('categoryId', categoryFilter.value)
     if (subcategoryFilter.value) params.set('subcategoryId', subcategoryFilter.value)
-    const res = await apiFetch<{ data: UserItem[]; total: number }>(`/users?${params}`)
+    const res = await get<{ data: UserItem[]; total: number }>(`/users?${params}`)
     users.value = res.data; total.value = res.total
-  } catch (e: any) { error.value = e?.data?.message ?? e.message }
+  } catch (e: any) { error.value = e?.message }
   finally { loading.value = false }
 }
 
