@@ -169,6 +169,25 @@ export const useAuth = () => {
       : {}
   }
 
+  // Wrapper para llamadas autenticadas: reintenta una vez tras refrescar el
+  // token si el servidor responde 401. Reemplaza al interceptor global que
+  // parcheaba $fetch (plugins/auth-refresh.client.ts, eliminado por duplicar
+  // esta misma lógica para cada llamada de este archivo).
+  async function authFetch<T>(url: string, options: Record<string, any> = {}): Promise<T> {
+    try {
+      return await $fetch<T>(url, { ...options, headers: { ...getHeaders(), ...(options.headers ?? {}) } })
+    } catch (err: unknown) {
+      const status = (err as { status?: number; statusCode?: number })?.status
+        ?? (err as { status?: number; statusCode?: number })?.statusCode
+      if (status === 401) {
+        const refreshed = await refreshAccessToken()
+        if (!refreshed) throw err
+        return $fetch<T>(url, { ...options, headers: { ...getHeaders(), ...(options.headers ?? {}) } })
+      }
+      throw err
+    }
+  }
+
   async function register(credentials: RegisterCredentials): Promise<User> {
     const data = await $fetch<AuthResponse>(`${apiUrl}/auth/register`, {
       method: 'POST',
@@ -218,27 +237,24 @@ export const useAuth = () => {
   }
 
   async function setupTwoFactor(): Promise<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }> {
-    return $fetch(`${apiUrl}/auth/2fa/setup`, {
+    return authFetch(`${apiUrl}/auth/2fa/setup`, {
       method: 'POST',
       credentials: 'include',
-      headers: getHeaders(),
     })
   }
 
   async function enableTwoFactor(code: string): Promise<{ enabled: true; backupCodes: string[] }> {
-    return $fetch(`${apiUrl}/auth/2fa/enable`, {
+    return authFetch(`${apiUrl}/auth/2fa/enable`, {
       method: 'POST',
       credentials: 'include',
-      headers: getHeaders(),
       body: { code },
     })
   }
 
   async function disableTwoFactor(password: string, code: string): Promise<{ enabled: false }> {
-    const result = await $fetch<{ enabled: false }>(`${apiUrl}/auth/2fa/disable`, {
+    const result = await authFetch<{ enabled: false }>(`${apiUrl}/auth/2fa/disable`, {
       method: 'POST',
       credentials: 'include',
-      headers: getHeaders(),
       body: { password, code },
     })
     if (currentUser.value) updateLocalUser({ twoFactorEnabled: false } as Partial<User>)
@@ -289,21 +305,11 @@ export const useAuth = () => {
 
   async function fetchProfile(): Promise<User | null> {
     try {
-      const profile = await $fetch<User>(`${apiUrl}/auth/me`, {
-        credentials: 'include',
-        headers: getHeaders(),
-      })
+      const profile = await authFetch<User>(`${apiUrl}/auth/me`, { credentials: 'include' })
       currentUser.value = profile
       if (process.client) localStorage.setItem('auth_user', JSON.stringify(profile))
       return profile
-    } catch (err: unknown) {
-      const status = (err as { status?: number; statusCode?: number })?.status
-        ?? (err as { status?: number; statusCode?: number })?.statusCode
-      if (status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (!refreshed) return null
-        return fetchProfile()
-      }
+    } catch {
       return null
     }
   }
@@ -331,10 +337,9 @@ export const useAuth = () => {
   }
 
   async function saveProfile(payload: UpdateProfilePayload): Promise<User> {
-    const updated = await $fetch<User>(`${apiUrl}/auth/me`, {
+    const updated = await authFetch<User>(`${apiUrl}/auth/me`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: getHeaders(),
       body: payload,
     })
     currentUser.value = updated
@@ -343,51 +348,44 @@ export const useAuth = () => {
   }
 
   async function changePassword(payload: ChangePasswordPayload): Promise<void> {
-    await $fetch(`${apiUrl}/auth/change-password`, {
+    await authFetch(`${apiUrl}/auth/change-password`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: getHeaders(),
       body: payload,
     })
   }
 
   async function checkUsername(username: string): Promise<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }> {
-    return $fetch<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }>(
+    return authFetch<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }>(
       `${apiUrl}/auth/check-username?username=${encodeURIComponent(username)}`,
-      { credentials: 'include', headers: getHeaders() },
+      { credentials: 'include' },
     )
   }
 
   async function getSessions(): Promise<Session[]> {
-    return $fetch<Session[]>(`${apiUrl}/auth/sessions`, {
-      credentials: 'include',
-      headers: getHeaders(),
-    })
+    return authFetch<Session[]>(`${apiUrl}/auth/sessions`, { credentials: 'include' })
   }
 
   async function revokeSession(id: string): Promise<void> {
-    await $fetch(`${apiUrl}/auth/sessions/${id}`, {
+    await authFetch(`${apiUrl}/auth/sessions/${id}`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: getHeaders(),
     })
   }
 
   async function revokeAllSessions(): Promise<void> {
-    await $fetch(`${apiUrl}/auth/sessions`, {
+    await authFetch(`${apiUrl}/auth/sessions`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: getHeaders(),
     })
   }
 
   async function uploadAvatar(file: File): Promise<User> {
     const formData = new FormData()
     formData.append('avatar', file)
-    const updated = await $fetch<User>(`${apiUrl}/auth/me/avatar`, {
+    const updated = await authFetch<User>(`${apiUrl}/auth/me/avatar`, {
       method: 'POST',
       credentials: 'include',
-      headers: getHeaders(),
       body: formData,
     })
     currentUser.value = updated
