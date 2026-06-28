@@ -4,20 +4,20 @@
       <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')" />
 
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="relative bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
 
           <!-- Header -->
-          <div class="flex items-start justify-between p-6 border-b border-gray-100">
+          <div class="flex items-start justify-between px-5 py-4 border-b border-gray-100">
             <div class="flex items-center gap-3 min-w-0">
               <div
-                class="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
-                :class="isProvider ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'"
+                class="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs ring-1 ring-inset"
+                :class="isProvider ? 'bg-red-50 text-red-600 ring-red-100' : 'bg-blue-50 text-blue-600 ring-blue-100'"
               >
                 {{ contactInitial }}
               </div>
               <div class="min-w-0">
-                <h2 class="text-base font-bold text-gray-900 truncate">{{ req.serviceName }}</h2>
-                <p class="text-xs text-gray-500 mt-0.5">
+                <h2 class="text-[15px] font-semibold text-gray-900 truncate tracking-tight">{{ req.serviceName }}</h2>
+                <p class="text-xs text-gray-400 mt-0.5">
                   {{ isProvider ? req.clientName : req.providerName }}
                   <span class="text-gray-300 mx-1">·</span>
                   <span :title="formatDateTime(req.createdAt)">{{ timeAgo(req.createdAt) }}</span>
@@ -25,39 +25,39 @@
               </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0 ml-3">
-              <span class="badge inline-flex items-center gap-1" :class="STATUS_CLASSES[req.status]">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold" :class="STATUS_CLASSES[req.status]">
                 <component :is="STATUS_ICONS[req.status]" class="h-3 w-3" />
                 {{ STATUS_LABELS[req.status] }}
               </span>
               <button class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" @click="$emit('close')">
-                <XMarkIcon class="h-5 w-5" />
+                <XMarkIcon class="h-4.5 w-4.5" />
               </button>
             </div>
           </div>
 
           <!-- Body scrollable -->
           <div class="flex-1 overflow-y-auto">
-            <div class="p-6 space-y-5">
+            <div class="p-5 space-y-4">
 
               <!-- Grid info principal -->
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-2 gap-3 bg-gray-50/70 rounded-xl p-4">
                 <div>
-                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Modalidad</p>
+                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Modalidad</p>
                   <p class="text-sm text-gray-900 font-medium">{{ MODALITY_LABELS[req.modality] ?? req.modality }}</p>
                 </div>
                 <div>
-                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Fecha preferida</p>
+                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Fecha preferida</p>
                   <p class="text-sm text-gray-900 font-medium">{{ formatDate(req.preferredDate) }}</p>
                 </div>
                 <div v-if="req.price">
-                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Precio acordado</p>
+                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Precio acordado</p>
                   <p class="text-sm text-gray-900 font-medium">${{ formatPrice(req.price) }}{{ req.priceUnit ? ' / ' + req.priceUnit : '' }}</p>
                   <p v-if="defaultRate" class="text-xs text-gray-400 font-medium">
                     {{ formatConversion(req.price, defaultRate) }}{{ req.priceUnit ? ` / ${req.priceUnit}` : '' }}
                   </p>
                 </div>
                 <div>
-                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Solicitud creada</p>
+                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Solicitud creada</p>
                   <p class="text-sm text-gray-900 font-medium" :title="formatDateTime(req.createdAt)">{{ timeAgo(req.createdAt) }}</p>
                   <p class="text-xs text-gray-400">{{ formatDateTime(req.createdAt) }}</p>
                 </div>
@@ -98,62 +98,80 @@
               </div>
 
               <!-- Ubicación (presencial) -->
-              <div v-if="req.address" class="flex items-start gap-3 bg-gray-50 rounded-xl p-4">
-                <MapPinIcon class="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div v-if="req.address" class="flex items-start gap-2.5 bg-gray-50/70 rounded-xl px-4 py-3">
+                <MapPinIcon class="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Ubicación</p>
-                  <p class="text-sm text-gray-900">{{ req.address }}{{ req.city ? `, ${req.city}` : '' }}</p>
+                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Ubicación</p>
+                  <p class="text-sm text-gray-800">{{ req.address }}{{ req.city ? `, ${req.city}` : '' }}</p>
                 </div>
               </div>
 
               <!-- Descripción del cliente -->
-              <div v-if="req.description" class="flex items-start gap-3 bg-blue-50 rounded-xl p-4">
-                <ChatBubbleLeftIcon class="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p class="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-0.5">Descripción del cliente</p>
-                  <p class="text-sm text-gray-800 italic">"{{ req.description }}"</p>
+              <div v-if="req.description" class="flex items-start gap-2.5 bg-blue-50/60 ring-1 ring-blue-100/80 rounded-xl px-4 py-3">
+                <ChatBubbleLeftIcon class="h-4 w-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                <div class="min-w-0">
+                  <p class="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-0.5">Descripción del cliente</p>
+                  <p class="text-sm text-gray-700 italic leading-relaxed">"{{ req.description }}"</p>
                 </div>
               </div>
 
               <!-- Ítems solicitados -->
               <div v-if="req.items?.length">
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ítems solicitados ({{ req.items.length }})</p>
-                <div class="space-y-3">
-                  <div v-for="(item, idx) in req.items" :key="item.id" class="border border-gray-200 rounded-xl p-4">
-                    <p class="text-xs font-bold text-gray-600 mb-2">Ítem {{ idx + 1 }}</p>
-                    <div v-if="Object.keys(item.fields ?? {}).length" class="grid grid-cols-2 gap-2 mb-2">
+                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Ítems solicitados ({{ req.items.length }})</p>
+                <div class="space-y-2.5">
+                  <div v-for="(item, idx) in req.items" :key="item.id" class="border border-gray-100 bg-white rounded-xl p-3.5 shadow-sm">
+                    <p class="text-[11px] font-semibold text-gray-400 mb-2">Ítem {{ idx + 1 }}</p>
+                    <div v-if="Object.keys(item.fields ?? {}).length" class="grid grid-cols-2 gap-2.5 mb-2.5">
                       <div v-for="[key, value] in Object.entries(item.fields ?? {})" :key="key">
-                        <p class="text-[10px] text-gray-400 uppercase">{{ key }}</p>
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide">{{ key }}</p>
                         <p class="text-sm text-gray-900 font-medium">{{ value || '—' }}</p>
                       </div>
                     </div>
-                    <p v-if="item.notes" class="text-sm text-gray-700 italic mb-2">"{{ item.notes }}"</p>
+                    <p v-if="item.notes" class="text-sm text-gray-600 italic mb-2.5 leading-relaxed">"{{ item.notes }}"</p>
                     <div v-if="item.photos?.length" class="grid grid-cols-6 gap-1.5 mb-1.5">
-                      <a v-for="(photo, pi) in item.photos" :key="pi" :href="mediaUrl(photo)" target="_blank" class="aspect-square rounded-lg overflow-hidden bg-gray-100 block">
-                        <img :src="mediaUrl(photo)" class="w-full h-full object-cover" />
+                      <a
+                        v-for="(photo, pi) in item.photos"
+                        :key="pi"
+                        :href="mediaUrl(photo)"
+                        target="_blank"
+                        class="group aspect-square rounded-lg overflow-hidden bg-gray-100 ring-1 ring-gray-200 block relative"
+                      >
+                        <img v-if="mediaUrl(photo)" :src="mediaUrl(photo)" loading="lazy" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                        <div v-else-if="mediaLoadFailed[photo]" class="w-full h-full flex items-center justify-center text-gray-300">
+                          <XCircleIcon class="h-4 w-4" />
+                        </div>
+                        <div v-else class="w-full h-full animate-pulse bg-gray-200" />
                       </a>
                     </div>
                     <div v-if="item.videos?.length" class="grid grid-cols-3 gap-1.5">
-                      <video v-for="(video, vi) in item.videos" :key="vi" :src="mediaUrl(video)" controls class="w-full h-20 rounded-lg bg-gray-100 object-cover" />
+                      <template v-for="(video, vi) in item.videos" :key="vi">
+                        <video
+                          v-if="mediaUrl(video)"
+                          :src="mediaUrl(video)"
+                          controls
+                          class="w-full h-20 rounded-lg bg-gray-100 ring-1 ring-gray-200 object-cover"
+                        />
+                        <div v-else class="w-full h-20 rounded-lg bg-gray-100 ring-1 ring-gray-200 animate-pulse" />
+                      </template>
                     </div>
                   </div>
                 </div>
               </div>
 
               <!-- Datos de contacto (solo proveedor) -->
-              <div v-if="isProvider" class="border border-gray-200 rounded-xl p-4">
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Datos de contacto</p>
+              <div v-if="isProvider" class="border border-gray-100 rounded-xl p-4">
+                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Datos de contacto</p>
                 <div class="space-y-2">
-                  <div class="flex items-center gap-3">
-                    <UserIcon class="h-4 w-4 text-gray-400" />
+                  <div class="flex items-center gap-2.5">
+                    <UserIcon class="h-3.5 w-3.5 text-gray-400" />
                     <span class="text-sm text-gray-900 font-medium">{{ req.clientName }}</span>
                   </div>
-                  <div class="flex items-center gap-3">
-                    <PhoneIcon class="h-4 w-4 text-gray-400" />
+                  <div class="flex items-center gap-2.5">
+                    <PhoneIcon class="h-3.5 w-3.5 text-gray-400" />
                     <a :href="`tel:${req.clientPhone}`" class="text-sm text-blue-600 hover:underline font-medium">{{ req.clientPhone }}</a>
                   </div>
-                  <div v-if="req.clientEmail" class="flex items-center gap-3">
-                    <EnvelopeIcon class="h-4 w-4 text-gray-400" />
+                  <div v-if="req.clientEmail" class="flex items-center gap-2.5">
+                    <EnvelopeIcon class="h-3.5 w-3.5 text-gray-400" />
                     <a :href="`mailto:${req.clientEmail}`" class="text-sm text-blue-600 hover:underline">{{ req.clientEmail }}</a>
                   </div>
                 </div>
@@ -161,15 +179,15 @@
 
               <!-- Timeline de estado -->
               <div>
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Estado del proceso</p>
+                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Estado del proceso</p>
                 <div class="flex items-start">
                   <template v-for="(step, i) in TIMELINE" :key="step.status">
                     <div class="flex flex-col items-center flex-1 min-w-0">
                       <div
-                        class="h-8 w-8 rounded-full flex items-center justify-center border-2 transition-all"
+                        class="h-7 w-7 rounded-full flex items-center justify-center border-2 transition-all"
                         :class="timelineClass(step.status)"
                       >
-                        <component :is="step.icon" class="h-4 w-4" />
+                        <component :is="step.icon" class="h-3.5 w-3.5" />
                       </div>
                       <span
                         class="text-xs mt-1 text-center leading-tight"
@@ -189,7 +207,7 @@
                     </div>
                     <div
                       v-if="i < TIMELINE.length - 1"
-                      class="h-0.5 flex-1 mt-4 transition-colors"
+                      class="h-0.5 flex-1 mt-3.5 transition-colors"
                       :class="isReached(TIMELINE[i+1].status) ? 'bg-red-400' : 'bg-gray-200'"
                     />
                   </template>
@@ -197,11 +215,11 @@
               </div>
 
               <!-- Observaciones del proveedor -->
-              <div class="border border-gray-200 rounded-xl overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <div class="border border-gray-100 rounded-xl overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50/70 border-b border-gray-100">
                   <div class="flex items-center gap-2">
-                    <DocumentTextIcon class="h-4 w-4 text-gray-400" />
-                    <p class="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    <DocumentTextIcon class="h-3.5 w-3.5 text-gray-400" />
+                    <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                       Observaciones{{ isProvider ? '' : ' del proveedor' }}
                     </p>
                   </div>
@@ -384,7 +402,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import {
   XMarkIcon,
   MapPinIcon,
@@ -444,12 +462,45 @@ const props = defineProps<{ show: boolean; req: ServiceRequest; isProvider: bool
 const emit = defineEmits<{ close: []; updated: [ServiceRequest] }>()
 
 const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
 
-function mediaUrl(path: string) {
-  return path.startsWith('http') ? path : `${apiUrl}${path}`
+// Media de la solicitud (fotos/videos) es privada: se sirve solo tras auth vía
+// /services/requests/media/:filename. Se descarga como blob y se expone como
+// object URL local; las URLs se revocan al cambiar de solicitud o desmontar.
+const mediaBlobUrls = ref<Record<string, string>>({})
+const mediaLoadFailed = ref<Record<string, boolean>>({})
+
+function filenameFromPath(path: string) {
+  return path.split('/').pop() ?? path
 }
+
+function mediaUrl(path: string): string | undefined {
+  return mediaBlobUrls.value[path]
+}
+
+function revokeMediaBlobUrls() {
+  for (const url of Object.values(mediaBlobUrls.value) as string[]) URL.revokeObjectURL(url)
+  mediaBlobUrls.value = {}
+  mediaLoadFailed.value = {}
+}
+
+async function loadRequestMedia() {
+  revokeMediaBlobUrls()
+  const { get } = useApi()
+  const paths: string[] = (props.req.items ?? []).flatMap((item: ServiceRequestItem) => [...(item.photos ?? []), ...(item.videos ?? [])])
+  await Promise.all(
+    paths.map(async (path: string) => {
+      try {
+        const blob = await get<Blob>(`/services/requests/media/${filenameFromPath(path)}`, { parseAs: 'blob' })
+        mediaBlobUrls.value[path] = URL.createObjectURL(blob)
+      } catch {
+        mediaLoadFailed.value[path] = true
+      }
+    })
+  )
+}
+
+watch(() => props.req.id, loadRequestMedia, { immediate: true })
+onBeforeUnmount(revokeMediaBlobUrls)
 
 const STATUS_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Cerrado', CANCELADO: 'Cancelado',
@@ -609,7 +660,12 @@ function useSuggestedPrice() {
 }
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+  const date = new Date(d)
+  const datePart = date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+  const hasTime = date.getHours() !== 0 || date.getMinutes() !== 0
+  if (!hasTime) return datePart
+  const timePart = date.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })
+  return `${datePart} · ${timePart}`
 }
 function formatDateTime(d: string) {
   return new Date(d).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })

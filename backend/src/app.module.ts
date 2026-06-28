@@ -65,6 +65,9 @@ import { ReportsModule } from './reports/reports.module';
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
+      // service-requests contiene material privado del cliente/proveedor:
+      // se sirve solo vía GET /api/services/requests/media/:filename con auth + autorización.
+      exclude: ['/service-requests/(.*)'],
     }),
     PrismaModule,
     RedisModule,

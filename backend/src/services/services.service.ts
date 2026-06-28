@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ServiceStatus, ServiceEventType, Prisma } from '@prisma/client';
+import { ServiceStatus, ServiceEventType, Prisma, Role } from '@prisma/client';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto';
@@ -429,6 +429,23 @@ export class ServicesService {
       this.prisma.serviceRequest.count({ where }),
     ]);
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  // Autoriza y resuelve el filename de un archivo de media de una solicitud de servicio.
+  // El archivo solo puede ser visto por el cliente, el proveedor de esa solicitud, o un admin/superadmin.
+  async authorizeRequestMedia(filename: string, userId: string, userRole: Role) {
+    const relativePath = `/uploads/service-requests/${filename}`;
+    const item = await this.prisma.serviceRequestItem.findFirst({
+      where: { OR: [{ photos: { has: relativePath } }, { videos: { has: relativePath } }] },
+      select: { serviceRequest: { select: { providerId: true, requesterId: true } } },
+    });
+    if (!item) throw new NotFoundException('Archivo no encontrado');
+
+    const isAdmin = userRole === Role.SUPERADMIN || userRole === Role.ADMIN;
+    const { providerId, requesterId } = item.serviceRequest;
+    if (!isAdmin && providerId !== userId && requesterId !== userId) {
+      throw new ForbiddenException('No tienes permiso para ver este archivo');
+    }
   }
 
   async getServiceRequest(id: string, userId: string) {

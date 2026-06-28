@@ -8,15 +8,18 @@ import {
   Param,
   Body,
   Query,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  NotFoundException,
   HttpCode,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { extname, join, basename } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { Role, ServiceEventType } from '@prisma/client';
 import { ServicesService } from './services.service';
@@ -161,6 +164,26 @@ export class ServicesController {
   )
   uploadRequestMedia(@UploadedFiles() files: Express.Multer.File[]) {
     return { urls: files.map((f) => `/uploads/service-requests/${f.filename}`) };
+  }
+
+  // Media de una solicitud (fotos/videos del ítem): solo visible para el cliente,
+  // el proveedor de esa solicitud, o un admin/superadmin.
+  @Get('requests/media/:filename')
+  @UseGuards(JwtAuthGuard)
+  async getRequestMedia(
+    @Param('filename') filename: string,
+    @CurrentUser() user: any,
+    @Res() res: Response
+  ) {
+    const safeFilename = basename(filename);
+    if (safeFilename !== filename) throw new NotFoundException('Archivo no encontrado');
+
+    await this.servicesService.authorizeRequestMedia(safeFilename, user.id, user.role);
+
+    const filePath = join(process.cwd(), 'uploads', 'service-requests', safeFilename);
+    if (!existsSync(filePath)) throw new NotFoundException('Archivo no encontrado');
+
+    res.sendFile(filePath);
   }
 
   @Post('requests')
