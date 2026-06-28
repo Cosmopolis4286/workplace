@@ -1,35 +1,46 @@
 <template>
-  <div class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6">
-    <div class="flex items-center justify-between mb-5">
-      <div class="flex items-center gap-2.5">
-        <h3 class="text-sm font-semibold text-gray-900 tracking-tight">Acciones rápidas</h3>
-      </div>
+  <div class="bg-white rounded-2xl border border-gray-100 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold text-gray-900 tracking-tight">Acciones rápidas</h3>
       <NuxtLink
         to="/perfil?tab=acciones-rapidas"
         title="Configurar acciones rápidas"
         class="p-1.5 rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-colors"
       >
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
+        <Cog6ToothIcon class="h-4 w-4" />
       </NuxtLink>
     </div>
-    <div class="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
-      <NuxtLink
-        v-for="action in actions"
+    <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+      <div
+        v-for="action in orderedActions"
         :key="action.id"
-        :to="action.route"
-        class="group flex flex-col items-center gap-2.5 py-4 px-2 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/80 transition-all duration-200 text-center"
+        draggable="true"
+        class="relative"
+        :class="dragOverId === action.id ? 'z-10' : ''"
+        @dragstart="onDragStart(action.id, $event)"
+        @dragover.prevent="onDragOver(action.id)"
+        @dragleave="onDragLeave"
+        @drop.prevent="onDrop(action.id)"
+        @dragend="onDragEnd"
       >
-        <div
-          class="flex items-center justify-center w-10 h-10 rounded-full transition-transform duration-200 group-hover:scale-105"
-          :class="iconBgClasses[action.color]"
+        <NuxtLink
+          :to="action.route"
+          class="group flex items-center gap-2.5 py-2.5 px-3 rounded-xl border transition-all duration-150 cursor-grab active:cursor-grabbing"
+          :class="dragOverId === action.id
+            ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-indigo-200'
+            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50/80'"
+          :style="draggingId === action.id ? 'opacity: 0.4' : ''"
+          @click="onLinkClick"
         >
-          <component :is="getIcon(action.icon)" class="h-5 w-5" :class="iconColorClasses[action.color]" />
-        </div>
-        <span class="text-[11px] font-medium text-gray-600 group-hover:text-gray-900 leading-tight">{{ action.name }}</span>
-      </NuxtLink>
+          <div
+            class="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 transition-transform duration-150 group-hover:scale-105"
+            :class="iconBgClasses[action.color]"
+          >
+            <component :is="getIcon(action.icon)" class="h-4 w-4" :class="iconColorClasses[action.color]" />
+          </div>
+          <span class="text-xs font-medium text-gray-700 group-hover:text-gray-900 leading-tight truncate">{{ action.name }}</span>
+        </NuxtLink>
+      </div>
     </div>
   </div>
 </template>
@@ -46,17 +57,74 @@ import {
   TruckIcon,
   UsersIcon,
   CogIcon,
+  Cog6ToothIcon,
   UserIcon,
   WrenchIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline'
 import type { QuickActionConfig } from '~/config/dashboard.config'
+import { useDashboardQuickActions } from '~/composables/useDashboardQuickActions'
 
 interface Props {
   actions: QuickActionConfig[]
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+const { setDashboardQuickActionIds } = useDashboardQuickActions()
+
+// Orden local optimista: refleja el prop hasta que el usuario arrastra, momento
+// en que se reordena de inmediato en UI y se persiste en segundo plano.
+const orderedActions = ref<QuickActionConfig[]>([...props.actions])
+watch(() => props.actions, (next) => { orderedActions.value = [...next] })
+
+const draggingId = ref<string | null>(null)
+const dragOverId = ref<string | null>(null)
+// Evita que el click de NuxtLink dispare navegación justo al soltar el drag
+let suppressClick = false
+
+function onDragStart(id: string, e: DragEvent) {
+  draggingId.value = id
+  e.dataTransfer!.effectAllowed = 'move'
+  e.dataTransfer!.setData('text/plain', id)
+}
+
+function onDragOver(id: string) {
+  if (draggingId.value && draggingId.value !== id) dragOverId.value = id
+}
+
+function onDragLeave() {
+  dragOverId.value = null
+}
+
+function onDrop(toId: string) {
+  const fromId = draggingId.value
+  dragOverId.value = null
+  if (!fromId || fromId === toId) return
+
+  const list = [...orderedActions.value]
+  const fromIdx = list.findIndex(a => a.id === fromId)
+  const toIdx = list.findIndex(a => a.id === toId)
+  if (fromIdx === -1 || toIdx === -1) return
+
+  const [moved] = list.splice(fromIdx, 1)
+  list.splice(toIdx, 0, moved)
+  orderedActions.value = list
+  suppressClick = true
+
+  setDashboardQuickActionIds(list.map(a => a.id)).catch(() => {})
+}
+
+function onDragEnd() {
+  draggingId.value = null
+  dragOverId.value = null
+}
+
+function onLinkClick(e: MouseEvent) {
+  if (suppressClick) {
+    e.preventDefault()
+    suppressClick = false
+  }
+}
 
 const iconBgClasses: Record<string, string> = {
   blue: 'bg-blue-50',

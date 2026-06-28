@@ -1,13 +1,13 @@
 <template>
-  <div>
+  <div class="space-y-8">
     <!-- Hero Section - Personalizado por Rol -->
     <DashboardHero :config="personalizedHeroConfig" />
 
     <!-- Quick Actions - Filtradas por rol -->
-    <QuickActions :actions="quickActions" class="mb-8" />
+    <QuickActions :actions="quickActions" />
 
     <!-- Error Banner -->
-    <div v-if="error" class="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
+    <div v-if="error" class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
       <ExclamationTriangleIcon class="h-5 w-5 text-red-500 flex-shrink-0" />
       <span class="text-sm text-red-700">{{ error }}</span>
       <button class="ml-auto text-red-500 hover:text-red-700" @click="loadDashboard">Reintentar</button>
@@ -49,91 +49,94 @@
     <!-- Alertas dinámicas (bajo stock, gastos vencidos, etc.) -->
     <DashboardAlerts v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
 
-    <!-- KPIs Header: título + selector de período + botón personalizar -->
-    <div v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" class="flex items-center justify-between mb-4">
-      <h2 class="text-base font-semibold text-gray-600">Indicadores</h2>
-      <div class="flex items-center gap-2">
-        <!-- Selector de período -->
-        <div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
+    <!-- Sección de Indicadores: header + panel de personalización + grid de KPIs -->
+    <div v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')">
+      <!-- KPIs Header: título + selector de período + botón personalizar -->
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-semibold text-gray-600">Indicadores</h2>
+        <div class="flex items-center gap-2">
+          <!-- Selector de período -->
+          <div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
+            <button
+              v-for="p in (['7d', '30d', '90d'] as DashboardPeriod[])"
+              :key="p"
+              @click="handlePeriodChange(p)"
+              class="px-3 py-1 text-xs font-semibold rounded-md transition-colors"
+              :class="selectedPeriod === p
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'"
+            >
+              {{ PERIOD_LABELS[p] }}
+            </button>
+          </div>
+          <!-- Botón personalizar -->
           <button
-            v-for="p in (['7d', '30d', '90d'] as DashboardPeriod[])"
-            :key="p"
-            @click="handlePeriodChange(p)"
-            class="px-3 py-1 text-xs font-semibold rounded-md transition-colors"
-            :class="selectedPeriod === p
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'"
+            @click="showCustomizePanel = !showCustomizePanel"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
+            :class="showCustomizePanel
+              ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
+              : 'bg-white border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300'"
           >
-            {{ PERIOD_LABELS[p] }}
+            <AdjustmentsHorizontalIcon class="h-3.5 w-3.5" />
+            Personalizar
           </button>
         </div>
-        <!-- Botón personalizar -->
-        <button
-          @click="showCustomizePanel = !showCustomizePanel"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
-          :class="showCustomizePanel
-            ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
-            : 'bg-white border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-        >
-          <AdjustmentsHorizontalIcon class="h-3.5 w-3.5" />
-          Personalizar
-        </button>
+      </div>
+
+      <!-- Panel de personalización -->
+      <DashboardCustomizePanel
+        :open="showCustomizePanel"
+        :kpi-items="kpiLayout"
+        :widget-name="widgetName"
+        @toggle="toggleVisibility"
+        @reset="resetLayout"
+      />
+
+      <!-- KPIs Grid - Dinámico con drag & drop -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <template v-for="item in kpiLayout" :key="item.id">
+          <DraggableWidget
+            v-if="item.visible && canViewWidget(item.id)"
+            :widget-id="item.id"
+            @drag-swap="reorder"
+          >
+            <SalesTodayWidget
+              v-if="item.id === 'salesToday'"
+              :sales="kpis.salesToday"
+              :change="kpis.salesTodayChange"
+              :label="PERIOD_SALES_LABELS[selectedPeriod]"
+              :loading="loading"
+              :trend="trends?.salesToday ?? []"
+            />
+            <ActiveOrdersWidget
+              v-else-if="item.id === 'activeOrders'"
+              :count="kpis.activeOrders"
+              :change="kpis.activeOrdersChange"
+              :loading="loading"
+              :trend="trends?.activeOrders ?? []"
+            />
+            <LowStockWidget
+              v-else-if="item.id === 'lowStock'"
+              :count="kpis.lowStockProducts"
+              :change="kpis.lowStockChange"
+              :loading="loading"
+              :trend="trends?.lowStock ?? []"
+            />
+            <NewCustomersWidget
+              v-else-if="item.id === 'newCustomers'"
+              :count="kpis.newCustomers"
+              :change="kpis.newCustomersChange"
+              :label="PERIOD_CUSTOMERS_LABELS[selectedPeriod]"
+              :trend="trends?.newCustomers ?? []"
+              :loading="loading"
+            />
+          </DraggableWidget>
+        </template>
       </div>
     </div>
 
-    <!-- Panel de personalización -->
-    <DashboardCustomizePanel
-      :open="showCustomizePanel"
-      :kpi-items="kpiLayout"
-      :widget-name="widgetName"
-      @toggle="toggleVisibility"
-      @reset="resetLayout"
-    />
-
-    <!-- KPIs Grid - Dinámico con drag & drop -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <template v-for="item in kpiLayout" :key="item.id">
-        <DraggableWidget
-          v-if="item.visible && canViewWidget(item.id)"
-          :widget-id="item.id"
-          @drag-swap="reorder"
-        >
-          <SalesTodayWidget
-            v-if="item.id === 'salesToday'"
-            :sales="kpis.salesToday"
-            :change="kpis.salesTodayChange"
-            :label="PERIOD_SALES_LABELS[selectedPeriod]"
-            :loading="loading"
-            :trend="trends?.salesToday ?? []"
-          />
-          <ActiveOrdersWidget
-            v-else-if="item.id === 'activeOrders'"
-            :count="kpis.activeOrders"
-            :change="kpis.activeOrdersChange"
-            :loading="loading"
-            :trend="trends?.activeOrders ?? []"
-          />
-          <LowStockWidget
-            v-else-if="item.id === 'lowStock'"
-            :count="kpis.lowStockProducts"
-            :change="kpis.lowStockChange"
-            :loading="loading"
-            :trend="trends?.lowStock ?? []"
-          />
-          <NewCustomersWidget
-            v-else-if="item.id === 'newCustomers'"
-            :count="kpis.newCustomers"
-            :change="kpis.newCustomersChange"
-            :label="PERIOD_CUSTOMERS_LABELS[selectedPeriod]"
-            :trend="trends?.newCustomers ?? []"
-            :loading="loading"
-          />
-        </DraggableWidget>
-      </template>
-    </div>
-
     <!-- Main Content Grid - Pedidos -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Orders List - Solo si el rol puede verlo -->
       <OrdersListWidget
         v-if="canViewWidget('ordersList')"
@@ -170,11 +173,10 @@
       }"
       :loading="loading"
       :last-updated="lastUpdated"
-      class="mb-8"
     />
 
     <!-- System Health - Solo SUPERADMIN -->
-    <div v-if="canViewWidget('systemHealth')" class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6 mb-8">
+    <div v-if="canViewWidget('systemHealth')" class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6">
       <div class="flex items-center gap-2.5 mb-3">
         <div class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-50">
           <ServerIcon class="h-4 w-4 text-purple-600" />
