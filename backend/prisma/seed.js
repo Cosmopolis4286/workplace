@@ -321,7 +321,7 @@ async function seedPlans() {
       maxOrders: 2000,
       maxStorage: 2000,
       features: ['500 productos', '10 empleados', '3 sucursales', '2,000 pedidos/mes', 'Soporte 24/7', 'Reportes avanzados', 'Múltiples usuarios', 'API access'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'services', 'service_requests', 'corridas', 'wallets'],
     },
     {
       name: 'Enterprise',
@@ -340,7 +340,7 @@ async function seedPlans() {
       maxOrders: -1,
       maxStorage: 10000,
       features: ['Productos ilimitados', 'Empleados ilimitados', 'Sucursales ilimitadas', 'Pedidos ilimitados', 'Soporte dedicado', 'Personalización completa', 'SLA garantizado', 'Onboarding personalizado'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'inventory', 'services'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'inventory', 'services', 'service_requests', 'corridas', 'wallets', 'reports', 'sales'],
     },
   ]
 
@@ -1345,6 +1345,48 @@ async function main() {
   await seedUserCategories()
   await seedSearchTabs()
   await seedVeLocations()
+  await seedDemoSubscriptions()
+}
+
+// Sin esta suscripción, los usuarios COMMERCE/FREELANCER demo caen al plan
+// FREE fallback (dashboard, menu, orders, customers, settings, notifications)
+// — pensado para catálogo de comercio, no para freelancers de servicios — y
+// terminan con el sidebar casi vacío tras intersectar con su categoría.
+async function seedDemoSubscriptions() {
+  console.log('\n💳 Seeding demo subscriptions...\n')
+
+  const plan = await prisma.plan.findFirst({ where: { name: 'Pro' } })
+  if (!plan) {
+    console.log('  ⚠️  Plan "Pro" no encontrado, se omite la asignación de suscripciones demo.')
+    return
+  }
+
+  const emails = DEMO_USERS
+    .filter(d => d.role === Role.FREELANCER || d.role === Role.COMMERCE)
+    .map(d => d.email)
+
+  for (const email of emails) {
+    const user = await prisma.user.findUnique({ where: { email } })
+    if (!user) continue
+
+    const existing = await prisma.subscription.findFirst({
+      where: { userId: user.id, status: { in: ['ACTIVE', 'TRIAL'] } },
+    })
+    if (existing) continue
+
+    await prisma.subscription.create({
+      data: {
+        userId: user.id,
+        planId: plan.id,
+        status: 'ACTIVE',
+        interval: 'MONTHLY',
+        pricePaid: plan.price,
+      },
+    })
+    console.log(`  ✅ Suscripción "${plan.name}" asignada a ${email}`)
+  }
+
+  console.log('\n✨ Demo subscriptions seeded.')
 }
 
 main()
