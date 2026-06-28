@@ -5,11 +5,13 @@ export interface SearchSuggestion {
   tab: SearchTabKey
   title: string
   subtitle?: string | null
+  providerName?: string | null
   image?: string | null
   price?: number | null
   priceUnit?: string | null
   category?: { name: string; color: string | null } | null
   rating?: number | null
+  reviewsCount?: number | null
   salaryMin?: number | null
   salaryMax?: number | null
   salaryCurrency?: string | null

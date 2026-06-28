@@ -75,6 +75,8 @@
           <div class="min-w-0 flex-1">
             <p class="text-sm font-medium truncate" :class="isDark ? 'text-gray-100' : 'text-gray-800'">{{ s.title }}</p>
 
+            <p v-if="s.providerName" class="text-xs truncate" :class="isDark ? 'text-gray-500' : 'text-gray-400'">{{ s.providerName }}</p>
+
             <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
               <span
                 v-if="s.category"
@@ -85,9 +87,10 @@
               </span>
               <span v-else-if="s.subtitle" class="text-xs truncate" :class="isDark ? 'text-gray-500' : 'text-gray-400'">{{ s.subtitle }}</span>
 
-              <span v-if="group.tab === 'servicios' && s.rating" class="flex items-center gap-0.5 text-[11px] font-medium flex-shrink-0" :class="isDark ? 'text-amber-400' : 'text-amber-500'">
+              <span v-if="s.rating" class="flex items-center gap-0.5 text-[11px] font-medium flex-shrink-0" :class="isDark ? 'text-amber-400' : 'text-amber-500'">
                 <StarIcon class="h-3 w-3" />
                 {{ s.rating.toFixed(1) }}
+                <span v-if="s.reviewsCount" class="font-normal" :class="isDark ? 'text-gray-500' : 'text-gray-400'">({{ s.reviewsCount }})</span>
               </span>
 
               <span v-if="s.nearYou" class="flex items-center gap-0.5 text-[10px] font-semibold flex-shrink-0" :class="isDark ? 'text-blue-400' : 'text-blue-600'">
@@ -105,6 +108,9 @@
           <div class="flex-shrink-0 text-right">
             <p v-if="group.tab !== 'empleos' && s.price != null" class="text-sm font-bold" :class="isDark ? 'text-gray-100' : 'text-gray-900'">
               ${{ formatPrice(s.price) }}<span v-if="s.priceUnit" class="text-[10px] font-normal text-gray-400">/{{ s.priceUnit }}</span>
+            </p>
+            <p v-if="group.tab !== 'empleos' && s.price != null && convertLabel(s.price)" class="text-[10px] font-normal" :class="isDark ? 'text-gray-500' : 'text-gray-400'">
+              {{ convertLabel(s.price) }}<span v-if="s.priceUnit">/{{ s.priceUnit }}</span>
             </p>
             <p v-else-if="group.tab === 'empleos' && (s.salaryMin || s.salaryMax)" class="text-xs font-bold" :class="isDark ? 'text-emerald-400' : 'text-emerald-600'">
               <template v-if="s.salaryMin && s.salaryMax">${{ formatPrice(s.salaryMin) }}-{{ formatPrice(s.salaryMax) }}</template>
@@ -137,6 +143,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
 import { useAssetUrl } from '~/composables/useAssetUrl'
+import { useDefaultRate } from '~/composables/useDefaultRate'
 
 const props = defineProps({
   query: { type: String, default: '' },
@@ -151,6 +158,8 @@ defineEmits(['select', 'see-all', 'hover', 'recent-select', 'recent-remove'])
 
 const { isDark } = useColorMode()
 const { getAssetUrl } = useAssetUrl()
+const { convertLabel, load: loadDefaultRate } = useDefaultRate()
+loadDefaultRate()
 
 const TAB_LABELS = { productos: 'Productos', servicios: 'Servicios', empleos: 'Empleos' }
 const TAB_ICONS = { productos: ShoppingBagIcon, servicios: WrenchScrewdriverIcon, empleos: BriefcaseIcon }

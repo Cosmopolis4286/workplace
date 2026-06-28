@@ -8,11 +8,13 @@ export interface SearchSuggestion {
   tab: 'productos' | 'servicios' | 'empleos';
   title: string;
   subtitle?: string;
+  providerName?: string | null;
   image?: string | null;
   price?: number | null;
   priceUnit?: string | null;
   category?: { name: string; color: string | null } | null;
   rating?: number | null;
+  reviewsCount?: number | null;
   salaryMin?: number | null;
   salaryMax?: number | null;
   salaryCurrency?: string | null;
@@ -74,9 +76,12 @@ export class SearchService {
             tab: 'productos',
             title: p.name,
             subtitle: p.commerce?.name,
+            providerName: p.commerce?.name ?? null,
             image: p.image,
             price: p.price,
             category: p.category ? { name: p.category.name, color: p.category.color } : null,
+            rating: p.commerce?.user?.rating ?? null,
+            reviewsCount: p.commerce?.user?.reviewsCount ?? null,
             lowStock: p.status === 'BAJO_STOCK',
             nearYou: isNear(p.commerce),
           }))
@@ -87,10 +92,12 @@ export class SearchService {
             tab: 'servicios',
             title: s.name,
             subtitle: s.category?.name,
+            providerName: s.user ? `${s.user.firstName} ${s.user.lastName}`.trim() : null,
             image: s.image,
             price: s.price,
             priceUnit: s.priceUnit,
             rating: s.user?.rating ?? null,
+            reviewsCount: s.user?.reviewsCount ?? null,
             nearYou: isNear(s.user),
           }))
         : []),
