@@ -9,7 +9,13 @@
           <!-- Header -->
           <div class="flex items-start justify-between px-5 py-4 border-b border-gray-100">
             <div class="flex items-center gap-3 min-w-0">
+              <img
+                v-if="contactAvatarUrl"
+                :src="contactAvatarUrl"
+                class="h-9 w-9 rounded-full object-cover flex-shrink-0 ring-1 ring-inset ring-gray-100"
+              />
               <div
+                v-else
                 class="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs ring-1 ring-inset"
                 :class="isProvider ? 'bg-red-50 text-red-600 ring-red-100' : 'bg-blue-50 text-blue-600 ring-blue-100'"
               >
@@ -128,35 +134,81 @@
                       </div>
                     </div>
                     <p v-if="item.notes" class="text-sm text-gray-600 italic mb-2.5 leading-relaxed">"{{ item.notes }}"</p>
-                    <div v-if="item.photos?.length" class="grid grid-cols-6 gap-1.5 mb-1.5">
-                      <a
-                        v-for="(photo, pi) in item.photos"
-                        :key="pi"
-                        :href="mediaUrl(photo)"
-                        target="_blank"
-                        class="group aspect-square rounded-lg overflow-hidden bg-gray-100 ring-1 ring-gray-200 block relative"
+                    <div v-if="itemMedia(item).length" class="grid grid-cols-6 gap-1.5">
+                      <button
+                        v-for="(media, mi) in itemMedia(item)"
+                        :key="mi"
+                        type="button"
+                        class="group aspect-square rounded-lg overflow-hidden bg-gray-100 ring-1 ring-gray-200 relative"
+                        @click="openLightbox(item, mi)"
                       >
-                        <img v-if="mediaUrl(photo)" :src="mediaUrl(photo)" loading="lazy" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
-                        <div v-else-if="mediaLoadFailed[photo]" class="w-full h-full flex items-center justify-center text-gray-300">
+                        <img v-if="media.type === 'photo' && mediaUrl(media.path)" :src="mediaUrl(media.path)" loading="lazy" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                        <video v-else-if="media.type === 'video' && mediaUrl(media.path)" :src="mediaUrl(media.path)" class="w-full h-full object-cover" />
+                        <div v-else-if="mediaLoadFailed[media.path]" class="w-full h-full flex items-center justify-center text-gray-300">
                           <XCircleIcon class="h-4 w-4" />
                         </div>
                         <div v-else class="w-full h-full animate-pulse bg-gray-200" />
-                      </a>
-                    </div>
-                    <div v-if="item.videos?.length" class="grid grid-cols-3 gap-1.5">
-                      <template v-for="(video, vi) in item.videos" :key="vi">
-                        <video
-                          v-if="mediaUrl(video)"
-                          :src="mediaUrl(video)"
-                          controls
-                          class="w-full h-20 rounded-lg bg-gray-100 ring-1 ring-gray-200 object-cover"
-                        />
-                        <div v-else class="w-full h-20 rounded-lg bg-gray-100 ring-1 ring-gray-200 animate-pulse" />
-                      </template>
+                        <div v-if="media.type === 'video' && mediaUrl(media.path)" class="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <PlayCircleIcon class="h-6 w-6 text-white" />
+                        </div>
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
+
+              <!-- Lightbox / carrusel de media del ítem (visualización inline, sin pestaña externa) -->
+              <Teleport to="body">
+                <div v-if="lightbox" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4" @click.self="closeLightbox">
+                  <button class="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors" @click="closeLightbox">
+                    <XMarkIcon class="h-6 w-6" />
+                  </button>
+
+                  <button
+                    v-if="lightboxMedia.length > 1"
+                    class="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+                    @click.stop="lightboxPrev"
+                  >
+                    <ChevronLeftIcon class="h-6 w-6" />
+                  </button>
+                  <button
+                    v-if="lightboxMedia.length > 1"
+                    class="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+                    @click.stop="lightboxNext"
+                  >
+                    <ChevronRightIcon class="h-6 w-6" />
+                  </button>
+
+                  <div class="max-w-3xl max-h-[85vh] w-full flex flex-col items-center gap-3" @click.stop>
+                    <img
+                      v-if="currentLightboxMedia?.type === 'photo' && mediaUrl(currentLightboxMedia.path)"
+                      :src="mediaUrl(currentLightboxMedia.path)"
+                      class="max-w-full max-h-[75vh] object-contain rounded-lg"
+                    />
+                    <video
+                      v-else-if="currentLightboxMedia?.type === 'video' && mediaUrl(currentLightboxMedia.path)"
+                      :src="mediaUrl(currentLightboxMedia.path)"
+                      controls
+                      autoplay
+                      class="max-w-full max-h-[75vh] object-contain rounded-lg"
+                    />
+                    <div v-else class="w-64 h-64 flex items-center justify-center text-white/50">
+                      <XCircleIcon class="h-8 w-8" />
+                    </div>
+
+                    <div v-if="lightboxMedia.length > 1" class="flex items-center gap-1.5">
+                      <button
+                        v-for="(media, mi) in lightboxMedia"
+                        :key="mi"
+                        type="button"
+                        class="h-1.5 rounded-full transition-all"
+                        :class="mi === lightboxIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/60'"
+                        @click.stop="lightboxIndex = mi"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Teleport>
 
               <!-- Datos de contacto (solo proveedor) -->
               <div v-if="isProvider" class="border border-gray-100 rounded-xl p-4">
@@ -419,9 +471,13 @@ import {
   InformationCircleIcon,
   XCircleIcon,
   SparklesIcon,
+  PlayCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useExchangeRates } from '~/composables/useExchangeRates'
+import { useAssetUrl } from '~/composables/useAssetUrl'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 
 interface ServiceRequestItem {
@@ -456,12 +512,19 @@ interface ServiceRequest {
   platformFeeRate?: number | null
   platformFeeAmount?: number | null
   platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
+  providerAvatar?: string | null
+  clientAvatar?: string | null
 }
 
 const props = defineProps<{ show: boolean; req: ServiceRequest; isProvider: boolean }>()
 const emit = defineEmits<{ close: []; updated: [ServiceRequest] }>()
 
 const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
+const { getAssetUrl } = useAssetUrl()
+
+const contactAvatarUrl = computed(() =>
+  getAssetUrl(props.isProvider ? props.req.clientAvatar : props.req.providerAvatar)
+)
 
 // Media de la solicitud (fotos/videos) es privada: se sirve solo tras auth vía
 // /services/requests/media/:filename. Se descarga como blob y se expone como
@@ -501,6 +564,36 @@ async function loadRequestMedia() {
 
 watch(() => props.req.id, loadRequestMedia, { immediate: true })
 onBeforeUnmount(revokeMediaBlobUrls)
+
+// Lightbox/carrusel: visualización inline de fotos+videos de un ítem, sin abrir pestaña externa
+interface MediaEntry { type: 'photo' | 'video'; path: string }
+
+function itemMedia(item: ServiceRequestItem): MediaEntry[] {
+  return [
+    ...(item.photos ?? []).map((path): MediaEntry => ({ type: 'photo', path })),
+    ...(item.videos ?? []).map((path): MediaEntry => ({ type: 'video', path })),
+  ]
+}
+
+const lightbox = ref(false)
+const lightboxMedia = ref<MediaEntry[]>([])
+const lightboxIndex = ref(0)
+const currentLightboxMedia = computed(() => lightboxMedia.value[lightboxIndex.value] ?? null)
+
+function openLightbox(item: ServiceRequestItem, index: number) {
+  lightboxMedia.value = itemMedia(item)
+  lightboxIndex.value = index
+  lightbox.value = true
+}
+function closeLightbox() {
+  lightbox.value = false
+}
+function lightboxPrev() {
+  lightboxIndex.value = (lightboxIndex.value - 1 + lightboxMedia.value.length) % lightboxMedia.value.length
+}
+function lightboxNext() {
+  lightboxIndex.value = (lightboxIndex.value + 1) % lightboxMedia.value.length
+}
 
 const STATUS_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Cerrado', CANCELADO: 'Cancelado',

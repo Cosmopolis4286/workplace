@@ -1,5 +1,5 @@
 <template>
-  <div class="card bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col h-[420px]">
+  <div class="card bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col min-h-[420px] h-full">
     <div class="flex items-center justify-between mb-4 flex-shrink-0">
       <div class="flex items-center gap-3">
         <div class="p-2 bg-blue-100 rounded-xl">
@@ -38,7 +38,7 @@
     </div>
 
     <!-- Orders List -->
-    <div v-else class="space-y-2 flex-1 overflow-y-auto pr-1">
+    <div v-else class="space-y-2 flex-1">
       <NuxtLink
         v-for="order in orders.slice(0, 5)"
         :key="order.id"
@@ -46,7 +46,12 @@
         class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
       >
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0" :class="avatarClass(order.status)">
+          <img
+            v-if="getAssetUrl(order.commerce?.avatar)"
+            :src="getAssetUrl(order.commerce?.avatar)!"
+            class="w-10 h-10 rounded-lg object-cover flex-shrink-0 ring-1 ring-gray-100"
+          />
+          <div v-else class="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0" :class="avatarClass(order.status)">
             {{ order.commerce?.name?.[0]?.toUpperCase() ?? 'C' }}
           </div>
           <div class="min-w-0">
@@ -85,6 +90,7 @@
 <script setup lang="ts">
 import { ShoppingBagIcon, MagnifyingGlassIcon, ClockIcon } from '@heroicons/vue/24/outline'
 import { useRelativeTime } from '~/composables/useRelativeTime'
+import { useAssetUrl } from '~/composables/useAssetUrl'
 
 interface OrderItem {
   productName: string
@@ -99,8 +105,10 @@ interface Order {
   createdAt: string
   items?: OrderItem[]
   itemCount?: number
-  commerce?: { name: string }
+  commerce?: { name: string; avatar?: string | null }
 }
+
+const { getAssetUrl } = useAssetUrl()
 
 const props = defineProps<{
   orders: Order[]

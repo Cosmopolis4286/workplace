@@ -116,7 +116,13 @@
               @click="openDetail(req)"
             >
               <!-- Avatar -->
+              <img
+                v-if="contactAvatarUrl(req)"
+                :src="contactAvatarUrl(req)!"
+                class="h-10 w-10 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-100"
+              />
               <div
+                v-else
                 class="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
                 :class="viewAs === 'provider' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'"
               >
@@ -290,6 +296,7 @@ import ServiceRequestDetailModal from '~/components/modals/ServiceRequestDetailM
 import { useApi } from '~/composables/useApi'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 import { useNotifications, type Notification } from '~/composables/useNotifications'
+import { useAssetUrl } from '~/composables/useAssetUrl'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -298,6 +305,7 @@ const router = useRouter()
 const { user } = useAuth()
 const { get, patch } = useApi()
 const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
+const { getAssetUrl } = useAssetUrl()
 
 const isNormal = computed(() => user.value?.role === 'NORMAL')
 
@@ -330,6 +338,12 @@ interface ServiceRequest {
   createdAt: string
   statusUpdatedAt?: string
   items?: ServiceRequestItem[]
+  providerAvatar?: string | null
+  clientAvatar?: string | null
+}
+
+function contactAvatarUrl(req: ServiceRequest): string | null {
+  return getAssetUrl(viewAs.value === 'provider' ? req.clientAvatar : req.providerAvatar)
 }
 
 const STATUS_LABELS: Record<ServiceRequest['status'], string> = {

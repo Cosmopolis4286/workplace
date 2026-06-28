@@ -412,14 +412,18 @@ export class OrdersService {
         orderBy: { createdAt: 'desc' },
         include: {
           items: true,
-          commerce: { select: { id: true, name: true } },
+          commerce: { select: { id: true, name: true, user: { select: { avatar: true } } } },
         },
       }),
       this.prisma.order.count({ where }),
     ]);
 
     return {
-      data: data.map((o) => ({ ...o, itemCount: o.items.length })),
+      data: data.map((o) => ({
+        ...o,
+        itemCount: o.items.length,
+        commerce: o.commerce ? { id: o.commerce.id, name: o.commerce.name, avatar: o.commerce.user.avatar } : null,
+      })),
       total,
       page,
       limit,

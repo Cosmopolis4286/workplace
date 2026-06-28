@@ -29,16 +29,16 @@
       </div>
     </div>
 
-    <div class="p-6 max-w-7xl mx-auto">
+    <div class="p-6 max-w-7xl mx-auto space-y-8">
 
       <!-- Error banner -->
-      <div v-if="error" class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between">
+      <div v-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between">
         <span class="text-sm">{{ error }}</span>
         <button @click="error = null" class="text-red-500 hover:text-red-700 font-bold text-lg leading-none">×</button>
       </div>
 
       <!-- Stats cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div v-for="card in statCards" :key="card.label"
              class="bg-white/80 backdrop-blur-sm p-5 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-white/20">
           <div class="flex items-center justify-between">
@@ -61,7 +61,7 @@
       </div>
 
       <!-- Filters + search bar -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-5 mb-8 border border-white/20">
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-5 border border-white/20">
         <div class="flex flex-wrap gap-3 items-center justify-between">
           <div class="flex gap-2 flex-wrap">
             <button
@@ -97,7 +97,7 @@
       </div>
 
       <!-- Active orders -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-8 border border-white/20">
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/20">
         <div class="flex items-center justify-between mb-5">
           <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
             <Zap class="w-5 h-5 text-yellow-500" />

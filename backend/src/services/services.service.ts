@@ -428,7 +428,29 @@ export class ServicesService {
       }),
       this.prisma.serviceRequest.count({ where }),
     ]);
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data: await this.withAvatars(data), total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  // providerId/requesterId no tienen FK formal a User en este modelo (providerId
+  // es de un Service ajeno al dueño autenticado), así que el avatar se resuelve
+  // en batch en memoria en lugar de vía include/relation de Prisma.
+  private async withAvatars<T extends { providerId: string; requesterId: string | null }>(
+    requests: T[]
+  ): Promise<(T & { providerAvatar: string | null; clientAvatar: string | null })[]> {
+    const userIds = [...new Set(requests.flatMap((r) => [r.providerId, r.requesterId].filter((id): id is string => !!id)))];
+    if (userIds.length === 0) return requests.map((r) => ({ ...r, providerAvatar: null, clientAvatar: null }));
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, avatar: true },
+    });
+    const avatarById = new Map(users.map((u) => [u.id, u.avatar]));
+
+    return requests.map((r) => ({
+      ...r,
+      providerAvatar: avatarById.get(r.providerId) ?? null,
+      clientAvatar: r.requesterId ? avatarById.get(r.requesterId) ?? null : null,
+    }));
   }
 
   // Autoriza y resuelve el filename de un archivo de media de una solicitud de servicio.
@@ -457,13 +479,15 @@ export class ServicesService {
     if (req.providerId !== userId && req.requesterId !== userId)
       throw new ForbiddenException('No tienes permiso');
 
+    const [withAvatar] = await this.withAvatars([req]);
+
     // Sugerencia de precio para el proveedor: solo tiene sentido antes de cerrar el trato.
     if (req.providerId === userId && !req.price && ['PENDIENTE', 'VISTO'].includes(req.status)) {
       const suggestion = await this.getSuggestedPrice(req.serviceId, req.providerId);
-      return { ...req, ...suggestion };
+      return { ...withAvatar, ...suggestion };
     }
 
-    return req;
+    return withAvatar;
   }
 
   // Promedio del precio realmente acordado en tratos cerrados anteriores para este

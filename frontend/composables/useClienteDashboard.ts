@@ -58,6 +58,7 @@ export interface Order {
   items: OrderItem[]
   itemCount?: number
   commerceId: string
+  commerce?: { id: string; name: string; avatar?: string | null } | null
   createdAt: string
   updatedAt: string
 }

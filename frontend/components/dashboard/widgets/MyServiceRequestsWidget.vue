@@ -1,5 +1,5 @@
 <template>
-  <div class="card bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col h-[420px]">
+  <div class="card bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col min-h-[420px] h-full">
     <div class="flex items-center justify-between mb-4 flex-shrink-0">
       <div class="flex items-center gap-3">
         <div class="p-2 bg-purple-100 rounded-xl">
@@ -38,40 +38,52 @@
     </div>
 
     <!-- Requests List -->
-    <div v-else class="space-y-2 flex-1 overflow-y-auto pr-1">
+    <div v-else class="space-y-2 flex-1">
       <NuxtLink
         v-for="req in requests.slice(0, 5)"
         :key="req.id"
         :to="`/solicitudes-servicio?open=${req.id}`"
-        class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+        class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
       >
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-purple-700 font-bold text-xs flex-shrink-0">
-            {{ req.serviceName[0]?.toUpperCase() }}
-          </div>
-          <div class="min-w-0">
-            <p class="text-sm font-semibold text-gray-900 truncate max-w-[160px]">{{ req.serviceName }}</p>
-            <p class="text-xs text-gray-400 truncate max-w-[180px]">{{ req.providerName }}</p>
-            <div class="flex items-center gap-2 mt-0.5">
-              <span class="text-[10px] text-gray-400 flex items-center gap-1">
-                <ClockIcon class="w-3 h-3" />
-                {{ timeAgo(req.createdAt) }}
-              </span>
-              <span v-if="req.modality" class="text-[10px] text-gray-400">
-                {{ MODALITY_LABELS[req.modality] ?? req.modality }}
-              </span>
-            </div>
+        <img
+          v-if="getAssetUrl(req.providerAvatar)"
+          :src="getAssetUrl(req.providerAvatar)!"
+          class="w-11 h-11 rounded-xl object-cover flex-shrink-0 ring-1 ring-gray-100"
+        />
+        <div v-else class="w-11 h-11 bg-purple-100 rounded-xl flex items-center justify-center text-purple-700 font-bold text-sm flex-shrink-0">
+          {{ req.serviceName[0]?.toUpperCase() }}
+        </div>
+
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-semibold text-gray-900 truncate">{{ req.serviceName }}</p>
+          <p class="text-xs text-gray-400 truncate">{{ req.providerName }}</p>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-[10px] text-gray-400 flex items-center gap-1">
+              <ClockIcon class="w-3 h-3" />
+              {{ timeAgo(req.createdAt) }}
+            </span>
+            <span v-if="req.modality" class="text-[10px] text-gray-400">
+              {{ MODALITY_LABELS[req.modality] ?? req.modality }}
+            </span>
           </div>
         </div>
-        <div class="text-right flex-shrink-0 ml-2">
-          <p v-if="req.price" class="text-sm font-bold text-gray-900">{{ formatPrice(req.price) }}{{ req.priceUnit ? ` /${req.priceUnit}` : '' }}</p>
+
+        <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
           <span
-            class="inline-flex items-center gap-1 mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
+            class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
             :class="statusClass(req.status)"
           >
             <component :is="STATUS_ICONS[req.status]" class="w-3 h-3" />
             {{ statusLabel(req.status) }}
           </span>
+          <div v-if="req.price" class="text-right">
+            <p class="text-sm font-bold text-gray-900">
+              ${{ formatPrice(req.price) }}<span v-if="req.priceUnit" class="text-xs font-normal text-gray-400"> /{{ req.priceUnit }}</span>
+            </p>
+            <p v-if="defaultRate" class="text-[11px] font-medium text-gray-400">
+              {{ formatConversion(req.price, defaultRate) }}{{ req.priceUnit ? ` /${req.priceUnit}` : '' }}
+            </p>
+          </div>
         </div>
       </NuxtLink>
     </div>
@@ -94,17 +106,24 @@ import {
   CheckCircleIcon,
 } from '@heroicons/vue/24/outline'
 import { useRelativeTime } from '~/composables/useRelativeTime'
+import { useAssetUrl } from '~/composables/useAssetUrl'
+import { useExchangeRates } from '~/composables/useExchangeRates'
 
 interface ServiceRequest {
   id: string
   serviceName: string
   providerName: string
+  providerAvatar?: string | null
   status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
   price?: number
   priceUnit?: string
   modality?: string
   createdAt: string
 }
+
+const { getAssetUrl } = useAssetUrl()
+const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
+if (!defaultRate.value) fetchRates(false, true)
 
 const props = defineProps<{
   requests: ServiceRequest[]
@@ -151,7 +170,7 @@ function statusClass(status: string) {
 }
 
 function formatPrice(price: number) {
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(price)
+  return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
 }
 
 const { timeAgo } = useRelativeTime()
