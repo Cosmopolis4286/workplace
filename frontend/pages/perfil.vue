@@ -181,34 +181,59 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">País</label>
-                <input
+                <SearchableSelect
                   v-model="profileForm.country"
-                  type="text"
-                  maxlength="100"
+                  :options="countryNames"
                   placeholder="Ej: Venezuela"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                >
+                  @update:model-value="onProfileCountryChange"
+                />
               </div>
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Estado / Provincia</label>
-                <input
-                  v-model="profileForm.state"
-                  type="text"
-                  maxlength="100"
-                  placeholder="Ej: Miranda"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                >
-              </div>
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
-                <input
-                  v-model="profileForm.city"
-                  type="text"
-                  maxlength="100"
-                  placeholder="Ej: Caracas"
-                  class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
-                >
-              </div>
+
+              <!-- Venezuela: Estado/Municipio/Ciudad en cascada contra el catálogo VE -->
+              <template v-if="isVenezuelaProfile">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Estado</label>
+                  <SearchableSelect
+                    v-model="profileForm.state"
+                    :options="veStates"
+                    placeholder="Selecciona un estado"
+                    @update:model-value="onProfileStateChange"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Municipio / Ciudad</label>
+                  <SearchableSelect
+                    v-model="profileForm.city"
+                    :options="veCiudadesFlat.map(c => c.name)"
+                    :disabled="!profileForm.state"
+                    placeholder="Selecciona una ciudad"
+                  />
+                </div>
+              </template>
+
+              <!-- Otro país: texto libre como antes -->
+              <template v-else>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Estado / Provincia</label>
+                  <input
+                    v-model="profileForm.state"
+                    type="text"
+                    maxlength="100"
+                    placeholder="Ej: Miranda"
+                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
+                  >
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
+                  <input
+                    v-model="profileForm.city"
+                    type="text"
+                    maxlength="100"
+                    placeholder="Ej: Caracas"
+                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red transition-all duration-300"
+                  >
+                </div>
+              </template>
             </div>
 
             <!-- Categoría y Subcategoría — solo COMMERCE y FREELANCER -->
@@ -607,11 +632,14 @@ import {
 } from '@heroicons/vue/24/outline'
 import Swal from 'sweetalert2'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import SearchableSelect from '~/components/ui/SearchableSelect.vue'
 import { useAuth, type Session } from '~/composables/useAuth'
 import { useCamera } from '~/composables/useCamera'
 import { useQuickAccess, MAX_QUICK_ACCESS } from '~/composables/useQuickAccess'
 import { useDashboardQuickActions, MAX_DASHBOARD_QUICK_ACTIONS } from '~/composables/useDashboardQuickActions'
 import { useKyc } from '~/composables/useKyc'
+import { useVeLocations, type VeMunicipio, type VeCiudad } from '~/composables/useVeLocations'
+import { useLocationData } from '~/composables/useLocationData'
 
 const auth = useAuth()
 const { checkUsername } = auth
@@ -724,6 +752,44 @@ let successTimer: ReturnType<typeof setTimeout> | null = null
 
 const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '', categoryId: '', country: '', state: '', city: '' })
 const passwordForm = ref({ current: '', new: '', confirm: '' })
+
+// ─── Ubicación: catálogo VE en cascada cuando country=Venezuela ──────────────
+const { getCountries } = useLocationData()
+const { getStates: getVeStates, getMunicipios: getVeMunicipios, getCiudades: getVeCiudades } = useVeLocations()
+
+const countryNames = computed(() => getCountries().map((c) => c.name))
+const isVenezuelaProfile = computed(() => profileForm.value.country.trim().toLowerCase() === 'venezuela')
+
+const veStates = ref<string[]>([])
+const veCiudadesFlat = ref<{ id: string; name: string }[]>([])
+
+async function loadVeCiudadesForState(state: string) {
+  veCiudadesFlat.value = []
+  if (!state) return
+  const municipios: VeMunicipio[] = await getVeMunicipios(state)
+  const ciudadesPerMunicipio = await Promise.all(municipios.map((m) => getVeCiudades(m.id)))
+  veCiudadesFlat.value = ciudadesPerMunicipio.flat().map((c: VeCiudad) => ({ id: c.id, name: c.name }))
+}
+
+function onProfileCountryChange() {
+  if (!isVenezuelaProfile.value) return
+  profileForm.value.state = ''
+  profileForm.value.city = ''
+}
+
+function onProfileStateChange() {
+  profileForm.value.city = ''
+}
+
+watch(isVenezuelaProfile, (isVe) => {
+  if (isVe && veStates.value.length === 0) {
+    getVeStates().then((s) => { veStates.value = s })
+  }
+}, { immediate: true })
+
+watch(() => profileForm.value.state, (state) => {
+  if (isVenezuelaProfile.value && state) loadVeCiudadesForState(state)
+})
 const showPasswords = ref({ current: false, new: false, confirm: false })
 
 // ─── Active sessions ──────────────────────────────────────────────────────────

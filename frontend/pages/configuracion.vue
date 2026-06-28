@@ -311,16 +311,44 @@
             <div class="grid grid-cols-3 gap-4">
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">País</label>
-                <input v-model="restaurantForm.country" type="text" class="input-field" placeholder="Ej: Venezuela">
+                <SearchableSelect
+                  v-model="restaurantForm.country"
+                  :options="countryNames"
+                  placeholder="Ej: Venezuela"
+                  @update:model-value="onSettingsCountryChange"
+                />
               </div>
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Estado / Provincia</label>
-                <input v-model="restaurantForm.state" type="text" class="input-field" placeholder="Ej: Miranda">
-              </div>
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
-                <input v-model="restaurantForm.city" type="text" class="input-field" placeholder="Ej: Caracas">
-              </div>
+
+              <template v-if="isVenezuelaSettings">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Estado</label>
+                  <SearchableSelect
+                    v-model="restaurantForm.state"
+                    :options="veStates"
+                    placeholder="Selecciona un estado"
+                    @update:model-value="onSettingsStateChange"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Municipio / Ciudad</label>
+                  <SearchableSelect
+                    v-model="restaurantForm.city"
+                    :options="veCiudadesFlat.map(c => c.name)"
+                    :disabled="!restaurantForm.state"
+                    placeholder="Selecciona una ciudad"
+                  />
+                </div>
+              </template>
+              <template v-else>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Estado / Provincia</label>
+                  <input v-model="restaurantForm.state" type="text" class="input-field" placeholder="Ej: Miranda">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
+                  <input v-model="restaurantForm.city" type="text" class="input-field" placeholder="Ej: Caracas">
+                </div>
+              </template>
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Horario de Atención</label>
@@ -561,12 +589,15 @@ import {
 } from '@heroicons/vue/24/outline'
 import { BiometryType } from '@aparajita/capacitor-biometric-auth'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import SearchableSelect from '~/components/ui/SearchableSelect.vue'
 import TwoFactorSettings from '~/components/settings/TwoFactorSettings.vue'
 import { useSettings } from '~/composables/useSettings'
 import { useAuth } from '~/composables/useAuth'
 import { usePermissions } from '~/composables/usePermissions'
 import { useUserPreferences } from '~/composables/useUserPreferences'
 import { useBiometric } from '~/composables/useBiometric'
+import { useVeLocations, type VeMunicipio, type VeCiudad } from '~/composables/useVeLocations'
+import { useLocationData } from '~/composables/useLocationData'
 
 const { user } = useAuth()
 const { userCategory } = usePermissions()
@@ -607,6 +638,45 @@ const {
 } = useSettings()
 
 const restaurantForm = ref({ name: '', type: '', address: '', phone: '', email: '', schedule: '', country: '', state: '', city: '' })
+
+// ─── Ubicación: catálogo VE en cascada cuando country=Venezuela ──────────────
+const { getCountries } = useLocationData()
+const { getStates: getVeStates, getMunicipios: getVeMunicipios, getCiudades: getVeCiudades } = useVeLocations()
+
+const countryNames = computed(() => getCountries().map((c) => c.name))
+const isVenezuelaSettings = computed(() => restaurantForm.value.country.trim().toLowerCase() === 'venezuela')
+
+const veStates = ref<string[]>([])
+const veCiudadesFlat = ref<{ id: string; name: string }[]>([])
+
+async function loadVeCiudadesForState(state: string) {
+  veCiudadesFlat.value = []
+  if (!state) return
+  const municipios: VeMunicipio[] = await getVeMunicipios(state)
+  const ciudadesPerMunicipio = await Promise.all(municipios.map((m) => getVeCiudades(m.id)))
+  veCiudadesFlat.value = ciudadesPerMunicipio.flat().map((c: VeCiudad) => ({ id: c.id, name: c.name }))
+}
+
+function onSettingsCountryChange() {
+  if (!isVenezuelaSettings.value) return
+  restaurantForm.value.state = ''
+  restaurantForm.value.city = ''
+}
+
+function onSettingsStateChange() {
+  restaurantForm.value.city = ''
+}
+
+watch(isVenezuelaSettings, (isVe) => {
+  if (isVe && veStates.value.length === 0) {
+    getVeStates().then((s) => { veStates.value = s })
+  }
+}, { immediate: true })
+
+watch(() => restaurantForm.value.state, (state) => {
+  if (isVenezuelaSettings.value && state) loadVeCiudadesForState(state)
+})
+
 const paymentForm = ref({ currency: 'MXN', tax: 16, suggestedTip: 10, paymentMethods: ['cash', 'card', 'transfer'] as string[] })
 const operationForm = ref({ avgPrepTime: 20, avgDeliveryTime: 30, deliveryFee: 35, freeDeliveryMinimum: 200 })
 const notifForm = ref({ notifyNewOrders: true, notifyLowStock: true, notifyDailyReports: false, notifyCustomerReviews: true })
