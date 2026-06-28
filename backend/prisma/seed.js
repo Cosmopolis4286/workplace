@@ -1,5 +1,6 @@
-const { PrismaClient, Role } = require('@prisma/client')
+const { PrismaClient, Role, VeLocationType } = require('@prisma/client')
 const bcrypt = require('bcrypt')
+const veLocationsData = require('./data/ve-locations.json')
 
 const prisma = new PrismaClient()
 
@@ -156,6 +157,8 @@ const PERMISSIONS = [
   { key: 'search_tabs:view',         module: 'search_tabs',    action: 'view',          label: 'Ver Tabs de Búsqueda',         isSystem: true },
   { key: 'search_tabs:manage',       module: 'search_tabs',    action: 'manage',        label: 'Gestionar Tabs de Búsqueda',   isSystem: true },
   { key: 'reviews:moderate',         module: 'reviews',        action: 'moderate',      label: 'Moderar Reseñas Reportadas',   isSystem: true },
+  { key: 'locations:view',           module: 'locations',      action: 'view',          label: 'Ver Catálogo de Ubicaciones (VE)', isSystem: true },
+  { key: 'locations:manage',         module: 'locations',      action: 'manage',        label: 'Gestionar Catálogo de Ubicaciones (VE)', isSystem: true },
 ]
 
 const COMMERCE_KEYS = [
@@ -204,6 +207,7 @@ const ROLE_DEFAULTS = {
     'search_tabs:view', 'search_tabs:manage',
     'reviews:moderate',
     'categories_user:manage',
+    'locations:view', 'locations:manage',
   ],
   COMMERCE: [...COMMERCE_KEYS, 'categories_user:propose'],
   FREELANCER: [
@@ -1155,6 +1159,84 @@ async function seedSearchTabs() {
   console.log('\n✨ Search tabs seeded.')
 }
 
+async function seedVeLocations() {
+  console.log('\n🇻🇪 Seeding catálogo de ubicaciones de Venezuela...\n')
+
+  let municipiosCount = 0
+  let ciudadesCount = 0
+  let parroquiasCount = 0
+
+  for (const state of veLocationsData) {
+    for (const mun of state.municipios) {
+      // parentId es null en los Municipios (raíz del árbol) — la unique key
+      // compuesta no acepta null en upsert.where, así que se resuelve con
+      // findFirst + create/update manual solo para este nivel. stateName se
+      // incluye en el filtro porque algunos nombres de municipio se repiten
+      // entre estados distintos (ej. "Sucre" en Miranda y en Sucre).
+      let municipio = await prisma.veLocation.findFirst({
+        where: { name: mun.name, parentId: null, type: VeLocationType.MUNICIPIO, stateName: state.stateName },
+      })
+      if (municipio) {
+        municipio = await prisma.veLocation.update({
+          where: { id: municipio.id },
+          data: { stateName: state.stateName },
+        })
+      } else {
+        municipio = await prisma.veLocation.create({
+          data: {
+            type: VeLocationType.MUNICIPIO,
+            name: mun.name,
+            stateName: state.stateName,
+          },
+        })
+      }
+      municipiosCount++
+
+      for (const ciu of mun.ciudades || []) {
+        // Mismo problema que con Municipio: stateName es null aquí y Prisma
+        // no admite null en upsert.where para una clave compuesta — findFirst
+        // + create/update manual.
+        let ciudad = await prisma.veLocation.findFirst({
+          where: { name: ciu.name, parentId: municipio.id, type: VeLocationType.CIUDAD },
+        })
+        if (!ciudad) {
+          ciudad = await prisma.veLocation.create({
+            data: { type: VeLocationType.CIUDAD, name: ciu.name, parentId: municipio.id },
+          })
+        }
+        ciudadesCount++
+
+        for (const par of ciu.parroquias || []) {
+          const existing = await prisma.veLocation.findFirst({
+            where: { name: par.name, parentId: ciudad.id, type: VeLocationType.PARROQUIA },
+          })
+          if (existing) {
+            await prisma.veLocation.update({
+              where: { id: existing.id },
+              data: { postalCode: par.postalCode ?? null },
+            })
+          } else {
+            await prisma.veLocation.create({
+              data: {
+                type: VeLocationType.PARROQUIA,
+                name: par.name,
+                parentId: ciudad.id,
+                postalCode: par.postalCode ?? null,
+              },
+            })
+          }
+          parroquiasCount++
+        }
+      }
+    }
+    console.log(`  📍 ${state.stateName}: ${state.municipios.length} municipios`)
+  }
+
+  console.log(
+    `\n✨ Ubicaciones VE seeded: ${municipiosCount} municipios, ${ciudadesCount} ciudades, ${parroquiasCount} parroquias.`
+  )
+}
+
 async function main() {
   console.log('🌱 Seeding demo users...\n')
 
@@ -1262,6 +1344,7 @@ async function main() {
   await seedServiceModalities()
   await seedUserCategories()
   await seedSearchTabs()
+  await seedVeLocations()
 }
 
 main()

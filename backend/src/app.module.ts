@@ -45,6 +45,7 @@ import { SearchTabsModule } from './search-tabs/search-tabs.module';
 import { SearchModule } from './search/search.module';
 import { LandingModule } from './landing/landing.module';
 import { ReportsModule } from './reports/reports.module';
+import { LocationsModule } from './locations/locations.module';
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { ReportsModule } from './reports/reports.module';
     SearchModule,
     LandingModule,
     ReportsModule,
+    LocationsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },

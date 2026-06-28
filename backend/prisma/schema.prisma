@@ -1837,4 +1837,38 @@ model LandingStep {
   @@map("landing_steps")
 }
 
+// ─── Catálogo de división territorial de Venezuela ──────────────────────────────
+
+enum VeLocationType {
+  MUNICIPIO
+  CIUDAD
+  PARROQUIA
+}
+
+// Jerarquía Municipio → Ciudad → Parroquia vía self-relation. El nivel
+// "Estado" no se modela aquí: ya lo resuelve country-state-city en el
+// frontend (24 estados de Venezuela correctos); stateName solo ancla
+// el Municipio raíz al nombre de ese estado.
+model VeLocation {
+  id         String         @id @default(uuid())
+  type       VeLocationType
+  name       String
+  stateName  String? // solo en type=MUNICIPIO
+  postalCode String? // solo relevante en type=PARROQUIA
+  parentId   String?
+  parent     VeLocation?    @relation("VeLocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children   VeLocation[]   @relation("VeLocationHierarchy")
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  // stateName se incluye en la unique key porque algunos nombres de
+  // Municipio se repiten entre estados distintos (ej. "Sucre" existe como
+  // municipio en Miranda y en Sucre) — sin esto, ambos colisionarían ya que
+  // parentId es null para todos los Municipios.
+  @@unique([name, parentId, type, stateName])
+  @@index([parentId])
+  @@index([stateName])
+  @@map("ve_locations")
+}
+
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────

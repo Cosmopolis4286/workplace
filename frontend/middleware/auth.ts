@@ -65,6 +65,7 @@ const PERMISSION_ROUTE_MAP: Record<string, string> = {
   // Comisiones de plataforma / tabs de búsqueda (permission matrix real)
   '/comisiones':   'platform_fees:view',
   '/search-tabs':  'search_tabs:view',
+  '/localidades':  'locations:view',
 }
 
 // ─── Rutas restringidas a SUPERADMIN/ADMIN sin permission matrix propia ───────
