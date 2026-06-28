@@ -175,10 +175,10 @@
         </NavLink>
       </template>
 
-      <!-- Configuración -->
+      <!-- ── Mi Cuenta ───────────────────────────────────────────────────── -->
       <template v-if="!collapsed">
         <div class="mt-3 mb-1 px-2">
-          <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Configuración</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Mi Cuenta</span>
         </div>
       </template>
       <template v-else>
@@ -201,6 +201,16 @@
           </svg>
         </template>
       </NavLink>
+
+      <!-- ── Negocio: solo si hay algo que mostrar para este rol ───────────── -->
+      <template v-if="!collapsed">
+        <div class="mt-3 mb-1 px-2">
+          <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Negocio</span>
+        </div>
+      </template>
+      <template v-else>
+        <div class="my-1 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
+      </template>
       <NavLink v-if="navReady && can('settings:view')" to="/configuracion" label="Configuración" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.ops_group" class="h-5 w-5" /></template>
       </NavLink>
@@ -208,12 +218,12 @@
       <NavLink v-if="role === 'COMMERCE' || role === 'FREELANCER'" to="/modulos" label="Módulos" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.modules" class="h-5 w-5" /></template>
       </NavLink>
-      <!-- Mi Plan: solo para comercios/freelancers que pueden tener una suscripción propia -->
+      <!-- Mi Plan: comercios/freelancers gestionan su suscripción aquí (incluye acceso a Ver Precios) -->
       <NavLink v-if="role === 'COMMERCE' || role === 'FREELANCER'" to="/mi-plan" label="Mi Plan" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.sales" class="h-5 w-5" /></template>
       </NavLink>
-      <!-- Ver Planes: siempre visible (página pública) -->
-      <NavLink to="/precios" label="Ver Planes" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
+      <!-- Ver Planes: solo para roles sin "Mi Plan" propio (ahí ya hay acceso a precios) -->
+      <NavLink v-if="role !== 'COMMERCE' && role !== 'FREELANCER'" to="/precios" label="Planes y Precios" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
         <template #icon><component :is="NAV_ICONS.menu" class="h-5 w-5" /></template>
       </NavLink>
 

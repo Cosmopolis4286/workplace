@@ -27,6 +27,8 @@ interface User {
   country?: string
   state?: string
   city?: string
+  municipality?: string
+  parish?: string
   twoFactorEnabled?: boolean
   profileSettings?: {
     showCatalog: boolean
@@ -71,6 +73,8 @@ interface UpdateProfilePayload {
   country?: string
   state?: string
   city?: string
+  municipality?: string
+  parish?: string
 }
 
 interface ChangePasswordPayload {

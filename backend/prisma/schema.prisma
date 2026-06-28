@@ -26,9 +26,11 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  country String?
-  state   String?
-  city    String?
+  country      String?
+  state        String?
+  city         String?
+  municipality String?
+  parish       String?
 
   categoryId    String?
   subcategoryId String?

@@ -6,7 +6,17 @@
       :icon="CreditCardIcon"
       :breadcrumb="[{ label: 'Mi Plan' }]"
       :stats="headerStats"
-    />
+    >
+      <template #actions>
+        <NuxtLink
+          to="/precios"
+          class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+        >
+          <ArrowTopRightOnSquareIcon class="h-3.5 w-3.5" />
+          Ver página de precios
+        </NuxtLink>
+      </template>
+    </PageHeader>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -255,7 +265,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { CreditCardIcon, CalendarIcon, CheckIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
+import { CreditCardIcon, CalendarIcon, CheckIcon, EnvelopeIcon, ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS } from '~/composables/usePlans'
 

@@ -58,4 +58,14 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(100)
   city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  municipality?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  parish?: string;
 }

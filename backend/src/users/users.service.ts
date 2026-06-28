@@ -61,6 +61,9 @@ export class UsersService {
         birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
         sex: data.sex,
         role,
+        // El registro no pide ubicación; Venezuela es el mercado por defecto
+        // de la plataforma y el usuario puede ajustarlo después en /perfil.
+        country: 'Venezuela',
         ...(data.categoryId && { categoryId: data.categoryId }),
         ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
         wallet: { create: { currency: 'USD' } },
@@ -453,6 +456,8 @@ export class UsersService {
         ...(dto.country !== undefined && { country: dto.country || null }),
         ...(dto.state !== undefined && { state: dto.state || null }),
         ...(dto.city !== undefined && { city: dto.city || null }),
+        ...(dto.municipality !== undefined && { municipality: dto.municipality || null }),
+        ...(dto.parish !== undefined && { parish: dto.parish || null }),
       },
       include: { commerce: true, profileSettings: true },
     });
