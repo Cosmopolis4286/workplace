@@ -1,7 +1,11 @@
 import type { AsyncData } from '#app'
 
+export type CorridaServiceType = 'PASAJERO' | 'FLETE'
+export type CorridaVehicleType = 'MOTO' | 'AUTO' | 'CAMIONETA' | 'CAMION'
+
 export interface Corrida {
   id: string
+  serviceType: CorridaServiceType
   origin: string
   destination: string
   originLat?: number
@@ -18,8 +22,13 @@ export interface Corrida {
   driverId?: string
   driverName?: string
   driverPhone?: string
-  vehicleType: 'MOTO' | 'AUTO'
+  vehicleType: CorridaVehicleType
   notes?: string
+  recipientName?: string
+  recipientPhone?: string
+  cargoDescription?: string
+  cargoWeight?: number
+  declaredValue?: number
   createdAt: string
   updatedAt: string
   completedAt?: string
@@ -29,14 +38,20 @@ export interface Corrida {
 }
 
 export interface CreateCorridaDto {
+  serviceType?: CorridaServiceType
   origin: string
   destination: string
   originLat?: number
   originLng?: number
   destinationLat?: number
   destinationLng?: number
-  vehicleType: 'MOTO' | 'AUTO'
+  vehicleType: CorridaVehicleType
   notes?: string
+  recipientName?: string
+  recipientPhone?: string
+  cargoDescription?: string
+  cargoWeight?: number
+  declaredValue?: number
 }
 
 export interface UpdateCorridaStatusDto {
@@ -71,14 +86,15 @@ export function useCorridas() {
   /**
    * Obtener todas las corridas disponibles (para conductores)
    */
-  async function fetchAvailableCorridas(): Promise<Corrida[]> {
+  async function fetchAvailableCorridas(serviceType?: CorridaServiceType): Promise<Corrida[]> {
     if (!can('corridas:view')) {
       throw new Error('No tienes permiso para ver corridas')
     }
     loading.value = true
     clearError()
     try {
-      const data = await get<Corrida[]>('/corridas/available')
+      const query = serviceType ? `?serviceType=${serviceType}` : ''
+      const data = await get<Corrida[]>(`/corridas/available${query}`)
       corridas.value = data
       return data
     } catch (e: any) {
@@ -260,7 +276,7 @@ export function useCorridas() {
     originLng: number,
     destinationLat: number,
     destinationLng: number,
-    vehicleType: 'MOTO' | 'AUTO'
+    vehicleType: CorridaVehicleType
   ): Promise<{ price: number; distance: number; duration: number }> {
     try {
       return await post('/corridas/calculate-price', {

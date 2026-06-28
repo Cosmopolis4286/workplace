@@ -1543,10 +1543,18 @@ enum CorridaStatus {
 enum CorridaVehicleType {
   MOTO
   AUTO
+  CAMIONETA
+  CAMION
+}
+
+enum CorridaServiceType {
+  PASAJERO
+  FLETE
 }
 
 model Corrida {
   id                String             @id @default(uuid())
+  serviceType       CorridaServiceType @default(PASAJERO)
   origin            String
   destination       String
   originLat         Float?
@@ -1562,6 +1570,12 @@ model Corrida {
   platformFeeAmount Float?
   platformFeePayer  FeePayer?
   notes             String?
+  // Datos de flete (carga/paquete) — solo aplican cuando serviceType = FLETE
+  recipientName     String?
+  recipientPhone    String?
+  cargoDescription  String?
+  cargoWeight       Float? // kg aproximados
+  declaredValue     Float? // valor declarado de la carga para responsabilidad
   acceptedAt        DateTime?
   startedAt         DateTime?
   completedAt       DateTime?
@@ -1578,6 +1592,7 @@ model Corrida {
   @@index([passengerId])
   @@index([driverId])
   @@index([status])
+  @@index([serviceType])
   @@map("corridas")
 }
 

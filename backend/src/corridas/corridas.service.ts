@@ -5,13 +5,13 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CorridaStatus, CorridaVehicleType } from '@prisma/client';
+import { CorridaStatus, CorridaVehicleType, CorridaServiceType } from '@prisma/client';
 import { CreateCorridaDto } from './dto/create-corrida.dto';
 import { CalculatePriceDto } from './dto/calculate-price.dto';
 import { PlatformFeesService } from '../platform-fees/platform-fees.service';
 
-const PRICE_PER_KM: Record<CorridaVehicleType, number> = { MOTO: 8, AUTO: 12 };
-const BASE_FARE: Record<CorridaVehicleType, number> = { MOTO: 20, AUTO: 35 };
+const PRICE_PER_KM: Record<CorridaVehicleType, number> = { MOTO: 8, AUTO: 12, CAMIONETA: 16, CAMION: 22 };
+const BASE_FARE: Record<CorridaVehicleType, number> = { MOTO: 20, AUTO: 35, CAMIONETA: 60, CAMION: 90 };
 const AVG_SPEED_KMH = 30;
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -43,6 +43,7 @@ function calcPrice(
 
 const CORRIDA_SELECT = {
   id: true,
+  serviceType: true,
   origin: true,
   destination: true,
   originLat: true,
@@ -55,6 +56,11 @@ const CORRIDA_SELECT = {
   distance: true,
   duration: true,
   notes: true,
+  recipientName: true,
+  recipientPhone: true,
+  cargoDescription: true,
+  cargoWeight: true,
+  declaredValue: true,
   acceptedAt: true,
   startedAt: true,
   completedAt: true,
@@ -128,6 +134,7 @@ export class CorridasService {
 
     const corrida = await this.prisma.corrida.create({
       data: {
+        serviceType: dto.serviceType ?? CorridaServiceType.PASAJERO,
         origin: dto.origin,
         destination: dto.destination,
         originLat: dto.originLat,
@@ -136,6 +143,11 @@ export class CorridasService {
         destinationLng: dto.destinationLng,
         vehicleType,
         notes: dto.notes,
+        recipientName: dto.recipientName,
+        recipientPhone: dto.recipientPhone,
+        cargoDescription: dto.cargoDescription,
+        cargoWeight: dto.cargoWeight,
+        declaredValue: dto.declaredValue,
         price,
         distance,
         duration,
@@ -149,9 +161,9 @@ export class CorridasService {
     return formatCorrida(corrida);
   }
 
-  async findAvailable() {
+  async findAvailable(serviceType?: CorridaServiceType) {
     const corridas = await this.prisma.corrida.findMany({
-      where: { status: CorridaStatus.PENDING },
+      where: { status: CorridaStatus.PENDING, ...(serviceType ? { serviceType } : {}) },
       orderBy: { createdAt: 'asc' },
       select: CORRIDA_SELECT,
     });

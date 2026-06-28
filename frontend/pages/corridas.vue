@@ -1,10 +1,10 @@
 <template>
   <div>
     <PageHeader
-      title="Corridas"
+      title="Corridas y Fletes"
       :description="subtitleText"
       :icon="TruckIcon"
-      :breadcrumb="[{ label: 'Corridas' }]"
+      :breadcrumb="[{ label: 'Corridas y Fletes' }]"
       :stats="headerStats"
     >
       <template #actions>
@@ -14,7 +14,7 @@
             class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
             :class="activeTab === 'request' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
             @click="activeTab = 'request'"
-          >Solicitar Viaje</button>
+          >Solicitar Viaje/Flete</button>
           <button
             v-if="canViewAvailableCorridas"
             class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
@@ -46,17 +46,40 @@
       <!-- Formulario -->
       <div class="lg:col-span-2 space-y-4">
         <div class="card p-6">
-          <h2 class="text-base font-semibold text-gray-900 mb-5">Nuevo Viaje</h2>
+          <h2 class="text-base font-semibold text-gray-900 mb-5">{{ serviceType === 'FLETE' ? 'Nuevo Flete' : 'Nuevo Viaje' }}</h2>
 
           <form @submit.prevent="handleSubmitRequest" class="space-y-5">
+            <!-- Tipo de servicio -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Servicio <span class="text-red-500">*</span>
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <label
+                  v-for="s in serviceTypeOptions"
+                  :key="s.value"
+                  class="flex items-center gap-3 border rounded-xl p-3 cursor-pointer transition-all"
+                  :class="serviceType === s.value ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'"
+                >
+                  <input v-model="serviceType" type="radio" :value="s.value" class="hidden" />
+                  <span class="text-2xl">{{ s.icon }}</span>
+                  <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-900">{{ s.label }}</p>
+                    <p class="text-xs text-gray-500">{{ s.desc }}</p>
+                  </div>
+                  <CheckCircleIcon v-if="serviceType === s.value" class="w-4 h-4 text-red-500 flex-shrink-0" />
+                </label>
+              </div>
+            </div>
+
             <!-- Origen -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
-                Punto de Origen <span class="text-red-500">*</span>
+                {{ serviceType === 'FLETE' ? 'Punto de Recogida' : 'Punto de Origen' }} <span class="text-red-500">*</span>
               </label>
               <PlaceAutocomplete
                 v-model="originPlace"
-                placeholder="¿Desde dónde sales?"
+                :placeholder="serviceType === 'FLETE' ? '¿Dónde recogemos la carga?' : '¿Desde dónde sales?'"
                 :show-geo="true"
                 @selected="onOriginSelected"
               >
@@ -69,17 +92,47 @@
             <!-- Destino -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
-                Destino <span class="text-red-500">*</span>
+                {{ serviceType === 'FLETE' ? 'Punto de Entrega' : 'Destino' }} <span class="text-red-500">*</span>
               </label>
               <PlaceAutocomplete
                 v-model="destinationPlace"
-                placeholder="¿A dónde vas?"
+                :placeholder="serviceType === 'FLETE' ? '¿A dónde entregamos?' : '¿A dónde vas?'"
                 @selected="onDestinationSelected"
               >
                 <template #icon>
                   <span class="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-white text-xs font-bold">B</span>
                 </template>
               </PlaceAutocomplete>
+            </div>
+
+            <!-- Datos del destinatario (solo flete) -->
+            <div v-if="serviceType === 'FLETE'" class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del destinatario</label>
+                <input v-model="recipientName" type="text" placeholder="Quién recibe" class="input-field" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono del destinatario</label>
+                <input v-model="recipientPhone" type="text" placeholder="Teléfono de contacto" class="input-field" />
+              </div>
+            </div>
+
+            <!-- Carga (solo flete) -->
+            <div v-if="serviceType === 'FLETE'" class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Descripción de la carga</label>
+                <input v-model="cargoDescription" type="text" placeholder="Ej: Caja de electrodomésticos" class="input-field" />
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Peso aproximado (kg)</label>
+                  <input v-model.number="cargoWeight" type="number" min="0" step="0.1" placeholder="Ej: 25" class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Valor declarado <span class="text-gray-400 font-normal">(opcional)</span></label>
+                  <input v-model.number="declaredValue" type="number" min="0" step="0.01" placeholder="$" class="input-field" />
+                </div>
+              </div>
             </div>
 
             <!-- Tipo de Vehículo -->
@@ -89,7 +142,7 @@
               </label>
               <div class="grid grid-cols-2 gap-3">
                 <label
-                  v-for="v in vehicleOptions"
+                  v-for="v in currentVehicleOptions"
                   :key="v.value"
                   class="flex items-center gap-3 border rounded-xl p-3 cursor-pointer transition-all"
                   :class="vehicleType === v.value ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'"
@@ -108,12 +161,12 @@
             <!-- Notas -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
-                Notas para el conductor <span class="text-gray-400 font-normal">(opcional)</span>
+                {{ serviceType === 'FLETE' ? 'Notas para el transportista' : 'Notas para el conductor' }} <span class="text-gray-400 font-normal">(opcional)</span>
               </label>
               <textarea
                 v-model="notes"
                 rows="2"
-                placeholder="Ej: Llevaré una maleta grande, portón verde..."
+                :placeholder="serviceType === 'FLETE' ? 'Ej: Tocar el timbre, preguntar por portería...' : 'Ej: Llevaré una maleta grande, portón verde...'"
                 class="input-field resize-none"
               />
             </div>
@@ -204,23 +257,31 @@
           </div>
 
           <div class="p-5 space-y-4">
+            <span v-if="activeCorrida.serviceType === 'FLETE'" class="badge bg-amber-100 text-amber-800">📦 Flete</span>
+
             <!-- Ruta -->
             <div class="relative pl-5 space-y-3">
               <div class="absolute left-2 top-2 bottom-2 w-0.5 bg-gray-200"></div>
               <div class="flex items-start gap-3">
                 <span class="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 relative z-10">A</span>
                 <div>
-                  <p class="text-[10px] text-gray-400">Origen</p>
+                  <p class="text-[10px] text-gray-400">{{ activeCorrida.serviceType === 'FLETE' ? 'Recogida' : 'Origen' }}</p>
                   <p class="text-sm font-medium text-gray-900">{{ activeCorrida.origin }}</p>
                 </div>
               </div>
               <div class="flex items-start gap-3">
                 <span class="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 relative z-10">B</span>
                 <div>
-                  <p class="text-[10px] text-gray-400">Destino</p>
+                  <p class="text-[10px] text-gray-400">{{ activeCorrida.serviceType === 'FLETE' ? 'Entrega' : 'Destino' }}</p>
                   <p class="text-sm font-medium text-gray-900">{{ activeCorrida.destination }}</p>
                 </div>
               </div>
+            </div>
+
+            <!-- Datos de carga (flete) -->
+            <div v-if="activeCorrida.serviceType === 'FLETE' && (activeCorrida.recipientName || activeCorrida.cargoDescription)" class="p-3 bg-amber-50 rounded-xl text-xs text-gray-600 space-y-1">
+              <p v-if="activeCorrida.recipientName"><span class="font-medium text-gray-700">Destinatario:</span> {{ activeCorrida.recipientName }} {{ activeCorrida.recipientPhone ? `· ${activeCorrida.recipientPhone}` : '' }}</p>
+              <p v-if="activeCorrida.cargoDescription"><span class="font-medium text-gray-700">Carga:</span> {{ activeCorrida.cargoDescription }} {{ activeCorrida.cargoWeight ? `· ${activeCorrida.cargoWeight} kg` : '' }}</p>
             </div>
 
             <!-- Conductor -->
@@ -290,9 +351,10 @@
       <div v-else class="grid gap-4 sm:grid-cols-2">
         <div v-for="corrida in availableCorridas" :key="corrida.id" class="card p-5 space-y-4">
           <div class="flex items-start justify-between">
-            <span class="badge bg-gray-100 text-gray-700">
-              {{ corrida.vehicleType === 'MOTO' ? '🏍️ Moto' : '🚗 Auto' }}
-            </span>
+            <div class="flex items-center gap-2">
+              <span v-if="corrida.serviceType === 'FLETE'" class="badge bg-amber-100 text-amber-800">📦 Flete</span>
+              <span class="badge bg-gray-100 text-gray-700">{{ vehicleLabel(corrida.vehicleType) }}</span>
+            </div>
             <div class="text-right">
               <p class="text-xl font-bold text-red-600">${{ corrida.price ?? '--' }}</p>
               <p class="text-xs text-gray-400">{{ timeAgo(corrida.createdAt) }}</p>
@@ -309,6 +371,10 @@
               <span class="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 relative z-10">B</span>
               <p class="text-sm text-gray-700 leading-snug">{{ corrida.destination }}</p>
             </div>
+          </div>
+
+          <div v-if="corrida.serviceType === 'FLETE' && corrida.cargoDescription" class="text-xs text-gray-500">
+            <span class="font-medium text-gray-700">Carga:</span> {{ corrida.cargoDescription }} {{ corrida.cargoWeight ? `· ${corrida.cargoWeight} kg` : '' }}
           </div>
 
           <div v-if="corrida.distance || corrida.duration" class="flex gap-4 text-xs text-gray-500">
@@ -377,7 +443,7 @@
                     'bg-red-100':    corrida.status === 'CANCELLED',
                   }"
                 >
-                  <span class="text-lg">{{ corrida.vehicleType === 'MOTO' ? '🏍️' : '🚗' }}</span>
+                  <span class="text-lg">{{ vehicleEmoji(corrida.vehicleType) }}</span>
                 </div>
 
                 <div class="flex-1 min-w-0">
@@ -385,11 +451,12 @@
                     <span class="badge" :class="statusBadgeClass(corrida.status)">
                       {{ statusText(corrida.status) }}
                     </span>
+                    <span v-if="corrida.serviceType === 'FLETE'" class="badge bg-amber-100 text-amber-800">📦 Flete</span>
                     <span v-if="corrida.driverName && !canManageCorridas" class="text-xs text-gray-400">
-                      Conductor: {{ corrida.driverName }}
+                      {{ corrida.serviceType === 'FLETE' ? 'Transportista' : 'Conductor' }}: {{ corrida.driverName }}
                     </span>
                     <span v-if="corrida.passengerName && canManageCorridas" class="text-xs text-gray-400">
-                      Pasajero: {{ corrida.passengerName }}
+                      {{ corrida.serviceType === 'FLETE' ? 'Remitente' : 'Pasajero' }}: {{ corrida.passengerName }}
                     </span>
                   </div>
                   <div class="text-xs text-gray-500 mt-1 space-y-0.5">
@@ -402,6 +469,9 @@
                       {{ corrida.destination }}
                     </p>
                   </div>
+                  <p v-if="corrida.serviceType === 'FLETE' && corrida.recipientName" class="text-[10px] text-gray-400 mt-1">
+                    Destinatario: {{ corrida.recipientName }}
+                  </p>
                   <p class="text-[10px] text-gray-400 mt-1.5">{{ formatDate(corrida.createdAt) }}</p>
                 </div>
 
@@ -602,30 +672,58 @@ onUnmounted(stopElapsedTimer)
 
 const originPlace      = ref<PlaceSuggestion | null>(null)
 const destinationPlace = ref<PlaceSuggestion | null>(null)
-const vehicleType      = ref<'MOTO' | 'AUTO'>('MOTO')
+const serviceType      = ref<'PASAJERO' | 'FLETE'>('PASAJERO')
+const vehicleType      = ref<'MOTO' | 'AUTO' | 'CAMIONETA' | 'CAMION'>('MOTO')
 const notes            = ref('')
+const recipientName    = ref('')
+const recipientPhone   = ref('')
+const cargoDescription = ref('')
+const cargoWeight      = ref<number | null>(null)
+const declaredValue    = ref<number | null>(null)
 
-const vehicleOptions = [
+const serviceTypeOptions = [
+  { value: 'PASAJERO', icon: '🧍', label: 'Pasajero', desc: 'Viaje de persona a persona' },
+  { value: 'FLETE',    icon: '📦', label: 'Flete / Entrega', desc: 'Transporte de carga o paquetes' },
+]
+
+const passengerVehicleOptions = [
   { value: 'MOTO', icon: '🏍️', label: 'Moto', desc: 'Más rápido' },
   { value: 'AUTO', icon: '🚗', label: 'Auto', desc: 'Más espacio' },
 ]
+
+const fleteVehicleOptions = [
+  { value: 'MOTO',      icon: '🏍️', label: 'Moto',      desc: 'Paquetes pequeños' },
+  { value: 'AUTO',      icon: '🚗', label: 'Auto',      desc: 'Cargas medianas' },
+  { value: 'CAMIONETA', icon: '🛻', label: 'Camioneta', desc: 'Cargas grandes' },
+  { value: 'CAMION',    icon: '🚚', label: 'Camión',    desc: 'Mudanzas y carga pesada' },
+]
+
+const currentVehicleOptions = computed(() => serviceType.value === 'FLETE' ? fleteVehicleOptions : passengerVehicleOptions)
+
+watch(serviceType, () => {
+  vehicleType.value = 'MOTO'
+  priceEstimate.value = null
+  if (canCalculate.value) autoCalculatePrice()
+})
 
 // ─── Computados ───────────────────────────────────────────────────────────────
 const canCalculate = computed(() => !!originPlace.value && !!destinationPlace.value)
 const canSubmit    = computed(() => canCalculate.value && !!priceEstimate.value)
 
+const TRANSPORTE_SUBCATEGORIES = ['carros', 'motos', 'Mudanzas', 'Delivery']
+
 const canViewAvailableCorridas = computed(() =>
   userCategory.value === 'Transporte' &&
-  (userSubcategory.value === 'carros' || userSubcategory.value === 'motos')
+  TRANSPORTE_SUBCATEGORIES.includes(userSubcategory.value ?? '')
 )
 
 const availableCorridas = computed(() => corridas.value.filter((c: Corrida) => c.status === 'PENDING'))
 const historyList       = computed(() => canManageCorridas.value ? corridas.value : myCorridas.value)
 
 const subtitleText = computed(() => {
-  if (canManageCorridas.value && canRequestCorrida.value) return 'Solicita viajes o acepta corridas como conductor'
-  if (canManageCorridas.value) return 'Gestiona corridas como conductor'
-  return 'Solicita viajes rápidos y seguros'
+  if (canManageCorridas.value && canRequestCorrida.value) return 'Solicita viajes, fletes o acepta corridas como conductor'
+  if (canManageCorridas.value) return 'Gestiona corridas y fletes como conductor'
+  return 'Solicita viajes y fletes rápidos y seguros'
 })
 
 const historySubtitle = computed(() =>
@@ -688,6 +786,17 @@ function formatPrice(n: number) {
   return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(n)
 }
 
+const VEHICLE_EMOJI: Record<string, string> = { MOTO: '🏍️', AUTO: '🚗', CAMIONETA: '🛻', CAMION: '🚚' }
+const VEHICLE_LABEL: Record<string, string> = { MOTO: 'Moto', AUTO: 'Auto', CAMIONETA: 'Camioneta', CAMION: 'Camión' }
+
+function vehicleEmoji(v: string) {
+  return VEHICLE_EMOJI[v] ?? '🚗'
+}
+
+function vehicleLabel(v: string) {
+  return `${vehicleEmoji(v)} ${VEHICLE_LABEL[v] ?? v}`
+}
+
 // ─── Autocomplete ─────────────────────────────────────────────────────────────
 function onOriginSelected(_: PlaceSuggestion) {
   priceEstimate.value = null
@@ -729,6 +838,7 @@ async function handleSubmitRequest() {
   }
   try {
     await createCorrida({
+      serviceType: serviceType.value,
       origin: originPlace.value.label,
       destination: destinationPlace.value.label,
       originLat: originPlace.value.lat,
@@ -737,9 +847,18 @@ async function handleSubmitRequest() {
       destinationLng: destinationPlace.value.lng,
       vehicleType: vehicleType.value,
       notes: notes.value,
+      ...(serviceType.value === 'FLETE' ? {
+        recipientName: recipientName.value || undefined,
+        recipientPhone: recipientPhone.value || undefined,
+        cargoDescription: cargoDescription.value || undefined,
+        cargoWeight: cargoWeight.value ?? undefined,
+        declaredValue: declaredValue.value ?? undefined,
+      } : {}),
     })
     originPlace.value = null; destinationPlace.value = null
     notes.value = ''; priceEstimate.value = null
+    recipientName.value = ''; recipientPhone.value = ''
+    cargoDescription.value = ''; cargoWeight.value = null; declaredValue.value = null
     activeTab.value = 'history'
     refreshHistory()
   } catch { /* error en banner global */ }

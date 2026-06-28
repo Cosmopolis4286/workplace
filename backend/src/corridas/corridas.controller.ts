@@ -4,6 +4,7 @@ import {
   Post,
   Patch,
   Param,
+  Query,
   Body,
   UseGuards,
   HttpCode,
@@ -16,7 +17,7 @@ import { RequirePermission } from '../common/decorators/require-permission.decor
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreateCorridaDto } from './dto/create-corrida.dto';
 import { CalculatePriceDto } from './dto/calculate-price.dto';
-import { CorridaStatus } from '@prisma/client';
+import { CorridaStatus, CorridaServiceType } from '@prisma/client';
 import { IsEnum } from 'class-validator';
 
 class UpdateCorridaStatusDto {
@@ -40,8 +41,8 @@ export class CorridasController {
   // GET /api/corridas/available — PENDING rides for drivers
   @Get('available')
   @RequirePermission('corridas:manage')
-  findAvailable() {
-    return this.corridasService.findAvailable();
+  findAvailable(@Query('serviceType') serviceType?: CorridaServiceType) {
+    return this.corridasService.findAvailable(serviceType);
   }
 
   // GET /api/corridas/mine — passenger's own rides
