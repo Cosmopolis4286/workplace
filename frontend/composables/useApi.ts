@@ -15,7 +15,8 @@ export class ApiError extends Error {
 export function useApi() {
   const config = useRuntimeConfig()
   const base = config.public.apiUrl as string
-  const { getHeaders, refreshAccessToken } = useAuth()
+  const { getHeaders, refreshAccessToken, clearSession } = useAuth()
+  const router = useRouter()
 
   // FormData fija su propio Content-Type con boundary; forzar 'application/json'
   // rompería el multipart, así que solo se agrega para bodies JSON.
@@ -63,7 +64,20 @@ export function useApi() {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      throw new ApiError(body.message ?? `Error ${res.status}`, res.status)
+      const message = body.message ?? `Error ${res.status}`
+
+      // El JWT sigue siendo válido pero la sesión en Redis expiró por
+      // inactividad (30 min, ver jwt.strategy.ts) — el backend devuelve 403
+      // con este mensaje específico, no 401, así que un refresh de token no
+      // lo resuelve (el problema es la sesión, no el JWT). Cualquier otro 403
+      // es una regla de negocio (sin permiso para ESA acción puntual) y no
+      // debe forzar logout.
+      if (res.status === 403 && typeof message === 'string' && message.includes('inactividad')) {
+        clearSession()
+        router.push('/login')
+      }
+
+      throw new ApiError(message, res.status)
     }
 
     return (parseAs === 'blob' ? res.blob() : res.json()) as Promise<T>

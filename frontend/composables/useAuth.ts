@@ -184,6 +184,15 @@ export const useAuth = () => {
         if (!refreshed) throw err
         return $fetch<T>(url, { ...options, headers: { ...getHeaders(), ...(options.headers ?? {}) } })
       }
+      // JWT válido pero sesión en Redis expirada por inactividad (ver
+      // jwt.strategy.ts) — el backend devuelve 403 con este mensaje
+      // específico; refrescar el token no ayuda, hay que forzar login.
+      const message = (err as { data?: { message?: string }; message?: string })?.data?.message
+        ?? (err as { message?: string })?.message
+      if (status === 403 && typeof message === 'string' && message.includes('inactividad')) {
+        clearSession()
+        if (process.client) useRouter().push('/login')
+      }
       throw err
     }
   }
@@ -403,6 +412,7 @@ export const useAuth = () => {
     register,
     logout,
     setSession,
+    clearSession,
     updateLocalUser,
     saveProfile,
     changePassword,
