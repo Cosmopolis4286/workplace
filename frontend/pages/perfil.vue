@@ -189,7 +189,7 @@
                 />
               </div>
 
-              <!-- Venezuela: Estado/Municipio/Ciudad en cascada contra el catálogo VE -->
+              <!-- Venezuela: Estado → Municipio → Ciudad en cascada contra el catálogo VE -->
               <template v-if="isVenezuelaProfile">
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Estado</label>
@@ -201,13 +201,38 @@
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">Municipio / Ciudad</label>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Municipio</label>
+                  <SearchableSelect
+                    v-model="profileForm.municipality"
+                    :options="veMunicipios.map(m => m.name)"
+                    :disabled="!profileForm.state"
+                    placeholder="Selecciona un municipio"
+                    @update:model-value="onProfileMunicipalityChange"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
                   <SearchableSelect
                     v-model="profileForm.city"
-                    :options="veCiudadesFlat.map(c => c.name)"
-                    :disabled="!profileForm.state"
+                    :options="veCiudades.map(c => c.name)"
+                    :disabled="!profileForm.municipality"
                     placeholder="Selecciona una ciudad"
+                    @update:model-value="onProfileCityChange"
                   />
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    Parroquia <span class="text-gray-400 font-normal">(opcional)</span>
+                  </label>
+                  <SearchableSelect
+                    v-model="profileForm.parish"
+                    :options="veParroquias.map(p => p.name)"
+                    :disabled="!profileForm.city"
+                    placeholder="Selecciona una parroquia"
+                  />
+                  <p v-if="selectedParishPostalCode" class="text-xs text-gray-400 mt-1">
+                    Código postal: {{ selectedParishPostalCode }}
+                  </p>
                 </div>
               </template>
 
@@ -750,35 +775,63 @@ const successMsg = ref('')
 const errorMsg = ref('')
 let successTimer: ReturnType<typeof setTimeout> | null = null
 
-const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '', categoryId: '', country: '', state: '', city: '' })
+const profileForm = ref({ firstName: '', lastName: '', email: '', phone: '', username: '', categoryId: '', country: '', state: '', city: '', municipality: '', parish: '' })
 const passwordForm = ref({ current: '', new: '', confirm: '' })
 
-// ─── Ubicación: catálogo VE en cascada cuando country=Venezuela ──────────────
+// ─── Ubicación: catálogo VE en cascada Estado→Municipio→Ciudad→Parroquia ─────
 const { getCountries } = useLocationData()
-const { getStates: getVeStates, getMunicipios: getVeMunicipios, getCiudades: getVeCiudades } = useVeLocations()
+const { getStates: getVeStates, getMunicipios: getVeMunicipios, getCiudades: getVeCiudades, getParroquias: getVeParroquias } = useVeLocations()
 
 const countryNames = computed(() => getCountries().map((c) => c.name))
 const isVenezuelaProfile = computed(() => profileForm.value.country.trim().toLowerCase() === 'venezuela')
 
 const veStates = ref<string[]>([])
-const veCiudadesFlat = ref<{ id: string; name: string }[]>([])
+const veMunicipios = ref<VeMunicipio[]>([])
+const veCiudades = ref<VeCiudad[]>([])
+const veParroquias = ref<{ id: string; name: string; postalCode: string | null }[]>([])
 
-async function loadVeCiudadesForState(state: string) {
-  veCiudadesFlat.value = []
-  if (!state) return
-  const municipios: VeMunicipio[] = await getVeMunicipios(state)
-  const ciudadesPerMunicipio = await Promise.all(municipios.map((m) => getVeCiudades(m.id)))
-  veCiudadesFlat.value = ciudadesPerMunicipio.flat().map((c: VeCiudad) => ({ id: c.id, name: c.name }))
+const selectedParishPostalCode = computed(() => {
+  const p = veParroquias.value.find((p) => p.name === profileForm.value.parish)
+  return p?.postalCode ?? null
+})
+
+async function loadVeMunicipios(state: string) {
+  veMunicipios.value = state ? await getVeMunicipios(state) : []
+}
+
+async function loadVeCiudades(municipioName: string) {
+  veCiudades.value = []
+  const municipio = veMunicipios.value.find((m) => m.name === municipioName)
+  if (municipio) veCiudades.value = await getVeCiudades(municipio.id)
+}
+
+async function loadVeParroquias(ciudadName: string) {
+  veParroquias.value = []
+  const ciudad = veCiudades.value.find((c) => c.name === ciudadName)
+  if (ciudad) veParroquias.value = await getVeParroquias(ciudad.id)
 }
 
 function onProfileCountryChange() {
   if (!isVenezuelaProfile.value) return
   profileForm.value.state = ''
+  profileForm.value.municipality = ''
   profileForm.value.city = ''
+  profileForm.value.parish = ''
 }
 
 function onProfileStateChange() {
+  profileForm.value.municipality = ''
   profileForm.value.city = ''
+  profileForm.value.parish = ''
+}
+
+function onProfileMunicipalityChange() {
+  profileForm.value.city = ''
+  profileForm.value.parish = ''
+}
+
+function onProfileCityChange() {
+  profileForm.value.parish = ''
 }
 
 watch(isVenezuelaProfile, (isVe) => {
@@ -788,8 +841,17 @@ watch(isVenezuelaProfile, (isVe) => {
 }, { immediate: true })
 
 watch(() => profileForm.value.state, (state) => {
-  if (isVenezuelaProfile.value && state) loadVeCiudadesForState(state)
+  if (isVenezuelaProfile.value && state) loadVeMunicipios(state)
 })
+
+watch(() => profileForm.value.municipality, (municipality) => {
+  if (isVenezuelaProfile.value && municipality) loadVeCiudades(municipality)
+})
+
+watch(() => profileForm.value.city, (city) => {
+  if (isVenezuelaProfile.value && city) loadVeParroquias(city)
+})
+
 const showPasswords = ref({ current: false, new: false, confirm: false })
 
 // ─── Active sessions ──────────────────────────────────────────────────────────
@@ -933,7 +995,9 @@ const profileDirty = computed(() => {
     profileForm.value.categoryId !== ((u as any).categoryId ?? '') ||
     profileForm.value.country !== (u.country ?? '') ||
     profileForm.value.state !== (u.state ?? '') ||
-    profileForm.value.city !== (u.city ?? '')
+    profileForm.value.city !== (u.city ?? '') ||
+    profileForm.value.municipality !== (u.municipality ?? '') ||
+    profileForm.value.parish !== (u.parish ?? '')
   )
 })
 
@@ -984,6 +1048,8 @@ function syncFormFromUser() {
     country: u.country ?? '',
     state: u.state ?? '',
     city: u.city ?? '',
+    municipality: u.municipality ?? '',
+    parish: u.parish ?? '',
   }
   usernameStatus.value = 'idle'
 }
@@ -1068,6 +1134,8 @@ async function saveProfile() {
       country: profileForm.value.country || undefined,
       state: profileForm.value.state || undefined,
       city: profileForm.value.city || undefined,
+      municipality: profileForm.value.municipality || undefined,
+      parish: profileForm.value.parish || undefined,
     } as any)
     usernameStatus.value = 'idle'
     showSuccess('Perfil actualizado correctamente')
