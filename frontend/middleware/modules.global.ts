@@ -27,7 +27,6 @@ const ROUTE_MODULE_MAP: Record<string, string> = {
   '/servicios':            'services',
   '/solicitudes-servicio': 'service_requests',
   '/corridas':             'corridas',       // ← faltaba
-  '/search':               'catalog',
   '/mis-pedidos':          'orders',         // ← faltaba
 }
 

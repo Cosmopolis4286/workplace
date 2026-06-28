@@ -55,7 +55,13 @@ export class PlansController {
       where: { userId: user.id },
       select: { id: true },
     });
-    if (!commerce) return { limits: null, usage: null };
+    // Sin Restaurant (p.ej. FREELANCER): igual calculamos `limits` —
+    // effectiveModules no depende de tener un comercio — solo se omiten
+    // los contadores de uso (products/employees/branches/orders).
+    if (!commerce) {
+      const limits = await this.planLimitsService.getPlanLimits(user.id);
+      return { limits, usage: null };
+    }
     return this.planLimitsService.getUsage(user.id, commerce.id);
   }
 
