@@ -23,6 +23,27 @@
           Sistema activo
         </div>
         <div class="w-px h-8 bg-white/15"></div>
+
+        <!-- Tasa de cambio en vivo -->
+        <NuxtLink
+          v-if="defaultRate"
+          to="/tasas-cambio"
+          class="flex items-center gap-2 bg-white/10 hover:bg-white/20 rounded-xl px-3 py-1.5 transition-colors duration-200"
+          :title="`Actualizado ${lastUpdatedLabel}`"
+        >
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-300" />
+          </span>
+          <div class="text-right leading-tight">
+            <div class="text-sm font-semibold text-white tabular-nums">
+              1 USD = {{ defaultRate.rateToUsd.toLocaleString('es-VE', { maximumFractionDigits: 2 }) }} {{ defaultRate.code }}
+            </div>
+            <div class="text-[11px] text-white/60">{{ defaultRate.source || 'Tasa' }} · {{ lastUpdatedLabel }}</div>
+          </div>
+        </NuxtLink>
+
+        <div class="w-px h-8 bg-white/15"></div>
         <div class="text-right">
           <div class="text-lg font-semibold text-white leading-tight tabular-nums">{{ currentTime }}</div>
           <div class="text-[11px] text-white/60 capitalize">{{ formattedDate }}</div>
@@ -42,12 +63,27 @@ import {
   UserIcon,
 } from '@heroicons/vue/24/outline'
 import type { HeroConfig } from '~/config/dashboard.config'
+import { useExchangeRates } from '~/composables/useExchangeRates'
 
 interface Props {
   config: HeroConfig
 }
 
 const props = defineProps<Props>()
+
+// ── Tasa de cambio en vivo ──────────────────────────────────────────────────
+const { defaultRate, fetchRates } = useExchangeRates()
+let ratesTimer: ReturnType<typeof setInterval>
+const RATES_POLL_MS = 60_000
+
+const lastUpdatedLabel = computed(() => {
+  if (!defaultRate.value) return ''
+  const diffMin = Math.floor((Date.now() - new Date(defaultRate.value.updatedAt).getTime()) / 60_000)
+  if (diffMin < 1) return 'justo ahora'
+  if (diffMin < 60) return `hace ${diffMin} min`
+  const diffH = Math.floor(diffMin / 60)
+  return `hace ${diffH} h`
+})
 
 const gradientMap: Record<string, string> = {
   'from-purple-600 via-purple-500 to-indigo-600': 'bg-gradient-to-r from-purple-600 to-indigo-600',
@@ -99,7 +135,13 @@ onMounted(() => {
   }
   tick()
   clockTimer = setInterval(tick, 1000)
+
+  fetchRates(false, true)
+  ratesTimer = setInterval(() => fetchRates(false, true), RATES_POLL_MS)
 })
 
-onUnmounted(() => clearInterval(clockTimer))
+onUnmounted(() => {
+  clearInterval(clockTimer)
+  clearInterval(ratesTimer)
+})
 </script>
