@@ -8,7 +8,7 @@
     <div class="px-4 sm:px-6 lg:px-8 relative">
       <div class="flex justify-between h-16">
 
-        <!-- Left: Toggle + Logo + Breadcrumb -->
+        <!-- Left: Toggle + Page title -->
         <div class="flex items-center gap-3">
           <!-- Menu toggle -->
           <button
@@ -30,33 +30,18 @@
             </Transition>
           </button>
 
-          <!-- Logo -->
-          <NuxtLink to="/dashboard" class="flex items-center group">
-            <div class="relative">
-              <div class="absolute inset-0 bg-gradient-to-r from-workplace-red to-red-600 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
-              <div class="relative h-10 w-10 rounded-xl bg-gradient-to-br from-workplace-red to-red-700 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300">
-                <span class="text-white font-black text-lg">i</span>
-              </div>
-            </div>
-            <div class="ml-3 hidden sm:block">
-              <span class="text-2xl font-black bg-gradient-to-r from-workplace-red to-red-600 bg-clip-text text-transparent">WorkPlace</span>
-              <span class="text-xl font-bold ml-1" :class="isDark ? 'text-gray-200' : 'text-gray-700'">Manager</span>
-            </div>
-          </NuxtLink>
-
-          <!-- Divider + Page title -->
-          <div class="hidden md:flex items-center gap-2 ml-2">
-            <div class="h-6 w-px" :class="isDark ? 'bg-gray-700' : 'bg-gray-200'"></div>
-            <div class="flex items-center gap-1.5">
-              <component :is="currentPageIcon" class="h-4 w-4" :class="isDark ? 'text-gray-500' : 'text-gray-400'" />
-              <span class="text-sm font-medium" :class="isDark ? 'text-gray-400' : 'text-gray-600'">{{ currentPageTitle }}</span>
-            </div>
+          <!-- Page title -->
+          <div v-if="currentPageTitle" class="hidden md:flex items-center gap-2">
+            <component :is="currentPageIcon" class="h-5 w-5" :class="isDark ? 'text-gray-500' : 'text-gray-400'" />
+            <span class="text-base font-semibold" :class="isDark ? 'text-gray-200' : 'text-gray-800'">{{ currentPageTitle }}</span>
           </div>
         </div>
 
         <!-- Search -->
-        <div class="flex-1 flex items-center justify-center px-2 sm:px-4">
-          <GlobalSearchBar />
+        <div class="flex-1 flex items-center justify-center px-2 sm:px-6">
+          <div class="w-full max-w-2xl">
+            <GlobalSearchBar />
+          </div>
         </div>
 
         <!-- Right side -->

@@ -162,7 +162,7 @@
 
               <!-- Badge estado + precio -->
               <div class="flex-shrink-0 text-right space-y-1.5">
-                <span class="badge inline-flex items-center gap-1 justify-center" :class="STATUS_CLASSES[req.status]">
+                <span class="inline-flex items-center gap-1 justify-center px-2.5 py-1 rounded-full text-xs font-semibold" :class="STATUS_CLASSES[req.status]">
                   <component :is="STATUS_ICONS[req.status]" class="h-3 w-3" />
                   {{ STATUS_LABELS[req.status] }}
                 </span>
