@@ -46,15 +46,20 @@
 
         <!-- Right side -->
         <div class="flex items-center gap-3">
-          <!-- Commerce badge -->
-          <div
-            v-if="commerceName"
-            class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border"
-            :class="isDark ? 'bg-red-900/20 border-red-800/40' : 'bg-red-50 border-red-100'"
+          <!-- Public profile shortcut (COMMERCE / FREELANCER con username) -->
+          <a
+            v-if="publicProfileUrl"
+            :href="publicProfileUrl"
+            target="_blank"
+            rel="noopener"
+            class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors duration-200"
+            :class="isDark ? 'bg-red-900/20 border-red-800/40 hover:bg-red-900/30' : 'bg-red-50 border-red-100 hover:bg-red-100'"
+            title="Ver mi perfil público"
           >
             <BuildingStorefrontIcon class="h-4 w-4 text-workplace-red" />
-            <span class="text-sm font-medium text-workplace-red truncate max-w-32">{{ commerceName }}</span>
-          </div>
+            <span class="text-sm font-medium text-workplace-red truncate max-w-32">Perfil público</span>
+            <ArrowTopRightOnSquareIcon class="h-3.5 w-3.5 text-workplace-red/70" />
+          </a>
 
           <!-- Notifications -->
           <NotificationPanel />
@@ -218,6 +223,7 @@ import {
   SunIcon,
   MoonIcon,
   WalletIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/useAuth'
 
@@ -256,7 +262,12 @@ const avatarUrl = computed(() => {
 
 const userEmail = computed(() => user.value?.email ?? '')
 
-const commerceName = computed(() => user.value?.commerce?.name ?? '')
+const publicProfileUrl = computed(() => {
+  const u = user.value
+  if (!u?.username) return ''
+  if (u.role !== 'COMMERCE' && u.role !== 'FREELANCER') return ''
+  return `/p/${u.username}`
+})
 
 const ROLE_LABELS = {
   SUPERADMIN: 'Super Admin',
