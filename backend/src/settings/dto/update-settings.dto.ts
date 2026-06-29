@@ -44,6 +44,14 @@ export class UpdateRestaurantInfoDto {
   @IsOptional()
   @IsString()
   city?: string;
+
+  @IsOptional()
+  @IsString()
+  municipality?: string;
+
+  @IsOptional()
+  @IsString()
+  parish?: string;
 }
 
 export class UpdatePaymentSettingsDto {

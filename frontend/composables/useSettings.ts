@@ -12,6 +12,8 @@ export interface RestaurantInfo {
   country?: string
   state?: string
   city?: string
+  municipality?: string
+  parish?: string
 }
 
 export interface RestaurantSettings {

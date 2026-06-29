@@ -142,9 +142,11 @@ model Restaurant {
   email    String?
   schedule String?
 
-  country String?
-  state   String?
-  city    String?
+  country      String?
+  state        String?
+  city         String?
+  municipality String?
+  parish       String?
 
   userId            String                 @unique
   user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)

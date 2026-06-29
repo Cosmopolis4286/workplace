@@ -308,7 +308,7 @@
                 <input v-model="restaurantForm.email" type="email" class="input-field" placeholder="contacto@micomercio.com">
               </div>
             </div>
-            <div class="grid grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">País</label>
                 <SearchableSelect
@@ -319,6 +319,7 @@
                 />
               </div>
 
+              <!-- Venezuela: Estado → Municipio → Ciudad en cascada contra el catálogo VE -->
               <template v-if="isVenezuelaSettings">
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Estado</label>
@@ -330,12 +331,34 @@
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">Municipio / Ciudad</label>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Municipio</label>
+                  <SearchableSelect
+                    v-model="restaurantForm.municipality"
+                    :options="veMunicipios.map(m => m.name)"
+                    :disabled="!restaurantForm.state"
+                    placeholder="Selecciona un municipio"
+                    @update:model-value="onSettingsMunicipalityChange"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
                   <SearchableSelect
                     v-model="restaurantForm.city"
-                    :options="veCiudadesFlat.map(c => c.name)"
-                    :disabled="!restaurantForm.state"
+                    :options="veCiudades.map(c => c.name)"
+                    :disabled="!restaurantForm.municipality"
                     placeholder="Selecciona una ciudad"
+                    @update:model-value="onSettingsCityChange"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    Parroquia <span class="text-gray-400 font-normal">(opcional)</span>
+                  </label>
+                  <SearchableSelect
+                    v-model="restaurantForm.parish"
+                    :options="veParroquias.map(p => p.name)"
+                    :disabled="!restaurantForm.city"
+                    placeholder="Selecciona una parroquia"
                   />
                 </div>
               </template>
@@ -637,34 +660,57 @@ const {
   saveNotificationSettings,
 } = useSettings()
 
-const restaurantForm = ref({ name: '', type: '', address: '', phone: '', email: '', schedule: '', country: '', state: '', city: '' })
+const restaurantForm = ref({ name: '', type: '', address: '', phone: '', email: '', schedule: '', country: '', state: '', city: '', municipality: '', parish: '' })
 
-// ─── Ubicación: catálogo VE en cascada cuando country=Venezuela ──────────────
+// ─── Ubicación: catálogo VE en cascada Estado→Municipio→Ciudad→Parroquia ─────
 const { getCountries } = useLocationData()
-const { getStates: getVeStates, getMunicipios: getVeMunicipios, getCiudades: getVeCiudades } = useVeLocations()
+const { getStates: getVeStates, getMunicipios: getVeMunicipios, getCiudades: getVeCiudades, getParroquias: getVeParroquias } = useVeLocations()
 
 const countryNames = computed(() => getCountries().map((c) => c.name))
 const isVenezuelaSettings = computed(() => restaurantForm.value.country.trim().toLowerCase() === 'venezuela')
 
 const veStates = ref<string[]>([])
-const veCiudadesFlat = ref<{ id: string; name: string }[]>([])
+const veMunicipios = ref<VeMunicipio[]>([])
+const veCiudades = ref<VeCiudad[]>([])
+const veParroquias = ref<{ id: string; name: string; postalCode: string | null }[]>([])
 
-async function loadVeCiudadesForState(state: string) {
-  veCiudadesFlat.value = []
-  if (!state) return
-  const municipios: VeMunicipio[] = await getVeMunicipios(state)
-  const ciudadesPerMunicipio = await Promise.all(municipios.map((m) => getVeCiudades(m.id)))
-  veCiudadesFlat.value = ciudadesPerMunicipio.flat().map((c: VeCiudad) => ({ id: c.id, name: c.name }))
+async function loadVeMunicipios(state: string) {
+  veMunicipios.value = state ? await getVeMunicipios(state) : []
+}
+
+async function loadVeCiudades(municipioName: string) {
+  veCiudades.value = []
+  const municipio = veMunicipios.value.find((m) => m.name === municipioName)
+  if (municipio) veCiudades.value = await getVeCiudades(municipio.id)
+}
+
+async function loadVeParroquias(ciudadName: string) {
+  veParroquias.value = []
+  const ciudad = veCiudades.value.find((c) => c.name === ciudadName)
+  if (ciudad) veParroquias.value = await getVeParroquias(ciudad.id)
 }
 
 function onSettingsCountryChange() {
   if (!isVenezuelaSettings.value) return
   restaurantForm.value.state = ''
+  restaurantForm.value.municipality = ''
   restaurantForm.value.city = ''
+  restaurantForm.value.parish = ''
 }
 
 function onSettingsStateChange() {
+  restaurantForm.value.municipality = ''
   restaurantForm.value.city = ''
+  restaurantForm.value.parish = ''
+}
+
+function onSettingsMunicipalityChange() {
+  restaurantForm.value.city = ''
+  restaurantForm.value.parish = ''
+}
+
+function onSettingsCityChange() {
+  restaurantForm.value.parish = ''
 }
 
 watch(isVenezuelaSettings, (isVe) => {
@@ -674,7 +720,15 @@ watch(isVenezuelaSettings, (isVe) => {
 }, { immediate: true })
 
 watch(() => restaurantForm.value.state, (state) => {
-  if (isVenezuelaSettings.value && state) loadVeCiudadesForState(state)
+  if (isVenezuelaSettings.value && state) loadVeMunicipios(state)
+})
+
+watch(() => restaurantForm.value.municipality, (municipality) => {
+  if (isVenezuelaSettings.value && municipality) loadVeCiudades(municipality)
+})
+
+watch(() => restaurantForm.value.city, (city) => {
+  if (isVenezuelaSettings.value && city) loadVeParroquias(city)
 })
 
 const paymentForm = ref({ currency: 'MXN', tax: 16, suggestedTip: 10, paymentMethods: ['cash', 'card', 'transfer'] as string[] })
@@ -707,6 +761,8 @@ function syncForms() {
       country: restaurant.value.country ?? '',
       state: restaurant.value.state ?? '',
       city: restaurant.value.city ?? '',
+      municipality: restaurant.value.municipality ?? '',
+      parish: restaurant.value.parish ?? '',
     }
   }
   if (settings.value) {
