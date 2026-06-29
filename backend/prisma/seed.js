@@ -12,6 +12,7 @@ const DEMO_USERS = [
     firstName: 'Super',
     lastName: 'Admin',
     userType: 'APP',  // Usuario propio de la app, no demo
+    country: 'Venezuela', state: 'Distrito Capital', municipality: 'Libertador', city: 'Caracas', parish: 'Catedral',
   },
   {
     role: Role.ADMIN,
@@ -19,6 +20,7 @@ const DEMO_USERS = [
     password: 'Adm1n@Sec#2026',
     firstName: 'Admin',
     lastName: 'Demo',
+    country: 'Venezuela', state: 'Distrito Capital', municipality: 'Libertador', city: 'Caracas', parish: 'Altagracia',
   },
   {
     role: Role.COMMERCE,
@@ -29,6 +31,7 @@ const DEMO_USERS = [
     commerceName: 'Restaurante Demo',
     categoryName: 'Comida',
     subcategoryName: 'Restaurante',
+    country: 'Venezuela', state: 'Miranda', municipality: 'Chacao', city: 'Chacao', parish: 'Chacao',
   },
   {
     role: Role.COMMERCE,
@@ -39,6 +42,7 @@ const DEMO_USERS = [
     commerceName: 'Tech Solutions Demo',
     categoryName: 'Tecnología',
     subcategoryName: 'Desarrollo Web',
+    country: 'Venezuela', state: 'Miranda', municipality: 'Baruta', city: 'Baruta', parish: 'El Cafetal',
   },
   {
     role: Role.FREELANCER,
@@ -48,6 +52,7 @@ const DEMO_USERS = [
     lastName: 'Demo',
     categoryName: 'Diseño',
     subcategoryName: 'Diseño Gráfico',
+    country: 'Venezuela', state: 'Carabobo', municipality: 'Valencia', city: 'Valencia', parish: 'Urbana San José',
   },
   {
     role: Role.FREELANCER,
@@ -57,6 +62,7 @@ const DEMO_USERS = [
     lastName: 'Delivery',
     categoryName: 'Transporte',
     subcategoryName: 'Delivery',
+    country: 'Venezuela', state: 'Zulia', municipality: 'Maracaibo', city: 'Maracaibo', parish: 'Bolívar',
   },
   {
     role: Role.FREELANCER,
@@ -66,6 +72,7 @@ const DEMO_USERS = [
     lastName: 'González',
     categoryName: 'Comida',
     subcategoryName: 'Comida Rápida',
+    country: 'Venezuela', state: 'Lara', municipality: 'Iribarren', city: 'Barquisimeto', parish: 'Catedral',
   },
   {
     role: Role.NORMAL,
@@ -73,6 +80,7 @@ const DEMO_USERS = [
     password: 'N0rm4lUs3r!#2026',
     firstName: 'Usuario',
     lastName: 'Normal',
+    country: 'Venezuela', state: 'Aragua', municipality: 'Girardot', city: 'Maracay', parish: 'Las Delicias',
   },
 ]
 
@@ -1280,8 +1288,26 @@ async function main() {
           password: hashedPassword,
           categoryId: categoryId,
           subcategoryId: subcategoryId,
+          ...(demo.country && { country: demo.country }),
+          ...(demo.state && { state: demo.state }),
+          ...(demo.city && { city: demo.city }),
+          ...(demo.municipality && { municipality: demo.municipality }),
+          ...(demo.parish && { parish: demo.parish }),
         },
       })
+
+      if (demo.commerceName) {
+        await prisma.restaurant.updateMany({
+          where: { user: { email: demo.email } },
+          data: {
+            ...(demo.country && { country: demo.country }),
+            ...(demo.state && { state: demo.state }),
+            ...(demo.city && { city: demo.city }),
+            ...(demo.municipality && { municipality: demo.municipality }),
+            ...(demo.parish && { parish: demo.parish }),
+          },
+        })
+      }
       const categoryInfo = categoryId ? ` | 📦 ${demo.categoryName}${demo.subcategoryName ? ' → ' + demo.subcategoryName : ''}` : ''
       console.log(`✅ [${demo.role}] Updated (role, userType, password & category refreshed): ${demo.email}${categoryInfo}`)
       continue
@@ -1325,8 +1351,13 @@ async function main() {
         userType: demo.userType || 'DEMO',  // Usar el tipo definido o default 'DEMO'
         categoryId: categoryId,
         subcategoryId: subcategoryId,
+        ...(demo.country && { country: demo.country }),
+        ...(demo.state && { state: demo.state }),
+        ...(demo.city && { city: demo.city }),
+        ...(demo.municipality && { municipality: demo.municipality }),
+        ...(demo.parish && { parish: demo.parish }),
         ...(demo.commerceName
-          ? { commerce: { create: { name: demo.commerceName } } }
+          ? { commerce: { create: { name: demo.commerceName, country: demo.country, state: demo.state, city: demo.city, municipality: demo.municipality, parish: demo.parish } } }
           : {}),
       },
       include: { commerce: true, category: true, subcategory: true },
