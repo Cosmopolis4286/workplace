@@ -35,6 +35,17 @@ export class OrdersService {
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
+  // Helpers
+  // ──────────────────────────────────────────────────────────────────────────
+  async getCommerceId(userId: string): Promise<string> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    return restaurant?.id ?? userId;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // Stats
   // ──────────────────────────────────────────────────────────────────────────
   async getStats(commerceId: string) {

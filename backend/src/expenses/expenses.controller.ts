@@ -44,87 +44,98 @@ export class ExpensesController {
 
   @Get('stats')
   @RequirePermission('expenses:view')
-  getStats(@CurrentUser() user: any) {
-    return this.expensesService.getStats(user.commerceId);
+  async getStats(@CurrentUser() user: any) {
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.getStats(commerceId);
   }
 
   // ── Categories ─────────────────────────────────────────────────────────────
 
   @Get('categories')
   @RequirePermission('expenses:view')
-  findAllCategories(@CurrentUser() user: any) {
-    return this.expensesService.findAllCategories(user.commerceId);
+  async findAllCategories(@CurrentUser() user: any) {
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.findAllCategories(commerceId);
   }
 
   @Post('categories')
   @RequirePermission('expenses:create')
-  createCategory(
+  async createCategory(
     @CurrentUser() user: any,
     @Body() dto: CreateExpenseCategoryDto
   ) {
-    return this.expensesService.createCategory(user.commerceId, dto);
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.createCategory(commerceId, dto);
   }
 
   @Put('categories/:id')
   @RequirePermission('expenses:edit')
-  updateCategory(
+  async updateCategory(
     @Param('id') id: string,
     @CurrentUser() user: any,
     @Body() dto: UpdateExpenseCategoryDto
   ) {
-    return this.expensesService.updateCategory(id, user.commerceId, dto);
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.updateCategory(id, commerceId, dto);
   }
 
   @Delete('categories/:id')
   @RequirePermission('expenses:delete')
-  removeCategory(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.expensesService.removeCategory(id, user.commerceId);
+  async removeCategory(@Param('id') id: string, @CurrentUser() user: any) {
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.removeCategory(id, commerceId);
   }
 
   // ── Expenses ───────────────────────────────────────────────────────────────
 
   @Get()
   @RequirePermission('expenses:view')
-  findAll(@CurrentUser() user: any, @Query() query: QueryExpensesDto) {
-    return this.expensesService.findAll(user.commerceId, query);
+  async findAll(@CurrentUser() user: any, @Query() query: QueryExpensesDto) {
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.findAll(commerceId, query);
   }
 
   @Get(':id')
   @RequirePermission('expenses:view')
-  findOne(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.expensesService.findOne(id, user.commerceId);
+  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.findOne(id, commerceId);
   }
 
   @Post()
   @RequirePermission('expenses:create')
-  create(@CurrentUser() user: any, @Body() dto: CreateExpenseDto) {
-    return this.expensesService.create(user.commerceId, dto);
+  async create(@CurrentUser() user: any, @Body() dto: CreateExpenseDto) {
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.create(commerceId, dto);
   }
 
   @Put(':id')
   @RequirePermission('expenses:edit')
-  update(
+  async update(
     @Param('id') id: string,
     @CurrentUser() user: any,
     @Body() dto: UpdateExpenseDto
   ) {
-    return this.expensesService.update(id, user.commerceId, dto);
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.update(id, commerceId, dto);
   }
 
   @Patch(':id/status')
   @RequirePermission('expenses:edit')
-  updateStatus(
+  async updateStatus(
     @Param('id') id: string,
     @CurrentUser() user: any,
     @Body() dto: PatchStatusDto
   ) {
-    return this.expensesService.updateStatus(id, user.commerceId, dto.status);
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.updateStatus(id, commerceId, dto.status);
   }
 
   @Delete(':id')
   @RequirePermission('expenses:delete')
-  remove(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.expensesService.remove(id, user.commerceId);
+  async remove(@Param('id') id: string, @CurrentUser() user: any) {
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    return this.expensesService.remove(id, commerceId);
   }
 
   @Post(':id/receipt')
@@ -157,15 +168,16 @@ export class ExpensesController {
       limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
     })
   )
-  uploadReceipt(
+  async uploadReceipt(
     @Param('id') id: string,
     @CurrentUser() user: any,
     @UploadedFile() file: Express.Multer.File
   ) {
     if (!file) throw new BadRequestException('No se recibió ningún archivo');
+    const commerceId = await this.expensesService.getCommerceId(user.id);
     return this.expensesService.updateReceipt(
       id,
-      user.commerceId,
+      commerceId,
       `/uploads/expenses/${file.filename}`
     );
   }

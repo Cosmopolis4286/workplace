@@ -59,48 +59,54 @@ export class OrdersController {
 
   @Get('stats')
   @RequirePermission('orders:view')
-  getStats(@CurrentUser() user: any) {
-    return this.ordersService.getStats(user.commerceId);
+  async getStats(@CurrentUser() user: any) {
+    const commerceId = await this.ordersService.getCommerceId(user.id);
+    return this.ordersService.getStats(commerceId);
   }
 
   @Get()
   @RequirePermission('orders:view')
-  findAll(@CurrentUser() user: any, @Query() query: QueryOrdersDto) {
-    return this.ordersService.findAll(user.commerceId, query);
+  async findAll(@CurrentUser() user: any, @Query() query: QueryOrdersDto) {
+    const commerceId = await this.ordersService.getCommerceId(user.id);
+    return this.ordersService.findAll(commerceId, query);
   }
 
   @Get(':id')
   @RequirePermission('orders:view')
-  findOne(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.ordersService.findOne(id, user.commerceId);
+  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    const commerceId = await this.ordersService.getCommerceId(user.id);
+    return this.ordersService.findOne(id, commerceId);
   }
 
   @Post()
   @RequirePermission('orders:create')
-  create(@CurrentUser() user: any, @Body() dto: CreateOrderDto) {
-    return this.ordersService.create(user.commerceId, dto, user.sub);
+  async create(@CurrentUser() user: any, @Body() dto: CreateOrderDto) {
+    const commerceId = await this.ordersService.getCommerceId(user.id);
+    return this.ordersService.create(commerceId, dto, user.id);
   }
 
   @Put(':id')
   @RequirePermission('orders:edit')
-  update(
+  async update(
     @Param('id') id: string,
     @CurrentUser() user: any,
     @Body() dto: UpdateOrderDto
   ) {
-    return this.ordersService.update(id, user.commerceId, dto);
+    const commerceId = await this.ordersService.getCommerceId(user.id);
+    return this.ordersService.update(id, commerceId, dto);
   }
 
   @Patch(':id/status')
   @RequirePermission('orders:change_status')
-  updateStatus(
+  async updateStatus(
     @Param('id') id: string,
     @CurrentUser() user: any,
     @Body() dto: PatchStatusDto
   ) {
+    const commerceId = await this.ordersService.getCommerceId(user.id);
     return this.ordersService.updateStatus(
       id,
-      user.commerceId,
+      commerceId,
       dto.status,
       dto.cancelReason
     );
@@ -108,7 +114,8 @@ export class OrdersController {
 
   @Delete(':id')
   @RequirePermission('orders:delete')
-  remove(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.ordersService.remove(id, user.commerceId);
+  async remove(@Param('id') id: string, @CurrentUser() user: any) {
+    const commerceId = await this.ordersService.getCommerceId(user.id);
+    return this.ordersService.remove(id, commerceId);
   }
 }
