@@ -3,6 +3,7 @@ import { UsersService } from '../../users/users.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { MailService } from '../../mail/mail.service'
 import { Role } from '@prisma/client'
+import { I18nService } from 'nestjs-i18n'
 
 describe('UsersService', () => {
   let service: UsersService
@@ -23,6 +24,14 @@ describe('UsersService', () => {
     sendSecurityAlert: jest.fn().mockResolvedValue(undefined),
   }
 
+  const I18N_MESSAGES: Record<string, string> = {
+    'users.not_found': 'Usuario no encontrado',
+    'users.deleted': 'Usuario eliminado correctamente',
+  }
+  const mockI18nService = {
+    t: jest.fn((key: string) => I18N_MESSAGES[key] ?? key),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -34,6 +43,10 @@ describe('UsersService', () => {
         {
           provide: MailService,
           useValue: mockMailService,
+        },
+        {
+          provide: I18nService,
+          useValue: mockI18nService,
         },
       ],
     }).compile()

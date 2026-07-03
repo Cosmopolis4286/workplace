@@ -1,0 +1,199 @@
+import { Test, TestingModule } from '@nestjs/testing'
+import { PlanLimitsService } from '../../plans/plan-limits.service'
+import { PrismaService } from '../../prisma/prisma.service'
+import { SystemModulesService } from '../../system-modules/system-modules.service'
+import { ForbiddenException } from '@nestjs/common'
+import { Role } from '@prisma/client'
+
+describe('PlanLimitsService', () => {
+  let service: PlanLimitsService
+
+  const mockPrismaService = {
+    user: { findUnique: jest.fn() },
+    subscription: { findFirst: jest.fn() },
+    userCategory: { findUnique: jest.fn() },
+    restaurant: { findUnique: jest.fn() },
+    product: { count: jest.fn() },
+    employee: { count: jest.fn() },
+    branch: { count: jest.fn() },
+    order: { count: jest.fn() },
+  }
+
+  const mockSystemModulesService = {
+    getDisabledModules: jest.fn().mockResolvedValue([]),
+  }
+
+  const userId = 'user-123'
+  const commerceId = 'commerce-123'
+
+  beforeEach(async () => {
+    jest.clearAllMocks()
+    mockSystemModulesService.getDisabledModules.mockResolvedValue([])
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PlanLimitsService,
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: SystemModulesService, useValue: mockSystemModulesService },
+      ],
+    }).compile()
+
+    service = module.get<PlanLimitsService>(PlanLimitsService)
+  })
+
+  it('should be defined', () => {
+    expect(service).toBeDefined()
+  })
+
+  describe('getPlanLimits — role bypass', () => {
+    it.each([Role.SUPERADMIN, Role.ADMIN, Role.NORMAL])(
+      'grants unlimited limits to %s regardless of subscription',
+      async (role) => {
+        mockPrismaService.user.findUnique.mockResolvedValue({ role, categoryId: null })
+
+        const limits = await service.getPlanLimits(userId)
+
+        expect(limits.maxProducts).toBe(-1)
+        expect(limits.maxEmployees).toBe(-1)
+        expect(limits.planName).toBe('Sin límite')
+        // Nunca debe consultar suscripción para estos roles.
+        expect(mockPrismaService.subscription.findFirst).not.toHaveBeenCalled()
+      }
+    )
+
+    it('respects the global kill-switch even for SUPERADMIN', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.SUPERADMIN, categoryId: null })
+      mockSystemModulesService.getDisabledModules.mockResolvedValue(['menu'])
+
+      const limits = await service.getPlanLimits(userId)
+
+      expect(limits.effectiveModules).not.toContain('menu')
+    })
+  })
+
+  describe('getPlanLimits — COMMERCE with subscription', () => {
+    it('uses the active plan limits when a subscription exists', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Pro',
+          maxProducts: 50,
+          maxEmployees: 5,
+          maxBranches: 2,
+          maxOrders: 500,
+          maxStorage: 1000,
+          enabledModules: ['dashboard', 'menu', 'orders'],
+        },
+      })
+
+      const limits = await service.getPlanLimits(userId)
+
+      expect(limits.planName).toBe('Pro')
+      expect(limits.maxProducts).toBe(50)
+      expect(limits.effectiveModules).toEqual(['dashboard', 'menu', 'orders'])
+    })
+
+    it('falls back to free-tier limits when there is no active subscription', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.subscription.findFirst.mockResolvedValue(null)
+
+      const limits = await service.getPlanLimits(userId)
+
+      expect(limits.planName).toBe('Sin plan')
+      expect(limits.maxProducts).toBe(10)
+    })
+
+    it('intersects plan modules with category allowed modules', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: 'cat-1' })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Pro',
+          maxProducts: 50,
+          maxEmployees: 5,
+          maxBranches: 2,
+          maxOrders: 500,
+          maxStorage: 1000,
+          enabledModules: ['dashboard', 'menu', 'orders', 'delivery'],
+        },
+      })
+      mockPrismaService.userCategory.findUnique
+        .mockResolvedValueOnce({ allowedModules: ['dashboard', 'menu'] }) // intersectWithCategory
+        .mockResolvedValueOnce({ name: 'Servicios' }) // categoryName lookup
+      mockPrismaService.restaurant.findUnique.mockResolvedValue({ settings: null })
+
+      const limits = await service.getPlanLimits(userId)
+
+      // La categoría restringe: solo dashboard/menu quedan, aunque el plan
+      // incluya orders/delivery.
+      expect(limits.effectiveModules).toEqual(['dashboard', 'menu'])
+      expect(limits.categoryName).toBe('Servicios')
+    })
+  })
+
+  describe('assertProductLimit', () => {
+    it('does not throw when the plan is unlimited', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.NORMAL, categoryId: null })
+
+      await expect(service.assertProductLimit(userId, commerceId)).resolves.toBeUndefined()
+      expect(mockPrismaService.product.count).not.toHaveBeenCalled()
+    })
+
+    it('throws ForbiddenException once the product count reaches the plan limit', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.subscription.findFirst.mockResolvedValue(null) // free tier: maxProducts 10
+      mockPrismaService.product.count.mockResolvedValue(10)
+
+      await expect(service.assertProductLimit(userId, commerceId)).rejects.toThrow(ForbiddenException)
+    })
+
+    it('allows creating a product when under the limit', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.subscription.findFirst.mockResolvedValue(null)
+      mockPrismaService.product.count.mockResolvedValue(9)
+
+      await expect(service.assertProductLimit(userId, commerceId)).resolves.toBeUndefined()
+    })
+  })
+
+  describe('assertEmployeeLimit', () => {
+    it('throws when the plan does not include employee management (limit 0)', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Starter',
+          maxProducts: 10,
+          maxEmployees: 0,
+          maxBranches: 0,
+          maxOrders: 30,
+          maxStorage: 0,
+          enabledModules: ['dashboard'],
+        },
+      })
+
+      await expect(service.assertEmployeeLimit(userId, commerceId)).rejects.toThrow(ForbiddenException)
+      expect(mockPrismaService.employee.count).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('assertOrderLimit', () => {
+    it('only counts orders created since the start of the current month', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.subscription.findFirst.mockResolvedValue(null) // free tier: maxOrders 30
+      mockPrismaService.order.count.mockResolvedValue(29)
+
+      await service.assertOrderLimit(userId, commerceId)
+
+      const callArgs = mockPrismaService.order.count.mock.calls[0][0]
+      expect(callArgs.where.commerceId).toBe(commerceId)
+      expect(callArgs.where.createdAt.gte.getDate()).toBe(1)
+    })
+
+    it('throws ForbiddenException once the monthly order limit is reached', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.subscription.findFirst.mockResolvedValue(null)
+      mockPrismaService.order.count.mockResolvedValue(30)
+
+      await expect(service.assertOrderLimit(userId, commerceId)).rejects.toThrow(ForbiddenException)
+    })
+  })
+})

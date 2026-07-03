@@ -9,6 +9,7 @@ import { UpdateCategoryDto } from '../../menu/dto/update-category.dto'
 import { CreateProductDto } from '../../menu/dto/create-product.dto'
 import { UpdateProductDto } from '../../menu/dto/update-product.dto'
 import { UpdateStockDto, StockUpdateType } from '../../menu/dto/update-stock.dto'
+import { I18nService } from 'nestjs-i18n'
 
 describe('MenuService', () => {
   let service: MenuService
@@ -53,6 +54,10 @@ describe('MenuService', () => {
     validateRestaurantForFoodCategory: jest.fn().mockResolvedValue('restaurant-123'),
   }
 
+  const mockI18nService = {
+    t: jest.fn((key: string) => key),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -72,6 +77,10 @@ describe('MenuService', () => {
         {
           provide: CategoryHelper,
           useValue: mockCategoryHelper,
+        },
+        {
+          provide: I18nService,
+          useValue: mockI18nService,
         },
       ],
     }).compile()

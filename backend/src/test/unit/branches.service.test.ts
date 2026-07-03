@@ -5,6 +5,7 @@ import { PlanLimitsService } from '../../plans/plan-limits.service'
 import { CreateBranchDto } from '../../branches/dto/create-branch.dto'
 import { UpdateBranchDto } from '../../branches/dto/update-branch.dto'
 import { NotFoundException, BadRequestException } from '@nestjs/common'
+import { I18nService } from 'nestjs-i18n'
 
 describe('BranchesService', () => {
   let service: BranchesService
@@ -31,6 +32,10 @@ describe('BranchesService', () => {
     assertBranchLimit: jest.fn(),
   }
 
+  const mockI18nService = {
+    t: jest.fn((key: string) => key),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,6 +47,10 @@ describe('BranchesService', () => {
         {
           provide: PlanLimitsService,
           useValue: mockPlanLimitsService,
+        },
+        {
+          provide: I18nService,
+          useValue: mockI18nService,
         },
       ],
     }).compile()

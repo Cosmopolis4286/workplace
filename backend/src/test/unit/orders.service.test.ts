@@ -3,6 +3,8 @@ import { OrdersService } from '../../orders/orders.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { NotificationsService } from '../../notifications/notifications.service'
 import { PlanLimitsService } from '../../plans/plan-limits.service'
+import { TelegramService } from '../../telegram/telegram.service'
+import { PlatformFeesService } from '../../platform-fees/platform-fees.service'
 import { OrderStatus } from '@prisma/client'
 import { CreateOrderDto } from '../../orders/dto/create-order.dto'
 import { UpdateOrderDto } from '../../orders/dto/update-order.dto'
@@ -51,6 +53,16 @@ describe('OrdersService', () => {
     hasReachedOrderLimit: jest.fn(),
   }
 
+  const mockTelegramService = {
+    notifyCustomer: jest.fn().mockResolvedValue(undefined),
+  }
+
+  const mockPlatformFeesService = {
+    resolveFeeConfig: jest.fn().mockResolvedValue(null),
+    calculateFee: jest.fn().mockReturnValue({ feeAmount: 0 }),
+    chargeProviderFee: jest.fn().mockResolvedValue(undefined),
+  }
+
   beforeEach(async () => {
     jest.clearAllMocks()
 
@@ -68,6 +80,14 @@ describe('OrdersService', () => {
         {
           provide: PlanLimitsService,
           useValue: mockPlanLimitsService,
+        },
+        {
+          provide: TelegramService,
+          useValue: mockTelegramService,
+        },
+        {
+          provide: PlatformFeesService,
+          useValue: mockPlatformFeesService,
         },
       ],
     }).compile()

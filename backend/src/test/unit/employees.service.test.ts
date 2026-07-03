@@ -5,6 +5,7 @@ import { PlanLimitsService } from '../../plans/plan-limits.service'
 import { CreateEmployeeDto } from '../../employees/dto/create-employee.dto'
 import { UpdateEmployeeDto } from '../../employees/dto/update-employee.dto'
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common'
+import { I18nService } from 'nestjs-i18n'
 
 describe('EmployeesService', () => {
   let service: EmployeesService
@@ -28,6 +29,10 @@ describe('EmployeesService', () => {
     assertEmployeeLimit: jest.fn(),
   }
 
+  const mockI18nService = {
+    t: jest.fn((key: string) => key),
+  }
+
   const commerceId = 'commerce-123'
   const userId = 'user-123'
 
@@ -44,6 +49,10 @@ describe('EmployeesService', () => {
         {
           provide: PlanLimitsService,
           useValue: mockPlanLimitsService,
+        },
+        {
+          provide: I18nService,
+          useValue: mockI18nService,
         },
       ],
     }).compile()
