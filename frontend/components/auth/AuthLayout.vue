@@ -306,7 +306,7 @@ let healthTimer: ReturnType<typeof setInterval> | null = null
 
 async function checkHealth() {
   try {
-    const res = await $fetch<{ status: string }>(`${apiUrl}/health`, { timeout: 4000 })
+    const res = await $fetch<{ status: string }>('/api/health', { timeout: 5000 })
     healthStatus.value = res.status === 'ok' ? 'up' : 'degraded'
   } catch {
     healthStatus.value = 'down'

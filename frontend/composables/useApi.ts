@@ -28,6 +28,13 @@ export function useApi() {
     }
   }
 
+  // Nest no escribe body cuando el handler retorna null/undefined (Content-Length: 0),
+  // y res.json() lanza sobre un string vacío en vez de resolver a null.
+  async function parseJsonBody(res: Response): Promise<any> {
+    const text = await res.text()
+    return text ? JSON.parse(text) : null
+  }
+
   /**
    * Función principal para llamadas API
    * Maneja automáticamente:
@@ -53,18 +60,18 @@ export function useApi() {
         const retryHeaders = buildHeaders(fetchOptions, isFormData)
         const retry = await fetch(`${base}${url}`, { ...fetchOptions, headers: retryHeaders, credentials: 'include' })
         if (!retry.ok) {
-          const body = await retry.json().catch(() => ({}))
-          throw new ApiError(body.message ?? `Error ${retry.status}`, retry.status)
+          const body = await parseJsonBody(retry).catch(() => ({}))
+          throw new ApiError(body?.message ?? `Error ${retry.status}`, retry.status)
         }
-        return (parseAs === 'blob' ? retry.blob() : retry.json()) as Promise<T>
+        return (parseAs === 'blob' ? retry.blob() : parseJsonBody(retry)) as Promise<T>
       }
       // Refresh falló: no hay sesión válida, no tiene sentido reintentar.
       throw new ApiError('No autorizado', 401)
     }
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      const message = body.message ?? `Error ${res.status}`
+      const body = await parseJsonBody(res).catch(() => ({}))
+      const message = body?.message ?? `Error ${res.status}`
 
       // El JWT sigue siendo válido pero la sesión en Redis expiró por
       // inactividad (30 min, ver jwt.strategy.ts) — el backend devuelve 403
@@ -80,7 +87,7 @@ export function useApi() {
       throw new ApiError(message, res.status)
     }
 
-    return (parseAs === 'blob' ? res.blob() : res.json()) as Promise<T>
+    return (parseAs === 'blob' ? res.blob() : parseJsonBody(res)) as Promise<T>
   }
 
   /**
