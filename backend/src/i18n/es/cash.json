@@ -1,0 +1,7 @@
+{
+  "session": {
+    "already_open": "Ya hay una sesión de caja abierta",
+    "no_open_session": "No hay una sesión de caja abierta",
+    "not_found": "Sesión de caja no encontrada"
+  }
+}

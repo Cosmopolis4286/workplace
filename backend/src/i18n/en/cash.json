@@ -1,0 +1,7 @@
+{
+  "session": {
+    "already_open": "There is already an open cash session",
+    "no_open_session": "There is no open cash session",
+    "not_found": "Cash session not found"
+  }
+}

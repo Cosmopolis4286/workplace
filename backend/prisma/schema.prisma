@@ -164,6 +164,8 @@ model Restaurant {
   employees         Employee[]
   branches          Branch[]
   stockSnapshots    ProductStockSnapshot[]
+  cashSessions      CashSession[]
+  cashMovements     CashMovement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -808,6 +810,57 @@ model Expense {
   updatedAt     DateTime             @updatedAt
 
   @@map("expenses")
+}
+
+// ─── Cash register (caja) ──────────────────────────────────────────────────────
+
+enum CashSessionStatus {
+  ABIERTA
+  CERRADA
+}
+
+enum CashMovementType {
+  INGRESO
+  RETIRO
+}
+
+model CashSession {
+  id             String            @id @default(uuid())
+  status         CashSessionStatus @default(ABIERTA)
+  openingAmount  Float
+  openedAt       DateTime          @default(now())
+  openedBy       String
+  notes          String?
+  countedAmount  Float?
+  expectedAmount Float?
+  difference     Float?
+  closedAt       DateTime?
+  closedBy       String?
+  closingNotes   String?
+  movements      CashMovement[]
+  commerceId     String
+  commerce       Restaurant        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  // Solo puede existir una sesión ABIERTA a la vez por comercio — se aplica en
+  // el service (Prisma no soporta unique parcial multiplataforma aquí), ver
+  // CashService.open().
+  @@map("cash_sessions")
+}
+
+model CashMovement {
+  id         String           @id @default(uuid())
+  type       CashMovementType
+  amount     Float
+  reason     String
+  sessionId  String
+  session    CashSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  commerceId String
+  commerce   Restaurant       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
+
+  @@map("cash_movements")
 }
 
 // ─── Employees ────────────────────────────────────────────────────────────────

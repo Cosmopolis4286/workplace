@@ -1,5 +1,5 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -7,6 +7,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { I18nModule, AcceptLanguageResolver, QueryResolver } from 'nestjs-i18n';
 import { join } from 'path';
 import { SecurityContextMiddleware } from './common/middleware/security-context.middleware';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { SpanishThrottlerGuard } from './common/guards/spanish-throttler.guard';
 import { AuthModule } from './auth/auth.module';
@@ -21,6 +22,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { OrdersModule } from './orders/orders.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { CashModule } from './cash/cash.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { EmployeesModule } from './employees/employees.module';
 import { BranchesModule } from './branches/branches.module';
@@ -82,6 +84,7 @@ import { LocationsModule } from './locations/locations.module';
     DeliveryModule,
     OrdersModule,
     ExpensesModule,
+    CashModule,
     NotificationsModule,
     EmployeesModule,
     BranchesModule,
@@ -111,6 +114,7 @@ import { LocationsModule } from './locations/locations.module';
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },
     { provide: APP_GUARD, useClass: RateLimitGuard },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
 export class AppModule implements NestModule {

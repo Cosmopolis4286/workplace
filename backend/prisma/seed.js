@@ -113,6 +113,8 @@ const PERMISSIONS = [
   { key: 'expenses:create',          module: 'expenses',      action: 'create',         label: 'Crear Gastos' },
   { key: 'expenses:edit',            module: 'expenses',      action: 'edit',           label: 'Editar Gastos' },
   { key: 'expenses:delete',         module: 'expenses',      action: 'delete',         label: 'Eliminar Gastos' },
+  { key: 'cash:view',                module: 'cash',          action: 'view',           label: 'Ver Caja' },
+  { key: 'cash:manage',              module: 'cash',          action: 'manage',         label: 'Gestionar Caja (abrir/cerrar/movimientos)' },
   { key: 'analytics:view',           module: 'analytics',     action: 'view',           label: 'Ver Analytics' },
   { key: 'reports:view',             module: 'reports',       action: 'view',           label: 'Ver Reportes' },
   { key: 'sales:view',               module: 'sales',         action: 'view',           label: 'Ver Ventas' },
@@ -178,6 +180,7 @@ const COMMERCE_KEYS = [
   'appointments:view', 'appointments:create', 'appointments:edit', 'appointments:delete',
   'delivery:view', 'delivery:create', 'delivery:edit', 'delivery:manage_drivers',
   'expenses:view', 'expenses:create', 'expenses:edit', 'expenses:delete',
+  'cash:view', 'cash:manage',
   'analytics:view', 'reports:view', 'sales:view',
   'employees:view', 'employees:create', 'employees:edit', 'employees:delete',
   'branches:view', 'branches:create', 'branches:edit', 'branches:delete',
@@ -796,11 +799,13 @@ const CATEGORIES = [
 ]
 
 // 🏷️ Categorías de Usuarios (para clasificar usuarios en el sistema)
+// allowedModules = techo de lo que esa categoría puede usar (plan ∩ category = effectiveModules)
+// Módulos transversales incluidos en todas las categorías: analytics, expenses, wallets, reports
 const USER_CATEGORIES = [
   {
     name: 'Comida',
     icon: '🍔',
-    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'analytics', 'expenses'],
+    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Restaurante', 'Cafetería', 'Comida Rápida', 'Food Truck', 'Catering'
     ]
@@ -808,7 +813,7 @@ const USER_CATEGORIES = [
   {
     name: 'Tecnología',
     icon: '💻',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Desarrollo Web', 'Apps Móviles', 'Soporte IT', 'Ciberseguridad', 'Data Science'
     ]
@@ -816,7 +821,7 @@ const USER_CATEGORIES = [
   {
     name: 'Diseño',
     icon: '🎨',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Diseño Gráfico', 'UI/UX', 'Branding', 'Ilustración', 'Motion Graphics'
     ]
@@ -824,7 +829,7 @@ const USER_CATEGORIES = [
   {
     name: 'Marketing',
     icon: '📢',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'analytics'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Marketing Digital', 'SEO/SEM', 'Redes Sociales', 'Email Marketing', 'Content Manager'
     ]
@@ -832,7 +837,7 @@ const USER_CATEGORIES = [
   {
     name: 'Servicios Profesionales',
     icon: '💼',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Consultoría', 'Contabilidad', 'Legal', 'Recursos Humanos', 'Asesoría Financiera'
     ]
@@ -840,7 +845,7 @@ const USER_CATEGORIES = [
   {
     name: 'Salud y Bienestar',
     icon: '🏥',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Medicina General', 'Nutrición', 'Psicología', 'Fisioterapia', 'Entrenamiento Personal'
     ]
@@ -848,7 +853,7 @@ const USER_CATEGORIES = [
   {
     name: 'Belleza',
     icon: '💅',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Peluquería', 'Estética', 'Maquillaje', 'Manicura', 'Spa'
     ]
@@ -856,7 +861,7 @@ const USER_CATEGORIES = [
   {
     name: 'Educación',
     icon: '📚',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Clases Particulares', 'Idiomas', 'Preparación Exámenes', 'Talleres', 'Coaching'
     ]
@@ -864,7 +869,7 @@ const USER_CATEGORIES = [
   {
     name: 'Hogar',
     icon: '🏠',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Limpieza', 'Plomería', 'Electricidad', 'Carpintería', 'Jardinería'
     ]
@@ -872,7 +877,7 @@ const USER_CATEGORIES = [
   {
     name: 'Transporte',
     icon: '🚗',
-    allowedModules: ['dashboard', 'profile', 'services', 'delivery', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'delivery', 'customers', 'corridas', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Taxi/Remis', 'Mudanzas', 'Delivery', 'Transporte Escolar', 'Logística'
     ]
@@ -880,7 +885,7 @@ const USER_CATEGORIES = [
   {
     name: 'Eventos',
     icon: '🎉',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Organización', 'Fotografía', 'Video', 'DJ/Música', 'Catering Eventos'
     ]
@@ -888,7 +893,7 @@ const USER_CATEGORIES = [
   {
     name: 'Turismo',
     icon: '✈️',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Agencia de Viajes', 'Guía Turístico', 'Alojamiento', 'Tours', 'Excursiones'
     ]
@@ -896,7 +901,7 @@ const USER_CATEGORIES = [
   {
     name: 'Comercio',
     icon: '🛍️',
-    allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'analytics', 'expenses'],
+    allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Retail', 'Mayorista', 'Importación', 'Exportación', 'E-commerce'
     ]
@@ -904,7 +909,7 @@ const USER_CATEGORIES = [
   {
     name: 'Automotriz',
     icon: '🔧',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Taller', 'Venta de Autos', 'Lavado', 'Accesorios', 'Neumáticos'
     ]
@@ -912,7 +917,7 @@ const USER_CATEGORIES = [
   {
     name: 'Mascotas',
     icon: '🐾',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers'],
+    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Veterinaria', 'Grooming', 'Tienda de Mascotas', 'Adiestramiento', 'Paseadores'
     ]
