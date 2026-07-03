@@ -1,0 +1,5 @@
+{
+  "not_found": "Comprobante no encontrado",
+  "order_not_found": "Pedido no encontrado",
+  "already_issued": "Este pedido ya tiene un comprobante emitido"
+}

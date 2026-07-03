@@ -1,0 +1,5 @@
+{
+  "not_found": "Receipt not found",
+  "order_not_found": "Order not found",
+  "already_issued": "This order already has a receipt issued"
+}

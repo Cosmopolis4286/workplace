@@ -166,6 +166,7 @@ model Restaurant {
   stockSnapshots    ProductStockSnapshot[]
   cashSessions      CashSession[]
   cashMovements     CashMovement[]
+  receipts          Receipt[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -546,6 +547,7 @@ model Order {
   commerceId        String
   commerce          Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   items             OrderItem[]
+  receipt           Receipt?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
@@ -565,6 +567,32 @@ model OrderItem {
   createdAt   DateTime @default(now())
 
   @@map("order_items")
+}
+
+// ─── Receipts (comprobante de venta, NO es factura fiscal) ─────────────────────
+//
+// Venezuela exige desde el 20/03/2025 un sistema de facturación HOMOLOGADO por
+// el SENIAT (Providencias SNAT/2024/000102 y SNAT/2024/000121: transmisión
+// automática al SENIAT, inmutabilidad, registro de IP/MAC/usuario por
+// operación) para emitir facturas válidas por medios digitales. Este modelo
+// NO implementa eso — es un comprobante de venta interno para el cliente,
+// deliberadamente rotulado como no-fiscal en el PDF generado.
+
+model Receipt {
+  id              String     @id @default(uuid())
+  receiptNumber   String     @unique
+  orderId         String     @unique
+  order           Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  commerceId      String
+  commerce        Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  // Snapshot de datos del comercio al momento de emitir — si el comercio
+  // cambia nombre/dirección después, el comprobante histórico no debe mutar.
+  commerceName    String
+  commerceAddress String?
+  commercePhone   String?
+  issuedAt        DateTime   @default(now())
+
+  @@map("receipts")
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────

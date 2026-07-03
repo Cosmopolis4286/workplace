@@ -23,6 +23,7 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { OrdersModule } from './orders/orders.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { CashModule } from './cash/cash.module';
+import { ReceiptsModule } from './receipts/receipts.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { EmployeesModule } from './employees/employees.module';
 import { BranchesModule } from './branches/branches.module';
@@ -85,6 +86,7 @@ import { LocationsModule } from './locations/locations.module';
     OrdersModule,
     ExpensesModule,
     CashModule,
+    ReceiptsModule,
     NotificationsModule,
     EmployeesModule,
     BranchesModule,
