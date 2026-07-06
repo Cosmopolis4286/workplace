@@ -119,7 +119,8 @@ const WALLET_TYPE_CLASSES: Record<WalletTransactionType, string> = {
   ADJUSTMENT: 'bg-gray-100 text-gray-700',
 }
 
-// Module-level singleton state
+// Module-level singleton state — intentional: billetera.vue relies on
+// shared reactivity across components. MUST be cleared on logout via resetWallets().
 const wallet = ref<Wallet | null>(null)
 const transactions = ref<WalletTransaction[]>([])
 const transactionsMeta = ref({ total: 0, page: 1, limit: 20, totalPages: 1 })
@@ -128,6 +129,17 @@ const limitsStatus = ref<WalletLimitsStatus | null>(null)
 const loading = ref(false)
 const loadingTx = ref(false)
 const error = ref<string | null>(null)
+
+export function resetWallets() {
+  wallet.value = null
+  transactions.value = []
+  transactionsMeta.value = { total: 0, page: 1, limit: 20, totalPages: 1 }
+  wallets.value = []
+  limitsStatus.value = null
+  loading.value = false
+  loadingTx.value = false
+  error.value = null
+}
 
 export function useWallets() {
   const { get, post, patch, del } = useApi()

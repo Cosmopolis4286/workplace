@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
+import { resetWallets } from './useWallets'
 
 interface Restaurant {
   id: string
@@ -289,6 +290,7 @@ export const useAuth = () => {
       clearSession()
       usePermissions().clearPermissions()
       useModules().invalidate()
+      resetWallets()
     }
   }
 
