@@ -30,16 +30,27 @@ export class BcvSyncService {
 
   // BCV official website
   private readonly BCV_URL = 'https://www.bcv.org.ve';
-  // Alternative APIs for fallback
+  // Alternative APIs for fallback, tried in order until one yields a usable rate
   private readonly FALLBACK_APIS = [
     'https://api.exchangerate-api.com/v4/latest/USD',
     'https://open.er-api.com/v6/latest/USD',
+    'https://pydolarve.org/api/v1/dollar?page=bcv',
   ];
 
   // Venezuela timezone
   private readonly VENEZUELA_TZ = 'America/Caracas';
-  // Cache TTL: 24 hours in seconds
-  private readonly CACHE_TTL = 24 * 60 * 60;
+  // Cache TTL: 6 hours in seconds. Kept short so a stale cache entry can't
+  // paper over a sync pipeline that has actually stopped working — with 3+
+  // sync attempts a day, the cache should always be fresher than this anyway.
+  private readonly CACHE_TTL = 6 * 60 * 60;
+  // A rate is considered stale after this many hours without a successful sync.
+  // Set well under a day so the hourly health check catches problems within
+  // a single business day instead of waiting for the next 24h window.
+  private readonly STALE_THRESHOLD_HOURS = 6;
+  // Retries per source attempt within a single syncCurrency() call, with
+  // exponential backoff, so a transient network blip doesn't fail the whole sync.
+  private readonly MAX_RETRIES_PER_SOURCE = 2;
+  private readonly RETRY_BASE_DELAY_MS = 1000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -52,42 +63,76 @@ export class BcvSyncService {
   // ─────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Main sync method - tries scraping first, then API fallback
+   * Main sync method. Tries BCV scraping first (with retries + backoff),
+   * then falls back to external APIs (each also retried) before giving up.
+   * Retrying inside a single call — rather than only via the cron's next
+   * scheduled run — means a transient blip doesn't cost a whole sync window.
    */
   async syncCurrency(currencyCode: string = 'VES'): Promise<BCVRateResult> {
     const cacheKey = `bcv_rate:${currencyCode}`;
+    const attemptErrors: string[] = [];
 
-    try {
-      // 1. Try BCV scraping (primary source)
-      const scrapingResult = await this.fetchFromBCVScraping();
-      if (scrapingResult) {
-        await this.updateCurrencyRate(currencyCode, scrapingResult);
-        await this.cacheResult(cacheKey, scrapingResult);
-        await this.resetSyncAttempts(currencyCode);
-        this.logger.log(`BCV scraping successful: ${scrapingResult.rate} VES/USD`);
-        return scrapingResult;
-      }
-    } catch (error) {
-      this.logger.warn(`BCV scraping failed: ${error.message}`);
+    const scrapingResult = await this.withRetries(
+      () => this.fetchFromBCVScraping(),
+      'BCV scraping',
+      attemptErrors,
+    );
+    if (scrapingResult) {
+      await this.updateCurrencyRate(currencyCode, scrapingResult);
+      await this.cacheResult(cacheKey, scrapingResult);
+      await this.resetSyncAttempts(currencyCode);
+      this.logger.log(`BCV scraping successful: ${scrapingResult.rate} VES/USD`);
+      return scrapingResult;
     }
 
-    try {
-      // 2. Try external API fallback
-      const apiResult = await this.fetchFromExternalAPI();
-      if (apiResult) {
-        await this.updateCurrencyRate(currencyCode, apiResult);
-        await this.cacheResult(cacheKey, apiResult);
-        await this.resetSyncAttempts(currencyCode);
-        this.logger.log(`API fallback successful: ${apiResult.rate} VES/USD`);
-        return apiResult;
-      }
-    } catch (error) {
-      this.logger.error(`API fallback failed: ${error.message}`);
+    const apiResult = await this.withRetries(
+      () => this.fetchFromExternalAPI(),
+      'API fallback',
+      attemptErrors,
+    );
+    if (apiResult) {
+      await this.updateCurrencyRate(currencyCode, apiResult);
+      await this.cacheResult(cacheKey, apiResult);
+      await this.resetSyncAttempts(currencyCode);
+      this.logger.log(`API fallback successful: ${apiResult.rate} VES/USD`);
+      return apiResult;
     }
 
-    // 3. All sources failed - increment attempts and throw
-    await this.incrementSyncAttempts(currencyCode, 'All sync sources failed');
-    throw new Error(`Failed to sync ${currencyCode} from all sources`);
+    // All sources failed after retries - increment attempts and throw
+    const summary = attemptErrors.join(' | ') || 'All sync sources failed';
+    await this.incrementSyncAttempts(currencyCode, summary);
+    throw new Error(`Failed to sync ${currencyCode} from all sources: ${summary}`);
+  }
+
+  /**
+   * Retry a fetch operation with exponential backoff. Returns null (not throw)
+   * once retries are exhausted so the caller can move on to the next source;
+   * errors are appended to `errors` for the final failure message.
+   */
+  private async withRetries(
+    fn: () => Promise<BCVRateResult | null>,
+    label: string,
+    errors: string[],
+  ): Promise<BCVRateResult | null> {
+    for (let attempt = 1; attempt <= this.MAX_RETRIES_PER_SOURCE; attempt++) {
+      try {
+        const result = await fn();
+        if (result) return result;
+        errors.push(`${label}: no data (attempt ${attempt})`);
+      } catch (error) {
+        errors.push(`${label}: ${error.message} (attempt ${attempt})`);
+        this.logger.warn(`${label} attempt ${attempt} failed: ${error.message}`);
+      }
+
+      if (attempt < this.MAX_RETRIES_PER_SOURCE) {
+        await this.sleep(this.RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+      }
+    }
+    return null;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
@@ -150,71 +195,96 @@ export class BcvSyncService {
   }
 
   /**
-   * Check if any currencies need sync (for cron job)
+   * Force a sync if the currency's rate is stale, regardless of whether any
+   * scheduled cron actually ran. This is the safety net for "the cron didn't
+   * fire" (server restart, deploy, a hung previous run, etc.) — it runs
+   * inline on read paths (e.g. GET /exchange-rates/default) so a request can
+   * never see a rate older than STALE_THRESHOLD_HOURS as long as at least
+   * one source is reachable. Failures are swallowed: callers get whatever
+   * rate is in the DB rather than a 500 just because BCV is unreachable.
    */
-  async getCurrenciesNeedingSync(): Promise<string[]> {
-    const currencies = await this.prisma.exchangeRate.findMany({
-      where: {
-        autoSync: true,
-        isActive: true,
-        OR: [
-          { lastSyncAt: null },
-          {
-            lastSyncAt: {
-              lt: this.getYesterdayInVenezuela(),
-            },
-          },
-        ],
-      },
+  async ensureFreshRate(currencyCode: string): Promise<void> {
+    const currency = await this.prisma.exchangeRate.findUnique({
+      where: { code: currencyCode.toUpperCase() },
     });
 
-    return currencies.map(c => c.code);
+    if (!currency || !currency.autoSync || !currency.isActive) return;
+
+    const isStale = currency.lastSyncAt ? this.isRateStale(currency.lastSyncAt) : true;
+    if (!isStale) return;
+
+    try {
+      await this.syncCurrency(currency.code);
+    } catch (error) {
+      this.logger.warn(`ensureFreshRate: sync failed for ${currency.code}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get sync status for all currencies with auto-sync enabled (for health check / UI summary)
+   */
+  async getAllSyncStatuses(): Promise<SyncStatus[]> {
+    const currencies = await this.prisma.exchangeRate.findMany({
+      where: { autoSync: true, isActive: true },
+      orderBy: { code: 'asc' },
+    });
+
+    return currencies.map(currency => ({
+      currencyCode: currency.code,
+      lastSyncAt: currency.lastSyncAt,
+      syncSource: currency.syncSource,
+      syncError: currency.syncError,
+      syncAttempts: currency.syncAttempts,
+      autoSync: currency.autoSync,
+      currentRate: currency.rateToUsd,
+      isStale: currency.lastSyncAt ? this.isRateStale(currency.lastSyncAt) : true,
+    }));
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SCRAPING LOGIC
   // ─────────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Throws on failure (rather than swallowing to null) so withRetries() sees
+   * the real error — timeout vs. selector-not-found vs. bad rate — and can
+   * report it, instead of every failure looking like generic "no data".
+   */
   private async fetchFromBCVScraping(): Promise<BCVRateResult | null> {
-    try {
-      const response = await axios.get(this.BCV_URL, {
-        timeout: 15000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'es-VE,es;q=0.9',
-        },
-      });
+    const response = await axios.get(this.BCV_URL, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-VE,es;q=0.9',
+      },
+    });
 
-      const $ = cheerio.load(response.data);
+    const $ = cheerio.load(response.data);
 
-      // BCV typically shows rates in a specific format
-      // Look for USD rate in the page
-      const rateText = this.extractRateFromHTML($);
+    // BCV typically shows rates in a specific format
+    // Look for USD rate in the page
+    const rateText = this.extractRateFromHTML($);
 
-      if (!rateText) {
-        throw new Error('Could not extract rate from BCV page');
-      }
-
-      const rate = this.parseRate(rateText);
-      const date = this.getEffectiveDateForVenezuela();
-
-      // Validate the rate is reasonable (BCV rate typically 20-100 VES/USD)
-      if (rate < 1 || rate > 1000) {
-        throw new Error(`Rate ${rate} seems unreasonable`);
-      }
-
-      return {
-        rate,
-        date,
-        source: 'BCV_SCRAPING',
-        confidence: 'high',
-        rawData: { url: this.BCV_URL, extractedText: rateText },
-      };
-    } catch (error) {
-      this.logger.error(`BCV scraping error: ${error.message}`);
-      return null;
+    if (!rateText) {
+      throw new Error('Could not extract rate from BCV page');
     }
+
+    const rate = this.parseRate(rateText);
+    const date = this.getEffectiveDateForVenezuela();
+
+    // Validate the rate is reasonable (BCV rate typically 20-100 VES/USD)
+    if (rate < 1 || rate > 1000) {
+      throw new Error(`Rate ${rate} seems unreasonable`);
+    }
+
+    return {
+      rate,
+      date,
+      source: 'BCV_SCRAPING',
+      confidence: 'high',
+      rawData: { url: this.BCV_URL, extractedText: rateText },
+    };
   }
 
   private extractRateFromHTML($: cheerio.CheerioAPI): string | null {
@@ -258,28 +328,24 @@ export class BcvSyncService {
   // API FALLBACK
   // ─────────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Tries each fallback API in order within a single call. Throws (rather
+   * than swallowing) if all of them fail, carrying the last error so
+   * withRetries() can report something more useful than "no data".
+   */
   private async fetchFromExternalAPI(): Promise<BCVRateResult | null> {
+    let lastError: Error | null = null;
+
     for (const apiUrl of this.FALLBACK_APIS) {
       try {
         const response = await axios.get(apiUrl, {
-          timeout: 10000,
+          timeout: 8000,
           headers: {
             'Accept': 'application/json',
           },
         });
 
-        const data = response.data;
-
-        // Different APIs have different response formats
-        let rate: number | null = null;
-
-        if (data.rates && data.rates.VES) {
-          rate = parseFloat(data.rates.VES);
-        } else if (data.rates && data.rates.USD && data.base === 'VES') {
-          rate = 1 / parseFloat(data.rates.USD);
-        } else if (data.conversion_rates && data.conversion_rates.VES) {
-          rate = parseFloat(data.conversion_rates.VES);
-        }
+        const rate = this.extractRateFromApiResponse(response.data);
 
         if (rate && rate > 0) {
           const date = this.getEffectiveDateForVenezuela();
@@ -288,15 +354,31 @@ export class BcvSyncService {
             date,
             source: 'API_FALLBACK',
             confidence: 'medium',
-            rawData: { apiUrl, response: data },
+            rawData: { apiUrl, response: response.data },
           };
         }
+        lastError = new Error(`${apiUrl}: response had no usable VES rate`);
       } catch (error) {
+        lastError = error;
         this.logger.warn(`API ${apiUrl} failed: ${error.message}`);
-        continue;
       }
     }
 
+    if (lastError) throw lastError;
+    return null;
+  }
+
+  /**
+   * Different fallback APIs shape their response differently — normalize
+   * them all to a single VES-per-USD number.
+   */
+  private extractRateFromApiResponse(data: any): number | null {
+    if (data?.rates?.VES) return parseFloat(data.rates.VES);
+    if (data?.rates?.USD && data?.base === 'VES') return 1 / parseFloat(data.rates.USD);
+    if (data?.conversion_rates?.VES) return parseFloat(data.conversion_rates.VES);
+    // pydolarve.org: { price: number, ... } for a single-monitor query (?page=bcv)
+    if (typeof data?.price === 'number') return data.price;
+    if (typeof data?.price === 'string') return parseFloat(data.price);
     return null;
   }
 
@@ -424,17 +506,6 @@ export class BcvSyncService {
   }
 
   /**
-   * Get yesterday's date in Venezuela timezone
-   */
-  private getYesterdayInVenezuela(): Date {
-    const now = new Date();
-    const venezuelaTime = this.toVenezuelaTime(now);
-    venezuelaTime.setDate(venezuelaTime.getDate() - 1);
-    venezuelaTime.setHours(0, 0, 0, 0);
-    return venezuelaTime;
-  }
-
-  /**
    * Convert UTC date to Venezuela timezone
    */
   private toVenezuelaTime(date: Date): Date {
@@ -442,10 +513,10 @@ export class BcvSyncService {
   }
 
   /**
-   * Check if a rate is stale (older than 24 hours)
+   * Check if a rate is stale (older than STALE_THRESHOLD_HOURS)
    */
   private isRateStale(lastSyncAt: Date): boolean {
     const hoursSinceSync = (Date.now() - lastSyncAt.getTime()) / (1000 * 60 * 60);
-    return hoursSinceSync > 24;
+    return hoursSinceSync > this.STALE_THRESHOLD_HOURS;
   }
 }

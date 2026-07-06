@@ -30,6 +30,17 @@ export interface ExchangeRateStats {
   defaultRate: number | null
 }
 
+export interface SyncStatusEntry {
+  currencyCode: string
+  lastSyncAt: string | null
+  syncSource: string | null
+  syncError: string | null
+  syncAttempts: number
+  autoSync: boolean
+  currentRate: number | null
+  isStale: boolean
+}
+
 export interface ExchangeRateHistoryEntry {
   id: string
   exchangeRateId: string
@@ -128,8 +139,16 @@ export function useExchangeRates() {
     return await post(`/exchange-rates/sync/${code}`, {})
   }
 
+  async function syncAll() {
+    return await post<{ code: string; success: boolean; rate?: number; source?: string; message?: string }[]>('/exchange-rates/sync-all', {})
+  }
+
   async function getSyncStatus(code: string) {
     return await get(`/exchange-rates/sync-status/${code}`)
+  }
+
+  async function getAllSyncStatuses() {
+    return await get<SyncStatusEntry[]>('/exchange-rates/sync-status')
   }
 
   async function fetchHistory(id: string, limit = 50): Promise<ExchangeRateHistoryEntry[]> {
@@ -185,7 +204,9 @@ export function useExchangeRates() {
     deleteRate,
     toggleAutoSync,
     manualSync,
+    syncAll,
     getSyncStatus,
+    getAllSyncStatuses,
     fetchHistory,
     fetchPublicRates,
     convertAmount,

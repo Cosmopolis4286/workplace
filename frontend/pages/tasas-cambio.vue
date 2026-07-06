@@ -98,6 +98,9 @@
                   <span v-if="rate.code === 'VES' && rate.autoSync" class="badge bg-green-100 text-green-700 flex items-center gap-0.5">
                     <ArrowPathIcon class="h-2.5 w-2.5" />BCV
                   </span>
+                  <span v-if="rate.autoSync && rate.syncError" class="badge bg-red-100 text-red-700 flex items-center gap-0.5" :title="rate.syncError">
+                    <ExclamationTriangleIcon class="h-2.5 w-2.5" />Error
+                  </span>
                 </div>
 
                 <!-- Estado -->
@@ -157,6 +160,30 @@
             </div>
           </div>
           <p v-else class="text-xs text-gray-400">No hay monedas activas.</p>
+        </div>
+
+        <!-- Estado de sincronización -->
+        <div v-if="syncStatuses.length > 0" class="card p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-gray-700">Sincronización auto</h3>
+            <button v-if="canManage" class="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1 disabled:opacity-50" :disabled="syncingAll" @click="handleSyncAll">
+              <ArrowPathIcon class="h-3 w-3" :class="{ 'animate-spin': syncingAll }" />
+              {{ syncingAll ? 'Sincronizando...' : 'Sincronizar todas' }}
+            </button>
+          </div>
+          <div class="space-y-2">
+            <div v-for="s in syncStatuses" :key="s.currencyCode" class="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-gray-700">{{ s.currencyCode }}</span>
+                <span v-if="s.syncError" class="badge bg-red-100 text-red-700 flex items-center gap-0.5" :title="s.syncError">
+                  <ExclamationTriangleIcon class="h-2.5 w-2.5" />Error
+                </span>
+                <span v-else-if="s.isStale" class="badge bg-yellow-100 text-yellow-700">Atrasada</span>
+                <span v-else class="badge bg-green-100 text-green-700">Al día</span>
+              </div>
+              <span class="text-[10px] text-gray-400">{{ s.lastSyncAt ? formatDateTime(s.lastSyncAt) : 'Nunca' }}</span>
+            </div>
+          </div>
         </div>
 
         <!-- Resumen -->
@@ -248,6 +275,13 @@
                   <button v-if="editingRate.autoSync" type="button" class="btn-secondary text-xs" :disabled="syncing" @click="handleManualSync">
                     {{ syncing ? 'Sincronizando...' : 'Sincronizar ahora' }}
                   </button>
+                </div>
+                <div v-if="editingRate.syncError" class="mt-2 pt-2 border-t border-green-100 flex items-start gap-1.5">
+                  <ExclamationTriangleIcon class="h-3.5 w-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p class="text-xs text-red-600">
+                    {{ editingRate.syncError }}
+                    <span v-if="editingRate.syncAttempts" class="text-red-400">({{ editingRate.syncAttempts }} intento{{ editingRate.syncAttempts === 1 ? '' : 's' }} fallido{{ editingRate.syncAttempts === 1 ? '' : 's' }})</span>
+                  </p>
                 </div>
               </div>
               <div class="flex gap-3 pt-2">
@@ -402,10 +436,10 @@ import { ref, computed, onMounted } from 'vue'
 import {
   CurrencyDollarIcon, PlusIcon, XMarkIcon, MagnifyingGlassIcon,
   PencilIcon, TrashIcon, ArrowPathIcon, StarIcon,
-  NoSymbolIcon, CheckCircleIcon, ClockIcon,
+  NoSymbolIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry } from '~/composables/useExchangeRates'
+import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry, type SyncStatusEntry } from '~/composables/useExchangeRates'
 import { usePermissions } from '~/composables/usePermissions'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
@@ -413,7 +447,7 @@ definePageMeta({ layout: 'default', middleware: ['auth'] })
 const { can } = usePermissions()
 const canManage = computed(() => can('exchange_rates:manage'))
 
-const { rates, stats, loading, error, activeRates, fetchRates, fetchStats, createRate, updateRate, setDefault, toggleStatus, deleteRate, manualSync, formatConversion, fetchHistory } = useExchangeRates()
+const { rates, stats, loading, error, activeRates, fetchRates, fetchStats, createRate, updateRate, setDefault, toggleStatus, deleteRate, manualSync, syncAll, getAllSyncStatuses, formatConversion, fetchHistory } = useExchangeRates()
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 const showInactive   = ref(true)
@@ -470,14 +504,36 @@ async function handleSubmit() {
 }
 
 // ─── BCV Sync ─────────────────────────────────────────────────────────────────
-const syncing     = ref(false)
-const syncingCode = ref<string | null>(null)
+const syncing      = ref(false)
+const syncingCode  = ref<string | null>(null)
+const syncingAll   = ref(false)
+const syncStatuses = ref<SyncStatusEntry[]>([])
+
+async function loadSyncStatuses() {
+  try { syncStatuses.value = await getAllSyncStatuses() }
+  catch { /* non-critical */ }
+}
+
+async function handleSyncAll() {
+  if (syncingAll.value) return
+  syncingAll.value = true
+  try {
+    const results = await syncAll()
+    const successCount = results.filter(r => r.success).length
+    showToast(`Sincronización completa: ${successCount}/${results.length} monedas actualizadas`)
+    await Promise.all([fetchRates(showInactive.value), loadSyncStatuses()])
+  } catch (e: any) {
+    showToast(e?.data?.message ?? 'Error al sincronizar todas las monedas')
+  } finally {
+    syncingAll.value = false
+  }
+}
 
 async function handleManualSync() {
   if (!editingRate.value) return; syncing.value = true; formError.value = null
   try {
     const res = await manualSync('VES')
-    if (res.success) { showToast(`Sincronizado: 1 USD = ${res.rate} VES`); await fetchRates(true); editingRate.value = rates.value.find((r: ExchangeRate) => r.code === 'VES') ?? null }
+    if (res.success) { showToast(`Sincronizado: 1 USD = ${res.rate} VES`); await Promise.all([fetchRates(true), loadSyncStatuses()]); editingRate.value = rates.value.find((r: ExchangeRate) => r.code === 'VES') ?? null }
     else formError.value = res.message || 'Error al sincronizar'
   } catch (e: any) { formError.value = e?.data?.message ?? e.message }
   finally { syncing.value = false }
@@ -488,7 +544,7 @@ async function handleManualSyncFromTable(rate: ExchangeRate) {
   try {
     const res = await manualSync(rate.code)
     showToast(res.success ? `Sincronizado: 1 USD = ${res.rate} ${rate.code}` : res.message || 'Error')
-    if (res.success) await fetchRates(true)
+    if (res.success) await Promise.all([fetchRates(true), loadSyncStatuses()])
   } catch (e: any) { showToast(e?.data?.message ?? 'Error al sincronizar') }
   finally { syncingCode.value = null }
 }
@@ -562,5 +618,5 @@ function showToast(msg: string) { toast.value = msg; clearTimeout(toastTimer); t
 function formatDate(iso: string) { return new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' }) }
 function formatDateTime(iso: string) { return new Date(iso).toLocaleString('es-VE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 
-onMounted(async () => { await Promise.all([fetchRates(true), fetchStats()]) })
+onMounted(async () => { await Promise.all([fetchRates(true), fetchStats(), loadSyncStatuses()]) })
 </script>

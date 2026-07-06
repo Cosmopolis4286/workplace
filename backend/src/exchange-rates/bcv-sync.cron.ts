@@ -9,43 +9,64 @@ export class BcvSyncCron {
   constructor(private readonly bcvSyncService: BcvSyncService) {}
 
   /**
-   * Run BCV sync every day at 5:00 PM Venezuela time (after BCV publishes rates)
-   * BCV typically publishes rates between 4:30 PM - 5:00 PM VET
-   * 
-   * Cron: 0 17 * * 1-5 = At 17:00 (5 PM) Monday through Friday
-   * 
-   * Note: Server should be configured with Venezuela timezone (America/Caracas)
-   * or this will run at 5 PM server time
+   * Main sync runs 4x/day, Monday–Friday: early morning, mid-morning, midday,
+   * and after BCV publishes (~4:30-5 PM VET). A single 5 PM/day run meant one
+   * failed attempt (network blip, BCV site down, changed HTML) went
+   * uncorrected for a full day — this gives three earlier chances to catch
+   * and self-heal a failure well before it goes stale.
    */
-  @Cron('0 17 * * 1-5', {
-    name: 'bcv-daily-sync',
-    timeZone: 'America/Caracas', // Venezuela timezone
-  })
-  async handleDailySync() {
-    this.logger.log('Starting scheduled BCV sync...');
+  @Cron('0 7 * * 1-5', { name: 'bcv-sync-early', timeZone: 'America/Caracas' })
+  async handleEarlySync() {
+    await this.runSync('early (7 AM)');
+  }
+
+  @Cron('0 10 * * 1-5', { name: 'bcv-sync-morning', timeZone: 'America/Caracas' })
+  async handleMorningSync() {
+    await this.runSync('morning (10 AM)');
+  }
+
+  @Cron('0 13 * * 1-5', { name: 'bcv-sync-midday', timeZone: 'America/Caracas' })
+  async handleMiddaySync() {
+    await this.runSync('midday (1 PM)');
+  }
+
+  @Cron('0 17 * * 1-5', { name: 'bcv-sync-afternoon', timeZone: 'America/Caracas' })
+  async handleAfternoonSync() {
+    await this.runSync('afternoon (5 PM)');
+  }
+
+  /**
+   * BCV doesn't publish on weekends, but if a currency has been failing to
+   * sync all week, waiting until Monday 9 AM to notice would push staleness
+   * well past this system's 6h threshold. This just re-attempts using
+   * whatever the last known-good rate window was (scraping still works,
+   * it just won't have moved since Friday).
+   */
+  @Cron('0 12 * * 0,6', { name: 'bcv-sync-weekend-check', timeZone: 'America/Caracas' })
+  async handleWeekendCheck() {
+    await this.runSync('weekend check');
+  }
+
+  private async runSync(label: string) {
+    this.logger.log(`Starting scheduled BCV sync (${label})...`);
 
     try {
-      // Get all currencies with auto-sync enabled that need syncing
-      const currenciesToSync = await this.bcvSyncService.getCurrenciesNeedingSync();
+      const currencies = await this.bcvSyncService.getAllSyncStatuses();
 
-      if (currenciesToSync.length === 0) {
-        this.logger.log('No currencies need syncing at this time');
+      if (currencies.length === 0) {
+        this.logger.log('No currencies have auto-sync enabled');
         return;
       }
 
-      this.logger.log(`Found ${currenciesToSync.length} currencies to sync`);
-
-      // Sync each currency
       const results = await Promise.allSettled(
-        currenciesToSync.map(code => this.bcvSyncService.syncCurrency(code)),
+        currencies.map(c => this.bcvSyncService.syncCurrency(c.currencyCode)),
       );
 
-      // Log results
       let successCount = 0;
       let failureCount = 0;
 
       results.forEach((result, index) => {
-        const code = currenciesToSync[index];
+        const code = currencies[index].currencyCode;
         if (result.status === 'fulfilled') {
           successCount++;
           this.logger.log(
@@ -58,46 +79,50 @@ export class BcvSyncCron {
       });
 
       this.logger.log(
-        `BCV sync completed: ${successCount} successful, ${failureCount} failed`,
+        `BCV sync (${label}) completed: ${successCount} successful, ${failureCount} failed`,
       );
     } catch (error) {
-      this.logger.error(`Scheduled BCV sync failed: ${error.message}`);
+      this.logger.error(`Scheduled BCV sync (${label}) failed: ${error.message}`);
     }
   }
 
   /**
-   * Health check every 2 hours to alert if rates are stale
-   * This doesn't sync, just checks and logs warnings
+   * Health check every hour to alert if rates are stale, and to self-heal by
+   * re-syncing. Runs far more often than the 3 scheduled syncs so a failure
+   * is caught and retried within an hour instead of waiting for the next
+   * scheduled slot. Covers every currency with auto-sync enabled (not just
+   * VES), so enabling auto-sync on a new currency (e.g. COP) is automatically
+   * monitored too.
    */
-  @Cron(CronExpression.EVERY_2_HOURS, {
+  @Cron(CronExpression.EVERY_HOUR, {
     name: 'bcv-health-check',
   })
   async handleHealthCheck() {
     try {
-      const vesStatus = await this.bcvSyncService.getSyncStatus('VES');
+      const statuses = await this.bcvSyncService.getAllSyncStatuses();
 
-      if (!vesStatus) {
-        this.logger.warn('VES currency not found in database');
+      if (statuses.length === 0) {
+        this.logger.debug('No currencies with auto-sync enabled');
         return;
       }
 
-      if (vesStatus.isStale) {
+      for (const status of statuses) {
+        if (!status.isStale) {
+          this.logger.debug(`${status.currencyCode} rate is fresh. Last sync: ${status.lastSyncAt?.toISOString()}`);
+          continue;
+        }
+
         this.logger.warn(
-          `⚠️ VES rate is stale. Last sync: ${vesStatus.lastSyncAt?.toISOString() || 'never'}`,
+          `⚠️ ${status.currencyCode} rate is stale. Last sync: ${status.lastSyncAt?.toISOString() || 'never'}`,
         );
 
-        // Try to auto-repair if auto-sync is enabled
-        if (vesStatus.autoSync && vesStatus.syncAttempts < 3) {
-          this.logger.log('Attempting automatic re-sync...');
-          try {
-            await this.bcvSyncService.syncCurrency('VES');
-            this.logger.log('✅ Auto-repair sync successful');
-          } catch (error) {
-            this.logger.error(`Auto-repair sync failed: ${error.message}`);
-          }
+        this.logger.log(`Attempting automatic re-sync for ${status.currencyCode}...`);
+        try {
+          await this.bcvSyncService.syncCurrency(status.currencyCode);
+          this.logger.log(`✅ Auto-repair sync successful for ${status.currencyCode}`);
+        } catch (error) {
+          this.logger.error(`Auto-repair sync failed for ${status.currencyCode}: ${error.message}`);
         }
-      } else {
-        this.logger.debug(`VES rate is fresh. Last sync: ${vesStatus.lastSyncAt?.toISOString()}`);
       }
     } catch (error) {
       this.logger.error(`Health check failed: ${error.message}`);

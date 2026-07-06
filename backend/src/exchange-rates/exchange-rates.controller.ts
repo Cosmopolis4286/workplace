@@ -66,6 +66,30 @@ export class ExchangeRatesController {
     };
   }
 
+  @Post('sync-all')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('exchange_rates:manage')
+  async syncAll() {
+    const statuses = await this.bcvSyncService.getAllSyncStatuses();
+    const results = await Promise.allSettled(
+      statuses.map(s => this.bcvSyncService.syncCurrency(s.currencyCode)),
+    );
+
+    return results.map((result, index) => {
+      const code = statuses[index].currencyCode;
+      return result.status === 'fulfilled'
+        ? { code, success: true, rate: result.value.rate, source: result.value.source }
+        : { code, success: false, message: result.reason?.message ?? 'Error desconocido' };
+    });
+  }
+
+  @Get('sync-status')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('exchange_rates:view')
+  async getAllSyncStatuses() {
+    return this.bcvSyncService.getAllSyncStatuses();
+  }
+
   @Get('sync-status/:code')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermission('exchange_rates:view')
