@@ -359,6 +359,13 @@
             </div>
           </div>
 
+          <!-- Error de acción -->
+          <div v-if="actionError" class="mx-4 mb-2 mt-0 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 border border-red-100">
+            <XCircleIcon class="h-3.5 w-3.5 flex-shrink-0" />
+            <span class="flex-1">{{ actionError }}</span>
+            <button class="ml-1 text-red-400 hover:text-red-600" @click="clearError"><XMarkIcon class="h-3.5 w-3.5" /></button>
+          </div>
+
           <!-- Footer acciones — proveedor -->
           <div v-if="isProvider && nextActions.length > 0" class="p-4 border-t border-gray-100 bg-gray-50">
             <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -562,7 +569,11 @@ async function loadRequestMedia() {
   )
 }
 
-watch(() => props.req.id, loadRequestMedia, { immediate: true })
+const actionError = ref<string | null>(null)
+function clearError() { actionError.value = null }
+
+watch(() => props.req.id, () => { loadRequestMedia(); actionError.value = null }, { immediate: true })
+watch(() => props.show, (visible) => { if (!visible) actionError.value = null })
 onBeforeUnmount(revokeMediaBlobUrls)
 
 // Lightbox/carrusel: visualización inline de fotos+videos de un ítem, sin abrir pestaña externa
@@ -683,6 +694,7 @@ function cancelEditNotes() {
 
 async function saveNotes() {
   savingNotes.value = true
+  clearError()
   try {
     const { patch } = useApi()
     const body: Record<string, unknown> = { providerNotes: notesInput.value }
@@ -691,7 +703,9 @@ async function saveNotes() {
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}`, body)
     emit('updated', { ...props.req, providerNotes: notesInput.value, ...updated })
     editingNotes.value = false
-  } catch { /* silently ignore */ } finally {
+  } catch (e: any) {
+    actionError.value = e?.data?.message ?? e?.message ?? 'Error al guardar observaciones'
+  } finally {
     savingNotes.value = false
   }
 }
@@ -701,11 +715,14 @@ const updating = ref(false)
 
 async function doStatusChange(status: string) {
   updating.value = true
+  clearError()
   try {
     const { patch } = useApi()
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}`, { status })
     emit('updated', { ...props.req, status: status as ServiceRequest['status'], statusUpdatedAt: new Date().toISOString(), ...updated })
-  } catch { /* silently ignore */ } finally {
+  } catch (e: any) {
+    actionError.value = e?.data?.message ?? e?.message ?? 'Error al actualizar el estado'
+  } finally {
     updating.value = false
   }
 }
@@ -716,11 +733,14 @@ const showReportModal = ref(false)
 
 async function confirmCompletion() {
   confirming.value = true
+  clearError()
   try {
     const { patch } = useApi()
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/confirm-completion`, {})
     emit('updated', { ...props.req, ...updated, status: 'CERRADO' })
-  } catch { /* silently ignore */ } finally {
+  } catch (e: any) {
+    actionError.value = e?.data?.message ?? e?.message ?? 'Error al confirmar la finalización'
+  } finally {
     confirming.value = false
   }
 }
@@ -732,12 +752,16 @@ const cancelling = ref(false)
 
 async function cancelRequest() {
   cancelling.value = true
+  clearError()
   try {
     const { patch } = useApi()
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/cancel`, {})
     emit('updated', { ...props.req, ...updated, status: 'CANCELADO' })
     confirmingCancel.value = false
-  } catch { /* silently ignore */ } finally {
+  } catch (e: any) {
+    actionError.value = e?.data?.message ?? e?.message ?? 'Error al cancelar la solicitud'
+    confirmingCancel.value = false
+  } finally {
     cancelling.value = false
   }
 }

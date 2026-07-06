@@ -168,7 +168,18 @@
                 Editar pedido
               </button>
               <div v-else />
-              <button class="btn-secondary text-sm" @click="$emit('close')">Cerrar</button>
+              <div class="flex items-center gap-2">
+                <button
+                  v-if="order.status !== 'CANCELADO'"
+                  class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1.5"
+                  :disabled="downloadingReceipt"
+                  @click="handleDownloadReceipt"
+                >
+                  <DocumentArrowDownIcon class="h-4 w-4" />
+                  {{ downloadingReceipt ? 'Generando...' : 'Comprobante' }}
+                </button>
+                <button class="btn-secondary text-sm" @click="$emit('close')">Cerrar</button>
+              </div>
             </div>
           </div>
         </DialogPanel>
@@ -180,8 +191,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot } from '@headlessui/vue'
-import { XMarkIcon, PencilIcon } from '@heroicons/vue/24/outline'
+import { XMarkIcon, PencilIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline'
 import { useUserPreferences } from '~/composables/useUserPreferences'
+import { useReceipts } from '~/composables/useReceipts'
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_CLASSES,
@@ -217,6 +229,13 @@ const emit = defineEmits<{
 
 const transitioning = ref(false)
 const pendingStatus = ref<OrderStatus | null>(null)
+
+const { loading: downloadingReceipt, getOrCreateAndDownload } = useReceipts()
+
+async function handleDownloadReceipt() {
+  if (!props.order) return
+  await getOrCreateAndDownload(props.order.id)
+}
 
 function isStepReached(step: OrderStatus) {
   if (!props.order) return false

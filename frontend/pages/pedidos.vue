@@ -581,6 +581,15 @@
             </div>
             <div class="sticky bottom-0 bg-white px-6 py-4 border-t border-gray-100 flex gap-3">
               <button class="btn-secondary flex-1" @click="showDetailsModal = false">Cerrar</button>
+              <button
+                v-if="selectedOrder.status !== 'CANCELADO'"
+                class="px-5 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-medium hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
+                :disabled="downloadingReceipt"
+                @click="handleDownloadReceipt(selectedOrder)"
+              >
+                <DocumentArrowDownIcon class="h-4 w-4" />
+                {{ downloadingReceipt ? 'Generando...' : 'Comprobante' }}
+              </button>
               <button class="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors" @click="confirmDelete(selectedOrder)">
                 Eliminar
               </button>
@@ -617,7 +626,7 @@ import { ref, computed, onMounted } from 'vue'
 import {
   ShoppingCartIcon, CalendarIcon, ClockIcon, PlusIcon,
   XMarkIcon, ArrowPathIcon, MagnifyingGlassIcon, TrashIcon,
-  UsersIcon, ChartBarIcon,
+  UsersIcon, ChartBarIcon, DocumentArrowDownIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useApi } from '~/composables/useApi'
@@ -629,6 +638,7 @@ import {
 } from '~/composables/useClienteDashboard'
 import { usePlans } from '~/composables/usePlans'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
+import { useReceipts } from '~/composables/useReceipts'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -697,6 +707,9 @@ const selectedOrder     = ref<Order | null>(null)
 
 function openDetailsModal(order: Order) { selectedOrder.value = order; showDetailsModal.value = true }
 function confirmDelete(order: Order) { selectedOrder.value = order; showDetailsModal.value = false; showCancelConfirm.value = true }
+
+const { loading: downloadingReceipt, getOrCreateAndDownload } = useReceipts()
+async function handleDownloadReceipt(order: Order) { await getOrCreateAndDownload(order.id) }
 async function doDelete() {
   if (!selectedOrder.value) return
   await deleteOrder(selectedOrder.value.id)

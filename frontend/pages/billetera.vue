@@ -595,7 +595,7 @@ async function handlePin() {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────────
 async function reload() {
   const w = await fetchMyWallet()
-  if (w) await Promise.all([fetchMyTransactions(1, 20, txFilter.value), fetchMyLimits()])
+  if (w) await Promise.allSettled([fetchMyTransactions(1, 20, txFilter.value), fetchMyLimits()])
 }
 async function handleCreate() { await createMyWallet('USD'); await fetchMyTransactions() }
 

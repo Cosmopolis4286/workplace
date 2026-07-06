@@ -279,7 +279,7 @@ defineProps({
   description: { type: String, default: '' }
 })
 
-const { t } = useI18n()
+const { t } = useI18n({ useScope: 'global' })
 
 // SSR-safe year
 const currentYear = useState('currentYear', () => new Date().getFullYear())
@@ -297,10 +297,6 @@ const healthLabel = computed(() => ({
   degraded: t('auth.layout.platformDegraded'),
   down: t('auth.layout.platformDown'),
 }[healthStatus.value] ?? t('auth.layout.platformActive')))
-
-// apiUrl extracted at setup level — not inside setInterval callback
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
 
 let healthTimer: ReturnType<typeof setInterval> | null = null
 

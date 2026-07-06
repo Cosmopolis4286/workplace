@@ -138,7 +138,7 @@ export class ServicesController {
   // ─── Service Requests ─────────────────────────────────────────────────────
 
   @Post('requests/upload-media')
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FilesInterceptor('files', 8, {
       storage: diskStorage({

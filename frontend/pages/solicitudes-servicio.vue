@@ -126,7 +126,7 @@
                 class="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
                 :class="viewAs === 'provider' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'"
               >
-                {{ (viewAs === 'provider' ? req.clientName : req.providerName)[0].toUpperCase() }}
+                {{ (viewAs === 'provider' ? req.clientName : req.providerName)?.[0]?.toUpperCase() ?? '?' }}
               </div>
 
               <!-- Info -->
@@ -429,7 +429,9 @@ async function openDetail(req: ServiceRequest) {
         requests.value[idx].status = 'VISTO'
         selectedReq.value = { ...requests.value[idx] }
       }
-    } catch { /* silently ignore */ }
+    } catch (e) {
+      console.warn('[solicitudes] auto-mark VISTO failed:', e)
+    }
   }
 }
 
@@ -484,7 +486,10 @@ async function openFromQuery() {
       await fetchRequests()
     }
     await openDetail(req)
-  } catch { /* silently ignore: solicitud no encontrada o sin permiso */ }
+  } catch (e) {
+    console.warn('[solicitudes] openFromQuery failed:', e)
+    error.value = 'No se pudo abrir la solicitud enlazada.'
+  }
 }
 
 function matchesCurrentView(req: ServiceRequest): boolean {
