@@ -9,11 +9,13 @@ export class BcvSyncCron {
   constructor(private readonly bcvSyncService: BcvSyncService) {}
 
   /**
-   * Main sync runs 4x/day, Monday–Friday: early morning, mid-morning, midday,
-   * and after BCV publishes (~4:30-5 PM VET). A single 5 PM/day run meant one
-   * failed attempt (network blip, BCV site down, changed HTML) went
+   * Main sync runs 4x/day, Monday–Friday (7 AM, 10 AM, 1 PM, 5 PM VET — the
+   * last one after BCV publishes, ~4:30-5 PM). A single 5 PM/day run meant
+   * one failed attempt (network blip, BCV site down, changed HTML) went
    * uncorrected for a full day — this gives three earlier chances to catch
-   * and self-heal a failure well before it goes stale.
+   * and self-heal a failure well before it goes stale. The hourly health
+   * check (below) and the on-read ensureFreshRate() safety net cover the
+   * gaps between these fixed slots.
    */
   @Cron('0 7 * * 1-5', { name: 'bcv-sync-early', timeZone: 'America/Caracas' })
   async handleEarlySync() {

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import * as https from 'https';
 import * as cheerio from 'cheerio';
 import { RedisService } from '../redis/redis.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,6 +28,10 @@ export interface SyncStatus {
 @Injectable()
 export class BcvSyncService {
   private readonly logger = new Logger(BcvSyncService.name);
+  // Deduplicates concurrent ensureFreshRate calls for the same currency:
+  // concurrent requests during a stale window share one in-flight sync
+  // instead of each spawning an independent scraper → avoids stampede / IP ban.
+  private readonly inFlightSyncs = new Map<string, Promise<boolean>>();
 
   // BCV official website
   private readonly BCV_URL = 'https://www.bcv.org.ve';
@@ -34,8 +39,19 @@ export class BcvSyncService {
   private readonly FALLBACK_APIS = [
     'https://api.exchangerate-api.com/v4/latest/USD',
     'https://open.er-api.com/v6/latest/USD',
-    'https://pydolarve.org/api/v1/dollar?page=bcv',
   ];
+
+  /**
+   * bcv.org.ve serves an incomplete/misconfigured certificate chain (missing
+   * intermediate CA) — verified directly against the live site: every
+   * request fails with UNABLE_TO_VERIFY_LEAF_SIGNATURE even though the site
+   * itself is legitimate. This is why BCV scraping — the primary, highest
+   * confidence source — was silently failing on every single attempt,
+   * forcing every sync onto the lower-confidence API fallback (or failing
+   * entirely if that also had a hiccup). Disabling verification for this one
+   * known host restores the primary source; nothing else uses this agent.
+   */
+  private readonly bcvHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
   // Venezuela timezone
   private readonly VENEZUELA_TZ = 'America/Caracas';
@@ -206,8 +222,21 @@ export class BcvSyncService {
    * re-read the row), false if the rate was already fresh.
    */
   async ensureFreshRate(currencyCode: string): Promise<boolean> {
+    const key = currencyCode.toUpperCase();
+
+    // Return existing in-flight promise so concurrent callers share one sync
+    const inflight = this.inFlightSyncs.get(key);
+    if (inflight) return inflight;
+
+    const run = this._doEnsureFreshRate(key);
+    this.inFlightSyncs.set(key, run);
+    run.finally(() => this.inFlightSyncs.delete(key));
+    return run;
+  }
+
+  private async _doEnsureFreshRate(code: string): Promise<boolean> {
     const currency = await this.prisma.exchangeRate.findUnique({
-      where: { code: currencyCode.toUpperCase() },
+      where: { code },
     });
 
     if (!currency || !currency.autoSync || !currency.isActive) return false;
@@ -257,6 +286,7 @@ export class BcvSyncService {
   private async fetchFromBCVScraping(): Promise<BCVRateResult | null> {
     const response = await axios.get(this.BCV_URL, {
       timeout: 10000,
+      httpsAgent: this.bcvHttpsAgent,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -380,9 +410,6 @@ export class BcvSyncService {
     if (data?.rates?.VES) return parseFloat(data.rates.VES);
     if (data?.rates?.USD && data?.base === 'VES') return 1 / parseFloat(data.rates.USD);
     if (data?.conversion_rates?.VES) return parseFloat(data.conversion_rates.VES);
-    // pydolarve.org: { price: number, ... } for a single-monitor query (?page=bcv)
-    if (typeof data?.price === 'number') return data.price;
-    if (typeof data?.price === 'string') return parseFloat(data.price);
     return null;
   }
 

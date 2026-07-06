@@ -51,8 +51,11 @@ export class ExchangeRatesService {
     });
 
     if (rate?.autoSync) {
-      await this.bcvSyncService.ensureFreshRate(rate.code);
-      return this.prisma.exchangeRate.findUnique({ where: { id: rate.id } });
+      const refreshed = await this.bcvSyncService.ensureFreshRate(rate.code);
+      // Only re-read from DB if the sync actually updated the row
+      if (refreshed) {
+        return this.prisma.exchangeRate.findUnique({ where: { id: rate.id } });
+      }
     }
 
     return rate;
