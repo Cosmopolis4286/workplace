@@ -609,6 +609,13 @@ async function submit() {
 
   if (!validateAll()) return
 
+  // File uploads require authentication — catch this before hitting the API
+  const hasFiles = items.value.some(i => i.photoFiles.length || i.videoFiles.length)
+  if (hasFiles && !user.value) {
+    errorMsg.value = 'Debes iniciar sesión para adjuntar archivos a tu solicitud.'
+    return
+  }
+
   sending.value = true
   try {
     const itemsPayload = []

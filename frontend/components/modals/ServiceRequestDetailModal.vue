@@ -536,8 +536,11 @@ const contactAvatarUrl = computed(() =>
 // Media de la solicitud (fotos/videos) es privada: se sirve solo tras auth vía
 // /services/requests/media/:filename. Se descarga como blob y se expone como
 // object URL local; las URLs se revocan al cambiar de solicitud o desmontar.
+// loadGeneration evita que una carga anterior (más lenta) sobreescriba los
+// resultados de una carga más reciente cuando el usuario cambia de solicitud.
 const mediaBlobUrls = ref<Record<string, string>>({})
 const mediaLoadFailed = ref<Record<string, boolean>>({})
+let loadGeneration = 0
 
 function filenameFromPath(path: string) {
   return path.split('/').pop() ?? path
@@ -554,6 +557,7 @@ function revokeMediaBlobUrls() {
 }
 
 async function loadRequestMedia() {
+  const gen = ++loadGeneration
   revokeMediaBlobUrls()
   const { get } = useApi()
   const paths: string[] = (props.req.items ?? []).flatMap((item: ServiceRequestItem) => [...(item.photos ?? []), ...(item.videos ?? [])])
@@ -561,9 +565,11 @@ async function loadRequestMedia() {
     paths.map(async (path: string) => {
       try {
         const blob = await get<Blob>(`/services/requests/media/${filenameFromPath(path)}`, { parseAs: 'blob' })
+        // Discard results from a superseded load
+        if (gen !== loadGeneration) { URL.revokeObjectURL(URL.createObjectURL(blob)); return }
         mediaBlobUrls.value[path] = URL.createObjectURL(blob)
       } catch {
-        mediaLoadFailed.value[path] = true
+        if (gen === loadGeneration) mediaLoadFailed.value[path] = true
       }
     })
   )

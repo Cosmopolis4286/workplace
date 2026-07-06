@@ -48,8 +48,11 @@ export function useReceipts() {
       const a = document.createElement('a')
       a.href = url
       a.download = `${receipt.receiptNumber}.pdf`
+      document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      // Defer revoke so the browser has time to start the download
+      setTimeout(() => URL.revokeObjectURL(url), 150)
     } catch (e: any) {
       error.value = e?.message ?? 'Error al descargar el comprobante'
     } finally {
