@@ -113,4 +113,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async expire(key: string, seconds: number): Promise<void> {
     await this.client.expire(key, seconds);
   }
+
+  async ttl(key: string): Promise<number> {
+    return await this.client.ttl(key);
+  }
+
+  async incrbyfloat(key: string, amount: number): Promise<number> {
+    const result = await this.client.incrbyfloat(key, amount);
+    return parseFloat(String(result));
+  }
 }

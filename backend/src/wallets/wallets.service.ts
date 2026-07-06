@@ -370,34 +370,42 @@ export class WalletsService {
     return result;
   }
 
-  // Débito de comisión de plataforma, iniciado por el sistema (no por el
-  // usuario): no requiere PIN ni valida saldo suficiente, porque es una
-  // obligación de la transacción completada, no una operación voluntaria.
+  // Débito de comisión de plataforma iniciado por el sistema — no requiere PIN.
+  // Usa UPDATE ... RETURNING con GREATEST para que el clamp a 0 sea atómico
+  // en la DB (elimina el race entre SELECT y UPDATE que tenía el patrón anterior).
+  // Si el saldo es insuficiente, el monto real adeudado queda en metadata.feeOwed.
   // Autocrea el wallet si el proveedor/comercio/conductor aún no tiene uno.
   async chargePlatformFee(userId: string, amount: number, reference: string, metadata: Record<string, unknown>) {
     this.assertPositiveAmount(amount);
     const wallet = await this.ensureWalletForUser(userId);
 
-    // decrement es atómico a nivel de fila — evita el race condition de leer
-    // balance, calcular en memoria y luego escribir (dos cargos concurrentes
-    // sobre el mismo wallet podrían pisarse el uno al otro).
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: { decrement: amount } },
-      });
+      // Single atomic UPDATE: clamp balance to 0 using GREATEST, return new balance + previous balance
+      const [row] = await tx.$queryRaw<{ new_balance: number; prev_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = GREATEST(balance - ${amount}::numeric, 0),
+            "updatedAt" = NOW()
+        WHERE id = ${wallet.id}
+        RETURNING balance AS new_balance, balance + ${amount}::numeric AS prev_balance
+      `;
+
+      const actualCharged = Math.min(amount, row.prev_balance);
+      const unpaid = amount - actualCharged;
+
       const transaction = await tx.walletTransaction.create({
         data: {
           walletId: wallet.id, userId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount, balanceAfter: updated.balance,
+          amount: actualCharged,
+          balanceAfter: row.new_balance,
           description: 'Comisión de plataforma',
           reference,
-          metadata: metadata as any,
+          metadata: { ...metadata, feeOwed: amount, unpaidAmount: unpaid > 0 ? unpaid : undefined } as any,
         },
       });
-      return { wallet: updated, transaction };
+
+      return { wallet: { ...wallet, balance: row.new_balance }, transaction };
     });
   }
 
