@@ -74,6 +74,10 @@ export class ReceiptsService {
     const order = receipt.order;
     const money = (n: number) => `${currency} ${n.toFixed(2)}`;
 
+    const marginLeft = doc.page.margins.left;
+    const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const rightEdge = marginLeft + contentWidth;
+
     doc
       .fontSize(9)
       .fillColor('#b91c1c')
@@ -105,39 +109,52 @@ export class ReceiptsService {
     if (order.customerPhone) doc.text(`Teléfono: ${order.customerPhone}`);
 
     doc.moveDown(1);
+
+    // Columnas dimensionadas contra el ancho real de la página (A5 ~ 420pt,
+    // área útil ~340pt con márgenes de 40) — nunca números fijos que asumen
+    // A4, o el texto se corta contra el borde derecho.
+    const col = {
+      desc: { x: marginLeft, width: contentWidth * 0.45 },
+      qty: { x: marginLeft + contentWidth * 0.45, width: contentWidth * 0.12 },
+      unit: { x: marginLeft + contentWidth * 0.57, width: contentWidth * 0.2 },
+      subtotal: { x: marginLeft + contentWidth * 0.77, width: contentWidth * 0.23 },
+    };
+
     doc.fontSize(10).fillColor('#111827');
-    const colX = { desc: 40, qty: 260, unit: 310, subtotal: 390 };
-    doc.text('Descripción', colX.desc, doc.y, { continued: false });
-    doc.text('Cant.', colX.qty, doc.y - doc.currentLineHeight(), { width: 40 });
-    doc.text('P.Unit', colX.unit, doc.y - doc.currentLineHeight(), { width: 70 });
-    doc.text('Subtotal', colX.subtotal, doc.y - doc.currentLineHeight(), { width: 80 });
-    doc.moveDown(0.3);
-    doc.moveTo(40, doc.y).lineTo(470, doc.y).strokeColor('#e5e7eb').stroke();
+    const headerY = doc.y;
+    doc.text('Descripción', col.desc.x, headerY, { width: col.desc.width });
+    doc.text('Cant.', col.qty.x, headerY, { width: col.qty.width, align: 'right' });
+    doc.text('P.Unit', col.unit.x, headerY, { width: col.unit.width, align: 'right' });
+    doc.text('Subtotal', col.subtotal.x, headerY, { width: col.subtotal.width, align: 'right' });
+
+    doc.moveDown(0.5);
+    doc.moveTo(marginLeft, doc.y).lineTo(rightEdge, doc.y).strokeColor('#e5e7eb').stroke();
     doc.moveDown(0.3);
 
     for (const item of order.items) {
       const rowY = doc.y;
       doc.fontSize(9).fillColor('#374151');
-      doc.text(item.productName, colX.desc, rowY, { width: 210 });
-      doc.text(String(item.quantity), colX.qty, rowY, { width: 40 });
-      doc.text(money(item.unitPrice), colX.unit, rowY, { width: 70 });
-      doc.text(money(item.subtotal), colX.subtotal, rowY, { width: 80 });
-      doc.moveDown(0.4);
+      doc.text(item.productName, col.desc.x, rowY, { width: col.desc.width });
+      doc.text(String(item.quantity), col.qty.x, rowY, { width: col.qty.width, align: 'right' });
+      doc.text(money(item.unitPrice), col.unit.x, rowY, { width: col.unit.width, align: 'right' });
+      doc.text(money(item.subtotal), col.subtotal.x, rowY, { width: col.subtotal.width, align: 'right' });
+      doc.moveDown(0.5);
     }
 
-    doc.moveDown(0.5);
-    doc.moveTo(40, doc.y).lineTo(470, doc.y).strokeColor('#e5e7eb').stroke();
+    doc.moveDown(0.3);
+    doc.moveTo(marginLeft, doc.y).lineTo(rightEdge, doc.y).strokeColor('#e5e7eb').stroke();
     doc.moveDown(0.5);
 
-    const totalsX = 310;
+    const totalsWidth = contentWidth * 0.5;
+    const totalsX = rightEdge - totalsWidth;
     doc.fontSize(9).fillColor('#4b5563');
-    doc.text(`Subtotal: ${money(order.subtotal)}`, totalsX, doc.y, { width: 160, align: 'right' });
-    if (order.discount > 0) doc.text(`Descuento: -${money(order.discount)}`, totalsX, doc.y, { width: 160, align: 'right' });
-    if (order.tax > 0) doc.text(`Impuestos: ${money(order.tax)}`, totalsX, doc.y, { width: 160, align: 'right' });
-    if (order.deliveryFee > 0) doc.text(`Delivery: ${money(order.deliveryFee)}`, totalsX, doc.y, { width: 160, align: 'right' });
+    doc.text(`Subtotal: ${money(order.subtotal)}`, totalsX, doc.y, { width: totalsWidth, align: 'right' });
+    if (order.discount > 0) doc.text(`Descuento: -${money(order.discount)}`, totalsX, doc.y, { width: totalsWidth, align: 'right' });
+    if (order.tax > 0) doc.text(`Impuestos: ${money(order.tax)}`, totalsX, doc.y, { width: totalsWidth, align: 'right' });
+    if (order.deliveryFee > 0) doc.text(`Delivery: ${money(order.deliveryFee)}`, totalsX, doc.y, { width: totalsWidth, align: 'right' });
 
     doc.moveDown(0.3);
-    doc.fontSize(13).fillColor('#111827').text(`Total: ${money(order.total)}`, totalsX, doc.y, { width: 160, align: 'right' });
+    doc.fontSize(13).fillColor('#111827').text(`Total: ${money(order.total)}`, totalsX, doc.y, { width: totalsWidth, align: 'right' });
 
     doc.moveDown(1.5);
     doc
@@ -145,9 +162,9 @@ export class ReceiptsService {
       .fillColor('#9ca3af')
       .text(
         'Este documento es un comprobante interno de venta y no constituye una factura fiscal homologada por el SENIAT.',
-        40,
+        marginLeft,
         doc.y,
-        { width: 430, align: 'center' }
+        { width: contentWidth, align: 'center' }
       );
   }
 }
