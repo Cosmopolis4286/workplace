@@ -5,12 +5,16 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BcvSyncService } from './bcv-sync.service';
 import { CreateExchangeRateDto } from './dto/create-exchange-rate.dto';
 import { UpdateExchangeRateDto } from './dto/update-exchange-rate.dto';
 
 @Injectable()
 export class ExchangeRatesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly bcvSyncService: BcvSyncService,
+  ) {}
 
   async findAll(includeInactive = false) {
     const where = includeInactive ? {} : { isActive: true };
@@ -18,6 +22,20 @@ export class ExchangeRatesService {
       where,
       orderBy: [{ isDefault: 'desc' }, { code: 'asc' }],
     });
+
+    // Best-effort: refresh any auto-sync currency whose rate has gone stale
+    // before returning it, so a request never surfaces a rate older than the
+    // staleness threshold just because a scheduled cron didn't fire.
+    // ensureFreshRate() no-ops instantly when the rate is already fresh, so
+    // this costs nothing extra in the common case.
+    const refreshed = await Promise.allSettled(
+      rates.filter(r => r.autoSync).map(r => this.bcvSyncService.ensureFreshRate(r.code)),
+    );
+    const anyRefreshed = refreshed.some(r => r.status === 'fulfilled' && r.value === true);
+    if (anyRefreshed) {
+      return this.prisma.exchangeRate.findMany({ where, orderBy: [{ isDefault: 'desc' }, { code: 'asc' }] });
+    }
+
     return rates;
   }
 
@@ -31,6 +49,12 @@ export class ExchangeRatesService {
     const rate = await this.prisma.exchangeRate.findFirst({
       where: { isDefault: true, isActive: true },
     });
+
+    if (rate?.autoSync) {
+      await this.bcvSyncService.ensureFreshRate(rate.code);
+      return this.prisma.exchangeRate.findUnique({ where: { id: rate.id } });
+    }
+
     return rate;
   }
 

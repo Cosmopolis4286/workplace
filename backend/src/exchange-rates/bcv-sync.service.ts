@@ -202,21 +202,25 @@ export class BcvSyncService {
    * never see a rate older than STALE_THRESHOLD_HOURS as long as at least
    * one source is reachable. Failures are swallowed: callers get whatever
    * rate is in the DB rather than a 500 just because BCV is unreachable.
+   * Returns true only if a sync actually ran (so callers know whether to
+   * re-read the row), false if the rate was already fresh.
    */
-  async ensureFreshRate(currencyCode: string): Promise<void> {
+  async ensureFreshRate(currencyCode: string): Promise<boolean> {
     const currency = await this.prisma.exchangeRate.findUnique({
       where: { code: currencyCode.toUpperCase() },
     });
 
-    if (!currency || !currency.autoSync || !currency.isActive) return;
+    if (!currency || !currency.autoSync || !currency.isActive) return false;
 
     const isStale = currency.lastSyncAt ? this.isRateStale(currency.lastSyncAt) : true;
-    if (!isStale) return;
+    if (!isStale) return false;
 
     try {
       await this.syncCurrency(currency.code);
+      return true;
     } catch (error) {
       this.logger.warn(`ensureFreshRate: sync failed for ${currency.code}: ${error.message}`);
+      return false;
     }
   }
 
