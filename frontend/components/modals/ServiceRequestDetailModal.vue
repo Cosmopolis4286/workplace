@@ -55,7 +55,7 @@
                   <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Fecha preferida</p>
                   <p class="text-sm text-gray-900 font-medium">{{ formatDate(req.preferredDate) }}</p>
                 </div>
-                <div v-if="req.price">
+                <div v-if="req.price != null">
                   <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Precio acordado</p>
                   <p class="text-sm text-gray-900 font-medium">${{ formatPrice(req.price) }}{{ req.priceUnit ? ' / ' + req.priceUnit : '' }}</p>
                   <p v-if="defaultRate" class="text-xs text-gray-400 font-medium">
@@ -556,15 +556,16 @@ function revokeMediaBlobUrls() {
   mediaLoadFailed.value = {}
 }
 
+const { get: apiGet } = useApi()
+
 async function loadRequestMedia() {
   const gen = ++loadGeneration
   revokeMediaBlobUrls()
-  const { get } = useApi()
   const paths: string[] = (props.req.items ?? []).flatMap((item: ServiceRequestItem) => [...(item.photos ?? []), ...(item.videos ?? [])])
   await Promise.all(
     paths.map(async (path: string) => {
       try {
-        const blob = await get<Blob>(`/services/requests/media/${filenameFromPath(path)}`, { parseAs: 'blob' })
+        const blob = await apiGet<Blob>(`/services/requests/media/${filenameFromPath(path)}`, { parseAs: 'blob' })
         // Discard results from a superseded load
         if (gen !== loadGeneration) { URL.revokeObjectURL(URL.createObjectURL(blob)); return }
         mediaBlobUrls.value[path] = URL.createObjectURL(blob)

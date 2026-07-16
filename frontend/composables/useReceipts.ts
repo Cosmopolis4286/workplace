@@ -42,20 +42,21 @@ export function useReceipts() {
   async function downloadPdf(receipt: Receipt) {
     loading.value = true
     error.value = null
+    let url: string | null = null
+    const a = document.createElement('a')
     try {
       const blob = await get<Blob>(`/receipts/${receipt.id}/pdf`, { parseAs: 'blob' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
+      url = URL.createObjectURL(blob)
       a.href = url
       a.download = `${receipt.receiptNumber}.pdf`
       document.body.appendChild(a)
       a.click()
-      document.body.removeChild(a)
-      // Defer revoke so the browser has time to start the download
-      setTimeout(() => URL.revokeObjectURL(url), 150)
     } catch (e: any) {
       error.value = e?.message ?? 'Error al descargar el comprobante'
     } finally {
+      // Always clean up anchor and blob URL regardless of success/failure
+      if (a.parentNode) document.body.removeChild(a)
+      if (url) setTimeout(() => URL.revokeObjectURL(url!), 150)
       loading.value = false
     }
   }

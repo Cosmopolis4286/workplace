@@ -247,7 +247,7 @@
 
         <!-- Quick stats -->
         <div v-if="transactions.length > 0" class="card p-5">
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Resumen reciente</h3>
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">Esta página</h3>
           <div class="space-y-3 text-sm">
             <div class="flex justify-between gap-4">
               <span class="text-gray-500 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-500 inline-block" />Créditos</span>
