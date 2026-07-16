@@ -88,22 +88,30 @@ export class ServicesService {
     };
   }
 
-  async getCatalogProviders() {
-    const users = await this.prisma.user.findMany({
-      where: { services: { some: { status: ServiceStatus.ACTIVO } } },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        username: true,
-        avatar: true,
-        category: { select: { name: true } },
-        subcategory: { select: { name: true } },
-        _count: {
-          select: { services: { where: { status: ServiceStatus.ACTIVO } } },
+  async getCatalogProviders(page = 1, limit = 24) {
+    limit = Math.min(48, Math.max(1, limit));
+    const skip = (page - 1) * limit;
+    const where = { services: { some: { status: ServiceStatus.ACTIVO } } };
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+          avatar: true,
+          category: { select: { name: true } },
+          subcategory: { select: { name: true } },
+          _count: {
+            select: { services: { where: { status: ServiceStatus.ACTIVO } } },
+          },
         },
-      },
-    });
+      }),
+      this.prisma.user.count({ where }),
+    ]);
     return {
       data: users.map((u) => ({
         id: u.id,
@@ -114,6 +122,10 @@ export class ServicesService {
         subcategory: u.subcategory?.name ?? null,
         serviceCount: u._count.services,
       })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
@@ -414,6 +426,7 @@ export class ServicesService {
   }
 
   async getMyServiceRequests(userId: string, page = 1, limit = 20, asRole: 'provider' | 'client' = 'provider') {
+    limit = Math.min(100, Math.max(1, limit));
     const skip = (page - 1) * limit;
     const where = asRole === 'client'
       ? { requesterId: userId }
@@ -544,6 +557,9 @@ export class ServicesService {
       throw new ForbiddenException('No tienes permiso');
     const update: any = {};
     if (data.status !== undefined) {
+      // CANCELADO is client-only — provider cannot cancel on behalf of the client
+      if (data.status === 'CANCELADO')
+        throw new ForbiddenException('Solo el cliente puede cancelar una solicitud');
       this.assertValidStatusTransition(req.status, data.status);
       update.status = data.status;
       update.statusUpdatedAt = new Date();
@@ -606,26 +622,38 @@ export class ServicesService {
         'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor',
       );
 
-    const update: any = { status: 'CERRADO', statusUpdatedAt: new Date() };
-
+    // Resolve fee before starting any write so we don't mark CERRADO on a fee error
+    let feeData: { feeAmount: number; feeConfig: any } | null = null;
     if (!req.platformFeePayer && req.price) {
       const feeConfig = await this.platformFees.resolveFeeConfig('SERVICE_REQUEST', req.providerId);
       if (feeConfig?.payer === 'PROVIDER') {
-        const { feeAmount } = this.platformFees.calculateFee(req.price, feeConfig);
-        await this.platformFees.chargeProviderFee(
-          'SERVICE_REQUEST',
-          req.providerId,
-          feeAmount,
-          `FEE-SVC-${id}`,
-          { serviceRequestId: id },
-        );
-        update.platformFeeRate = feeConfig.rate;
-        update.platformFeeAmount = feeAmount;
-        update.platformFeePayer = 'PROVIDER';
+        feeData = { feeAmount: this.platformFees.calculateFee(req.price, feeConfig).feeAmount, feeConfig };
       }
     }
 
-    const updated = await this.prisma.serviceRequest.update({ where: { id }, data: update });
+    // Charge fee and update status atomically — if fee charge fails, status stays CONTACTADO
+    if (feeData) {
+      await this.platformFees.chargeProviderFee(
+        'SERVICE_REQUEST',
+        req.providerId,
+        feeData.feeAmount,
+        `FEE-SVC-${id}`,
+        { serviceRequestId: id },
+      );
+    }
+
+    const updated = await this.prisma.serviceRequest.update({
+      where: { id },
+      data: {
+        status: 'CERRADO',
+        statusUpdatedAt: new Date(),
+        ...(feeData ? {
+          platformFeeRate: feeData.feeConfig.rate,
+          platformFeeAmount: feeData.feeAmount,
+          platformFeePayer: 'PROVIDER',
+        } : {}),
+      },
+    });
 
     this.sendReviewReminder(userId, req.providerId, req.providerName).catch(() => {});
 
