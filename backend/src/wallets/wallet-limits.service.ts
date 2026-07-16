@@ -165,11 +165,7 @@ export class WalletLimitsService {
   }
 
   private async incrRedis(key: string, amount: number, ttl: number) {
-    // INCRBYFLOAT is atomic. EXPIRE is set unconditionally to the deadline
-    // (epoch = now + ttl), so concurrent calls always converge to the same
-    // expiry — no race window, no permanent leak if a call crashes mid-flight.
-    await this.redis.incrbyfloat(key, amount);
-    await this.redis.expire(key, ttl);
+    await this.redis.incrbyfloatWithExpire(key, amount, ttl);
   }
 
   private todayStr() {

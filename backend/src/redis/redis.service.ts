@@ -122,4 +122,17 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     const result = await this.client.incrbyfloat(key, amount);
     return parseFloat(String(result));
   }
+
+  // Atomic INCRBYFLOAT + EXPIRE in one Lua script — eliminates the window
+  // between the two commands where a crash or key expiry leaves the counter
+  // without a TTL (which would permanently block users at their daily limit).
+  async incrbyfloatWithExpire(key: string, amount: number, ttlSeconds: number): Promise<number> {
+    const script = `
+      local v = redis.call('INCRBYFLOAT', KEYS[1], ARGV[1])
+      redis.call('EXPIRE', KEYS[1], ARGV[2])
+      return v
+    `;
+    const result = await this.client.eval(script, 1, key, String(amount), String(ttlSeconds));
+    return parseFloat(String(result));
+  }
 }

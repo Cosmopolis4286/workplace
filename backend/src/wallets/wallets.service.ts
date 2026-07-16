@@ -151,7 +151,6 @@ export class WalletsService {
   // ─── Financial operations ─────────────────────────────────────────────────────
 
   async deposit(userId: string, role: Role, dto: DepositDto) {
-    // Idempotency
     if (dto.idempotencyKey) {
       const cached = await this.getIdempotent(dto.idempotencyKey, userId, 'deposit');
       if (cached) return cached;
@@ -160,29 +159,35 @@ export class WalletsService {
     const { wallet } = await this.getActiveWallet(userId);
     this.assertPositiveAmount(dto.amount);
 
-    // Balance ceiling check
-    const newBalance = wallet.balance + dto.amount;
-    await this.limitsService.assertBalanceLimit(userId, role, newBalance);
+    // Balance ceiling check against current balance (pre-transaction check; atomic guard inside tx)
+    const limits = await this.limitsService.getLimitsForRole(role);
+    await this.limitsService.assertBalanceLimit(userId, role, wallet.balance + dto.amount);
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: newBalance },
-      });
+      // Atomic UPDATE: enforce ceiling inside the transaction to prevent race
+      const [row] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = balance + ${dto.amount}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${wallet.id}
+          AND balance + ${dto.amount}::numeric <= ${limits.maxBalance}::numeric
+        RETURNING balance AS new_balance
+      `;
+      if (!row) throw new BadRequestException('La operación superaría el límite de saldo permitido');
+
       const transaction = await tx.walletTransaction.create({
         data: {
-          walletId: wallet.id,
-          userId,
+          walletId: wallet.id, userId,
           type: WalletTransactionType.CREDIT,
           status: WalletTransactionStatus.COMPLETED,
           amount: dto.amount,
-          balanceAfter: newBalance,
+          balanceAfter: row.new_balance,
           description: dto.description ?? 'Depósito',
           reference: dto.reference ?? dto.idempotencyKey,
           metadata: dto.metadata,
         },
       });
-      return { wallet: updated, transaction };
+      return { wallet: { ...wallet, balance: row.new_balance }, transaction };
     });
 
     if (dto.idempotencyKey) {
@@ -192,43 +197,51 @@ export class WalletsService {
   }
 
   async withdraw(userId: string, role: Role, dto: WithdrawDto) {
-    // PIN required
-    await this.pinService.verifyPin(userId, dto.pin);
-
+    // Idempotency before PIN so a replay doesn't consume another PIN attempt
     if (dto.idempotencyKey) {
       const cached = await this.getIdempotent(dto.idempotencyKey, userId, 'withdraw');
       if (cached) return cached;
     }
 
+    await this.pinService.verifyPin(userId, dto.pin);
+
     const { wallet } = await this.getActiveWallet(userId);
     this.assertPositiveAmount(dto.amount);
     this.assertSufficientFunds(wallet.balance, dto.amount);
 
-    // Limits
     await Promise.all([
       this.limitsService.assertSingleTxLimit(userId, role, dto.amount),
       this.limitsService.assertDailyDebitLimit(userId, role, dto.amount),
       this.limitsService.assertMonthlyDebitLimit(userId, role, dto.amount),
     ]);
 
-    const newBalance = wallet.balance - dto.amount;
-
     const result = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.wallet.update({ where: { id: wallet.id }, data: { balance: newBalance } });
+      // Atomic debit: WHERE balance >= amount prevents double-spend race
+      const [row] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = balance - ${dto.amount}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${wallet.id}
+          AND balance >= ${dto.amount}::numeric
+        RETURNING balance AS new_balance
+      `;
+      if (!row) throw new BadRequestException('Saldo insuficiente');
+
       const transaction = await tx.walletTransaction.create({
         data: {
           walletId: wallet.id, userId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount: dto.amount, balanceAfter: newBalance,
+          amount: dto.amount, balanceAfter: row.new_balance,
           description: dto.description ?? 'Retiro',
           reference: dto.reference ?? dto.idempotencyKey,
           metadata: dto.metadata,
         },
       });
-      return { wallet: updated, transaction };
+      return { wallet: { ...wallet, balance: row.new_balance }, transaction };
     });
 
+    // Record limits after commit — best-effort; loss is acceptable (limits are soft caps)
     await this.limitsService.recordDebit(userId, dto.amount);
 
     if (dto.idempotencyKey) {
@@ -270,15 +283,31 @@ export class WalletsService {
       throw new BadRequestException('No se pudo procesar la transferencia. Verifica el destinatario.');
     }
 
-    const senderNewBalance    = senderWallet.balance - dto.amount;
-    const recipientNewBalance = recipientWallet.balance + dto.amount;
     const ref = `TRF-${uuidv4().split('-')[0].toUpperCase()}-${Date.now()}`;
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const [updatedSender, updatedRecipient] = await Promise.all([
-        tx.wallet.update({ where: { id: senderWallet.id },    data: { balance: senderNewBalance } }),
-        tx.wallet.update({ where: { id: recipientWallet.id }, data: { balance: recipientNewBalance } }),
-      ]);
+      // Atomic debit of sender: WHERE balance >= amount prevents double-spend race
+      const [senderRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = balance - ${dto.amount}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${senderWallet.id}
+          AND balance >= ${dto.amount}::numeric
+        RETURNING balance AS new_balance
+      `;
+      if (!senderRow) throw new BadRequestException('Saldo insuficiente');
+
+      // Atomic credit of recipient
+      const [recipientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = balance + ${dto.amount}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${recipientWallet.id}
+        RETURNING balance AS new_balance
+      `;
+
+      const updatedSender    = { ...senderWallet,    balance: senderRow.new_balance };
+      const updatedRecipient = { ...recipientWallet, balance: recipientRow.new_balance };
       const [debit, credit] = await Promise.all([
         tx.walletTransaction.create({
           data: {
@@ -322,13 +351,13 @@ export class WalletsService {
   }
 
   async payment(userId: string, role: Role, dto: PaymentDto) {
-    // PIN required
-    await this.pinService.verifyPin(userId, dto.pin);
-
+    // Idempotency before PIN so a replay doesn't consume another PIN attempt
     if (dto.idempotencyKey) {
       const cached = await this.getIdempotent(dto.idempotencyKey, userId, 'payment');
       if (cached) return cached;
     }
+
+    await this.pinService.verifyPin(userId, dto.pin);
 
     const { wallet } = await this.getActiveWallet(userId);
     this.assertPositiveAmount(dto.amount);
@@ -339,7 +368,6 @@ export class WalletsService {
       this.limitsService.assertDailyDebitLimit(userId, role, dto.amount),
     ]);
 
-    const newBalance = wallet.balance - dto.amount;
     const ref = dto.orderId
       ? `PAY-ORDER-${dto.orderId}`
       : dto.serviceRequestId
@@ -347,19 +375,28 @@ export class WalletsService {
         : `PAY-${Date.now()}`;
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.wallet.update({ where: { id: wallet.id }, data: { balance: newBalance } });
+      const [row] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = balance - ${dto.amount}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${wallet.id}
+          AND balance >= ${dto.amount}::numeric
+        RETURNING balance AS new_balance
+      `;
+      if (!row) throw new BadRequestException('Saldo insuficiente');
+
       const transaction = await tx.walletTransaction.create({
         data: {
           walletId: wallet.id, userId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount: dto.amount, balanceAfter: newBalance,
+          amount: dto.amount, balanceAfter: row.new_balance,
           description: dto.description ?? 'Pago con billetera',
           reference: ref,
           metadata: { orderId: dto.orderId, serviceRequestId: dto.serviceRequestId, ...dto.metadata },
         },
       });
-      return { wallet: updated, transaction };
+      return { wallet: { ...wallet, balance: row.new_balance }, transaction };
     });
 
     await this.limitsService.recordDebit(userId, dto.amount);
@@ -380,16 +417,17 @@ export class WalletsService {
     const wallet = await this.ensureWalletForUser(userId);
 
     return this.prisma.$transaction(async (tx) => {
-      // Single atomic UPDATE: clamp balance to 0 using GREATEST, return new balance + previous balance
+      // CTE captures balance BEFORE the update so prev_balance is always correct
       const [row] = await tx.$queryRaw<{ new_balance: number; prev_balance: number }[]>`
+        WITH prev AS (SELECT balance FROM "Wallet" WHERE id = ${wallet.id})
         UPDATE "Wallet"
         SET balance = GREATEST(balance - ${amount}::numeric, 0),
             "updatedAt" = NOW()
         WHERE id = ${wallet.id}
-        RETURNING balance AS new_balance, balance + ${amount}::numeric AS prev_balance
+        RETURNING balance AS new_balance, (SELECT balance FROM prev) AS prev_balance
       `;
 
-      const actualCharged = Math.min(amount, row.prev_balance);
+      const actualCharged = Math.min(amount, Number(row.prev_balance));
       const unpaid = amount - actualCharged;
 
       const transaction = await tx.walletTransaction.create({
