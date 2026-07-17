@@ -25,6 +25,7 @@ export interface Product {
   image?: string
   brand?: string
   forSale: boolean
+  bnplEligible: boolean
   preparationTime?: number
   calories?: number
   ingredients: string[]

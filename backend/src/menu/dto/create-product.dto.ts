@@ -91,6 +91,10 @@ export class CreateProductDto {
   @IsBoolean()
   forSale?: boolean;
 
+  @IsOptional()
+  @IsBoolean()
+  bnplEligible?: boolean;
+
   @IsString()
   @IsNotEmpty()
   categoryId: string;

@@ -62,13 +62,4 @@ export class BnplController {
     const commerceId = await this.bnplService.getCommerceId(user.id);
     return this.bnplService.cancel(id, commerceId);
   }
-
-  @Post('simulate/:transactionId/resolve')
-  @RequirePermission('orders:edit')
-  async simulateResolve(
-    @Param('transactionId') transactionId: string,
-    @Body('status') status: 'APROBADA' | 'RECHAZADA'
-  ) {
-    return this.bnplService.simulateResolve(transactionId, status);
-  }
 }

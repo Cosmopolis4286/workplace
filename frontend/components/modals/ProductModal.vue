@@ -215,6 +215,51 @@
                   </button>
                 </div>
 
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700">Financiable con Cashea/Krece</label>
+                    <p class="text-xs text-gray-500">Permite pagar este producto en cuotas (BNPL)</p>
+                  </div>
+                  <button
+                    type="button"
+                    @click="form.bnplEligible = !form.bnplEligible"
+                    :class="form.bnplEligible ? 'bg-indigo-600' : 'bg-gray-200'"
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  >
+                    <span
+                      :class="form.bnplEligible ? 'translate-x-5' : 'translate-x-0'"
+                      class="pointer-events-none relative inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    >
+                      <span
+                        :class="form.bnplEligible ? 'opacity-0 ease-out duration-100' : 'opacity-100 ease-in duration-200'"
+                        class="absolute inset-0 flex h-full w-full items-center justify-center transition-opacity"
+                        aria-hidden="true"
+                      >
+                        <svg class="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 12 12">
+                          <path
+                            d="M4 8l2-2m0 0l2-2M6 6L4 4m2 2l2 2"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </span>
+                      <span
+                        :class="form.bnplEligible ? 'opacity-100 ease-in duration-200' : 'opacity-0 ease-out duration-100'"
+                        class="absolute inset-0 flex h-full w-full items-center justify-center transition-opacity"
+                        aria-hidden="true"
+                      >
+                        <svg class="h-3 w-3 text-indigo-600" fill="currentColor" viewBox="0 0 12 12">
+                          <path
+                            d="M3.707 5.293a1 1 0 00-1.414 1.414l1.414 1.414a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L5 5.586 3.707 4.293z"
+                          />
+                        </svg>
+                      </span>
+                    </span>
+                  </button>
+                </div>
+
                 <div class="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
@@ -279,6 +324,7 @@ const form = ref({
   preparationTime: 15,
   calories: 0,
   forSale: true,
+  bnplEligible: true,
   ingredients: [],
   allergens: []
 })
@@ -299,6 +345,7 @@ const resetForm = () => {
     preparationTime: 15,
     calories: 0,
     forSale: true,
+    bnplEligible: true,
     ingredients: [],
     allergens: []
   }

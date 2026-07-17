@@ -303,9 +303,42 @@
       :order="selectedOrder"
       :products="products"
       :saving="loading"
+      :eligible-bnpl-providers="eligibleBnplProviders"
       @close="closeModals"
       @save="handleSave"
     />
+
+    <!-- BNPL checkout link -->
+    <TransitionRoot appear :show="!!bnplResult" as="template">
+      <Dialog as="div" class="relative z-50" @close="bnplResult = null">
+        <div class="fixed inset-0 bg-black/25" />
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <DialogTitle class="text-lg font-semibold text-gray-900 mb-2">Financiamiento iniciado</DialogTitle>
+            <p class="text-sm text-gray-600 mb-4">
+              Comparte este link con el cliente para completar el financiamiento.
+              <span v-if="bnplResult?.expiresAt">Vence: {{ formatDate(bnplResult.expiresAt) }}</span>
+            </p>
+            <div class="flex items-center gap-2 mb-5">
+              <input :value="bnplResult?.checkoutUrl" readonly class="input-field text-xs" />
+              <button class="btn-secondary text-sm px-3 py-2 flex-shrink-0" @click="copyBnplLink">Copiar</button>
+            </div>
+            <div class="flex justify-end gap-3">
+              <button class="btn-secondary" @click="bnplResult = null">Cerrar</button>
+              <a
+                v-if="bnplResult?.checkoutUrl"
+                :href="bnplResult.checkoutUrl"
+                target="_blank"
+                rel="noopener"
+                class="btn-primary"
+              >
+                Abrir link
+              </a>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+    </TransitionRoot>
 
     <!-- Order detail modal -->
     <OrderDetailModal
@@ -384,6 +417,7 @@ const {
   error, totalCount, currentPage,
   activeOrders, recentOrders,
   loadOrders, loadStats, createOrder, updateOrder, updateStatus, deleteOrder,
+  getEligibleBnplProviders, initiateBnpl,
   formatCurrency, formatDate,
 } = useClienteDashboard()
 
@@ -572,6 +606,15 @@ const selectedOrder   = ref<Order | null>(null)
 const detailOrder     = ref<Order | null>(null)
 const orderToDelete   = ref<Order | null>(null)
 
+// ── BNPL (Cashea / Krece) ─────────────────────────────────────────────────────
+
+const eligibleBnplProviders = ref<('CASHEA' | 'KRECE')[]>([])
+const bnplResult = ref<{ checkoutUrl: string; expiresAt: string | null } | null>(null)
+
+function copyBnplLink() {
+  if (bnplResult.value?.checkoutUrl) navigator.clipboard?.writeText(bnplResult.value.checkoutUrl)
+}
+
 function openCreate() {
   selectedOrder.value = null
   showSaleModal.value = true
@@ -601,7 +644,11 @@ async function handleSave(payload: CreateOrderPayload) {
       deliveryAddress: payload.deliveryAddress,
     })
   } else {
-    await createOrder(payload)
+    const created = await createOrder(payload)
+    if (created && (payload.paymentMethod === 'CASHEA' || payload.paymentMethod === 'KRECE')) {
+      const result = await initiateBnpl(created.id, payload.paymentMethod)
+      if (result) bnplResult.value = { checkoutUrl: result.checkoutUrl, expiresAt: result.expiresAt }
+    }
   }
   closeModals()
 }
@@ -650,6 +697,7 @@ onMounted(async () => {
     loadStats(),
     loadOrders(),
     loadMenu().catch(() => {}), // non-blocking: catalog may be empty
+    getEligibleBnplProviders().then(p => { eligibleBnplProviders.value = p }),
   ])
 })
 </script>

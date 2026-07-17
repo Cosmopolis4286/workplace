@@ -311,16 +311,15 @@ export class BnplService {
   // Solo para desarrollo/pruebas mientras no hay credenciales reales: fuerza
   // el estado de una transacción simulada para poder probar el resto del
   // flujo (confirmación de orden, UI) sin sandbox real de Cashea/Krece.
-  async simulateResolve(transactionId: string, status: 'APROBADA' | 'RECHAZADA') {
-    const transaction = await this.prisma.bnplTransaction.findUnique({
-      where: { id: transactionId },
+  // Recibe externalReference (no el id local) porque es lo único que conoce
+  // la página pública de resolución simulada (viene embebido en checkoutUrl).
+  async simulateResolve(externalReference: string, status: 'APROBADA' | 'RECHAZADA') {
+    const transaction = await this.prisma.bnplTransaction.findFirst({
+      where: { externalReference },
     });
     if (!transaction) throw new NotFoundException('Transacción no encontrada');
 
-    return this.handleWebhook(transaction.provider, {
-      externalReference: transaction.externalReference ?? '',
-      status,
-    });
+    return this.handleWebhook(transaction.provider, { externalReference, status });
   }
 
   // ──────────────────────────────────────────────────────────────────────────

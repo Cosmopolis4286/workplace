@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post } from '@nestjs/common';
 import { BnplService } from './bnpl.service';
 import { BnplWebhookDto } from './dto/bnpl-webhook.dto';
 
@@ -6,17 +6,28 @@ import { BnplWebhookDto } from './dto/bnpl-webhook.dto';
 // este sistema, así que no llevan JwtAuthGuard. La verificación de
 // autenticidad del payload (firma HMAC o secreto compartido) queda como TODO
 // explícito en BnplService.handleWebhook hasta tener las specs del proveedor.
-@Controller('bnpl/webhooks')
+@Controller('bnpl')
 export class BnplWebhookController {
   constructor(private readonly bnplService: BnplService) {}
 
-  @Post('cashea')
+  @Post('webhooks/cashea')
   handleCasheaWebhook(@Body() payload: BnplWebhookDto) {
     return this.bnplService.handleWebhook('CASHEA', payload);
   }
 
-  @Post('krece')
+  @Post('webhooks/krece')
   handleKreceWebhook(@Body() payload: BnplWebhookDto) {
     return this.bnplService.handleWebhook('KRECE', payload);
+  }
+
+  // Solo para desarrollo/pruebas mientras no hay credenciales reales: la
+  // página pública frontend/pages/bnpl/simulado/[ref].vue la llama sin auth
+  // (el cliente final no tiene sesión de este sistema).
+  @Post('simulate/:externalReference/resolve')
+  simulateResolve(
+    @Param('externalReference') externalReference: string,
+    @Body('status') status: 'APROBADA' | 'RECHAZADA'
+  ) {
+    return this.bnplService.simulateResolve(externalReference, status);
   }
 }
