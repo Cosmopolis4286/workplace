@@ -97,7 +97,7 @@
       </div>
 
       <!-- Vacío -->
-      <div v-else-if="filteredUsers.length === 0" class="p-12 text-center">
+      <div v-else-if="users.length === 0" class="p-12 text-center">
         <UsersIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
         <p class="text-gray-500 font-medium">No se encontraron usuarios</p>
       </div>
@@ -110,8 +110,8 @@
             <input
               type="checkbox"
               class="rounded border-gray-300"
-              :checked="selectedUsers.length === filteredUsers.length && filteredUsers.length > 0"
-              @change="selectedUsers = selectedUsers.length === filteredUsers.length ? [] : [...filteredUsers]"
+              :checked="selectedUsers.length === users.length && users.length > 0"
+              @change="selectedUsers = selectedUsers.length === users.length ? [] : [...users]"
             />
           </div>
           <div class="col-span-4">Usuario</div>
@@ -123,7 +123,7 @@
 
         <div class="divide-y divide-gray-100">
           <div
-            v-for="u in filteredUsers"
+            v-for="u in users"
             :key="u.id"
             class="px-4 py-3 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors group cursor-pointer"
             @click="openEdit(u)"
@@ -201,126 +201,25 @@
       </template>
     </div>
 
-    <!-- Modal crear/editar -->
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="showModal = false">
-          <div class="absolute inset-0 bg-black/40" @click="showModal = false" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-              <div>
-                <h2 class="text-base font-bold text-gray-900">{{ editing ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
-                <p class="text-xs text-gray-400 mt-0.5">{{ editing ? 'Modifica los datos del usuario' : 'Completa los datos para crear la cuenta' }}</p>
-              </div>
-              <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600" @click="showModal = false">
-                <XMarkIcon class="h-5 w-5" />
-              </button>
-            </div>
+    <UserFormModal
+      v-model="showModal"
+      :form="form"
+      :editing="!!editing"
+      :saving="saving"
+      :form-error="formError"
+      :categories="categories"
+      :creatable-roles="creatableRoles"
+      @submit="save"
+    />
 
-            <form id="user-form" @submit.prevent="save" class="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
-                  <input v-model="form.firstName" required type="text" class="input-field" />
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Apellido <span class="text-red-500">*</span></label>
-                  <input v-model="form.lastName" required type="text" class="input-field" />
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Correo electrónico <span class="text-red-500">*</span></label>
-                <input v-model="form.email" required type="email" class="input-field" />
-              </div>
-              <div v-if="!editing">
-                <label class="block text-xs font-medium text-gray-700 mb-1">Contraseña <span class="text-red-500">*</span></label>
-                <input v-model="form.password" required type="password" minlength="8" placeholder="Mínimo 8 caracteres" class="input-field" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Teléfono <span class="text-gray-300">(opcional)</span></label>
-                <input v-model="form.phone" type="tel" class="input-field" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Rol <span class="text-red-500">*</span></label>
-                <select v-model="form.role" required class="input-field">
-                  <option v-for="r in creatableRoles" :key="r.value" :value="r.value">{{ r.label }}</option>
-                </select>
-              </div>
-              <div v-if="(form.role === 'COMMERCE' || form.role === 'FREELANCER') && !editing">
-                <label class="block text-xs font-medium text-gray-700 mb-1">
-                  {{ form.role === 'FREELANCER' ? 'Nombre del negocio' : 'Nombre del comercio' }}
-                  <span class="text-gray-300">(opcional)</span>
-                </label>
-                <input v-model="form.commerceName" type="text" placeholder="Se puede configurar después" class="input-field" />
-              </div>
-              <div class="p-4 bg-gray-50 rounded-xl space-y-3">
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clasificación del perfil</p>
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Categoría</label>
-                    <select v-model="form.categoryId" class="input-field" @change="form.subcategoryId = ''">
-                      <option value="">Sin categoría</option>
-                      <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                        {{ cat.icon ? cat.icon + ' ' : '' }}{{ cat.name }}
-                      </option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Subcategoría</label>
-                    <select v-model="form.subcategoryId" :disabled="!form.categoryId" class="input-field disabled:opacity-50 disabled:cursor-not-allowed">
-                      <option value="">Sin subcategoría</option>
-                      <option v-for="sub in availableSubcategories" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div v-if="formError" class="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs flex items-center gap-2">
-                <ExclamationCircleIcon class="h-4 w-4 flex-shrink-0" />{{ formError }}
-              </div>
-            </form>
-
-            <div class="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
-              <button type="button" class="btn-secondary flex-1" @click="showModal = false">Cancelar</button>
-              <button type="submit" form="user-form" :disabled="saving" class="btn-primary flex-1">
-                {{ saving ? 'Guardando...' : (editing ? 'Guardar cambios' : 'Crear usuario') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- Modal eliminar -->
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="deleteTarget" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div class="absolute inset-0 bg-black/40" @click="deleteTarget = null; bulkDeleteTargets = []" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 class="text-base font-semibold text-gray-900 mb-2">
-              {{ bulkDeleteTargets.length > 1 ? `¿Eliminar ${bulkDeleteTargets.length} usuarios?` : '¿Eliminar usuario?' }}
-            </h3>
-            <p class="text-sm text-gray-500 mb-6">
-              <template v-if="bulkDeleteTargets.length > 1">
-                Se eliminarán permanentemente <strong>{{ bulkDeleteTargets.length }} cuentas</strong>.
-              </template>
-              <template v-else>
-                Se eliminará permanentemente a <strong>{{ deleteTarget.firstName }} {{ deleteTarget.lastName }}</strong>.
-              </template>
-              Esta acción no se puede deshacer.
-            </p>
-            <div class="flex gap-3">
-              <button class="btn-secondary flex-1" @click="deleteTarget = null; bulkDeleteTargets = []">Cancelar</button>
-              <button class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors"
-                :disabled="saving" @click="doDelete">
-                {{ saving ? 'Eliminando...' : 'Eliminar' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <UserDeleteModal
+      :target="deleteTarget"
+      :bulk-targets="bulkDeleteTargets"
+      :saving="saving"
+      :partial-error="deletePartialError"
+      @cancel="deleteTarget = null; bulkDeleteTargets = []; deletePartialError = null"
+      @confirm="doDelete"
+    />
 
     <!-- Modal categorías -->
     <Teleport to="body">
@@ -341,36 +240,18 @@ import { ref, computed, onMounted } from 'vue'
 import {
   UsersIcon, PlusIcon, XMarkIcon,
   MagnifyingGlassIcon, PencilIcon, TrashIcon,
-  Squares2X2Icon, ExclamationCircleIcon,
+  Squares2X2Icon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import UserFormModal from '~/components/modals/UserFormModal.vue'
+import UserDeleteModal from '~/components/modals/UserDeleteModal.vue'
+import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, type Role } from '~/config/roles.config'
+import { useUsers, emptyUserForm, type UserItem, type UserCategory } from '~/composables/useUsers'
 
 definePageMeta({ middleware: 'auth' })
 
 const { invalidate: invalidateModules } = useModules()
-
-type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
-
-interface UserSubcategory { id: string; name: string }
-interface UserCategory    { id: string; name: string; icon?: string; allowedModules: string[]; subcategories: UserSubcategory[] }
-interface UserItem {
-  id: string; firstName: string; lastName: string; email: string; phone?: string
-  role: Role; isActive: boolean; createdAt: string
-  restaurant?: { id: string; name: string }
-  category?:    { id: string; name: string; icon?: string } | null
-  subcategory?: { id: string; name: string } | null
-}
-
-const ROLE_LABELS: Record<Role, string> = {
-  SUPERADMIN: 'SuperAdmin', ADMIN: 'Admin', COMMERCE: 'Comercio', FREELANCER: 'Freelancer', NORMAL: 'Normal',
-}
-const ROLE_BADGE_CLASSES: Record<Role, string> = {
-  SUPERADMIN: 'bg-purple-100 text-purple-800', ADMIN: 'bg-blue-100 text-blue-800',
-  COMMERCE: 'bg-green-100 text-green-800', FREELANCER: 'bg-yellow-100 text-yellow-800', NORMAL: 'bg-gray-100 text-gray-600',
-}
-const ROLE_AVATAR_COLORS: Record<Role, string> = {
-  SUPERADMIN: 'bg-purple-600', ADMIN: 'bg-blue-600', COMMERCE: 'bg-green-600', FREELANCER: 'bg-yellow-500', NORMAL: 'bg-gray-500',
-}
+const { listUsers, loadCategories: fetchCategories, createUser, updateUser, toggleUserStatus, deleteUser } = useUsers()
 
 const { user } = useAuth()
 const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
@@ -392,56 +273,46 @@ function canManage(u: UserItem): boolean {
 }
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
-const users            = ref<UserItem[]>([])
-const categories       = ref<UserCategory[]>([])
-const loading          = ref(false)
-const error            = ref<string | null>(null)
-const total            = ref(0)
-const page             = ref(1)
-const limit            = 20
-const roleFilter       = ref('')
-const categoryFilter   = ref('')
+const users             = ref<UserItem[]>([])
+const categories        = ref<UserCategory[]>([])
+const loading           = ref(false)
+const error             = ref<string | null>(null)
+const total             = ref(0)
+const page              = ref(1)
+const limit             = 20
+const roleFilter        = ref('')
+const categoryFilter    = ref('')
 const subcategoryFilter = ref('')
-const search           = ref('')
-const selectedUsers    = ref<UserItem[]>([])
+const search            = ref('')
+const selectedUsers     = ref<UserItem[]>([])
 let searchTimer: ReturnType<typeof setTimeout>
 
-const showModal         = ref(false)
-const showCategoryModal = ref(false)
-const editing           = ref<UserItem | null>(null)
-const saving            = ref(false)
-const formError         = ref<string | null>(null)
-const deleteTarget      = ref<UserItem | null>(null)
-const bulkDeleteTargets = ref<UserItem[]>([])
+const showModal          = ref(false)
+const showCategoryModal  = ref(false)
+const editing            = ref<UserItem | null>(null)
+const saving             = ref(false)
+const formError          = ref<string | null>(null)
+const deleteTarget       = ref<UserItem | null>(null)
+const bulkDeleteTargets  = ref<UserItem[]>([])
+const deletePartialError = ref<string | null>(null)
 
-const form = ref({
-  firstName: '', lastName: '', email: '', password: '', phone: '',
-  role: 'COMMERCE' as Role, commerceName: '', categoryId: '', subcategoryId: '',
-})
+const form = ref(emptyUserForm())
 
 // ─── Computados ───────────────────────────────────────────────────────────────
 const totalPages = computed(() => Math.ceil(total.value / limit))
 
-const filteredUsers = computed(() =>
-  search.value.trim()
-    ? users.value.filter(u =>
-        `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(search.value.toLowerCase())
-      )
-    : users.value
-)
-
-const availableSubcategories = computed<UserSubcategory[]>(() =>
-  form.value.categoryId ? (categories.value.find(c => c.id === form.value.categoryId)?.subcategories ?? []) : []
-)
-const filterSubcategories = computed<UserSubcategory[]>(() =>
+const filterSubcategories = computed(() =>
   categoryFilter.value ? (categories.value.find(c => c.id === categoryFilter.value)?.subcategories ?? []) : []
 )
 
+// Nota: estas cifras reflejan solo la página cargada (20 registros), no el
+// total real filtrado en backend — sería necesario un endpoint de agregados
+// para stats exactos sin traer todos los usuarios al cliente.
 const headerStats = computed(() => [
-  { label: 'Total',       value: String(total.value) },
-  { label: 'Commerce',    value: String(users.value.filter(u => u.role === 'COMMERCE').length) },
-  { label: 'Freelancer',  value: String(users.value.filter(u => u.role === 'FREELANCER').length) },
-  { label: 'Activos',     value: String(users.value.filter(u => u.isActive).length) },
+  { label: 'Total',      value: String(total.value) },
+  { label: 'Commerce',   value: String(users.value.filter(u => u.role === 'COMMERCE').length) },
+  { label: 'Freelancer', value: String(users.value.filter(u => u.role === 'FREELANCER').length) },
+  { label: 'Activos',    value: String(users.value.filter(u => u.isActive).length) },
 ])
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -465,20 +336,18 @@ function confirmDeleteSelected() {
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
-const { get, put, post, patch, del } = useApi()
-
 async function loadCategories() {
-  try { categories.value = await get<UserCategory[]>('/users/categories') } catch { }
+  try { categories.value = await fetchCategories() } catch { }
 }
 
 async function load() {
   loading.value = true; error.value = null
   try {
-    const params = new URLSearchParams({ page: String(page.value), limit: String(limit) })
-    if (roleFilter.value)        params.set('role', roleFilter.value)
-    if (categoryFilter.value)    params.set('categoryId', categoryFilter.value)
-    if (subcategoryFilter.value) params.set('subcategoryId', subcategoryFilter.value)
-    const res = await get<{ data: UserItem[]; total: number }>(`/users?${params}`)
+    const res = await listUsers({
+      page: page.value, limit,
+      roleFilter: roleFilter.value, categoryFilter: categoryFilter.value,
+      subcategoryFilter: subcategoryFilter.value, search: search.value,
+    })
     users.value = res.data; total.value = res.total
   } catch (e: any) { error.value = e?.message }
   finally { loading.value = false }
@@ -496,7 +365,7 @@ function onSearch() {
 
 function openCreate() {
   editing.value = null
-  form.value = { firstName: '', lastName: '', email: '', password: '', phone: '', role: 'COMMERCE', commerceName: '', categoryId: '', subcategoryId: '' }
+  form.value = emptyUserForm()
   formError.value = null; showModal.value = true
 }
 
@@ -510,18 +379,9 @@ async function save() {
   saving.value = true; formError.value = null
   try {
     if (editing.value) {
-      await put(`/users/${editing.value.id}`, {
-        firstName: form.value.firstName, lastName: form.value.lastName, email: form.value.email,
-        phone: form.value.phone || undefined, role: form.value.role,
-        categoryId: form.value.categoryId || null, subcategoryId: form.value.subcategoryId || null,
-      })
+      await updateUser(editing.value.id, form.value)
     } else {
-      await post('/users', {
-        firstName: form.value.firstName, lastName: form.value.lastName, email: form.value.email,
-        password: form.value.password, phone: form.value.phone || undefined, role: form.value.role,
-        commerceName: form.value.commerceName || undefined,
-        categoryId: form.value.categoryId || undefined, subcategoryId: form.value.subcategoryId || undefined,
-      })
+      await createUser(form.value)
     }
     showModal.value = false; selectedUsers.value = []
     invalidateModules(); await load()
@@ -530,7 +390,7 @@ async function save() {
 }
 
 async function toggleStatus(u: UserItem) {
-  try { await patch(`/users/${u.id}/toggle-status`); u.isActive = !u.isActive }
+  try { await toggleUserStatus(u.id); u.isActive = !u.isActive }
   catch (e: any) { error.value = e?.data?.message ?? e.message }
 }
 
@@ -538,16 +398,25 @@ function confirmDelete(u: UserItem) { deleteTarget.value = u }
 
 async function doDelete() {
   if (!deleteTarget.value) return
-  saving.value = true
-  try {
-    const targets = bulkDeleteTargets.value.length > 0 ? bulkDeleteTargets.value : [deleteTarget.value]
-    await Promise.all(targets.map(u => del(`/users/${u.id}`)))
+  saving.value = true; deletePartialError.value = null
+  const targets = bulkDeleteTargets.value.length > 0 ? bulkDeleteTargets.value : [deleteTarget.value]
+  const results = await Promise.allSettled(targets.map(u => deleteUser(u.id)))
+  const failed = results
+    .map((r, i) => ({ r, u: targets[i] }))
+    .filter(({ r }) => r.status === 'rejected')
+
+  if (failed.length > 0) {
+    const names = failed.map(({ u }) => `${u.firstName} ${u.lastName}`).join(', ')
+    deletePartialError.value = failed.length === targets.length
+      ? 'No se pudo eliminar ningún usuario.'
+      : `No se pudieron eliminar: ${names}`
+    error.value = deletePartialError.value
+  }
+  if (failed.length < targets.length) {
     deleteTarget.value = null; bulkDeleteTargets.value = []; selectedUsers.value = []
-    await load()
-  } catch (e: any) {
-    error.value = e?.data?.message ?? e.message
-    deleteTarget.value = null; bulkDeleteTargets.value = []
-  } finally { saving.value = false }
+  }
+  saving.value = false
+  await load()
 }
 
 onMounted(() => { load(); loadCategories() })
