@@ -9,6 +9,7 @@ import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { UsersService } from '../users/users.service';
 
 const CACHE_TTL = 300;
 const cacheKey = (role: Role) => `permissions:role:${role}`;
@@ -17,7 +18,8 @@ const cacheKey = (role: Role) => `permissions:role:${role}`;
 export class PermissionsService {
   constructor(
     private prisma: PrismaService,
-    private redis: RedisService
+    private redis: RedisService,
+    private usersService: UsersService
   ) {}
 
   // ── Used by PermissionsGuard on every request ──────────────────────────────
@@ -398,26 +400,16 @@ export class PermissionsService {
   }) {
     const { role, search, page, limit, visibleRoles, excludeUserId } = params;
 
-    const where: any = {};
-
-    if (visibleRoles?.length) {
-      // Si se pide un rol fuera del conjunto visible, no debe devolver nada
-      // (en vez de ignorar silenciosamente la restricción de visibilidad).
-      where.role = role
-        ? { in: visibleRoles.includes(role) ? [role] : [] }
-        : { in: visibleRoles };
-    } else if (role) {
-      where.role = role;
-    }
-    if (excludeUserId) where.id = { not: excludeUserId };
-    
-    if (search) {
-      where.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    // Reusa el mismo where-builder que /users (findAllUsers) para no
+    // mantener dos veces la lógica de scoping por rol/búsqueda.
+    // allowedRoles ya implementa "si se pide un rol fuera del conjunto
+    // visible, no devolver nada" (intersección, no override).
+    const where = this.usersService.buildUsersWhere({
+      roleFilter: role,
+      allowedRoles: visibleRoles,
+      search,
+      excludeUserId,
+    });
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({

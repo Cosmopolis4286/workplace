@@ -47,21 +47,39 @@ export class UsersController {
         ? undefined // all roles
         : [Role.COMMERCE, Role.FREELANCER, Role.NORMAL];
 
+    // buildUsersWhere (compartido con /permissions/users) ya intersecta
+    // roleFilter con allowedRoles, devolviendo vacío si no hay solapamiento.
     return this.usersService.findAllUsers({
-      roleFilter:
-        allowedRoles &&
-        roleFilter &&
-        (allowedRoles as Role[]).includes(roleFilter)
-          ? roleFilter
-          : allowedRoles
-            ? undefined // will be filtered by allowedRoles below
-            : roleFilter,
+      roleFilter,
       allowedRoles,
       categoryId,
       subcategoryId,
       search,
       page: parseInt(page),
       limit: parseInt(limit),
+    });
+  }
+
+  @Get('stats')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async getStats(
+    @CurrentUser() caller: { id: string; role: Role },
+    @Query('role') roleFilter?: Role,
+    @Query('categoryId') categoryId?: string,
+    @Query('subcategoryId') subcategoryId?: string,
+    @Query('search') search?: string
+  ) {
+    const allowedRoles =
+      caller.role === Role.SUPERADMIN
+        ? undefined
+        : [Role.COMMERCE, Role.FREELANCER, Role.NORMAL];
+
+    return this.usersService.getUsersStats({
+      roleFilter,
+      allowedRoles,
+      categoryId,
+      subcategoryId,
+      search,
     });
   }
 

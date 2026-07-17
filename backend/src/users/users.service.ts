@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, Sex } from '@prisma/client';
+import { Prisma, Role, Sex } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 import { ChangePasswordDto } from '../auth/dto/change-password.dto';
@@ -40,6 +40,9 @@ export class UsersService {
     subcategoryId?: string;
     acceptTerms?: boolean;
   }) {
+    // Early exit para el caso común; la unicidad real la garantiza el
+    // constraint @unique en email (ver catch de P2002 abajo), cerrando la
+    // ventana de carrera entre este check y el create.
     const existing = await this.prisma.user.findUnique({
       where: { email: data.email },
     });
@@ -51,35 +54,46 @@ export class UsersService {
       role === Role.COMMERCE || role === Role.ADMIN || role === Role.FREELANCER;
 
     const now = new Date();
-    const user = await this.prisma.user.create({
-      data: {
-        email: data.email,
-        password: hashedPassword,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
-        sex: data.sex,
-        role,
-        // El registro no pide ubicación; Venezuela es el mercado por defecto
-        // de la plataforma y el usuario puede ajustarlo después en /perfil.
-        country: 'Venezuela',
-        ...(data.categoryId && { categoryId: data.categoryId }),
-        ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
-        wallet: { create: { currency: 'USD' } },
-        ...(createRestaurant && data.commerceName
-          ? { commerce: { create: { name: data.commerceName } } }
-          : {}),
-        ...(data.acceptTerms
-          ? {
-              termsAcceptedAt: now,
-              termsVersion: CURRENT_TERMS_VERSION,
-              privacyAcceptedAt: now,
-            }
-          : {}),
-      },
-      include: { commerce: true, category: true, subcategory: true },
-    });
+    let user;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          email: data.email,
+          password: hashedPassword,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+          birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+          sex: data.sex,
+          role,
+          // El registro no pide ubicación; Venezuela es el mercado por defecto
+          // de la plataforma y el usuario puede ajustarlo después en /perfil.
+          country: 'Venezuela',
+          ...(data.categoryId && { categoryId: data.categoryId }),
+          ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
+          wallet: { create: { currency: 'USD' } },
+          ...(createRestaurant && data.commerceName
+            ? { commerce: { create: { name: data.commerceName } } }
+            : {}),
+          ...(data.acceptTerms
+            ? {
+                termsAcceptedAt: now,
+                termsVersion: CURRENT_TERMS_VERSION,
+                privacyAcceptedAt: now,
+              }
+            : {}),
+        },
+        include: { commerce: true, category: true, subcategory: true },
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException(this.i18n.t('users.email_taken'));
+      }
+      throw e;
+    }
 
     const { password, twoFactorSecret, ...result } = user;
     return result;
@@ -101,6 +115,44 @@ export class UsersService {
     });
   }
 
+  /**
+   * Construye el `where` de Prisma compartido por findAllUsers y por
+   * PermissionsService.listUsers, para no mantener dos veces la lógica de
+   * scoping por rol/categoría/búsqueda.
+   */
+  buildUsersWhere(options: {
+    roleFilter?: Role;
+    allowedRoles?: Role[];
+    categoryId?: string;
+    subcategoryId?: string;
+    search?: string;
+    excludeUserId?: string;
+  }): Record<string, unknown> {
+    const { roleFilter, allowedRoles, categoryId, subcategoryId, search, excludeUserId } =
+      options;
+    const where: Record<string, unknown> = {};
+    if (allowedRoles) {
+      // Si se pide un rol fuera del conjunto permitido, no debe devolver
+      // nada (en vez de ignorar silenciosamente la restricción de scoping).
+      where.role = {
+        in: roleFilter ? (allowedRoles.includes(roleFilter) ? [roleFilter] : []) : allowedRoles,
+      };
+    } else if (roleFilter) {
+      where.role = roleFilter;
+    }
+    if (categoryId) where.categoryId = categoryId;
+    if (subcategoryId) where.subcategoryId = subcategoryId;
+    if (excludeUserId) where.id = { not: excludeUserId };
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    return where;
+  }
+
   async findAllUsers(options: {
     roleFilter?: Role;
     allowedRoles?: Role[];
@@ -110,30 +162,9 @@ export class UsersService {
     page: number;
     limit: number;
   }) {
-    const { roleFilter, allowedRoles, categoryId, subcategoryId, search, page, limit } =
-      options;
+    const { page, limit } = options;
     const skip = (page - 1) * limit;
-
-    const where: Record<string, unknown> = {};
-    if (allowedRoles) {
-      where.role = {
-        in:
-          roleFilter && allowedRoles.includes(roleFilter)
-            ? [roleFilter]
-            : allowedRoles,
-      };
-    } else if (roleFilter) {
-      where.role = roleFilter;
-    }
-    if (categoryId) where.categoryId = categoryId;
-    if (subcategoryId) where.subcategoryId = subcategoryId;
-    if (search) {
-      where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    const where = this.buildUsersWhere(options);
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
@@ -162,7 +193,34 @@ export class UsersService {
     return { data: users, total, page, limit };
   }
 
+  /**
+   * Agregados sobre TODO el conjunto filtrado (no solo la página actual),
+   * usado por el header de /usuarios. Sin esto, contar sobre `data` de
+   * findAllUsers solo refleja los 20 registros de la página visible.
+   */
+  async getUsersStats(options: {
+    roleFilter?: Role;
+    allowedRoles?: Role[];
+    categoryId?: string;
+    subcategoryId?: string;
+    search?: string;
+  }) {
+    const where = this.buildUsersWhere(options);
+    const withRole = (role: Role) => ({ AND: [where, { role }] });
+    const [total, commerce, freelancer, active] = await Promise.all([
+      this.prisma.user.count({ where }),
+      this.prisma.user.count({ where: withRole(Role.COMMERCE) }),
+      this.prisma.user.count({ where: withRole(Role.FREELANCER) }),
+      this.prisma.user.count({ where: { AND: [where, { isActive: true }] } }),
+    ]);
+    return { total, commerce, freelancer, active };
+  }
+
   async updateUser(id: string, dto: UpdateUserDto) {
+    // Early exit para el caso común (evita un round-trip de update fallido);
+    // la unicidad real la garantiza el constraint @unique en email, cuyo
+    // P2002 el AllExceptionsFilter global convierte en 409 — así se cierra
+    // la ventana de carrera entre este check y el update de abajo.
     if (dto.email) {
       const existing = await this.prisma.user.findUnique({
         where: { email: dto.email },
@@ -172,24 +230,35 @@ export class UsersService {
       }
     }
 
-    const user = await this.prisma.user.update({
-      where: { id },
-      data: {
-        ...(dto.firstName !== undefined && { firstName: dto.firstName }),
-        ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-        ...(dto.email !== undefined && { email: dto.email }),
-        ...(dto.phone !== undefined && { phone: dto.phone || null }),
-        ...(dto.role !== undefined && { role: dto.role }),
-        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-        ...(dto.categoryId !== undefined && {
-          categoryId: dto.categoryId || null,
-        }),
-        ...(dto.subcategoryId !== undefined && {
-          subcategoryId: dto.subcategoryId || null,
-        }),
-      },
-      include: { commerce: true, category: true, subcategory: true },
-    });
+    let user;
+    try {
+      user = await this.prisma.user.update({
+        where: { id },
+        data: {
+          ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+          ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+          ...(dto.email !== undefined && { email: dto.email }),
+          ...(dto.phone !== undefined && { phone: dto.phone || null }),
+          ...(dto.role !== undefined && { role: dto.role }),
+          ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+          ...(dto.categoryId !== undefined && {
+            categoryId: dto.categoryId || null,
+          }),
+          ...(dto.subcategoryId !== undefined && {
+            subcategoryId: dto.subcategoryId || null,
+          }),
+        },
+        include: { commerce: true, category: true, subcategory: true },
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException(this.i18n.t('users.email_in_use'));
+      }
+      throw e;
+    }
 
     const { password, twoFactorSecret, ...result } = user;
     return result;
