@@ -339,6 +339,9 @@ export function useClienteDashboard() {
     updateStatus,
     deleteOrder,
     getOrder,
+    // BNPL
+    getEligibleBnplProviders,
+    initiateBnpl,
     // helpers
     formatCurrency,
     formatDate,
