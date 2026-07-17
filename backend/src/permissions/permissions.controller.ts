@@ -122,16 +122,26 @@ export class PermissionsController {
   @UseGuards(RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   listUsers(
+    @CurrentUser() admin: { id: string; role: Role },
     @Query('role') role?: Role,
     @Query('search') search?: string,
     @Query('page') page = '1',
     @Query('limit') limit = '20'
   ) {
+    // ADMIN no debe ver SUPERADMIN ni otros ADMIN en el listado (ver
+    // validateUserAccess, que igualmente bloquea el detalle si se intenta
+    // acceder por otra vía).
+    const visibleRoles =
+      admin.role === Role.ADMIN
+        ? [Role.COMMERCE, Role.FREELANCER, Role.NORMAL]
+        : undefined;
+
     return this.permissionsService.listUsers({
       role,
       search,
       page: parseInt(page),
       limit: parseInt(limit),
+      visibleRoles,
     });
   }
 

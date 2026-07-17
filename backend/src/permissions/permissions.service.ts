@@ -399,9 +399,16 @@ export class PermissionsService {
     const { role, search, page, limit, visibleRoles, excludeUserId } = params;
 
     const where: any = {};
-    
-    if (role) where.role = role;
-    if (visibleRoles?.length) where.role = { in: visibleRoles };
+
+    if (visibleRoles?.length) {
+      // Si se pide un rol fuera del conjunto visible, no debe devolver nada
+      // (en vez de ignorar silenciosamente la restricción de visibilidad).
+      where.role = role
+        ? { in: visibleRoles.includes(role) ? [role] : [] }
+        : { in: visibleRoles };
+    } else if (role) {
+      where.role = role;
+    }
     if (excludeUserId) where.id = { not: excludeUserId };
     
     if (search) {

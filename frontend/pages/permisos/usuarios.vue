@@ -180,7 +180,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import type { Role } from '~/config/dashboard.config'
+import { ROLE_LABELS, ROLE_BADGE_CLASSES, type Role } from '~/config/roles.config'
 import type { User } from '~/composables/useUserPermissions'
 import UserPermissionsModal from '~/components/permissions/UserPermissionsModal.vue'
 
@@ -196,22 +196,6 @@ const selectedUser = ref<User | null>(null)
 const showModal = ref(false)
 
 let searchTimeout: ReturnType<typeof setTimeout>
-
-const ROLE_LABELS: Record<string, string> = {
-  SUPERADMIN: 'SuperAdmin',
-  ADMIN: 'Admin',
-  COMMERCE: 'Comercio',
-  FREELANCER: 'Freelancer',
-  NORMAL: 'Normal',
-}
-
-const ROLE_BADGE_CLASSES: Record<string, string> = {
-  SUPERADMIN: 'bg-purple-100 text-purple-800',
-  ADMIN: 'bg-blue-100 text-blue-800',
-  COMMERCE: 'bg-green-100 text-green-800',
-  FREELANCER: 'bg-yellow-100 text-yellow-800',
-  NORMAL: 'bg-gray-100 text-gray-700',
-}
 
 async function loadUsers() {
   try {

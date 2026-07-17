@@ -1,6 +1,6 @@
 // Composable para gestión de permisos de usuarios
 import { useApi } from './useApi'
-import type { Role } from '~/config/dashboard.config'
+import type { Role } from '~/config/roles.config'
 
 export interface User {
   id: string
