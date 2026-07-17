@@ -335,13 +335,20 @@ describe('updatePlan', () => {
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       }
 
-      mockPrismaService.subscription.findFirst.mockResolvedValue(mockSubscription)
+      mockPrismaService.subscription.findFirst.mockImplementation(({ where }) =>
+        where.status?.in ? Promise.resolve(mockSubscription) : Promise.resolve(null)
+      )
 
       const result = await service.getMySubscription(userId)
 
-      expect(result).toEqual({ subscription: mockSubscription })
+      expect(result).toEqual({ subscription: mockSubscription, pendingSubscription: null })
       expect(mockPrismaService.subscription.findFirst).toHaveBeenCalledWith({
         where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+        include: { plan: true },
+        orderBy: { createdAt: 'desc' },
+      })
+      expect(mockPrismaService.subscription.findFirst).toHaveBeenCalledWith({
+        where: { userId, status: 'PENDING' },
         include: { plan: true },
         orderBy: { createdAt: 'desc' },
       })
@@ -354,7 +361,7 @@ describe('updatePlan', () => {
 
       const result = await service.getMySubscription(userId)
 
-      expect(result).toEqual({ subscription: null })
+      expect(result).toEqual({ subscription: null, pendingSubscription: null })
     })
   })
 

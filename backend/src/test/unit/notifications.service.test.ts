@@ -17,6 +17,9 @@ describe('NotificationsService', () => {
       deleteMany: jest.fn(),
       count: jest.fn(),
     },
+    restaurant: {
+      findUnique: jest.fn(),
+    },
   }
 
   const mockNotificationsGateway = {

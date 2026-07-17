@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
+import { Sex } from '@prisma/client'
 import { AuthController } from '../../auth/auth.controller'
 import { AuthService } from '../../auth/auth.service'
 import { JwtService } from '@nestjs/jwt'
@@ -87,6 +88,8 @@ describe('AuthController', () => {
         password: 'password123',
         firstName: 'New',
         lastName: 'User',
+        birthDate: '1990-01-01',
+        sex: Sex.MASCULINO,
         commerceName: 'Test Commerce',
         acceptTerms: true
       }

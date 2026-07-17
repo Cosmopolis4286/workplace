@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { AnalyticsService } from '../../analytics/analytics.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { ForbiddenException } from '@nestjs/common'
 import { AnalyticsPeriod } from '../../analytics/dto/query-analytics.dto'
 
 describe('AnalyticsService', () => {
@@ -182,16 +181,18 @@ describe('AnalyticsService', () => {
       expect(result.period).toBe('invalid')
     })
 
-    it('should throw ForbiddenException if user has no commerce', async () => {
+    it('should fall back to userId as commerceId if user has no restaurant', async () => {
       const userId = 'user-123'
       const queryDto = { period: 'today' as AnalyticsPeriod }
 
-      // Return null so getRestaurantId throws ForbiddenException
+      // getCommerceId falls back to userId when there's no restaurant, so
+      // the overview still resolves (with empty/zeroed metrics) instead of throwing.
       mockPrismaService.restaurant.findUnique.mockResolvedValue(null)
 
-      await expect(service.getOverview(userId, queryDto)).rejects.toThrow(
-        ForbiddenException
-      )
+      const result = await service.getOverview(userId, queryDto)
+
+      expect(result).toBeDefined()
+      expect(result.kpis.totalRevenue).toBe(0)
     })
 
     it('should handle week period correctly', async () => {
@@ -303,15 +304,15 @@ describe('AnalyticsService', () => {
       )
     })
 
-    it('should handle missing user', async () => {
+    it('should handle missing restaurant by falling back to userId', async () => {
       const userId = 'user-123'
       const queryDto = { period: 'today' as AnalyticsPeriod }
 
       mockPrismaService.restaurant.findUnique.mockResolvedValue(null)
 
-      await expect(service.getOverview(userId, queryDto)).rejects.toThrow(
-        ForbiddenException
-      )
+      const result = await service.getOverview(userId, queryDto)
+
+      expect(result).toBeDefined()
     })
 
     it('should throw when date range for custom period is invalid', async () => {

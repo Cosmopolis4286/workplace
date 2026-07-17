@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { ExchangeRatesService } from '../../exchange-rates/exchange-rates.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { BcvSyncService } from '../../exchange-rates/bcv-sync.service'
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
 
 describe('ExchangeRatesService', () => {
@@ -17,6 +18,18 @@ describe('ExchangeRatesService', () => {
       delete: jest.fn(),
       count: jest.fn(),
     },
+    exchangeRateHistory: {
+      create: jest.fn(),
+    },
+  }
+
+  const mockBcvSyncService = {
+    syncCurrency: jest.fn(),
+    getCurrentRate: jest.fn(),
+    getSyncStatus: jest.fn(),
+    setAutoSync: jest.fn(),
+    ensureFreshRate: jest.fn(),
+    getAllSyncStatuses: jest.fn(),
   }
 
   beforeEach(async () => {
@@ -28,6 +41,10 @@ describe('ExchangeRatesService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: BcvSyncService,
+          useValue: mockBcvSyncService,
         },
       ],
     }).compile()

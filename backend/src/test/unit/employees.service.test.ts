@@ -126,12 +126,18 @@ describe('EmployeesService', () => {
       await expect(service.create(userId, createDto)).rejects.toThrow('Employee limit reached')
     })
 
-    it('should throw ForbiddenException if user has no restaurant', async () => {
+    it('should fall back to userId as commerceId if user has no restaurant', async () => {
       mockPrismaService.restaurant.findUnique.mockResolvedValue(null)
+      mockPlanLimitsService.assertEmployeeLimit.mockResolvedValue(undefined)
+      mockPrismaService.employee.findUnique.mockResolvedValue(null)
+      mockPrismaService.employee.create.mockResolvedValue({ id: 'employee-1' })
 
-      await expect(
-        service.create(userId, { firstName: 'A', lastName: 'B', role: 'CAJERO' })
-      ).rejects.toThrow(ForbiddenException)
+      await service.create(userId, { firstName: 'A', lastName: 'B', role: 'CAJERO' })
+
+      expect(mockPlanLimitsService.assertEmployeeLimit).toHaveBeenCalledWith(userId, userId)
+      expect(mockPrismaService.employee.create).toHaveBeenCalledWith({
+        data: { firstName: 'A', lastName: 'B', role: 'CAJERO', commerceId: userId },
+      })
     })
   })
 

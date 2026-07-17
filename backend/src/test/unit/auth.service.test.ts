@@ -1,12 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
+import { Sex } from '@prisma/client'
+import { I18nService } from 'nestjs-i18n'
 import { AuthService } from '../../auth/auth.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { UsersService } from '../../users/users.service'
 import { RedisService } from '../../redis/redis.service'
 import { MailService } from '../../mail/mail.service'
 import { AuditService } from '../../audit/audit.service'
+import { TwoFactorService } from '../../auth/two-factor.service'
 
 describe('AuthService', () => {
   let service: AuthService
@@ -52,6 +55,15 @@ describe('AuthService', () => {
 
   const mockAuditService = {
     log: jest.fn(),
+  }
+
+  const mockI18nService = {
+    t: jest.fn((key: string) => key),
+  }
+
+  const mockTwoFactorService = {
+    generateSecret: jest.fn(),
+    verifyToken: jest.fn(),
   }
 
   const mockConfigService = {
@@ -107,6 +119,14 @@ describe('AuthService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: I18nService,
+          useValue: mockI18nService,
+        },
+        {
+          provide: TwoFactorService,
+          useValue: mockTwoFactorService,
         },
       ],
     }).compile()
@@ -171,6 +191,8 @@ describe('AuthService', () => {
         password: 'password123',
         firstName: 'New',
         lastName: 'User',
+        birthDate: '1990-01-01',
+        sex: Sex.MASCULINO,
         commerceName: 'Test Commerce',
         acceptTerms: true
       }
