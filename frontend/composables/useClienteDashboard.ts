@@ -14,7 +14,7 @@ export type OrderStatus =
   | 'CANCELADO'
 
 export type OrderType = 'INMEDIATO' | 'PROGRAMADO' | 'PARA_LLEVAR' | 'EN_SITIO'
-export type PaymentMethod = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'EN_LINEA'
+export type PaymentMethod = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'EN_LINEA' | 'CASHEA' | 'KRECE'
 export type PaymentStatus = 'PENDIENTE' | 'PAGADO' | 'REEMBOLSADO'
 
 export interface OrderItem {
@@ -149,6 +149,8 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   TARJETA:       'Tarjeta',
   TRANSFERENCIA: 'Transferencia',
   EN_LINEA:      'En Línea',
+  CASHEA:        'Cashea (BNPL)',
+  KRECE:         'Krece (BNPL)',
 }
 
 // Valid next statuses for progression UI
@@ -282,6 +284,24 @@ export function useClienteDashboard() {
   async function getOrder(id: string): Promise<Order | null> {
     try {
       return await get<Order>(`/orders/${id}`)
+    } catch (e: any) {
+      error.value = e?.message
+      return null
+    }
+  }
+
+  // ── BNPL (Cashea / Krece) ───────────────────────────────────────────────────
+  async function getEligibleBnplProviders(): Promise<('CASHEA' | 'KRECE')[]> {
+    try {
+      return await get<('CASHEA' | 'KRECE')[]>('/bnpl/eligible-providers')
+    } catch {
+      return []
+    }
+  }
+
+  async function initiateBnpl(orderId: string, provider: 'CASHEA' | 'KRECE'): Promise<{ transactionId: string; checkoutUrl: string; expiresAt: string | null } | null> {
+    try {
+      return await post(`/bnpl/orders/${orderId}/initiate`, { provider })
     } catch (e: any) {
       error.value = e?.message
       return null
