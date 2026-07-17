@@ -205,6 +205,7 @@
       v-model="showModal"
       :form="form"
       :editing="!!editing"
+      :user-id="editing?.id"
       :saving="saving"
       :form-error="formError"
       :categories="categories"

@@ -13,6 +13,10 @@ import { UsersService } from '../users/users.service';
 
 const CACHE_TTL = 300;
 const cacheKey = (role: Role) => `permissions:role:${role}`;
+// Corto a propósito: un cambio en los permisos del ROL (togglePermission/
+// bulkUpdate) no invalida estas claves por-usuario, así que el TTL acota el
+// staleness en vez de depender de invalidación explícita en ese camino.
+const userPermissionsCacheKey = (userId: string) => `permissions:user:${userId}`;
 
 @Injectable()
 export class PermissionsService {
@@ -296,11 +300,14 @@ export class PermissionsService {
   }
 
   async getUserPermissions(userId: string) {
+    const cached = await this.redis.get(userPermissionsCacheKey(userId));
+    if (cached) return JSON.parse(cached);
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, firstName: true, lastName: true, role: true },
     });
-    
+
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
     // Obtener permisos del rol
@@ -317,9 +324,9 @@ export class PermissionsService {
 
     // Combinar
     const rolePermMap = new Map(rolePermissions.map(rp => [rp.permission.id, rp.permission]));
-    const userPermMap = new Map(userPermissions.map(up => [up.permission.id, { 
-      ...up, 
-      isGranted: up.granted && (!up.expiresAt || up.expiresAt > new Date()) 
+    const userPermMap = new Map(userPermissions.map(up => [up.permission.id, {
+      ...up,
+      isGranted: up.granted && (!up.expiresAt || up.expiresAt > new Date())
     }]));
 
     // Todos los permisos disponibles
@@ -330,10 +337,10 @@ export class PermissionsService {
     const permissions = allPermissions.map(p => {
       const hasRolePermission = rolePermMap.has(p.id);
       const userPerm = userPermMap.get(p.id);
-      
+
       let effectiveGranted = hasRolePermission;
       let source: 'role' | 'user' | 'none' = hasRolePermission ? 'role' : 'none';
-      
+
       if (userPerm) {
         effectiveGranted = userPerm.isGranted;
         source = 'user';
@@ -356,11 +363,14 @@ export class PermissionsService {
       };
     });
 
-    return {
+    const result = {
       user,
       permissions: permissions.filter(p => p.effectiveGranted || p.userGranted !== null),
       allPermissions: permissions,
     };
+
+    await this.redis.setex(userPermissionsCacheKey(userId), CACHE_TTL, JSON.stringify(result));
+    return result;
   }
 
   async validateUserAccess(admin: { id: string; role: Role }, userId: string) {
@@ -484,7 +494,7 @@ export class PermissionsService {
     });
 
     // Invalidar caché de permisos del usuario
-    await this.redis.del(`permissions:user:${userId}`);
+    await this.redis.del(userPermissionsCacheKey(userId));
 
     return { success: true, userPerm };
   }
@@ -500,7 +510,7 @@ export class PermissionsService {
       where: { userId, permissionId },
     });
 
-    await this.redis.del(`permissions:user:${userId}`);
+    await this.redis.del(userPermissionsCacheKey(userId));
 
     return { success: true };
   }
@@ -512,7 +522,7 @@ export class PermissionsService {
       where: { userId },
     });
 
-    await this.redis.del(`permissions:user:${userId}`);
+    await this.redis.del(userPermissionsCacheKey(userId));
 
     return { success: true, message: 'Permisos individuales eliminados. El usuario ahora usa solo los permisos de su rol.' };
   }

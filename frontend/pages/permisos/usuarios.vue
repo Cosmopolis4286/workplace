@@ -180,13 +180,16 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, type Role } from '~/config/roles.config'
 import type { User } from '~/composables/useUserPermissions'
 import UserPermissionsModal from '~/components/permissions/UserPermissionsModal.vue'
 
 definePageMeta({ middleware: 'auth' })
 
-const { listUsers, loading, error } = useUserPermissions()
+const route = useRoute()
+const router = useRouter()
+const { listUsers, getUserPermissions, loading, error } = useUserPermissions()
 
 const users = ref<User[]>([])
 const search = ref('')
@@ -235,7 +238,26 @@ function closeModal() {
   selectedUser.value = null
 }
 
+// Soporta el link "Ver permisos" desde /usuarios (?userId=X): resuelve el
+// usuario vía getUserPermissions (ya trae los datos básicos) en vez de
+// depender de que esté en la página actual del listado paginado, y abre
+// el modal directamente sin esperar a que el admin lo busque de nuevo.
+async function openFromQuery() {
+  const userId = route.query.userId
+  if (typeof userId !== 'string' || !userId) return
+
+  router.replace({ query: { ...route.query, userId: undefined } })
+
+  try {
+    const { user } = await getUserPermissions(userId)
+    openUserPermissions(user)
+  } catch (e: any) {
+    error.value = e.message
+  }
+}
+
 onMounted(() => {
   loadUsers()
+  openFromQuery()
 })
 </script>

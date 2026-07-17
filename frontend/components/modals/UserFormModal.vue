@@ -10,9 +10,18 @@
               <h2 class="text-base font-bold text-gray-900">{{ editing ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
               <p class="text-xs text-gray-400 mt-0.5">{{ editing ? 'Modifica los datos del usuario' : 'Completa los datos para crear la cuenta' }}</p>
             </div>
-            <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600" @click="close">
-              <XMarkIcon class="h-5 w-5" />
-            </button>
+            <div class="flex items-center gap-1">
+              <NuxtLink
+                v-if="editing && userId"
+                :to="`/permisos/usuarios?userId=${userId}`"
+                class="px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors whitespace-nowrap"
+              >
+                Ver permisos
+              </NuxtLink>
+              <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600" @click="close">
+                <XMarkIcon class="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           <form id="user-form" @submit.prevent="$emit('submit')" class="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
@@ -99,6 +108,7 @@ const props = defineProps<{
   modelValue: boolean
   form: UserFormData
   editing: boolean
+  userId?: string | null
   saving: boolean
   formError: string | null
   categories: UserCategory[]
