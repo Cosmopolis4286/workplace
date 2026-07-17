@@ -34,8 +34,18 @@
               <div>
                 <label class="label-field">Método de Pago</label>
                 <select v-model="form.paymentMethod" class="input-field">
-                  <option v-for="(label, val) in PAYMENT_METHOD_LABELS" :key="val" :value="val">{{ label }}</option>
+                  <option
+                    v-for="(label, val) in PAYMENT_METHOD_LABELS"
+                    :key="val"
+                    :value="val"
+                    :disabled="isBnplProvider(val) && (!eligibleBnplProviders.includes(val) || hasIneligibleItems)"
+                  >
+                    {{ label }}
+                  </option>
                 </select>
+                <p v-if="isBnplProvider(form.paymentMethod) && hasIneligibleItems" class="mt-1 text-xs text-amber-600">
+                  Este pedido incluye productos no financiables con Cashea/Krece.
+                </p>
               </div>
               <div v-if="form.orderType === 'PROGRAMADO'" class="col-span-2">
                 <label class="label-field">Programado para</label>
@@ -222,6 +232,7 @@ const props = defineProps<{
   order: Order | null
   products: Product[]
   saving: boolean
+  eligibleBnplProviders?: PaymentMethod[]
 }>()
 
 const emit = defineEmits<{
@@ -317,6 +328,22 @@ const computedTotal = computed(() =>
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatCurrency(v: number) { return _fmt.value(v) }
+
+// ── BNPL (Cashea / Krece) ────────────────────────────────────────────────────
+
+const eligibleBnplProviders = computed(() => props.eligibleBnplProviders ?? [])
+
+function isBnplProvider(method: PaymentMethod): boolean {
+  return method === 'CASHEA' || method === 'KRECE'
+}
+
+const hasIneligibleItems = computed(() =>
+  form.value.items.some(i => {
+    if (!i.productId) return false
+    const product = props.products.find(p => p.id === i.productId)
+    return product && (product as any).bnplEligible === false
+  }),
+)
 
 // ── Submit ───────────────────────────────────────────────────────────────────
 
