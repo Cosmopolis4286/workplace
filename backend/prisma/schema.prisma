@@ -167,6 +167,8 @@ model Restaurant {
   cashSessions      CashSession[]
   cashMovements     CashMovement[]
   receipts          Receipt[]
+  bnplSettings      BnplSettings[]
+  bnplTransactions  BnplTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -359,6 +361,7 @@ model Product {
   allergens       String[]
   brand           String?
   forSale         Boolean       @default(true)
+  bnplEligible    Boolean       @default(true)
   categoryId      String
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   subcategoryId   String?
@@ -510,6 +513,21 @@ enum PaymentMethod {
   TARJETA
   TRANSFERENCIA
   EN_LINEA
+  CASHEA
+  KRECE
+}
+
+enum BnplProvider {
+  CASHEA
+  KRECE
+}
+
+enum BnplTransactionStatus {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  EXPIRADA
+  CANCELADA
 }
 
 enum PaymentStatus {
@@ -519,21 +537,21 @@ enum PaymentStatus {
 }
 
 model Order {
-  id                String        @id @default(uuid())
-  orderNumber       String        @unique
+  id                String           @id @default(uuid())
+  orderNumber       String           @unique
   customerName      String
   customerPhone     String?
   customerEmail     String?
   deliveryAddress   String?
   notes             String?
-  status            OrderStatus   @default(PENDIENTE)
-  orderType         OrderType     @default(INMEDIATO)
-  paymentMethod     PaymentMethod @default(EFECTIVO)
-  paymentStatus     PaymentStatus @default(PENDIENTE)
-  subtotal          Float         @default(0)
-  tax               Float         @default(0)
-  deliveryFee       Float         @default(0)
-  discount          Float         @default(0)
+  status            OrderStatus      @default(PENDIENTE)
+  orderType         OrderType        @default(INMEDIATO)
+  paymentMethod     PaymentMethod    @default(EFECTIVO)
+  paymentStatus     PaymentStatus    @default(PENDIENTE)
+  subtotal          Float            @default(0)
+  tax               Float            @default(0)
+  deliveryFee       Float            @default(0)
+  discount          Float            @default(0)
   total             Float
   platformFeeRate   Float?
   platformFeeAmount Float?
@@ -543,13 +561,14 @@ model Order {
   cancelledAt       DateTime?
   cancelReason      String?
   customerId        String?
-  customer          Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer          Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   commerceId        String
-  commerce          Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce          Restaurant       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   items             OrderItem[]
   receipt           Receipt?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  bnplTransaction   BnplTransaction?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@map("orders")
 }
@@ -567,6 +586,65 @@ model OrderItem {
   createdAt   DateTime @default(now())
 
   @@map("order_items")
+}
+
+// Credenciales BNPL (Cashea/Krece) por comercio y por proveedor. Un comercio
+// puede tener ambos proveedores configurados simultáneamente.
+model BnplSettings {
+  id         String       @id @default(uuid())
+  commerceId String
+  commerce   Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  provider   BnplProvider
+
+  isEnabled   Boolean @default(false)
+  isSimulated Boolean @default(true)
+
+  // Cifrados con encryptSecret/decryptSecret (AES-256-GCM, ver common/utils/crypto.util.ts)
+  publicApiKeyEnc     String?
+  privateApiKeyEnc    String?
+  storeId             String?
+  storeName           String?
+  externalClientIdEnc String?
+  extraConfig         Json?   @default("{}")
+
+  lastVerifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([commerceId, provider])
+  @@map("bnpl_settings")
+}
+
+model BnplTransaction {
+  id         String                @id @default(uuid())
+  orderId    String                @unique
+  order      Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  commerceId String
+  commerce   Restaurant            @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  provider   BnplProvider
+  status     BnplTransactionStatus @default(PENDIENTE)
+
+  externalReference String?
+  checkoutUrl       String?
+  amount            Float
+  currency          String  @default("USD")
+  installments      Int?
+
+  expiresAt     DateTime?
+  confirmedAt   DateTime?
+  cancelledAt   DateTime?
+  failureReason String?
+
+  rawResponse Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([commerceId])
+  @@index([status])
+  @@index([provider, status])
+  @@index([status, expiresAt])
+  @@map("bnpl_transactions")
 }
 
 // ─── Receipts (comprobante de venta, NO es factura fiscal) ─────────────────────

@@ -544,6 +544,9 @@
             </button>
           </div>
         </div>
+
+        <!-- ── Financiamiento (Cashea / Krece) ────────────────────────── -->
+        <BnplSettingsSection />
       </div>
     </template>
 
@@ -614,6 +617,7 @@ import { BiometryType } from '@aparajita/capacitor-biometric-auth'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import SearchableSelect from '~/components/ui/SearchableSelect.vue'
 import TwoFactorSettings from '~/components/settings/TwoFactorSettings.vue'
+import BnplSettingsSection from '~/components/settings/BnplSettingsSection.vue'
 import { useSettings } from '~/composables/useSettings'
 import { useAuth } from '~/composables/useAuth'
 import { usePermissions } from '~/composables/usePermissions'

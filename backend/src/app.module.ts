@@ -49,6 +49,7 @@ import { SearchModule } from './search/search.module';
 import { LandingModule } from './landing/landing.module';
 import { ReportsModule } from './reports/reports.module';
 import { LocationsModule } from './locations/locations.module';
+import { BnplModule } from './bnpl/bnpl.module';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { LocationsModule } from './locations/locations.module';
     AnalyticsModule,
     DeliveryModule,
     OrdersModule,
+    BnplModule,
     ExpensesModule,
     CashModule,
     ReceiptsModule,
