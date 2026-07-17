@@ -246,12 +246,12 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import UserFormModal from '~/components/modals/UserFormModal.vue'
 import UserDeleteModal from '~/components/modals/UserDeleteModal.vue'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, type Role } from '~/config/roles.config'
-import { useUsers, emptyUserForm, type UserItem, type UserCategory } from '~/composables/useUsers'
+import { useUsers, emptyUserForm, type UserItem, type UserCategory, type UsersStats } from '~/composables/useUsers'
 
 definePageMeta({ middleware: 'auth' })
 
 const { invalidate: invalidateModules } = useModules()
-const { listUsers, loadCategories: fetchCategories, createUser, updateUser, toggleUserStatus, deleteUser } = useUsers()
+const { listUsers, getStats, loadCategories: fetchCategories, createUser, updateUser, toggleUserStatus, deleteUser } = useUsers()
 
 const { user } = useAuth()
 const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
@@ -297,6 +297,7 @@ const bulkDeleteTargets  = ref<UserItem[]>([])
 const deletePartialError = ref<string | null>(null)
 
 const form = ref(emptyUserForm())
+const stats = ref<UsersStats>({ total: 0, commerce: 0, freelancer: 0, active: 0 })
 
 // ─── Computados ───────────────────────────────────────────────────────────────
 const totalPages = computed(() => Math.ceil(total.value / limit))
@@ -305,14 +306,13 @@ const filterSubcategories = computed(() =>
   categoryFilter.value ? (categories.value.find(c => c.id === categoryFilter.value)?.subcategories ?? []) : []
 )
 
-// Nota: estas cifras reflejan solo la página cargada (20 registros), no el
-// total real filtrado en backend — sería necesario un endpoint de agregados
-// para stats exactos sin traer todos los usuarios al cliente.
+// Agregados sobre todo el conjunto filtrado (vía GET /users/stats), no solo
+// la página de 20 registros cargada en `users`.
 const headerStats = computed(() => [
-  { label: 'Total',      value: String(total.value) },
-  { label: 'Commerce',   value: String(users.value.filter(u => u.role === 'COMMERCE').length) },
-  { label: 'Freelancer', value: String(users.value.filter(u => u.role === 'FREELANCER').length) },
-  { label: 'Activos',    value: String(users.value.filter(u => u.isActive).length) },
+  { label: 'Total',      value: String(stats.value.total) },
+  { label: 'Commerce',   value: String(stats.value.commerce) },
+  { label: 'Freelancer', value: String(stats.value.freelancer) },
+  { label: 'Activos',    value: String(stats.value.active) },
 ])
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -342,13 +342,17 @@ async function loadCategories() {
 
 async function load() {
   loading.value = true; error.value = null
+  const filters = {
+    roleFilter: roleFilter.value, categoryFilter: categoryFilter.value,
+    subcategoryFilter: subcategoryFilter.value, search: search.value,
+  }
   try {
-    const res = await listUsers({
-      page: page.value, limit,
-      roleFilter: roleFilter.value, categoryFilter: categoryFilter.value,
-      subcategoryFilter: subcategoryFilter.value, search: search.value,
-    })
+    const [res, statsRes] = await Promise.all([
+      listUsers({ page: page.value, limit, ...filters }),
+      getStats(filters),
+    ])
     users.value = res.data; total.value = res.total
+    stats.value = statsRes
   } catch (e: any) { error.value = e?.message }
   finally { loading.value = false }
 }

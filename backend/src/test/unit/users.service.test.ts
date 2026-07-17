@@ -121,7 +121,7 @@ describe('UsersService', () => {
       expect(result).toEqual(user)
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
-        include: { commerce: true },
+        include: { commerce: true, category: true, profileSettings: true },
       })
     })
 

@@ -28,8 +28,24 @@ export interface UserListFilters {
   search?: string
 }
 
+export interface UsersStats {
+  total: number
+  commerce: number
+  freelancer: number
+  active: number
+}
+
 export function emptyUserForm(): UserFormData {
   return { firstName: '', lastName: '', email: '', password: '', phone: '', role: 'COMMERCE', commerceName: '', categoryId: '', subcategoryId: '' }
+}
+
+function buildFilterParams(filters: Omit<UserListFilters, 'page' | 'limit'>) {
+  const params = new URLSearchParams()
+  if (filters.roleFilter) params.set('role', filters.roleFilter)
+  if (filters.categoryFilter) params.set('categoryId', filters.categoryFilter)
+  if (filters.subcategoryFilter) params.set('subcategoryId', filters.subcategoryFilter)
+  if (filters.search) params.set('search', filters.search)
+  return params
 }
 
 export const useUsers = () => {
@@ -40,12 +56,17 @@ export const useUsers = () => {
   }
 
   async function listUsers(filters: UserListFilters) {
-    const params = new URLSearchParams({ page: String(filters.page), limit: String(filters.limit) })
-    if (filters.roleFilter) params.set('role', filters.roleFilter)
-    if (filters.categoryFilter) params.set('categoryId', filters.categoryFilter)
-    if (filters.subcategoryFilter) params.set('subcategoryId', filters.subcategoryFilter)
-    if (filters.search) params.set('search', filters.search)
+    const params = buildFilterParams(filters)
+    params.set('page', String(filters.page))
+    params.set('limit', String(filters.limit))
     return get<{ data: UserItem[]; total: number }>(`/users?${params}`)
+  }
+
+  // Agregados sobre todo el conjunto filtrado (no solo la página cargada),
+  // usados en el header de /usuarios.
+  async function getStats(filters: Omit<UserListFilters, 'page' | 'limit'>) {
+    const params = buildFilterParams(filters)
+    return get<UsersStats>(`/users/stats?${params}`)
   }
 
   async function createUser(form: UserFormData) {
@@ -73,5 +94,5 @@ export const useUsers = () => {
     return del(`/users/${id}`)
   }
 
-  return { loadCategories, listUsers, createUser, updateUser, toggleUserStatus, deleteUser }
+  return { loadCategories, listUsers, getStats, createUser, updateUser, toggleUserStatus, deleteUser }
 }
