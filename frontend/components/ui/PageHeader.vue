@@ -7,14 +7,14 @@
     </div>
 
     <div class="relative px-6 sm:px-8 py-8 sm:py-12">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+      <div class="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
         <!-- Left Content -->
         <div class="flex items-center space-x-4">
           <!-- Icon -->
-          <div v-if="icon" class="p-4 bg-gradient-to-br from-workplace-red to-red-600 rounded-2xl shadow-lg transform hover:scale-110 transition-all duration-300 floating-animation">
+          <div v-if="icon" class="shrink-0 p-4 bg-gradient-to-br from-workplace-red to-red-600 rounded-2xl shadow-lg transform hover:scale-110 transition-all duration-300 floating-animation">
             <component :is="icon" class="h-8 w-8 text-white" />
           </div>
-          
+
           <!-- Text Content -->
           <div>
             <h1 class="text-3xl sm:text-4xl font-black text-gray-900 mb-2 gradient-text">
@@ -23,12 +23,12 @@
             <p class="text-lg text-gray-600 font-medium max-w-2xl">
               {{ description }}
             </p>
-            
+
             <!-- Breadcrumb -->
             <nav v-if="breadcrumb && breadcrumb.length > 0" class="flex items-center space-x-2 mt-3">
               <template v-for="(item, index) in breadcrumb" :key="index">
-                <NuxtLink 
-                  v-if="item.to" 
+                <NuxtLink
+                  v-if="item.to"
                   :to="item.to"
                   class="text-sm text-gray-500 hover:text-workplace-red transition-colors duration-200 font-medium"
                 >
@@ -42,9 +42,9 @@
         </div>
 
         <!-- Right Actions -->
-        <div v-if="$slots.actions" class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+        <HeaderActionBar v-if="$slots.actions" :max-cols="actionsMaxCols">
           <slot name="actions" />
-        </div>
+        </HeaderActionBar>
       </div>
 
       <!-- Stats Bar -->
@@ -76,6 +76,7 @@
 
 <script setup>
 import { ChevronRightIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/vue/24/outline'
+import HeaderActionBar from '~/components/ui/HeaderActionBar.vue'
 
 defineProps({
   title: {
@@ -97,6 +98,11 @@ defineProps({
   stats: {
     type: Array,
     default: () => []
+  },
+  /** Número máximo de columnas para los botones del slot #actions (1-6, default 4). */
+  actionsMaxCols: {
+    type: Number,
+    default: 4
   }
 })
 </script>
