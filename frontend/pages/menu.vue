@@ -6,16 +6,15 @@
       :icon="DocumentTextIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
+      :actions-max-cols="2"
     >
       <template #actions>
-        <button @click="showCategoryModal = true" class="btn-secondary flex items-center">
-          <PlusIcon class="h-5 w-5 mr-2" />
+        <HeaderActionButton :icon="PlusIcon" @click="showCategoryModal = true">
           Nueva Categoría
-        </button>
-        <button @click="openCreateProduct" class="btn-primary flex items-center">
-          <PlusIcon class="h-5 w-5 mr-2" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreateProduct">
           Nuevo Producto
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -174,6 +173,7 @@ import ProductCard from '~/components/ProductCard.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 
 const {

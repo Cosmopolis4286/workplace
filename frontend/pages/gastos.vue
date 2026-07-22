@@ -6,16 +6,15 @@
       :icon="CurrencyDollarIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
+      :actions-max-cols="2"
     >
       <template #actions>
-        <button class="btn-secondary flex items-center" @click="exportJSON">
-          <ArrowDownIcon class="h-5 w-5 mr-2" />
+        <HeaderActionButton :icon="ArrowDownIcon" @click="exportJSON">
           Exportar
-        </button>
-        <button class="btn-primary flex items-center" @click="openCreate">
-          <PlusIcon class="h-5 w-5 mr-2" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreate">
           Nuevo Gasto
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -316,6 +315,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot } from '@headlessui/vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import ExpenseModal from '~/components/modals/ExpenseModal.vue'
 import ExpenseCategoryModal from '~/components/modals/ExpenseCategoryModal.vue'
 import {

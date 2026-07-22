@@ -6,15 +6,12 @@
       :icon="CreditCardIcon"
       :breadcrumb="[{ label: 'Mi Plan' }]"
       :stats="headerStats"
+      :actions-max-cols="1"
     >
       <template #actions>
-        <NuxtLink
-          to="/precios"
-          class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
-        >
-          <ArrowTopRightOnSquareIcon class="h-3.5 w-3.5" />
+        <HeaderActionButton to="/precios" :icon="ArrowTopRightOnSquareIcon">
           Ver página de precios
-        </NuxtLink>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -267,6 +264,7 @@
 import { computed, onMounted } from 'vue'
 import { CreditCardIcon, CalendarIcon, CheckIcon, EnvelopeIcon, ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS } from '~/composables/usePlans'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })

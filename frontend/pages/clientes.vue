@@ -6,12 +6,12 @@
       :icon="UsersIcon"
       :breadcrumb="[{ label: 'Clientes' }]"
       :stats="headerStats"
+      :actions-max-cols="1"
     >
       <template #actions>
-        <button class="btn-primary flex items-center gap-2" @click="openModal()">
-          <PlusIcon class="h-5 w-5" />
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openModal()">
           Nuevo Cliente
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -390,6 +390,7 @@ import {
   PaperAirplaneIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useClientes, type Customer, type CustomerSegment } from '~/composables/useClientes'
 
 definePageMeta({ middleware: 'auth' })

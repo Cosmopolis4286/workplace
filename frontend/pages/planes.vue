@@ -6,6 +6,7 @@
       :icon="CreditCardIcon"
       :breadcrumb="[{ label: 'Planes' }]"
       :stats="headerStats"
+      :actions-max-cols="1"
     >
       <template #actions>
         <!-- Tabs en actions -->
@@ -17,10 +18,9 @@
             @click="activeTab = tab.key"
           >{{ tab.label }}</button>
         </div>
-        <button class="btn-primary flex items-center gap-2" @click="openPlanModal()">
-          <PlusIcon class="h-5 w-5" />
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openPlanModal()">
           Nuevo Plan
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -527,6 +527,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { CreditCardIcon, PlusIcon, XMarkIcon, PencilIcon, TrashIcon, CheckIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan, type Subscription } from '~/composables/usePlans'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })

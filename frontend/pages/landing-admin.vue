@@ -2,12 +2,13 @@
   <div class="p-6 max-w-5xl mx-auto space-y-8">
 
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-black text-gray-900">Contenido de la Landing</h1>
-        <p class="text-sm text-gray-500 mt-1">Gestiona estadísticas, testimonios, funciones y pasos que se muestran en la página principal.</p>
-      </div>
-    </div>
+    <PageHeader
+      title="Contenido de la Landing"
+      description="Gestiona estadísticas, testimonios, funciones y pasos que se muestran en la página principal."
+      :icon="HomeIcon"
+      :breadcrumb="[{ label: 'Landing' }]"
+      :stats="headerStats"
+    />
 
     <!-- ─── Estadísticas públicas ──────────────────────────────────────────── -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
@@ -578,8 +579,9 @@
 </template>
 
 <script setup lang="ts">
-import { PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'
+import { PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon, HomeIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
+import PageHeader from '~/components/ui/PageHeader.vue'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -994,6 +996,14 @@ async function deleteStep(id: string) {
   await del(`/landing/admin/steps/${id}`)
   steps.value = steps.value.filter((s) => s.id !== id)
 }
+
+// ─── Header stats ─────────────────────────────────────────────────────────────
+const headerStats = computed(() => [
+  { label: 'Testimonios', value: testimonials.value.length },
+  { label: 'Funciones', value: features.value.length },
+  { label: 'Reseñas reportadas', value: reportedReviews.value.length },
+  { label: 'Reportes de usuarios', value: userReports.value.length },
+])
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 onMounted(() => {

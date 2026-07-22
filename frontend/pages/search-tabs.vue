@@ -6,12 +6,12 @@
       :icon="MagnifyingGlassIcon"
       :breadcrumb="[{ label: 'Configuración', to: '/configuracion' }, { label: 'Tabs de Búsqueda' }]"
       :stats="headerStats"
+      :actions-max-cols="1"
     >
       <template #actions>
-        <button class="btn-primary flex items-center gap-2" @click="openCreateModal">
-          <PlusIcon class="h-5 w-5" />
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreateModal">
           Nuevo Tab
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -358,6 +358,7 @@ import {
   ChevronUpIcon, ChevronDownIcon, EyeIcon, EyeSlashIcon, CheckCircleIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useSearchTabs, type SearchTab } from '~/composables/useSearchTabs'
 
 definePageMeta({ middleware: 'auth' })

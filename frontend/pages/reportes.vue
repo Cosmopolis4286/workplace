@@ -6,24 +6,15 @@
       :icon="DocumentChartBarIcon"
       :breadcrumb="[{ label: 'Reportes' }]"
       :stats="headerStats"
+      :actions-max-cols="2"
     >
       <template #actions>
-        <button
-          class="btn-secondary flex items-center gap-2"
-          :disabled="anyLoading"
-          @click="refreshAll"
-        >
-          <ArrowPathIcon class="h-4 w-4" :class="{ 'animate-spin': anyLoading }" />
+        <HeaderActionButton :icon="ArrowPathIcon" :loading="anyLoading" :disabled="anyLoading" @click="refreshAll">
           Actualizar
-        </button>
-        <button
-          class="btn-primary flex items-center gap-2"
-          :disabled="anyLoading || !allLoaded"
-          @click="exportAll"
-        >
-          <ArrowDownTrayIcon class="h-4 w-4" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="ArrowDownTrayIcon" :disabled="anyLoading || !allLoaded" @click="exportAll">
           Exportar Todo
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -362,6 +353,7 @@ import {
   LockClosedIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useApi } from '~/composables/useApi'
 import { useUserPreferences } from '~/composables/useUserPreferences'
 

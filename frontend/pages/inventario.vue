@@ -6,16 +6,15 @@
       :icon="CubeIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
+      :actions-max-cols="2"
     >
       <template #actions>
-        <button @click="exportCSV" class="btn-secondary flex items-center gap-2">
-          <ArrowDownTrayIcon class="h-5 w-5" />
+        <HeaderActionButton :icon="ArrowDownTrayIcon" @click="exportCSV">
           Exportar
-        </button>
-        <button @click="openCreateProduct" class="btn-primary flex items-center gap-2">
-          <PlusIcon class="h-5 w-5" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreateProduct">
           Agregar Producto
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -409,6 +408,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
 import StockReportModal from '~/components/modals/StockReportModal.vue'

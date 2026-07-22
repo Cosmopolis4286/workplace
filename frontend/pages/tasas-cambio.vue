@@ -6,12 +6,12 @@
       :icon="CurrencyDollarIcon"
       :breadcrumb="[{ label: 'Tasas de Cambio' }]"
       :stats="headerStats"
+      :actions-max-cols="1"
     >
       <template #actions>
-        <button v-if="canManage" class="btn-primary flex items-center gap-2" @click="openModal()">
-          <PlusIcon class="h-5 w-5" />
+        <HeaderActionButton v-if="canManage" variant="primary" :icon="PlusIcon" @click="openModal()">
           Nueva Moneda
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -439,6 +439,7 @@ import {
   NoSymbolIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry, type SyncStatusEntry } from '~/composables/useExchangeRates'
 import { usePermissions } from '~/composables/usePermissions'
 

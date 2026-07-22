@@ -6,12 +6,12 @@
       :icon="BuildingOfficeIcon"
       :breadcrumb="[{ label: 'Sucursales' }]"
       :stats="headerStats"
+      :actions-max-cols="1"
     >
       <template #actions>
-        <button class="btn-primary flex items-center gap-2" @click="openModal()">
-          <PlusIcon class="h-5 w-5" />
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openModal()">
           Nueva Sucursal
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -198,6 +198,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { BuildingOfficeIcon, PlusIcon, XMarkIcon, MagnifyingGlassIcon, PencilIcon, TrashIcon, MapPinIcon, PhoneIcon, UserIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useSucursales, BRANCH_STATUS_LABELS, BRANCH_STATUS_CLASSES, BRANCH_COLORS, type Branch, type BranchStatus } from '~/composables/useSucursales'
 import { usePlans } from '~/composables/usePlans'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'

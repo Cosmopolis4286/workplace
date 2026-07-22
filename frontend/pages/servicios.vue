@@ -6,18 +6,15 @@
       :icon="BriefcaseIcon"
       :breadcrumb="[{ label: 'Servicios' }]"
       :stats="headerStats"
+      :actions-max-cols="2"
     >
       <template #actions>
-        <button @click="openModalitiesModal" class="mr-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center">
-          <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
-          </svg>
+        <HeaderActionButton :icon="AdjustmentsHorizontalIcon" @click="openModalitiesModal">
           Modalidades
-        </button>
-        <button @click="openCreate" class="btn-primary flex items-center">
-          <PlusIcon class="h-5 w-5 mr-2" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreate">
           Nuevo Servicio
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -883,8 +880,10 @@ import {
   SparklesIcon,
   CalendarDaysIcon,
   ExclamationCircleIcon,
+  AdjustmentsHorizontalIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useServicios, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service, type ServiceModality } from '~/composables/useServicios'
 
 definePageMeta({ middleware: 'auth' })

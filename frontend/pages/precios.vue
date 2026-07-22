@@ -6,6 +6,7 @@
       description="Elige el plan perfecto para tu negocio. Empieza gratis y escala cuando lo necesites."
       :icon="CreditCardIcon"
       :breadcrumb="[{ label: 'Planes y Precios' }]"
+      :actions-max-cols="1"
     >
       <template #actions>
         <!-- Toggle mensual / anual -->

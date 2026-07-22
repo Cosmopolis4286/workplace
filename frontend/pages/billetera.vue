@@ -6,25 +6,26 @@
       :icon="WalletIcon"
       :breadcrumb="[{ label: 'Billetera' }]"
       :stats="headerStats"
+      :actions-max-cols="3"
     >
       <template #actions>
-        <button v-if="!wallet && !loading" class="btn-primary flex items-center gap-2" @click="handleCreate">
-          <PlusIcon class="h-5 w-5" />Crear billetera
-        </button>
+        <HeaderActionButton v-if="!wallet && !loading" variant="primary" :icon="PlusIcon" @click="handleCreate">
+          Crear billetera
+        </HeaderActionButton>
         <template v-if="wallet && wallet.status === 'ACTIVE'">
-          <button class="btn-primary flex items-center gap-2" @click="openModal('deposit')">
-            <ArrowDownTrayIcon class="h-4 w-4" />Depositar
-          </button>
-          <button class="btn-secondary flex items-center gap-2" @click="openModal('withdraw')">
-            <ArrowUpTrayIcon class="h-4 w-4" />Retirar
-          </button>
-          <button class="btn-secondary flex items-center gap-2" @click="openModal('transfer')">
-            <ArrowsRightLeftIcon class="h-4 w-4" />Transferir
-          </button>
+          <HeaderActionButton variant="primary" :icon="ArrowDownTrayIcon" @click="openModal('deposit')">
+            Depositar
+          </HeaderActionButton>
+          <HeaderActionButton :icon="ArrowUpTrayIcon" @click="openModal('withdraw')">
+            Retirar
+          </HeaderActionButton>
+          <HeaderActionButton :icon="ArrowsRightLeftIcon" @click="openModal('transfer')">
+            Transferir
+          </HeaderActionButton>
         </template>
-        <button class="btn-secondary flex items-center gap-2" :disabled="loading" @click="reload">
-          <ArrowPathIcon class="h-4 w-4" :class="{ 'animate-spin': loading }" />Actualizar
-        </button>
+        <HeaderActionButton :icon="ArrowPathIcon" :loading="loading" :disabled="loading" @click="reload">
+          Actualizar
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -380,6 +381,7 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useWallets, type WalletTransactionType } from '~/composables/useWallets'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })

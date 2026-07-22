@@ -6,20 +6,18 @@
       :icon="ShoppingCartIcon"
       :breadcrumb="[{ label: 'Pedidos' }]"
       :stats="headerStats"
+      :actions-max-cols="3"
     >
       <template #actions>
-        <button class="btn-secondary flex items-center gap-2" @click="applyFilters" :disabled="loading">
-          <ArrowPathIcon class="h-4 w-4" :class="{ 'animate-spin': loading }" />
+        <HeaderActionButton :icon="ArrowPathIcon" :loading="loading" :disabled="loading" @click="applyFilters">
           Actualizar
-        </button>
-        <button class="btn-primary flex items-center gap-2" @click="openScheduleModal">
-          <CalendarIcon class="h-5 w-5" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="CalendarIcon" @click="openScheduleModal">
           Programar
-        </button>
-        <button class="btn-primary flex items-center gap-2" @click="openNewOrderModal">
-          <PlusIcon class="h-5 w-5" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openNewOrderModal">
           Nuevo Pedido
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -629,6 +627,7 @@ import {
   UsersIcon, ChartBarIcon, DocumentArrowDownIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useApi } from '~/composables/useApi'
 import {
   useClienteDashboard,

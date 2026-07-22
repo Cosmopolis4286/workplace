@@ -6,16 +6,15 @@
       :icon="ShoppingCartIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
+      :actions-max-cols="2"
     >
       <template #actions>
-        <button class="btn-secondary flex items-center" @click="exportJSON">
-          <ArrowDownIcon class="h-5 w-5 mr-2" />
+        <HeaderActionButton :icon="ArrowDownIcon" @click="exportJSON">
           Exportar
-        </button>
-        <button class="btn-primary flex items-center" @click="openCreate">
-          <PlusIcon class="h-5 w-5 mr-2" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreate">
           Nueva Venta
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -393,6 +392,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot } from '@headlessui/vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import SaleModal from '~/components/modals/SaleModal.vue'
 import OrderDetailModal from '~/components/modals/OrderDetailModal.vue'
 import {

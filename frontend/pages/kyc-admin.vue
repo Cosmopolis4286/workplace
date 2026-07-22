@@ -1,10 +1,13 @@
 <template>
   <div class="p-6 max-w-5xl mx-auto space-y-6">
 
-    <div>
-      <h1 class="text-2xl font-black text-gray-900">Verificaciones de Identidad</h1>
-      <p class="text-sm text-gray-500 mt-1">Revisa y aprueba o rechaza las solicitudes de KYC pendientes.</p>
-    </div>
+    <PageHeader
+      title="Verificaciones de Identidad"
+      description="Revisa y aprueba o rechaza las solicitudes de KYC pendientes."
+      :icon="ShieldCheckIcon"
+      :breadcrumb="[{ label: 'KYC' }]"
+      :stats="headerStats"
+    />
 
     <div v-if="loading" class="space-y-3">
       <div v-for="i in 3" :key="i" class="h-24 bg-gray-100 rounded-2xl animate-pulse" />
@@ -88,10 +91,11 @@
 <script setup lang="ts">
 definePageMeta({ middleware: ['auth'] })
 
-import { ref, onMounted } from 'vue'
-import { CheckCircleIcon } from '@heroicons/vue/24/outline'
+import { ref, computed, onMounted } from 'vue'
+import { CheckCircleIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline'
 import { useKyc, type IdentityVerification, type KycDocumentType } from '~/composables/useKyc'
 import KycImagePreview from '~/components/kyc/KycImagePreview.vue'
+import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts
 // (ADMIN_ONLY_ROUTES), que además espera la verificación real de sesión
@@ -103,6 +107,10 @@ const loading = ref(true)
 const processingId = ref<string | null>(null)
 const rejectingId = ref<string | null>(null)
 const rejectionReason = ref('')
+
+const headerStats = computed(() => [
+  { label: 'Pendientes', value: items.value.length },
+])
 
 async function load() {
   loading.value = true

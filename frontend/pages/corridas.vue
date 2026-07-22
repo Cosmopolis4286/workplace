@@ -6,6 +6,7 @@
       :icon="TruckIcon"
       :breadcrumb="[{ label: 'Corridas y Fletes' }]"
       :stats="headerStats"
+      :actions-max-cols="1"
     >
       <template #actions>
         <div class="flex items-center bg-white border border-gray-200 rounded-xl p-1 gap-1 shadow-sm">

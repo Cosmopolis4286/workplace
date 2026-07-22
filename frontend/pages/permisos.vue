@@ -3,64 +3,41 @@
     <div class="max-w-full p-6">
 
       <!-- Header -->
-      <div class="mb-6">
-        <div class="mb-4">
-          <h1 class="text-2xl font-bold text-gray-900 mb-2">Matriz de Permisos</h1>
-          <p class="text-sm text-gray-500">
-            Configura qué acciones puede realizar cada rol. Los permisos con
-            <span class="inline-flex items-center gap-1 font-medium text-red-600">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-              </svg>
-              candado
-            </span>
-            son del sistema y no pueden modificarse.
-          </p>
-        </div>
-        
-        <!-- Botones de acción en una sola fila -->
-        <div class="flex flex-wrap gap-3">
-          <NuxtLink
-            to="/permisos/usuarios"
-            class="px-4 py-2 text-sm font-medium border border-purple-300 rounded-lg text-purple-700 bg-white hover:bg-purple-50 transition-colors flex items-center gap-1.5"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-            </svg>
+      <PageHeader
+        title="Matriz de Permisos"
+        description="Configura qué acciones puede realizar cada rol. Los permisos con candado son del sistema y no pueden modificarse."
+        :icon="ShieldCheckIcon"
+        :breadcrumb="[{ label: 'Permisos' }]"
+        :stats="headerStats"
+        :actions-max-cols="2"
+      >
+        <template #actions>
+          <HeaderActionButton to="/permisos/usuarios" :icon="UserGroupIcon">
             Permisos por Usuario
-          </NuxtLink>
-          <button
-            @click="openNewPermModal"
-            class="px-4 py-2 text-sm font-medium border border-indigo-300 rounded-lg text-indigo-700 bg-white hover:bg-indigo-50 transition-colors flex items-center gap-1.5"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
+          </HeaderActionButton>
+          <HeaderActionButton :icon="PlusIcon" @click="openNewPermModal">
             Nuevo permiso
-          </button>
-          <button
-            @click="reloadUserPermissions"
+          </HeaderActionButton>
+          <HeaderActionButton
+            :icon="ArrowPathIcon"
+            :loading="reloadingPerms"
             :disabled="reloadingPerms"
-            class="px-4 py-2 text-sm font-medium border border-green-300 rounded-lg text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 transition-colors flex items-center gap-1.5"
             title="Fuerza recarga de permisos para todos los usuarios (incluyéndote)"
+            @click="reloadUserPermissions"
           >
-            <svg class="w-4 h-4" :class="{ 'animate-spin': reloadingPerms }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
             {{ reloadingPerms ? 'Recargando...' : 'Recargar mis permisos' }}
-          </button>
-          <button
-            @click="saveAll"
+          </HeaderActionButton>
+          <HeaderActionButton
+            variant="primary"
+            :icon="saving ? ArrowPathIcon : undefined"
+            :loading="saving"
             :disabled="saving || pendingChanges.length === 0"
-            class="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+            @click="saveAll"
           >
-            <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
             {{ saving ? 'Guardando...' : `Guardar cambios${pendingChanges.length > 0 ? ` (${pendingChanges.length})` : ''}` }}
-          </button>
-        </div>
-      </div>
+          </HeaderActionButton>
+        </template>
+      </PageHeader>
 
       <!-- Alerts -->
       <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-3">
@@ -302,7 +279,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { ShieldCheckIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
+import { ShieldCheckIcon, PlusIcon, TrashIcon, UserGroupIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
 import { useAlert } from '~/composables/useAlert'
@@ -418,6 +396,13 @@ const groupedPermissions = computed(() => {
   }
   return groups
 })
+
+const headerStats = computed(() => [
+  { label: 'Permisos', value: permissions.value.length },
+  { label: 'Módulos', value: Object.keys(groupedPermissions.value).length },
+  { label: 'Del sistema', value: permissions.value.filter((p: PermissionRow) => p.isSystem).length },
+  { label: 'Sin guardar', value: pendingChanges.value.length },
+])
 
 const { get, post, patch, del } = useApi()
 

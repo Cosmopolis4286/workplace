@@ -6,16 +6,15 @@
       :icon="UsersIcon"
       :breadcrumb="[{ label: 'Usuarios' }]"
       :stats="headerStats"
+      :actions-max-cols="2"
     >
       <template #actions>
-        <button class="btn-secondary flex items-center gap-2" @click="showCategoryModal = true">
-          <Squares2X2Icon class="h-4 w-4" />
+        <HeaderActionButton :icon="Squares2X2Icon" @click="showCategoryModal = true">
           Categorías
-        </button>
-        <button class="btn-primary flex items-center gap-2" @click="openCreate">
-          <PlusIcon class="h-5 w-5" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreate">
           Nuevo Usuario
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -244,6 +243,7 @@ import {
   Squares2X2Icon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import UserFormModal from '~/components/modals/UserFormModal.vue'
 import UserDeleteModal from '~/components/modals/UserDeleteModal.vue'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, type Role } from '~/config/roles.config'
