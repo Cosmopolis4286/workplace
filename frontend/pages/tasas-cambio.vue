@@ -6,7 +6,6 @@
       :icon="CurrencyDollarIcon"
       :breadcrumb="[{ label: 'Tasas de Cambio' }]"
       :stats="headerStats"
-      :actions-max-cols="1"
     >
       <template #actions>
         <HeaderActionButton v-if="canManage" variant="primary" :icon="PlusIcon" @click="openModal()">

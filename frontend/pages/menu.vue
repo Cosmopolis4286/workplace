@@ -6,7 +6,6 @@
       :icon="DocumentTextIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
-      :actions-max-cols="2"
     >
       <template #actions>
         <HeaderActionButton :icon="PlusIcon" @click="showCategoryModal = true">

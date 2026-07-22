@@ -6,7 +6,6 @@
       :icon="MagnifyingGlassIcon"
       :breadcrumb="[{ label: 'Configuración', to: '/configuracion' }, { label: 'Tabs de Búsqueda' }]"
       :stats="headerStats"
-      :actions-max-cols="1"
     >
       <template #actions>
         <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreateModal">

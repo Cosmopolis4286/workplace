@@ -6,7 +6,6 @@
       :icon="CreditCardIcon"
       :breadcrumb="[{ label: 'Planes' }]"
       :stats="headerStats"
-      :actions-max-cols="1"
     >
       <template #actions>
         <!-- Tabs en actions -->

@@ -9,7 +9,6 @@
         :icon="ShieldCheckIcon"
         :breadcrumb="[{ label: 'Permisos' }]"
         :stats="headerStats"
-        :actions-max-cols="2"
       >
         <template #actions>
           <HeaderActionButton to="/permisos/usuarios" :icon="UserGroupIcon">

@@ -6,7 +6,6 @@
       :icon="ShoppingCartIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
-      :actions-max-cols="2"
     >
       <template #actions>
         <HeaderActionButton :icon="ArrowDownIcon" @click="exportJSON">

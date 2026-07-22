@@ -8,10 +8,9 @@
       :stats="headerStats"
     >
       <template #actions>
-        <button class="btn-primary flex items-center gap-2" @click="openModal()">
-          <PlusIcon class="h-5 w-5" />
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openModal()">
           Nuevo Empleado
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -245,6 +244,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { UsersIcon, PlusIcon, XMarkIcon, MagnifyingGlassIcon, PencilIcon, TrashIcon, CheckCircleIcon, CalendarIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useEmpleados, EMPLOYEE_ROLE_LABELS, EMPLOYEE_ROLE_CLASSES, EMPLOYEE_STATUS_LABELS, EMPLOYEE_STATUS_CLASSES, type Employee, type EmployeeRole, type EmployeeStatus } from '~/composables/useEmpleados'
 import { usePlans } from '~/composables/usePlans'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'

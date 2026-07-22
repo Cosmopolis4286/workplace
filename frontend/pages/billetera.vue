@@ -6,7 +6,6 @@
       :icon="WalletIcon"
       :breadcrumb="[{ label: 'Billetera' }]"
       :stats="headerStats"
-      :actions-max-cols="3"
     >
       <template #actions>
         <HeaderActionButton v-if="!wallet && !loading" variant="primary" :icon="PlusIcon" @click="handleCreate">

@@ -6,7 +6,6 @@
       :icon="MapIcon"
       :breadcrumb="[{ label: 'Ubicaciones' }]"
       :stats="headerStats"
-      :actions-max-cols="1"
     >
       <template #actions>
         <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openModal('MUNICIPIO')">

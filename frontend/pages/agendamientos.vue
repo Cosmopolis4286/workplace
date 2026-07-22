@@ -27,10 +27,9 @@
             Calendario
           </button>
         </div>
-        <button class="btn-primary flex items-center gap-2" @click="openCreateModal">
-          <PlusIcon class="h-5 w-5" />
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreateModal">
           Nueva Reserva
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -426,6 +425,7 @@ import {
   TableCellsIcon,
 } from '@heroicons/vue/24/solid'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import {
   useAgendamientos,
   STATUS_LABELS,

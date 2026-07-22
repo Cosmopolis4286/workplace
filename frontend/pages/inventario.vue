@@ -6,7 +6,6 @@
       :icon="CubeIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
-      :actions-max-cols="2"
     >
       <template #actions>
         <HeaderActionButton :icon="ArrowDownTrayIcon" @click="exportCSV">

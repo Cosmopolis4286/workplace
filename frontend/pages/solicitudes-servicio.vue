@@ -6,7 +6,6 @@
       :icon="ClipboardDocumentListIcon"
       :breadcrumb="[{ label: 'Solicitudes de Servicio' }]"
       :stats="headerStats"
-      :actions-max-cols="1"
     >
       <template #actions>
         <!-- Toggle recibidas / enviadas — solo para FREELANCER y COMMERCE (proveedores) -->

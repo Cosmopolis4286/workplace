@@ -6,7 +6,6 @@
       :icon="UsersIcon"
       :breadcrumb="[{ label: 'Usuarios' }]"
       :stats="headerStats"
-      :actions-max-cols="2"
     >
       <template #actions>
         <HeaderActionButton :icon="Squares2X2Icon" @click="showCategoryModal = true">

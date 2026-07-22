@@ -6,7 +6,6 @@
       :icon="BriefcaseIcon"
       :breadcrumb="[{ label: 'Servicios' }]"
       :stats="headerStats"
-      :actions-max-cols="2"
     >
       <template #actions>
         <HeaderActionButton :icon="AdjustmentsHorizontalIcon" @click="openModalitiesModal">

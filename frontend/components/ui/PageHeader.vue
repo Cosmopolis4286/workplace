@@ -9,14 +9,14 @@
     <div class="relative px-6 sm:px-8 py-8 sm:py-12">
       <div class="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
         <!-- Left Content -->
-        <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-4 min-w-0 flex-1 xl:min-w-[320px]">
           <!-- Icon -->
           <div v-if="icon" class="shrink-0 p-4 bg-gradient-to-br from-workplace-red to-red-600 rounded-2xl shadow-lg transform hover:scale-110 transition-all duration-300 floating-animation">
             <component :is="icon" class="h-8 w-8 text-white" />
           </div>
 
           <!-- Text Content -->
-          <div>
+          <div class="min-w-0">
             <h1 class="text-3xl sm:text-4xl font-black text-gray-900 mb-2 gradient-text">
               {{ title }}
             </h1>
@@ -42,7 +42,7 @@
         </div>
 
         <!-- Right Actions -->
-        <HeaderActionBar v-if="$slots.actions" :max-cols="actionsMaxCols">
+        <HeaderActionBar v-if="$slots.actions">
           <slot name="actions" />
         </HeaderActionBar>
       </div>
@@ -98,11 +98,6 @@ defineProps({
   stats: {
     type: Array,
     default: () => []
-  },
-  /** Número máximo de columnas para los botones del slot #actions (1-6, default 4). */
-  actionsMaxCols: {
-    type: Number,
-    default: 4
   }
 })
 </script>

@@ -8,18 +8,15 @@
       :stats="headerStats"
     >
       <template #actions>
-        <button class="btn-secondary flex items-center gap-2" :disabled="loading" @click="refreshAll">
-          <ArrowPathIcon class="h-4 w-4" :class="{ 'animate-spin': loading }" />
+        <HeaderActionButton :icon="ArrowPathIcon" :loading="loading" :disabled="loading" @click="refreshAll">
           Actualizar
-        </button>
-        <button class="btn-secondary flex items-center gap-2" @click="openNewDriver">
-          <UserPlusIcon class="h-5 w-5" />
+        </HeaderActionButton>
+        <HeaderActionButton :icon="UserPlusIcon" @click="openNewDriver">
           Repartidor
-        </button>
-        <button class="btn-primary flex items-center gap-2" @click="openNewDelivery">
-          <PlusIcon class="h-5 w-5" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openNewDelivery">
           Nueva Entrega
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 

@@ -6,7 +6,6 @@
       :icon="UsersIcon"
       :breadcrumb="[{ label: 'Clientes' }]"
       :stats="headerStats"
-      :actions-max-cols="1"
     >
       <template #actions>
         <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openModal()">

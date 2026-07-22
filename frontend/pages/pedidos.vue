@@ -6,7 +6,6 @@
       :icon="ShoppingCartIcon"
       :breadcrumb="[{ label: 'Pedidos' }]"
       :stats="headerStats"
-      :actions-max-cols="3"
     >
       <template #actions>
         <HeaderActionButton :icon="ArrowPathIcon" :loading="loading" :disabled="loading" @click="applyFilters">

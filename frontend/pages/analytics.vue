@@ -8,14 +8,12 @@
       :stats="headerStats"
     >
       <template #actions>
-        <button class="btn-secondary flex items-center" @click="exportData">
-          <AnalyticsArrowDownIcon class="h-5 w-5 mr-2" />
+        <HeaderActionButton :icon="AnalyticsArrowDownIcon" @click="exportData">
           Exportar
-        </button>
-        <button @click="showConfigModal = true" class="btn-primary flex items-center">
-          <ChartBarIcon class="h-5 w-5 mr-2" />
+        </HeaderActionButton>
+        <HeaderActionButton variant="primary" :icon="ChartBarIcon" @click="showConfigModal = true">
           Configurar
-        </button>
+        </HeaderActionButton>
       </template>
     </PageHeader>
 
@@ -348,6 +346,7 @@ import LineChart from '~/components/charts/LineChart.vue'
 import BarChart from '~/components/charts/BarChart.vue'
 import DoughnutChart from '~/components/charts/DoughnutChart.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import AnalyticsConfigModal from '~/components/modals/AnalyticsConfigModal.vue'
 import type { AnalyticsPeriod, CompareWith } from '~/composables/useAnalytics'
 

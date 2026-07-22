@@ -6,7 +6,6 @@
       :icon="DocumentChartBarIcon"
       :breadcrumb="[{ label: 'Reportes' }]"
       :stats="headerStats"
-      :actions-max-cols="2"
     >
       <template #actions>
         <HeaderActionButton :icon="ArrowPathIcon" :loading="anyLoading" :disabled="anyLoading" @click="refreshAll">

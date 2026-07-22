@@ -6,7 +6,6 @@
       :icon="CreditCardIcon"
       :breadcrumb="[{ label: 'Mi Plan' }]"
       :stats="headerStats"
-      :actions-max-cols="1"
     >
       <template #actions>
         <HeaderActionButton to="/precios" :icon="ArrowTopRightOnSquareIcon">
