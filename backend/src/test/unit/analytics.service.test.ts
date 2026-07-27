@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { AnalyticsService } from '../../analytics/analytics.service'
+import { CommerceAnalyticsStrategy } from '../../analytics/strategies/commerce-analytics.strategy'
+import { FreelancerAnalyticsStrategy } from '../../analytics/strategies/freelancer-analytics.strategy'
 import { PrismaService } from '../../prisma/prisma.service'
 import { AnalyticsPeriod } from '../../analytics/dto/query-analytics.dto'
 
@@ -68,6 +70,8 @@ describe('AnalyticsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AnalyticsService,
+        CommerceAnalyticsStrategy,
+        FreelancerAnalyticsStrategy,
         {
           provide: PrismaService,
           useValue: mockPrismaService,
