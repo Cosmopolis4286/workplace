@@ -158,6 +158,8 @@
         "src/redis/redis.service.ts",
         "src/users/users.service.ts",
         "src/mail/mail.service.ts",
+        "src/users/strategies/commerce-profile-completion.strategy.ts",
+        "src/users/strategies/freelancer-profile-completion.strategy.ts",
         "src/analytics/analytics.service.ts",
         "src/analytics/strategies/commerce-analytics.strategy.ts",
         "src/analytics/strategies/analytics.helpers.ts",
@@ -271,6 +273,8 @@
         "src/locations/locations.service.ts",
         "src/menu/menu.module.ts",
         "src/menu/menu.controller.ts",
+        "src/common/decorators/require-account-type.decorator.ts",
+        "src/common/guards/account-type.guard.ts",
         "src/menu/menu.service.ts",
         "src/menu/stock-snapshot.scheduler.ts",
         "src/navigation/navigation.module.ts",
@@ -306,6 +310,8 @@
         "src/settings/settings.module.ts",
         "src/settings/settings.controller.ts",
         "src/settings/settings.service.ts",
+        "src/settings/strategies/commerce-settings.strategy.ts",
+        "src/settings/strategies/freelancer-settings.strategy.ts",
         "src/system-modules/system-modules.module.ts",
         "src/system-modules/system-modules.controller.ts",
         "src/audit/audit.interceptor.ts",
@@ -681,6 +687,7 @@
         "src/common/guards/roles.guard.ts",
         "src/common/guards/rate-limit.guard.ts",
         "src/common/guards/spanish-throttler.guard.ts",
+        "src/common/guards/account-type.guard.ts",
         "src/guards/database-pool.guard.ts",
         "src/main.ts",
         "src/test/unit/permissions.guard.test.ts"
@@ -999,6 +1006,7 @@
       "dependents": [
         "src/permissions/permissions.service.ts",
         "src/users/users.service.ts",
+        "src/users/strategies/commerce-profile-completion.strategy.ts",
         "src/analytics/strategies/commerce-analytics.strategy.ts",
         "src/analytics/strategies/freelancer-analytics.strategy.ts",
         "src/prisma/prisma.module.ts",
@@ -1049,6 +1057,8 @@
         "src/services/service-request-reminder.scheduler.ts",
         "src/services/services.service.ts",
         "src/settings/settings.service.ts",
+        "src/settings/strategies/commerce-settings.strategy.ts",
+        "src/settings/strategies/freelancer-settings.strategy.ts",
         "src/common/helpers/category.helper.ts",
         "src/database/migration-strategy.service.ts",
         "src/database/safe-migration.service.ts",
@@ -1324,6 +1334,40 @@
             "import"
           ],
           "resolved": "src/users/dto/update-user.dto.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./strategies/commerce-profile-completion.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/users/strategies/commerce-profile-completion.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./strategies/freelancer-profile-completion.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/users/strategies/freelancer-profile-completion.strategy.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -1907,6 +1951,125 @@
       "dependents": [
         "src/users/users.service.ts",
         "src/users/users.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/users/strategies/commerce-profile-completion.strategy.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "../../prisma/prisma.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/prisma/prisma.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./profile-completion.strategy.interface",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/users/strategies/profile-completion.strategy.interface.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/users/users.service.ts",
+        "src/users/users.module.ts",
+        "src/test/unit/users.service.test.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/users/strategies/profile-completion.strategy.interface.ts",
+      "dependencies": [],
+      "dependents": [
+        "src/users/strategies/commerce-profile-completion.strategy.ts",
+        "src/users/strategies/freelancer-profile-completion.strategy.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/users/strategies/freelancer-profile-completion.strategy.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "./profile-completion.strategy.interface",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/users/strategies/profile-completion.strategy.interface.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/users/users.service.ts",
+        "src/users/users.module.ts",
+        "src/test/unit/users.service.test.ts"
       ],
       "orphan": false,
       "valid": true
@@ -5669,6 +5832,40 @@
             "import"
           ],
           "resolved": "src/mail/mail.module.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./strategies/commerce-profile-completion.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/users/strategies/commerce-profile-completion.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./strategies/freelancer-profile-completion.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/users/strategies/freelancer-profile-completion.strategy.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -12099,7 +12296,9 @@
         }
       ],
       "dependents": [
-        "src/common/account-type/account-type.module.ts"
+        "src/common/account-type/account-type.module.ts",
+        "src/common/guards/account-type.guard.ts",
+        "src/settings/settings.service.ts"
       ],
       "orphan": false,
       "valid": true
@@ -20112,6 +20311,23 @@
         },
         {
           "dynamic": false,
+          "module": "../common/decorators/require-account-type.decorator",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/common/decorators/require-account-type.decorator.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "../common/decorators/require-permission.decorator",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -20120,6 +20336,23 @@
             "import"
           ],
           "resolved": "src/common/decorators/require-permission.decorator.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../common/guards/account-type.guard",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/common/guards/account-type.guard.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -20357,6 +20590,114 @@
       ],
       "dependents": [
         "src/menu/menu.module.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/common/decorators/require-account-type.decorator.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/menu/menu.controller.ts",
+        "src/common/guards/account-type.guard.ts",
+        "src/settings/settings.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/common/guards/account-type.guard.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "../account-type/account-type.resolver",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/common/account-type/account-type.resolver.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../decorators/require-account-type.decorator",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/common/decorators/require-account-type.decorator.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/core",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_vqzmv3cqg2tz5bybifqh7dwcfy/node_modules/@nestjs/core/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/menu/menu.controller.ts",
+        "src/settings/settings.controller.ts"
       ],
       "orphan": false,
       "valid": true
@@ -26272,6 +26613,40 @@
         },
         {
           "dynamic": false,
+          "module": "./strategies/commerce-settings.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/strategies/commerce-settings.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./strategies/freelancer-settings.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/strategies/freelancer-settings.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "@nestjs/common",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -26316,6 +26691,23 @@
         },
         {
           "dynamic": false,
+          "module": "../common/decorators/require-account-type.decorator",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/common/decorators/require-account-type.decorator.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "../common/decorators/require-permission.decorator",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -26324,6 +26716,23 @@
             "import"
           ],
           "resolved": "src/common/decorators/require-permission.decorator.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../common/guards/account-type.guard",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/common/guards/account-type.guard.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -26452,7 +26861,10 @@
       ],
       "dependents": [
         "src/settings/settings.controller.ts",
-        "src/settings/settings.service.ts"
+        "src/settings/settings.service.ts",
+        "src/settings/strategies/commerce-settings.strategy.ts",
+        "src/settings/strategies/settings-account.strategy.interface.ts",
+        "src/settings/strategies/freelancer-settings.strategy.ts"
       ],
       "orphan": false,
       "valid": true
@@ -26460,6 +26872,23 @@
     {
       "source": "src/settings/settings.service.ts",
       "dependencies": [
+        {
+          "dynamic": false,
+          "module": "../common/account-type/account-type.resolver",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/common/account-type/account-type.resolver.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
         {
           "dynamic": false,
           "module": "../plans/plan-limits.service",
@@ -26519,6 +26948,57 @@
         },
         {
           "dynamic": false,
+          "module": "./strategies/commerce-settings.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/strategies/commerce-settings.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./strategies/freelancer-settings.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/strategies/freelancer-settings.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./strategies/settings-account.strategy.interface",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/strategies/settings-account.strategy.interface.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "@nestjs/common",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -26538,6 +27018,193 @@
       "dependents": [
         "src/settings/settings.module.ts",
         "src/settings/settings.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/settings/strategies/commerce-settings.strategy.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "../../prisma/prisma.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/prisma/prisma.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../dto/update-settings.dto",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/dto/update-settings.dto.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./settings-account.strategy.interface",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/strategies/settings-account.strategy.interface.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/settings/settings.module.ts",
+        "src/settings/settings.service.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/settings/strategies/settings-account.strategy.interface.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "../dto/update-settings.dto",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/dto/update-settings.dto.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/settings/settings.service.ts",
+        "src/settings/strategies/commerce-settings.strategy.ts",
+        "src/settings/strategies/freelancer-settings.strategy.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/settings/strategies/freelancer-settings.strategy.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "../../prisma/prisma.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/prisma/prisma.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../dto/update-settings.dto",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/dto/update-settings.dto.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./settings-account.strategy.interface",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/settings/strategies/settings-account.strategy.interface.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/settings/settings.module.ts",
+        "src/settings/settings.service.ts"
       ],
       "orphan": false,
       "valid": true
@@ -30245,6 +30912,40 @@
         },
         {
           "dynamic": false,
+          "module": "../../users/strategies/commerce-profile-completion.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/users/strategies/commerce-profile-completion.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../users/strategies/freelancer-profile-completion.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/users/strategies/freelancer-profile-completion.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "../../users/users.service",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -31508,8 +32209,8 @@
     "warn": 82,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 364,
-    "totalDependenciesCruised": 1460,
+    "totalCruised": 372,
+    "totalDependenciesCruised": 1495,
     "optionsUsed": {
       "baseDir": "C:\\Users\\Eisker\\Documents\\projects\\workplace\\backend",
       "combinedDependencies": false,
