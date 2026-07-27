@@ -459,6 +459,39 @@ export class ServicesService {
     return request;
   }
 
+  // Resumen de solicitudes recibidas como proveedor, para el reporte de
+  // negocio de un freelancer (equivalente a orderStats/expenseStats de
+  // comercio, pero sobre ServiceRequest en vez de Order).
+  async getMyServiceRequestsStats(providerId: string) {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const [total, active, completedToday, cancelled, closedThisMonth] = await Promise.all([
+      this.prisma.serviceRequest.count({ where: { providerId } }),
+      this.prisma.serviceRequest.count({
+        where: { providerId, status: { in: ServicesService.OPEN_REQUEST_STATUSES as any } },
+      }),
+      this.prisma.serviceRequest.count({
+        where: { providerId, status: 'CERRADO', statusUpdatedAt: { gte: startOfToday } },
+      }),
+      this.prisma.serviceRequest.count({ where: { providerId, status: 'CANCELADO' } }),
+      this.prisma.serviceRequest.findMany({
+        where: { providerId, status: 'CERRADO', statusUpdatedAt: { gte: startOfMonth } },
+        select: { price: true },
+      }),
+    ]);
+
+    const totalRevenue = closedThisMonth.reduce((sum, r) => sum + (r.price ?? 0), 0);
+    const avgTicket = closedThisMonth.length > 0
+      ? Math.round((totalRevenue / closedThisMonth.length) * 100) / 100
+      : 0;
+
+    return { total, active, completedToday, cancelled, totalRevenue, avgTicket };
+  }
+
   async getMyServiceRequests(userId: string, page = 1, limit = 20, asRole: 'provider' | 'client' = 'provider') {
     limit = Math.min(100, Math.max(1, limit));
     const skip = (page - 1) * limit;

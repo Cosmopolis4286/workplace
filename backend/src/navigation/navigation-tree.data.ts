@@ -10,9 +10,9 @@ import { NavItemDef, NavSectionDef } from './navigation.types';
  */
 export const EXTRA_PROTECTED_ROUTES: NavItemDef[] = [
   { id: 'gastos', to: '/gastos', label: 'Gastos', icon: 'sales', order: 0,
-    condition: { permission: 'expenses:view', requiresModule: true } },
+    condition: { permission: 'expenses:view', requiresModule: true, excludeRoles: [Role.FREELANCER] } },
   { id: 'cliente-dashboard', to: '/cliente-dashboard', label: 'Mi Panel', icon: 'home', order: 0,
-    condition: { permission: 'orders:view', requiresModule: true } },
+    condition: { permission: 'orders:view', requiresModule: true, excludeRoles: [Role.FREELANCER] } },
 ];
 
 /**
@@ -30,9 +30,9 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
       { id: 'dashboard', to: '/dashboard', label: 'Dashboard', icon: 'dashboard', order: 0,
         condition: { permission: 'dashboard:view' } },
       { id: 'menu', to: '/menu', label: 'Menú', icon: 'menu', order: 1,
-        condition: { permission: 'menu:view', requiresModule: true, excludeRoles: [Role.NORMAL], requiresCategory: 'Comida' } },
+        condition: { permission: 'menu:view', requiresModule: true, excludeRoles: [Role.NORMAL, Role.FREELANCER], requiresCategory: 'Comida' } },
       { id: 'inventario', to: '/inventario', label: 'Inventario', icon: 'inventory', order: 2,
-        condition: { permission: 'inventory:view', requiresModule: true, excludeRoles: [Role.NORMAL] } },
+        condition: { permission: 'inventory:view', requiresModule: true, excludeRoles: [Role.NORMAL, Role.FREELANCER] } },
       { id: 'servicios', to: '/servicios', label: 'Servicios', icon: 'services', order: 3,
         condition: { permission: 'services:view', requiresModule: true } },
       { id: 'empleos', to: '/empleos', label: 'Empleos', icon: 'jobs', order: 4,
@@ -68,15 +68,15 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     flat: false,
     items: [
       { id: 'pedidos', to: '/pedidos', label: 'Pedidos', icon: 'orders', order: 0,
-        condition: { permission: 'orders:view', requiresModule: true, excludeRoles: [Role.NORMAL] } },
+        condition: { permission: 'orders:view', requiresModule: true, excludeRoles: [Role.NORMAL, Role.FREELANCER] } },
       { id: 'agendamientos', to: '/agendamientos', label: 'Agendamientos', icon: 'appointments', order: 1,
-        condition: { permission: 'appointments:view', requiresModule: true } },
+        condition: { permission: 'appointments:view', requiresModule: true, excludeRoles: [Role.FREELANCER] } },
       { id: 'clientes', to: '/clientes', label: 'Clientes', icon: 'customers', order: 2,
-        condition: { permission: 'customers:view', requiresModule: true } },
+        condition: { permission: 'customers:view', requiresModule: true, excludeRoles: [Role.FREELANCER] } },
       { id: 'delivery', to: '/delivery', label: 'Delivery', icon: 'delivery', order: 3,
-        condition: { permission: 'delivery:view', requiresModule: true } },
+        condition: { permission: 'delivery:view', requiresModule: true, excludeRoles: [Role.FREELANCER] } },
       { id: 'caja', to: '/caja', label: 'Caja', icon: 'cash', order: 4,
-        condition: { permission: 'cash:view', requiresModule: true } },
+        condition: { permission: 'cash:view', requiresModule: true, excludeRoles: [Role.FREELANCER] } },
     ],
   },
   {
@@ -86,9 +86,9 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     flat: false,
     items: [
       { id: 'empleados', to: '/empleados', label: 'Empleados', icon: 'employees', order: 0,
-        condition: { permission: 'employees:view', requiresModule: true } },
+        condition: { permission: 'employees:view', requiresModule: true, excludeRoles: [Role.FREELANCER] } },
       { id: 'sucursales', to: '/sucursales', label: 'Sucursales', icon: 'branches', order: 1,
-        condition: { permission: 'branches:view', requiresModule: true } },
+        condition: { permission: 'branches:view', requiresModule: true, excludeRoles: [Role.FREELANCER] } },
     ],
   },
   {

@@ -207,6 +207,12 @@ export class ServicesController {
     return this.servicesService.createServiceRequest(dto, user?.id);
   }
 
+  @Get('requests/stats')
+  @UseGuards(JwtAuthGuard)
+  getMyRequestsStats(@CurrentUser() user: any) {
+    return this.servicesService.getMyServiceRequestsStats(user.id);
+  }
+
   @Get('requests/mine')
   @UseGuards(JwtAuthGuard)
   getMyRequests(

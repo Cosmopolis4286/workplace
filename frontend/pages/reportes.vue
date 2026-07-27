@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Reportes del Negocio"
-      description="Resumen ejecutivo de ventas, gastos y equipo"
+      :description="isFreelancer ? 'Resumen ejecutivo de tus solicitudes de servicio' : 'Resumen ejecutivo de ventas, gastos y equipo'"
       :icon="DocumentChartBarIcon"
       :breadcrumb="[{ label: 'Reportes' }]"
       :stats="headerStats"
@@ -30,7 +30,7 @@
       <!-- ─── Columna principal (2/3) ─────────────────────────────────────── -->
       <div class="lg:col-span-2 space-y-6">
 
-        <!-- Reporte de Ventas -->
+        <!-- Reporte de Ventas / Solicitudes de Servicio -->
         <div class="card overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -38,8 +38,8 @@
                 <ShoppingCartIcon class="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <h2 class="text-sm font-semibold text-gray-900">Ventas & Órdenes</h2>
-                <p class="text-xs text-gray-400">Pedidos e ingresos del negocio</p>
+                <h2 class="text-sm font-semibold text-gray-900">{{ isFreelancer ? 'Solicitudes de Servicio' : 'Ventas & Órdenes' }}</h2>
+                <p class="text-xs text-gray-400">{{ isFreelancer ? 'Solicitudes recibidas e ingresos' : 'Pedidos e ingresos del negocio' }}</p>
               </div>
             </div>
             <button
@@ -67,7 +67,7 @@
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 <div class="bg-gray-50 rounded-xl p-4 text-center">
                   <p class="text-2xl font-black text-gray-900">{{ orderStats.total ?? '—' }}</p>
-                  <p class="text-xs text-gray-500 mt-1">Total pedidos</p>
+                  <p class="text-xs text-gray-500 mt-1">{{ isFreelancer ? 'Total solicitudes' : 'Total pedidos' }}</p>
                 </div>
                 <div class="bg-blue-50 rounded-xl p-4 text-center">
                   <p class="text-2xl font-black text-blue-600">{{ orderStats.active ?? '—' }}</p>
@@ -118,8 +118,8 @@
           </div>
         </div>
 
-        <!-- Reporte de Gastos -->
-        <div class="card overflow-hidden">
+        <!-- Reporte de Gastos: no aplica a un freelancer sin Restaurant/Expense -->
+        <div v-if="!isFreelancer" class="card overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center">
@@ -214,8 +214,8 @@
       <!-- ─── Sidebar (1/3) ──────────────────────────────────────────────── -->
       <div class="space-y-6">
 
-        <!-- Reporte de Empleados -->
-        <div class="card overflow-hidden">
+        <!-- Reporte de Empleados: no aplica a un freelancer independiente -->
+        <div v-if="!isFreelancer" class="card overflow-hidden">
           <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
@@ -289,8 +289,8 @@
           </div>
         </div>
 
-        <!-- Salud financiera -->
-        <div v-if="allLoaded" class="card p-5">
+        <!-- Salud financiera: requiere expenseStats (gastos) para tener sentido, no aplica a freelancer -->
+        <div v-if="allLoaded && !isFreelancer" class="card p-5">
           <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
             <HeartIcon class="h-4 w-4 text-red-500" />
             Salud Financiera
@@ -355,11 +355,16 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useApi } from '~/composables/useApi'
 import { useUserPreferences } from '~/composables/useUserPreferences'
+import { useAuth } from '~/composables/useAuth'
 
 definePageMeta({ middleware: 'auth' })
 
 const { formatCurrency: _fmt } = useUserPreferences()
 const { get } = useApi()
+const { user } = useAuth()
+// Un freelancer no tiene Restaurant/Expense/Employee: su reporte de negocio
+// se basa en ServiceRequest (solicitudes recibidas), no en Order/Expense.
+const isFreelancer = computed(() => user.value?.role === 'FREELANCER')
 
 const loadingOrders    = ref(false)
 const loadingExpenses  = ref(false)
@@ -417,12 +422,22 @@ const healthMessage = computed(() => {
   return 'Finanzas en buen estado. Sigue así.'
 })
 
-const headerStats = computed(() => [
-  { label: 'Ingresos',   value: formatCurrency(orderStats.value?.totalRevenue) },
-  { label: 'Gastos mes', value: formatCurrency(expenseStats.value?.totalMonthly) },
-  { label: 'Empleados',  value: String(employeeStats.value?.total ?? '—') },
-  { label: 'Margen',     value: formatCurrency(netMargin.value) },
-])
+const headerStats = computed(() => {
+  if (isFreelancer.value) {
+    return [
+      { label: 'Ingresos',    value: formatCurrency(orderStats.value?.totalRevenue) },
+      { label: 'Ticket prom.', value: formatCurrency(orderStats.value?.avgTicket) },
+      { label: 'Solicitudes', value: String(orderStats.value?.total ?? '—') },
+      { label: 'Activas',     value: String(orderStats.value?.active ?? '—') },
+    ]
+  }
+  return [
+    { label: 'Ingresos',   value: formatCurrency(orderStats.value?.totalRevenue) },
+    { label: 'Gastos mes', value: formatCurrency(expenseStats.value?.totalMonthly) },
+    { label: 'Empleados',  value: String(employeeStats.value?.total ?? '—') },
+    { label: 'Margen',     value: formatCurrency(netMargin.value) },
+  ]
+})
 
 const employeeSummary = computed(() => [
   { label: 'Activos',        value: employeeStats.value?.active      ?? 0, dot: 'bg-green-400',  bar: 'bg-green-400'  },
@@ -454,6 +469,13 @@ function exportJSON(name: string, data: any) {
 }
 
 function exportAll() {
+  if (isFreelancer.value) {
+    exportJSON('completo', {
+      generatedAt: new Date().toISOString(),
+      solicitudes: orderStats.value,
+    })
+    return
+  }
   exportJSON('completo', {
     generatedAt: new Date().toISOString(),
     ventas: orderStats.value,
@@ -475,7 +497,9 @@ function isForbidden(e: any) {
 
 async function loadOrderStats() {
   loadingOrders.value = true
-  try { orderStats.value = await get('/orders/stats') }
+  try {
+    orderStats.value = await get(isFreelancer.value ? '/services/requests/stats' : '/orders/stats')
+  }
   catch (e: any) {
     if (!isForbidden(e)) globalError.value = e?.data?.message ?? e.message
   }
@@ -504,6 +528,10 @@ async function loadEmployeeStats() {
 
 async function refreshAll() {
   globalError.value = null
+  if (isFreelancer.value) {
+    await loadOrderStats()
+    return
+  }
   await Promise.all([loadOrderStats(), loadExpenseStats(), loadEmployeeStats()])
 }
 

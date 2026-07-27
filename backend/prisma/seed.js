@@ -237,7 +237,10 @@ const ROLE_DEFAULTS = {
     'services:view', 'services:create', 'services:edit', 'services:delete',
     'service_requests:view',
     'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete',
-    'analytics:view', 'reports:view', 'sales:view',
+    // 'sales:view' no aplica: la "venta" de un freelancer es aceptar una
+    // ServiceRequest ya iniciada por el cliente, no crear una Order eligiendo
+    // productos de un menú — ese flujo vive en /solicitudes-servicio.
+    'analytics:view', 'reports:view',
     'search:view',
     'catalog:view',
     'corridas:view', 'corridas:create',

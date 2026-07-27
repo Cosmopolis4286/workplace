@@ -141,7 +141,7 @@ export const useSettings = () => {
 
   // ─── Update notification settings ───────────────────────────────────────────
 
-  async function saveNotificationSettings(data: Partial<RestaurantSettings> | Partial<FreelancerSettingsData>): Promise<boolean> {
+  async function saveNotificationSettings(data: Record<string, boolean>): Promise<boolean> {
     saving.value = 'notifications'
     error.value = null
     try {
