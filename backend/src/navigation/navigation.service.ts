@@ -15,6 +15,11 @@ export class NavigationService {
   async buildNavigationForUser(user: { id: string; role: Role }): Promise<NavigationResponse> {
     const { role } = user;
     const isSuperAdmin = role === Role.SUPERADMIN;
+    // accountType se deriva de role (mismo valor hoy) sin query extra —
+    // navigation es un endpoint de alta frecuencia, no amerita ir a la DB
+    // solo para leer lo que el JWT ya trae. Ver AccountTypeResolver para el
+    // mismo criterio de fallback usado donde sí hace falta la fuente de verdad.
+    const accountType = role === Role.COMMERCE || role === Role.FREELANCER ? role : null;
 
     const [rolePermKeys, overrides, limits] = await Promise.all([
       this.permissionsService.getRolePermissions(role),
@@ -35,6 +40,8 @@ export class NavigationService {
       const c = item.condition;
       if (c.rolesOnly && !c.rolesOnly.includes(role)) return false;
       if (c.excludeRoles && c.excludeRoles.includes(role)) return false;
+      if (c.accountTypeOnly && (!accountType || !c.accountTypeOnly.includes(accountType))) return false;
+      if (c.excludeAccountTypes && accountType && c.excludeAccountTypes.includes(accountType)) return false;
       if (c.requiresCategory && limits.categoryName !== c.requiresCategory) return false;
       if (!can(c.permission)) return false;
       if (c.requiresModule && c.permission && !hasModule(c.permission)) return false;

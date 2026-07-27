@@ -6,13 +6,21 @@ export type NavIconKey =
   | 'empresa_group' | 'orders' | 'appointments' | 'customers' | 'profile'
   | 'home' | 'delivery' | 'employees' | 'jobs' | 'branches' | 'modules' | 'cash';
 
+export type BusinessAccountType = 'COMMERCE' | 'FREELANCER';
+
 export interface NavNodeCondition {
   /** Permission key requerida (formato "modulo:accion"); null = sin requisito */
   permission: string | null;
   /** Además de can(permission), exige hasModule(permission.split(':')[0]) */
   requiresModule?: boolean;
+  /** RBAC puro (SUPERADMIN/ADMIN/NORMAL) — no usar para COMMERCE/FREELANCER, ver accountTypeOnly */
   rolesOnly?: Role[];
+  /** RBAC puro — ver excludeAccountTypes para excluir por tipo de cuenta de negocio */
   excludeRoles?: Role[];
+  /** Tipo de cuenta de negocio requerido (COMMERCE/FREELANCER) */
+  accountTypeOnly?: BusinessAccountType[];
+  /** Tipo(s) de cuenta de negocio excluido(s) */
+  excludeAccountTypes?: BusinessAccountType[];
   /** Requiere que la categoría de negocio del usuario coincida exactamente */
   requiresCategory?: string;
 }
