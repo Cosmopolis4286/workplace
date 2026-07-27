@@ -23,7 +23,10 @@
     "prisma:migrate": "prisma migrate dev --schema=./prisma/schema.prisma",
     "prisma:migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=./prisma/schema.prisma",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "deps:check": "depcruise --config .dependency-cruiser.js --output-type err src",
+    "deps:report": "depcruise --config .dependency-cruiser.js --output-type json src > docs/architecture/dependency-baseline.json",
+    "deps:graph": "depcruise --config .dependency-cruiser.js --output-type dot src | dot -T svg > docs/architecture/dependency-graph.svg"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
@@ -89,6 +92,7 @@
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
+    "dependency-cruiser": "^17.4.3",
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.1",
