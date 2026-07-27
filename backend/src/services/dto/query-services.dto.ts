@@ -1,6 +1,8 @@
 import { IsOptional, IsString, IsNumberString, IsEnum } from 'class-validator';
 import { ServiceStatus } from '@prisma/client';
 
+export { ServiceStatus };
+
 export enum ServiceSortBy {
   RELEVANCE = 'relevance',
   PRICE_ASC = 'price_asc',
@@ -21,6 +23,10 @@ export class QueryServicesDto {
   @IsOptional()
   @IsString()
   userId?: string;
+
+  @IsOptional()
+  @IsEnum(ServiceStatus)
+  status?: ServiceStatus;
 
   @IsOptional()
   @IsEnum(ServiceSortBy)

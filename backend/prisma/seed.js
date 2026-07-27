@@ -134,6 +134,10 @@ const PERMISSIONS = [
   { key: 'services:edit',            module: 'services',      action: 'edit',           label: 'Editar Servicios' },
   { key: 'services:delete',          module: 'services',      action: 'delete',         label: 'Eliminar Servicios' },
   { key: 'service_requests:view',    module: 'service_requests', action: 'view',        label: 'Ver Solicitudes de Servicio' },
+  { key: 'jobs:view',                module: 'jobs',           action: 'view',           label: 'Ver Empleos' },
+  { key: 'jobs:create',              module: 'jobs',           action: 'create',         label: 'Crear Empleos' },
+  { key: 'jobs:edit',                module: 'jobs',           action: 'edit',           label: 'Editar Empleos' },
+  { key: 'jobs:delete',              module: 'jobs',           action: 'delete',         label: 'Eliminar Empleos' },
   { key: 'catalog:view',             module: 'catalog',       action: 'view',           label: 'Ver Catálogo (marketplace)' },
   // 🌍 Categorías y Subcategorías Globales (solo superadmin/admin)
   { key: 'categories_global:view',   module: 'categories_global', action: 'view_categories',   label: 'Ver Categorías Globales', isSystem: true },
@@ -188,18 +192,19 @@ const COMMERCE_KEYS = [
   'notifications:view',
   'services:view', 'services:create', 'services:edit', 'services:delete',
   'service_requests:view',
+  'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete',
   'search:view',
   'corridas:view', 'corridas:create', 'corridas:manage',
   'wallets:use',
 ]
 
 const ADMIN_KEYS = COMMERCE_KEYS.filter(
-  k => !k.startsWith('menu:') && !k.startsWith('inventory:') && !k.startsWith('services:') && !k.startsWith('service_requests:') && !k.startsWith('orders:')
+  k => !k.startsWith('menu:') && !k.startsWith('inventory:') && !k.startsWith('services:') && !k.startsWith('service_requests:') && !k.startsWith('orders:') && !k.startsWith('jobs:')
 )
 
 const ROLE_DEFAULTS = {
   SUPERADMIN: PERMISSIONS.map(p => p.key).filter(k =>
-    !k.startsWith('services:') && !k.startsWith('service_requests:') && !k.startsWith('orders:')
+    !k.startsWith('services:') && !k.startsWith('service_requests:') && !k.startsWith('orders:') && !k.startsWith('jobs:')
   ),
   ADMIN: [
     ...ADMIN_KEYS, 
@@ -228,7 +233,7 @@ const ROLE_DEFAULTS = {
     'corridas:view', 'corridas:create',
     'categories_user:propose',
   ],
-  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view'],
+  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view'],
 }
 
 async function seedPermissions() {
@@ -332,7 +337,7 @@ async function seedPlans() {
       maxOrders: 2000,
       maxStorage: 2000,
       features: ['500 productos', '10 empleados', '3 sucursales', '2,000 pedidos/mes', 'Soporte 24/7', 'Reportes avanzados', 'Múltiples usuarios', 'API access'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'services', 'service_requests', 'corridas', 'wallets'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'services', 'jobs', 'service_requests', 'corridas', 'wallets'],
     },
     {
       name: 'Enterprise',
@@ -351,7 +356,7 @@ async function seedPlans() {
       maxOrders: -1,
       maxStorage: 10000,
       features: ['Productos ilimitados', 'Empleados ilimitados', 'Sucursales ilimitadas', 'Pedidos ilimitados', 'Soporte dedicado', 'Personalización completa', 'SLA garantizado', 'Onboarding personalizado'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'inventory', 'services', 'service_requests', 'corridas', 'wallets', 'reports', 'sales'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'inventory', 'services', 'jobs', 'service_requests', 'corridas', 'wallets', 'reports', 'sales'],
     },
   ]
 
@@ -813,7 +818,7 @@ const USER_CATEGORIES = [
   {
     name: 'Tecnología',
     icon: '💻',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Desarrollo Web', 'Apps Móviles', 'Soporte IT', 'Ciberseguridad', 'Data Science'
     ]
@@ -821,7 +826,7 @@ const USER_CATEGORIES = [
   {
     name: 'Diseño',
     icon: '🎨',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Diseño Gráfico', 'UI/UX', 'Branding', 'Ilustración', 'Motion Graphics'
     ]
@@ -829,7 +834,7 @@ const USER_CATEGORIES = [
   {
     name: 'Marketing',
     icon: '📢',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Marketing Digital', 'SEO/SEM', 'Redes Sociales', 'Email Marketing', 'Content Manager'
     ]
@@ -837,7 +842,7 @@ const USER_CATEGORIES = [
   {
     name: 'Servicios Profesionales',
     icon: '💼',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Consultoría', 'Contabilidad', 'Legal', 'Recursos Humanos', 'Asesoría Financiera'
     ]
@@ -845,7 +850,7 @@ const USER_CATEGORIES = [
   {
     name: 'Salud y Bienestar',
     icon: '🏥',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Medicina General', 'Nutrición', 'Psicología', 'Fisioterapia', 'Entrenamiento Personal'
     ]
@@ -853,7 +858,7 @@ const USER_CATEGORIES = [
   {
     name: 'Belleza',
     icon: '💅',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Peluquería', 'Estética', 'Maquillaje', 'Manicura', 'Spa'
     ]
@@ -861,7 +866,7 @@ const USER_CATEGORIES = [
   {
     name: 'Educación',
     icon: '📚',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Clases Particulares', 'Idiomas', 'Preparación Exámenes', 'Talleres', 'Coaching'
     ]
@@ -869,7 +874,7 @@ const USER_CATEGORIES = [
   {
     name: 'Hogar',
     icon: '🏠',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Limpieza', 'Plomería', 'Electricidad', 'Carpintería', 'Jardinería'
     ]
@@ -877,7 +882,7 @@ const USER_CATEGORIES = [
   {
     name: 'Transporte',
     icon: '🚗',
-    allowedModules: ['dashboard', 'profile', 'services', 'delivery', 'customers', 'corridas', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'delivery', 'customers', 'corridas', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Taxi/Remis', 'Mudanzas', 'Delivery', 'Transporte Escolar', 'Logística'
     ]
@@ -885,7 +890,7 @@ const USER_CATEGORIES = [
   {
     name: 'Eventos',
     icon: '🎉',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Organización', 'Fotografía', 'Video', 'DJ/Música', 'Catering Eventos'
     ]
@@ -893,7 +898,7 @@ const USER_CATEGORIES = [
   {
     name: 'Turismo',
     icon: '✈️',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Agencia de Viajes', 'Guía Turístico', 'Alojamiento', 'Tours', 'Excursiones'
     ]
@@ -909,7 +914,7 @@ const USER_CATEGORIES = [
   {
     name: 'Automotriz',
     icon: '🔧',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Taller', 'Venta de Autos', 'Lavado', 'Accesorios', 'Neumáticos'
     ]
@@ -917,7 +922,7 @@ const USER_CATEGORIES = [
   {
     name: 'Mascotas',
     icon: '🐾',
-    allowedModules: ['dashboard', 'profile', 'services', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
     subcategories: [
       'Veterinaria', 'Grooming', 'Tienda de Mascotas', 'Adiestramiento', 'Paseadores'
     ]

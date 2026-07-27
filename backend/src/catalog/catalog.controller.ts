@@ -36,6 +36,12 @@ export class CatalogController {
     return this.catalogService.getRestaurants();
   }
 
+  @Get('tags')
+  @UseGuards(OptionalJwtAuthGuard)
+  getTags(@Query('q') q?: string) {
+    return this.catalogService.getPopularTags(q);
+  }
+
   @Get('products')
   @UseGuards(OptionalJwtAuthGuard)
   getProducts(@Query() dto: QueryCatalogDto) {

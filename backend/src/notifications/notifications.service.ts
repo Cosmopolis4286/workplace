@@ -121,6 +121,23 @@ export class NotificationsService {
     });
   }
 
+  // Standalone en vez de una variante más de notifyServiceRequestStatusChanged: a diferencia
+  // de VISTO/CONTACTADO (que son avances del mismo trato), RECHAZADO es una salida negativa —
+  // el cliente necesita buscar otro proveedor, no solo "enterarse de un avance".
+  async notifyServiceRequestRejected(
+    clientId: string,
+    providerName: string,
+    serviceName: string,
+  ) {
+    return this.createForUser(clientId, {
+      type: NotificationType.ORDER,
+      title: '❌ Solicitud rechazada',
+      message: `${providerName} no podrá atender tu solicitud de "${serviceName}". Puedes buscar otro proveedor.`,
+      link: '/solicitudes-servicio',
+      metadata: { providerName, serviceName },
+    });
+  }
+
   async notifyServiceRequestNoResponse(
     clientId: string,
     providerName: string,

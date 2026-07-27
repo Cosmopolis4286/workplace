@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import type { Job, JobType, JobModality, JobStatus, JobApplication, JobApplicationStatus } from '@prisma/client'
+import { normalizeTags, tagSearchCondition } from '../common/utils/tags.util'
 
 export interface JobWithEmployer extends Job {
   employer: {
@@ -98,6 +99,31 @@ export class JobsService {
     }))
   }
 
+  // ─── Tags (Public) ──────────────────────────────────────────────────────────
+
+  // Top tags reales (por frecuencia de uso) entre empleos activos, opcionalmente
+  // filtrados por substring `q` para autocompletado. Solo se trae la columna
+  // `tags` (liviana) y el conteo se hace en memoria — evita tener que mantener
+  // una tabla maestra de tags separada solo para esta sugerencia.
+  async getPopularTags(q?: string, limit = 20): Promise<{ tag: string; count: number }[]> {
+    const jobs = await this.prisma.job.findMany({
+      where: { status: 'ACTIVO' },
+      select: { tags: true },
+    })
+    const counts = new Map<string, number>()
+    for (const job of jobs) {
+      for (const tag of job.tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      }
+    }
+    const query = q?.trim().toLowerCase()
+    return Array.from(counts.entries())
+      .filter(([tag]) => !query || tag.includes(query))
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([tag, count]) => ({ tag, count }))
+  }
+
   // ─── Jobs CRUD ──────────────────────────────────────────────────────────────
 
   async createJob(userId: string, dto: CreateJobDto): Promise<Job> {
@@ -107,7 +133,7 @@ export class JobsService {
         employerId: userId,
         requirements: dto.requirements || [],
         benefits: dto.benefits || [],
-        tags: dto.tags || [],
+        tags: normalizeTags(dto.tags) || [],
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
       },
     })
@@ -122,6 +148,7 @@ export class JobsService {
       where: { id: jobId },
       data: {
         ...dto,
+        tags: normalizeTags(dto.tags),
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
       },
     })
@@ -177,7 +204,7 @@ export class JobsService {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
-        { tags: { has: search } },
+        { tags: tagSearchCondition(search) },
         { location: { contains: search, mode: 'insensitive' } },
       ]
     }
@@ -317,6 +344,18 @@ export class JobsService {
     })
 
     return jobs as JobWithEmployer[]
+  }
+
+  async getMyJobsStats(userId: string) {
+    const grouped = await this.prisma.job.groupBy({
+      by: ['status'],
+      where: { employerId: userId },
+      _count: { _all: true },
+    })
+    const counts: Record<string, number> = { ACTIVO: 0, PAUSADO: 0, INACTIVO: 0, CERRADO: 0 }
+    for (const g of grouped) counts[g.status] = g._count._all
+    const total = counts.ACTIVO + counts.PAUSADO + counts.INACTIVO + counts.CERRADO
+    return { total, activos: counts.ACTIVO, pausados: counts.PAUSADO, inactivos: counts.INACTIVO, cerrados: counts.CERRADO }
   }
 
   // ─── Applications ───────────────────────────────────────────────────────────

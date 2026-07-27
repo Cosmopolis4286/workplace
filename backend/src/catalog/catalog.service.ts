@@ -8,6 +8,7 @@ import { ProductStatus, CatalogOrderStatus } from '@prisma/client';
 import { QueryCatalogDto, CatalogSortBy } from './dto/query-catalog.dto';
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { tagSearchCondition } from '../common/utils/tags.util';
 
 function attachProductRating<T extends { commerce: { user: { reviewsReceived: { rating: number }[], [k: string]: any }, [k: string]: any }, [k: string]: any }>(product: T) {
   const reviews = product.commerce.user.reviewsReceived;
@@ -58,6 +59,26 @@ export class CatalogService {
         productCount: c._count.products,
       })),
     };
+  }
+
+  // Top tags reales (por frecuencia) entre productos en venta, opcionalmente
+  // filtrados por substring `q` para autocompletado. Se trae solo la columna
+  // `tags` y se cuenta en memoria: evita mantener una tabla maestra aparte.
+  async getPopularTags(q?: string, limit = 20): Promise<{ tag: string; count: number }[]> {
+    const products = await this.prisma.product.findMany({
+      where: { status: ProductStatus.DISPONIBLE, forSale: true },
+      select: { tags: true },
+    });
+    const counts = new Map<string, number>();
+    for (const p of products) {
+      for (const tag of p.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    const query = q?.trim().toLowerCase();
+    return Array.from(counts.entries())
+      .filter(([tag]) => !query || tag.includes(query))
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([tag, count]) => ({ tag, count }));
   }
 
   async getRestaurants() {
@@ -117,6 +138,7 @@ export class CatalogService {
         { description: { contains: search, mode: 'insensitive' } },
         { category: { name: { contains: search, mode: 'insensitive' } } },
         { commerce: { name: { contains: search, mode: 'insensitive' } } },
+        { tags: tagSearchCondition(search) },
       ];
     }
 
@@ -242,6 +264,7 @@ export class CatalogService {
     calories: true,
     unit: true,
     status: true,
+    tags: true,
     category: {
       select: { id: true, name: true, color: true },
     },

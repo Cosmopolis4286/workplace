@@ -14,6 +14,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto, StockUpdateType } from './dto/update-stock.dto';
 import { PlanLimitsService } from '../plans/plan-limits.service';
+import { normalizeTags } from '../common/utils/tags.util';
 
 @Injectable()
 export class MenuService {
@@ -154,7 +155,7 @@ export class MenuService {
 
     const { categoryId, ...rest } = dto;
     return this.prisma.product.create({
-      data: { ...rest, categoryId, commerceId },
+      data: { ...rest, tags: normalizeTags(dto.tags) ?? [], categoryId, commerceId },
       include: { category: { select: { id: true, name: true, color: true } } },
     });
   }
@@ -174,7 +175,7 @@ export class MenuService {
     const { categoryId, ...rest } = dto;
     return this.prisma.product.update({
       where: { id: productId },
-      data: { ...rest, ...(categoryId ? { categoryId } : {}) },
+      data: { ...rest, tags: normalizeTags(dto.tags), ...(categoryId ? { categoryId } : {}) },
       include: { category: { select: { id: true, name: true, color: true } } },
     });
   }

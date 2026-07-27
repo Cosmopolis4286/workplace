@@ -39,6 +39,11 @@ export class JobsController {
     return { data: await this.jobsService.getCatalogStats() }
   }
 
+  @Get('catalog/tags')
+  async getCatalogTags(@Query('q') q?: string) {
+    return { data: await this.jobsService.getPopularTags(q) }
+  }
+
   // ─── Single Job (Public) ──────────────────────────────────────────────────────
 
   @Get(':id')
@@ -54,6 +59,12 @@ export class JobsController {
   @Get('mine/all')
   async getMyJobs(@Request() req) {
     return { data: await this.jobsService.getMyJobs(req.user.userId) }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('mine/stats')
+  async getMyJobsStats(@Request() req) {
+    return await this.jobsService.getMyJobsStats(req.user.userId)
   }
 
   // ─── CRUD (Authenticated) ───────────────────────────────────────────────────────

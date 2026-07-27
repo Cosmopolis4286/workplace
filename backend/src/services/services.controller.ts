@@ -58,6 +58,12 @@ export class ServicesController {
     return this.servicesService.getCatalogCategories();
   }
 
+  @Get('catalog/tags')
+  @UseGuards(OptionalJwtAuthGuard)
+  getCatalogTags(@Query('q') q?: string) {
+    return this.servicesService.getPopularTags(q);
+  }
+
   @Get('catalog/providers')
   @UseGuards(OptionalJwtAuthGuard)
   getCatalogProviders() {
@@ -82,6 +88,12 @@ export class ServicesController {
   @UseGuards(JwtAuthGuard)
   getMine(@CurrentUser() user: any, @Query() dto: QueryServicesDto) {
     return this.servicesService.getMyServices(user.id, dto);
+  }
+
+  @Get('mine/stats')
+  @UseGuards(JwtAuthGuard)
+  getMineStats(@CurrentUser() user: any) {
+    return this.servicesService.getMyServicesStats(user.id);
   }
 
   @Post()
@@ -209,6 +221,34 @@ export class ServicesController {
       parseInt(limit ?? '20'),
       asRole ?? 'provider'
     );
+  }
+
+  // Debe declararse antes de 'requests/:id' — de lo contrario Nest matchearía
+  // 'requests/admin' como 'requests/:id' con id="admin".
+  @Get('requests/admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  getRequestsAdmin(
+    @Query('status') status?: string,
+    @Query('providerId') providerId?: string,
+    @Query('requesterId') requesterId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.servicesService.getServiceRequestsAdmin(
+      { status, providerId, requesterId, from, to },
+      parseInt(page ?? '1'),
+      parseInt(limit ?? '20')
+    );
+  }
+
+  @Get('requests/admin/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  getRequestAdminDetail(@Param('id') id: string) {
+    return this.servicesService.getServiceRequestAdminDetail(id);
   }
 
   @Get('requests/:id')

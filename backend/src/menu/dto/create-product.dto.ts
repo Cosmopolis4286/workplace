@@ -84,6 +84,11 @@ export class CreateProductDto {
   allergens?: string[];
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @IsOptional()
   @IsString()
   brand?: string;
 
