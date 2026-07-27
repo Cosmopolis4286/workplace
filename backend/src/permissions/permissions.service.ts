@@ -17,6 +17,9 @@ const cacheKey = (role: Role) => `permissions:role:${role}`;
 // bulkUpdate) no invalida estas claves por-usuario, así que el TTL acota el
 // staleness en vez de depender de invalidación explícita en ese camino.
 const userPermissionsCacheKey = (userId: string) => `permissions:user:${userId}`;
+const userOverridesCacheKey = (userId: string) => `permissions:overrides:user:${userId}`;
+const userVersionKey = (userId: string) => `permissions:version:user:${userId}`;
+const roleVersionKey = (role: Role) => `permissions:version:${role}`;
 
 @Injectable()
 export class PermissionsService {
@@ -45,6 +48,40 @@ export class PermissionsService {
   async hasPermission(role: Role, permissionKey: string): Promise<boolean> {
     const keys = await this.getRolePermissions(role);
     return keys.includes(permissionKey);
+  }
+
+  // ── Mapa de overrides individuales del usuario (para el guard) ────────────
+
+  async getUserOverrides(userId: string): Promise<Record<string, boolean>> {
+    const cached = await this.redis.get(userOverridesCacheKey(userId));
+    if (cached) return JSON.parse(cached) as Record<string, boolean>;
+
+    const userPerms = await this.prisma.userPermission.findMany({
+      where: { userId },
+      include: { permission: { select: { key: true } } },
+    });
+
+    const overrides: Record<string, boolean> = {};
+    const now = new Date();
+    for (const up of userPerms) {
+      // Override expirado: no concede ni deniega, cae de vuelta al permiso de rol.
+      if (up.expiresAt && up.expiresAt <= now) continue;
+      overrides[up.permission.key] = up.granted;
+    }
+
+    await this.redis.setex(userOverridesCacheKey(userId), CACHE_TTL, JSON.stringify(overrides));
+    return overrides;
+  }
+
+  /**
+   * Fuente de verdad para CUALQUIER chequeo de autorización real (usado por
+   * PermissionsGuard en cada request). Combina permiso de ROL + override
+   * individual del usuario (si existe, el override manda; si no, cae al rol).
+   */
+  async hasEffectivePermission(userId: string, role: Role, permissionKey: string): Promise<boolean> {
+    const overrides = await this.getUserOverrides(userId);
+    if (permissionKey in overrides) return overrides[permissionKey];
+    return this.hasPermission(role, permissionKey);
   }
 
   // ── Frontend endpoint: permissions for the logged-in user ─────────────────
@@ -90,14 +127,12 @@ export class PermissionsService {
       subcategory = user?.subcategory?.name ?? null;
     }
 
-    // version = hash del estado actual de permisos del rol (permite invalidación en cliente)
-    // Usamos el TTL restante de Redis como proxy; si no hay cache → nuevo timestamp
-    const versionKey = `permissions:version:${role}`;
-    let version = await this.redis.get(versionKey);
-    if (!version) {
-      version = Date.now().toString();
-      await this.redis.setex(versionKey, CACHE_TTL, version);
-    }
+    // version = compuesto de la versión de ROL + versión de USUARIO, para que
+    // el frontend detecte cambios de cualquiera de las 2 fuentes comparando
+    // un solo string (ver getOrSetRoleVersion/getUserVersion).
+    const roleVersion = await this.getOrSetRoleVersion(role);
+    const userVersion = userId ? await this.getUserVersion(userId) : '0';
+    const version = `${roleVersion}:${userVersion}`;
 
     return { keys, category, subcategory, version, userSpecific };
   }
@@ -105,9 +140,33 @@ export class PermissionsService {
   // Llamar cuando se modifiquen permisos del rol para invalidar cache de clientes
   async invalidateRoleVersion(role: Role): Promise<void> {
     const newVersion = Date.now().toString();
-    await this.redis.setex(`permissions:version:${role}`, CACHE_TTL, newVersion);
+    await this.redis.setex(roleVersionKey(role), CACHE_TTL, newVersion);
     // También invalida el cache de keys del rol
     await this.redis.del(cacheKey(role));
+  }
+
+  async getOrSetRoleVersion(role: Role): Promise<string> {
+    let version = await this.redis.get(roleVersionKey(role));
+    if (!version) {
+      version = Date.now().toString();
+      await this.redis.setex(roleVersionKey(role), CACHE_TTL, version);
+    }
+    return version;
+  }
+
+  async bumpUserVersion(userId: string): Promise<string> {
+    const newVersion = Date.now().toString();
+    await this.redis.setex(userVersionKey(userId), CACHE_TTL, newVersion);
+    return newVersion;
+  }
+
+  async getUserVersion(userId: string): Promise<string> {
+    let version = await this.redis.get(userVersionKey(userId));
+    if (!version) {
+      version = Date.now().toString();
+      await this.redis.setex(userVersionKey(userId), CACHE_TTL, version);
+    }
+    return version;
   }
 
   private async getUserSpecificPermissions(userId: string): Promise<Array<{permissionKey: string; granted: boolean}>> {
@@ -115,7 +174,7 @@ export class PermissionsService {
       where: { userId },
       include: { permission: true },
     });
-    
+
     return userPerms.map(up => ({
       permissionKey: up.permission.key,
       granted: up.granted && (!up.expiresAt || up.expiresAt > new Date()),
@@ -187,7 +246,10 @@ export class PermissionsService {
       update: { granted, updatedBy },
     });
 
-    // Invalida cache de keys y bumps la version para que los clientes re-carguen
+    // Invalida cache de keys y bumps la version para que los clientes re-carguen.
+    // No hace falta tocar userOverridesCacheKey: los UserPermission son
+    // overrides independientes del rol, hasEffectivePermission siempre relee
+    // getRolePermissions(role) en caliente (ya invalidado aquí abajo).
     await this.invalidateRoleVersion(role);
     return { success: true };
   }
@@ -214,13 +276,15 @@ export class PermissionsService {
       },
     });
 
-    // Create role_permissions entries for all roles (default: not granted)
+    // Create role_permissions entries for all roles (granted solo para los
+    // roles seleccionados al crear; el resto queda en false por defecto)
+    const grantedSet = new Set(dto.grantedRoles ?? []);
     const roles = Object.values(Role);
     await this.prisma.rolePermission.createMany({
       data: roles.map((role) => ({
         role,
         permissionId: permission.id,
-        granted: false,
+        granted: grantedSet.has(role),
         updatedBy: createdBy,
       })),
       skipDuplicates: true,
@@ -373,6 +437,17 @@ export class PermissionsService {
     return result;
   }
 
+  // Invalida todo el estado cacheado de un usuario tras un cambio en sus
+  // UserPermission, y bump su versión para que detecte el cambio sin esperar
+  // el TTL local (ver checkVersion en el frontend / GET /permissions/version).
+  private async invalidateUserPermissionsCache(userId: string): Promise<void> {
+    await Promise.all([
+      this.redis.del(userPermissionsCacheKey(userId)),
+      this.redis.del(userOverridesCacheKey(userId)),
+    ]);
+    await this.bumpUserVersion(userId);
+  }
+
   async validateUserAccess(admin: { id: string; role: Role }, userId: string) {
     const targetUser = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -493,15 +568,15 @@ export class PermissionsService {
       },
     });
 
-    // Invalidar caché de permisos del usuario
-    await this.redis.del(userPermissionsCacheKey(userId));
+    // Invalidar caché de permisos del usuario y bump de versión (tiempo real)
+    await this.invalidateUserPermissionsCache(userId);
 
     return { success: true, userPerm };
   }
 
   async removeUserPermission(
-    userId: string, 
-    permissionId: string, 
+    userId: string,
+    permissionId: string,
     admin: { id: string; role: Role }
   ) {
     await this.validateUserAccess(admin, userId);
@@ -510,7 +585,7 @@ export class PermissionsService {
       where: { userId, permissionId },
     });
 
-    await this.redis.del(userPermissionsCacheKey(userId));
+    await this.invalidateUserPermissionsCache(userId);
 
     return { success: true };
   }
@@ -522,7 +597,7 @@ export class PermissionsService {
       where: { userId },
     });
 
-    await this.redis.del(userPermissionsCacheKey(userId));
+    await this.invalidateUserPermissionsCache(userId);
 
     return { success: true, message: 'Permisos individuales eliminados. El usuario ahora usa solo los permisos de su rol.' };
   }

@@ -32,6 +32,14 @@ export class PermissionsController {
     return this.permissionsService.getMyPermissions(user.role, user.id);
   }
 
+  /** Endpoint ligero para polling: solo la versión compuesta (rol+usuario) */
+  @Get('version')
+  async getVersion(@CurrentUser() user: { role: Role; id: string }) {
+    const roleVersion = await this.permissionsService.getOrSetRoleVersion(user.role);
+    const userVersion = await this.permissionsService.getUserVersion(user.id);
+    return { version: `${roleVersion}:${userVersion}` };
+  }
+
   /** Matriz completa para el panel de administración */
   @Get('matrix')
   @UseGuards(RolesGuard)

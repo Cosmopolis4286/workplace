@@ -31,7 +31,11 @@ export class PermissionsGuard implements CanActivate {
     // SUPERADMIN siempre tiene acceso
     if (user.role === Role.SUPERADMIN) return true;
 
-    const has = await this.permissionsService.hasPermission(
+    // Combina permiso de ROL + override individual del usuario (UserPermission).
+    // Antes solo miraba el rol, así que un permiso denegado a nivel individual
+    // no bloqueaba el endpoint aunque el rol lo permitiera.
+    const has = await this.permissionsService.hasEffectivePermission(
+      user.id,
       user.role,
       required
     );
