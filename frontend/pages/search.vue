@@ -488,6 +488,9 @@
             <!-- Filtros activos -->
             <ActiveFilterChips :chips="pActiveChips" accent="red" @clear-all="pResetFilters" />
 
+            <!-- Tags populares -->
+            <TagChips endpoint="/catalog/tags" :model-value="pActiveTag" accent="red" @update:model-value="onTagClick('productos', $event)" />
+
             <!-- Cerca de mí: tier label -->
             <div v-if="pLocationTierLabel" class="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-4">
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -609,6 +612,9 @@
                 </select>
               </div>
             </div>
+
+            <!-- Tags populares -->
+            <TagChips endpoint="/services/catalog/tags" :model-value="sActiveTag" accent="blue" @update:model-value="onTagClick('servicios', $event)" />
 
             <!-- Cerca de mí: tier label -->
             <div v-if="sLocationTierLabel" class="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 mb-4">
@@ -804,6 +810,9 @@
                 </select>
               </div>
             </div>
+
+            <!-- Tags populares -->
+            <TagChips endpoint="/jobs/catalog/tags" :model-value="jActiveTag" accent="emerald" @update:model-value="onTagClick('empleos', $event)" />
 
             <!-- Cerca de mí: tier label -->
             <div v-if="jLocationTierLabel" class="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 mb-4">
@@ -1300,6 +1309,7 @@ import PriceRangeFilter from '~/components/search/PriceRangeFilter.vue'
 import SortDropdown from '~/components/search/SortDropdown.vue'
 import ActiveFilterChips from '~/components/search/ActiveFilterChips.vue'
 import LocationFilter from '~/components/search/LocationFilter.vue'
+import TagChips from '~/components/search/TagChips.vue'
 
 definePageMeta({ layout: 'default' })
 
@@ -1715,6 +1725,20 @@ function handleSearchInput() {
   if (activeTab.value === 'productos') pSearch(searchInput.value)
   else if (activeTab.value === 'servicios') sSearch(searchInput.value)
   else jSearch(searchInput.value)
+}
+
+// Click en un chip de tag popular: reusa la misma barra de búsqueda de texto
+// (el backend ya matchea tags como parte del OR de búsqueda), así que
+// clickear un tag es equivalente a escribirlo. Click de nuevo lo deselecciona.
+const pActiveTag = computed(() => pQuery.value.search)
+const sActiveTag = computed(() => sQuery.value.search)
+const jActiveTag = computed(() => jQuery.value.search)
+
+function onTagClick(tab: 'productos' | 'servicios' | 'empleos', tag: string) {
+  searchInput.value = tag
+  if (tab === 'productos') pSearch(tag)
+  else if (tab === 'servicios') sSearch(tag)
+  else jSearch(tag)
 }
 
 function clearSearch() {
