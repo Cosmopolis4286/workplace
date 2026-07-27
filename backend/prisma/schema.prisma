@@ -21,6 +21,11 @@ model User {
   avatar            String?
   coverImage        String?
   role              Role      @default(NORMAL)
+  // Tipo de cuenta de negocio (COMMERCE/FREELANCER), separado del nivel de
+  // acceso RBAC que vive en `role`. Null para SUPERADMIN/ADMIN/NORMAL.
+  // Fuente de verdad preferida sobre `role` para decidir comportamiento de
+  // negocio — ver AccountTypeResolver en common/account-type.
+  accountType       AccountType?
   userType          UserType  @default(REGULAR)
   isActive          Boolean   @default(true)
   createdAt         DateTime  @default(now())
@@ -425,6 +430,15 @@ enum Role {
   COMMERCE
   FREELANCER
   NORMAL
+}
+
+// Tipo de cuenta de negocio. Independiente de Role (RBAC): un usuario con
+// accountType=COMMERCE o FREELANCER también tiene role=COMMERCE/FREELANCER
+// hoy por compatibilidad, pero el código nuevo debe leer accountType, no role,
+// para decidir comportamiento de negocio (ver AccountTypeResolver).
+enum AccountType {
+  COMMERCE
+  FREELANCER
 }
 
 enum UserType {
