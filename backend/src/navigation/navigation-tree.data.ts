@@ -1,5 +1,19 @@
 import { Role } from '@prisma/client';
-import { NavSectionDef } from './navigation.types';
+import { NavItemDef, NavSectionDef } from './navigation.types';
+
+/**
+ * Rutas protegidas por permiso/módulo que NO tienen entrada propia en el
+ * sidebar (se navega a ellas desde otro lugar de la UI — ej. un botón en
+ * otra página), pero que los middlewares igual deben poder resolver vía
+ * routePermissions/routeModules. No se renderizan: solo alimentan
+ * NavigationService.getRouteMaps().
+ */
+export const EXTRA_PROTECTED_ROUTES: NavItemDef[] = [
+  { id: 'gastos', to: '/gastos', label: 'Gastos', icon: 'sales', order: 0,
+    condition: { permission: 'expenses:view', requiresModule: true } },
+  { id: 'cliente-dashboard', to: '/cliente-dashboard', label: 'Mi Panel', icon: 'home', order: 0,
+    condition: { permission: 'orders:view', requiresModule: true } },
+];
 
 /**
  * Fuente única de la estructura de navegación (sidebar). Traducción 1:1 de lo

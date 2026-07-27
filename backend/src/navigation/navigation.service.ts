@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PlanLimitsService } from '../plans/plan-limits.service';
-import { NAVIGATION_TREE } from './navigation-tree.data';
+import { EXTRA_PROTECTED_ROUTES, NAVIGATION_TREE } from './navigation-tree.data';
 import { NavItemDef, NavigationResponse } from './navigation.types';
 
 @Injectable()
@@ -82,12 +82,14 @@ export class NavigationService {
   getRouteMaps(): { routePermissions: Record<string, string | null>; routeModules: Record<string, string> } {
     const routePermissions: Record<string, string | null> = {};
     const routeModules: Record<string, string> = {};
-    for (const section of NAVIGATION_TREE) {
-      for (const item of section.items) {
-        routePermissions[item.to] = item.condition.permission;
-        if (item.condition.requiresModule && item.condition.permission) {
-          routeModules[item.to] = item.condition.permission.split(':')[0];
-        }
+    const allItems = [
+      ...NAVIGATION_TREE.flatMap((section) => section.items),
+      ...EXTRA_PROTECTED_ROUTES,
+    ];
+    for (const item of allItems) {
+      routePermissions[item.to] = item.condition.permission;
+      if (item.condition.requiresModule && item.condition.permission) {
+        routeModules[item.to] = item.condition.permission.split(':')[0];
       }
     }
     return { routePermissions, routeModules };
