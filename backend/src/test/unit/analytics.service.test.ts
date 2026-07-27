@@ -127,7 +127,7 @@ describe('AnalyticsService', () => {
         { date: new Date() },
       ])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('today')
@@ -163,7 +163,7 @@ describe('AnalyticsService', () => {
       mockPrismaService.product.findMany.mockResolvedValue([])
       mockPrismaService.appointment.findMany.mockResolvedValue([])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('custom')
@@ -175,7 +175,7 @@ describe('AnalyticsService', () => {
       const queryDto = { period: 'invalid' as AnalyticsPeriod }
 
       // Service does not throw for unknown period — it falls through to the default (30d) range
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('invalid')
@@ -189,7 +189,7 @@ describe('AnalyticsService', () => {
       // the overview still resolves (with empty/zeroed metrics) instead of throwing.
       mockPrismaService.restaurant.findUnique.mockResolvedValue(null)
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
       expect(result).toBeDefined()
       expect(result.kpis.totalRevenue).toBe(0)
@@ -216,7 +216,7 @@ describe('AnalyticsService', () => {
       mockPrismaService.product.findMany.mockResolvedValue([])
       mockPrismaService.appointment.findMany.mockResolvedValue([])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('week')
@@ -244,7 +244,7 @@ describe('AnalyticsService', () => {
       mockPrismaService.product.findMany.mockResolvedValue([])
       mockPrismaService.appointment.findMany.mockResolvedValue([])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('quarter')
@@ -282,7 +282,7 @@ describe('AnalyticsService', () => {
         { date: new Date() },
       ])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
       expect(result).toBeDefined()
       expect(result.performance).toBeDefined()
@@ -299,7 +299,7 @@ describe('AnalyticsService', () => {
 
       mockPrismaService.restaurant.findUnique.mockRejectedValue(new Error('Database error'))
 
-      await expect(service.getOverview(userId, queryDto)).rejects.toThrow(
+      await expect(service.getOverview(userId, 'COMMERCE', queryDto)).rejects.toThrow(
         'Database error'
       )
     })
@@ -310,7 +310,7 @@ describe('AnalyticsService', () => {
 
       mockPrismaService.restaurant.findUnique.mockResolvedValue(null)
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
       expect(result).toBeDefined()
     })
@@ -329,7 +329,7 @@ describe('AnalyticsService', () => {
         role: 'OWNER',
       })
 
-      await expect(service.getOverview(userId, queryDto)).rejects.toThrow()
+      await expect(service.getOverview(userId, 'COMMERCE', queryDto)).rejects.toThrow()
     })
   })
 })

@@ -318,7 +318,7 @@ async function seedPlans() {
       maxOrders: 500,
       maxStorage: 500,
       features: ['100 productos', '3 empleados', '1 sucursal', '500 pedidos/mes', 'Soporte prioritario', 'Reportes básicos'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'sales', 'reports'],
     },
     {
       name: 'Pro',
@@ -337,7 +337,7 @@ async function seedPlans() {
       maxOrders: 2000,
       maxStorage: 2000,
       features: ['500 productos', '10 empleados', '3 sucursales', '2,000 pedidos/mes', 'Soporte 24/7', 'Reportes avanzados', 'Múltiples usuarios', 'API access'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'services', 'jobs', 'service_requests', 'corridas', 'wallets'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'services', 'jobs', 'service_requests', 'corridas', 'wallets', 'sales', 'reports'],
     },
     {
       name: 'Enterprise',
@@ -805,12 +805,12 @@ const CATEGORIES = [
 
 // 🏷️ Categorías de Usuarios (para clasificar usuarios en el sistema)
 // allowedModules = techo de lo que esa categoría puede usar (plan ∩ category = effectiveModules)
-// Módulos transversales incluidos en todas las categorías: analytics, expenses, wallets, reports
+// Módulos transversales incluidos en todas las categorías: analytics, expenses, wallets, reports, sales
 const USER_CATEGORIES = [
   {
     name: 'Comida',
     icon: '🍔',
-    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Restaurante', 'Cafetería', 'Comida Rápida', 'Food Truck', 'Catering'
     ]
@@ -818,7 +818,7 @@ const USER_CATEGORIES = [
   {
     name: 'Tecnología',
     icon: '💻',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Desarrollo Web', 'Apps Móviles', 'Soporte IT', 'Ciberseguridad', 'Data Science'
     ]
@@ -826,7 +826,7 @@ const USER_CATEGORIES = [
   {
     name: 'Diseño',
     icon: '🎨',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Diseño Gráfico', 'UI/UX', 'Branding', 'Ilustración', 'Motion Graphics'
     ]
@@ -834,7 +834,7 @@ const USER_CATEGORIES = [
   {
     name: 'Marketing',
     icon: '📢',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Marketing Digital', 'SEO/SEM', 'Redes Sociales', 'Email Marketing', 'Content Manager'
     ]
@@ -842,7 +842,7 @@ const USER_CATEGORIES = [
   {
     name: 'Servicios Profesionales',
     icon: '💼',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Consultoría', 'Contabilidad', 'Legal', 'Recursos Humanos', 'Asesoría Financiera'
     ]
@@ -850,7 +850,7 @@ const USER_CATEGORIES = [
   {
     name: 'Salud y Bienestar',
     icon: '🏥',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Medicina General', 'Nutrición', 'Psicología', 'Fisioterapia', 'Entrenamiento Personal'
     ]
@@ -858,7 +858,7 @@ const USER_CATEGORIES = [
   {
     name: 'Belleza',
     icon: '💅',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Peluquería', 'Estética', 'Maquillaje', 'Manicura', 'Spa'
     ]
@@ -866,7 +866,7 @@ const USER_CATEGORIES = [
   {
     name: 'Educación',
     icon: '📚',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Clases Particulares', 'Idiomas', 'Preparación Exámenes', 'Talleres', 'Coaching'
     ]
@@ -874,7 +874,7 @@ const USER_CATEGORIES = [
   {
     name: 'Hogar',
     icon: '🏠',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Limpieza', 'Plomería', 'Electricidad', 'Carpintería', 'Jardinería'
     ]
@@ -882,7 +882,7 @@ const USER_CATEGORIES = [
   {
     name: 'Transporte',
     icon: '🚗',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'delivery', 'customers', 'corridas', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'delivery', 'customers', 'corridas', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Taxi/Remis', 'Mudanzas', 'Delivery', 'Transporte Escolar', 'Logística'
     ]
@@ -890,7 +890,7 @@ const USER_CATEGORIES = [
   {
     name: 'Eventos',
     icon: '🎉',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Organización', 'Fotografía', 'Video', 'DJ/Música', 'Catering Eventos'
     ]
@@ -898,7 +898,7 @@ const USER_CATEGORIES = [
   {
     name: 'Turismo',
     icon: '✈️',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Agencia de Viajes', 'Guía Turístico', 'Alojamiento', 'Tours', 'Excursiones'
     ]
@@ -906,7 +906,7 @@ const USER_CATEGORIES = [
   {
     name: 'Comercio',
     icon: '🛍️',
-    allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Retail', 'Mayorista', 'Importación', 'Exportación', 'E-commerce'
     ]
@@ -914,7 +914,7 @@ const USER_CATEGORIES = [
   {
     name: 'Automotriz',
     icon: '🔧',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Taller', 'Venta de Autos', 'Lavado', 'Accesorios', 'Neumáticos'
     ]
@@ -922,7 +922,7 @@ const USER_CATEGORIES = [
   {
     name: 'Mascotas',
     icon: '🐾',
-    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports'],
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       'Veterinaria', 'Grooming', 'Tienda de Mascotas', 'Adiestramiento', 'Paseadores'
     ]

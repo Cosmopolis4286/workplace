@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
-import { ServicesService } from '../../src/services/services.service';
-import { PrismaService } from '../../src/prisma/prisma.service';
-import { NotificationsService } from '../../src/notifications/notifications.service';
-import { PlatformFeesService } from '../../src/platform-fees/platform-fees.service';
+import { ServicesService } from '../../services/services.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
+import { PlatformFeesService } from '../../platform-fees/platform-fees.service';
 
 describe('ServicesService — service request status transitions', () => {
   let service: ServicesService;
