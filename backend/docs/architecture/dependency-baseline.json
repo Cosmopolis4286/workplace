@@ -26987,19 +26987,6 @@
       ]
     },
     {
-      "source": "src/common/account-type/account-type-strategy.interface.ts",
-      "dependencies": [],
-      "dependents": [],
-      "orphan": true,
-      "valid": false,
-      "rules": [
-        {
-          "severity": "warn",
-          "name": "no-orphans"
-        }
-      ]
-    },
-    {
       "source": "src/common/enums/role.enum.ts",
       "dependencies": [],
       "dependents": [
@@ -31515,22 +31502,13 @@
           "severity": "warn",
           "name": "no-orphans"
         }
-      },
-      {
-        "type": "module",
-        "from": "src/common/account-type/account-type-strategy.interface.ts",
-        "to": "src/common/account-type/account-type-strategy.interface.ts",
-        "rule": {
-          "severity": "warn",
-          "name": "no-orphans"
-        }
       }
     ],
     "error": 0,
-    "warn": 83,
+    "warn": 82,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 365,
+    "totalCruised": 364,
     "totalDependenciesCruised": 1460,
     "optionsUsed": {
       "baseDir": "C:\\Users\\Eisker\\Documents\\projects\\workplace\\backend",
