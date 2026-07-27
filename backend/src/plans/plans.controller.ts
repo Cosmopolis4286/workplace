@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { PlansService } from './plans.service';
 import { PlanLimitsService } from './plan-limits.service';
+import { MODULE_CATALOG } from './module-catalog.data';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
@@ -31,6 +32,13 @@ export class PlansController {
   ) {}
 
   // ─── Public — no auth required ────────────────────────────────────────────
+
+  /** Catálogo unificado de módulos (key + label), fuente única para frontend */
+  @Get('modules/catalog')
+  @UseGuards(JwtAuthGuard)
+  getModuleCatalog() {
+    return MODULE_CATALOG;
+  }
 
   @Get('public')
   @UseGuards(OptionalJwtAuthGuard)

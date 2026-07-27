@@ -2,30 +2,21 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
 import { SystemModulesService } from '../system-modules/system-modules.service';
+import { MODULE_CATALOG } from './module-catalog.data';
 
-// All modules that exist in the system (match Permission.module values in seed)
-export const ALL_MODULES = [
-  'dashboard',
-  'menu',
-  'inventory',
-  'orders',
-  'customers',
-  'appointments',
-  'delivery',
-  'expenses',
-  'analytics',
-  'reports',
-  'sales',
-  'employees',
-  'branches',
-  'settings',
-  'notifications',
-  'services',
-  'service_requests',
-  'catalog',
-  'corridas',
-  'wallets',
+// Módulos de NEGOCIO (con plan/categoría propia) — subset de MODULE_CATALOG.
+// Los módulos "de sistema" (users, permissions, audit, etc.) viven en el
+// catálogo pero no participan de plan∩categoría, así que se excluyen aquí.
+const BUSINESS_MODULE_KEYS = [
+  'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
+  'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
+  'branches', 'settings', 'notifications', 'services', 'service_requests',
+  'catalog', 'corridas', 'wallets',
 ] as const;
+
+export const ALL_MODULES = MODULE_CATALOG
+  .filter((m) => (BUSINESS_MODULE_KEYS as readonly string[]).includes(m.key))
+  .map((m) => m.key) as (typeof BUSINESS_MODULE_KEYS)[number][];
 
 export type AppModule = (typeof ALL_MODULES)[number];
 

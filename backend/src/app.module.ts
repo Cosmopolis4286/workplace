@@ -50,6 +50,7 @@ import { LandingModule } from './landing/landing.module';
 import { ReportsModule } from './reports/reports.module';
 import { LocationsModule } from './locations/locations.module';
 import { BnplModule } from './bnpl/bnpl.module';
+import { NavigationModule } from './navigation/navigation.module';
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { BnplModule } from './bnpl/bnpl.module';
     CatalogModule,
     PermissionsModule,
     SystemModulesModule,
+    NavigationModule,
     ProfilesModule,
     KycModule,
     AuditModule,

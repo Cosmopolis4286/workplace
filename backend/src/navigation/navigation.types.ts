@@ -1,0 +1,63 @@
+import { Role } from '@prisma/client';
+
+export type NavIconKey =
+  | 'dashboard' | 'menu' | 'inventory' | 'services' | 'requests' | 'corridas'
+  | 'wallet' | 'sales' | 'analytics' | 'reports' | 'ventas_group' | 'ops_group'
+  | 'empresa_group' | 'orders' | 'appointments' | 'customers' | 'profile'
+  | 'home' | 'delivery' | 'employees' | 'jobs' | 'branches' | 'modules' | 'cash';
+
+export interface NavNodeCondition {
+  /** Permission key requerida (formato "modulo:accion"); null = sin requisito */
+  permission: string | null;
+  /** Además de can(permission), exige hasModule(permission.split(':')[0]) */
+  requiresModule?: boolean;
+  rolesOnly?: Role[];
+  excludeRoles?: Role[];
+  /** Requiere que la categoría de negocio del usuario coincida exactamente */
+  requiresCategory?: string;
+}
+
+export interface NavItemDef {
+  id: string;
+  to: string;
+  label: string;
+  icon: NavIconKey;
+  condition: NavNodeCondition;
+  order: number;
+}
+
+export type NavSectionId =
+  | 'top' | 'ventas' | 'operaciones' | 'empresa'
+  | 'administracion' | 'mi-cuenta' | 'negocio';
+
+export interface NavSectionDef {
+  id: NavSectionId;
+  /** null solo para 'top' (sin header visible en el sidebar) */
+  label: string | null;
+  order: number;
+  /** true = layout plano (top-level), false = grupo con header colapsable */
+  flat: boolean;
+  items: NavItemDef[];
+}
+
+export interface NavItemResponse {
+  id: string;
+  to: string;
+  label: string;
+  icon: NavIconKey;
+  permission: string | null;
+}
+
+export interface NavSectionResponse {
+  id: NavSectionId;
+  label: string | null;
+  flat: boolean;
+  items: NavItemResponse[];
+}
+
+export interface NavigationResponse {
+  sections: NavSectionResponse[];
+  routePermissions: Record<string, string | null>;
+  routeModules: Record<string, string>;
+  generatedAt: string;
+}
