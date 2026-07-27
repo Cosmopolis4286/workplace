@@ -30,6 +30,7 @@ export interface Product {
   calories?: number
   ingredients: string[]
   allergens: string[]
+  tags: string[]
   categoryId: string
   category: { id: string; name: string; color: string }
   commerceId: string

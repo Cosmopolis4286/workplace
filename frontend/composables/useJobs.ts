@@ -39,7 +39,7 @@ export interface Job {
   modality: 'PRESENCIAL' | 'REMOTO' | 'HIBRIDO'
   experienceLevel: string | null
   tags: string[]
-  status: string
+  status: 'ACTIVO' | 'PAUSADO' | 'INACTIVO' | 'CERRADO'
   expiresAt: string | null
   createdAt: string
   category: {
@@ -52,6 +52,23 @@ export interface Job {
   _count?: {
     applications: number
   }
+}
+
+export interface CreateJobData {
+  title: string
+  description: string
+  requirements?: string[]
+  benefits?: string[]
+  salaryMin?: number
+  salaryMax?: number
+  salaryCurrency?: string
+  location?: string
+  type?: Job['type']
+  modality?: Job['modality']
+  experienceLevel?: string
+  tags?: string[]
+  categoryId?: string
+  expiresAt?: string
 }
 
 export type JobSortBy = 'relevance' | 'newest' | 'salary_asc' | 'salary_desc'
@@ -81,6 +98,16 @@ const total = ref(0)
 const totalPages = ref(1)
 const locationTier = ref<LocationTier>(null)
 
+// ─── "Mis empleos" (gestión, autenticado) ─────────────────────────────────────
+const myJobs = ref<JobWithApplicationCount[]>([])
+const myJobsLoading = ref(false)
+const myJobsError = ref<string | null>(null)
+const myJobsStats = ref({ total: 0, activos: 0, pausados: 0, inactivos: 0, cerrados: 0 })
+
+export interface JobWithApplicationCount extends Job {
+  _count: { applications: number }
+}
+
 const query = ref<JobQuery>({
   search: '',
   categoryId: null,
@@ -99,9 +126,61 @@ let searchDebounce: ReturnType<typeof setTimeout> | null = null
 // ─── Composable ──────────────────────────────────────────────────────────────
 
 export const useJobs = () => {
-  const { get } = useApi()
+  const { get, post, patch, del } = useApi()
 
-  // ─── Fetch helpers ──────────────────────────────────────────────────────
+  // ─── Mis empleos (gestión, autenticado) ──────────────────────────────────
+
+  async function fetchMyJobsStats() {
+    try {
+      myJobsStats.value = await get<typeof myJobsStats.value>('/jobs/mine/stats')
+    } catch {
+      // non-blocking: las tarjetas de resumen no deben tumbar la página
+    }
+  }
+
+  async function fetchMyJobs() {
+    myJobsLoading.value = true
+    myJobsError.value = null
+    try {
+      const res = await get<{ data: JobWithApplicationCount[] }>('/jobs/mine/all')
+      myJobs.value = res.data
+    } catch (e: any) {
+      myJobsError.value = e?.message ?? 'Error al cargar empleos'
+    } finally {
+      myJobsLoading.value = false
+    }
+  }
+
+  async function createJob(data: CreateJobData) {
+    const res = await post<JobWithApplicationCount>('/jobs', data)
+    myJobs.value.unshift(res)
+    fetchMyJobsStats()
+    return res
+  }
+
+  async function updateJob(id: string, data: Partial<CreateJobData> & { status?: Job['status'] }) {
+    const res = await patch<JobWithApplicationCount>(`/jobs/${id}`, data)
+    const idx = myJobs.value.findIndex(j => j.id === id)
+    const statusChanged = idx !== -1 && myJobs.value[idx].status !== res.status
+    if (idx !== -1) myJobs.value[idx] = res
+    if (statusChanged) fetchMyJobsStats()
+    return res
+  }
+
+  // No hay endpoint de toggle dedicado: el backend acepta `status` directo en
+  // el PATCH genérico de update, así que el toggle es un caso particular de él.
+  async function toggleJobStatus(job: JobWithApplicationCount) {
+    const next = job.status === 'ACTIVO' ? 'PAUSADO' : 'ACTIVO'
+    return updateJob(job.id, { status: next })
+  }
+
+  async function deleteJob(id: string) {
+    await del(`/jobs/${id}`)
+    myJobs.value = myJobs.value.filter(j => j.id !== id)
+    fetchMyJobsStats()
+  }
+
+  // ─── Fetch helpers (catálogo público) ────────────────────────────────────
 
   async function loadCategories() {
     loadingCategories.value = true
@@ -249,5 +328,16 @@ export const useJobs = () => {
     resetFilters,
     toggleNearMe,
     filterByLocation,
+    // Mis empleos (gestión)
+    myJobs,
+    myJobsLoading,
+    myJobsError,
+    myJobsStats,
+    fetchMyJobs,
+    fetchMyJobsStats,
+    createJob,
+    updateJob,
+    toggleJobStatus,
+    deleteJob,
   }
 }

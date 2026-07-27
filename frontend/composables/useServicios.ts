@@ -54,25 +54,30 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const totalCount = ref(0)
 const currentPage = ref(1)
+// Contadores globales por status, independientes del filtro aplicado a `services`
+// (la lista puede estar filtrada/paginada y no reflejar los totales reales).
+const stats = ref({ total: 0, activos: 0, pausados: 0, inactivos: 0 })
 
 export function useServicios() {
   const { get, post, put, patch, del } = useApi()
 
-  const stats = computed(() => ({
-    total: services.value.length,
-    activos: services.value.filter(s => s.status === 'ACTIVO').length,
-    pausados: services.value.filter(s => s.status === 'PAUSADO').length,
-    inactivos: services.value.filter(s => s.status === 'INACTIVO').length,
-  }))
+  async function fetchStats() {
+    try {
+      stats.value = await get<typeof stats.value>('/services/mine/stats')
+    } catch {
+      // non-blocking: las tarjetas de resumen no deben tumbar la página
+    }
+  }
 
-  async function fetchServices(params: { search?: string; page?: number } = {}) {
+  async function fetchServices(params: { search?: string; page?: number; status?: string } = {}) {
     loading.value = true
     error.value = null
     try {
       const query = new URLSearchParams()
       if (params.search) query.set('search', params.search)
+      if (params.status) query.set('status', params.status)
       query.set('page', String(params.page ?? 1))
-      query.set('limit', '50')
+      query.set('limit', '48')
 
       const res = await get<{ data: Service[]; total: number; page: number }>(`/services/mine?${query}`)
       services.value = res.data
@@ -98,13 +103,16 @@ export function useServicios() {
     const res = await post<Service>('/services', data)
     services.value.unshift(res)
     totalCount.value++
+    fetchStats()
     return res
   }
 
   async function updateService(id: string, data: Partial<Service>) {
     const res = await put<Service>(`/services/${id}`, data)
     const idx = services.value.findIndex(s => s.id === id)
+    const statusChanged = idx !== -1 && services.value[idx].status !== res.status
     if (idx !== -1) services.value[idx] = res
+    if (statusChanged) fetchStats()
     return res
   }
 
@@ -112,6 +120,7 @@ export function useServicios() {
     const res = await patch<Service>(`/services/${id}/toggle`, {})
     const idx = services.value.findIndex(s => s.id === id)
     if (idx !== -1) services.value[idx] = res
+    fetchStats()
     return res
   }
 
@@ -119,6 +128,7 @@ export function useServicios() {
     await del(`/services/${id}`)
     services.value = services.value.filter(s => s.id !== id)
     totalCount.value--
+    fetchStats()
   }
 
   async function fetchModalities() {
@@ -156,6 +166,7 @@ export function useServicios() {
     totalCount,
     currentPage,
     stats,
+    fetchStats,
     fetchServices,
     fetchCatalogCategories,
     fetchModalities,
