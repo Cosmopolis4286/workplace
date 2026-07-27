@@ -276,8 +276,8 @@
       </Transition>
 
       <div v-if="!loading" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- ── Información del Comercio ──────────────────────────── -->
-        <div class="card-premium p-6">
+        <!-- ── Información del Comercio (solo COMMERCE: un freelancer no tiene negocio físico) ── -->
+        <div v-if="!isFreelancer" class="card-premium p-6">
           <div class="flex items-center mb-6">
             <div class="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg mr-3">
               <BuildingStorefrontIcon class="h-6 w-6 text-white" />
@@ -618,7 +618,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import SearchableSelect from '~/components/ui/SearchableSelect.vue'
 import TwoFactorSettings from '~/components/settings/TwoFactorSettings.vue'
 import BnplSettingsSection from '~/components/settings/BnplSettingsSection.vue'
-import { useSettings } from '~/composables/useSettings'
+import { useSettings, type RestaurantSettings, type FreelancerSettingsData } from '~/composables/useSettings'
 import { useAuth } from '~/composables/useAuth'
 import { usePermissions } from '~/composables/usePermissions'
 import { useUserPreferences } from '~/composables/useUserPreferences'
@@ -631,6 +631,9 @@ const { userCategory } = usePermissions()
 const role = computed(() => user.value?.role ?? 'NORMAL')
 // Solo COMMERCE y FREELANCER tienen un negocio propio con configuración de backend
 const isCommerce = computed(() => ['COMMERCE', 'FREELANCER'].includes(role.value))
+// Un freelancer es proveedor de servicios independiente: sin Restaurant, sin
+// campos de comercio físico (dirección, horario, tax, delivery, etc.)
+const isFreelancer = computed(() => role.value === 'FREELANCER')
 // Solo usuarios de categoría "Comida" pueden ver Operaciones y Configuración de Pagos
 const isComidaCategory = computed(() => userCategory.value === 'Comida')
 const roleLabel = computed(() => {
@@ -737,7 +740,7 @@ watch(() => restaurantForm.value.city, (city) => {
 
 const paymentForm = ref({ currency: 'MXN', tax: 16, suggestedTip: 10, paymentMethods: ['cash', 'card', 'transfer'] as string[] })
 const operationForm = ref({ avgPrepTime: 20, avgDeliveryTime: 30, deliveryFee: 35, freeDeliveryMinimum: 200 })
-const notifForm = ref({ notifyNewOrders: true, notifyLowStock: true, notifyDailyReports: false, notifyCustomerReviews: true })
+const notifForm = ref<Record<string, boolean>>({ notifyNewOrders: true, notifyLowStock: true, notifyDailyReports: false, notifyCustomerReviews: true })
 
 const paymentMethodOptions = [
   { id: 'cash', name: 'Efectivo' },
@@ -746,12 +749,21 @@ const paymentMethodOptions = [
   { id: 'digital-wallet', name: 'Monedero Digital' },
 ]
 
-const notificationItems = [
-  { key: 'notifyNewOrders' as const, title: 'Nuevos Pedidos', description: 'Recibir notificaciones de pedidos nuevos' },
-  { key: 'notifyLowStock' as const, title: 'Stock Bajo', description: 'Alertas cuando productos están por agotarse' },
-  { key: 'notifyDailyReports' as const, title: 'Reportes Diarios', description: 'Recibir resumen diario de ventas' },
-  { key: 'notifyCustomerReviews' as const, title: 'Reseñas de Clientes', description: 'Notificaciones de nuevas reseñas' },
+const commerceNotificationItems = [
+  { key: 'notifyNewOrders', title: 'Nuevos Pedidos', description: 'Recibir notificaciones de pedidos nuevos' },
+  { key: 'notifyLowStock', title: 'Stock Bajo', description: 'Alertas cuando productos están por agotarse' },
+  { key: 'notifyDailyReports', title: 'Reportes Diarios', description: 'Recibir resumen diario de ventas' },
+  { key: 'notifyCustomerReviews', title: 'Reseñas de Clientes', description: 'Notificaciones de nuevas reseñas' },
 ]
+
+const freelancerNotificationItems = [
+  { key: 'notifyNewRequests', title: 'Nuevas Solicitudes', description: 'Recibir notificaciones cuando un cliente solicita tu servicio' },
+  { key: 'notifyRequestUpdates', title: 'Actualizaciones de Solicitudes', description: 'Cambios de estado en tus solicitudes activas' },
+  { key: 'notifyDailyReports', title: 'Reportes Diarios', description: 'Recibir resumen diario de tu actividad' },
+  { key: 'notifyCustomerReviews', title: 'Reseñas de Clientes', description: 'Notificaciones de nuevas reseñas' },
+]
+
+const notificationItems = computed(() => isFreelancer.value ? freelancerNotificationItems : commerceNotificationItems)
 
 function syncForms() {
   if (restaurant.value) {
@@ -770,23 +782,36 @@ function syncForms() {
     }
   }
   if (settings.value) {
+    if (isFreelancer.value) {
+      const s = settings.value as FreelancerSettingsData
+      paymentForm.value = { ...paymentForm.value, currency: s.currency }
+      notifForm.value = {
+        notifyNewRequests: s.notifyNewRequests,
+        notifyRequestUpdates: s.notifyRequestUpdates,
+        notifyDailyReports: s.notifyDailyReports,
+        notifyCustomerReviews: s.notifyCustomerReviews,
+      }
+      return
+    }
+
+    const s = settings.value as RestaurantSettings
     paymentForm.value = {
-      currency: settings.value.currency,
-      tax: settings.value.tax,
-      suggestedTip: settings.value.suggestedTip,
-      paymentMethods: [...settings.value.paymentMethods],
+      currency: s.currency,
+      tax: s.tax,
+      suggestedTip: s.suggestedTip,
+      paymentMethods: [...s.paymentMethods],
     }
     operationForm.value = {
-      avgPrepTime: settings.value.avgPrepTime,
-      avgDeliveryTime: settings.value.avgDeliveryTime,
-      deliveryFee: settings.value.deliveryFee,
-      freeDeliveryMinimum: settings.value.freeDeliveryMinimum,
+      avgPrepTime: s.avgPrepTime,
+      avgDeliveryTime: s.avgDeliveryTime,
+      deliveryFee: s.deliveryFee,
+      freeDeliveryMinimum: s.freeDeliveryMinimum,
     }
     notifForm.value = {
-      notifyNewOrders: settings.value.notifyNewOrders,
-      notifyLowStock: settings.value.notifyLowStock,
-      notifyDailyReports: settings.value.notifyDailyReports,
-      notifyCustomerReviews: settings.value.notifyCustomerReviews,
+      notifyNewOrders: s.notifyNewOrders,
+      notifyLowStock: s.notifyLowStock,
+      notifyDailyReports: s.notifyDailyReports,
+      notifyCustomerReviews: s.notifyCustomerReviews,
     }
   }
 }

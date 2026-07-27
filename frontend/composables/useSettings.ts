@@ -33,14 +33,27 @@ export interface RestaurantSettings {
   notifyCustomerReviews: boolean
 }
 
+// Settings de un FREELANCER (proveedor de servicios): sin campos de comercio
+// físico (tax/delivery/avgPrepTime) ni restaurant asociado.
+export interface FreelancerSettingsData {
+  id: string
+  userId: string
+  currency: string
+  notifyNewRequests: boolean
+  notifyRequestUpdates: boolean
+  notifyDailyReports: boolean
+  notifyCustomerReviews: boolean
+  disabledModules: string[]
+}
+
 export interface FullSettings {
-  restaurant: RestaurantInfo
-  settings: RestaurantSettings
+  restaurant: RestaurantInfo | null
+  settings: RestaurantSettings | FreelancerSettingsData
 }
 
 // Global reactive state
 const restaurant = ref<RestaurantInfo | null>(null)
-const settings = ref<RestaurantSettings | null>(null)
+const settings = ref<RestaurantSettings | FreelancerSettingsData | null>(null)
 const loading = ref(false)
 const saving = ref<string | null>(null)  // tracks which section is saving
 const error = ref<string | null>(null)
@@ -92,11 +105,11 @@ export const useSettings = () => {
 
   // ─── Update payment settings ────────────────────────────────────────────────
 
-  async function savePaymentSettings(data: Partial<RestaurantSettings>): Promise<boolean> {
+  async function savePaymentSettings(data: Partial<RestaurantSettings> | Partial<FreelancerSettingsData>): Promise<boolean> {
     saving.value = 'payment'
     error.value = null
     try {
-      const updated = await patch<RestaurantSettings>('/settings/payment', data)
+      const updated = await patch<RestaurantSettings | FreelancerSettingsData>('/settings/payment', data)
       settings.value = { ...settings.value!, ...updated }
       showSuccess('Configuración de pagos guardada')
       return true
@@ -128,11 +141,11 @@ export const useSettings = () => {
 
   // ─── Update notification settings ───────────────────────────────────────────
 
-  async function saveNotificationSettings(data: Partial<RestaurantSettings>): Promise<boolean> {
+  async function saveNotificationSettings(data: Partial<RestaurantSettings> | Partial<FreelancerSettingsData>): Promise<boolean> {
     saving.value = 'notifications'
     error.value = null
     try {
-      const updated = await patch<RestaurantSettings>('/settings/notifications', data)
+      const updated = await patch<RestaurantSettings | FreelancerSettingsData>('/settings/notifications', data)
       settings.value = { ...settings.value!, ...updated }
       showSuccess('Preferencias de notificaciones guardadas')
       return true
