@@ -14,29 +14,6 @@
 import { ref, computed } from 'vue'
 import { useApi } from './useApi'
 
-export const MODULE_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  menu: 'Menú',
-  inventory: 'Inventario',
-  orders: 'Pedidos',
-  customers: 'Clientes',
-  appointments: 'Agendamientos',
-  delivery: 'Delivery',
-  expenses: 'Gastos',
-  analytics: 'Analytics',
-  reports: 'Reportes',
-  sales: 'Ventas',
-  employees: 'Empleados',
-  branches: 'Sucursales',
-  settings: 'Configuración',
-  notifications: 'Notificaciones',
-  services: 'Servicios',
-  service_requests: 'Solicitudes de servicio',
-  catalog: 'Catálogo',
-  corridas: 'Corridas',
-  wallets: 'Billetera',
-}
-
 const effectiveModules = ref<string[]>([])
 const loaded = ref(false)
 

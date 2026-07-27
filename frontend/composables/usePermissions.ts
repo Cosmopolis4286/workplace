@@ -189,6 +189,26 @@ export const usePermissions = () => {
     return !isCacheValid(getCache())
   }
 
+  // Consulta el endpoint barato GET /permissions/version (no /permissions/me
+  // completo) y solo si difiere de lo guardado localmente fuerza una recarga
+  // completa. Sin esto, un cambio remoto (ej. un admin denegando un permiso
+  // individual) no se detectaba hasta que expiraba el cache local de 5 min,
+  // sin importar que el polling corriera cada 60s — el polling solo miraba
+  // si el cache local había expirado, nunca preguntaba al servidor.
+  async function checkVersion(): Promise<void> {
+    if (!isAuthenticated.value) return
+    try {
+      const { version } = await get<{ version: string }>('/permissions/version')
+      const vKey = versionKey()
+      const stored = vKey ? localStorage.getItem(vKey) : null
+      if (stored !== version) {
+        await fetchPermissions(true)
+      }
+    } catch {
+      // Silencioso: no bloquear la app por un fallo de red en el polling.
+    }
+  }
+
   function clearPermissions(): void {
     permissionKeys.value  = []
     userCategory.value    = null
@@ -198,13 +218,13 @@ export const usePermissions = () => {
     clearCache()
   }
 
-  // ── Auto-refresh silencioso cada minuto ───────────────────────────────────
+  // ── Auto-refresh silencioso cada minuto: pregunta al servidor si la
+  // versión (rol+usuario) cambió, en vez de solo mirar si el cache local
+  // expiró. Detecta overrides individuales en <=60s en vez de hasta 5 min.
   if (process.client && !_autoRefreshStarted) {
     _autoRefreshStarted = true
     setInterval(() => {
-      if (isAuthenticated.value && needsRefresh()) {
-        fetchPermissions(true)
-      }
+      if (isAuthenticated.value) checkVersion()
     }, REFRESH_INT)
   }
 
@@ -220,6 +240,7 @@ export const usePermissions = () => {
     fetchPermissions:  ()  => fetchPermissions(false),
     reloadPermissions,
     needsRefresh,
+    checkVersion,
     clearPermissions,
   }
 }
