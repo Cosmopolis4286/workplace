@@ -427,12 +427,12 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import {
-  useAgendamientos,
+  useAppointments,
   STATUS_LABELS,
   STATUS_CLASSES,
   type AppointmentStatus,
   type Appointment,
-} from '~/composables/useAgendamientos'
+} from '~/composables/useAppointments'
 import { useAlert } from '~/composables/useAlert'
 
 definePageMeta({ middleware: 'auth' })
@@ -447,7 +447,7 @@ const {
   updateAgendamiento,
   deleteAgendamiento,
   updateStatus,
-} = useAgendamientos()
+} = useAppointments()
 
 const alert = useAlert()
 

@@ -2,10 +2,10 @@
 // middleware/auth.ts y layouts/default.vue — ambos deben coincidir en qué
 // rutas NO requieren autenticación.
 export const PUBLIC_ROUTES: string[] = [
-  '/', '/precios', '/login', '/register',
+  '/', '/pricing', '/login', '/register',
   '/recover-password', '/reset-password',
   '/verify-email', '/auth/google/callback', '/auth/2fa-verify',
-  '/privacidad', '/terminos', '/soporte',
+  '/privacy', '/terms', '/support',
 ]
 
 export function isPublicRoute(path: string): boolean {

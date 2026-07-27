@@ -219,7 +219,7 @@ import {
   type CreateOrderPayload,
   type OrderType,
   type PaymentMethod,
-} from '~/composables/useClienteDashboard'
+} from '~/composables/useMerchantOrders'
 import type { Product } from '~/composables/useMenu'
 import { useUserPreferences } from '~/composables/useUserPreferences'
 

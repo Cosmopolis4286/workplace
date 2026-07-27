@@ -11,7 +11,7 @@
         </div>
       </div>
       <NuxtLink
-        to="/mis-pedidos"
+        to="/my-orders"
         class="text-xs font-semibold text-blue-600 hover:text-blue-700"
       >
         Ver todos
@@ -42,7 +42,7 @@
       <NuxtLink
         v-for="order in orders.slice(0, 5)"
         :key="order.id"
-        to="/mis-pedidos"
+        to="/my-orders"
         class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
       >
         <div class="flex items-center gap-3 min-w-0">

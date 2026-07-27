@@ -42,10 +42,10 @@ describe('NavigationService', () => {
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.NORMAL })
 
     const sectionIds = result.sections.map((s) => s.id)
-    expect(sectionIds).not.toContain('empresa')
-    expect(sectionIds).not.toContain('administracion')
-    // "mi-cuenta" siempre tiene items sin condición de permiso -> siempre visible
-    expect(sectionIds).toContain('mi-cuenta')
+    expect(sectionIds).not.toContain('company')
+    expect(sectionIds).not.toContain('administration')
+    // "my-account" siempre tiene items sin condición de permiso -> siempre visible
+    expect(sectionIds).toContain('my-account')
   })
 
   it('respects requiresCategory: menu:view only shows for category "Comida"', async () => {
@@ -74,7 +74,7 @@ describe('NavigationService', () => {
     expect(topSection?.items.find((i) => i.id === 'menu')).toBeDefined()
   })
 
-  it('excludes NORMAL from /pedidos but includes /mis-pedidos (rolesOnly)', async () => {
+  it('excludes NORMAL from /orders but includes /my-orders (rolesOnly)', async () => {
     permissionsService.getRolePermissions.mockResolvedValue(['orders:view'])
     planLimitsService.getPlanLimits.mockResolvedValue({
       effectiveModules: ['orders'],
@@ -84,9 +84,9 @@ describe('NavigationService', () => {
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.NORMAL })
 
     const topSection = result.sections.find((s) => s.id === 'top')
-    const operacionesSection = result.sections.find((s) => s.id === 'operaciones')
-    expect(topSection?.items.find((i) => i.id === 'mis-pedidos')).toBeDefined()
-    expect(operacionesSection?.items.find((i) => i.id === 'pedidos')).toBeUndefined()
+    const operationsSection = result.sections.find((s) => s.id === 'operations')
+    expect(topSection?.items.find((i) => i.id === 'my-orders')).toBeDefined()
+    expect(operationsSection?.items.find((i) => i.id === 'orders')).toBeUndefined()
   })
 
   it('excludes FREELANCER from /pedidos, /empleados but includes /modulos, /mi-plan (accountType)', async () => {
@@ -131,14 +131,14 @@ describe('NavigationService', () => {
 
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.ADMIN })
 
-    const adminSection = result.sections.find((s) => s.id === 'administracion')
-    expect(adminSection?.items.find((i) => i.id === 'admin-usuarios')).toBeDefined()
+    const adminSection = result.sections.find((s) => s.id === 'administration')
+    expect(adminSection?.items.find((i) => i.id === 'admin-users')).toBeDefined()
   })
 
   it('SUPERADMIN sees every permission-gated item regardless of role permissions', async () => {
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.SUPERADMIN })
 
-    const adminSection = result.sections.find((s) => s.id === 'administracion')
+    const adminSection = result.sections.find((s) => s.id === 'administration')
     expect(adminSection?.items.length).toBeGreaterThan(0)
   })
 
@@ -149,7 +149,7 @@ describe('NavigationService', () => {
 
       expect(first).toEqual(second)
       expect(first.routePermissions['/dashboard']).toBe('dashboard:view')
-      expect(first.routeModules['/pedidos']).toBe('orders')
+      expect(first.routeModules['/orders']).toBe('orders')
     })
   })
 })

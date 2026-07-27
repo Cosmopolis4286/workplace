@@ -65,7 +65,7 @@
         <p class="text-sm text-gray-500 mt-0.5">Contáctanos en <span class="text-red-500 font-medium">privacidad@foodmanager.app</span></p>
       </div>
       <NuxtLink
-        to="/soporte"
+        to="/support"
         class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-xl hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 shadow-sm whitespace-nowrap"
       >
         Ir a Soporte

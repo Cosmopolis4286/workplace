@@ -97,7 +97,7 @@ const stats = ref<EmployeeStats>({ total: 0, active: 0, byRole: {} })
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-export const useEmpleados = () => {
+export const useEmployees = () => {
   const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 

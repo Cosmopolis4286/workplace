@@ -202,7 +202,7 @@ import {
   NEXT_STATUS,
   type Order,
   type OrderStatus,
-} from '~/composables/useClienteDashboard'
+} from '~/composables/useMerchantOrders'
 
 const { formatCurrency: _fmt } = useUserPreferences()
 

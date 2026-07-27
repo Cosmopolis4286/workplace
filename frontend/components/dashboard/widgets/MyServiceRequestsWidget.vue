@@ -11,7 +11,7 @@
         </div>
       </div>
       <NuxtLink
-        to="/solicitudes-servicio"
+        to="/service-requests"
         class="text-xs font-semibold text-purple-600 hover:text-purple-700"
       >
         Ver todas
@@ -29,7 +29,7 @@
       <p class="text-sm font-medium text-gray-700">No has solicitado servicios</p>
       <p class="text-xs text-gray-400 mt-1">Tus solicitudes a proveedores aparecerán aquí</p>
       <NuxtLink
-        to="/servicios"
+        to="/my-services"
         class="inline-flex items-center gap-1 mt-3 text-xs font-semibold text-purple-600 hover:text-purple-700"
       >
         <WrenchIcon class="w-3.5 h-3.5" />
@@ -42,7 +42,7 @@
       <NuxtLink
         v-for="req in requests.slice(0, 5)"
         :key="req.id"
-        :to="`/solicitudes-servicio?open=${req.id}`"
+        :to="`/service-requests?open=${req.id}`"
         class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
       >
         <img

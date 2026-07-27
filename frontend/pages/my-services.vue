@@ -940,7 +940,7 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import TagsInput from '~/components/ui/TagsInput.vue'
-import { useServicios, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service, type ServiceModality } from '~/composables/useServicios'
+import { useMyServices, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service, type ServiceModality } from '~/composables/useMyServices'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -962,7 +962,7 @@ const {
   createModality,
   updateModality,
   deleteModality: deleteModalityFn,
-} = useServicios()
+} = useMyServices()
 
 const search = ref('')
 const filterStatus = ref('')

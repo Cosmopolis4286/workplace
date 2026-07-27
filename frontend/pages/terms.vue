@@ -71,7 +71,7 @@
     <!-- CTA row -->
     <div class="flex flex-col sm:flex-row gap-3">
       <NuxtLink
-        to="/privacidad"
+        to="/privacy"
         class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:border-orange-300 hover:text-orange-600 transition-all duration-150 shadow-sm"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,7 +81,7 @@
         Ver Política de Privacidad
       </NuxtLink>
       <NuxtLink
-        to="/soporte"
+        to="/support"
         class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-all duration-150 shadow-sm"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

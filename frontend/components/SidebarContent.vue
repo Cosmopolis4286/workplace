@@ -6,7 +6,7 @@
       <div class="mb-2 px-1 flex items-center justify-between">
         <p class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Acceso rápido</p>
         <NuxtLink
-          to="/perfil?tab=accesos-rapidos"
+          to="/profile?tab=quick-access"
           title="Configurar accesos rápidos"
           class="rounded-md p-0.5 transition-colors duration-150"
           :class="dark ? 'text-gray-500 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-workplace-red hover:bg-gray-100'"
@@ -177,9 +177,9 @@
       :class="[collapsed ? 'px-1.5 py-2' : 'px-2.5 py-2', dark ? 'border-white/10' : 'border-gray-100']"
     >
       <div class="flex items-center" :class="collapsed ? 'flex-col gap-1.5' : 'gap-1'">
-        <!-- User -> /perfil -->
+        <!-- User -> /profile -->
         <NuxtLink
-          to="/perfil"
+          to="/profile"
           class="group flex items-center rounded-lg transition-colors duration-150 min-w-0"
           :class="[
             collapsed ? 'justify-center w-10 h-10 mx-auto' : 'flex-1 gap-2.5 px-2 py-1.5',
@@ -335,7 +335,7 @@ const NAV_ICONS: Record<string, ReturnType<typeof svgIcon>> = {
   inventory:    svgIcon('M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'),
   services:     svgIcon('M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'),
   requests:     svgIcon('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'),
-  corridas:     svgIcon('M13 10V3L4 14h7v7l9-11h-7z'),
+  rides:        svgIcon('M13 10V3L4 14h7v7l9-11h-7z'),
   wallet:       svgIcon('M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m4-4h-6a2 2 0 100 4h6V9z'),
   sales:        svgIcon('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1'),
   analytics:    svgIcon('M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'),

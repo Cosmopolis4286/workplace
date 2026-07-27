@@ -63,7 +63,7 @@ export const useUsers = () => {
   }
 
   // Agregados sobre todo el conjunto filtrado (no solo la página cargada),
-  // usados en el header de /usuarios.
+  // usados en el header de /users.
   async function getStats(filters: Omit<UserListFilters, 'page' | 'limit'>) {
     const params = buildFilterParams(filters)
     return get<UsersStats>(`/users/stats?${params}`)

@@ -198,13 +198,13 @@ import { ref, computed, onMounted } from 'vue'
 import { BuildingOfficeIcon, PlusIcon, XMarkIcon, MagnifyingGlassIcon, PencilIcon, TrashIcon, MapPinIcon, PhoneIcon, UserIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { useSucursales, BRANCH_STATUS_LABELS, BRANCH_STATUS_CLASSES, BRANCH_COLORS, type Branch, type BranchStatus } from '~/composables/useSucursales'
+import { useBranches, BRANCH_STATUS_LABELS, BRANCH_STATUS_CLASSES, BRANCH_COLORS, type Branch, type BranchStatus } from '~/composables/useBranches'
 import { usePlans } from '~/composables/usePlans'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 
 definePageMeta({ middleware: 'auth' })
 
-const { branches, stats, loading, error, inConstructionCount, loadSucursales, createSucursal, updateSucursal, deleteSucursal, updateStatus } = useSucursales()
+const { branches, stats, loading, error, inConstructionCount, loadSucursales, createSucursal, updateSucursal, deleteSucursal, updateStatus } = useBranches()
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 const searchQuery  = ref('')

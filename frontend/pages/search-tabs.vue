@@ -4,7 +4,7 @@
       title="Tabs de Búsqueda"
       description="Configura las opciones que aparecen en la página de búsqueda"
       :icon="MagnifyingGlassIcon"
-      :breadcrumb="[{ label: 'Configuración', to: '/configuracion' }, { label: 'Tabs de Búsqueda' }]"
+      :breadcrumb="[{ label: 'Configuración', to: '/settings' }, { label: 'Tabs de Búsqueda' }]"
       :stats="headerStats"
     >
       <template #actions>

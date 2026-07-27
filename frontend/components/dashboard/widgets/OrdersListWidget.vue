@@ -49,7 +49,7 @@
 <script setup lang="ts">
 import { ShoppingCartIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
 import OrderCard from '~/components/OrderCard.vue'
-import type { Order } from '~/composables/useClienteDashboard'
+import type { Order } from '~/composables/useMerchantOrders'
 import { useRelativeTime } from '~/composables/useRelativeTime'
 
 interface Props {

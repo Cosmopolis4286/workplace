@@ -22,7 +22,7 @@
           >
             <RefreshCw class="w-5 h-5" :class="{ 'animate-spin': loading || loadingStats }" />
           </button>
-          <NuxtLink to="/perfil" class="p-2 bg-white/20 rounded-xl backdrop-blur-sm hover:scale-110 transition-transform duration-200">
+          <NuxtLink to="/profile" class="p-2 bg-white/20 rounded-xl backdrop-blur-sm hover:scale-110 transition-transform duration-200">
             <User class="w-6 h-6" />
           </NuxtLink>
         </div>
@@ -543,12 +543,12 @@ import {
   Plus, History, TrendingUp, RefreshCw, Zap, XCircle
 } from 'lucide-vue-next'
 import {
-  useClienteDashboard,
+  useMerchantOrders,
   type OrderStatus,
   type OrderType,
   type PaymentMethod,
   type CreateOrderPayload,
-} from '~/composables/useClienteDashboard'
+} from '~/composables/useMerchantOrders'
 
 const {
   orders,
@@ -571,7 +571,7 @@ const {
   ORDER_TYPE_LABELS,
   PAYMENT_METHOD_LABELS,
   NEXT_STATUS,
-} = useClienteDashboard()
+} = useMerchantOrders()
 
 // ── UI state ────────────────────────────────────────────────────────────────
 const showDetailsModal  = ref(false)

@@ -67,7 +67,7 @@ const stats = ref<BranchStats>({ total: 0, active: 0, byStatus: {} })
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-export const useSucursales = () => {
+export const useBranches = () => {
   const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 

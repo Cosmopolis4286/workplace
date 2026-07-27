@@ -245,13 +245,13 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { UsersIcon, PlusIcon, XMarkIcon, MagnifyingGlassIcon, PencilIcon, TrashIcon, CheckCircleIcon, CalendarIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { useEmpleados, EMPLOYEE_ROLE_LABELS, EMPLOYEE_ROLE_CLASSES, EMPLOYEE_STATUS_LABELS, EMPLOYEE_STATUS_CLASSES, type Employee, type EmployeeRole, type EmployeeStatus } from '~/composables/useEmpleados'
+import { useEmployees, EMPLOYEE_ROLE_LABELS, EMPLOYEE_ROLE_CLASSES, EMPLOYEE_STATUS_LABELS, EMPLOYEE_STATUS_CLASSES, type Employee, type EmployeeRole, type EmployeeStatus } from '~/composables/useEmployees'
 import { usePlans } from '~/composables/usePlans'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 
 definePageMeta({ middleware: 'auth' })
 
-const { employees, stats, loading, error, managerCount, loadEmpleados, createEmpleado, updateEmpleado, deleteEmpleado, toggleStatus } = useEmpleados()
+const { employees, stats, loading, error, managerCount, loadEmpleados, createEmpleado, updateEmpleado, deleteEmpleado, toggleStatus } = useEmployees()
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 const searchQuery  = ref('')

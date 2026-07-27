@@ -5,7 +5,7 @@
   <div v-if="!sessionChecked" class="min-h-screen" />
 
   <!-- Sin sesión real: este layout es solo para el backoffice autenticado.
-       Si una página pública lo usa por error u omisión (p.ej. /precios para
+       Si una página pública lo usa por error u omisión (p.ej. /pricing para
        visitantes anónimos), no mostramos sidebar/header de usuario — solo
        el contenido de la página, igual que el layout 'public'. -->
   <div v-else-if="!isAuthenticated" class="min-h-screen">

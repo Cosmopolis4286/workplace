@@ -11,7 +11,7 @@
         :stats="headerStats"
       >
         <template #actions>
-          <HeaderActionButton to="/permisos/usuarios" :icon="UserGroupIcon">
+          <HeaderActionButton to="/permissions/users" :icon="UserGroupIcon">
             Permisos por Usuario
           </HeaderActionButton>
           <HeaderActionButton :icon="PlusIcon" @click="openNewPermModal">

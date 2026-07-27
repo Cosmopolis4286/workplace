@@ -611,7 +611,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import type { PlaceSuggestion } from '~/composables/useNominatim'
-import type { Corrida } from '~/composables/useCorridas'
+import type { Corrida } from '~/composables/useRides'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -621,7 +621,7 @@ const {
   fetchAvailableCorridas, fetchMyCorridas, fetchDriverCorridas,
   createCorrida, acceptCorrida, updateCorridaStatus, cancelCorrida,
   calculatePrice, clearError,
-} = useCorridas()
+} = useRides()
 
 const { reloadPermissions, userCategory, userSubcategory } = usePermissions()
 

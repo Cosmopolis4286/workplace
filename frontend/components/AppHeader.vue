@@ -124,7 +124,7 @@
 
                 <!-- Links -->
                 <NuxtLink
-                  to="/perfil"
+                  to="/profile"
                   @click="showProfileMenu = false"
                   class="flex items-center px-4 py-2.5 text-sm transition-all duration-200 gap-3"
                   :class="isDark ? 'text-gray-300 hover:bg-white/8 hover:text-white' : 'text-gray-700 hover:bg-red-50 hover:text-workplace-red'"
@@ -133,7 +133,7 @@
                   Mi Perfil
                 </NuxtLink>
                 <NuxtLink
-                  to="/configuracion"
+                  to="/settings"
                   @click="showProfileMenu = false"
                   class="flex items-center px-4 py-2.5 text-sm transition-all duration-200 gap-3"
                   :class="isDark ? 'text-gray-300 hover:bg-white/8 hover:text-white' : 'text-gray-700 hover:bg-red-50 hover:text-workplace-red'"
@@ -143,7 +143,7 @@
                 </NuxtLink>
                 <NuxtLink
                   v-if="can('wallets:use')"
-                  to="/billetera"
+                  to="/wallet"
                   @click="showProfileMenu = false"
                   class="flex items-center px-4 py-2.5 text-sm transition-all duration-200 gap-3"
                   :class="isDark ? 'text-gray-300 hover:bg-white/8 hover:text-white' : 'text-gray-700 hover:bg-red-50 hover:text-workplace-red'"
@@ -283,17 +283,17 @@ const PAGE_MAP = {
   '/search':           { title: 'Búsqueda',         icon: HomeIcon },
   '/dashboard':        { title: 'Dashboard',       icon: HomeIcon },
   '/menu':             { title: 'Menú',             icon: Squares2X2Icon },
-  '/clientes':         { title: 'Clientes',         icon: UsersIcon },
-  '/agendamientos':    { title: 'Agendamientos',    icon: CalendarDaysIcon },
+  '/customers':        { title: 'Clientes',         icon: UsersIcon },
+  '/appointments':     { title: 'Agendamientos',    icon: CalendarDaysIcon },
   '/delivery':         { title: 'Delivery',         icon: TruckIcon },
-  '/cliente-dashboard':{ title: 'Pedidos',          icon: ClipboardDocumentListIcon },
-  '/gastos':           { title: 'Gastos',           icon: BanknotesIcon },
+  '/customer-dashboard':{ title: 'Pedidos',          icon: ClipboardDocumentListIcon },
+  '/expenses':         { title: 'Gastos',           icon: BanknotesIcon },
   '/analytics':        { title: 'Analíticas',       icon: ChartBarIcon },
-  '/configuracion':    { title: 'Configuración',    icon: CogIcon },
-  '/perfil':           { title: 'Mi Perfil',        icon: UserIcon },
-  '/billetera':        { title: 'Billetera',        icon: WalletIcon },
+  '/settings':         { title: 'Configuración',    icon: CogIcon },
+  '/profile':          { title: 'Mi Perfil',        icon: UserIcon },
+  '/wallet':           { title: 'Billetera',        icon: WalletIcon },
   '/notificaciones':   { title: 'Notificaciones',   icon: BellIcon },
-  '/auditoria':        { title: 'Auditoría',        icon: ClipboardDocumentListIcon },
+  '/audit-log':        { title: 'Auditoría',        icon: ClipboardDocumentListIcon },
   '/logs':             { title: 'Logs del Sistema', icon: BellIcon },
 }
 

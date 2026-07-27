@@ -1,5 +1,5 @@
 // Fuente única de verdad para labels/colores de roles de usuario.
-// Antes duplicado en usuarios.vue, permisos/usuarios.vue y otros.
+// Antes duplicado en users.vue, permissions/users.vue y otros.
 export type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
 
 export const ROLE_LABELS: Record<Role, string> = {

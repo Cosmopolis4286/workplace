@@ -30,7 +30,7 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
       return navigateTo('/dashboard')
     } else {
       // COMMERCE or FREELANCER without Comida category
-      return navigateTo('/servicios')
+      return navigateTo('/my-services')
     }
   }
 })

@@ -8,7 +8,7 @@
       :stats="headerStats"
     >
       <template #actions>
-        <HeaderActionButton to="/precios" :icon="ArrowTopRightOnSquareIcon">
+        <HeaderActionButton to="/pricing" :icon="ArrowTopRightOnSquareIcon">
           Ver página de precios
         </HeaderActionButton>
       </template>

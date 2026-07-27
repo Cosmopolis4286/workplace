@@ -310,7 +310,7 @@
             <button class="w-full btn-secondary text-sm flex items-center gap-2" @click="openScheduleModal">
               <CalendarIcon class="h-4 w-4" />Programar Servicio
             </button>
-            <NuxtLink to="/clientes" class="w-full btn-secondary text-sm flex items-center gap-2">
+            <NuxtLink to="/customers" class="w-full btn-secondary text-sm flex items-center gap-2">
               <UsersIcon class="h-4 w-4" />Gestionar Clientes
             </NuxtLink>
             <NuxtLink to="/analytics" class="w-full btn-secondary text-sm flex items-center gap-2">
@@ -629,11 +629,11 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useApi } from '~/composables/useApi'
 import {
-  useClienteDashboard,
+  useMerchantOrders,
   ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES,
   ORDER_TYPE_LABELS, PAYMENT_METHOD_LABELS, NEXT_STATUS,
   type Order, type CreateOrderPayload, type OrderStatus, type OrderType, type PaymentMethod,
-} from '~/composables/useClienteDashboard'
+} from '~/composables/useMerchantOrders'
 import { usePlans } from '~/composables/usePlans'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 import { useReceipts } from '~/composables/useReceipts'
@@ -645,7 +645,7 @@ const {
   activeOrders, recentOrders,
   loadOrders, loadStats, createOrder, updateStatus, deleteOrder,
   formatCurrency, formatDate,
-} = useClienteDashboard()
+} = useMerchantOrders()
 
 const scheduledOrders = computed(() =>
   orders.value.filter(o => o.orderType === 'PROGRAMADO' && o.scheduledAt && !['ENTREGADO','CANCELADO'].includes(o.status))

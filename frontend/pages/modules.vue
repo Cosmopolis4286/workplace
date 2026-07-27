@@ -49,7 +49,7 @@
               <p class="text-sm text-gray-500">{{ availableModules.length }} módulo{{ availableModules.length !== 1 ? 's' : '' }} incluido{{ availableModules.length !== 1 ? 's' : '' }}</p>
             </div>
           </div>
-          <NuxtLink to="/mi-plan" class="text-sm font-semibold text-workplace-red hover:underline whitespace-nowrap">
+          <NuxtLink to="/my-plan" class="text-sm font-semibold text-workplace-red hover:underline whitespace-nowrap">
             Ver mi plan
           </NuxtLink>
         </div>

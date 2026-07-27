@@ -21,7 +21,7 @@ export class BnplWebhookController {
   }
 
   // Solo para desarrollo/pruebas mientras no hay credenciales reales: la
-  // página pública frontend/pages/bnpl/simulado/[ref].vue la llama sin auth
+  // página pública frontend/pages/bnpl/simulated/[ref].vue la llama sin auth
   // (el cliente final no tiene sesión de este sistema).
   @Post('simulate/:externalReference/resolve')
   simulateResolve(

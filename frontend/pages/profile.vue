@@ -7,7 +7,7 @@
     >
       <template v-if="canSeeSettings" #actions>
         <NuxtLink
-          to="/configuracion"
+          to="/settings"
           class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-semibold rounded-xl shadow-sm hover:shadow-md hover:border-workplace-red/30 hover:text-workplace-red transition-all duration-200"
         >
           <Cog6ToothIcon class="h-5 w-5" />
@@ -75,7 +75,7 @@
               {{ roleStyle.label }}
             </span>
             <NuxtLink
-              to="/verificacion"
+              to="/verification"
               class="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition-colors"
               :class="kycBadge.class"
             >
@@ -531,7 +531,7 @@
         </div>
 
         <!-- Accesos Rápidos -->
-        <div id="accesos-rapidos" class="card-premium p-6">
+        <div id="quick-access" class="card-premium p-6">
           <div class="flex items-center mb-2">
             <div class="p-3 bg-gradient-to-br from-workplace-red to-red-700 rounded-xl shadow-lg mr-3">
               <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -582,7 +582,7 @@
         </div>
 
         <!-- Acciones Rápidas (dashboard) -->
-        <div id="acciones-rapidas" class="card-premium p-6">
+        <div id="quick-actions" class="card-premium p-6">
           <div class="flex items-center mb-2">
             <div class="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg mr-3">
               <CogIcon class="h-6 w-6 text-white" />
@@ -1241,7 +1241,7 @@ onMounted(async () => {
   await Promise.all([fetchCategories(), fetchSubcategories(), fetchSessions()])
 
   const targetTab = useRoute().query.tab
-  if (targetTab === 'accesos-rapidos' || targetTab === 'acciones-rapidas') {
+  if (targetTab === 'quick-access' || targetTab === 'quick-actions') {
     nextTick(() => {
       document.getElementById(targetTab as string)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })

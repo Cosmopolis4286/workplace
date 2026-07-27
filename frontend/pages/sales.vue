@@ -236,7 +236,7 @@
               <PlusIcon class="h-4 w-4 inline mr-1.5" />
               Nueva Venta
             </button>
-            <button class="w-full btn-secondary text-sm" @click="navigateTo('/reportes')">
+            <button class="w-full btn-secondary text-sm" @click="navigateTo('/reports')">
               <ChartBarIcon class="h-4 w-4 inline mr-1.5" />
               Ver Reportes
             </button>
@@ -395,7 +395,7 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import SaleModal from '~/components/modals/SaleModal.vue'
 import OrderDetailModal from '~/components/modals/OrderDetailModal.vue'
 import {
-  useClienteDashboard,
+  useMerchantOrders,
   ORDER_STATUS_LABELS,
   ORDER_STATUS_CLASSES,
   ORDER_TYPE_LABELS,
@@ -405,7 +405,7 @@ import {
   type OrderStatus,
   type CreateOrderPayload,
   type OrderFilters,
-} from '~/composables/useClienteDashboard'
+} from '~/composables/useMerchantOrders'
 import { useMenu } from '~/composables/useMenu'
 
 // ── Composables ───────────────────────────────────────────────────────────────
@@ -418,7 +418,7 @@ const {
   loadOrders, loadStats, createOrder, updateOrder, updateStatus, deleteOrder,
   getEligibleBnplProviders, initiateBnpl,
   formatCurrency, formatDate,
-} = useClienteDashboard()
+} = useMerchantOrders()
 
 const { products, loadMenu } = useMenu()
 

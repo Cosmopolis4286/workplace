@@ -1,7 +1,7 @@
 import { Role } from '@prisma/client';
 
 export type NavIconKey =
-  | 'dashboard' | 'menu' | 'inventory' | 'services' | 'requests' | 'corridas'
+  | 'dashboard' | 'menu' | 'inventory' | 'services' | 'requests' | 'rides'
   | 'wallet' | 'sales' | 'analytics' | 'reports' | 'ventas_group' | 'ops_group'
   | 'empresa_group' | 'orders' | 'appointments' | 'customers' | 'profile'
   | 'home' | 'delivery' | 'employees' | 'jobs' | 'branches' | 'modules' | 'cash';
@@ -35,8 +35,8 @@ export interface NavItemDef {
 }
 
 export type NavSectionId =
-  | 'top' | 'ventas' | 'operaciones' | 'empresa'
-  | 'administracion' | 'mi-cuenta' | 'negocio';
+  | 'top' | 'sales' | 'operations' | 'company'
+  | 'administration' | 'my-account' | 'business';
 
 export interface NavSectionDef {
   id: NavSectionId;

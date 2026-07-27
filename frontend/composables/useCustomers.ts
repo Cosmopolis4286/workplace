@@ -45,7 +45,7 @@ const stats = ref<CustomerStats>({ totalClients: 0, activeClients: 0, avgSpent: 
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-export const useClientes = () => {
+export const useCustomers = () => {
   const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 

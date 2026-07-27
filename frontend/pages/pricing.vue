@@ -49,7 +49,7 @@
             </p>
           </div>
         </div>
-        <NuxtLink to="/mi-plan" class="btn-secondary text-sm flex-shrink-0">Ver detalles de mi plan</NuxtLink>
+        <NuxtLink to="/my-plan" class="btn-secondary text-sm flex-shrink-0">Ver detalles de mi plan</NuxtLink>
       </div>
     </div>
 
@@ -226,7 +226,7 @@
               class="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700 leading-relaxed"
             >
               Además, tu administrador no podrá aprobar este upgrade hasta que verifiques tu identidad (KYC).
-              <NuxtLink to="/perfil" class="font-semibold underline">Completa la verificación desde tu perfil</NuxtLink>.
+              <NuxtLink to="/profile" class="font-semibold underline">Completa la verificación desde tu perfil</NuxtLink>.
             </div>
           </template>
 
@@ -398,7 +398,7 @@
             </button>
             <NuxtLink
               v-else
-              :to="isAuthenticated ? '/mi-plan' : '/register'"
+              :to="isAuthenticated ? '/my-plan' : '/register'"
               class="block w-full text-center px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200"
               :class="plan.isPopular
                 ? 'bg-red-600 hover:bg-red-700 text-white shadow-sm shadow-red-200'

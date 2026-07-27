@@ -102,7 +102,7 @@ export const STATUS_CLASSES: Record<AppointmentStatus, string> = {
   NO_SHOW: 'bg-orange-100 text-orange-800',
 }
 
-export const useAgendamientos = () => {
+export const useAppointments = () => {
   const { get, post, put, patch, del } = useApi()
   const router = useRouter()
 

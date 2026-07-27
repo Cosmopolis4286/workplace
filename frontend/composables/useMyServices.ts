@@ -58,7 +58,7 @@ const currentPage = ref(1)
 // (la lista puede estar filtrada/paginada y no reflejar los totales reales).
 const stats = ref({ total: 0, activos: 0, pausados: 0, inactivos: 0 })
 
-export function useServicios() {
+export function useMyServices() {
   const { get, post, put, patch, del } = useApi()
 
   async function fetchStats() {

@@ -7,7 +7,7 @@
         </svg>
         <span class="text-sm font-semibold text-gray-700">Plan {{ usage.limits.planName }}</span>
       </div>
-      <NuxtLink to="/mi-plan" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Ver plan →</NuxtLink>
+      <NuxtLink to="/my-plan" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Ver plan →</NuxtLink>
     </div>
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -36,7 +36,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
       </svg>
       Límite alcanzado: <strong>{{ atLimit.join(', ') }}</strong>.
-      <NuxtLink to="/mi-plan" class="underline hover:no-underline">Actualiza tu plan</NuxtLink>
+      <NuxtLink to="/my-plan" class="underline hover:no-underline">Actualiza tu plan</NuxtLink>
     </div>
   </div>
 </template>

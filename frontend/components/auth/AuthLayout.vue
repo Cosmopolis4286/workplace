@@ -252,9 +252,9 @@
         <div class="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400 max-w-md mx-auto w-full">
           <p>{{ t('auth.layout.copyright', { year: currentYear, appName: t('common.appName') }) }}</p>
           <div class="flex items-center space-x-4">
-            <NuxtLink to="/privacidad" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.privacy') }}</NuxtLink>
-            <NuxtLink to="/terminos" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.terms') }}</NuxtLink>
-            <NuxtLink to="/soporte" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.support') }}</NuxtLink>
+            <NuxtLink to="/privacy" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.privacy') }}</NuxtLink>
+            <NuxtLink to="/terms" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.terms') }}</NuxtLink>
+            <NuxtLink to="/support" class="hover:text-gray-600 transition-colors duration-150">{{ t('auth.layout.support') }}</NuxtLink>
           </div>
         </div>
       </div>

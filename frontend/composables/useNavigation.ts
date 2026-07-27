@@ -61,11 +61,11 @@ export function useNavigation() {
   }
 
   const topSection      = computed(() => sections.value.find((s) => s.id === 'top'))
-  const adminSection    = computed(() => sections.value.find((s) => s.id === 'administracion'))
-  const miCuentaSection = computed(() => sections.value.find((s) => s.id === 'mi-cuenta'))
-  const negocioSection  = computed(() => sections.value.find((s) => s.id === 'negocio'))
+  const adminSection    = computed(() => sections.value.find((s) => s.id === 'administration'))
+  const miCuentaSection = computed(() => sections.value.find((s) => s.id === 'my-account'))
+  const negocioSection  = computed(() => sections.value.find((s) => s.id === 'business'))
   const groupSections   = computed(() =>
-    sections.value.filter((s) => !['top', 'administracion', 'mi-cuenta', 'negocio'].includes(s.id))
+    sections.value.filter((s) => !['top', 'administration', 'my-account', 'business'].includes(s.id))
   )
 
   return {

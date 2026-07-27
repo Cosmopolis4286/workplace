@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-sm font-semibold text-gray-900 tracking-tight">Acciones rápidas</h3>
       <NuxtLink
-        to="/perfil?tab=acciones-rapidas"
+        to="/profile?tab=quick-actions"
         title="Configurar acciones rápidas"
         class="p-1.5 rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-colors"
       >

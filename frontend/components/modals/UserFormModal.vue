@@ -13,7 +13,7 @@
             <div class="flex items-center gap-1">
               <NuxtLink
                 v-if="editing && userId"
-                :to="`/permisos/usuarios?userId=${userId}`"
+                :to="`/permissions/users?userId=${userId}`"
                 class="px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors whitespace-nowrap"
               >
                 Ver permisos

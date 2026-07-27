@@ -86,7 +86,7 @@ import {
   NEXT_STATUS,
   type Order,
   type OrderStatus,
-} from '~/composables/useClienteDashboard'
+} from '~/composables/useMerchantOrders'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 import { useUserPreferences } from '~/composables/useUserPreferences'
 

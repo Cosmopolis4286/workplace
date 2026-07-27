@@ -27,7 +27,7 @@
         <!-- Tasa de cambio en vivo -->
         <NuxtLink
           v-if="defaultRate"
-          to="/tasas-cambio"
+          to="/exchange-rates"
           class="flex items-center gap-2 bg-white/10 hover:bg-white/20 rounded-xl px-3 py-1.5 transition-colors duration-200"
           :title="`Actualizado ${lastUpdatedLabel}`"
         >

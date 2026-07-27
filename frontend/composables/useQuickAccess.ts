@@ -18,18 +18,18 @@ export interface QuickAccessCandidate {
 }
 
 export const QUICK_ACCESS_CANDIDATES: QuickAccessCandidate[] = [
-  { id: 'pedidos',              to: '/pedidos',              label: 'Pedidos',     permission: 'orders:view',           icon: 'orders',    gradient: 'bg-gradient-to-br from-workplace-red to-red-700',   normalOnly: false },
-  { id: 'mis-pedidos',          to: '/mis-pedidos',          label: 'Pedidos',     permission: null,                    icon: 'orders',    gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',   normalOnly: true  },
-  { id: 'solicitudes-servicio', to: '/solicitudes-servicio', label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  gradient: 'bg-gradient-to-br from-red-400 to-rose-600',         normalOnly: false },
-  { id: 'gastos',               to: '/gastos',               label: 'Gastos',      permission: 'expenses:view',         icon: 'sales',     gradient: 'bg-gradient-to-br from-red-600 to-rose-800',         normalOnly: false },
-  { id: 'servicios',            to: '/servicios',            label: 'Servicios',   permission: 'services:view',         icon: 'services',  gradient: 'bg-gradient-to-br from-gray-700 to-gray-900',        normalOnly: false },
-  { id: 'empleos',              to: '/empleos',              label: 'Empleos',     permission: 'jobs:view',             icon: 'jobs',      gradient: 'bg-gradient-to-br from-slate-600 to-slate-800',      normalOnly: false },
-  { id: 'cliente-dashboard',    to: '/cliente-dashboard',    label: 'Mi Panel',    permission: 'orders:view',           icon: 'home',      gradient: 'bg-gradient-to-br from-rose-500 to-workplace-red',  normalOnly: false },
+  { id: 'orders',               to: '/orders',               label: 'Pedidos',     permission: 'orders:view',           icon: 'orders',    gradient: 'bg-gradient-to-br from-workplace-red to-red-700',   normalOnly: false },
+  { id: 'my-orders',            to: '/my-orders',            label: 'Pedidos',     permission: null,                    icon: 'orders',    gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',   normalOnly: true  },
+  { id: 'service-requests',     to: '/service-requests',     label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  gradient: 'bg-gradient-to-br from-red-400 to-rose-600',         normalOnly: false },
+  { id: 'expenses',             to: '/expenses',              label: 'Gastos',      permission: 'expenses:view',         icon: 'sales',     gradient: 'bg-gradient-to-br from-red-600 to-rose-800',         normalOnly: false },
+  { id: 'my-services',          to: '/my-services',          label: 'Servicios',   permission: 'services:view',         icon: 'services',  gradient: 'bg-gradient-to-br from-gray-700 to-gray-900',        normalOnly: false },
+  { id: 'jobs',                 to: '/jobs',                 label: 'Empleos',     permission: 'jobs:view',             icon: 'jobs',      gradient: 'bg-gradient-to-br from-slate-600 to-slate-800',      normalOnly: false },
+  { id: 'customer-dashboard',   to: '/customer-dashboard',   label: 'Mi Panel',    permission: 'orders:view',           icon: 'home',      gradient: 'bg-gradient-to-br from-rose-500 to-workplace-red',  normalOnly: false },
   { id: 'dashboard',            to: '/dashboard',            label: 'Dashboard',   permission: 'dashboard:view',        icon: 'dashboard', gradient: 'bg-gradient-to-br from-workplace-red to-red-800',   normalOnly: false },
   { id: 'analytics',            to: '/analytics',            label: 'Analytics',   permission: 'analytics:view',        icon: 'analytics', gradient: 'bg-gradient-to-br from-rose-600 to-red-900',        normalOnly: false },
-  { id: 'clientes',             to: '/clientes',             label: 'Clientes',    permission: 'customers:view',        icon: 'customers', gradient: 'bg-gradient-to-br from-red-500 to-rose-700',        normalOnly: false },
+  { id: 'customers',            to: '/customers',            label: 'Clientes',    permission: 'customers:view',        icon: 'customers', gradient: 'bg-gradient-to-br from-red-500 to-rose-700',        normalOnly: false },
   { id: 'delivery',             to: '/delivery',             label: 'Delivery',    permission: 'delivery:view',         icon: 'delivery',  gradient: 'bg-gradient-to-br from-gray-600 to-gray-800',       normalOnly: false },
-  { id: 'agendamientos',        to: '/agendamientos',        label: 'Agendas',     permission: 'appointments:view',     icon: 'appointments', gradient: 'bg-gradient-to-br from-rose-400 to-red-600',     normalOnly: false },
+  { id: 'appointments',         to: '/appointments',         label: 'Agendas',     permission: 'appointments:view',     icon: 'appointments', gradient: 'bg-gradient-to-br from-rose-400 to-red-600',     normalOnly: false },
 ]
 
 export const MAX_QUICK_ACCESS = 3
@@ -49,7 +49,7 @@ export function useQuickAccess() {
     if (permission === 'menu:view') {
       return can(permission) && hasModule(module) && userCategory.value === 'Comida'
     }
-    if (to === '/pedidos' && role.value === 'NORMAL') return false
+    if (to === '/orders' && role.value === 'NORMAL') return false
     return can(permission) && hasModule(module)
   }
 

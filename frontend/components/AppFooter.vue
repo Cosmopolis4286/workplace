@@ -19,21 +19,21 @@
         <!-- Links -->
         <nav class="flex items-center gap-1">
           <NuxtLink
-            to="/privacidad"
+            to="/privacy"
             class="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-150"
           >
             Privacidad
           </NuxtLink>
           <span class="text-gray-200 select-none">|</span>
           <NuxtLink
-            to="/terminos"
+            to="/terms"
             class="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-150"
           >
             Términos
           </NuxtLink>
           <span class="text-gray-200 select-none">|</span>
           <NuxtLink
-            to="/soporte"
+            to="/support"
             class="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-150"
           >
             Soporte

@@ -58,7 +58,7 @@ export interface UpdateCorridaStatusDto {
   status: Corrida['status']
 }
 
-export function useCorridas() {
+export function useRides() {
   const { get, post, patch } = useApi()
   const { can } = usePermissions()
 

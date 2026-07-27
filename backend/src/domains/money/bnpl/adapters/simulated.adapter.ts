@@ -26,7 +26,7 @@ export class SimulatedAdapter implements BnplProviderAdapter {
 
     return {
       externalReference,
-      checkoutUrl: `${frontendUrl}/bnpl/simulado/${externalReference}`,
+      checkoutUrl: `${frontendUrl}/bnpl/simulated/${externalReference}`,
       expiresAt,
       rawResponse: { simulated: true, orderId: params.orderId, amount: params.amount },
     };

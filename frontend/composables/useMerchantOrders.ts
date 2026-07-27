@@ -183,7 +183,7 @@ const error          = ref<string | null>(null)
 const totalCount     = ref(0)
 const currentPage    = ref(1)
 
-export function useClienteDashboard() {
+export function useMerchantOrders() {
   const { get, post, put, patch, del } = useApi()
 
   const activeOrders  = computed(() => orders.value.filter(o => ACTIVE_STATUSES.includes(o.status)))

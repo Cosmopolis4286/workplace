@@ -21,8 +21,8 @@ const GUEST_ONLY_ROUTES: string[] = [
 
 // ─── Rutas que requieren autenticación mínima (cualquier rol) ─────────────────
 const AUTH_ROUTES: string[] = [
-  '/dashboard', '/perfil', '/configuracion', '/onboarding',
-  '/search', '/corridas', '/solicitudes-servicio', '/mi-plan',
+  '/dashboard', '/profile', '/settings', '/onboarding',
+  '/search', '/rides', '/service-requests', '/my-plan',
 ]
 
 // El mapa ruta→permiso requerido ahora viene de GET /navigation (backend),
@@ -35,12 +35,12 @@ const AUTH_ROUTES: string[] = [
 // esa respuesta — se mantiene esta lista estática de paths conocidos
 // (sin el permiso asociado, solo "esta ruta existe y está protegida").
 const KNOWN_PROTECTED_ROUTES: string[] = [
-  '/usuarios', '/categorias', '/permisos', '/auditoria', '/logs', '/planes', '/tasas-cambio',
-  '/menu', '/inventario', '/servicios', '/empleos', '/cliente-dashboard',
-  '/empleados', '/sucursales',
-  '/gastos', '/ventas', '/analytics', '/reportes', '/agendamientos', '/clientes', '/delivery', '/pedidos',
-  '/solicitudes-servicio', '/billetera',
-  '/comisiones', '/search-tabs', '/localidades',
+  '/users', '/categories', '/permissions', '/audit-log', '/logs', '/plans', '/exchange-rates',
+  '/menu', '/inventory', '/my-services', '/jobs', '/customer-dashboard',
+  '/employees', '/branches',
+  '/expenses', '/sales', '/analytics', '/reports', '/appointments', '/customers', '/delivery', '/orders',
+  '/service-requests', '/wallet',
+  '/commissions', '/search-tabs', '/locations',
 ]
 
 // ─── Rutas restringidas a SUPERADMIN/ADMIN sin permission matrix propia ───────
@@ -48,19 +48,19 @@ const KNOWN_PROTECTED_ROUTES: string[] = [
 // PermissionsGuard, así que aquí se replica el mismo criterio en vez de
 // inventar un permiso que no existe)
 const ADMIN_ONLY_ROUTES: string[] = [
-  '/kyc-admin', '/landing-admin', '/categorias-propuestas-admin', '/solicitudes-servicio-admin',
+  '/kyc-admin', '/landing-admin', '/proposed-categories-admin', '/service-requests-admin',
 ]
 
 // Rutas que no necesitan permiso específico pero sí autenticación
 const NEEDS_AUTH_ONLY: string[] = [
-  '/dashboard', '/perfil', '/configuracion', '/mi-plan', '/onboarding', '/search',
-  '/reportar-problema', '/verificacion', '/modulos', '/mis-pedidos',
+  '/dashboard', '/profile', '/settings', '/my-plan', '/onboarding', '/search',
+  '/report-issue', '/verification', '/modules', '/my-orders',
 ]
 
 // ─── Excluidas del chequeo de onboarding ─────────────────────────────────────
 const ONBOARDING_EXCLUDED: string[] = [
   '/onboarding', '/login', '/register', '/recover-password',
-  '/verify-email', '/precios',
+  '/verify-email', '/pricing',
 ]
 
 // ─── Helper: destino de redirección por defecto según rol ─────────────────────
@@ -134,22 +134,22 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
     return navigateTo('/onboarding')
   }
 
-  // ── 4b-2. /mi-plan: SUPERADMIN/ADMIN no adquieren planes propios ──────────
-  if (path.startsWith('/mi-plan') && ADMIN_ROLES.includes(role)) {
-    return navigateTo('/planes')
+  // ── 4b-2. /my-plan: SUPERADMIN/ADMIN no adquieren planes propios ──────────
+  if (path.startsWith('/my-plan') && ADMIN_ROLES.includes(role)) {
+    return navigateTo('/plans')
   }
 
   // ── 4c. Restricción especial de /menu → solo categoría "Comida" ───────────
   if (path.startsWith('/menu') && initialized.value) {
     if (!can('menu:view') || userCategory.value !== 'Comida') {
       // Si tiene acceso a servicios → redirigir ahí; si no, al default
-      return navigateTo(can('services:view') ? '/servicios' : defaultDest(role))
+      return navigateTo(can('services:view') ? '/my-services' : defaultDest(role))
     }
   }
 
-  // ── 4c-2. /pedidos es exclusivo de comercios → NORMAL usa /mis-pedidos ───
-  if (path.startsWith('/pedidos') && role === 'NORMAL') {
-    return navigateTo('/mis-pedidos')
+  // ── 4c-2. /orders es exclusivo de comercios → NORMAL usa /my-orders ───
+  if (path.startsWith('/orders') && role === 'NORMAL') {
+    return navigateTo('/my-orders')
   }
 
   // ── 4d. Rutas SUPERADMIN/ADMIN sin permission matrix propia ───────────────

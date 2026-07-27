@@ -147,10 +147,10 @@
         <span class="text-sm text-gray-600 leading-snug">
           <i18n-t keypath="auth.register.acceptTerms" tag="span">
             <template #terms>
-              <NuxtLink to="/terminos" target="_blank" class="font-semibold text-workplace-red hover:underline">{{ t('auth.register.termsLink') }}</NuxtLink>
+              <NuxtLink to="/terms" target="_blank" class="font-semibold text-workplace-red hover:underline">{{ t('auth.register.termsLink') }}</NuxtLink>
             </template>
             <template #privacy>
-              <NuxtLink to="/privacidad" target="_blank" class="font-semibold text-workplace-red hover:underline">{{ t('auth.register.privacyLink') }}</NuxtLink>
+              <NuxtLink to="/privacy" target="_blank" class="font-semibold text-workplace-red hover:underline">{{ t('auth.register.privacyLink') }}</NuxtLink>
             </template>
           </i18n-t>
         </span>

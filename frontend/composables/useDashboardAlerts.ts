@@ -51,7 +51,7 @@ export function useDashboardAlerts() {
         title: 'Productos con stock bajo',
         message: `${kpis.value.lowStockProducts} producto${kpis.value.lowStockProducts !== 1 ? 's' : ''} necesita${kpis.value.lowStockProducts !== 1 ? 'n' : ''} reabastecimiento.`,
         actionLabel: 'Ver inventario',
-        actionRoute: '/inventario',
+        actionRoute: '/inventory',
       })
     }
 
@@ -63,7 +63,7 @@ export function useDashboardAlerts() {
         title: 'Gastos vencidos sin pagar',
         message: `${overdueExpenses.value.length} gasto${overdueExpenses.value.length !== 1 ? 's' : ''} vencido${overdueExpenses.value.length !== 1 ? 's' : ''} pendiente${overdueExpenses.value.length !== 1 ? 's' : ''} de pago.`,
         actionLabel: 'Ver gastos',
-        actionRoute: '/gastos',
+        actionRoute: '/expenses',
       })
     }
 
@@ -75,7 +75,7 @@ export function useDashboardAlerts() {
         title: 'Alto volumen de pedidos',
         message: `Hay ${kpis.value.activeOrders} pedidos activos en este momento.`,
         actionLabel: 'Ver pedidos',
-        actionRoute: '/cliente-dashboard',
+        actionRoute: '/customer-dashboard',
       })
     }
 

@@ -12,7 +12,7 @@
         </div>
         <div class="flex gap-3 flex-shrink-0">
           <NuxtLink
-            to="/permisos"
+            to="/permissions"
             class="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
           >
             ← Volver a Matriz de Roles
@@ -238,7 +238,7 @@ function closeModal() {
   selectedUser.value = null
 }
 
-// Soporta el link "Ver permisos" desde /usuarios (?userId=X): resuelve el
+// Soporta el link "Ver permisos" desde /users (?userId=X): resuelve el
 // usuario vía getUserPermissions (ya trae los datos básicos) en vez de
 // depender de que esté en la página actual del listado paginado, y abre
 // el modal directamente sin esperar a que el admin lo busque de nuevo.

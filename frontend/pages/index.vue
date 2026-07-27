@@ -532,9 +532,9 @@
             <a href="#features" :aria-label="t('landing.nav.featuresAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.features') }}</a>
             <a href="#how" :aria-label="t('landing.nav.howAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.how') }}</a>
             <a href="#pricing" :aria-label="t('landing.nav.pricingAria')" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.nav.pricing') }}</a>
-            <NuxtLink to="/privacidad" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.privacy') }}</NuxtLink>
-            <NuxtLink to="/terminos" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.terms') }}</NuxtLink>
-            <NuxtLink to="/soporte" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.support') }}</NuxtLink>
+            <NuxtLink to="/privacy" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.privacy') }}</NuxtLink>
+            <NuxtLink to="/terms" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.terms') }}</NuxtLink>
+            <NuxtLink to="/support" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.support') }}</NuxtLink>
           </div>
         </div>
 

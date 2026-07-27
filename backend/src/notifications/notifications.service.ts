@@ -69,7 +69,7 @@ export class NotificationsService {
       type: NotificationType.ORDER,
       title: '📋 Nueva solicitud de servicio',
       message: `${clientName} solicitó "${serviceName}"`,
-      link: '/solicitudes-servicio',
+      link: '/service-requests',
       metadata: { clientName, serviceName },
     });
   }
@@ -102,7 +102,7 @@ export class NotificationsService {
       type: NotificationType.ORDER,
       title: `${copy.icon} ${copy.title}`,
       message: copy.message,
-      link: '/solicitudes-servicio',
+      link: '/service-requests',
       metadata: { providerName, serviceName, status },
     });
   }
@@ -116,7 +116,7 @@ export class NotificationsService {
       type: NotificationType.ORDER,
       title: '🚫 Solicitud cancelada',
       message: `${clientName} canceló su solicitud de "${serviceName}"`,
-      link: '/solicitudes-servicio',
+      link: '/service-requests',
       metadata: { clientName, serviceName },
     });
   }
@@ -133,7 +133,7 @@ export class NotificationsService {
       type: NotificationType.ORDER,
       title: '❌ Solicitud rechazada',
       message: `${providerName} no podrá atender tu solicitud de "${serviceName}". Puedes buscar otro proveedor.`,
-      link: '/solicitudes-servicio',
+      link: '/service-requests',
       metadata: { providerName, serviceName },
     });
   }
@@ -147,7 +147,7 @@ export class NotificationsService {
       type: NotificationType.ORDER,
       title: '⏳ Sin respuesta aún',
       message: `${providerName} no ha respondido tu solicitud de "${serviceName}". Puedes seguir esperando o buscar otro proveedor.`,
-      link: '/solicitudes-servicio',
+      link: '/service-requests',
       metadata: { providerName, serviceName },
     });
   }
@@ -161,7 +161,7 @@ export class NotificationsService {
       type: NotificationType.ORDER,
       title: '⚠️ Estás por perder este trato',
       message: `${clientName} lleva más de 24h esperando respuesta sobre "${serviceName}". Respóndele antes de que busque otro proveedor.`,
-      link: '/solicitudes-servicio',
+      link: '/service-requests',
       metadata: { clientName, serviceName },
     });
   }
@@ -203,7 +203,7 @@ export class NotificationsService {
       type: NotificationType.ORDER,
       title: `Nuevo pedido ${orderNumber}`,
       message: `Se recibió un nuevo pedido por $${total.toFixed(2)}`,
-      link: '/cliente-dashboard',
+      link: '/customer-dashboard',
       metadata: { orderNumber, total },
     });
   }
@@ -232,7 +232,7 @@ export class NotificationsService {
           : status === 'ENTREGADO'
             ? 'green'
             : 'blue',
-      link: '/cliente-dashboard',
+      link: '/customer-dashboard',
       metadata: { orderNumber, status },
     });
   }
@@ -279,7 +279,7 @@ export class NotificationsService {
       type: NotificationType.ORDER,
       title: '🛒 Nuevo pedido del marketplace',
       message: `${buyerName} solicitó ${quantity}x ${productName}${total}`,
-      link: '/pedidos',
+      link: '/orders',
       metadata: { buyerName, productName, quantity, totalEstimate },
     });
   }
@@ -309,7 +309,7 @@ export class NotificationsService {
       type: NotificationType.SYSTEM,
       title: '💸 Comisión de plataforma cobrada',
       message: `Se descontó una comisión de $${feeAmount.toFixed(2)} de tu billetera por un ${labels[type] ?? 'transacción'} completado`,
-      link: '/billetera',
+      link: '/wallet',
       metadata: { feeType: type, feeAmount },
     });
   }

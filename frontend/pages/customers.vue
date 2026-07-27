@@ -390,14 +390,14 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { useClientes, type Customer, type CustomerSegment } from '~/composables/useClientes'
+import { useCustomers, type Customer, type CustomerSegment } from '~/composables/useCustomers'
 
 definePageMeta({ middleware: 'auth' })
 
 const {
   customers, stats, loading, error,
   vipClients, loadClientes, createCliente, updateCliente, deleteCliente, toggleStatus,
-} = useClientes()
+} = useCustomers()
 
 // ─── Segmento maps ────────────────────────────────────────────────────────────
 const SEGMENT_LABELS: Record<CustomerSegment, string> = {
