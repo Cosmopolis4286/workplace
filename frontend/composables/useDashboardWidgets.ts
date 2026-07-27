@@ -72,13 +72,13 @@ export const useDashboardWidgets = () => {
   // Obtener widgets por sección
   const kpiWidgets = computed(() =>
     visibleWidgets.value.filter(w =>
-      ['salesToday', 'activeOrders', 'lowStock', 'newCustomers'].includes(w.id)
+      ['salesToday', 'activeOrders', 'activeServiceRequests', 'lowStock', 'newCustomers'].includes(w.id)
     )
   )
 
   const mainWidgets = computed(() =>
     visibleWidgets.value.filter(w =>
-      ['ordersList', 'systemHealth', 'myTasks', 'recentActivity'].includes(w.id)
+      ['ordersList', 'providerServiceRequests', 'systemHealth', 'recentActivity'].includes(w.id)
     )
   )
 

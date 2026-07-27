@@ -115,6 +115,14 @@
               :loading="loading"
               :trend="trends?.activeOrders ?? []"
             />
+            <ActiveOrdersWidget
+              v-else-if="item.id === 'activeServiceRequests'"
+              :count="kpis.activeOrders"
+              :change="kpis.activeOrdersChange"
+              label="Solicitudes activas"
+              :loading="loading"
+              :trend="trends?.activeOrders ?? []"
+            />
             <LowStockWidget
               v-else-if="item.id === 'lowStock'"
               :count="kpis.lowStockProducts"
@@ -161,6 +169,13 @@
         :requests="myServiceRequests"
         :loading="loadingMyServiceRequests"
       />
+
+      <!-- Provider Service Requests Widget - Para FREELANCER (solicitudes recibidas) -->
+      <ProviderServiceRequestsWidget
+        v-if="canViewWidget('providerServiceRequests')"
+        :requests="providerServiceRequests"
+        :loading="loadingProviderServiceRequests"
+      />
     </div>
 
     <!-- Analytics Overview - Solo ADMIN/SUPERADMIN -->
@@ -206,6 +221,7 @@ definePageMeta({
 import { ExclamationTriangleIcon, ServerIcon, AdjustmentsHorizontalIcon } from '@heroicons/vue/24/outline'
 import { useDashboard } from '~/composables/useDashboard'
 import { useCustomerDashboard } from '~/composables/useCustomerDashboard'
+import { useFreelancerDashboard } from '~/composables/useFreelancerDashboard'
 import { useDashboardWidgets } from '~/composables/useDashboardWidgets'
 import { useDashboardPeriod, type DashboardPeriod } from '~/composables/useDashboardPeriod'
 import { useDashboardLayout } from '~/composables/useDashboardLayout'
@@ -223,6 +239,7 @@ import OrdersListWidget from '~/components/dashboard/widgets/OrdersListWidget.vu
 import AnalyticsOverviewWidget from '~/components/dashboard/widgets/AnalyticsOverviewWidget.vue'
 import MyOrdersWidget from '~/components/dashboard/widgets/MyOrdersWidget.vue'
 import MyServiceRequestsWidget from '~/components/dashboard/widgets/MyServiceRequestsWidget.vue'
+import ProviderServiceRequestsWidget from '~/components/dashboard/widgets/ProviderServiceRequestsWidget.vue'
 import MyActivitySummaryWidget from '~/components/dashboard/widgets/MyActivitySummaryWidget.vue'
 import OrderDetailModal from '~/components/modals/OrderDetailModal.vue'
 
@@ -253,6 +270,13 @@ const showCustomizePanel = ref(false)
 
 // Datos del propio usuario NORMAL: pedidos hechos y solicitudes de servicio enviadas
 const { myOrders, myServiceRequests, loadingMyOrders, loadingMyServiceRequests, loadCustomerData } = useCustomerDashboard()
+
+// Datos del propio FREELANCER: solicitudes de servicio recibidas como proveedor
+const {
+  myServiceRequests: providerServiceRequests,
+  loadingMyServiceRequests: loadingProviderServiceRequests,
+  loadFreelancerData,
+} = useFreelancerDashboard()
 
 // Widget visibility by role
 const { heroConfig, quickActions, canViewWidget } = useDashboardWidgets()
@@ -348,10 +372,17 @@ onMounted(async () => {
   if (userRole.value === 'NORMAL') {
     await loadCustomerData()
   }
+  // Load provider-specific data (solicitudes recibidas) for FREELANCER users
+  if (userRole.value === 'FREELANCER') {
+    await loadFreelancerData()
+  }
   refreshTimer = setInterval(() => {
     loadDashboard(selectedPeriod.value)
     if (userRole.value === 'NORMAL') {
       loadCustomerData()
+    }
+    if (userRole.value === 'FREELANCER') {
+      loadFreelancerData()
     }
   }, 60_000)
 })

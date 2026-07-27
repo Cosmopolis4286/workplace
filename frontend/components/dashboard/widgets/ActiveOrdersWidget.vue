@@ -14,7 +14,7 @@
     </div>
     <div v-if="loading" class="h-7 bg-gray-100 rounded animate-pulse mb-1 w-12" />
     <div v-else class="text-xl font-bold text-gray-900 mb-0.5">{{ count }}</div>
-    <p class="text-xs text-gray-400 font-medium mb-3">Pedidos activos</p>
+    <p class="text-xs text-gray-400 font-medium mb-3">{{ label }}</p>
     <Sparkline v-if="trend?.length" :values="trend" color="blue" />
   </div>
 </template>
@@ -28,12 +28,14 @@ interface Props {
   change?: number | null
   loading?: boolean
   trend?: (number | null)[]
+  label?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   change: null,
   loading: false,
   trend: () => [],
+  label: 'Pedidos activos',
 })
 
 const formattedChange = computed(() => {

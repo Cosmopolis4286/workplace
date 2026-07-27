@@ -52,7 +52,7 @@ export function useDashboardLayout() {
   // Solo KPI widgets (los 4 superiores)
   const kpiLayout = computed(() =>
     orderedLayout.value.filter(w =>
-      ['salesToday', 'activeOrders', 'lowStock', 'newCustomers'].includes(w.id)
+      ['salesToday', 'activeOrders', 'activeServiceRequests', 'lowStock', 'newCustomers'].includes(w.id)
     )
   )
 

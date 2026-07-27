@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Analytics Dashboard"
-      description="Análisis profundo del rendimiento de tu negocio"
+      :description="isFreelancer ? 'Análisis profundo del rendimiento de tus servicios' : 'Análisis profundo del rendimiento de tu negocio'"
       :icon="ChartBarIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
@@ -86,11 +86,11 @@
         </div>
       </div>
 
-      <!-- Pedidos -->
+      <!-- Pedidos / Solicitudes -->
       <div class="card p-6">
         <div class="flex items-center justify-between">
           <div class="min-w-0">
-            <p class="text-sm font-medium text-gray-500">Pedidos</p>
+            <p class="text-sm font-medium text-gray-500">{{ isFreelancer ? 'Solicitudes' : 'Pedidos' }}</p>
             <p class="text-3xl font-bold text-gray-900">
               {{ overview ? overview.kpis.totalOrders.toLocaleString('es-MX') : '—' }}
             </p>
@@ -184,30 +184,30 @@
         </div>
       </div>
 
-      <!-- Orders by Hour -->
+      <!-- Orders/Requests by Hour -->
       <div class="card p-4 sm:p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-medium text-gray-900">Pedidos por Hora</h3>
+          <h3 class="text-lg font-medium text-gray-900">{{ isFreelancer ? 'Solicitudes por Hora' : 'Pedidos por Hora' }}</h3>
         </div>
         <div class="h-64 sm:h-80">
           <BarChart v-if="ordersHourChartData" :data="ordersHourChartData" />
-          <EmptyChart v-else label="Sin datos de pedidos" />
+          <EmptyChart v-else :label="isFreelancer ? 'Sin datos de solicitudes' : 'Sin datos de pedidos'" />
         </div>
       </div>
 
-      <!-- Top Products -->
+      <!-- Top Products/Services -->
       <div class="card p-4 sm:p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-medium text-gray-900">Productos Más Vendidos</h3>
+          <h3 class="text-lg font-medium text-gray-900">{{ isFreelancer ? 'Servicios Más Solicitados' : 'Productos Más Vendidos' }}</h3>
         </div>
         <div class="h-64 sm:h-80">
           <BarChart v-if="topProductsChartData" :data="topProductsChartData" />
-          <EmptyChart v-else label="Sin productos registrados" />
+          <EmptyChart v-else :label="isFreelancer ? 'Sin servicios registrados' : 'Sin productos registrados'" />
         </div>
       </div>
 
-      <!-- Customer Segments -->
-      <div class="card p-4 sm:p-6">
+      <!-- Customer Segments: no aplica a freelancers (no hay modelo Customer con segmentación) -->
+      <div v-if="!isFreelancer" class="card p-4 sm:p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-medium text-gray-900">Segmentos de Clientes</h3>
         </div>
@@ -225,12 +225,13 @@
         <h3 class="text-lg font-medium text-gray-900 mb-4">Métricas de Rendimiento</h3>
         <div class="space-y-4">
           <MetricRow
+            v-if="!isFreelancer"
             label="Tiempo Promedio de Preparación"
             :value="overview.performance.operational.avgPrepTime
               ? `${overview.performance.operational.avgPrepTime} min` : '—'"
           />
           <MetricRow
-            label="Tiempo Promedio de Entrega"
+            :label="isFreelancer ? 'Tiempo Promedio de Respuesta' : 'Tiempo Promedio de Entrega'"
             :value="overview.performance.operational.avgDeliveryTime
               ? `${overview.performance.operational.avgDeliveryTime} min` : '—'"
           />
@@ -240,11 +241,11 @@
             :value-class="overview.performance.operational.cancellationRate > 10 ? 'text-red-600' : 'text-green-600'"
           />
           <MetricRow
-            label="Pedidos en el Período"
+            :label="isFreelancer ? 'Solicitudes en el Período' : 'Pedidos en el Período'"
             :value="overview.performance.operational.totalInPeriod.toLocaleString('es-MX')"
           />
           <MetricRow
-            label="Pedidos Cancelados"
+            :label="isFreelancer ? 'Solicitudes Canceladas' : 'Pedidos Cancelados'"
             :value="overview.performance.operational.cancellations.toLocaleString('es-MX')"
             :value-class="overview.performance.operational.cancellations > 0 ? 'text-red-600' : 'text-gray-900'"
           />
@@ -270,7 +271,7 @@
             :value="formatCurrency(overview.performance.growth.clv)"
           />
           <MetricRow
-            label="Frecuencia de Pedidos"
+            :label="isFreelancer ? 'Frecuencia de Solicitudes' : 'Frecuencia de Pedidos'"
             :value="`${overview.performance.growth.orderFrequency}/hist.`"
           />
           <MetricRow
@@ -285,6 +286,7 @@
         <h3 class="text-lg font-medium text-gray-900 mb-4">Salud Financiera</h3>
         <div class="space-y-4">
           <MetricRow
+            v-if="!isFreelancer"
             label="Margen Bruto (promedio)"
             :value="`${overview.performance.financial.grossMargin}%`"
             :value-class="overview.performance.financial.grossMargin >= 50 ? 'text-green-600' : 'text-yellow-600'"
@@ -299,11 +301,11 @@
             value-class="text-green-600"
           />
           <MetricRow
-            label="Total de Pedidos"
+            :label="isFreelancer ? 'Total de Solicitudes Cerradas' : 'Total de Pedidos'"
             :value="overview.performance.financial.totalOrders.toLocaleString('es-MX')"
           />
           <MetricRow
-            label="Ingreso por Pedido"
+            :label="isFreelancer ? 'Ingreso por Solicitud' : 'Ingreso por Pedido'"
             :value="overview.performance.financial.totalOrders > 0
               ? formatCurrency(overview.performance.financial.totalRevenue / overview.performance.financial.totalOrders)
               : '—'"
@@ -331,7 +333,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
   ArrowUpIcon as AnalyticsArrowUpIcon,
   ArrowDownIcon as AnalyticsArrowDownIcon,
@@ -392,6 +394,12 @@ const {
   formatChange,
   loadOverview,
 } = useAnalytics()
+
+// Un freelancer no vende productos con stock/preparación/entrega: vende
+// servicios vía solicitudes (ServiceRequest). El backend ya devuelve el
+// mismo contrato de datos remapeado; acá solo se ajustan los textos.
+const { user } = useAuth()
+const isFreelancer = computed(() => user.value?.role === 'FREELANCER')
 
 const breadcrumbItems = ref([
   { label: 'Dashboard', to: '/' },

@@ -61,6 +61,7 @@ import {
   BuildingStorefrontIcon,
   TruckIcon,
   UserIcon,
+  WrenchIcon,
 } from '@heroicons/vue/24/outline'
 import type { HeroConfig } from '~/config/dashboard.config'
 import { useExchangeRates } from '~/composables/useExchangeRates'
@@ -101,6 +102,7 @@ const iconMap: Record<string, any> = {
   TruckIcon,
   UserIcon,
   ChartBarIcon,
+  WrenchIcon,
 }
 
 const heroIcon = computed(() => iconMap[props.config.icon] || ChartBarIcon)
@@ -110,6 +112,7 @@ const roleLabels: Record<string, string> = {
   BuildingOfficeIcon: 'Admin',
   BuildingStorefrontIcon: 'Comercio',
   TruckIcon: 'Freelancer',
+  WrenchIcon: 'Freelancer',
   UserIcon: 'Cliente',
 }
 

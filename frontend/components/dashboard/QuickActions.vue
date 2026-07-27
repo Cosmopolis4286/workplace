@@ -60,6 +60,7 @@ import {
   Cog6ToothIcon,
   UserIcon,
   WrenchIcon,
+  BriefcaseIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline'
 import type { QuickActionConfig } from '~/config/dashboard.config'
@@ -161,6 +162,7 @@ const iconMap: Record<string, any> = {
   CogIcon,
   UserIcon,
   WrenchIcon,
+  BriefcaseIcon,
   MagnifyingGlassIcon,
 }
 

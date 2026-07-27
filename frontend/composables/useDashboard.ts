@@ -67,6 +67,7 @@ export function useDashboard() {
     error.value   = null
 
     const isNormal = user.value?.role === 'NORMAL'
+    const isFreelancer = user.value?.role === 'FREELANCER'
 
     try {
       // Usuarios NORMAL no tienen commerceId — solo cargan sus propios pedidos via /orders/mine
@@ -78,6 +79,39 @@ export function useDashboard() {
           lowStockProducts: 0, lowStockChange: null,
           newCustomers: 0, newCustomersChange: null,
         }
+        lastUpdated.value = new Date()
+        return
+      }
+
+      // Un freelancer no tiene Order/Product (vende vía ServiceRequest) — evita
+      // llamar /orders/*  y /menu/products, que no aplican a su modelo de negocio.
+      // /analytics/overview y /dashboard-trends ya devuelven datos reales de
+      // ServiceRequest para este rol (ver analytics.service.ts).
+      if (isFreelancer) {
+        const [analyticsRes, trendsRes] = await Promise.allSettled([
+          get<any>(`/analytics/overview?period=${period}&compareWith=previous`),
+          get<DashboardTrends>('/analytics/dashboard-trends'),
+        ])
+
+        trends.value = trendsRes.status === 'fulfilled' ? trendsRes.value : null
+        const analyticsData = analyticsRes.status === 'fulfilled' ? analyticsRes.value : null
+
+        kpis.value = {
+          salesToday:          analyticsData?.kpis?.totalRevenue ?? 0,
+          salesTodayChange:    analyticsData?.kpis?.totalRevenueChange ?? null,
+          activeOrders:        analyticsData?.performance?.operational?.totalInPeriod ?? 0,
+          activeOrdersChange:  analyticsData?.kpis?.totalOrdersChange ?? null,
+          lowStockProducts:    0,
+          lowStockChange:      null,
+          newCustomers:        analyticsData?.kpis?.newCustomers ?? 0,
+          newCustomersChange:  analyticsData?.kpis?.newCustomersChange ?? null,
+          avgPrepTime:         0,
+          avgDeliveryTime:     analyticsData?.performance?.operational?.avgDeliveryTime ?? 0,
+          customerSatisfaction: analyticsData?.performance?.operational?.cancellationRate != null
+            ? Math.max(0, 100 - analyticsData.performance.operational.cancellationRate)
+            : 0,
+        }
+
         lastUpdated.value = new Date()
         return
       }
