@@ -102,21 +102,17 @@ import { ref, computed, onMounted } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
+import { useModuleCatalog } from '~/composables/useModuleCatalog'
 
+const { labels: MODULE_LABELS, load: loadModuleCatalog } = useModuleCatalog()
+
+// Módulos de NEGOCIO seleccionables por categoría — subset del catálogo
+// completo (excluye módulos "de sistema" como users/permissions/audit).
 const ALL_MODULES = [
   'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
   'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
   'branches', 'settings', 'notifications', 'services', 'service_requests', 'catalog',
 ]
-
-const MODULE_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard', menu: 'Menú / Productos', inventory: 'Inventario',
-  orders: 'Pedidos', customers: 'Clientes', appointments: 'Agendamientos',
-  delivery: 'Delivery', expenses: 'Gastos', analytics: 'Analytics',
-  reports: 'Reportes', sales: 'Ventas', employees: 'Empleados',
-  branches: 'Sucursales', settings: 'Configuración', notifications: 'Notificaciones',
-  services: 'Servicios', service_requests: 'Solicitudes', catalog: 'Catálogo',
-}
 
 interface Cat { id: string; name: string; icon?: string; allowedModules: string[]; _count?: { users: number } }
 
@@ -193,5 +189,5 @@ async function toggleModule(cat: Cat, mod: string) {
   }
 }
 
-onMounted(load)
+onMounted(() => { load(); loadModuleCatalog() })
 </script>

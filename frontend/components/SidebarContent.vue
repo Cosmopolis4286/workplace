@@ -47,9 +47,8 @@
       </NavLink>
 
       <!-- Top-level items -->
-      <template v-for="item in topNavItems" :key="item.to">
+      <template v-for="item in topSection?.items ?? []" :key="item.id">
         <NavLink
-          v-if="canSee(item.permission)"
           :to="item.to"
           :label="item.label"
           :dark="dark"
@@ -60,172 +59,115 @@
         </NavLink>
       </template>
 
-      <!-- Grouped sections -->
-      <template v-for="group in NAV_GROUPS" :key="group.key">
-        <template v-if="groupVisible(group)">
+      <!-- Grouped sections (Ventas & Analytics, Operaciones, Empresa) -->
+      <template v-for="group in groupSections" :key="group.id">
 
-          <!-- COLLAPSED: flat icons -->
-          <template v-if="collapsed">
-            <div class="my-1 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
-            <NavLink
-              v-for="item in visibleItems(group)"
-              :key="item.to"
-              :to="item.to"
-              :label="item.label"
-              :dark="dark"
-              :collapsed="true"
-              @click="$emit('navigate')"
-            >
-              <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
-            </NavLink>
-          </template>
+        <!-- COLLAPSED: flat icons -->
+        <template v-if="collapsed">
+          <div class="my-1 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
+          <NavLink
+            v-for="item in group.items"
+            :key="item.id"
+            :to="item.to"
+            :label="item.label"
+            :dark="dark"
+            :collapsed="true"
+            @click="$emit('navigate')"
+          >
+            <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
+          </NavLink>
+        </template>
 
-          <!-- EXPANDED: section header + collapsible group -->
-          <template v-else>
-            <div class="mt-3 mb-1 px-2">
-              <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">
-                {{ group.label }}
-              </span>
-            </div>
+        <!-- EXPANDED: section header + collapsible group -->
+        <template v-else>
+          <div class="mt-3 mb-1 px-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">
+              {{ group.label }}
+            </span>
+          </div>
 
-            <NavLink
-              v-for="item in visibleItems(group)"
-              :key="item.to"
-              :to="item.to"
-              :label="item.label"
-              :dark="dark"
-              :collapsed="false"
-              @click="$emit('navigate')"
-            >
-              <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
-            </NavLink>
-          </template>
+          <NavLink
+            v-for="item in group.items"
+            :key="item.id"
+            :to="item.to"
+            :label="item.label"
+            :dark="dark"
+            :collapsed="false"
+            @click="$emit('navigate')"
+          >
+            <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
+          </NavLink>
         </template>
       </template>
 
-      <!-- Administración: visible si el usuario tiene al menos un permiso admin -->
-      <template v-if="hasAdminItems">
+      <!-- Administración: el backend ya omite la sección si no hay items visibles -->
+      <template v-if="adminSection">
         <template v-if="!collapsed">
           <div class="mt-3 mb-1 px-2">
-            <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Administración</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">{{ adminSection.label }}</span>
           </div>
         </template>
         <template v-else>
           <div class="my-1 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
         </template>
-        <NavLink v-if="can('users:view')" to="/usuarios" label="Usuarios" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon><component :is="NAV_ICONS.employees" class="h-5 w-5" /></template>
-        </NavLink>
-        <NavLink v-if="can('categories_global:view')" to="/categorias" label="Categorías" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon><component :is="NAV_ICONS.menu" class="h-5 w-5" /></template>
-        </NavLink>
-        <NavLink v-if="can('search_tabs:view')" to="/search-tabs" label="Tabs de Búsqueda" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon>
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-          </template>
-        </NavLink>
-        <NavLink v-if="can('locations:view')" to="/localidades" label="Ubicaciones (VE)" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon>
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-            </svg>
-          </template>
-        </NavLink>
-        <NavLink v-if="can('permissions:manage')" to="/permisos" label="Permisos" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon><component :is="NAV_ICONS.requests" class="h-5 w-5" /></template>
-        </NavLink>
-        <NavLink v-if="['SUPERADMIN', 'ADMIN'].includes(role)" to="/landing-admin" label="Landing" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon>
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-            </svg>
-          </template>
-        </NavLink>
-        <NavLink v-if="['SUPERADMIN', 'ADMIN'].includes(role)" to="/kyc-admin" label="Verificaciones KYC" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon>
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-            </svg>
-          </template>
-        </NavLink>
-        <NavLink v-if="can('categories_user:manage')" to="/categorias-propuestas-admin" label="Categorías Propuestas" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon>
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-            </svg>
-          </template>
-        </NavLink>
-        <NavLink v-if="can('audit:view')" to="/auditoria" label="Auditoría" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon><component :is="NAV_ICONS.orders" class="h-5 w-5" /></template>
-        </NavLink>
-        <NavLink v-if="can('logs:view')" to="/logs" label="Logs" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon><component :is="NAV_ICONS.reports" class="h-5 w-5" /></template>
-        </NavLink>
-        <NavLink v-if="can('plans:view')" to="/planes" label="Planes" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon><component :is="NAV_ICONS.sales" class="h-5 w-5" /></template>
-        </NavLink>
-        <NavLink v-if="can('exchange_rates:view')" to="/tasas-cambio" label="Tasas de Cambio" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon><component :is="NAV_ICONS.analytics" class="h-5 w-5" /></template>
-        </NavLink>
-        <NavLink v-if="can('platform_fees:view')" to="/comisiones" label="Comisiones" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-          <template #icon><component :is="NAV_ICONS.sales" class="h-5 w-5" /></template>
+        <NavLink
+          v-for="item in adminSection.items"
+          :key="item.id"
+          :to="item.to"
+          :label="item.label"
+          :dark="dark"
+          :collapsed="collapsed"
+          @click="$emit('navigate')"
+        >
+          <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
         </NavLink>
       </template>
 
       <!-- ── Mi Cuenta ───────────────────────────────────────────────────── -->
-      <template v-if="!collapsed">
-        <div class="mt-3 mb-1 px-2">
-          <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Mi Cuenta</span>
-        </div>
-      </template>
-      <template v-else>
-        <div class="my-1 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
-      </template>
-      <NavLink to="/perfil" label="Mi Perfil" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-        <template #icon><component :is="NAV_ICONS.profile" class="h-5 w-5" /></template>
-      </NavLink>
-      <NavLink to="/verificacion" label="Verificación de Identidad" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-        <template #icon>
-          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-          </svg>
+      <template v-if="miCuentaSection">
+        <template v-if="!collapsed">
+          <div class="mt-3 mb-1 px-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">{{ miCuentaSection.label }}</span>
+          </div>
         </template>
-      </NavLink>
-      <NavLink to="/reportar-problema" label="Reportar un Problema" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-        <template #icon>
-          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-          </svg>
+        <template v-else>
+          <div class="my-1 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
         </template>
-      </NavLink>
+        <NavLink
+          v-for="item in miCuentaSection.items"
+          :key="item.id"
+          :to="item.to"
+          :label="item.label"
+          :dark="dark"
+          :collapsed="collapsed"
+          @click="$emit('navigate')"
+        >
+          <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
+        </NavLink>
+      </template>
 
       <!-- ── Negocio: solo si hay algo que mostrar para este rol ───────────── -->
-      <template v-if="!collapsed">
-        <div class="mt-3 mb-1 px-2">
-          <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">Negocio</span>
-        </div>
+      <template v-if="negocioSection">
+        <template v-if="!collapsed">
+          <div class="mt-3 mb-1 px-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">{{ negocioSection.label }}</span>
+          </div>
+        </template>
+        <template v-else>
+          <div class="my-1 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
+        </template>
+        <NavLink
+          v-for="item in negocioSection.items"
+          :key="item.id"
+          :to="item.to"
+          :label="item.label"
+          :dark="dark"
+          :collapsed="collapsed"
+          @click="$emit('navigate')"
+        >
+          <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
+        </NavLink>
       </template>
-      <template v-else>
-        <div class="my-1 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
-      </template>
-      <NavLink v-if="navReady && can('settings:view')" to="/configuracion" label="Configuración" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-        <template #icon><component :is="NAV_ICONS.ops_group" class="h-5 w-5" /></template>
-      </NavLink>
-      <!-- Módulos: self-service para que el propio comercio oculte secciones de su menú -->
-      <NavLink v-if="role === 'COMMERCE' || role === 'FREELANCER'" to="/modulos" label="Módulos" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-        <template #icon><component :is="NAV_ICONS.modules" class="h-5 w-5" /></template>
-      </NavLink>
-      <!-- Mi Plan: comercios/freelancers gestionan su suscripción aquí (incluye acceso a Ver Precios) -->
-      <NavLink v-if="role === 'COMMERCE' || role === 'FREELANCER'" to="/mi-plan" label="Mi Plan" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-        <template #icon><component :is="NAV_ICONS.sales" class="h-5 w-5" /></template>
-      </NavLink>
-      <!-- Ver Planes: solo para roles sin "Mi Plan" propio (ahí ya hay acceso a precios) -->
-      <NavLink v-if="role !== 'COMMERCE' && role !== 'FREELANCER'" to="/precios" label="Planes y Precios" :dark="dark" :collapsed="collapsed" @click="$emit('navigate')">
-        <template #icon><component :is="NAV_ICONS.menu" class="h-5 w-5" /></template>
-      </NavLink>
 
     </nav>
 
@@ -301,34 +243,25 @@ import { MAX_QUICK_ACCESS, type QuickAccessCandidate } from '~/composables/useQu
 
 const route = useRoute()
 const { user, logout } = useAuth()
-const { can, userCategory, initialized: permissionsInitialized, fetchPermissions } = usePermissions()
-const { hasModule, loaded: modulesLoaded, loadModules } = useModules()
+const { can, initialized: permissionsInitialized, fetchPermissions } = usePermissions()
+const { loadModules } = useModules()
+const {
+  loaded: navigationLoaded, loadNavigation,
+  topSection, adminSection, miCuentaSection, negocioSection, groupSections,
+} = useNavigation()
 const { savedIds: savedQuickAccessIds, availableFor: availableQuickAccess } = useQuickAccess()
 
 onMounted(() => {
   loadModules()
+  loadNavigation()
   if (!permissionsInitialized.value) fetchPermissions()
 })
 
 const role = computed(() => user.value?.role ?? 'NORMAL')
 
-// Mientras los permisos/módulos no terminen de cargar, no renderizar items
-// restringidos para evitar el "flash" de opciones que luego se ocultan.
-const navReady = computed(() => {
-  if (!permissionsInitialized.value) return false
-  if (role.value === 'COMMERCE' || role.value === 'FREELANCER') {
-    return modulesLoaded.value
-  }
-  return true
-})
-
-// Sección Administración visible si el usuario tiene al menos un permiso admin
-const ADMIN_PERMISSIONS = [
-  'users:view', 'categories_global:view', 'permissions:manage',
-  'audit:view', 'logs:view', 'plans:view', 'exchange_rates:view', 'platform_fees:view',
-  'locations:view',
-]
-const hasAdminItems = computed(() => navReady.value && ADMIN_PERMISSIONS.some(p => can(p)))
+// El árbol de navegación ya viene filtrado por el backend (permisos, rol,
+// módulos, categoría) — el frontend solo espera a que cargue y pinta.
+const navReady = computed(() => navigationLoaded.value)
 
 async function handleLogout() {
   try {
@@ -425,65 +358,15 @@ const NAV_ICONS: Record<string, ReturnType<typeof svgIcon>> = {
 
 const QUICK_ICONS = NAV_ICONS
 
-// ─── Nav data ────────────────────────────────────────────────────────────────
-interface NavItem { to: string; label: string; permission: string | null; icon: string }
-interface NavGroup extends NavItem { items: NavItem[]; routes: string[]; key: string }
+// ─── Nav data: el árbol completo (topSection, groupSections, adminSection,
+// miCuentaSection, negocioSection) viene de useNavigation() — ver arriba.
 
-interface NavItemExtended extends NavItem { commerceOnly?: boolean; normalOnly?: boolean }
-const topNavItemsDef: NavItemExtended[] = [
-  { to: '/dashboard',            label: 'Dashboard',   permission: 'dashboard:view',       icon: 'dashboard', commerceOnly: false, normalOnly: false },
-  { to: '/menu',                 label: 'Menú',        permission: 'menu:view',             icon: 'menu',      commerceOnly: true,  normalOnly: false },
-  { to: '/inventario',           label: 'Inventario',  permission: 'inventory:view',        icon: 'inventory', commerceOnly: true,  normalOnly: false },
-  { to: '/servicios',            label: 'Servicios',   permission: 'services:view',         icon: 'services',  commerceOnly: false, normalOnly: false },
-  { to: '/empleos',              label: 'Empleos',     permission: 'jobs:view',             icon: 'jobs',      commerceOnly: false, normalOnly: false },
-  { to: '/solicitudes-servicio', label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  commerceOnly: false, normalOnly: false },
-  { to: '/corridas',             label: 'Corridas y Fletes', permission: 'corridas:view',   icon: 'corridas',  commerceOnly: false, normalOnly: false },
-  { to: '/billetera',             label: 'Billetera',   permission: 'wallets:use',           icon: 'wallet',    commerceOnly: false, normalOnly: false },
-  { to: '/mis-pedidos',          label: 'Mis Pedidos', permission: null,                      icon: 'orders',    commerceOnly: false, normalOnly: true  },
-]
-const topNavItems = computed(() =>
-  topNavItemsDef.filter(i => {
-    if (i.normalOnly && role.value !== 'NORMAL') return false
-    if (!i.normalOnly && i.commerceOnly && role.value === 'NORMAL') return false
-    return true
-  })
-)
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Ventas & Analytics', key: 'ventas', icon: 'ventas_group', permission: null,
-    routes: ['/ventas', '/analytics', '/reportes'],
-    items: [
-      { to: '/ventas',    label: 'Ventas',    permission: 'sales:view',     icon: 'sales'     },
-      { to: '/analytics', label: 'Analytics', permission: 'analytics:view', icon: 'analytics' },
-      { to: '/reportes',  label: 'Reportes',  permission: 'reports:view',   icon: 'reports'   },
-    ],
-  },
-  {
-    label: 'Operaciones', key: 'operaciones', icon: 'ops_group', permission: null,
-    routes: ['/pedidos', '/agendamientos', '/clientes', '/delivery', '/caja'],
-    items: [
-      { to: '/pedidos',       label: 'Pedidos',       permission: 'orders:view',       icon: 'orders'       },
-      { to: '/agendamientos', label: 'Agendamientos', permission: 'appointments:view', icon: 'appointments' },
-      { to: '/clientes',      label: 'Clientes',      permission: 'customers:view',    icon: 'customers'    },
-      { to: '/delivery',      label: 'Delivery',      permission: 'delivery:view',     icon: 'delivery'     },
-      { to: '/caja',          label: 'Caja',          permission: 'cash:view',         icon: 'cash'         },
-    ],
-  },
-  {
-    label: 'Empresa', key: 'empresa', icon: 'empresa_group', permission: null,
-    routes: ['/empleados', '/sucursales'],
-    items: [
-      { to: '/empleados',  label: 'Empleados',  permission: 'employees:view', icon: 'employees' },
-      { to: '/sucursales', label: 'Sucursales', permission: 'branches:view',  icon: 'branches'  },
-    ],
-  },
-]
-
-// El catálogo de candidatos y MAX_QUICK_ACCESS viven en useQuickAccess.ts,
-// compartido con la página de configuración (perfil.vue).
+// El catálogo de candidatos, MAX_QUICK_ACCESS y su propio chequeo de
+// visibilidad (canSee interno) viven en useQuickAccess.ts, compartido con la
+// página de configuración (perfil.vue) — no se le pasa una función canSee
+// propia de este componente, usa su default interno.
 const quickAccessItems = computed(() => {
-  const available = availableQuickAccess(role.value, canSee)
+  const available = availableQuickAccess(role.value)
   const savedIds = savedQuickAccessIds.value
   if (savedIds.length > 0) {
     const byId = new Map(available.map(i => [i.id, i]))
@@ -493,27 +376,6 @@ const quickAccessItems = computed(() => {
   return available.slice(0, MAX_QUICK_ACCESS)
 })
 const hasQuickAccess = computed(() => quickAccessItems.value.length > 0)
-
-function canSee(permission: string | null, to?: string): boolean {
-  if (permission === null) return true
-  if (!navReady.value) return false
-  const module = permission.split(':')[0]
-  if (permission === 'menu:view') {
-    return can(permission) && hasModule(module) && userCategory.value === 'Comida'
-  }
-  if (to === '/pedidos' && role.value === 'NORMAL') {
-    // /pedidos es exclusivo de comercios; NORMAL usa /mis-pedidos
-    return false
-  }
-  return can(permission) && hasModule(module)
-}
-
-function groupVisible(group: NavGroup): boolean {
-  return group.items.some(i => canSee(i.permission, i.to))
-}
-function visibleItems(group: NavGroup): NavItem[] {
-  return group.items.filter(i => canSee(i.permission, i.to))
-}
 
 // ─── Auto-open dropdowns on route change ─────────────────────────────────────
 const openDropdowns = ref<Record<string, boolean>>({

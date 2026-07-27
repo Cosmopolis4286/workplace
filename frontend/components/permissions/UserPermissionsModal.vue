@@ -148,6 +148,35 @@
                           "{{ perm.reason }}"
                         </div>
                       </div>
+
+                      <!-- Mini-formulario inline: razón + expiración antes de confirmar -->
+                      <div v-if="activeAction?.permissionId === perm.permissionId" class="mt-3 space-y-2 border-t border-gray-100 pt-2">
+                        <textarea
+                          v-model="actionReason"
+                          rows="2"
+                          placeholder="Razón (opcional)"
+                          class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        />
+                        <input
+                          v-model="actionExpiresAt"
+                          type="datetime-local"
+                          class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        />
+                        <div class="flex gap-2 justify-end">
+                          <button
+                            type="button"
+                            @click="activeAction = null"
+                            class="px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded"
+                          >Cancelar</button>
+                          <button
+                            type="button"
+                            @click="confirmAction"
+                            :disabled="saving === perm.permissionId"
+                            class="px-2.5 py-1 text-xs text-white rounded font-medium disabled:opacity-60"
+                            :class="activeAction.type === 'grant' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'"
+                          >{{ activeAction.type === 'grant' ? 'Confirmar concesión' : 'Confirmar denegación' }}</button>
+                        </div>
+                      </div>
                     </div>
 
                     <div class="flex flex-col items-end gap-1">
@@ -163,7 +192,7 @@
                       <div class="flex gap-1 mt-2">
                         <button
                           v-if="!perm.effectiveGranted"
-                          @click="grantPermission(perm)"
+                          @click="startAction(perm, 'grant')"
                           :disabled="saving === perm.permissionId"
                           class="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
                           title="Conceder"
@@ -174,7 +203,7 @@
                         </button>
                         <button
                           v-if="perm.effectiveGranted"
-                          @click="denyPermission(perm)"
+                          @click="startAction(perm, 'deny')"
                           :disabled="saving === perm.permissionId"
                           class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                           title="Denegar"
@@ -243,6 +272,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { User, UserPermission } from '~/composables/useUserPermissions'
+import { ROLE_LABELS } from '~/config/roles.config'
 
 interface Props {
   user: User
@@ -265,6 +295,10 @@ const permissions = ref<UserPermission[]>([])
 const search = ref('')
 const activeFilter = ref<'all' | 'granted' | 'denied' | 'role' | 'custom'>('all')
 
+const activeAction = ref<{ permissionId: string; type: 'grant' | 'deny' } | null>(null)
+const actionReason = ref('')
+const actionExpiresAt = ref('')
+
 const filters = [
   { value: 'all', label: 'Todos' },
   { value: 'granted', label: 'Concedidos' },
@@ -273,15 +307,7 @@ const filters = [
   { value: 'custom', label: 'Personalizados' },
 ]
 
-const ROLE_LABELS: Record<string, string> = {
-  SUPERADMIN: 'SuperAdmin',
-  ADMIN: 'Admin',
-  COMMERCE: 'Comercio',
-  FREELANCER: 'Freelancer',
-  NORMAL: 'Normal',
-}
-
-const hasCustomPermissions = computed(() => 
+const hasCustomPermissions = computed(() =>
   permissions.value.some(p => p.userGranted !== null)
 )
 
@@ -364,29 +390,24 @@ async function loadPermissions() {
   }
 }
 
-async function grantPermission(perm: UserPermission) {
-  saving.value = perm.permissionId
-  try {
-    await updateUserPermission(props.user.id, {
-      permissionId: perm.permissionId,
-      granted: true,
-      reason: 'Concedido manualmente',
-    })
-    await loadPermissions()
-    emit('saved')
-  } finally {
-    saving.value = null
-  }
+function startAction(perm: UserPermission, type: 'grant' | 'deny') {
+  activeAction.value = { permissionId: perm.permissionId, type }
+  actionReason.value = ''
+  actionExpiresAt.value = ''
 }
 
-async function denyPermission(perm: UserPermission) {
-  saving.value = perm.permissionId
+async function confirmAction() {
+  if (!activeAction.value) return
+  const { permissionId, type } = activeAction.value
+  saving.value = permissionId
   try {
     await updateUserPermission(props.user.id, {
-      permissionId: perm.permissionId,
-      granted: false,
-      reason: 'Denegado manualmente',
+      permissionId,
+      granted: type === 'grant',
+      reason: actionReason.value.trim() || undefined,
+      expiresAt: actionExpiresAt.value || undefined,
     })
+    activeAction.value = null
     await loadPermissions()
     emit('saved')
   } finally {

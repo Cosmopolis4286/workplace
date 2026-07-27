@@ -261,6 +261,22 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Descripción (opcional)</label>
               <input v-model="newPermForm.description" placeholder="Descripción breve del permiso" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
             </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Conceder inicialmente a</label>
+              <div class="flex flex-wrap gap-3">
+                <label v-for="r in ROLES" :key="r" class="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    :value="r"
+                    v-model="newPermForm.grantedRoles"
+                    :disabled="r === 'SUPERADMIN'"
+                    class="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-400 disabled:opacity-40"
+                  />
+                  {{ ROLE_LABELS[r] }}
+                </label>
+              </div>
+              <p class="text-xs text-gray-400 mt-1">SUPERADMIN siempre tiene acceso, sin importar esta selección.</p>
+            </div>
             <div v-if="newPermError" class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ newPermError }}</div>
             <div class="flex justify-end gap-3 pt-1">
               <button type="button" @click="showNewPermModal = false" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
@@ -283,6 +299,7 @@ import { ShieldCheckIcon, PlusIcon, TrashIcon, UserGroupIcon, ArrowPathIcon } fr
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
 import { useAlert } from '~/composables/useAlert'
+import { useModuleCatalog } from '~/composables/useModuleCatalog'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -306,35 +323,10 @@ const ROLE_BADGE_CLASSES: Record<Role, string> = {
   NORMAL: 'bg-gray-100 text-gray-700',
 }
 
-const MODULE_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  menu: 'Menú',
-  inventory: 'Inventario',
-  orders: 'Pedidos',
-  customers: 'Clientes',
-  appointments: 'Agendamientos',
-  delivery: 'Delivery',
-  expenses: 'Gastos',
-  analytics: 'Analytics',
-  reports: 'Reportes',
-  sales: 'Ventas',
-  employees: 'Empleados',
-  branches: 'Sucursales',
-  settings: 'Configuración',
-  notifications: 'Notificaciones',
-  catalog: 'Catálogo',
-  users: 'Usuarios',
-  permissions: 'Permisos',
-  audit: 'Auditoría',
-  logs: 'Logs',
-  plans: 'Planes',
-  exchange_rates: 'Tasas de Cambio',
-  search: 'Búsqueda',
-  corridas: 'Corridas',
-}
+const { labels: MODULE_LABELS, catalog: moduleCatalog, load: loadModuleCatalog } = useModuleCatalog()
 
 // All modules available for permission grouping
-const ALL_PERM_MODULES = Object.keys(MODULE_LABELS)
+const ALL_PERM_MODULES = computed(() => moduleCatalog.value.map((m) => m.key))
 
 interface PermissionRow {
   id: string
@@ -519,6 +511,7 @@ const defaultNewPermForm = () => ({
   key: '',
   label: '',
   description: '',
+  grantedRoles: [] as Role[],
 })
 
 const newPermForm = ref(defaultNewPermForm())
@@ -550,7 +543,8 @@ async function saveNewPerm() {
       label: newPermForm.value.label.trim(),
       description: newPermForm.value.description?.trim() || null,
       module: module,
-      allowedRoles: newPermForm.value.allowedRoles,
+      action: newPermForm.value.action.trim(),
+      grantedRoles: newPermForm.value.grantedRoles,
     })
     showNewPermModal.value = false
     await loadMatrix()
@@ -575,5 +569,5 @@ async function confirmDelete(perm: PermissionRow) {
   }
 }
 
-onMounted(() => { loadMatrix(); loadPlans(); loadSystemModules() })
+onMounted(() => { loadMatrix(); loadPlans(); loadSystemModules(); loadModuleCatalog() })
 </script>

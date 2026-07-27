@@ -7,29 +7,11 @@
 import { navigateTo, defineNuxtRouteMiddleware } from "nuxt/app"
 import { useAuth } from "~/composables/useAuth"
 import { useModules } from "~/composables/useModules"
+import { useNavigation } from "~/composables/useNavigation"
 
-// Mapa ruta → módulo requerido
-// Debe mantenerse sincronizado con PERMISSION_ROUTE_MAP en middleware/auth.ts
-const ROUTE_MODULE_MAP: Record<string, string> = {
-  '/menu':                 'menu',
-  '/inventario':           'inventory',
-  '/pedidos':              'orders',
-  '/cliente-dashboard':    'orders',
-  '/clientes':             'customers',
-  '/agendamientos':        'appointments',
-  '/delivery':             'delivery',
-  '/gastos':               'expenses',
-  '/analytics':            'analytics',
-  '/reportes':             'reports',
-  '/ventas':               'sales',
-  '/empleados':            'employees',
-  '/sucursales':           'branches',
-  '/servicios':            'services',
-  '/empleos':              'jobs',
-  '/solicitudes-servicio': 'service_requests',
-  '/corridas':             'corridas',       // ← faltaba
-  '/mis-pedidos':          'orders',         // ← faltaba
-}
+// El mapa ruta→módulo requerido ahora viene de GET /navigation (backend),
+// vía useNavigation().routeModules — misma fuente que middleware/auth.ts y
+// SidebarContent.vue, ya no hace falta mantenerlo sincronizado a mano.
 
 const UNRESTRICTED_ROLES = ['SUPERADMIN', 'ADMIN', 'NORMAL']
 
@@ -45,8 +27,11 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
   const role = user.value.role
   if (UNRESTRICTED_ROLES.includes(role)) return
 
+  const { routeModules, loadNavigation } = useNavigation()
+  await loadNavigation()
+
   // Find required module for this route
-  const requiredModule = Object.entries(ROUTE_MODULE_MAP).find(([route]) =>
+  const requiredModule = Object.entries(routeModules.value).find(([route]) =>
     to.path.startsWith(route)
   )?.[1]
 

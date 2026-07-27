@@ -528,26 +528,22 @@ import { CreditCardIcon, PlusIcon, XMarkIcon, PencilIcon, TrashIcon, CheckIcon }
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan, type Subscription } from '~/composables/usePlans'
+import { useModuleCatalog } from '~/composables/useModuleCatalog'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
 const { invalidate: invalidateModules } = useModules()
+const { labels: MODULE_LABELS, load: loadModuleCatalog } = useModuleCatalog()
 
+// Módulos de NEGOCIO seleccionables al armar un plan — subset del catálogo
+// completo (excluye módulos "de sistema" como users/permissions/audit, que
+// no participan de plan∩categoría).
 const ALL_MODULES = [
   'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
   'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
   'branches', 'settings', 'notifications', 'services', 'service_requests', 'catalog',
   'corridas', 'wallets',
 ] as const
-
-const MODULE_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard', menu: 'Menú', inventory: 'Inventario', orders: 'Pedidos',
-  customers: 'Clientes', appointments: 'Agendamientos', delivery: 'Delivery',
-  expenses: 'Gastos', analytics: 'Analytics', reports: 'Reportes', sales: 'Ventas',
-  employees: 'Empleados', branches: 'Sucursales', settings: 'Configuración',
-  notifications: 'Notificaciones', services: 'Servicios', service_requests: 'Solicitudes', catalog: 'Catálogo',
-  corridas: 'Corridas', wallets: 'Billetera',
-}
 
 const {
   plans, subscriptions, stats, loading, loadingStats, loadingSubs, error,
@@ -768,7 +764,7 @@ watch(activeTab, (tab) => {
 })
 
 onMounted(async () => {
-  await Promise.all([fetchPlans(), fetchStats(), loadUserCategories()])
+  await Promise.all([fetchPlans(), fetchStats(), loadUserCategories(), loadModuleCatalog()])
   await loadSubscriptions()
   await loadPendingRequests()
 })

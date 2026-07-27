@@ -101,10 +101,12 @@ import { ref, computed, onMounted } from 'vue'
 import { Squares2X2Icon, ExclamationTriangleIcon, XMarkIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useSettings } from '~/composables/useSettings'
-import { useModules, MODULE_LABELS } from '~/composables/useModules'
+import { useModules } from '~/composables/useModules'
+import { useModuleCatalog } from '~/composables/useModuleCatalog'
 
 const { error, successMsg, saving, loadModuleSettings, saveModuleSettings } = useSettings()
 const { invalidate: invalidateModules, loadModules } = useModules()
+const { labels: MODULE_LABELS, load: loadModuleCatalog } = useModuleCatalog()
 
 const loading = ref(true)
 const availableModules = ref<string[]>([])
@@ -135,6 +137,7 @@ async function toggle(module: string) {
 
 onMounted(async () => {
   loading.value = true
+  await loadModuleCatalog()
   const data = await loadModuleSettings()
   if (data) {
     availableModules.value = data.availableModules

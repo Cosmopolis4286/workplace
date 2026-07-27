@@ -1,6 +1,7 @@
 import { navigateTo, defineNuxtRouteMiddleware } from 'nuxt/app'
 import { useAuth } from '~/composables/useAuth'
 import { usePermissions } from '~/composables/usePermissions'
+import { useNavigation } from '~/composables/useNavigation'
 import { isPublicRoute } from '~/utils/publicRoutes'
 
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
@@ -24,50 +25,23 @@ const AUTH_ROUTES: string[] = [
   '/search', '/corridas', '/solicitudes-servicio', '/mi-plan',
 ]
 
-// ─── Mapa ruta → permiso requerido (single source of truth con modules.global.ts) ───
-// Si el usuario NO tiene el permiso → se le redirige según su rol
-const PERMISSION_ROUTE_MAP: Record<string, string> = {
-  // Admin-only
-  '/usuarios':      'users:view',
-  '/categorias':    'categories_global:view',
-  '/permisos':      'permissions:manage',
-  '/auditoria':     'audit:view',
-  '/logs':          'logs:view',
-  '/planes':        'plans:view',
-  '/tasas-cambio':  'exchange_rates:view',
-
-  // Commerce / Freelancer
-  '/menu':          'menu:view',
-  '/inventario':    'inventory:view',
-  '/servicios':     'services:view',
-  '/empleos':       'jobs:view',
-  '/cliente-dashboard': 'orders:view',
-
-  // Commerce-only (no Freelancer)
-  '/empleados':     'employees:view',
-  '/sucursales':    'branches:view',
-
-  // Shared commerce routes
-  '/gastos':        'expenses:view',
-  '/ventas':        'sales:view',
-  '/analytics':     'analytics:view',
-  '/reportes':      'reports:view',
-  '/agendamientos': 'appointments:view',
-  '/clientes':      'customers:view',
-  '/delivery':      'delivery:view',
-  '/pedidos':       'orders:view',
-
-  // Service / corridas
-  '/solicitudes-servicio': 'service_requests:view',
-
-  // Billetera
-  '/billetera': 'wallets:use',
-
-  // Comisiones de plataforma / tabs de búsqueda (permission matrix real)
-  '/comisiones':   'platform_fees:view',
-  '/search-tabs':  'search_tabs:view',
-  '/localidades':  'locations:view',
-}
+// El mapa ruta→permiso requerido ahora viene de GET /navigation (backend),
+// vía useNavigation().routePermissions — fuente única compartida con
+// SidebarContent.vue y middleware/modules.global.ts. Si el usuario NO tiene
+// el permiso → se le redirige según su rol (ver bloque 4e más abajo).
+//
+// GET /navigation requiere sesión, así que para decidir si una ruta
+// necesita login (bloque 4, usuario SIN autenticar) no podemos depender de
+// esa respuesta — se mantiene esta lista estática de paths conocidos
+// (sin el permiso asociado, solo "esta ruta existe y está protegida").
+const KNOWN_PROTECTED_ROUTES: string[] = [
+  '/usuarios', '/categorias', '/permisos', '/auditoria', '/logs', '/planes', '/tasas-cambio',
+  '/menu', '/inventario', '/servicios', '/empleos', '/cliente-dashboard',
+  '/empleados', '/sucursales',
+  '/gastos', '/ventas', '/analytics', '/reportes', '/agendamientos', '/clientes', '/delivery', '/pedidos',
+  '/solicitudes-servicio', '/billetera',
+  '/comisiones', '/search-tabs', '/localidades',
+]
 
 // ─── Rutas restringidas a SUPERADMIN/ADMIN sin permission matrix propia ───────
 // (el backend las protege con @Roles(SUPERADMIN, ADMIN) fijo, no con
@@ -100,6 +74,7 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
   const auth = useAuth()
   const { isAuthenticated, user } = auth
   const { can, userCategory, initialized } = usePermissions()
+  const { routePermissions, loadNavigation } = useNavigation()
 
   const path  = to.path as string
 
@@ -131,7 +106,7 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
     // Sin este chequeo, una ruta nueva que no se agregue a ninguna lista queda
     // accesible sin login por defecto — el "fail open" que causó este bug.
     const needsAuth =
-      Object.keys(PERMISSION_ROUTE_MAP).some(r => path.startsWith(r)) ||
+      KNOWN_PROTECTED_ROUTES.some(r => path.startsWith(r)) ||
       ADMIN_ONLY_ROUTES.some(r => path.startsWith(r)) ||
       NEEDS_AUTH_ONLY.some(r => path.startsWith(r))
     if (needsAuth) return navigateTo(`/login?redirect=${encodeURIComponent(path)}`)
@@ -140,6 +115,10 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
 
   // ── 5. Usuario autenticado ────────────────────────────────────────────────
   if (!user.value) return
+
+  // Cargar el árbol de navegación (fuente de routePermissions) una vez por
+  // sesión — no-op si ya está cargado (singleton compartido con el sidebar).
+  await loadNavigation()
 
   // ── 4b. Onboarding: COMMERCE/FREELANCER sin categoría ────────────────────
   const onboardingDone = process.client
@@ -178,13 +157,13 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
     return navigateTo(defaultDest(role))
   }
 
-  // ── 4e. Verificar permiso por ruta (usando la tabla PERMISSION_ROUTE_MAP) ─
+  // ── 4e. Verificar permiso por ruta (usando routePermissions de /navigation) ─
   // Solo verificar si los permisos ya están inicializados (evitar falsos negativos)
   if (initialized.value) {
-    const matchedRoute = Object.keys(PERMISSION_ROUTE_MAP).find(r => path.startsWith(r))
+    const matchedRoute = Object.keys(routePermissions.value).find(r => path.startsWith(r))
     if (matchedRoute) {
-      const requiredPerm = PERMISSION_ROUTE_MAP[matchedRoute]
-      if (!can(requiredPerm)) {
+      const requiredPerm = routePermissions.value[matchedRoute]
+      if (requiredPerm && !can(requiredPerm)) {
         // SUPERADMIN y ADMIN bypasean permisos de módulo
         if (!ADMIN_ROLES.includes(role)) {
           return navigateTo(defaultDest(role))
