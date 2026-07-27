@@ -24,6 +24,7 @@ export const MODULE_CATALOG: ModuleMeta[] = [
   { key: 'notifications', label: 'Notificaciones' },
   { key: 'services', label: 'Servicios' },
   { key: 'service_requests', label: 'Solicitudes de servicio' },
+  { key: 'jobs', label: 'Empleos' },
   { key: 'catalog', label: 'Catálogo' },
   { key: 'corridas', label: 'Corridas' },
   { key: 'wallets', label: 'Billetera' },

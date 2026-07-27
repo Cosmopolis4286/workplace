@@ -8,10 +8,12 @@ import {
   Param,
   Query,
   UseGuards,
-  Request,
 } from '@nestjs/common'
 import { JobsService, type CreateJobDto, type UpdateJobDto, type JobQuery } from './jobs.service'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../common/guards/permissions.guard'
+import { RequirePermission } from '../common/decorators/require-permission.decorator'
+import { CurrentUser } from '../common/decorators/current-user.decorator'
 import type { JobApplicationStatus } from '@prisma/client'
 
 @Controller('jobs')
@@ -57,38 +59,41 @@ export class JobsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('mine/all')
-  async getMyJobs(@Request() req) {
-    return { data: await this.jobsService.getMyJobs(req.user.userId) }
+  async getMyJobs(@CurrentUser() user: { id: string }) {
+    return { data: await this.jobsService.getMyJobs(user.id) }
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('mine/stats')
-  async getMyJobsStats(@Request() req) {
-    return await this.jobsService.getMyJobsStats(req.user.userId)
+  async getMyJobsStats(@CurrentUser() user: { id: string }) {
+    return await this.jobsService.getMyJobsStats(user.id)
   }
 
   // ─── CRUD (Authenticated) ───────────────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('jobs:create')
   @Post()
-  async createJob(@Body() dto: CreateJobDto, @Request() req) {
-    return { data: await this.jobsService.createJob(req.user.userId, dto) }
+  async createJob(@Body() dto: CreateJobDto, @CurrentUser() user: { id: string }) {
+    return { data: await this.jobsService.createJob(user.id, dto) }
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('jobs:edit')
   @Patch(':id')
   async updateJob(
     @Param('id') id: string,
     @Body() dto: UpdateJobDto,
-    @Request() req,
+    @CurrentUser() user: { id: string },
   ) {
-    return { data: await this.jobsService.updateJob(id, req.user.userId, dto) }
+    return { data: await this.jobsService.updateJob(id, user.id, dto) }
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('jobs:delete')
   @Delete(':id')
-  async deleteJob(@Param('id') id: string, @Request() req) {
-    await this.jobsService.deleteJob(id, req.user.userId)
+  async deleteJob(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    await this.jobsService.deleteJob(id, user.id)
     return { success: true }
   }
 
@@ -98,21 +103,21 @@ export class JobsController {
   @Post('applications')
   async createApplication(
     @Body() dto: { jobId: string; coverLetter?: string; phone?: string; email?: string },
-    @Request() req,
+    @CurrentUser() user: { id: string },
   ) {
-    return { data: await this.jobsService.createApplication(req.user.userId, dto) }
+    return { data: await this.jobsService.createApplication(user.id, dto) }
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('applications/mine')
-  async getMyApplications(@Request() req) {
-    return { data: await this.jobsService.getMyApplications(req.user.userId) }
+  async getMyApplications(@CurrentUser() user: { id: string }) {
+    return { data: await this.jobsService.getMyApplications(user.id) }
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/applications')
-  async getJobApplications(@Param('id') jobId: string, @Request() req) {
-    return { data: await this.jobsService.getJobApplications(jobId, req.user.userId) }
+  async getJobApplications(@Param('id') jobId: string, @CurrentUser() user: { id: string }) {
+    return { data: await this.jobsService.getJobApplications(jobId, user.id) }
   }
 
   @UseGuards(JwtAuthGuard)
@@ -120,12 +125,12 @@ export class JobsController {
   async updateApplicationStatus(
     @Param('id') applicationId: string,
     @Body('status') status: JobApplicationStatus,
-    @Request() req,
+    @CurrentUser() user: { id: string },
   ) {
     return {
       data: await this.jobsService.updateApplicationStatus(
         applicationId,
-        req.user.userId,
+        user.id,
         status,
       ),
     }

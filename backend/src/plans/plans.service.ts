@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
-import { SubscriptionStatus, KycStatus } from '@prisma/client';
+import { SubscriptionStatus, KycStatus, AccountType } from '@prisma/client';
 
 @Injectable()
 export class PlansService {
@@ -337,7 +337,9 @@ export class PlansService {
       }),
       this.prisma.user.update({
         where: { id: subscription.userId },
-        data: { role: targetRole as any },
+        // accountType es la fuente de verdad de negocio (AccountTypeResolver);
+        // role se mantiene en paralelo por retrocompatibilidad (JWTs/guards RBAC).
+        data: { role: targetRole as any, accountType: targetRole as AccountType },
       }),
     ]);
 

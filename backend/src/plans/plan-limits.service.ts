@@ -11,7 +11,7 @@ const BUSINESS_MODULE_KEYS = [
   'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
   'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
   'branches', 'settings', 'notifications', 'services', 'service_requests',
-  'catalog', 'corridas', 'wallets',
+  'jobs', 'catalog', 'corridas', 'wallets',
 ] as const;
 
 export const ALL_MODULES = MODULE_CATALOG

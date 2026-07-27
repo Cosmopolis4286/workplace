@@ -14,6 +14,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { AccountTypeModule } from './common/account-type/account-type.module';
 import { MenuModule } from './menu/menu.module';
 import { CustomersModule } from './customers/customers.module';
 import { SettingsModule } from './settings/settings.module';
@@ -77,6 +78,7 @@ import { NavigationModule } from './navigation/navigation.module';
     }),
     PrismaModule,
     RedisModule,
+    AccountTypeModule,
     UsersModule,
     AuthModule,
     MenuModule,

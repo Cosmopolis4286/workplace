@@ -32,6 +32,8 @@ import { UpdateServiceRequestDto } from './dto/update-service-request.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { extensionForMimetype } from '../common/utils/upload-extension.util';
@@ -97,13 +99,15 @@ export class ServicesController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('services:create')
   create(@CurrentUser() user: any, @Body() dto: CreateServiceDto) {
     return this.servicesService.createService(user.id, dto);
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('services:edit')
   update(
     @Param('id') id: string,
     @CurrentUser() user: any,
@@ -113,13 +117,15 @@ export class ServicesController {
   }
 
   @Patch(':id/toggle')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('services:edit')
   toggle(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.toggleStatus(id, user.id);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('services:delete')
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.deleteService(id, user.id);
   }
