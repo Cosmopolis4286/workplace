@@ -54,6 +54,13 @@ export class UpdateRestaurantInfoDto {
   parish?: string;
 }
 
+// Compartido por COMMERCE y FREELANCER en el mismo endpoint (PATCH /settings/payment).
+// Un tipo unión de dos clases no es viable aquí: con emitDecoratorMetadata,
+// TypeScript emite el metatype de un parámetro `A | B` como Object genérico,
+// y el ValidationPipe de Nest (whitelist+forbidNonWhitelisted) omite la
+// validación por completo cuando no reconoce una clase concreta. Por eso
+// todos los campos son opcionales y conviven en un solo DTO: tax/suggestedTip/
+// paymentMethods no aplican a FREELANCER, currency aplica a ambos.
 export class UpdatePaymentSettingsDto {
   @IsOptional()
   @IsString()
@@ -99,6 +106,8 @@ export class UpdateOperationSettingsDto {
   freeDeliveryMinimum?: number;
 }
 
+// Compartido por COMMERCE y FREELANCER (ver nota en UpdatePaymentSettingsDto
+// sobre por qué es un solo DTO con campos opcionales de ambos roles).
 export class UpdateNotificationSettingsDto {
   @IsOptional()
   @IsBoolean()
@@ -115,6 +124,14 @@ export class UpdateNotificationSettingsDto {
   @IsOptional()
   @IsBoolean()
   notifyCustomerReviews?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyNewRequests?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyRequestUpdates?: boolean;
 }
 
 export class UpdateModuleSettingsDto {

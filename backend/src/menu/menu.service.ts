@@ -36,8 +36,15 @@ export class MenuService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { firstName: true, lastName: true },
+      select: { firstName: true, lastName: true, role: true },
     });
+    // Un freelancer no tiene (ni debe tener) un Restaurant: vende vía
+    // Service/ServiceRequest, no Product/Order. RBAC ya le niega menu:*, pero
+    // esto es defensa en profundidad por si un UserPermission individual se
+    // lo otorgara — sin esto, se creaba un Restaurant fantasma en silencio.
+    if (user?.role === 'FREELANCER') {
+      throw new ForbiddenException('Este módulo no está disponible para proveedores de servicios');
+    }
     const created = await this.prisma.restaurant.create({
       data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
       select: { id: true },

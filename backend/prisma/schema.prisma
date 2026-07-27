@@ -58,6 +58,7 @@ model User {
 
   commerce                Restaurant?
   profileSettings         ProfileSettings?
+  freelancerSettings      FreelancerSettings?
   refreshTokens           RefreshToken[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
@@ -208,6 +209,33 @@ model RestaurantSettings {
   updatedAt DateTime @updatedAt
 
   @@map("restaurant_settings")
+}
+
+// Settings de un FREELANCER (proveedor de servicios independiente). Separado
+// de RestaurantSettings porque un freelancer no tiene Restaurant ni opera
+// con conceptos de comercio físico (tax, delivery, avgPrepTime, etc.) — solo
+// moneda de pago, notificaciones relevantes a ServiceRequest, y módulos.
+model FreelancerSettings {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Payment
+  currency String @default("USD")
+
+  // Notifications
+  notifyNewRequests     Boolean @default(true)
+  notifyRequestUpdates  Boolean @default(true)
+  notifyDailyReports    Boolean @default(false)
+  notifyCustomerReviews Boolean @default(true)
+
+  // Modules: self-service opt-out, igual semántica que RestaurantSettings.disabledModules
+  disabledModules String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("freelancer_settings")
 }
 
 model Customer {

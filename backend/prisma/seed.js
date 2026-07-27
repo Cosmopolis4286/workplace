@@ -226,11 +226,22 @@ const ROLE_DEFAULTS = {
     'locations:view', 'locations:manage',
   ],
   COMMERCE: [...COMMERCE_KEYS, 'categories_user:propose'],
+  // FREELANCER es un proveedor de servicios independiente (Service/ServiceRequest),
+  // no un comercio físico: NO hereda de COMMERCE_KEYS porque ese set trae
+  // menu/inventory/orders/customers/appointments/delivery/expenses/cash, módulos
+  // atados a Restaurant/Product/Order que un freelancer nunca usa.
   FREELANCER: [
-    ...COMMERCE_KEYS.filter(k => !k.startsWith('employees:') && !k.startsWith('branches:')),
-    'catalog:view',
+    'dashboard:view',
+    'settings:view', 'settings:edit',
+    'notifications:view',
+    'services:view', 'services:create', 'services:edit', 'services:delete',
     'service_requests:view',
+    'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete',
+    'analytics:view', 'reports:view', 'sales:view',
+    'search:view',
+    'catalog:view',
     'corridas:view', 'corridas:create',
+    'wallets:use',
     'categories_user:propose',
   ],
   NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view'],

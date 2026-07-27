@@ -18,6 +18,14 @@ export class SettingsService {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
+  private async getUserRole(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    return user?.role ?? 'NORMAL';
+  }
+
   private async getRestaurant(userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { userId },
@@ -41,17 +49,32 @@ export class SettingsService {
     return this.prisma.restaurantSettings.create({ data: { commerceId } });
   }
 
+  private async getOrCreateFreelancerSettings(userId: string) {
+    const existing = await this.prisma.freelancerSettings.findUnique({
+      where: { userId },
+    });
+    if (existing) return existing;
+    return this.prisma.freelancerSettings.create({ data: { userId } });
+  }
+
   // ─── GET all settings ───────────────────────────────────────────────────────
 
   async getSettings(userId: string) {
+    if ((await this.getUserRole(userId)) === 'FREELANCER') {
+      const settings = await this.getOrCreateFreelancerSettings(userId);
+      return { restaurant: null, settings };
+    }
     const restaurant = await this.getRestaurant(userId);
     const settings = await this.getOrCreateSettings(restaurant.id);
     return { restaurant, settings };
   }
 
-  // ─── Restaurant info ────────────────────────────────────────────────────────
+  // ─── Restaurant info (solo COMMERCE) ────────────────────────────────────────
 
   async updateRestaurantInfo(userId: string, dto: UpdateRestaurantInfoDto) {
+    if ((await this.getUserRole(userId)) === 'FREELANCER') {
+      throw new BadRequestException('Los proveedores de servicios no tienen información de comercio');
+    }
     const restaurant = await this.getRestaurant(userId);
     return this.prisma.restaurant.update({
       where: { id: restaurant.id },
@@ -61,32 +84,47 @@ export class SettingsService {
 
   // ─── Payment settings ───────────────────────────────────────────────────────
 
-  async updatePaymentSettings(userId: string, dto: UpdatePaymentSettingsDto) {
-    if (dto.currency) {
-      const rate = await this.prisma.exchangeRate.findUnique({
-        where: { code: dto.currency.toUpperCase() },
-      });
-      if (!rate || !rate.isActive) {
-        throw new BadRequestException(
-          `La moneda "${dto.currency}" no está disponible`
-        );
-      }
-      dto.currency = dto.currency.toUpperCase();
+  private async assertValidCurrency(currency?: string): Promise<string | undefined> {
+    if (!currency) return currency;
+    const rate = await this.prisma.exchangeRate.findUnique({
+      where: { code: currency.toUpperCase() },
+    });
+    if (!rate || !rate.isActive) {
+      throw new BadRequestException(`La moneda "${currency}" no está disponible`);
     }
+    return currency.toUpperCase();
+  }
+
+  async updatePaymentSettings(userId: string, dto: UpdatePaymentSettingsDto) {
+    const currency = await this.assertValidCurrency(dto.currency);
+
+    if ((await this.getUserRole(userId)) === 'FREELANCER') {
+      // tax/suggestedTip/paymentMethods no existen en FreelancerSettings —
+      // se ignoran silenciosamente si un freelancer los envía por error.
+      await this.getOrCreateFreelancerSettings(userId);
+      return this.prisma.freelancerSettings.update({
+        where: { userId },
+        data: { currency },
+      });
+    }
+
     const restaurant = await this.getRestaurant(userId);
     await this.getOrCreateSettings(restaurant.id);
     return this.prisma.restaurantSettings.update({
       where: { commerceId: restaurant.id },
-      data: dto,
+      data: { ...dto, currency },
     });
   }
 
-  // ─── Operation settings ─────────────────────────────────────────────────────
+  // ─── Operation settings (solo COMMERCE: prep/delivery no aplican a servicios) ─
 
   async updateOperationSettings(
     userId: string,
     dto: UpdateOperationSettingsDto
   ) {
+    if ((await this.getUserRole(userId)) === 'FREELANCER') {
+      throw new BadRequestException('Esta configuración no aplica a proveedores de servicios');
+    }
     const restaurant = await this.getRestaurant(userId);
     await this.getOrCreateSettings(restaurant.id);
     return this.prisma.restaurantSettings.update({
@@ -101,28 +139,41 @@ export class SettingsService {
     userId: string,
     dto: UpdateNotificationSettingsDto
   ) {
+    if ((await this.getUserRole(userId)) === 'FREELANCER') {
+      const { notifyNewRequests, notifyRequestUpdates, notifyDailyReports, notifyCustomerReviews } = dto;
+      await this.getOrCreateFreelancerSettings(userId);
+      return this.prisma.freelancerSettings.update({
+        where: { userId },
+        data: { notifyNewRequests, notifyRequestUpdates, notifyDailyReports, notifyCustomerReviews },
+      });
+    }
+
+    const { notifyNewOrders, notifyLowStock, notifyDailyReports, notifyCustomerReviews } = dto;
     const restaurant = await this.getRestaurant(userId);
     await this.getOrCreateSettings(restaurant.id);
     return this.prisma.restaurantSettings.update({
       where: { commerceId: restaurant.id },
-      data: dto,
+      data: { notifyNewOrders, notifyLowStock, notifyDailyReports, notifyCustomerReviews },
     });
   }
 
   // ─── Module settings (self-service opt-out) ─────────────────────────────────
 
-  /** Modules the commerce's plan/category include, plus which of those it has hidden. */
+  /** Modules the user's plan/category include, plus which of those it has hidden. */
   async getModuleSettings(userId: string) {
+    const availableModules = await this.planLimitsService.getSelectableModules(userId);
+
+    if ((await this.getUserRole(userId)) === 'FREELANCER') {
+      const settings = await this.getOrCreateFreelancerSettings(userId);
+      return { availableModules, disabledModules: settings.disabledModules };
+    }
+
     const restaurant = await this.getRestaurant(userId);
     const settings = await this.getOrCreateSettings(restaurant.id);
-    const availableModules = await this.planLimitsService.getSelectableModules(userId);
     return { availableModules, disabledModules: settings.disabledModules };
   }
 
   async updateModuleSettings(userId: string, dto: UpdateModuleSettingsDto) {
-    const restaurant = await this.getRestaurant(userId);
-    await this.getOrCreateSettings(restaurant.id);
-
     // Self-service can only hide modules the plan/category already grant —
     // it can never be used to sneak in access to a module outside the plan.
     const selectable = await this.planLimitsService.getSelectableModules(userId);
@@ -133,6 +184,16 @@ export class SettingsService {
       );
     }
 
+    if ((await this.getUserRole(userId)) === 'FREELANCER') {
+      await this.getOrCreateFreelancerSettings(userId);
+      return this.prisma.freelancerSettings.update({
+        where: { userId },
+        data: { disabledModules: dto.disabledModules },
+      });
+    }
+
+    const restaurant = await this.getRestaurant(userId);
+    await this.getOrCreateSettings(restaurant.id);
     return this.prisma.restaurantSettings.update({
       where: { commerceId: restaurant.id },
       data: { disabledModules: dto.disabledModules },
