@@ -15,6 +15,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
 import { MailService } from '../mail/mail.service';
+import { CommerceProfileCompletionStrategy } from './strategies/commerce-profile-completion.strategy';
+import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-profile-completion.strategy';
 
 export const CURRENT_TERMS_VERSION = '2.0';
 
@@ -24,6 +26,8 @@ export class UsersService {
     private prisma: PrismaService,
     private mail: MailService,
     private i18n: I18nService,
+    private commerceProfileCompletion: CommerceProfileCompletionStrategy,
+    private freelancerProfileCompletion: FreelancerProfileCompletionStrategy,
   ) {}
 
   async create(data: {
@@ -633,34 +637,23 @@ export class UsersService {
     const subcategory = user.subcategoryId ? 
       await this.prisma.userSubcategory.findUnique({ where: { id: user.subcategoryId } }) : null;
 
-    // Verificar si tiene restaurante (para categoría Comida)
-    let restaurant = null;
-    if (category?.name === 'Comida') {
-      restaurant = await this.prisma.restaurant.findUnique({ where: { userId } });
-    }
-
     // Verificar campos básicos del perfil
     const hasBasicInfo = !!(user.firstName && user.lastName && user.phone);
-    
+
     // Verificar categoría y subcategoría
     const hasCategory = !!(user.categoryId && category);
     const hasSubcategory = !!(user.subcategoryId && subcategory);
 
-    // Verificaciones específicas por rol/categoría
+    // Verificaciones específicas por rol/categoría. NORMAL no tiene
+    // requisito de negocio adicional, ambos flags quedan en false.
     let hasBusinessSetup = false;
     let hasServicesSetup = false;
 
+    const profileContext = { hasBasicInfo, hasCategory, category };
     if (user.role === 'COMMERCE') {
-      if (category?.name === 'Comida') {
-        // Para categoría Comida, necesita restaurante
-        hasBusinessSetup = !!restaurant;
-      } else {
-        // Para otras categorías, necesita comercio configurado
-        hasBusinessSetup = !!user.commerce;
-      }
+      hasBusinessSetup = (await this.commerceProfileCompletion.check(user, profileContext)).isSetupComplete;
     } else if (user.role === 'FREELANCER') {
-      // Freelancer necesita tener perfil completo y servicios (simulado por ahora)
-      hasServicesSetup = hasBasicInfo && hasCategory;
+      hasServicesSetup = (await this.freelancerProfileCompletion.check(user, profileContext)).isSetupComplete;
     }
 
     // Calcular porcentaje de completitud

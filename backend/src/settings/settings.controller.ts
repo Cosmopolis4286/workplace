@@ -2,7 +2,9 @@ import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { AccountTypeGuard } from '../common/guards/account-type.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
+import { RequireAccountType } from '../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import {
   UpdateRestaurantInfoDto,
@@ -13,7 +15,7 @@ import {
 } from './dto/update-settings.dto';
 
 @Controller('settings')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
@@ -25,6 +27,7 @@ export class SettingsController {
 
   @Patch('restaurant')
   @RequirePermission('settings:edit')
+  @RequireAccountType('COMMERCE')
   updateRestaurantInfo(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateRestaurantInfoDto
@@ -43,6 +46,7 @@ export class SettingsController {
 
   @Patch('operations')
   @RequirePermission('settings:edit')
+  @RequireAccountType('COMMERCE')
   updateOperationSettings(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateOperationSettingsDto

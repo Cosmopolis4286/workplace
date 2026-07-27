@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { UsersService } from '../../users/users.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { MailService } from '../../mail/mail.service'
+import { CommerceProfileCompletionStrategy } from '../../users/strategies/commerce-profile-completion.strategy'
+import { FreelancerProfileCompletionStrategy } from '../../users/strategies/freelancer-profile-completion.strategy'
 import { Role } from '@prisma/client'
 import { I18nService } from 'nestjs-i18n'
 
@@ -36,6 +38,8 @@ describe('UsersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
+        CommerceProfileCompletionStrategy,
+        FreelancerProfileCompletionStrategy,
         {
           provide: PrismaService,
           useValue: mockPrismaService,

@@ -21,7 +21,9 @@ import { existsSync, mkdirSync } from 'fs';
 import { MenuService } from './menu.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { AccountTypeGuard } from '../common/guards/account-type.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
+import { RequireAccountType } from '../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -30,7 +32,8 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 
 @Controller('menu')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
+@RequireAccountType('COMMERCE')
 export class MenuController {
   constructor(private readonly menuService: MenuService) {}
 
