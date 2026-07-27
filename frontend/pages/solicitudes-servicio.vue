@@ -286,10 +286,6 @@ import {
   CalendarIcon,
   MapPinIcon,
   PhoneIcon,
-  EyeIcon,
-  PhoneArrowUpRightIcon,
-  CheckCircleIcon,
-  XCircleIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ServiceRequestDetailModal from '~/components/modals/ServiceRequestDetailModal.vue'
@@ -297,6 +293,12 @@ import { useApi } from '~/composables/useApi'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 import { useNotifications, type Notification } from '~/composables/useNotifications'
 import { useAssetUrl } from '~/composables/useAssetUrl'
+import {
+  type ServiceRequestStatus,
+  SERVICE_REQUEST_STATUS_LABELS,
+  SERVICE_REQUEST_STATUS_CLASSES,
+  SERVICE_REQUEST_STATUS_ICONS,
+} from '~/config/serviceRequestStatus.config'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -334,7 +336,7 @@ interface ServiceRequest {
   price?: number
   priceUnit?: string
   providerNotes?: string
-  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO' | 'CANCELADO'
+  status: ServiceRequestStatus
   createdAt: string
   statusUpdatedAt?: string
   items?: ServiceRequestItem[]
@@ -346,29 +348,9 @@ function contactAvatarUrl(req: ServiceRequest): string | null {
   return getAssetUrl(viewAs.value === 'provider' ? req.clientAvatar : req.providerAvatar)
 }
 
-const STATUS_LABELS: Record<ServiceRequest['status'], string> = {
-  PENDIENTE:  'Pendiente',
-  VISTO:      'Visto',
-  CONTACTADO: 'Contactado',
-  CERRADO:    'Cerrado',
-  CANCELADO:  'Cancelado',
-}
-
-const STATUS_CLASSES: Record<ServiceRequest['status'], string> = {
-  PENDIENTE:  'bg-yellow-100 text-yellow-800',
-  VISTO:      'bg-gray-100 text-gray-600',
-  CONTACTADO: 'bg-blue-100 text-blue-700',
-  CERRADO:    'bg-green-100 text-green-700',
-  CANCELADO:  'bg-gray-100 text-gray-500',
-}
-
-const STATUS_ICONS: Record<ServiceRequest['status'], any> = {
-  PENDIENTE:  ClockIcon,
-  VISTO:      EyeIcon,
-  CONTACTADO: PhoneArrowUpRightIcon,
-  CERRADO:    CheckCircleIcon,
-  CANCELADO:  XCircleIcon,
-}
+const STATUS_LABELS = SERVICE_REQUEST_STATUS_LABELS
+const STATUS_CLASSES = SERVICE_REQUEST_STATUS_CLASSES
+const STATUS_ICONS = SERVICE_REQUEST_STATUS_ICONS
 
 const MODALITY_LABELS: Record<string, string> = {
   PRESENCIAL: '📍 Presencial',
@@ -383,6 +365,7 @@ const filters = [
   { value: 'CONTACTADO', label: 'Contactados' },
   { value: 'CERRADO',    label: 'Cerrados' },
   { value: 'CANCELADO',  label: 'Cancelados' },
+  { value: 'RECHAZADO',  label: 'Rechazadas' },
 ]
 
 const requests     = ref<ServiceRequest[]>([])
@@ -416,6 +399,7 @@ const statusSummary = computed(() => [
   { status: 'CONTACTADO', label: 'Contactados',  count: countByStatus('CONTACTADO'), dot: 'bg-blue-400'   },
   { status: 'CERRADO',    label: 'Cerrados',     count: countByStatus('CERRADO'),    dot: 'bg-green-400'  },
   { status: 'CANCELADO',  label: 'Cancelados',   count: countByStatus('CANCELADO'),  dot: 'bg-gray-300'   },
+  { status: 'RECHAZADO',  label: 'Rechazados',   count: countByStatus('RECHAZADO'),  dot: 'bg-red-400'    },
 ])
 
 async function openDetail(req: ServiceRequest) {

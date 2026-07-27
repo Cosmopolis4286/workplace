@@ -101,20 +101,23 @@ import {
   ClipboardDocumentListIcon,
   WrenchIcon,
   ClockIcon,
-  EyeIcon,
-  PhoneArrowUpRightIcon,
-  CheckCircleIcon,
 } from '@heroicons/vue/24/outline'
 import { useRelativeTime } from '~/composables/useRelativeTime'
 import { useAssetUrl } from '~/composables/useAssetUrl'
 import { useExchangeRates } from '~/composables/useExchangeRates'
+import {
+  type ServiceRequestStatus,
+  SERVICE_REQUEST_STATUS_LABELS,
+  SERVICE_REQUEST_STATUS_CLASSES,
+  SERVICE_REQUEST_STATUS_ICONS,
+} from '~/config/serviceRequestStatus.config'
 
 interface ServiceRequest {
   id: string
   serviceName: string
   providerName: string
   providerAvatar?: string | null
-  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
+  status: ServiceRequestStatus
   price?: number
   priceUnit?: string
   modality?: string
@@ -134,26 +137,9 @@ const pendingCount = computed(() =>
   props.requests.filter(r => r.status === 'PENDIENTE' || r.status === 'VISTO').length
 )
 
-const statusLabels: Record<string, string> = {
-  PENDIENTE: 'Pendiente',
-  VISTO: 'Visto',
-  CONTACTADO: 'Contactado',
-  CERRADO: 'Cerrado',
-}
-
-const statusClasses: Record<string, string> = {
-  PENDIENTE: 'bg-yellow-100 text-yellow-700',
-  VISTO: 'bg-gray-100 text-gray-700',
-  CONTACTADO: 'bg-blue-100 text-blue-700',
-  CERRADO: 'bg-green-100 text-green-700',
-}
-
-const STATUS_ICONS: Record<string, any> = {
-  PENDIENTE: ClockIcon,
-  VISTO: EyeIcon,
-  CONTACTADO: PhoneArrowUpRightIcon,
-  CERRADO: CheckCircleIcon,
-}
+const statusLabels = SERVICE_REQUEST_STATUS_LABELS
+const statusClasses = SERVICE_REQUEST_STATUS_CLASSES
+const STATUS_ICONS = SERVICE_REQUEST_STATUS_ICONS
 
 const MODALITY_LABELS: Record<string, string> = {
   PRESENCIAL: '📍 Presencial',

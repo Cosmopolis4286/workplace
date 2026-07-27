@@ -85,9 +85,13 @@
       <BriefcaseIcon class="h-12 w-12 text-gray-300 mx-auto mb-4" />
       <h3 class="text-lg font-medium text-gray-900 mb-1">No hay servicios</h3>
       <p class="text-sm text-gray-500 mb-4">
-        {{ search ? 'No se encontraron resultados para tu búsqueda.' : 'Crea tu primer servicio para comenzar.' }}
+        {{ search
+          ? 'No se encontraron resultados para tu búsqueda.'
+          : filterStatus
+            ? `No tienes servicios con estado "${SERVICE_STATUS_LABELS[filterStatus as Service['status']]}".`
+            : 'Crea tu primer servicio para comenzar.' }}
       </p>
-      <button v-if="!search" @click="openCreate" class="btn-primary">
+      <button v-if="!search && !filterStatus" @click="openCreate" class="btn-primary">
         <PlusIcon class="h-4 w-4 mr-2" />
         Nuevo Servicio
       </button>
@@ -213,7 +217,7 @@
       <div
         v-if="showModal"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @click.self="showModal = false"
+        @click.self="!saving && (showModal = false)"
       >
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -222,7 +226,7 @@
               <h2 class="text-lg font-semibold text-gray-900">
                 {{ editing ? 'Editar Servicio' : 'Nuevo Servicio' }}
               </h2>
-              <button @click="showModal = false" class="p-1 text-gray-400 hover:text-gray-600">
+              <button @click="showModal = false" :disabled="saving" class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-40">
                 <XMarkIcon class="h-5 w-5" />
               </button>
             </div>
@@ -234,7 +238,10 @@
             <form @submit.prevent="handleSubmit" class="space-y-4">
               <!-- Nombre -->
               <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-xs font-medium text-gray-700">Nombre <span class="text-red-500">*</span></label>
+                  <span class="text-[10px] text-gray-400">{{ form.name.length }}/120</span>
+                </div>
                 <input
                   v-model="form.name"
                   type="text"
@@ -247,14 +254,20 @@
 
               <!-- Descripción -->
               <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Descripción</label>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-xs font-medium text-gray-700">Descripción</label>
+                  <span class="text-[10px] text-gray-400">{{ form.description.length }}/1000</span>
+                </div>
                 <textarea
                   v-model="form.description"
                   rows="3"
-                  placeholder="Describe tu servicio..."
+                  placeholder="Describe tu servicio: qué incluye, qué necesita el cliente, tiempos estimados..."
                   maxlength="1000"
                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
                 ></textarea>
+                <p v-if="!form.description" class="mt-1 text-xs text-amber-600">
+                  Los servicios con descripción reciben más solicitudes. Te recomendamos completarla.
+                </p>
               </div>
 
               <!-- Precio y unidad -->
@@ -325,34 +338,8 @@
               <!-- Tags -->
               <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">Etiquetas</label>
-                <div class="flex flex-wrap gap-1.5 mb-2">
-                  <span
-                    v-for="tag in form.tags"
-                    :key="tag"
-                    class="flex items-center gap-1 text-xs bg-red-50 text-red-700 px-2 py-1 rounded-full"
-                  >
-                    {{ tag }}
-                    <button type="button" @click="removeTag(tag)" class="hover:text-red-900">
-                      <XMarkIcon class="h-3 w-3" />
-                    </button>
-                  </span>
-                </div>
-                <div class="flex gap-2">
-                  <input
-                    v-model="tagInput"
-                    @keydown.enter.prevent="addTag"
-                    type="text"
-                    placeholder="Agregar etiqueta..."
-                    class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
-                  />
-                  <button
-                    type="button"
-                    @click="addTag"
-                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors"
-                  >
-                    Agregar
-                  </button>
-                </div>
+                <TagsInput v-model="form.tags" suggestions-endpoint="/services/catalog/tags" />
+                <p class="mt-1.5 text-xs text-gray-400">Ayudan a que tu servicio aparezca en más búsquedas.</p>
               </div>
 
               <!-- Modalidades -->
@@ -375,7 +362,10 @@
                     {{ opt.label }}
                   </button>
                 </div>
-                <p class="mt-1.5 text-xs text-gray-400">Selecciona una o más. Los clientes solo verán las que hayas activado.</p>
+                <p v-if="form.modalities.length === 0" class="mt-1.5 text-xs text-amber-600">
+                  Sin modalidades seleccionadas, el servicio no mostrará esta información a los clientes.
+                </p>
+                <p v-else class="mt-1.5 text-xs text-gray-400">Selecciona una o más. Los clientes solo verán las que hayas activado.</p>
               </div>
 
               <!-- Campos por ítem -->
@@ -439,13 +429,14 @@
                 <button
                   type="button"
                   @click="showModal = false"
-                  class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  :disabled="saving"
+                  class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  :disabled="saving"
+                  :disabled="saving || !isFormValid"
                   class="flex-1 btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {{ saving ? 'Guardando...' : (editing ? 'Guardar cambios' : 'Crear servicio') }}
@@ -462,7 +453,7 @@
       <div
         v-if="toggleTarget"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @click.self="toggleTarget = null"
+        @click.self="!saving && (toggleTarget = null)"
       >
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -489,6 +480,9 @@
               El servicio volverá a ser visible para los clientes.
             </span>
           </p>
+          <div v-if="actionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {{ actionError }}
+          </div>
           <div class="flex gap-3">
             <button
               @click="toggleTarget = null"
@@ -561,17 +555,27 @@
                       </div>
                     </div>
                   </div>
-                  <button @click="closeMetrics" class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
-                    <XMarkIcon class="h-5 w-5" />
-                  </button>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      @click="metricsTarget && openMetrics(metricsTarget)"
+                      :disabled="metricsLoading"
+                      title="Actualizar métricas"
+                      class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-40"
+                    >
+                      <ArrowPathIcon class="h-4 w-4" :class="{ 'animate-spin': metricsLoading }" />
+                    </button>
+                    <button @click="closeMetrics" class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                      <XMarkIcon class="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <!-- Cuerpo -->
               <div class="px-5 py-4 space-y-4">
 
-                <!-- Skeleton -->
-                <div v-if="metricsLoading" class="space-y-3 animate-pulse">
+                <!-- Skeleton (solo en la carga inicial; un refresh mantiene los datos visibles) -->
+                <div v-if="metricsLoading && !metricsData" class="space-y-3 animate-pulse">
                   <div class="grid grid-cols-2 gap-3">
                     <div v-for="n in 6" :key="n" class="h-20 bg-gray-100 rounded-xl" />
                   </div>
@@ -580,9 +584,17 @@
                 </div>
 
                 <!-- Error -->
-                <div v-else-if="metricsError" class="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700 flex items-center gap-2">
-                  <ExclamationCircleIcon class="h-4 w-4 flex-shrink-0" />
-                  {{ metricsError }}
+                <div v-else-if="metricsError" class="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
+                  <div class="flex items-center gap-2 mb-3">
+                    <ExclamationCircleIcon class="h-4 w-4 flex-shrink-0" />
+                    {{ metricsError }}
+                  </div>
+                  <button
+                    @click="metricsTarget && openMetrics(metricsTarget)"
+                    class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-800 transition-colors"
+                  >
+                    Reintentar
+                  </button>
                 </div>
 
                 <template v-else-if="metricsData">
@@ -733,6 +745,14 @@
                         ? 'Tu tasa de conversión es razonable. Mejorar las fotos o la descripción puede aumentarla.'
                         : 'Tienes vistas pero pocas solicitudes. Revisa el precio, añade descripción detallada y elige buenas fotos.' }}
                   </div>
+                  <div v-else-if="metricsTarget?.status === 'PAUSADO'" class="p-3.5 rounded-xl border border-gray-200 bg-gray-50 text-xs leading-relaxed text-gray-600">
+                    <span class="font-semibold block mb-1">⏸️ Servicio pausado</span>
+                    Mientras esté pausado no aparece en el catálogo y no puede recibir vistas ni solicitudes. Actívalo desde la lista para empezar a medir su desempeño.
+                  </div>
+                  <div v-else class="p-3.5 rounded-xl border border-blue-100 bg-blue-50 text-xs leading-relaxed text-blue-700">
+                    <span class="font-semibold block mb-1">👀 Todavía sin vistas</span>
+                    Aún no hay datos suficientes. Comparte el enlace de tu perfil o revisa que la categoría, etiquetas y descripción sean claras para aparecer en más búsquedas.
+                  </div>
 
                 </template>
               </div>
@@ -747,7 +767,7 @@
       <div
         v-if="deleteTarget"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @click.self="deleteTarget = null"
+        @click.self="!saving && (deleteTarget = null)"
       >
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -755,6 +775,9 @@
           <p class="text-sm text-gray-600 mb-6">
             ¿Estás seguro de eliminar <strong>{{ deleteTarget.name }}</strong>? Esta acción no se puede deshacer.
           </p>
+          <div v-if="actionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {{ actionError }}
+          </div>
           <div class="flex gap-3">
             <button @click="deleteTarget = null" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">
               Cancelar
@@ -781,6 +804,10 @@
             <button @click="showModalitiesModal = false" class="p-1 text-gray-400 hover:text-gray-600">
               <XMarkIcon class="h-5 w-5" />
             </button>
+          </div>
+
+          <div v-if="modalityError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {{ modalityError }}
           </div>
 
           <!-- Nueva modalidad -->
@@ -839,7 +866,7 @@
                   {{ modality.isActive ? 'Activo' : 'Inactivo' }}
                 </button>
                 <button
-                  @click="deleteModality(modality.id)"
+                  @click="confirmDeleteModality(modality)"
                   class="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Eliminar"
                 >
@@ -852,6 +879,34 @@
           <p class="mt-4 text-xs text-gray-500">
             Las modalidades activas aparecerán en el formulario de solicitud de servicios.
           </p>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Confirm delete modality modal -->
+    <Teleport to="body">
+      <div
+        v-if="deleteModalityTarget"
+        class="fixed inset-0 z-[60] flex items-center justify-center p-4"
+        @click.self="!deletingModality && (deleteModalityTarget = null)"
+      >
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-2">Eliminar modalidad</h3>
+          <p class="text-sm text-gray-600 mb-6">
+            ¿Estás seguro de eliminar <strong>{{ deleteModalityTarget.name }}</strong>? Los servicios que la tengan activada dejarán de mostrarla.
+          </p>
+          <div v-if="modalityError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {{ modalityError }}
+          </div>
+          <div class="flex gap-3">
+            <button @click="deleteModalityTarget = null" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Cancelar
+            </button>
+            <button @click="doDeleteModality" :disabled="deletingModality" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60">
+              {{ deletingModality ? 'Eliminando...' : 'Eliminar' }}
+            </button>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -880,9 +935,11 @@ import {
   CalendarDaysIcon,
   ExclamationCircleIcon,
   AdjustmentsHorizontalIcon,
+  ArrowPathIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
+import TagsInput from '~/components/ui/TagsInput.vue'
 import { useServicios, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service, type ServiceModality } from '~/composables/useServicios'
 
 definePageMeta({ middleware: 'auth' })
@@ -894,6 +951,7 @@ const {
   loading,
   error,
   stats,
+  fetchStats,
   fetchServices,
   fetchCatalogCategories,
   fetchModalities,
@@ -930,8 +988,13 @@ const metricsLoading = ref(false)
 const metricsError = ref<string | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
-const tagInput = ref('')
+// Error de la acción en curso (toggle/delete/modalidad), mostrado dentro del
+// modal correspondiente en vez del banner superior, que queda fuera de vista.
+const actionError = ref<string | null>(null)
 const newModality = ref({ name: '', value: '', emoji: '' })
+const deleteModalityTarget = ref<ServiceModality | null>(null)
+const deletingModality = ref(false)
+const modalityError = ref<string | null>(null)
 
 const ALL_MODALITIES = [
   { value: 'PRESENCIAL', label: 'Presencial', emoji: '📍' },
@@ -961,25 +1024,25 @@ const headerStats = computed(() => [
   { label: 'Total servicios', value: String(stats.value.total) },
 ])
 
+const isFormValid = computed(() =>
+  form.value.name.trim().length > 0 && Number.isFinite(form.value.price) && form.value.price >= 0
+)
+
 const maxDayViews = computed(() => {
   if (!metricsData.value?.viewsByDay.length) return 1
   return Math.max(1, ...metricsData.value.viewsByDay.map(d => d.count))
 })
 
-const filteredServices = computed(() => {
-  let list = services.value
-  if (filterStatus.value) list = list.filter(s => s.status === filterStatus.value)
-  return list
-})
+const filteredServices = computed(() => services.value)
 
 let searchTimer: ReturnType<typeof setTimeout>
 function onSearch() {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => fetchServices({ search: search.value }), 350)
+  searchTimer = setTimeout(() => fetchServices({ search: search.value, status: filterStatus.value }), 350)
 }
 
 function applyFilter() {
-  fetchServices({ search: search.value })
+  fetchServices({ search: search.value, status: filterStatus.value })
 }
 
 function formatDuration(minutes: number) {
@@ -1015,16 +1078,6 @@ function openEdit(service: Service) {
   showModal.value = true
 }
 
-function addTag() {
-  const t = tagInput.value.trim().toLowerCase()
-  if (t && !form.value.tags.includes(t)) form.value.tags.push(t)
-  tagInput.value = ''
-}
-
-function removeTag(tag: string) {
-  form.value.tags = form.value.tags.filter(t => t !== tag)
-}
-
 function addItemField() {
   const f = itemFieldInput.value.trim()
   if (f && !form.value.itemFields.includes(f) && form.value.itemFields.length < 10) form.value.itemFields.push(f)
@@ -1036,7 +1089,14 @@ function removeItemField(field: string) {
 }
 
 async function handleSubmit() {
-  if (!form.value.name.trim() || form.value.price < 0) return
+  if (!form.value.name.trim()) {
+    formError.value = 'El nombre del servicio es obligatorio'
+    return
+  }
+  if (!Number.isFinite(form.value.price) || form.value.price < 0) {
+    formError.value = 'El precio debe ser un número mayor o igual a 0'
+    return
+  }
   saving.value = true
   formError.value = null
   try {
@@ -1060,68 +1120,84 @@ async function handleSubmit() {
     }
     showModal.value = false
   } catch (e: any) {
-    formError.value = e?.data?.message ?? 'Error al guardar el servicio'
+    formError.value = e?.message ?? 'Error al guardar el servicio'
   } finally {
     saving.value = false
   }
 }
 
 function confirmDelete(service: Service) {
+  actionError.value = null
   deleteTarget.value = service
 }
 
 async function doDelete() {
-  if (!deleteTarget.value) return
+  if (!deleteTarget.value || saving.value) return
   saving.value = true
+  actionError.value = null
   try {
     await deleteService(deleteTarget.value.id)
     deleteTarget.value = null
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Error al eliminar'
+    actionError.value = e?.message ?? 'Error al eliminar'
   } finally {
     saving.value = false
   }
 }
 
 function confirmToggleStatus(service: Service) {
+  actionError.value = null
   toggleTarget.value = service
 }
 
 async function doToggleStatus() {
-  if (!toggleTarget.value) return
+  if (!toggleTarget.value || saving.value) return
   saving.value = true
+  actionError.value = null
   try {
     await toggleServiceStatus(toggleTarget.value.id)
     toggleTarget.value = null
   } catch (e: any) {
-    error.value = e?.message ?? 'Error al cambiar estado'
+    actionError.value = e?.message ?? 'Error al cambiar estado'
   } finally {
     saving.value = false
   }
 }
 
+// Descarta respuestas de métricas que llegan tarde para un servicio que ya no
+// es el que está abierto (ej. el usuario cierra y abre otro modal rápido).
+let metricsRequestId = 0
+
 async function openMetrics(service: Service) {
+  const requestId = ++metricsRequestId
+  const isRefresh = metricsTarget.value?.id === service.id && metricsData.value !== null
   metricsTarget.value = service
-  metricsData.value = null
   metricsError.value = null
+  // En un refresh mantenemos los datos previos visibles en vez de taparlos con
+  // el skeleton — el ícono de recarga ya indica que hay una petición en curso.
+  if (!isRefresh) metricsData.value = null
   metricsLoading.value = true
   const { get } = useApi()
   try {
-    metricsData.value = await get<{
+    const data = await get<{
       views: number
       profileVisits: number
       requests: number
       conversionRate: number
       viewsByDay: { date: string; count: number }[]
     }>(`/services/${service.id}/metrics`)
+    if (requestId !== metricsRequestId) return
+    metricsData.value = data
   } catch (e: any) {
+    if (requestId !== metricsRequestId) return
     metricsError.value = e?.message ?? 'No se pudieron cargar las métricas'
   } finally {
-    metricsLoading.value = false
+    if (requestId === metricsRequestId) metricsLoading.value = false
   }
 }
 
 function closeMetrics() {
+  metricsRequestId++
   metricsTarget.value = null
   metricsData.value = null
   metricsError.value = null
@@ -1133,11 +1209,13 @@ function formatMetricsDate(iso: string) {
 
 function openModalitiesModal() {
   showModalitiesModal.value = true
+  modalityError.value = null
   fetchModalities()
 }
 
 async function addModality() {
   if (!newModality.value.name || !newModality.value.value) return
+  modalityError.value = null
   try {
     await createModality({
       name: newModality.value.name,
@@ -1147,28 +1225,39 @@ async function addModality() {
     })
     newModality.value = { name: '', value: '', emoji: '' }
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Error al crear modalidad'
+    modalityError.value = e?.message ?? 'Error al crear modalidad'
   }
 }
 
 async function toggleModalityActive(modality: ServiceModality) {
+  modalityError.value = null
   try {
     await updateModality(modality.id, { isActive: !modality.isActive })
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Error al actualizar modalidad'
+    modalityError.value = e?.message ?? 'Error al actualizar modalidad'
   }
 }
 
-async function deleteModality(id: string) {
-  if (!confirm('¿Estás seguro de eliminar esta modalidad?')) return
+function confirmDeleteModality(modality: ServiceModality) {
+  modalityError.value = null
+  deleteModalityTarget.value = modality
+}
+
+async function doDeleteModality() {
+  if (!deleteModalityTarget.value || deletingModality.value) return
+  deletingModality.value = true
+  modalityError.value = null
   try {
-    await deleteModalityFn(id)
+    await deleteModalityFn(deleteModalityTarget.value.id)
+    deleteModalityTarget.value = null
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Error al eliminar modalidad'
+    modalityError.value = e?.message ?? 'Error al eliminar modalidad'
+  } finally {
+    deletingModality.value = false
   }
 }
 
 onMounted(async () => {
-  await Promise.all([fetchServices(), fetchCatalogCategories()])
+  await Promise.all([fetchServices(), fetchCatalogCategories(), fetchStats()])
 })
 </script>

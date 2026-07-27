@@ -147,6 +147,12 @@
                 </div>
 
                 <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Etiquetas</label>
+                  <TagsInput v-model="form.tags" suggestions-endpoint="/catalog/tags" />
+                  <p class="mt-1 text-xs text-gray-400">Ayudan a que tu producto aparezca en más búsquedas.</p>
+                </div>
+
+                <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">URL de Imagen</label>
                   <div class="flex gap-2">
                     <input
@@ -291,6 +297,7 @@ import { CameraIcon } from '@heroicons/vue/24/outline'
 import { useDefaultRate } from '~/composables/useDefaultRate'
 import { useCamera } from '~/composables/useCamera'
 import { useMenu } from '~/composables/useMenu'
+import TagsInput from '~/components/ui/TagsInput.vue'
 
 const { defaultRate, convertLabel, rateLabel, load } = useDefaultRate()
 onMounted(load)
@@ -326,7 +333,8 @@ const form = ref({
   forSale: true,
   bnplEligible: true,
   ingredients: [],
-  allergens: []
+  allergens: [],
+  tags: []
 })
 
 const resetForm = () => {
@@ -347,13 +355,14 @@ const resetForm = () => {
     forSale: true,
     bnplEligible: true,
     ingredients: [],
-    allergens: []
+    allergens: [],
+    tags: []
   }
 }
 
 watch(() => props.product, (product) => {
   if (product) {
-    form.value = { ...product }
+    form.value = { ...product, tags: product.tags ?? [] }
   } else {
     resetForm()
   }

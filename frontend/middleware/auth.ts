@@ -40,6 +40,7 @@ const PERMISSION_ROUTE_MAP: Record<string, string> = {
   '/menu':          'menu:view',
   '/inventario':    'inventory:view',
   '/servicios':     'services:view',
+  '/empleos':       'jobs:view',
   '/cliente-dashboard': 'orders:view',
 
   // Commerce-only (no Freelancer)
@@ -73,7 +74,7 @@ const PERMISSION_ROUTE_MAP: Record<string, string> = {
 // PermissionsGuard, así que aquí se replica el mismo criterio en vez de
 // inventar un permiso que no existe)
 const ADMIN_ONLY_ROUTES: string[] = [
-  '/kyc-admin', '/landing-admin', '/categorias-propuestas-admin',
+  '/kyc-admin', '/landing-admin', '/categorias-propuestas-admin', '/solicitudes-servicio-admin',
 ]
 
 // Rutas que no necesitan permiso específico pero sí autenticación

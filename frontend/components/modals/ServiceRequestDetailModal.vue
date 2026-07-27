@@ -394,6 +394,22 @@
             </div>
           </div>
 
+          <!-- Footer esperando confirmación del cliente — proveedor (CONTACTADO) -->
+          <div v-else-if="isProvider && req.status === 'CONTACTADO'" class="p-4 border-t border-gray-100 bg-blue-50">
+            <div class="flex items-center gap-2">
+              <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0" />
+              <p class="text-xs text-blue-700">Esperando que el cliente confirme la finalización del servicio.</p>
+            </div>
+          </div>
+
+          <!-- Footer estado rechazado — proveedor -->
+          <div v-else-if="isProvider && req.status === 'RECHAZADO'" class="p-4 border-t border-gray-100 bg-red-50">
+            <div class="flex items-center gap-2">
+              <XCircleIcon class="h-4 w-4 text-red-600 flex-shrink-0" />
+              <p class="text-xs text-red-700 font-medium">Rechazaste esta solicitud.</p>
+            </div>
+          </div>
+
           <!-- Footer — cliente: confirmar finalización -->
           <div v-else-if="!isProvider && req.status === 'CONTACTADO'" class="p-4 border-t border-gray-100 bg-blue-50">
             <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -432,6 +448,7 @@
                   <template v-if="req.status === 'PENDIENTE'">Tu solicitud está en espera de respuesta del proveedor.</template>
                   <template v-else-if="req.status === 'VISTO'">El proveedor ya vio tu solicitud y pronto se pondrá en contacto.</template>
                   <template v-else-if="req.status === 'CANCELADO'">Cancelaste esta solicitud.</template>
+                  <template v-else-if="req.status === 'RECHAZADO'">El proveedor no podrá atender esta solicitud. Puedes buscar otro proveedor.</template>
                   <template v-else>Este servicio fue cerrado/completado. Ya puedes dejar una reseña verificada en el perfil del proveedor.</template>
                 </p>
               </div>
@@ -446,7 +463,7 @@
           </div>
 
           <!-- Reportar problema (cliente) -->
-          <div v-if="!isProvider && req.status !== 'CANCELADO'" class="px-4 pb-3 text-center">
+          <div v-if="!isProvider && !['CANCELADO', 'RECHAZADO'].includes(req.status)" class="px-4 pb-3 text-center">
             <button class="text-xs text-gray-400 hover:text-red-500 font-medium" @click="showReportModal = true">
               ¿Tuviste un problema con esta solicitud? Reportarlo
             </button>
@@ -486,6 +503,12 @@ import { useApi } from '~/composables/useApi'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 import { useAssetUrl } from '~/composables/useAssetUrl'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
+import {
+  type ServiceRequestStatus,
+  SERVICE_REQUEST_STATUS_LABELS,
+  SERVICE_REQUEST_STATUS_CLASSES,
+  SERVICE_REQUEST_STATUS_ICONS,
+} from '~/config/serviceRequestStatus.config'
 
 interface ServiceRequestItem {
   id: string
@@ -510,7 +533,7 @@ interface ServiceRequest {
   price?: number
   priceUnit?: string
   providerNotes?: string
-  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO' | 'CANCELADO'
+  status: ServiceRequestStatus
   createdAt: string
   statusUpdatedAt?: string
   items?: ServiceRequestItem[]
@@ -613,19 +636,9 @@ function lightboxNext() {
   lightboxIndex.value = (lightboxIndex.value + 1) % lightboxMedia.value.length
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Cerrado', CANCELADO: 'Cancelado',
-}
-const STATUS_CLASSES: Record<string, string> = {
-  PENDIENTE: 'bg-yellow-100 text-yellow-800',
-  VISTO: 'bg-gray-100 text-gray-600',
-  CONTACTADO: 'bg-blue-100 text-blue-700',
-  CERRADO: 'bg-green-100 text-green-700',
-  CANCELADO: 'bg-gray-100 text-gray-500',
-}
-const STATUS_ICONS: Record<string, any> = {
-  PENDIENTE: ClockIcon, VISTO: EyeIcon, CONTACTADO: PhoneArrowUpRightIcon, CERRADO: CheckCircleIcon, CANCELADO: XCircleIcon,
-}
+const STATUS_LABELS = SERVICE_REQUEST_STATUS_LABELS
+const STATUS_CLASSES = SERVICE_REQUEST_STATUS_CLASSES
+const STATUS_ICONS = SERVICE_REQUEST_STATUS_ICONS
 
 const QUICK_REPLY_TEMPLATES = [
   'Te contacto en breve',
@@ -674,11 +687,10 @@ const nextActions = computed(() => {
   if (!props.isProvider) return []
   if (props.req.status === 'PENDIENTE' || props.req.status === 'VISTO') return [
     { status: 'CONTACTADO', label: 'Marcar contactado', icon: PhoneArrowUpRightIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
-    { status: 'CERRADO', label: 'Cerrar', icon: CheckCircleIcon, class: 'bg-gray-200 text-gray-700 hover:bg-gray-300' },
+    { status: 'RECHAZADO', label: 'Rechazar', icon: XCircleIcon, class: 'bg-red-50 text-red-600 hover:bg-red-100' },
   ]
-  if (props.req.status === 'CONTACTADO') return [
-    { status: 'CERRADO', label: 'Cerrar trato', icon: CheckCircleIcon, class: 'bg-green-600 text-white hover:bg-green-700' },
-  ]
+  // CONTACTADO: el proveedor ya no puede forzar el cierre — solo el cliente puede
+  // confirmar la finalización (así se garantiza el cobro de la comisión de plataforma).
   return []
 })
 

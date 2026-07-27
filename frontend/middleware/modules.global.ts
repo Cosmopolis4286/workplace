@@ -25,6 +25,7 @@ const ROUTE_MODULE_MAP: Record<string, string> = {
   '/empleados':            'employees',
   '/sucursales':           'branches',
   '/servicios':            'services',
+  '/empleos':              'jobs',
   '/solicitudes-servicio': 'service_requests',
   '/corridas':             'corridas',       // ← faltaba
   '/mis-pedidos':          'orders',         // ← faltaba
