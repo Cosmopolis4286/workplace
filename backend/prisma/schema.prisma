@@ -359,6 +359,7 @@ model Product {
   calories        Int?
   ingredients     String[]
   allergens       String[]
+  tags            String[]
   brand           String?
   forSale         Boolean       @default(true)
   bnplEligible    Boolean       @default(true)
@@ -1385,6 +1386,7 @@ enum ServiceRequestStatus {
   CONTACTADO
   CERRADO
   CANCELADO
+  RECHAZADO
 }
 
 enum ServiceRequestModality {
@@ -1422,6 +1424,7 @@ model ServiceRequest {
   requesterId       String?
   requester         User?                  @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   items             ServiceRequestItem[]
+  statusHistory     ServiceRequestStatusHistory[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -1436,6 +1439,20 @@ model ServiceRequest {
   // Acelera getSuggestedPrice: WHERE serviceId=X AND providerId=Y AND status='CERRADO'
   @@index([serviceId, providerId, status])
   @@map("service_requests")
+}
+
+model ServiceRequestStatusHistory {
+  id               String                @id @default(uuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest        @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  previousStatus   ServiceRequestStatus?
+  newStatus        ServiceRequestStatus
+  changedBy        String? // userId si fue una acción de usuario; null si fue automático (ej. scheduler)
+  createdAt        DateTime              @default(now())
+
+  @@index([serviceRequestId])
+  @@index([createdAt(sort: Desc)])
+  @@map("service_request_status_history")
 }
 
 model ServiceRequestItem {
