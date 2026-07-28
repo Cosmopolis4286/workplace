@@ -6175,7 +6175,8 @@
         }
       ],
       "dependents": [
-        "src/users/users.controller.ts"
+        "src/users/users.controller.ts",
+        "src/permissions/permissions.controller.ts"
       ],
       "orphan": false,
       "valid": true
@@ -22427,6 +22428,23 @@
         },
         {
           "dynamic": false,
+          "module": "../common/utils/role-hierarchy.util",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/common/utils/role-hierarchy.util.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "./dto/bulk-update-role-permissions.dto",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -32210,7 +32228,7 @@
     "info": 0,
     "ignore": 0,
     "totalCruised": 372,
-    "totalDependenciesCruised": 1495,
+    "totalDependenciesCruised": 1496,
     "optionsUsed": {
       "baseDir": "C:\\Users\\Eisker\\Documents\\projects\\workplace\\backend",
       "combinedDependencies": false,
