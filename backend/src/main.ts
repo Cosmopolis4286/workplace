@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { createAdapter } from '@socket.io/redis-adapter';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
@@ -93,15 +94,16 @@ async function bootstrap() {
   const redisService = app.get(RedisService);
   const pubClient = redisService.duplicate();
   const subClient = pubClient.duplicate();
-  app.useWebSocketAdapter(
-    new (class extends (await import('@nestjs/platform-socket.io')).IoAdapter {
-      createIOServer(port: number, options?: any) {
-        const server = super.createIOServer(port, options);
-        server.adapter(createAdapter(pubClient, subClient));
-        return server;
-      }
-    })(app)
-  );
+
+  class RedisIoAdapter extends IoAdapter {
+    createIOServer(port: number, options?: any) {
+      const server = super.createIOServer(port, options);
+      server.adapter(createAdapter(pubClient, subClient));
+      return server;
+    }
+  }
+
+  app.useWebSocketAdapter(new RedisIoAdapter(app));
 
   // 🔥 Graceful shutdown setup
   const server = app.getHttpServer();
@@ -118,40 +120,40 @@ async function bootstrap() {
       const prismaService = app.get(PrismaService);
       await prismaService.$disconnect();
       console.log('✅ Database connections closed');
-      
+
       // Close Redis connections
-      const redisService = app.get(RedisService);
+      await Promise.all([pubClient.quit(), subClient.quit()]);
       await redisService.disconnect();
       console.log('✅ Redis connections closed');
-      
+
       // Close app
       await app.close();
       console.log('✅ NestJS app closed');
-      
+
       process.exit(0);
     });
-    
+
     // Force shutdown after 30 seconds
     setTimeout(() => {
       console.error('❌ Forced shutdown after timeout');
       process.exit(1);
     }, 30000);
   });
-  
+
   // Handle SIGINT (Ctrl+C)
   process.on('SIGINT', async () => {
     console.log('🔄 SIGINT received - starting graceful shutdown...');
     server.close(async () => {
       console.log('✅ HTTP server closed');
-      
+
       const prismaService = app.get(PrismaService);
       await prismaService.$disconnect();
       console.log('✅ Database connections closed');
-      
-      const redisService = app.get(RedisService);
+
+      await Promise.all([pubClient.quit(), subClient.quit()]);
       await redisService.disconnect();
       console.log('✅ Redis connections closed');
-      
+
       await app.close();
       console.log('✅ NestJS app closed');
       
