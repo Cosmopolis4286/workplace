@@ -7,7 +7,7 @@ import { AuthService } from '../../domains/identity-access/auth/auth.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { UsersService } from '../../domains/identity-access/users/users.service'
 import { RedisService } from '../../redis/redis.service'
-import { MailService } from '../../mail/mail.service'
+import { MailService } from '../../domains/engagement/mail/mail.service'
 import { AuditService } from '../../domains/identity-access/audit/audit.service'
 import { TwoFactorService } from '../../domains/identity-access/auth/two-factor.service'
 

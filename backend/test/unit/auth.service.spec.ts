@@ -5,7 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { RedisService } from '../../src/redis/redis.service';
-import { MailService } from '../../src/mail/mail.service';
+import { MailService } from '../../src/domains/engagement/mail/mail.service';
 import { UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 

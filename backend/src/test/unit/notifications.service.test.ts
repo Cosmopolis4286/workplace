@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { NotificationsService } from '../../notifications/notifications.service'
+import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { NotificationsGateway } from '../../notifications/notifications.gateway'
+import { NotificationsGateway } from '../../domains/engagement/notifications/notifications.gateway'
 import { NotificationType } from '@prisma/client'
 
 describe('NotificationsService', () => {

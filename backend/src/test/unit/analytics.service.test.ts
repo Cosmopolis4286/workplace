@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { AnalyticsService } from '../../analytics/analytics.service'
-import { CommerceAnalyticsStrategy } from '../../analytics/strategies/commerce-analytics.strategy'
-import { FreelancerAnalyticsStrategy } from '../../analytics/strategies/freelancer-analytics.strategy'
+import { AnalyticsService } from '../../domains/engagement/analytics/analytics.service'
+import { CommerceAnalyticsStrategy } from '../../domains/engagement/analytics/strategies/commerce-analytics.strategy'
+import { FreelancerAnalyticsStrategy } from '../../domains/engagement/analytics/strategies/freelancer-analytics.strategy'
 import { PrismaService } from '../../prisma/prisma.service'
-import { AnalyticsPeriod } from '../../analytics/dto/query-analytics.dto'
+import { AnalyticsPeriod } from '../../domains/engagement/analytics/dto/query-analytics.dto'
 
 describe('AnalyticsService', () => {
   let service: AnalyticsService

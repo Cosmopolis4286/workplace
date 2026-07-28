@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { UsersService } from '../../domains/identity-access/users/users.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { MailService } from '../../mail/mail.service'
+import { MailService } from '../../domains/engagement/mail/mail.service'
 import { CommerceProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/commerce-profile-completion.strategy'
 import { FreelancerProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/freelancer-profile-completion.strategy'
 import { Role } from '@prisma/client'

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { AnalyticsController } from '../../analytics/analytics.controller'
-import { AnalyticsService } from '../../analytics/analytics.service'
+import { AnalyticsController } from '../../domains/engagement/analytics/analytics.controller'
+import { AnalyticsService } from '../../domains/engagement/analytics/analytics.service'
 import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../common/guards/permissions.guard'
