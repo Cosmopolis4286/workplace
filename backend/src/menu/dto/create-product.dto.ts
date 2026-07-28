@@ -12,10 +12,10 @@ import {
 } from 'class-validator';
 
 export enum ProductStatusDto {
-  DISPONIBLE = 'DISPONIBLE',
-  AGOTADO = 'AGOTADO',
-  BAJO_STOCK = 'BAJO_STOCK',
-  NO_DISPONIBLE = 'NO_DISPONIBLE',
+  AVAILABLE = 'AVAILABLE',
+  OUT_OF_STOCK = 'OUT_OF_STOCK',
+  LOW_STOCK = 'LOW_STOCK',
+  UNAVAILABLE = 'UNAVAILABLE',
 }
 
 export class CreateProductDto {

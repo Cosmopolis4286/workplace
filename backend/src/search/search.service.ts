@@ -82,7 +82,7 @@ export class SearchService {
             category: p.category ? { name: p.category.name, color: p.category.color } : null,
             rating: p.commerce?.user?.rating ?? null,
             reviewsCount: p.commerce?.user?.reviewsCount ?? null,
-            lowStock: p.status === 'BAJO_STOCK',
+            lowStock: p.status === 'LOW_STOCK',
             nearYou: isNear(p.commerce),
           }))
         : []),

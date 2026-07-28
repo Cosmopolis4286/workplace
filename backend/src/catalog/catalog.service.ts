@@ -31,11 +31,11 @@ export class CatalogService {
   ) {}
 
   async getCategories() {
-    // Return distinct category names that have at least 1 DISPONIBLE product for sale
+    // Return distinct category names that have at least 1 AVAILABLE product for sale
     const categories = await this.prisma.category.findMany({
       where: {
         products: {
-          some: { status: ProductStatus.DISPONIBLE, forSale: true },
+          some: { status: ProductStatus.AVAILABLE, forSale: true },
         },
       },
       select: {
@@ -44,7 +44,7 @@ export class CatalogService {
         color: true,
         _count: {
           select: {
-            products: { where: { status: ProductStatus.DISPONIBLE, forSale: true } },
+            products: { where: { status: ProductStatus.AVAILABLE, forSale: true } },
           },
         },
       },
@@ -66,7 +66,7 @@ export class CatalogService {
   // `tags` y se cuenta en memoria: evita mantener una tabla maestra aparte.
   async getPopularTags(q?: string, limit = 20): Promise<{ tag: string; count: number }[]> {
     const products = await this.prisma.product.findMany({
-      where: { status: ProductStatus.DISPONIBLE, forSale: true },
+      where: { status: ProductStatus.AVAILABLE, forSale: true },
       select: { tags: true },
     });
     const counts = new Map<string, number>();
@@ -85,7 +85,7 @@ export class CatalogService {
     const restaurants = await this.prisma.restaurant.findMany({
       where: {
         products: {
-          some: { status: ProductStatus.DISPONIBLE, forSale: true },
+          some: { status: ProductStatus.AVAILABLE, forSale: true },
         },
       },
       select: {
@@ -94,7 +94,7 @@ export class CatalogService {
         type: true,
         _count: {
           select: {
-            products: { where: { status: ProductStatus.DISPONIBLE, forSale: true } },
+            products: { where: { status: ProductStatus.AVAILABLE, forSale: true } },
           },
         },
       },
@@ -128,7 +128,7 @@ export class CatalogService {
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {
-      status: ProductStatus.DISPONIBLE,
+      status: ProductStatus.AVAILABLE,
       forSale: true,
     };
 
@@ -367,7 +367,7 @@ export class CatalogService {
 
   async getProduct(id: string) {
     const product = await this.prisma.product.findFirst({
-      where: { id, status: ProductStatus.DISPONIBLE, forSale: true },
+      where: { id, status: ProductStatus.AVAILABLE, forSale: true },
       select: {
         id: true,
         name: true,
@@ -500,18 +500,18 @@ export class CatalogService {
   }
 
   // El comprador (requester) confirma que recibió el pedido. Solo desde
-  // CONTACTADO, y habilita la reseña verificada del comercio.
+  // CONTACTED, y habilita la reseña verificada del comercio.
   async confirmOrderCompletion(id: string, requesterId: string) {
     const order = await this.prisma.catalogOrder.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('Pedido no encontrado');
     if (order.requesterId !== requesterId) throw new ForbiddenException();
-    if (order.status !== 'CONTACTADO')
+    if (order.status !== 'CONTACTED')
       throw new ForbiddenException(
         'Solo puedes confirmar un pedido que ya fue contactado por el comercio',
       );
     const updated = await this.prisma.catalogOrder.update({
       where: { id },
-      data: { status: 'CERRADO' },
+      data: { status: 'CLOSED' },
     });
     return { data: updated };
   }

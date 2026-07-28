@@ -78,20 +78,20 @@ export class NotificationsService {
     clientId: string,
     providerName: string,
     serviceName: string,
-    status: 'VISTO' | 'CONTACTADO' | 'CERRADO',
+    status: 'SEEN' | 'CONTACTED' | 'CLOSED',
   ) {
     const STATUS_COPY: Record<typeof status, { icon: string; title: string; message: string }> = {
-      VISTO: {
+      SEEN: {
         icon: '👀',
         title: 'Tu solicitud fue vista',
         message: `${providerName} vio tu solicitud de "${serviceName}" y pronto se pondrá en contacto.`,
       },
-      CONTACTADO: {
+      CONTACTED: {
         icon: '📞',
         title: '¡Te van a contactar!',
         message: `${providerName} marcó tu solicitud de "${serviceName}" como contactada.`,
       },
-      CERRADO: {
+      CLOSED: {
         icon: '✅',
         title: 'Solicitud cerrada',
         message: `Tu solicitud de "${serviceName}" con ${providerName} fue marcada como cerrada.`,
@@ -122,7 +122,7 @@ export class NotificationsService {
   }
 
   // Standalone en vez de una variante más de notifyServiceRequestStatusChanged: a diferencia
-  // de VISTO/CONTACTADO (que son avances del mismo trato), RECHAZADO es una salida negativa —
+  // de SEEN/CONTACTED (que son avances del mismo trato), REJECTED es una salida negativa —
   // el cliente necesita buscar otro proveedor, no solo "enterarse de un avance".
   async notifyServiceRequestRejected(
     clientId: string,
@@ -214,12 +214,12 @@ export class NotificationsService {
     status: string
   ) {
     const labels: Record<string, string> = {
-      CONFIRMADO: 'fue confirmado',
-      PREPARANDO: 'está en preparación',
-      LISTO: 'está listo para entregar',
-      EN_ENTREGA: 'salió para entrega',
-      ENTREGADO: 'fue entregado',
-      CANCELADO: 'fue cancelado',
+      CONFIRMED: 'fue confirmado',
+      PREPARING: 'está en preparación',
+      READY: 'está listo para entregar',
+      OUT_FOR_DELIVERY: 'salió para entrega',
+      DELIVERED: 'fue entregado',
+      CANCELLED: 'fue cancelado',
     };
     const label = labels[status] ?? status.toLowerCase();
     return this.create(commerceId, {
@@ -227,9 +227,9 @@ export class NotificationsService {
       title: `Pedido ${orderNumber}`,
       message: `El pedido ${orderNumber} ${label}`,
       color:
-        status === 'CANCELADO'
+        status === 'CANCELLED'
           ? 'red'
-          : status === 'ENTREGADO'
+          : status === 'DELIVERED'
             ? 'green'
             : 'blue',
       link: '/customer-dashboard',
@@ -243,21 +243,21 @@ export class NotificationsService {
     status: string
   ) {
     const labels: Record<string, string> = {
-      ASIGNADO: 'fue asignado a un repartidor',
-      RECOGIENDO: 'está siendo recogido',
-      EN_CAMINO: 'está en camino',
-      ENTREGADO: 'fue entregado',
-      CANCELADO: 'fue cancelado',
-      FALLIDO: 'falló en la entrega',
+      ASSIGNED: 'fue asignado a un repartidor',
+      PICKING_UP: 'está siendo recogido',
+      IN_TRANSIT: 'está en camino',
+      DELIVERED: 'fue entregado',
+      CANCELLED: 'fue cancelado',
+      FAILED: 'falló en la entrega',
     };
     const label = labels[status] ?? status.toLowerCase();
     return this.create(commerceId, {
       type: NotificationType.DELIVERY,
       title: `Delivery ${orderNumber}`,
       message: `El delivery ${orderNumber} ${label}`,
-      color: ['CANCELADO', 'FALLIDO'].includes(status)
+      color: ['CANCELLED', 'FAILED'].includes(status)
         ? 'red'
-        : status === 'ENTREGADO'
+        : status === 'DELIVERED'
           ? 'green'
           : 'blue',
       link: '/delivery',

@@ -68,7 +68,7 @@ export class ReportsService {
       data: {
         status: dto.status,
         adminNotes: dto.adminNotes,
-        resolvedAt: ['RESUELTO', 'DESCARTADO'].includes(dto.status)
+        resolvedAt: ['RESOLVED', 'DISMISSED'].includes(dto.status)
           ? new Date()
           : null,
       },

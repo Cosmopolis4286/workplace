@@ -68,14 +68,14 @@ export class ServicesService {
 
   async getCatalogCategories() {
     const cats = await this.prisma.serviceCategory.findMany({
-      where: { services: { some: { status: ServiceStatus.ACTIVO } } },
+      where: { services: { some: { status: ServiceStatus.ACTIVE } } },
       select: {
         id: true,
         name: true,
         color: true,
         icon: true,
         _count: {
-          select: { services: { where: { status: ServiceStatus.ACTIVO } } },
+          select: { services: { where: { status: ServiceStatus.ACTIVE } } },
         },
       },
       orderBy: { name: 'asc' },
@@ -94,7 +94,7 @@ export class ServicesService {
   // `tags` y se cuenta en memoria: evita mantener una tabla maestra aparte.
   async getPopularTags(q?: string, limit = 20): Promise<{ tag: string; count: number }[]> {
     const services = await this.prisma.service.findMany({
-      where: { status: ServiceStatus.ACTIVO },
+      where: { status: ServiceStatus.ACTIVE },
       select: { tags: true },
     });
     const counts = new Map<string, number>();
@@ -112,7 +112,7 @@ export class ServicesService {
   async getCatalogProviders(page = 1, limit = 24) {
     limit = Math.min(48, Math.max(1, limit));
     const skip = (page - 1) * limit;
-    const where = { services: { some: { status: ServiceStatus.ACTIVO } } };
+    const where = { services: { some: { status: ServiceStatus.ACTIVE } } };
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
@@ -127,7 +127,7 @@ export class ServicesService {
           category: { select: { name: true } },
           subcategory: { select: { name: true } },
           _count: {
-            select: { services: { where: { status: ServiceStatus.ACTIVO } } },
+            select: { services: { where: { status: ServiceStatus.ACTIVE } } },
           },
         },
       }),
@@ -155,7 +155,7 @@ export class ServicesService {
     const limit = Math.min(48, Math.max(1, parseInt(dto.limit ?? '16')));
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ServiceWhereInput = { status: ServiceStatus.ACTIVO };
+    const where: Prisma.ServiceWhereInput = { status: ServiceStatus.ACTIVE };
 
     if (dto.search) {
       where.OR = [
@@ -223,7 +223,7 @@ export class ServicesService {
 
   async getCatalogServiceById(id: string) {
     const s = await this.prisma.service.findFirst({
-      where: { id, status: ServiceStatus.ACTIVO },
+      where: { id, status: ServiceStatus.ACTIVE },
       select: SERVICE_SELECT,
     });
     if (!s) throw new NotFoundException('Servicio no encontrado');
@@ -265,10 +265,10 @@ export class ServicesService {
       where: { userId },
       _count: { _all: true },
     });
-    const counts: Record<string, number> = { ACTIVO: 0, PAUSADO: 0, INACTIVO: 0 };
+    const counts: Record<string, number> = { ACTIVE: 0, PAUSED: 0, INACTIVE: 0 };
     for (const g of grouped) counts[g.status] = g._count._all;
-    const total = counts.ACTIVO + counts.PAUSADO + counts.INACTIVO;
-    return { total, activos: counts.ACTIVO, pausados: counts.PAUSADO, inactivos: counts.INACTIVO };
+    const total = counts.ACTIVE + counts.PAUSED + counts.INACTIVE;
+    return { total, activos: counts.ACTIVE, pausados: counts.PAUSED, inactivos: counts.INACTIVE };
   }
 
   async createService(userId: string, dto: CreateServiceDto) {
@@ -295,9 +295,9 @@ export class ServicesService {
   async toggleStatus(id: string, userId: string) {
     const s = await this.assertOwner(id, userId);
     const next =
-      s.status === ServiceStatus.ACTIVO
-        ? ServiceStatus.PAUSADO
-        : ServiceStatus.ACTIVO;
+      s.status === ServiceStatus.ACTIVE
+        ? ServiceStatus.PAUSED
+        : ServiceStatus.ACTIVE;
     return this.prisma.service.update({
       where: { id },
       data: { status: next },
@@ -363,7 +363,7 @@ export class ServicesService {
   // ─── Service Requests ─────────────────────────────────────────────────────
 
   // Estados que cuentan como "trato abierto": el proveedor todavía no resolvió la solicitud.
-  private static readonly OPEN_REQUEST_STATUSES = ['PENDIENTE', 'VISTO', 'CONTACTADO'];
+  private static readonly OPEN_REQUEST_STATUSES = ['PENDING', 'SEEN', 'CONTACTED'];
 
   async createServiceRequest(
     dto: CreateServiceRequestDto,
@@ -373,7 +373,7 @@ export class ServicesService {
       where: { id: dto.serviceId },
       select: { id: true, userId: true, status: true },
     });
-    if (!service || service.status !== ServiceStatus.ACTIVO) {
+    if (!service || service.status !== ServiceStatus.ACTIVE) {
       throw new NotFoundException('El servicio no existe o ya no está disponible');
     }
     if (service.userId !== dto.providerId) {
@@ -427,7 +427,7 @@ export class ServicesService {
         serviceName: dto.serviceName,
         providerId: dto.providerId,
         providerName: dto.providerName,
-        modality: dto.modality ?? 'CUALQUIERA',
+        modality: dto.modality ?? 'ANY',
         preferredDate,
         address: dto.address,
         city: dto.city,
@@ -562,7 +562,7 @@ export class ServicesService {
     const [withAvatar] = await this.withAvatars([req]);
 
     // Sugerencia de precio para el proveedor: solo tiene sentido antes de cerrar el trato.
-    if (req.providerId === userId && !req.price && ['PENDIENTE', 'VISTO'].includes(req.status)) {
+    if (req.providerId === userId && !req.price && ['PENDING', 'SEEN'].includes(req.status)) {
       const suggestion = await this.getSuggestedPrice(req.serviceId, req.providerId);
       return { ...withAvatar, ...suggestion };
     }
@@ -575,7 +575,7 @@ export class ServicesService {
   // que es estático y no refleja lo que de verdad se negoció.
   async getSuggestedPrice(serviceId: string, providerId: string) {
     const closed = await this.prisma.serviceRequest.findMany({
-      where: { serviceId, providerId, status: 'CERRADO', price: { not: null } },
+      where: { serviceId, providerId, status: 'CLOSED', price: { not: null } },
       select: { price: true },
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -588,24 +588,24 @@ export class ServicesService {
     };
   }
 
-  // Transiciones válidas: el flujo solo avanza, nunca retrocede, y CERRADO/CANCELADO/RECHAZADO
-  // son terminales. PENDIENTE puede saltar directo a CONTACTADO (el proveedor llamó sin pasar
-  // por "visto" en la app). CANCELADO solo es alcanzable desde PENDIENTE/VISTO (el cliente
-  // cancela antes de que el proveedor invierta tiempo en contactarlo). RECHAZADO es la salida
-  // del proveedor cuando no puede/quiere tomar el trabajo, también solo antes de CONTACTADO.
-  // CERRADO ya NO es alcanzable por el proveedor vía esta tabla — el único camino es que el
+  // Transiciones válidas: el flujo solo avanza, nunca retrocede, y CLOSED/CANCELLED/REJECTED
+  // son terminales. PENDING puede saltar directo a CONTACTED (el proveedor llamó sin pasar
+  // por "visto" en la app). CANCELLED solo es alcanzable desde PENDING/SEEN (el cliente
+  // cancela antes de que el proveedor invierta tiempo en contactarlo). REJECTED es la salida
+  // del proveedor cuando no puede/quiere tomar el trabajo, también solo antes de CONTACTED.
+  // CLOSED ya NO es alcanzable por el proveedor vía esta tabla — el único camino es que el
   // cliente confirme la finalización (confirmServiceRequestCompletion), que es donde se cobra
   // la comisión de plataforma; de lo contrario un proveedor podía cerrar el trato sin pagar fee.
   private static readonly VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
-    PENDIENTE: ['VISTO', 'CONTACTADO', 'RECHAZADO', 'CANCELADO'],
-    VISTO: ['CONTACTADO', 'RECHAZADO', 'CANCELADO'],
-    CONTACTADO: [],
-    CERRADO: [],
-    CANCELADO: [],
-    RECHAZADO: [],
+    PENDING: ['SEEN', 'CONTACTED', 'REJECTED', 'CANCELLED'],
+    SEEN: ['CONTACTED', 'REJECTED', 'CANCELLED'],
+    CONTACTED: [],
+    CLOSED: [],
+    CANCELLED: [],
+    REJECTED: [],
   };
 
-  private static readonly TERMINAL_STATUSES = ['CERRADO', 'CANCELADO', 'RECHAZADO'];
+  private static readonly TERMINAL_STATUSES = ['CLOSED', 'CANCELLED', 'REJECTED'];
 
   private assertValidStatusTransition(from: string, to: string) {
     // Un estado terminal no admite ningún cambio, ni siquiera a sí mismo: evita que
@@ -629,12 +629,12 @@ export class ServicesService {
       throw new ForbiddenException('No tienes permiso');
     const update: any = {};
     if (data.status !== undefined) {
-      // CANCELADO is client-only — provider cannot cancel on behalf of the client
-      if (data.status === 'CANCELADO')
+      // CANCELLED is client-only — provider cannot cancel on behalf of the client
+      if (data.status === 'CANCELLED')
         throw new ForbiddenException('Solo el cliente puede cancelar una solicitud');
-      // CERRADO is client-only — only confirmServiceRequestCompletion can close a request,
+      // CLOSED is client-only — only confirmServiceRequestCompletion can close a request,
       // so the platform fee is always charged when a deal is marked as done.
-      if (data.status === 'CERRADO')
+      if (data.status === 'CLOSED')
         throw new ForbiddenException('Solo el cliente puede confirmar la finalización de una solicitud');
       this.assertValidStatusTransition(req.status, data.status);
       update.status = data.status;
@@ -668,13 +668,13 @@ export class ServicesService {
         },
       });
 
-      if (req.requesterId && ['VISTO', 'CONTACTADO'].includes(data.status)) {
+      if (req.requesterId && ['SEEN', 'CONTACTED'].includes(data.status)) {
         this.notifications
-          .notifyServiceRequestStatusChanged(req.requesterId, req.providerName, req.serviceName, data.status as 'VISTO' | 'CONTACTADO')
+          .notifyServiceRequestStatusChanged(req.requesterId, req.providerName, req.serviceName, data.status as 'SEEN' | 'CONTACTED')
           .catch(() => {});
       }
 
-      if (req.requesterId && data.status === 'RECHAZADO') {
+      if (req.requesterId && data.status === 'REJECTED') {
         this.notifications
           .notifyServiceRequestRejected(req.requesterId, req.providerName, req.serviceName)
           .catch(() => {});
@@ -706,7 +706,7 @@ export class ServicesService {
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.requesterId !== userId)
       throw new ForbiddenException('No tienes permiso');
-    if (req.status !== 'CONTACTADO')
+    if (req.status !== 'CONTACTED')
       throw new ForbiddenException(
         'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor',
       );
@@ -720,7 +720,7 @@ export class ServicesService {
       }
     }
 
-    // Charge fee and update status atomically — if fee charge fails, status stays CONTACTADO
+    // Charge fee and update status atomically — if fee charge fails, status stays CONTACTED
     if (feeData) {
       await this.platformFees.chargeProviderFee(
         'SERVICE_REQUEST',
@@ -734,7 +734,7 @@ export class ServicesService {
     const updated = await this.prisma.serviceRequest.update({
       where: { id },
       data: {
-        status: 'CERRADO',
+        status: 'CLOSED',
         statusUpdatedAt: new Date(),
         ...(feeData ? {
           platformFeeRate: feeData.feeConfig.rate,
@@ -748,7 +748,7 @@ export class ServicesService {
       data: {
         serviceRequestId: id,
         previousStatus: req.status,
-        newStatus: 'CERRADO',
+        newStatus: 'CLOSED',
         changedBy: userId,
       },
     });
@@ -759,24 +759,24 @@ export class ServicesService {
   }
 
   // El cliente (requester) cancela su propia solicitud antes de que el proveedor
-  // invierta tiempo contactándolo. Solo válido desde PENDIENTE/VISTO.
+  // invierta tiempo contactándolo. Solo válido desde PENDING/SEEN.
   async cancelServiceRequest(id: string, userId: string) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.requesterId !== userId)
       throw new ForbiddenException('No tienes permiso');
-    this.assertValidStatusTransition(req.status, 'CANCELADO');
+    this.assertValidStatusTransition(req.status, 'CANCELLED');
 
     const updated = await this.prisma.serviceRequest.update({
       where: { id },
-      data: { status: 'CANCELADO', statusUpdatedAt: new Date() },
+      data: { status: 'CANCELLED', statusUpdatedAt: new Date() },
     });
 
     await this.prisma.serviceRequestStatusHistory.create({
       data: {
         serviceRequestId: id,
         previousStatus: req.status,
-        newStatus: 'CANCELADO',
+        newStatus: 'CANCELLED',
         changedBy: userId,
       },
     });

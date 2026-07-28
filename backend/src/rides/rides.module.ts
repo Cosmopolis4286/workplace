@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { CorridasController } from './corridas.controller';
-import { CorridasService } from './corridas.service';
+import { RidesController } from './rides.controller';
+import { RidesService } from './rides.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PlatformFeesModule } from '../domains/money/platform-fees/platform-fees.module';
 
 @Module({
   imports: [PrismaModule, PlatformFeesModule],
-  controllers: [CorridasController],
-  providers: [CorridasService],
+  controllers: [RidesController],
+  providers: [RidesService],
 })
-export class CorridasModule {}
+export class RidesModule {}

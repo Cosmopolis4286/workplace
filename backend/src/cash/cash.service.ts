@@ -32,7 +32,7 @@ export class CashService {
 
   async getCurrent(commerceId: string) {
     const session = await this.prisma.cashSession.findFirst({
-      where: { commerceId, status: 'ABIERTA' },
+      where: { commerceId, status: 'OPEN' },
       include: { movements: { orderBy: { createdAt: 'desc' } } },
     });
     if (!session) return null;
@@ -43,7 +43,7 @@ export class CashService {
 
   async open(commerceId: string, openedBy: string, dto: OpenSessionDto) {
     const existing = await this.prisma.cashSession.findFirst({
-      where: { commerceId, status: 'ABIERTA' },
+      where: { commerceId, status: 'OPEN' },
     });
     if (existing) throw new ConflictException(this.i18n.t('cash.session.already_open'));
 
@@ -59,7 +59,7 @@ export class CashService {
 
   async close(commerceId: string, closedBy: string, dto: CloseSessionDto) {
     const session = await this.prisma.cashSession.findFirst({
-      where: { commerceId, status: 'ABIERTA' },
+      where: { commerceId, status: 'OPEN' },
     });
     if (!session) throw new NotFoundException(this.i18n.t('cash.session.no_open_session'));
 
@@ -69,7 +69,7 @@ export class CashService {
     return this.prisma.cashSession.update({
       where: { id: session.id },
       data: {
-        status: 'CERRADA',
+        status: 'CLOSED',
         countedAmount: dto.countedAmount,
         expectedAmount,
         difference,
@@ -84,7 +84,7 @@ export class CashService {
 
   async addMovement(commerceId: string, dto: CreateMovementDto) {
     const session = await this.prisma.cashSession.findFirst({
-      where: { commerceId, status: 'ABIERTA' },
+      where: { commerceId, status: 'OPEN' },
     });
     if (!session) throw new NotFoundException(this.i18n.t('cash.session.no_open_session'));
 
@@ -144,8 +144,8 @@ export class CashService {
       this.prisma.order.aggregate({
         where: {
           commerceId,
-          paymentMethod: 'EFECTIVO',
-          status: { not: 'CANCELADO' },
+          paymentMethod: 'CASH',
+          status: { not: 'CANCELLED' },
           createdAt: { gte: session.openedAt },
         },
         _sum: { total: true },
@@ -159,8 +159,8 @@ export class CashService {
     ]);
 
     const movementsByType: Record<CashMovementType, number> = {
-      INGRESO: 0,
-      RETIRO: 0,
+      INCOME: 0,
+      WITHDRAWAL: 0,
     };
     for (const m of movements) movementsByType[m.type] = m._sum.amount ?? 0;
 
@@ -168,14 +168,14 @@ export class CashService {
     const expectedAmount =
       session.openingAmount +
       cashSalesTotal +
-      movementsByType.INGRESO -
-      movementsByType.RETIRO;
+      movementsByType.INCOME -
+      movementsByType.WITHDRAWAL;
 
     return {
       cashSalesTotal,
       cashSalesCount: cashSales._count,
-      manualIncome: movementsByType.INGRESO,
-      manualWithdrawals: movementsByType.RETIRO,
+      manualIncome: movementsByType.INCOME,
+      manualWithdrawals: movementsByType.WITHDRAWAL,
       expectedAmount,
     };
   }

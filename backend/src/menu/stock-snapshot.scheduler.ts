@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 
-// Toma una foto diaria del conteo de productos en BAJO_STOCK por comercio.
+// Toma una foto diaria del conteo de productos en LOW_STOCK por comercio.
 // Es la única forma de graficar una tendencia real: el stock es mutable y
 // no versionado, así que sin este snapshot no hay historial que consultar.
 @Injectable()
@@ -27,7 +27,7 @@ export class StockSnapshotScheduler {
 
     const counts = await this.prisma.product.groupBy({
       by: ['commerceId'],
-      where: { status: 'BAJO_STOCK' },
+      where: { status: 'LOW_STOCK' },
       _count: { id: true },
     });
 

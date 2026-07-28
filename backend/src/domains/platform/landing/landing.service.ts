@@ -111,7 +111,7 @@ export class LandingService {
         return `${count}+`
       }
       case 'services': {
-        const count = await this.prisma.serviceRequest.count({ where: { status: 'CERRADO' } })
+        const count = await this.prisma.serviceRequest.count({ where: { status: 'CLOSED' } })
         return count > 1000 ? `${Math.floor(count / 1000)}k+` : `${count}+`
       }
       case 'rating': {

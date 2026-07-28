@@ -2,11 +2,11 @@ import { IsOptional, IsEnum, IsNumberString, IsString, Matches } from 'class-val
 import { OrderType } from '@prisma/client';
 
 const STATUS_LIST_PATTERN =
-  /^(PENDIENTE|CONFIRMADO|PREPARANDO|LISTO|EN_ENTREGA|ENTREGADO|CANCELADO)(,(PENDIENTE|CONFIRMADO|PREPARANDO|LISTO|EN_ENTREGA|ENTREGADO|CANCELADO))*$/;
+  /^(PENDING|CONFIRMED|PREPARING|READY|OUT_FOR_DELIVERY|DELIVERED|CANCELLED)(,(PENDING|CONFIRMED|PREPARING|READY|OUT_FOR_DELIVERY|DELIVERED|CANCELLED))*$/;
 
 export class QueryOrdersDto {
-  // Acepta un status único ("PENDIENTE") o varios separados por coma
-  // ("PENDIENTE,CONFIRMADO,PREPARANDO") para evitar múltiples roundtrips.
+  // Acepta un status único ("PENDING") o varios separados por coma
+  // ("PENDING,CONFIRMED,PREPARING") para evitar múltiples roundtrips.
   @IsOptional()
   @IsString()
   @Matches(STATUS_LIST_PATTERN)

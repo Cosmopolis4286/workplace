@@ -87,9 +87,9 @@ export class DeliveryService {
           commerceId,
           status: {
             in: [
-              DeliveryStatus.ASIGNADO,
-              DeliveryStatus.RECOGIENDO,
-              DeliveryStatus.EN_CAMINO,
+              DeliveryStatus.ASSIGNED,
+              DeliveryStatus.PICKING_UP,
+              DeliveryStatus.IN_TRANSIT,
             ],
           },
         },
@@ -99,22 +99,22 @@ export class DeliveryService {
       }),
       this.prisma.driver.count({ where: { commerceId, isActive: true } }),
       this.prisma.driver.count({
-        where: { commerceId, isActive: true, status: DriverStatus.DISPONIBLE },
+        where: { commerceId, isActive: true, status: DriverStatus.AVAILABLE },
       }),
       this.prisma.delivery.count({
         where: {
           commerceId,
-          status: DeliveryStatus.ENTREGADO,
+          status: DeliveryStatus.DELIVERED,
           deliveredAt: { gte: todayStart, lte: todayEnd },
         },
       }),
       this.prisma.delivery.count({
-        where: { commerceId, status: DeliveryStatus.PENDIENTE },
+        where: { commerceId, status: DeliveryStatus.PENDING },
       }),
       this.prisma.delivery.count({
         where: {
           commerceId,
-          status: DeliveryStatus.CANCELADO,
+          status: DeliveryStatus.CANCELLED,
           updatedAt: { gte: todayStart, lte: todayEnd },
         },
       }),
@@ -124,7 +124,7 @@ export class DeliveryService {
     const completedToday = await this.prisma.delivery.findMany({
       where: {
         commerceId,
-        status: DeliveryStatus.ENTREGADO,
+        status: DeliveryStatus.DELIVERED,
         deliveredAt: { gte: todayStart, lte: todayEnd },
         pickedUpAt: { not: null },
       },
@@ -194,7 +194,7 @@ export class DeliveryService {
     // Soft delete: mark as inactive
     return this.prisma.driver.update({
       where: { id: driver.id },
-      data: { isActive: false, status: DriverStatus.INACTIVO },
+      data: { isActive: false, status: DriverStatus.INACTIVE },
     });
   }
 
@@ -281,7 +281,7 @@ export class DeliveryService {
       data: {
         ...dto,
         commerceId,
-        status: dto.status ?? DeliveryStatus.PENDIENTE,
+        status: dto.status ?? DeliveryStatus.PENDING,
       },
       include: {
         driver: {
@@ -297,11 +297,11 @@ export class DeliveryService {
       },
     });
 
-    // If driver assigned, update driver status to EN_ENTREGA
-    if (dto.driverId && delivery.status !== DeliveryStatus.ENTREGADO) {
+    // If driver assigned, update driver status to ON_DELIVERY
+    if (dto.driverId && delivery.status !== DeliveryStatus.DELIVERED) {
       await this.prisma.driver.update({
         where: { id: dto.driverId },
-        data: { status: DriverStatus.EN_ENTREGA },
+        data: { status: DriverStatus.ON_DELIVERY },
       });
     }
 
@@ -359,33 +359,33 @@ export class DeliveryService {
     const data: Record<string, unknown> = { status };
 
     if (
-      status === DeliveryStatus.RECOGIENDO ||
-      status === DeliveryStatus.EN_CAMINO
+      status === DeliveryStatus.PICKING_UP ||
+      status === DeliveryStatus.IN_TRANSIT
     ) {
       data.pickedUpAt = data.pickedUpAt ?? delivery.pickedUpAt ?? new Date();
     }
-    if (status === DeliveryStatus.ENTREGADO) {
+    if (status === DeliveryStatus.DELIVERED) {
       data.deliveredAt = new Date();
       // Free the driver
       if (delivery.driverId) {
         await this.prisma.driver.update({
           where: { id: delivery.driverId },
           data: {
-            status: DriverStatus.DISPONIBLE,
+            status: DriverStatus.AVAILABLE,
             totalDeliveries: { increment: 1 },
           },
         });
       }
     }
     if (
-      status === DeliveryStatus.CANCELADO ||
-      status === DeliveryStatus.FALLIDO
+      status === DeliveryStatus.CANCELLED ||
+      status === DeliveryStatus.FAILED
     ) {
       // Free the driver
       if (delivery.driverId) {
         await this.prisma.driver.update({
           where: { id: delivery.driverId },
-          data: { status: DriverStatus.DISPONIBLE },
+          data: { status: DriverStatus.AVAILABLE },
         });
       }
     }
@@ -418,12 +418,12 @@ export class DeliveryService {
       });
       if (customer?.telegramChatId) {
         const statusEmoji: Record<string, string> = {
-          ASIGNADO: '🔔 Asignado a repartidor',
-          RECOGIENDO: '🏃 Repartidor en camino a recoger',
-          EN_CAMINO: '🚚 Tu pedido va en camino',
-          ENTREGADO: '🎉 ¡Pedido entregado!',
-          CANCELADO: '❌ Entrega cancelada',
-          FALLIDO: '⚠️ Entrega fallida — contáctanos',
+          ASSIGNED: '🔔 Asignado a repartidor',
+          PICKING_UP: '🏃 Repartidor en camino a recoger',
+          IN_TRANSIT: '🚚 Tu pedido va en camino',
+          DELIVERED: '🎉 ¡Pedido entregado!',
+          CANCELLED: '❌ Entrega cancelada',
+          FAILED: '⚠️ Entrega fallida — contáctanos',
         };
         const label = statusEmoji[status] ?? status;
         this.telegram
@@ -455,7 +455,7 @@ export class DeliveryService {
     const [delivery] = await Promise.all([
       this.prisma.delivery.update({
         where: { id: deliveryId },
-        data: { driverId, status: DeliveryStatus.ASIGNADO },
+        data: { driverId, status: DeliveryStatus.ASSIGNED },
         include: {
           driver: {
             select: {
@@ -471,7 +471,7 @@ export class DeliveryService {
       }),
       this.prisma.driver.update({
         where: { id: driverId },
-        data: { status: DriverStatus.EN_ENTREGA },
+        data: { status: DriverStatus.ON_DELIVERY },
       }),
     ]);
 

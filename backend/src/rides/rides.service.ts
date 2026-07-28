@@ -5,13 +5,13 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CorridaStatus, CorridaVehicleType, CorridaServiceType } from '@prisma/client';
-import { CreateCorridaDto } from './dto/create-corrida.dto';
+import { RideStatus, RideVehicleType, RideServiceType } from '@prisma/client';
+import { CreateRideDto } from './dto/create-ride.dto';
 import { CalculatePriceDto } from './dto/calculate-price.dto';
 import { PlatformFeesService } from '../domains/money/platform-fees/platform-fees.service';
 
-const PRICE_PER_KM: Record<CorridaVehicleType, number> = { MOTO: 8, AUTO: 12, CAMIONETA: 16, CAMION: 22 };
-const BASE_FARE: Record<CorridaVehicleType, number> = { MOTO: 20, AUTO: 35, CAMIONETA: 60, CAMION: 90 };
+const PRICE_PER_KM: Record<RideVehicleType, number> = { MOTORCYCLE: 8, CAR: 12, PICKUP_TRUCK: 16, TRUCK: 22 };
+const BASE_FARE: Record<RideVehicleType, number> = { MOTORCYCLE: 20, CAR: 35, PICKUP_TRUCK: 60, TRUCK: 90 };
 const AVG_SPEED_KMH = 30;
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -31,7 +31,7 @@ function calcPrice(
   originLng: number,
   destLat: number,
   destLng: number,
-  vehicleType: CorridaVehicleType,
+  vehicleType: RideVehicleType,
 ) {
   const distance = Math.max(haversineKm(originLat, originLng, destLat, destLng), 0.5);
   const duration = Math.ceil((distance / AVG_SPEED_KMH) * 60);
@@ -41,7 +41,7 @@ function calcPrice(
   return { price, distance: parseFloat(distance.toFixed(2)), duration };
 }
 
-const CORRIDA_SELECT = {
+const RIDE_SELECT = {
   id: true,
   serviceType: true,
   origin: true,
@@ -73,31 +73,31 @@ const CORRIDA_SELECT = {
   driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
 } as const;
 
-function formatCorrida(c: any) {
+function formatRide(r: any) {
   return {
-    ...c,
-    passengerName: c.passenger ? `${c.passenger.firstName} ${c.passenger.lastName}` : undefined,
-    passengerPhone: c.passenger?.phone,
-    driverName: c.driver ? `${c.driver.firstName} ${c.driver.lastName}` : undefined,
-    driverPhone: c.driver?.phone,
+    ...r,
+    passengerName: r.passenger ? `${r.passenger.firstName} ${r.passenger.lastName}` : undefined,
+    passengerPhone: r.passenger?.phone,
+    driverName: r.driver ? `${r.driver.firstName} ${r.driver.lastName}` : undefined,
+    driverPhone: r.driver?.phone,
     passenger: undefined,
     driver: undefined,
   };
 }
 
-const ACTIVE_STATUSES: CorridaStatus[] = [
-  CorridaStatus.PENDING,
-  CorridaStatus.ACCEPTED,
-  CorridaStatus.IN_PROGRESS,
+const ACTIVE_STATUSES: RideStatus[] = [
+  RideStatus.PENDING,
+  RideStatus.ACCEPTED,
+  RideStatus.IN_PROGRESS,
 ];
 
-const ALLOWED_TRANSITIONS: Partial<Record<CorridaStatus, CorridaStatus[]>> = {
-  [CorridaStatus.ACCEPTED]: [CorridaStatus.IN_PROGRESS],
-  [CorridaStatus.IN_PROGRESS]: [CorridaStatus.COMPLETED],
+const ALLOWED_TRANSITIONS: Partial<Record<RideStatus, RideStatus[]>> = {
+  [RideStatus.ACCEPTED]: [RideStatus.IN_PROGRESS],
+  [RideStatus.IN_PROGRESS]: [RideStatus.COMPLETED],
 };
 
 @Injectable()
-export class CorridasService {
+export class RidesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformFees: PlatformFeesService,
@@ -107,13 +107,13 @@ export class CorridasService {
     return calcPrice(dto.originLat, dto.originLng, dto.destinationLat, dto.destinationLng, dto.vehicleType);
   }
 
-  async create(passengerId: string, dto: CreateCorridaDto) {
-    const active = await this.prisma.corrida.findFirst({
+  async create(passengerId: string, dto: CreateRideDto) {
+    const active = await this.prisma.ride.findFirst({
       where: { passengerId, status: { in: ACTIVE_STATUSES } },
     });
     if (active) throw new BadRequestException('Ya tienes un viaje activo en progreso');
 
-    const vehicleType = dto.vehicleType ?? CorridaVehicleType.MOTO;
+    const vehicleType = dto.vehicleType ?? RideVehicleType.MOTORCYCLE;
     let price: number | undefined;
     let distance: number | undefined;
     let duration: number | undefined;
@@ -132,9 +132,9 @@ export class CorridasService {
       price = Math.round((price + platformFeeAmount) * 100) / 100;
     }
 
-    const corrida = await this.prisma.corrida.create({
+    const ride = await this.prisma.ride.create({
       data: {
-        serviceType: dto.serviceType ?? CorridaServiceType.PASAJERO,
+        serviceType: dto.serviceType ?? RideServiceType.PASSENGER,
         origin: dto.origin,
         destination: dto.destination,
         originLat: dto.originLat,
@@ -156,95 +156,95 @@ export class CorridasService {
         platformFeeAmount: feeConfig?.payer === 'CLIENT' ? platformFeeAmount : undefined,
         platformFeePayer: feeConfig?.payer === 'CLIENT' ? 'CLIENT' : undefined,
       },
-      select: CORRIDA_SELECT,
+      select: RIDE_SELECT,
     });
-    return formatCorrida(corrida);
+    return formatRide(ride);
   }
 
-  async findAvailable(serviceType?: CorridaServiceType) {
-    const corridas = await this.prisma.corrida.findMany({
-      where: { status: CorridaStatus.PENDING, ...(serviceType ? { serviceType } : {}) },
+  async findAvailable(serviceType?: RideServiceType) {
+    const rides = await this.prisma.ride.findMany({
+      where: { status: RideStatus.PENDING, ...(serviceType ? { serviceType } : {}) },
       orderBy: { createdAt: 'asc' },
-      select: CORRIDA_SELECT,
+      select: RIDE_SELECT,
     });
-    return corridas.map(formatCorrida);
+    return rides.map(formatRide);
   }
 
   async findMine(passengerId: string) {
-    const corridas = await this.prisma.corrida.findMany({
+    const rides = await this.prisma.ride.findMany({
       where: { passengerId },
       orderBy: { createdAt: 'desc' },
-      select: CORRIDA_SELECT,
+      select: RIDE_SELECT,
     });
-    return corridas.map(formatCorrida);
+    return rides.map(formatRide);
   }
 
-  async findDriverCorridas(driverId: string) {
-    const corridas = await this.prisma.corrida.findMany({
+  async findDriverRides(driverId: string) {
+    const rides = await this.prisma.ride.findMany({
       where: { driverId },
       orderBy: { createdAt: 'desc' },
-      select: CORRIDA_SELECT,
+      select: RIDE_SELECT,
     });
-    return corridas.map(formatCorrida);
+    return rides.map(formatRide);
   }
 
-  async findOne(userId: string, corridaId: string) {
-    const corrida = await this.prisma.corrida.findUnique({
-      where: { id: corridaId },
-      select: CORRIDA_SELECT,
+  async findOne(userId: string, rideId: string) {
+    const ride = await this.prisma.ride.findUnique({
+      where: { id: rideId },
+      select: RIDE_SELECT,
     });
-    if (!corrida) throw new NotFoundException('Corrida no encontrada');
-    if (corrida.passengerId !== userId && corrida.driverId !== userId) {
+    if (!ride) throw new NotFoundException('Corrida no encontrada');
+    if (ride.passengerId !== userId && ride.driverId !== userId) {
       throw new ForbiddenException('No tienes acceso a esta corrida');
     }
-    return formatCorrida(corrida);
+    return formatRide(ride);
   }
 
-  async accept(driverId: string, corridaId: string) {
-    const corrida = await this.prisma.corrida.findUnique({ where: { id: corridaId } });
-    if (!corrida) throw new NotFoundException('Corrida no encontrada');
-    if (corrida.status !== CorridaStatus.PENDING) throw new BadRequestException('Esta corrida ya no está disponible');
-    if (corrida.passengerId === driverId) throw new BadRequestException('No puedes aceptar tu propia corrida');
+  async accept(driverId: string, rideId: string) {
+    const ride = await this.prisma.ride.findUnique({ where: { id: rideId } });
+    if (!ride) throw new NotFoundException('Corrida no encontrada');
+    if (ride.status !== RideStatus.PENDING) throw new BadRequestException('Esta corrida ya no está disponible');
+    if (ride.passengerId === driverId) throw new BadRequestException('No puedes aceptar tu propia corrida');
 
-    const activeAsDriver = await this.prisma.corrida.findFirst({
-      where: { driverId, status: { in: [CorridaStatus.ACCEPTED, CorridaStatus.IN_PROGRESS] } },
+    const activeAsDriver = await this.prisma.ride.findFirst({
+      where: { driverId, status: { in: [RideStatus.ACCEPTED, RideStatus.IN_PROGRESS] } },
     });
     if (activeAsDriver) throw new BadRequestException('Ya tienes un viaje activo como conductor');
 
-    const updated = await this.prisma.corrida.update({
-      where: { id: corridaId },
-      data: { status: CorridaStatus.ACCEPTED, driverId, acceptedAt: new Date() },
-      select: CORRIDA_SELECT,
+    const updated = await this.prisma.ride.update({
+      where: { id: rideId },
+      data: { status: RideStatus.ACCEPTED, driverId, acceptedAt: new Date() },
+      select: RIDE_SELECT,
     });
-    return formatCorrida(updated);
+    return formatRide(updated);
   }
 
-  async updateStatus(userId: string, corridaId: string, status: CorridaStatus) {
-    const corrida = await this.prisma.corrida.findUnique({ where: { id: corridaId } });
-    if (!corrida) throw new NotFoundException('Corrida no encontrada');
+  async updateStatus(userId: string, rideId: string, status: RideStatus) {
+    const ride = await this.prisma.ride.findUnique({ where: { id: rideId } });
+    if (!ride) throw new NotFoundException('Corrida no encontrada');
 
-    if (!(ALLOWED_TRANSITIONS[corrida.status] ?? []).includes(status)) {
-      throw new BadRequestException(`No se puede cambiar de ${corrida.status} a ${status}`);
+    if (!(ALLOWED_TRANSITIONS[ride.status] ?? []).includes(status)) {
+      throw new BadRequestException(`No se puede cambiar de ${ride.status} a ${status}`);
     }
-    if (corrida.driverId !== userId) {
+    if (ride.driverId !== userId) {
       throw new ForbiddenException('Solo el conductor asignado puede actualizar el estado');
     }
 
     const extra: Partial<{ startedAt: Date; completedAt: Date; platformFeeRate: number; platformFeeAmount: number; platformFeePayer: 'PROVIDER' }> = {};
-    if (status === CorridaStatus.IN_PROGRESS) extra.startedAt = new Date();
-    if (status === CorridaStatus.COMPLETED) {
+    if (status === RideStatus.IN_PROGRESS) extra.startedAt = new Date();
+    if (status === RideStatus.COMPLETED) {
       extra.completedAt = new Date();
 
-      if (!corrida.platformFeePayer && corrida.price && corrida.driverId) {
-        const feeConfig = await this.platformFees.resolveFeeConfig('CORRIDA', corrida.driverId);
+      if (!ride.platformFeePayer && ride.price && ride.driverId) {
+        const feeConfig = await this.platformFees.resolveFeeConfig('CORRIDA', ride.driverId);
         if (feeConfig?.payer === 'PROVIDER') {
-          const { feeAmount } = this.platformFees.calculateFee(corrida.price, feeConfig);
+          const { feeAmount } = this.platformFees.calculateFee(ride.price, feeConfig);
           await this.platformFees.chargeProviderFee(
             'CORRIDA',
-            corrida.driverId,
+            ride.driverId,
             feeAmount,
-            `FEE-RIDE-${corridaId}`,
-            { corridaId },
+            `FEE-RIDE-${rideId}`,
+            { rideId },
           );
           extra.platformFeeRate = feeConfig.rate;
           extra.platformFeeAmount = feeAmount;
@@ -253,25 +253,25 @@ export class CorridasService {
       }
     }
 
-    const updated = await this.prisma.corrida.update({
-      where: { id: corridaId },
+    const updated = await this.prisma.ride.update({
+      where: { id: rideId },
       data: { status, ...extra },
-      select: CORRIDA_SELECT,
+      select: RIDE_SELECT,
     });
-    return formatCorrida(updated);
+    return formatRide(updated);
   }
 
-  async cancel(passengerId: string, corridaId: string) {
-    const corrida = await this.prisma.corrida.findUnique({ where: { id: corridaId } });
-    if (!corrida) throw new NotFoundException('Corrida no encontrada');
-    if (corrida.passengerId !== passengerId) throw new ForbiddenException('No puedes cancelar esta corrida');
-    if (corrida.status !== CorridaStatus.PENDING) throw new BadRequestException('Solo puedes cancelar corridas pendientes');
+  async cancel(passengerId: string, rideId: string) {
+    const ride = await this.prisma.ride.findUnique({ where: { id: rideId } });
+    if (!ride) throw new NotFoundException('Corrida no encontrada');
+    if (ride.passengerId !== passengerId) throw new ForbiddenException('No puedes cancelar esta corrida');
+    if (ride.status !== RideStatus.PENDING) throw new BadRequestException('Solo puedes cancelar corridas pendientes');
 
-    const updated = await this.prisma.corrida.update({
-      where: { id: corridaId },
-      data: { status: CorridaStatus.CANCELLED, cancelledAt: new Date() },
-      select: CORRIDA_SELECT,
+    const updated = await this.prisma.ride.update({
+      where: { id: rideId },
+      data: { status: RideStatus.CANCELLED, cancelledAt: new Date() },
+      select: RIDE_SELECT,
     });
-    return formatCorrida(updated);
+    return formatRide(updated);
   }
 }

@@ -214,9 +214,9 @@ export class MenuService {
     }
 
     let newStatus: ProductStatus;
-    if (newStock === 0) newStatus = ProductStatus.AGOTADO;
-    else if (newStock <= product.minStock) newStatus = ProductStatus.BAJO_STOCK;
-    else newStatus = ProductStatus.DISPONIBLE;
+    if (newStock === 0) newStatus = ProductStatus.OUT_OF_STOCK;
+    else if (newStock <= product.minStock) newStatus = ProductStatus.LOW_STOCK;
+    else newStatus = ProductStatus.AVAILABLE;
 
     const updated = await this.prisma.product.update({
       where: { id: productId },
@@ -225,8 +225,8 @@ export class MenuService {
     });
 
     if (
-      newStatus === ProductStatus.BAJO_STOCK ||
-      newStatus === ProductStatus.AGOTADO
+      newStatus === ProductStatus.LOW_STOCK ||
+      newStatus === ProductStatus.OUT_OF_STOCK
     ) {
       this.notifications
         .notifyLowStock(commerceId, product.name, newStock)
@@ -241,7 +241,7 @@ export class MenuService {
     const product = await this.assertProductOwnership(productId, commerceId);
 
     const newStatus =
-      product.status === 'DISPONIBLE' ? 'NO_DISPONIBLE' : 'DISPONIBLE';
+      product.status === 'AVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE';
     return this.prisma.product.update({
       where: { id: productId },
       data: { status: newStatus },

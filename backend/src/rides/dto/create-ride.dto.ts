@@ -1,10 +1,10 @@
 import { IsString, IsEnum, IsOptional, IsNumber, MinLength } from 'class-validator';
-import { CorridaVehicleType, CorridaServiceType } from '@prisma/client';
+import { RideVehicleType, RideServiceType } from '@prisma/client';
 
-export class CreateCorridaDto {
+export class CreateRideDto {
   @IsOptional()
-  @IsEnum(CorridaServiceType)
-  serviceType?: CorridaServiceType;
+  @IsEnum(RideServiceType)
+  serviceType?: RideServiceType;
 
   @IsString()
   @MinLength(3)
@@ -31,14 +31,14 @@ export class CreateCorridaDto {
   destinationLng?: number;
 
   @IsOptional()
-  @IsEnum(CorridaVehicleType)
-  vehicleType?: CorridaVehicleType;
+  @IsEnum(RideVehicleType)
+  vehicleType?: RideVehicleType;
 
   @IsOptional()
   @IsString()
   notes?: string;
 
-  // ─── Datos de flete (solo aplican cuando serviceType = FLETE) ──────────────
+  // ─── Datos de flete (solo aplican cuando serviceType = FREIGHT) ──────────────
   @IsOptional()
   @IsString()
   recipientName?: string;

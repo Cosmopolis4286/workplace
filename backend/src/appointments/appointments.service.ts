@@ -61,13 +61,13 @@ export class AppointmentsService {
           where: { commerceId, date: { gte: todayStart, lte: todayEnd } },
         }),
         this.prisma.appointment.count({
-          where: { commerceId, status: AppointmentStatus.CONFIRMADA },
+          where: { commerceId, status: AppointmentStatus.CONFIRMED },
         }),
         this.prisma.appointment.count({
-          where: { commerceId, status: AppointmentStatus.PENDIENTE },
+          where: { commerceId, status: AppointmentStatus.PENDING },
         }),
         this.prisma.appointment.count({
-          where: { commerceId, status: AppointmentStatus.CANCELADA },
+          where: { commerceId, status: AppointmentStatus.CANCELLED },
         }),
         this.prisma.appointment.count({
           where: { commerceId, status: AppointmentStatus.NO_SHOW },

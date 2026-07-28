@@ -125,8 +125,8 @@ export class ProfilesService {
   }
 
   // Promedio de tiempo entre la creación de una solicitud de servicio y la
-  // primera reacción real del proveedor (VISTO/CONTACTADO/CERRADO). Se excluyen
-  // PENDIENTE (sin respuesta) y CANCELADO (no hubo respuesta real del proveedor).
+  // primera reacción real del proveedor (SEEN/CONTACTED/CLOSED). Se excluyen
+  // PENDING (sin respuesta) y CANCELLED (no hubo respuesta real del proveedor).
   // Limitado a las últimas 50 para no escanear todo el histórico en cada visita.
   private async getAvgResponseHours(providerId: string): Promise<number | null> {
     const cached = await this.redis.get(avgResponseCacheKey(providerId));
@@ -135,7 +135,7 @@ export class ProfilesService {
     const responded = await this.prisma.serviceRequest.findMany({
       where: {
         providerId,
-        status: { in: ['VISTO', 'CONTACTADO', 'CERRADO'] },
+        status: { in: ['SEEN', 'CONTACTED', 'CLOSED'] },
         statusUpdatedAt: { not: null },
       },
       select: { createdAt: true, statusUpdatedAt: true },
@@ -473,7 +473,7 @@ export class ProfilesService {
       where: {
         requesterId: authorId,
         providerId: targetId,
-        status: 'CERRADO',
+        status: 'CLOSED',
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -487,7 +487,7 @@ export class ProfilesService {
         where: {
           requesterId: authorId,
           commerceId: restaurant.id,
-          status: 'CERRADO',
+          status: 'CLOSED',
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -584,7 +584,7 @@ export class ProfilesService {
 
   async listReportedReviews() {
     return this.prisma.reviewReport.findMany({
-      where: { status: 'PENDIENTE' },
+      where: { status: 'PENDING' },
       orderBy: { createdAt: 'desc' },
       include: {
         review: {
@@ -618,8 +618,8 @@ export class ProfilesService {
     }
 
     await this.prisma.reviewReport.updateMany({
-      where: { reviewId, status: 'PENDIENTE' },
-      data: { status: action === 'DISMISS_REPORTS' ? 'DESCARTADO' : 'REVISADO' },
+      where: { reviewId, status: 'PENDING' },
+      data: { status: action === 'DISMISS_REPORTS' ? 'DISMISSED' : 'REVIEWED' },
     });
 
     return { message: 'Moderación aplicada' };

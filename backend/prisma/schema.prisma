@@ -84,8 +84,8 @@ model User {
   wallet                  Wallet?
   walletTransactions      WalletTransaction[]
   userPermissions         UserPermission[]
-  corridasAsPassenger     Corrida[]                @relation("PassengerCorridas")
-  corridasAsDriver        Corrida[]                @relation("DriverCorridas")
+  ridesAsPassenger        Ride[]                   @relation("RidePassenger")
+  ridesAsDriver           Ride[]                   @relation("RideDriver")
   reportsFiled            Report[]
 
   // Jobs / Empleos
@@ -250,7 +250,7 @@ model Customer {
   phone          String?
   address        String?
   notes          String?
-  segment        CustomerSegment @default(NUEVO)
+  segment        CustomerSegment @default(NEW)
   totalOrders    Int             @default(0)
   totalSpent     Float           @default(0)
   isActive       Boolean         @default(true)
@@ -276,7 +276,7 @@ model Appointment {
   partySize     Int               @default(1)
   tableNumber   Int?
   notes         String?
-  status        AppointmentStatus @default(PENDIENTE)
+  status        AppointmentStatus @default(PENDING)
   commerceId    String
   commerce      Restaurant        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt     DateTime          @default(now())
@@ -286,11 +286,11 @@ model Appointment {
 }
 
 enum AppointmentStatus {
-  PENDIENTE
-  CONFIRMADA
-  SENTADA
-  COMPLETADA
-  CANCELADA
+  PENDING
+  CONFIRMED
+  SEATED
+  COMPLETED
+  CANCELLED
   NO_SHOW
 }
 
@@ -298,7 +298,7 @@ enum CustomerSegment {
   VIP
   PREMIUM
   REGULAR
-  NUEVO
+  NEW
 }
 
 model RefreshToken {
@@ -386,7 +386,7 @@ model Product {
   minStock        Int           @default(5)
   maxStock        Int           @default(100)
   unit            String        @default("unidad")
-  status          ProductStatus @default(DISPONIBLE)
+  status          ProductStatus @default(AVAILABLE)
   image           String?
   preparationTime Int?
   calories        Int?
@@ -408,7 +408,7 @@ model Product {
   @@map("products")
 }
 
-// Snapshot diario del conteo de productos en BAJO_STOCK por comercio.
+// Snapshot diario del conteo de productos en LOW_STOCK por comercio.
 // El stock es mutable y no versionado, así que esto es lo único que permite
 // graficar una tendencia real en vez de recalcular un historial inexistente.
 model ProductStockSnapshot {
@@ -449,54 +449,54 @@ enum UserType {
 }
 
 enum Sex {
-  MASCULINO
-  FEMENINO
-  OTRO
+  MALE
+  FEMALE
+  OTHER
 }
 
 enum ProductStatus {
-  DISPONIBLE
-  AGOTADO
-  BAJO_STOCK
-  NO_DISPONIBLE
+  AVAILABLE
+  OUT_OF_STOCK
+  LOW_STOCK
+  UNAVAILABLE
 }
 
 // ─── Delivery ────────────────────────────────────────────────────────────────
 
 enum DriverStatus {
-  DISPONIBLE
-  EN_ENTREGA
-  DESCANSO
-  INACTIVO
+  AVAILABLE
+  ON_DELIVERY
+  ON_BREAK
+  INACTIVE
 }
 
 enum VehicleType {
-  MOTO
-  BICICLETA
-  BICICLETA_ELECTRICA
-  CARRO
+  MOTORCYCLE
+  BICYCLE
+  ELECTRIC_BICYCLE
+  CAR
   SCOOTER
-  A_PIE
+  ON_FOOT
 }
 
 enum DeliveryStatus {
-  PENDIENTE
-  ASIGNADO
-  RECOGIENDO
-  EN_CAMINO
-  ENTREGADO
-  CANCELADO
-  FALLIDO
+  PENDING
+  ASSIGNED
+  PICKING_UP
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+  FAILED
 }
 
 model Driver {
   id              String       @id @default(uuid())
   name            String
   phone           String?
-  vehicleType     VehicleType  @default(MOTO)
+  vehicleType     VehicleType  @default(MOTORCYCLE)
   vehiclePlate    String?
   vehicleModel    String?
-  status          DriverStatus @default(DISPONIBLE)
+  status          DriverStatus @default(AVAILABLE)
   isActive        Boolean      @default(true)
   rating          Float        @default(5.0)
   totalDeliveries Int          @default(0)
@@ -518,7 +518,7 @@ model Delivery {
   notes           String?
   total           Float
   deliveryFee     Float          @default(0)
-  status          DeliveryStatus @default(PENDIENTE)
+  status          DeliveryStatus @default(PENDING)
   estimatedTime   Int? // minutes
   pickedUpAt      DateTime?
   deliveredAt     DateTime?
@@ -535,27 +535,27 @@ model Delivery {
 // ─── Orders (Cliente Dashboard) ──────────────────────────────────────────────
 
 enum OrderStatus {
-  PENDIENTE
-  CONFIRMADO
-  PREPARANDO
-  LISTO
-  EN_ENTREGA
-  ENTREGADO
-  CANCELADO
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
 }
 
 enum OrderType {
-  INMEDIATO
-  PROGRAMADO
-  PARA_LLEVAR
-  EN_SITIO
+  IMMEDIATE
+  SCHEDULED
+  TAKEAWAY
+  DINE_IN
 }
 
 enum PaymentMethod {
-  EFECTIVO
-  TARJETA
-  TRANSFERENCIA
-  EN_LINEA
+  CASH
+  CARD
+  TRANSFER
+  ONLINE
   CASHEA
   KRECE
 }
@@ -566,17 +566,17 @@ enum BnplProvider {
 }
 
 enum BnplTransactionStatus {
-  PENDIENTE
-  APROBADA
-  RECHAZADA
-  EXPIRADA
-  CANCELADA
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
 }
 
 enum PaymentStatus {
-  PENDIENTE
-  PAGADO
-  REEMBOLSADO
+  PENDING
+  PAID
+  REFUNDED
 }
 
 model Order {
@@ -587,10 +587,10 @@ model Order {
   customerEmail     String?
   deliveryAddress   String?
   notes             String?
-  status            OrderStatus      @default(PENDIENTE)
-  orderType         OrderType        @default(INMEDIATO)
-  paymentMethod     PaymentMethod    @default(EFECTIVO)
-  paymentStatus     PaymentStatus    @default(PENDIENTE)
+  status            OrderStatus      @default(PENDING)
+  orderType         OrderType        @default(IMMEDIATE)
+  paymentMethod     PaymentMethod    @default(CASH)
+  paymentStatus     PaymentStatus    @default(PENDING)
   subtotal          Float            @default(0)
   tax               Float            @default(0)
   deliveryFee       Float            @default(0)
@@ -665,7 +665,7 @@ model BnplTransaction {
   commerceId String
   commerce   Restaurant            @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   provider   BnplProvider
-  status     BnplTransactionStatus @default(PENDIENTE)
+  status     BnplTransactionStatus @default(PENDING)
 
   externalReference String?
   checkoutUrl       String?
@@ -820,9 +820,9 @@ model IdentityVerification {
 }
 
 enum ProposedCategoryTarget {
-  PRODUCTO
-  SERVICIO
-  EMPLEO
+  PRODUCT
+  SERVICE
+  JOB
 }
 
 enum ProposalStatus {
@@ -906,23 +906,23 @@ model WalletTransaction {
 }
 
 enum ExpenseType {
-  FIJO
-  OPERATIVO
-  EXTRAORDINARIO
+  FIXED
+  OPERATIONAL
+  EXTRAORDINARY
 }
 
 enum ExpenseStatus {
-  PENDIENTE
-  PAGADO
-  VENCIDO
-  CANCELADO
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
 }
 
 enum ExpensePaymentMethod {
-  EFECTIVO
-  TRANSFERENCIA
-  TARJETA
-  CHEQUE
+  CASH
+  TRANSFER
+  CARD
+  CHECK
 }
 
 model ExpenseCategory {
@@ -945,9 +945,9 @@ model Expense {
   description   String
   amount        Float
   date          DateTime
-  type          ExpenseType          @default(OPERATIVO)
-  status        ExpenseStatus        @default(PENDIENTE)
-  paymentMethod ExpensePaymentMethod @default(EFECTIVO)
+  type          ExpenseType          @default(OPERATIONAL)
+  status        ExpenseStatus        @default(PENDING)
+  paymentMethod ExpensePaymentMethod @default(CASH)
   supplier      String?
   receipt       String?
   notes         String?
@@ -964,18 +964,18 @@ model Expense {
 // ─── Cash register (caja) ──────────────────────────────────────────────────────
 
 enum CashSessionStatus {
-  ABIERTA
-  CERRADA
+  OPEN
+  CLOSED
 }
 
 enum CashMovementType {
-  INGRESO
-  RETIRO
+  INCOME
+  WITHDRAWAL
 }
 
 model CashSession {
   id             String            @id @default(uuid())
-  status         CashSessionStatus @default(ABIERTA)
+  status         CashSessionStatus @default(OPEN)
   openingAmount  Float
   openedAt       DateTime          @default(now())
   openedBy       String
@@ -992,7 +992,7 @@ model CashSession {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  // Solo puede existir una sesión ABIERTA a la vez por comercio — se aplica en
+  // Solo puede existir una sesión OPEN a la vez por comercio — se aplica en
   // el service (Prisma no soporta unique parcial multiplataforma aquí), ver
   // CashService.open().
   @@map("cash_sessions")
@@ -1015,23 +1015,23 @@ model CashMovement {
 // ─── Employees ────────────────────────────────────────────────────────────────
 
 enum EmployeeRole {
-  GERENTE
+  MANAGER
   SUPERVISOR
-  COCINERO
-  MESERO
-  CAJERO
-  REPARTIDOR
-  LIMPIEZA
-  SEGURIDAD
-  OTRO
+  COOK
+  WAITER
+  CASHIER
+  DELIVERY_PERSON
+  CLEANING
+  SECURITY
+  OTHER
 }
 
 enum EmployeeStatus {
-  ACTIVO
-  INACTIVO
-  VACACIONES
-  LICENCIA
-  SUSPENDIDO
+  ACTIVE
+  INACTIVE
+  ON_VACATION
+  ON_LEAVE
+  SUSPENDED
 }
 
 model Employee {
@@ -1040,8 +1040,8 @@ model Employee {
   lastName         String
   email            String?
   phone            String?
-  role             EmployeeRole   @default(OTRO)
-  status           EmployeeStatus @default(ACTIVO)
+  role             EmployeeRole   @default(OTHER)
+  status           EmployeeStatus @default(ACTIVE)
   salary           Float?
   hireDate         DateTime?
   birthDate        DateTime?
@@ -1062,10 +1062,10 @@ model Employee {
 // ─── Branches ─────────────────────────────────────────────────────────────────
 
 enum BranchStatus {
-  ACTIVA
-  INACTIVA
-  EN_CONSTRUCCION
-  CERRADA
+  ACTIVE
+  INACTIVE
+  UNDER_CONSTRUCTION
+  CLOSED
 }
 
 model Branch {
@@ -1077,7 +1077,7 @@ model Branch {
   type         String?
   managerName  String?
   managerPhone String?
-  status       BranchStatus @default(ACTIVA)
+  status       BranchStatus @default(ACTIVE)
   color        String       @default("#6b7280")
   notes        String?
   commerceId   String
@@ -1164,9 +1164,9 @@ model Follow {
 }
 
 enum ReviewReportStatus {
-  PENDIENTE
-  REVISADO
-  DESCARTADO
+  PENDING
+  REVIEWED
+  DISMISSED
 }
 
 model Review {
@@ -1205,7 +1205,7 @@ model ReviewReport {
   review     Review             @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   reporterId String
   reason     String
-  status     ReviewReportStatus @default(PENDIENTE)
+  status     ReviewReportStatus @default(PENDING)
   createdAt  DateTime           @default(now())
 
   @@index([reviewId])
@@ -1323,16 +1323,16 @@ enum LogLevel {
 // ─── Catalog Order Request (marketplace) ─────────────────────────────────────
 
 enum CatalogDeliveryType {
-  DOMICILIO
-  RECOGER
+  HOME_DELIVERY
+  PICKUP
   DIGITAL
 }
 
 enum CatalogOrderStatus {
-  PENDIENTE
-  VISTO
-  CONTACTADO
-  CERRADO
+  PENDING
+  SEEN
+  CONTACTED
+  CLOSED
 }
 
 model CatalogOrder {
@@ -1342,7 +1342,7 @@ model CatalogOrder {
   commerceId     String
   restaurantName String
   quantity       Int                 @default(1)
-  deliveryType   CatalogDeliveryType @default(DOMICILIO)
+  deliveryType   CatalogDeliveryType @default(HOME_DELIVERY)
   address        String?
   city           String?
   buyerName      String
@@ -1350,7 +1350,7 @@ model CatalogOrder {
   buyerEmail     String?
   notes          String?
   totalEstimate  Float?
-  status         CatalogOrderStatus  @default(PENDIENTE)
+  status         CatalogOrderStatus  @default(PENDING)
   requesterId    String?
   requester      User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   createdAt      DateTime            @default(now())
@@ -1364,9 +1364,9 @@ model CatalogOrder {
 // ─── Services (marketplace) ───────────────────────────────────────────────────
 
 enum ServiceStatus {
-  ACTIVO
-  INACTIVO
-  PAUSADO
+  ACTIVE
+  INACTIVE
+  PAUSED
 }
 
 model ServiceCategory {
@@ -1402,7 +1402,7 @@ model Service {
   priceUnit       String?
   duration        Int? // minutos estimados
   image           String?
-  status          ServiceStatus    @default(ACTIVO)
+  status          ServiceStatus    @default(ACTIVE)
   tags            String[]
   modalities      String[]
   itemFields      String[]         @default([]) // plantilla de campos por ítem, ej. ["Marca", "Modelo"]
@@ -1423,18 +1423,18 @@ model Service {
 }
 
 enum ServiceRequestStatus {
-  PENDIENTE
-  VISTO
-  CONTACTADO
-  CERRADO
-  CANCELADO
-  RECHAZADO
+  PENDING
+  SEEN
+  CONTACTED
+  CLOSED
+  CANCELLED
+  REJECTED
 }
 
 enum ServiceRequestModality {
-  PRESENCIAL
-  REMOTO
-  CUALQUIERA
+  IN_PERSON
+  REMOTE
+  ANY
 }
 
 model ServiceRequest {
@@ -1444,7 +1444,7 @@ model ServiceRequest {
   serviceName       String
   providerId        String
   providerName      String
-  modality          ServiceRequestModality @default(CUALQUIERA)
+  modality          ServiceRequestModality @default(ANY)
   preferredDate     DateTime
   address           String?
   city              String?
@@ -1457,7 +1457,7 @@ model ServiceRequest {
   platformFeeRate   Float?
   platformFeeAmount Float?
   platformFeePayer  FeePayer?
-  status            ServiceRequestStatus   @default(PENDIENTE)
+  status            ServiceRequestStatus   @default(PENDING)
   providerNotes     String?
   statusUpdatedAt   DateTime?
   // Marca cuándo se envió el recordatorio automático por falta de respuesta del
@@ -1474,11 +1474,11 @@ model ServiceRequest {
   @@index([providerId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
-  // Acelera el scheduler de recordatorios: WHERE status='PENDIENTE' AND createdAt<=X AND reminderSentAt IS NULL
+  // Acelera el scheduler de recordatorios: WHERE status='PENDING' AND createdAt<=X AND reminderSentAt IS NULL
   @@index([status, reminderSentAt, createdAt])
   // Acelera getAvgResponseHours/getSuggestedPrice: WHERE providerId=X AND status IN (...)
   @@index([providerId, status])
-  // Acelera getSuggestedPrice: WHERE serviceId=X AND providerId=Y AND status='CERRADO'
+  // Acelera getSuggestedPrice: WHERE serviceId=X AND providerId=Y AND status='CLOSED'
   @@index([serviceId, providerId, status])
   @@map("service_requests")
 }
@@ -1556,10 +1556,10 @@ enum ReportEntityType {
 }
 
 enum ReportStatus {
-  PENDIENTE
-  EN_REVISION
-  RESUELTO
-  DESCARTADO
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
 }
 
 model Report {
@@ -1568,7 +1568,7 @@ model Report {
   entityId    String? // null cuando entityType = GENERAL
   reason      String
   description String?
-  status      ReportStatus     @default(PENDIENTE)
+  status      ReportStatus     @default(PENDING)
   adminNotes  String?
   reporterId  String
   reporter    User             @relation(fields: [reporterId], references: [id], onDelete: Cascade)
@@ -1752,9 +1752,9 @@ model EmailVerificationToken {
   @@map("email_verification_tokens")
 }
 
-// ─── Corridas (Rides) ─────────────────────────────────────────────────────────
+// ─── Rides ────────────────────────────────────────────────────────────────────
 
-enum CorridaStatus {
+enum RideStatus {
   PENDING
   ACCEPTED
   IN_PROGRESS
@@ -1762,29 +1762,29 @@ enum CorridaStatus {
   CANCELLED
 }
 
-enum CorridaVehicleType {
-  MOTO
-  AUTO
-  CAMIONETA
-  CAMION
+enum RideVehicleType {
+  MOTORCYCLE
+  CAR
+  PICKUP_TRUCK
+  TRUCK
 }
 
-enum CorridaServiceType {
-  PASAJERO
-  FLETE
+enum RideServiceType {
+  PASSENGER
+  FREIGHT
 }
 
-model Corrida {
-  id                String             @id @default(uuid())
-  serviceType       CorridaServiceType @default(PASAJERO)
+model Ride {
+  id                String           @id @default(uuid())
+  serviceType       RideServiceType  @default(PASSENGER)
   origin            String
   destination       String
   originLat         Float?
   originLng         Float?
   destinationLat    Float?
   destinationLng    Float?
-  status            CorridaStatus      @default(PENDING)
-  vehicleType       CorridaVehicleType @default(MOTO)
+  status            RideStatus       @default(PENDING)
+  vehicleType       RideVehicleType  @default(MOTORCYCLE)
   price             Float?
   distance          Float?
   duration          Int? // minutes
@@ -1792,7 +1792,7 @@ model Corrida {
   platformFeeAmount Float?
   platformFeePayer  FeePayer?
   notes             String?
-  // Datos de flete (carga/paquete) — solo aplican cuando serviceType = FLETE
+  // Datos de flete (carga/paquete) — solo aplican cuando serviceType = FREIGHT
   recipientName     String?
   recipientPhone    String?
   cargoDescription  String?
@@ -1804,9 +1804,9 @@ model Corrida {
   cancelledAt       DateTime?
 
   passengerId String
-  passenger   User    @relation("PassengerCorridas", fields: [passengerId], references: [id], onDelete: Cascade)
+  passenger   User    @relation("RidePassenger", fields: [passengerId], references: [id], onDelete: Cascade)
   driverId    String?
-  driver      User?   @relation("DriverCorridas", fields: [driverId], references: [id], onDelete: SetNull)
+  driver      User?   @relation("RideDriver", fields: [driverId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1815,7 +1815,7 @@ model Corrida {
   @@index([driverId])
   @@index([status])
   @@index([serviceType])
-  @@map("corridas")
+  @@map("rides")
 }
 
 // ─── Exchange Rates ───────────────────────────────────────────────────────────
@@ -1866,32 +1866,32 @@ model ExchangeRateHistory {
 // ─── Jobs / Empleos ───────────────────────────────────────────────────────────
 
 enum JobType {
-  TIEMPO_COMPLETO
-  MEDIO_TIEMPO
+  FULL_TIME
+  PART_TIME
   FREELANCE
-  TEMPORAL
-  PRACTICAS
+  TEMPORARY
+  INTERNSHIP
 }
 
 enum JobModality {
-  PRESENCIAL
-  REMOTO
-  HIBRIDO
+  IN_PERSON
+  REMOTE
+  HYBRID
 }
 
 enum JobStatus {
-  ACTIVO
-  INACTIVO
-  PAUSADO
-  CERRADO
+  ACTIVE
+  INACTIVE
+  PAUSED
+  CLOSED
 }
 
 enum JobApplicationStatus {
-  PENDIENTE
-  VISTO
-  EN_PROCESO
-  ACEPTADA
-  RECHAZADA
+  PENDING
+  SEEN
+  IN_PROGRESS
+  ACCEPTED
+  REJECTED
 }
 
 model JobCategory {
@@ -1917,11 +1917,11 @@ model Job {
   salaryMax       Float?
   salaryCurrency  String      @default("USD")
   location        String?
-  type            JobType     @default(TIEMPO_COMPLETO)
-  modality        JobModality @default(PRESENCIAL)
+  type            JobType     @default(FULL_TIME)
+  modality        JobModality @default(IN_PERSON)
   experienceLevel String? // Junior, Mid, Senior, etc.
   tags            String[]
-  status          JobStatus   @default(ACTIVO)
+  status          JobStatus   @default(ACTIVE)
   expiresAt       DateTime?
 
   // Relations
@@ -1957,7 +1957,7 @@ model JobApplication {
   resumeUrl   String?
   phone       String?
   email       String?
-  status      JobApplicationStatus @default(PENDIENTE)
+  status      JobApplicationStatus @default(PENDING)
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 

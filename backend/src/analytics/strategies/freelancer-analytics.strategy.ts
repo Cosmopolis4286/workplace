@@ -11,12 +11,12 @@ import {
   pct,
 } from './analytics.helpers';
 
-const CLOSED = ServiceRequestStatus.CERRADO;
+const CLOSED = ServiceRequestStatus.CLOSED;
 const OPEN_OR_CLOSED_NOT_CANCELLED: ServiceRequestStatus[] = [
-  ServiceRequestStatus.PENDIENTE,
-  ServiceRequestStatus.VISTO,
-  ServiceRequestStatus.CONTACTADO,
-  ServiceRequestStatus.CERRADO,
+  ServiceRequestStatus.PENDING,
+  ServiceRequestStatus.SEEN,
+  ServiceRequestStatus.CONTACTED,
+  ServiceRequestStatus.CLOSED,
 ];
 
 /**
@@ -250,7 +250,7 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     ]);
 
     const totalInPeriod = statusCounts.reduce((sum, s) => sum + s._count.id, 0);
-    const cancelled = statusCounts.find((s) => s.status === 'CANCELADO')?._count.id ?? 0;
+    const cancelled = statusCounts.find((s) => s.status === 'CANCELLED')?._count.id ?? 0;
     const cancellationRate = totalInPeriod > 0 ? Math.round((cancelled / totalInPeriod) * 1000) / 10 : 0;
 
     const avgResponseHours = avgResponseData.length > 0

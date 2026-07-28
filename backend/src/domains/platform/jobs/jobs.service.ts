@@ -83,7 +83,7 @@ export class JobsService {
     const categories = await this.prisma.jobCategory.findMany({
       include: {
         _count: {
-          select: { jobs: { where: { status: 'ACTIVO' } } },
+          select: { jobs: { where: { status: 'ACTIVE' } } },
         },
       },
       orderBy: { name: 'asc' },
@@ -107,7 +107,7 @@ export class JobsService {
   // una tabla maestra de tags separada solo para esta sugerencia.
   async getPopularTags(q?: string, limit = 20): Promise<{ tag: string; count: number }[]> {
     const jobs = await this.prisma.job.findMany({
-      where: { status: 'ACTIVO' },
+      where: { status: 'ACTIVE' },
       select: { tags: true },
     })
     const counts = new Map<string, number>()
@@ -192,7 +192,7 @@ export class JobsService {
 
   async getCatalogJobs(query: JobQuery): Promise<{ data: JobWithEmployer[]; total: number; totalPages: number; locationTier?: 'city' | 'state' | 'country' | null }> {
     const {
-      search, categoryId, type, modality, status = 'ACTIVO',
+      search, categoryId, type, modality, status = 'ACTIVE',
       sort = 'relevance', country, state, city,
     } = query
     const page = Number(query.page) || 1
@@ -352,10 +352,10 @@ export class JobsService {
       where: { employerId: userId },
       _count: { _all: true },
     })
-    const counts: Record<string, number> = { ACTIVO: 0, PAUSADO: 0, INACTIVO: 0, CERRADO: 0 }
+    const counts: Record<string, number> = { ACTIVE: 0, PAUSED: 0, INACTIVE: 0, CLOSED: 0 }
     for (const g of grouped) counts[g.status] = g._count._all
-    const total = counts.ACTIVO + counts.PAUSADO + counts.INACTIVO + counts.CERRADO
-    return { total, activos: counts.ACTIVO, pausados: counts.PAUSADO, inactivos: counts.INACTIVO, cerrados: counts.CERRADO }
+    const total = counts.ACTIVE + counts.PAUSED + counts.INACTIVE + counts.CLOSED
+    return { total, activos: counts.ACTIVE, pausados: counts.PAUSED, inactivos: counts.INACTIVE, cerrados: counts.CLOSED }
   }
 
   // ─── Applications ───────────────────────────────────────────────────────────
@@ -364,7 +364,7 @@ export class JobsService {
     const job = await this.prisma.job.findUnique({ where: { id: dto.jobId } })
     if (!job) throw new NotFoundException('Empleo no encontrado')
     if (job.employerId === userId) throw new ForbiddenException('No puedes aplicar a tu propio empleo')
-    if (job.status !== 'ACTIVO') throw new ForbiddenException('Este empleo no está activo')
+    if (job.status !== 'ACTIVE') throw new ForbiddenException('Este empleo no está activo')
 
     return this.prisma.jobApplication.create({
       data: {
@@ -458,10 +458,10 @@ export class JobsService {
 
   async getCatalogStats() {
     const [total, employers] = await Promise.all([
-      this.prisma.job.count({ where: { status: 'ACTIVO' } }),
+      this.prisma.job.count({ where: { status: 'ACTIVE' } }),
       this.prisma.job.groupBy({
         by: ['employerId'],
-        where: { status: 'ACTIVO' },
+        where: { status: 'ACTIVE' },
         _count: { employerId: true },
       }),
     ])

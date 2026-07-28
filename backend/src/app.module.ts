@@ -39,7 +39,7 @@ import { PlansModule } from './domains/money/plans/plans.module';
 import { ExchangeRatesModule } from './domains/money/exchange-rates/exchange-rates.module';
 import { HealthModule } from './domains/platform/health/health.module';
 import { CategoriesGlobalModule } from './categories-global/categories-global.module';
-import { CorridasModule } from './corridas/corridas.module';
+import { RidesModule } from './rides/rides.module';
 import { JobsModule } from './domains/platform/jobs/jobs.module';
 import { ProposedCategoriesModule } from './proposed-categories/proposed-categories.module';
 import { TelegramModule } from './telegram/telegram.module';
@@ -107,7 +107,7 @@ import { NavigationModule } from './domains/platform/navigation/navigation.modul
     ExchangeRatesModule,
     HealthModule,
     CategoriesGlobalModule,
-    CorridasModule,
+    RidesModule,
     JobsModule,
     ProposedCategoriesModule,
     TelegramModule,

@@ -115,13 +115,13 @@ export class ProposedCategoriesService {
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private async nameExistsInRealTable(target: ProposedCategoryTarget, name: string): Promise<boolean> {
-    if (target === ProposedCategoryTarget.PRODUCTO) {
+    if (target === ProposedCategoryTarget.PRODUCT) {
       const found = await this.prisma.category.findFirst({
         where: { name: { equals: name, mode: 'insensitive' }, isGlobal: true },
       });
       return !!found;
     }
-    if (target === ProposedCategoryTarget.SERVICIO) {
+    if (target === ProposedCategoryTarget.SERVICE) {
       const found = await this.prisma.serviceCategory.findFirst({
         where: { name: { equals: name, mode: 'insensitive' } },
       });
@@ -137,7 +137,7 @@ export class ProposedCategoriesService {
     target: ProposedCategoryTarget,
     data: { name: string; color: string | null; icon: string | null; description: string | null },
   ): Promise<string> {
-    if (target === ProposedCategoryTarget.PRODUCTO) {
+    if (target === ProposedCategoryTarget.PRODUCT) {
       const created = await this.prisma.category.create({
         data: {
           name: data.name,
@@ -149,7 +149,7 @@ export class ProposedCategoriesService {
       });
       return created.id;
     }
-    if (target === ProposedCategoryTarget.SERVICIO) {
+    if (target === ProposedCategoryTarget.SERVICE) {
       const created = await this.prisma.serviceCategory.create({
         data: {
           name: data.name,

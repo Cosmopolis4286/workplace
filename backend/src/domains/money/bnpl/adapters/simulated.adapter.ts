@@ -12,7 +12,7 @@ import {
 // verificadas para un comercio (BnplSettings.isSimulated = true). No llama a
 // ningún servicio externo: genera una referencia local y un link a la página
 // de resolución simulada del propio frontend, para poder probar el flujo
-// completo (checkout -> aprobación -> Order.paymentStatus = PAGADO) sin
+// completo (checkout -> aprobación -> Order.paymentStatus = PAID) sin
 // depender del proveedor real.
 @Injectable()
 export class SimulatedAdapter implements BnplProviderAdapter {
@@ -38,7 +38,7 @@ export class SimulatedAdapter implements BnplProviderAdapter {
   ): Promise<BnplStatusResult> {
     // En modo simulado no hay nada que "consultar": el estado solo avanza
     // cuando alguien llama al endpoint de desarrollo /bnpl/simulate/:id/resolve.
-    return { status: 'PENDIENTE', rawResponse: { simulated: true, externalReference } };
+    return { status: 'PENDING', rawResponse: { simulated: true, externalReference } };
   }
 
   async cancel(_creds: BnplProviderCredentials, _externalReference: string): Promise<void> {

@@ -6,7 +6,7 @@ import { MailService } from '../mail/mail.service';
 
 const NO_RESPONSE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
-// Avisa al cliente cuando una solicitud lleva más de 24h en PENDIENTE sin que el
+// Avisa al cliente cuando una solicitud lleva más de 24h en PENDING sin que el
 // proveedor reaccione, para que no quede esperando indefinidamente y pueda buscar
 // otro proveedor si lo prefiere. reminderSentAt evita reenviar el mismo aviso.
 @Injectable()
@@ -33,7 +33,7 @@ export class ServiceRequestReminderScheduler {
 
     const stale = await this.prisma.serviceRequest.findMany({
       where: {
-        status: 'PENDIENTE',
+        status: 'PENDING',
         createdAt: { lte: threshold },
         reminderSentAt: null,
         requesterId: { not: null },

@@ -26,7 +26,7 @@ export class BnplWebhookController {
   @Post('simulate/:externalReference/resolve')
   simulateResolve(
     @Param('externalReference') externalReference: string,
-    @Body('status') status: 'APROBADA' | 'RECHAZADA'
+    @Body('status') status: 'APPROVED' | 'REJECTED'
   ) {
     return this.bnplService.simulateResolve(externalReference, status);
   }

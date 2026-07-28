@@ -33,9 +33,9 @@ class IsFutureDateConstraint implements ValidatorConstraintInterface {
 }
 
 export enum ServiceRequestModality {
-  PRESENCIAL = 'PRESENCIAL',
-  REMOTO = 'REMOTO',
-  CUALQUIERA = 'CUALQUIERA',
+  IN_PERSON = 'IN_PERSON',
+  REMOTE = 'REMOTE',
+  ANY = 'ANY',
 }
 
 export class CreateServiceRequestDto {

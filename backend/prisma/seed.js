@@ -947,9 +947,9 @@ async function seedServiceModalities() {
   console.log('\n📋 Seeding service modalities...\n')
 
   const modalities = [
-    { name: 'Presencial', value: 'PRESENCIAL', emoji: '📍', sortOrder: 1 },
-    { name: 'Remoto', value: 'REMOTO', emoji: '💻', sortOrder: 2 },
-    { name: 'Cualquiera', value: 'CUALQUIERA', emoji: '🤝', sortOrder: 3 },
+    { name: 'Presencial', value: 'IN_PERSON', emoji: '📍', sortOrder: 1 },
+    { name: 'Remoto', value: 'REMOTE', emoji: '💻', sortOrder: 2 },
+    { name: 'Cualquiera', value: 'ANY', emoji: '🤝', sortOrder: 3 },
   ]
 
   for (const modality of modalities) {

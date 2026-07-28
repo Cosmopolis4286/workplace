@@ -93,7 +93,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
         this.prisma.appointment.findMany({
           where: {
             commerceId,
-            status: 'COMPLETADA',
+            status: 'COMPLETED',
             date: { gte: from, lte: to },
           },
           select: { id: true },
@@ -102,7 +102,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
           where: {
             commerceId,
             date: { gte: from, lte: to },
-            status: { notIn: ['CANCELADA', 'NO_SHOW'] },
+            status: { notIn: ['CANCELLED', 'NO_SHOW'] },
           },
         }),
         this.prisma.customer.count({
@@ -229,7 +229,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
       where: {
         commerceId,
         date: { gte: from, lte: to },
-        status: { notIn: ['CANCELADA', 'NO_SHOW'] },
+        status: { notIn: ['CANCELLED', 'NO_SHOW'] },
       },
       select: { date: true },
     });
@@ -256,7 +256,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
   private async getTopProducts(commerceId: string, _from: Date, _to: Date) {
     // Use stock movement as proxy: low stock / products with most turnover
     const products = await this.prisma.product.findMany({
-      where: { commerceId, status: { not: 'NO_DISPONIBLE' } },
+      where: { commerceId, status: { not: 'UNAVAILABLE' } },
       select: { name: true, stock: true, maxStock: true, price: true },
       orderBy: { stock: 'asc' },
       take: 10,
@@ -412,7 +412,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
 
     const totalInPeriod = appointments.reduce((sum, a) => sum + a._count.id, 0);
     const cancelled =
-      appointments.find((a) => a.status === 'CANCELADA')?._count.id ?? 0;
+      appointments.find((a) => a.status === 'CANCELLED')?._count.id ?? 0;
     const noShow =
       appointments.find((a) => a.status === 'NO_SHOW')?._count.id ?? 0;
     const cancellationRate =

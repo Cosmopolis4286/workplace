@@ -141,7 +141,7 @@ export class BnplService {
       where: { id: orderId, commerceId },
     });
     if (!order) throw new NotFoundException('Pedido no encontrado');
-    if (order.paymentStatus !== 'PENDIENTE') {
+    if (order.paymentStatus !== 'PENDING') {
       throw new BadRequestException('El pedido ya no está pendiente de pago');
     }
 
@@ -180,7 +180,7 @@ export class BnplService {
         orderId,
         commerceId,
         provider,
-        status: 'PENDIENTE',
+        status: 'PENDING',
         externalReference: result.externalReference,
         checkoutUrl: result.checkoutUrl,
         amount: order.total,
@@ -189,7 +189,7 @@ export class BnplService {
       },
       update: {
         provider,
-        status: 'PENDIENTE',
+        status: 'PENDING',
         externalReference: result.externalReference,
         checkoutUrl: result.checkoutUrl,
         amount: order.total,
@@ -245,7 +245,7 @@ export class BnplService {
 
     return this.prisma.bnplTransaction.update({
       where: { id: transactionId },
-      data: { status: 'CANCELADA', cancelledAt: new Date() },
+      data: { status: 'CANCELLED', cancelledAt: new Date() },
     });
   }
 
@@ -267,22 +267,22 @@ export class BnplService {
       return { received: true, matched: false };
     }
 
-    const nextStatus: BnplTransactionStatus = payload.status ?? 'APROBADA';
+    const nextStatus: BnplTransactionStatus = payload.status ?? 'APPROVED';
 
     const updated = await this.prisma.bnplTransaction.update({
       where: { id: transaction.id },
       data: {
         status: nextStatus,
         installments: payload.installments ?? transaction.installments,
-        confirmedAt: nextStatus === 'APROBADA' ? new Date() : transaction.confirmedAt,
+        confirmedAt: nextStatus === 'APPROVED' ? new Date() : transaction.confirmedAt,
         rawResponse: payload as any,
       },
     });
 
-    if (nextStatus === 'APROBADA') {
+    if (nextStatus === 'APPROVED') {
       const order = await this.prisma.order.update({
         where: { id: transaction.orderId },
-        data: { paymentStatus: 'PAGADO' },
+        data: { paymentStatus: 'PAID' },
       });
 
       this.notifications
@@ -290,7 +290,7 @@ export class BnplService {
           type: NotificationType.ORDER,
           title: `Financiamiento aprobado — ${order.orderNumber}`,
           message: `${provider} aprobó el financiamiento del pedido ${order.orderNumber}`,
-          link: '/cliente-dashboard',
+          link: '/customer-dashboard',
           metadata: { orderNumber: order.orderNumber, provider },
         })
         .catch(() => null);
@@ -313,7 +313,7 @@ export class BnplService {
   // flujo (confirmación de orden, UI) sin sandbox real de Cashea/Krece.
   // Recibe externalReference (no el id local) porque es lo único que conoce
   // la página pública de resolución simulada (viene embebido en checkoutUrl).
-  async simulateResolve(externalReference: string, status: 'APROBADA' | 'RECHAZADA') {
+  async simulateResolve(externalReference: string, status: 'APPROVED' | 'REJECTED') {
     const transaction = await this.prisma.bnplTransaction.findFirst({
       where: { externalReference },
     });
@@ -327,8 +327,8 @@ export class BnplService {
   // ──────────────────────────────────────────────────────────────────────────
   async expirePending() {
     const { count } = await this.prisma.bnplTransaction.updateMany({
-      where: { status: 'PENDIENTE', expiresAt: { lte: new Date() } },
-      data: { status: 'EXPIRADA' },
+      where: { status: 'PENDING', expiresAt: { lte: new Date() } },
+      data: { status: 'EXPIRED' },
     });
     if (count > 0) {
       this.logger.log(`Expiradas ${count} transacciones BNPL pendientes`);

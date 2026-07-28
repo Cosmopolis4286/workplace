@@ -87,9 +87,9 @@ export class ExpensesService {
     const changeVsPrev =
       totalPrev > 0 ? ((totalMonthly - totalPrev) / totalPrev) * 100 : 0;
 
-    const pendingAmount = statusMap['PENDIENTE']?.amount ?? 0;
-    const paidAmount = statusMap['PAGADO']?.amount ?? 0;
-    const overdueAmount = statusMap['VENCIDO']?.amount ?? 0;
+    const pendingAmount = statusMap['PENDING']?.amount ?? 0;
+    const paidAmount = statusMap['PAID']?.amount ?? 0;
+    const overdueAmount = statusMap['OVERDUE']?.amount ?? 0;
     const totalBudgetAmount = totalBudget._sum.budget ?? 0;
     const budgetUsed =
       totalBudgetAmount > 0 ? (totalMonthly / totalBudgetAmount) * 100 : 0;

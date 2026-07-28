@@ -15,13 +15,13 @@ import { PlatformFeesService } from '../domains/money/platform-fees/platform-fee
 
 // Valid status transitions for business logic enforcement
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  PENDIENTE: ['CONFIRMADO', 'CANCELADO'],
-  CONFIRMADO: ['PREPARANDO', 'CANCELADO'],
-  PREPARANDO: ['LISTO', 'CANCELADO'],
-  LISTO: ['EN_ENTREGA', 'ENTREGADO'],
-  EN_ENTREGA: ['ENTREGADO'],
-  ENTREGADO: [],
-  CANCELADO: [],
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['PREPARING', 'CANCELLED'],
+  PREPARING: ['READY', 'CANCELLED'],
+  READY: ['OUT_FOR_DELIVERY', 'DELIVERED'],
+  OUT_FOR_DELIVERY: ['DELIVERED'],
+  DELIVERED: [],
+  CANCELLED: [],
 };
 
 @Injectable()
@@ -62,13 +62,13 @@ export class OrdersService {
       this.prisma.order.aggregate({
         where: {
           commerceId,
-          status: 'ENTREGADO',
+          status: 'DELIVERED',
           completedAt: { gte: startOfMonth },
         },
         _sum: { total: true },
       }),
       this.prisma.order.aggregate({
-        where: { commerceId, status: 'ENTREGADO' },
+        where: { commerceId, status: 'DELIVERED' },
         _avg: { total: true },
       }),
     ]);
@@ -77,11 +77,11 @@ export class OrdersService {
       byStatus.map((s) => [s.status, s._count])
     );
     const activeStatuses: OrderStatus[] = [
-      'PENDIENTE',
-      'CONFIRMADO',
-      'PREPARANDO',
-      'LISTO',
-      'EN_ENTREGA',
+      'PENDING',
+      'CONFIRMED',
+      'PREPARING',
+      'READY',
+      'OUT_FOR_DELIVERY',
     ];
     const activeOrders = activeStatuses.reduce(
       (sum, s) => sum + (statusMap[s] ?? 0),
@@ -91,9 +91,9 @@ export class OrdersService {
     return {
       totalOrders: total,
       activeOrders,
-      pendingOrders: statusMap['PENDIENTE'] ?? 0,
-      completedOrders: statusMap['ENTREGADO'] ?? 0,
-      cancelledOrders: statusMap['CANCELADO'] ?? 0,
+      pendingOrders: statusMap['PENDING'] ?? 0,
+      completedOrders: statusMap['DELIVERED'] ?? 0,
+      cancelledOrders: statusMap['CANCELLED'] ?? 0,
       monthlyRevenue: monthlyRevenue._sum.total ?? 0,
       avgTicket: Math.round((avgTicket._avg.total ?? 0) * 100) / 100,
     };
@@ -283,10 +283,10 @@ export class OrdersService {
 
     const data: any = { ...dto };
 
-    if (dto.status === 'ENTREGADO') {
+    if (dto.status === 'DELIVERED') {
       data.completedAt = new Date();
       // Update customer stats for revenue
-      if (existing.customerId && existing.status !== 'ENTREGADO') {
+      if (existing.customerId && existing.status !== 'DELIVERED') {
         await this.prisma.customer.update({
           where: { id: existing.customerId },
           data: { totalSpent: { increment: existing.total } },
@@ -317,7 +317,7 @@ export class OrdersService {
         }
       }
     }
-    if (dto.status === 'CANCELADO') {
+    if (dto.status === 'CANCELLED') {
       data.cancelledAt = new Date();
       // Reverse customer stats if was previously counted
       if (existing.customerId) {
@@ -344,12 +344,12 @@ export class OrdersService {
 
       if (existing.customerId) {
         const statusEmoji: Record<string, string> = {
-          CONFIRMADO: '✅ Confirmado',
-          PREPARANDO: '👨‍🍳 En preparación',
-          LISTO: '📦 Listo para entrega',
-          EN_ENTREGA: '🚚 En camino',
-          ENTREGADO: '🎉 Entregado',
-          CANCELADO: '❌ Cancelado',
+          CONFIRMED: '✅ Confirmado',
+          PREPARING: '👨‍🍳 En preparación',
+          READY: '📦 Listo para entrega',
+          OUT_FOR_DELIVERY: '🚚 En camino',
+          DELIVERED: '🎉 Entregado',
+          CANCELLED: '❌ Cancelado',
         };
         const label = statusEmoji[dto.status] ?? dto.status;
         this.telegram
@@ -378,7 +378,7 @@ export class OrdersService {
         _count: true,
       }),
       this.prisma.order.aggregate({
-        where: { ...where, status: 'ENTREGADO' },
+        where: { ...where, status: 'DELIVERED' },
         _sum: { total: true },
       }),
     ]);
@@ -387,10 +387,10 @@ export class OrdersService {
       byStatus.map((s) => [s.status, s._count]),
     );
     const processingStatuses: OrderStatus[] = [
-      'CONFIRMADO',
-      'PREPARANDO',
-      'LISTO',
-      'EN_ENTREGA',
+      'CONFIRMED',
+      'PREPARING',
+      'READY',
+      'OUT_FOR_DELIVERY',
     ];
     const processingOrders = processingStatuses.reduce(
       (sum, s) => sum + (statusMap[s] ?? 0),
@@ -399,10 +399,10 @@ export class OrdersService {
 
     return {
       totalOrders: total,
-      pendingOrders: statusMap['PENDIENTE'] ?? 0,
+      pendingOrders: statusMap['PENDING'] ?? 0,
       processingOrders,
-      completedOrders: statusMap['ENTREGADO'] ?? 0,
-      cancelledOrders: statusMap['CANCELADO'] ?? 0,
+      completedOrders: statusMap['DELIVERED'] ?? 0,
+      cancelledOrders: statusMap['CANCELLED'] ?? 0,
       totalSpent: totalSpent._sum.total ?? 0,
     };
   }
@@ -447,9 +447,9 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   async remove(id: string, commerceId: string) {
     const order = await this.findOne(id, commerceId);
-    if (order.status !== 'PENDIENTE') {
+    if (order.status !== 'PENDING') {
       throw new BadRequestException(
-        'Solo se pueden eliminar pedidos en estado PENDIENTE'
+        'Solo se pueden eliminar pedidos en estado PENDING'
       );
     }
     await this.prisma.order.delete({ where: { id } });

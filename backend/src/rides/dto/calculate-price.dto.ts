@@ -1,5 +1,5 @@
 import { IsEnum, IsNumber } from 'class-validator';
-import { CorridaVehicleType } from '@prisma/client';
+import { RideVehicleType } from '@prisma/client';
 
 export class CalculatePriceDto {
   @IsNumber()
@@ -14,6 +14,6 @@ export class CalculatePriceDto {
   @IsNumber()
   destinationLng: number;
 
-  @IsEnum(CorridaVehicleType)
-  vehicleType: CorridaVehicleType;
+  @IsEnum(RideVehicleType)
+  vehicleType: RideVehicleType;
 }

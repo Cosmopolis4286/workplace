@@ -8,8 +8,8 @@ export class BnplWebhookDto {
   externalReference: string;
 
   @IsOptional()
-  @IsIn(['APROBADA', 'RECHAZADA', 'CANCELADA'])
-  status?: 'APROBADA' | 'RECHAZADA' | 'CANCELADA';
+  @IsIn(['APPROVED', 'REJECTED', 'CANCELLED'])
+  status?: 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
   @IsOptional()
   installments?: number;

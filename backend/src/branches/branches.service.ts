@@ -49,7 +49,7 @@ export class BranchesService {
     const [total, active, byStatusRaw] = await Promise.all([
       this.prisma.branch.count({ where: { commerceId } }),
       this.prisma.branch.count({
-        where: { commerceId, status: BranchStatus.ACTIVA },
+        where: { commerceId, status: BranchStatus.ACTIVE },
       }),
       this.prisma.branch.groupBy({
         by: ['status'],
