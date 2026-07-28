@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { CashService } from '../../cash/cash.service'
+import { CashService } from '../../domains/operations/cash/cash.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ConflictException, NotFoundException } from '@nestjs/common'
 import { I18nService } from 'nestjs-i18n'

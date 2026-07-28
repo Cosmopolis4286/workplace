@@ -3,15 +3,15 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
-import { TelegramService } from '../telegram/telegram.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificationsService } from '../../../notifications/notifications.service';
+import { TelegramService } from '../../../telegram/telegram.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { OrderStatus } from '@prisma/client';
-import { PlanLimitsService } from '../domains/money/plans/plan-limits.service';
-import { PlatformFeesService } from '../domains/money/platform-fees/platform-fees.service';
+import { PlanLimitsService } from '../../money/plans/plan-limits.service';
+import { PlatformFeesService } from '../../money/platform-fees/platform-fees.service';
 
 // Valid status transitions for business logic enforcement
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {

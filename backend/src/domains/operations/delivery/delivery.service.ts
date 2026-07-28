@@ -5,9 +5,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
-import { PrismaService } from '../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
-import { TelegramService } from '../telegram/telegram.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificationsService } from '../../../notifications/notifications.service';
+import { TelegramService } from '../../../telegram/telegram.service';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';

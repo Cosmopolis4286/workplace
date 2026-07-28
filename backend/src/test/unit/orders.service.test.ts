@@ -1,14 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { OrdersService } from '../../orders/orders.service'
+import { OrdersService } from '../../domains/operations/orders/orders.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { NotificationsService } from '../../notifications/notifications.service'
 import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
 import { TelegramService } from '../../telegram/telegram.service'
 import { PlatformFeesService } from '../../domains/money/platform-fees/platform-fees.service'
 import { OrderStatus } from '@prisma/client'
-import { CreateOrderDto } from '../../orders/dto/create-order.dto'
-import { UpdateOrderDto } from '../../orders/dto/update-order.dto'
-import { QueryOrdersDto } from '../../orders/dto/query-orders.dto'
+import { CreateOrderDto } from '../../domains/operations/orders/dto/create-order.dto'
+import { UpdateOrderDto } from '../../domains/operations/orders/dto/update-order.dto'
+import { QueryOrdersDto } from '../../domains/operations/orders/dto/query-orders.dto'
 import { BadRequestException, NotFoundException } from '@nestjs/common'
 
 describe('OrdersService', () => {

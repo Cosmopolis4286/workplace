@@ -1,0 +1,10 @@
+{
+  "src/orders": "src/domains/operations/orders",
+  "src/appointments": "src/domains/operations/appointments",
+  "src/delivery": "src/domains/operations/delivery",
+  "src/rides": "src/domains/operations/rides",
+  "src/customers": "src/domains/operations/customers",
+  "src/cash": "src/domains/operations/cash",
+  "src/receipts": "src/domains/operations/receipts",
+  "src/expenses": "src/domains/operations/expenses"
+}
