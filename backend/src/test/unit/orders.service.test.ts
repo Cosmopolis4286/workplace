@@ -108,9 +108,9 @@ describe('OrdersService', () => {
 
       mockPrismaService.order.count.mockResolvedValue(100)
       mockPrismaService.order.groupBy.mockResolvedValue([
-        { status: 'PENDIENTE', _count: 20 },
-        { status: 'CONFIRMADO', _count: 30 },
-        { status: 'ENTREGADO', _count: 50 },
+        { status: 'PENDING', _count: 20 },
+        { status: 'CONFIRMED', _count: 30 },
+        { status: 'DELIVERED', _count: 50 },
       ])
       mockPrismaService.order.aggregate
         .mockResolvedValueOnce({ _sum: { total: 5000 } })
@@ -172,7 +172,7 @@ describe('OrdersService', () => {
         id: 'order-123',
         orderNumber: 'ORD-2026-0001',
         commerceId,
-        status: 'PENDIENTE',
+        status: 'PENDING',
         subtotal: 40,
         tax: 0,
         deliveryFee: 0,
@@ -242,12 +242,12 @@ describe('OrdersService', () => {
     it('should update order status successfully', async () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
-      const newStatus: OrderStatus = 'CONFIRMADO'
+      const newStatus: OrderStatus = 'CONFIRMED'
 
       const existingOrder = {
         id: orderId,
         orderNumber: 'ORD-2026-0001',
-        status: 'PENDIENTE',
+        status: 'PENDING',
         commerceId,
         customerId: null,
         total: 40,
@@ -279,12 +279,12 @@ describe('OrdersService', () => {
     it('should throw error for invalid status transition', async () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
-      const invalidStatus: OrderStatus = 'ENTREGADO'
+      const invalidStatus: OrderStatus = 'DELIVERED'
 
       const existingOrder = {
         id: orderId,
         orderNumber: 'ORD-2026-0001',
-        status: 'PENDIENTE',
+        status: 'PENDING',
         commerceId,
         customerId: null,
         total: 40,
@@ -301,7 +301,7 @@ describe('OrdersService', () => {
     it('should throw error if order not found', async () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
-      const newStatus: OrderStatus = 'CONFIRMADO'
+      const newStatus: OrderStatus = 'CONFIRMED'
 
       mockPrismaService.order.findFirst.mockResolvedValue(null)
 
@@ -317,12 +317,12 @@ describe('OrdersService', () => {
       const queryDto = {
         page: '1',
         limit: '10',
-        status: 'PENDIENTE' as OrderStatus,
+        status: 'PENDING' as OrderStatus,
       }
 
       const mockOrders = [
-        { id: 'order-1', status: 'PENDIENTE', items: [{ id: 'item-1' }] },
-        { id: 'order-2', status: 'PENDIENTE', items: [] },
+        { id: 'order-1', status: 'PENDING', items: [{ id: 'item-1' }] },
+        { id: 'order-2', status: 'PENDING', items: [] },
       ]
 
       mockPrismaService.order.findMany.mockResolvedValue(mockOrders)
@@ -332,8 +332,8 @@ describe('OrdersService', () => {
 
       expect(result).toEqual({
         data: [
-          { id: 'order-1', status: 'PENDIENTE', items: [{ id: 'item-1' }], itemCount: 1 },
-          { id: 'order-2', status: 'PENDIENTE', items: [], itemCount: 0 },
+          { id: 'order-1', status: 'PENDING', items: [{ id: 'item-1' }], itemCount: 1 },
+          { id: 'order-2', status: 'PENDING', items: [], itemCount: 0 },
         ],
         total: 2,
         page: 1,
@@ -347,7 +347,7 @@ describe('OrdersService', () => {
       const queryDto = {
         page: '1',
         limit: '10',
-        status: 'CONFIRMADO' as OrderStatus,
+        status: 'CONFIRMED' as OrderStatus,
         dateFrom: '2024-01-01',
         dateTo: '2024-01-31',
       }
@@ -361,7 +361,7 @@ describe('OrdersService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             commerceId,
-            status: 'CONFIRMADO',
+            status: 'CONFIRMED',
             createdAt: expect.objectContaining({
               gte: new Date('2024-01-01'),
             }),
@@ -382,7 +382,7 @@ describe('OrdersService', () => {
       const mockOrder = {
         id: orderId,
         commerceId,
-        status: 'PENDIENTE',
+        status: 'PENDING',
         items: [],
         customer: null,
       }
@@ -418,7 +418,7 @@ describe('OrdersService', () => {
       const existingOrder = {
         id: orderId,
         commerceId,
-        status: 'PENDIENTE',
+        status: 'PENDING',
         items: [],
         customer: null,
         orderNumber: 'ORD-2026-0001',
@@ -436,14 +436,14 @@ describe('OrdersService', () => {
       })
     })
 
-    it('should throw error if order is not in PENDIENTE status', async () => {
+    it('should throw error if order is not in PENDING status', async () => {
       const orderId = 'order-123'
       const commerceId = 'commerce-123'
 
       const existingOrder = {
         id: orderId,
         commerceId,
-        status: 'CONFIRMADO',
+        status: 'CONFIRMED',
         items: [],
         customer: null,
       }

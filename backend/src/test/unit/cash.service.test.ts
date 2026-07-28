@@ -58,21 +58,21 @@ describe('CashService', () => {
       mockPrismaService.cashSession.findFirst.mockResolvedValue(null)
       mockPrismaService.cashSession.create.mockResolvedValue({
         id: 'session-1',
-        status: 'ABIERTA',
+        status: 'OPEN',
         openingAmount: 100,
         commerceId,
       })
 
       const result = await service.open(commerceId, 'Cajero Demo', { openingAmount: 100 })
 
-      expect(result).toMatchObject({ id: 'session-1', status: 'ABIERTA' })
+      expect(result).toMatchObject({ id: 'session-1', status: 'OPEN' })
       expect(mockPrismaService.cashSession.create).toHaveBeenCalledWith({
         data: { commerceId, openedBy: 'Cajero Demo', openingAmount: 100, notes: undefined },
       })
     })
 
     it('rejects opening a second session while one is already open', async () => {
-      mockPrismaService.cashSession.findFirst.mockResolvedValue({ id: 'existing', status: 'ABIERTA' })
+      mockPrismaService.cashSession.findFirst.mockResolvedValue({ id: 'existing', status: 'OPEN' })
 
       await expect(
         service.open(commerceId, 'Cajero Demo', { openingAmount: 50 })
@@ -101,7 +101,7 @@ describe('CashService', () => {
       mockPrismaService.cashSession.findFirst.mockResolvedValue(openSession)
       mockPrismaService.order.aggregate.mockResolvedValue({ _sum: { total: 50 }, _count: 2 })
       mockPrismaService.cashMovement.groupBy.mockResolvedValue([
-        { type: 'RETIRO', _sum: { amount: 20 } },
+        { type: 'WITHDRAWAL', _sum: { amount: 20 } },
       ])
       mockPrismaService.cashSession.update.mockImplementation(({ data }: any) => ({
         id: openSession.id,
@@ -113,7 +113,7 @@ describe('CashService', () => {
 
       expect(result.expectedAmount).toBe(130)
       expect(result.difference).toBe(-5) // faltante de 5
-      expect(result.status).toBe('CERRADA')
+      expect(result.status).toBe('CLOSED')
     })
 
     it('computes a positive difference (sobrante) when counted exceeds expected', async () => {
@@ -138,7 +138,7 @@ describe('CashService', () => {
       mockPrismaService.cashSession.findFirst.mockResolvedValue(null)
 
       await expect(
-        service.addMovement(commerceId, { type: 'RETIRO', amount: 10, reason: 'test' })
+        service.addMovement(commerceId, { type: 'WITHDRAWAL', amount: 10, reason: 'test' })
       ).rejects.toThrow(NotFoundException)
     })
 
@@ -146,10 +146,10 @@ describe('CashService', () => {
       mockPrismaService.cashSession.findFirst.mockResolvedValue({ id: 'session-1', commerceId })
       mockPrismaService.cashMovement.create.mockResolvedValue({ id: 'mov-1' })
 
-      await service.addMovement(commerceId, { type: 'INGRESO', amount: 30, reason: 'Ajuste' })
+      await service.addMovement(commerceId, { type: 'INCOME', amount: 30, reason: 'Ajuste' })
 
       expect(mockPrismaService.cashMovement.create).toHaveBeenCalledWith({
-        data: { commerceId, sessionId: 'session-1', type: 'INGRESO', amount: 30, reason: 'Ajuste' },
+        data: { commerceId, sessionId: 'session-1', type: 'INCOME', amount: 30, reason: 'Ajuste' },
       })
     })
   })

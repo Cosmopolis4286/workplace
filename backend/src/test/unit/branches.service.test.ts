@@ -215,8 +215,8 @@ describe('BranchesService', () => {
         total: 5,
         active: 4,
         byStatus: [
-          { status: 'ACTIVA', _count: { status: 4 } },
-          { status: 'INACTIVA', _count: { status: 1 } },
+          { status: 'ACTIVE', _count: { status: 4 } },
+          { status: 'INACTIVE', _count: { status: 1 } },
         ],
       }
 
@@ -232,8 +232,8 @@ describe('BranchesService', () => {
         total: 5,
         active: 4,
         byStatus: {
-          'ACTIVA': 4,
-          'INACTIVA': 1,
+          'ACTIVE': 4,
+          'INACTIVE': 1,
         },
       })
     })

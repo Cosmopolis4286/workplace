@@ -173,7 +173,7 @@ describe('MenuService', () => {
         name: 'Producto',
         stock: 10,
         minStock: 5,
-        status: ProductStatus.DISPONIBLE,
+        status: ProductStatus.AVAILABLE,
         category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' },
       };
 
@@ -182,7 +182,7 @@ describe('MenuService', () => {
       mockPrismaService.product.update = jest.fn().mockResolvedValue({
         ...mockProduct,
         stock: 15,
-        status: ProductStatus.DISPONIBLE,
+        status: ProductStatus.AVAILABLE,
       });
 
       const result = await service.updateStock('user-id', 'prod-id', {
@@ -200,7 +200,7 @@ describe('MenuService', () => {
         name: 'Producto',
         stock: 10,
         minStock: 5,
-        status: ProductStatus.DISPONIBLE,
+        status: ProductStatus.AVAILABLE,
         category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' },
       };
 
@@ -209,7 +209,7 @@ describe('MenuService', () => {
       mockPrismaService.product.update = jest.fn().mockResolvedValue({
         ...mockProduct,
         stock: 3,
-        status: ProductStatus.BAJO_STOCK,
+        status: ProductStatus.LOW_STOCK,
       });
 
       await service.updateStock('user-id', 'prod-id', {
@@ -226,7 +226,7 @@ describe('MenuService', () => {
         name: 'Producto',
         stock: 5,
         minStock: 5,
-        status: ProductStatus.DISPONIBLE,
+        status: ProductStatus.AVAILABLE,
         category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' },
       };
 
@@ -235,7 +235,7 @@ describe('MenuService', () => {
       mockPrismaService.product.update = jest.fn().mockResolvedValue({
         ...mockProduct,
         stock: 0,
-        status: ProductStatus.AGOTADO,
+        status: ProductStatus.OUT_OF_STOCK,
       });
 
       const result = await service.updateStock('user-id', 'prod-id', {
@@ -248,11 +248,11 @@ describe('MenuService', () => {
   });
 
   describe('toggleProductStatus', () => {
-    it('should toggle from DISPONIBLE to NO_DISPONIBLE', async () => {
+    it('should toggle from AVAILABLE to UNAVAILABLE', async () => {
       const mockProduct = {
         id: 'prod-id',
         name: 'Producto',
-        status: ProductStatus.DISPONIBLE,
+        status: ProductStatus.AVAILABLE,
         category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' },
       };
 
@@ -260,12 +260,12 @@ describe('MenuService', () => {
       mockPrismaService.product.findUnique = jest.fn().mockResolvedValue(mockProduct);
       mockPrismaService.product.update = jest.fn().mockResolvedValue({
         ...mockProduct,
-        status: ProductStatus.NO_DISPONIBLE,
+        status: ProductStatus.UNAVAILABLE,
       });
 
       const result = await service.toggleProductStatus('user-id', 'prod-id');
 
-      expect(result.status).toBe(ProductStatus.NO_DISPONIBLE);
+      expect(result.status).toBe(ProductStatus.UNAVAILABLE);
     });
   });
 });

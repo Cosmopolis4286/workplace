@@ -699,7 +699,7 @@ export class ServicesService {
   }
 
   // El cliente (requester) confirma que el servicio se completó realmente.
-  // Solo desde CONTACTADO, para evitar que se cierre algo que nunca avanzó,
+  // Solo desde CONTACTED, para evitar que se cierre algo que nunca avanzó,
   // y habilita la reseña verificada del proveedor.
   async confirmServiceRequestCompletion(id: string, userId: string) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
@@ -711,7 +711,7 @@ export class ServicesService {
         'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor',
       );
 
-    // Resolve fee before starting any write so we don't mark CERRADO on a fee error
+    // Resolve fee before starting any write so we don't mark CLOSED on a fee error
     let feeData: { feeAmount: number; feeConfig: any } | null = null;
     if (!req.platformFeePayer && req.price) {
       const feeConfig = await this.platformFees.resolveFeeConfig('SERVICE_REQUEST', req.providerId);

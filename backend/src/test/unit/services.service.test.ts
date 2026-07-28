@@ -19,7 +19,7 @@ describe('ServicesService — service request status transitions', () => {
       requesterId: 'client-1',
       clientName: 'Cliente Uno',
       serviceName: 'Servicio Uno',
-      status: 'PENDIENTE',
+      status: 'PENDING',
       price: null,
       platformFeePayer: null,
       ...overrides,
@@ -67,43 +67,43 @@ describe('ServicesService — service request status transitions', () => {
   });
 
   describe('updateServiceRequest', () => {
-    it('rejects the provider closing directly from PENDIENTE (fee leak closed)', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDIENTE' }));
+    it('rejects the provider closing directly from PENDING (fee leak closed)', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDING' }));
 
       await expect(
-        service.updateServiceRequest('req-1', 'provider-1', { status: 'CERRADO' })
+        service.updateServiceRequest('req-1', 'provider-1', { status: 'CLOSED' })
       ).rejects.toThrow(ForbiddenException);
       await expect(
-        service.updateServiceRequest('req-1', 'provider-1', { status: 'CERRADO' })
+        service.updateServiceRequest('req-1', 'provider-1', { status: 'CLOSED' })
       ).rejects.toThrow('Solo el cliente puede confirmar la finalización de una solicitud');
     });
 
-    it('rejects the provider closing directly from VISTO', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'VISTO' }));
+    it('rejects the provider closing directly from SEEN', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'SEEN' }));
 
       await expect(
-        service.updateServiceRequest('req-1', 'provider-1', { status: 'CERRADO' })
+        service.updateServiceRequest('req-1', 'provider-1', { status: 'CLOSED' })
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('rejects the provider closing directly from CONTACTADO', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTADO' }));
+    it('rejects the provider closing directly from CONTACTED', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTED' }));
 
       await expect(
-        service.updateServiceRequest('req-1', 'provider-1', { status: 'CERRADO' })
+        service.updateServiceRequest('req-1', 'provider-1', { status: 'CLOSED' })
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('allows the provider to reject from PENDIENTE and records history + notifies the client', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDIENTE' }));
+    it('allows the provider to reject from PENDING and records history + notifies the client', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDING' }));
 
-      await service.updateServiceRequest('req-1', 'provider-1', { status: 'RECHAZADO' });
+      await service.updateServiceRequest('req-1', 'provider-1', { status: 'REJECTED' });
 
       expect(mockPrismaService.serviceRequestStatusHistory.create).toHaveBeenCalledWith({
         data: {
           serviceRequestId: 'req-1',
-          previousStatus: 'PENDIENTE',
-          newStatus: 'RECHAZADO',
+          previousStatus: 'PENDING',
+          newStatus: 'REJECTED',
           changedBy: 'provider-1',
         },
       });
@@ -112,76 +112,76 @@ describe('ServicesService — service request status transitions', () => {
       );
     });
 
-    it('allows the provider to reject from VISTO', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'VISTO' }));
+    it('allows the provider to reject from SEEN', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'SEEN' }));
 
       await expect(
-        service.updateServiceRequest('req-1', 'provider-1', { status: 'RECHAZADO' })
+        service.updateServiceRequest('req-1', 'provider-1', { status: 'REJECTED' })
       ).resolves.toBeDefined();
     });
 
-    it('does not allow RECHAZADO from CONTACTADO (not an early-stage exit anymore)', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTADO' }));
+    it('does not allow REJECTED from CONTACTED (not an early-stage exit anymore)', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTED' }));
 
       await expect(
-        service.updateServiceRequest('req-1', 'provider-1', { status: 'RECHAZADO' })
+        service.updateServiceRequest('req-1', 'provider-1', { status: 'REJECTED' })
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('still blocks the provider from cancelling on behalf of the client', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDIENTE' }));
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDING' }));
 
       await expect(
-        service.updateServiceRequest('req-1', 'provider-1', { status: 'CANCELADO' })
+        service.updateServiceRequest('req-1', 'provider-1', { status: 'CANCELLED' })
       ).rejects.toThrow('Solo el cliente puede cancelar una solicitud');
     });
 
-    it('records status history on a valid transition (VISTO)', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDIENTE' }));
+    it('records status history on a valid transition (SEEN)', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDING' }));
 
-      await service.updateServiceRequest('req-1', 'provider-1', { status: 'VISTO' });
+      await service.updateServiceRequest('req-1', 'provider-1', { status: 'SEEN' });
 
       expect(mockPrismaService.serviceRequestStatusHistory.create).toHaveBeenCalledWith({
         data: {
           serviceRequestId: 'req-1',
-          previousStatus: 'PENDIENTE',
-          newStatus: 'VISTO',
+          previousStatus: 'PENDING',
+          newStatus: 'SEEN',
           changedBy: 'provider-1',
         },
       });
       expect(mockNotificationsService.notifyServiceRequestStatusChanged).toHaveBeenCalledWith(
-        'client-1', 'Proveedor Uno', 'Servicio Uno', 'VISTO'
+        'client-1', 'Proveedor Uno', 'Servicio Uno', 'SEEN'
       );
     });
 
-    it('rejects any change once the request is terminal (RECHAZADO)', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'RECHAZADO' }));
+    it('rejects any change once the request is terminal (REJECTED)', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'REJECTED' }));
 
       await expect(
-        service.updateServiceRequest('req-1', 'provider-1', { status: 'CONTACTADO' })
+        service.updateServiceRequest('req-1', 'provider-1', { status: 'CONTACTED' })
       ).rejects.toThrow(ForbiddenException);
     });
   });
 
   describe('confirmServiceRequestCompletion', () => {
-    it('still closes the request from CONTACTADO and records history (unaffected by the transition table change)', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTADO' }));
+    it('still closes the request from CONTACTED and records history (unaffected by the transition table change)', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTED' }));
 
       const result = await service.confirmServiceRequestCompletion('req-1', 'client-1');
 
-      expect(result.status).toBe('CERRADO');
+      expect(result.status).toBe('CLOSED');
       expect(mockPrismaService.serviceRequestStatusHistory.create).toHaveBeenCalledWith({
         data: {
           serviceRequestId: 'req-1',
-          previousStatus: 'CONTACTADO',
-          newStatus: 'CERRADO',
+          previousStatus: 'CONTACTED',
+          newStatus: 'CLOSED',
           changedBy: 'client-1',
         },
       });
     });
 
-    it('rejects confirmation when the request is not CONTACTADO', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDIENTE' }));
+    it('rejects confirmation when the request is not CONTACTED', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDING' }));
 
       await expect(
         service.confirmServiceRequestCompletion('req-1', 'client-1')
@@ -189,7 +189,7 @@ describe('ServicesService — service request status transitions', () => {
     });
 
     it('rejects confirmation from someone other than the requester', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTADO' }));
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTED' }));
 
       await expect(
         service.confirmServiceRequestCompletion('req-1', 'someone-else')
@@ -199,15 +199,15 @@ describe('ServicesService — service request status transitions', () => {
 
   describe('cancelServiceRequest', () => {
     it('records status history when the client cancels', async () => {
-      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDIENTE' }));
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDING' }));
 
       await service.cancelServiceRequest('req-1', 'client-1');
 
       expect(mockPrismaService.serviceRequestStatusHistory.create).toHaveBeenCalledWith({
         data: {
           serviceRequestId: 'req-1',
-          previousStatus: 'PENDIENTE',
-          newStatus: 'CANCELADO',
+          previousStatus: 'PENDING',
+          newStatus: 'CANCELLED',
           changedBy: 'client-1',
         },
       });

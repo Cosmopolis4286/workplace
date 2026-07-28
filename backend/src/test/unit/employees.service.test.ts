@@ -73,7 +73,7 @@ describe('EmployeesService', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        role: 'CAJERO',
+        role: 'CASHIER',
       }
 
       const mockEmployee = {
@@ -103,7 +103,7 @@ describe('EmployeesService', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        role: 'CAJERO',
+        role: 'CASHIER',
       }
 
       mockPlanLimitsService.assertEmployeeLimit.mockResolvedValue(undefined)
@@ -116,7 +116,7 @@ describe('EmployeesService', () => {
       const createDto: CreateEmployeeDto = {
         firstName: 'John',
         lastName: 'Doe',
-        role: 'CAJERO',
+        role: 'CASHIER',
       }
 
       mockPlanLimitsService.assertEmployeeLimit.mockRejectedValue(
@@ -132,11 +132,11 @@ describe('EmployeesService', () => {
       mockPrismaService.employee.findUnique.mockResolvedValue(null)
       mockPrismaService.employee.create.mockResolvedValue({ id: 'employee-1' })
 
-      await service.create(userId, { firstName: 'A', lastName: 'B', role: 'CAJERO' })
+      await service.create(userId, { firstName: 'A', lastName: 'B', role: 'CASHIER' })
 
       expect(mockPlanLimitsService.assertEmployeeLimit).toHaveBeenCalledWith(userId, userId)
       expect(mockPrismaService.employee.create).toHaveBeenCalledWith({
-        data: { firstName: 'A', lastName: 'B', role: 'CAJERO', commerceId: userId },
+        data: { firstName: 'A', lastName: 'B', role: 'CASHIER', commerceId: userId },
       })
     })
   })
@@ -279,9 +279,9 @@ describe('EmployeesService', () => {
         .mockResolvedValueOnce(10)
         .mockResolvedValueOnce(8)
       mockPrismaService.employee.groupBy.mockResolvedValue([
-        { role: 'CAJERO', _count: { role: 5 } },
-        { role: 'GERENTE', _count: { role: 2 } },
-        { role: 'COCINERO', _count: { role: 3 } },
+        { role: 'CASHIER', _count: { role: 5 } },
+        { role: 'MANAGER', _count: { role: 2 } },
+        { role: 'COOK', _count: { role: 3 } },
       ])
 
       const result = await service.getStats(userId)
@@ -289,7 +289,7 @@ describe('EmployeesService', () => {
       expect(result).toEqual({
         total: 10,
         active: 8,
-        byRole: { CAJERO: 5, GERENTE: 2, COCINERO: 3 },
+        byRole: { CASHIER: 5, MANAGER: 2, COOK: 3 },
       })
     })
   })

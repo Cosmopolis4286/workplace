@@ -89,7 +89,7 @@ describe('AuthController', () => {
         firstName: 'New',
         lastName: 'User',
         birthDate: '1990-01-01',
-        sex: Sex.MASCULINO,
+        sex: Sex.MALE,
         commerceName: 'Test Commerce',
         acceptTerms: true
       }
