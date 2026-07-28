@@ -165,7 +165,7 @@
                   <PencilIcon class="h-4 w-4" />
                 </button>
                 <button
-                  v-if="expense.status === 'PENDIENTE'"
+                  v-if="expense.status === 'PENDING'"
                   class="p-1.5 rounded hover:bg-green-50 text-green-600"
                   title="Marcar como pagado"
                   @click="markPaid(expense.id)"
@@ -392,7 +392,7 @@ function goToPage(page: number) {
 
 function categorySpend(categoryId: string) {
   return expenses.value
-    .filter(e => e.categoryId === categoryId && e.status !== 'CANCELADO')
+    .filter(e => e.categoryId === categoryId && e.status !== 'CANCELLED')
     .reduce((sum, e) => sum + e.amount, 0)
 }
 
@@ -427,7 +427,7 @@ async function handleSave(payload: any) {
 }
 
 async function markPaid(id: string) {
-  await updateExpenseStatus(id, 'PAGADO')
+  await updateExpenseStatus(id, 'PAID')
 }
 
 function confirmDelete(expense: Expense) {

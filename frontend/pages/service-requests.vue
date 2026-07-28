@@ -215,12 +215,12 @@
         </div>
 
         <!-- Pendientes sin atender — solo para proveedores -->
-        <div v-if="!isNormal && viewAs === 'provider' && countByStatus('PENDIENTE') > 0" class="card p-5 border-l-4 border-l-yellow-400">
+        <div v-if="!isNormal && viewAs === 'provider' && countByStatus('PENDING') > 0" class="card p-5 border-l-4 border-l-yellow-400">
           <div class="flex items-center gap-2 mb-1">
             <ClockIcon class="h-4 w-4 text-yellow-500" />
             <p class="text-sm font-semibold text-gray-700">Pendientes sin atender</p>
           </div>
-          <p class="text-2xl font-black text-yellow-600">{{ countByStatus('PENDIENTE') }}</p>
+          <p class="text-2xl font-black text-yellow-600">{{ countByStatus('PENDING') }}</p>
           <p class="text-xs text-gray-400 mt-1">Responde pronto para mejorar tu conversión</p>
         </div>
 
@@ -360,12 +360,12 @@ const MODALITY_LABELS: Record<string, string> = {
 
 const filters = [
   { value: 'ALL',        label: 'Todas' },
-  { value: 'PENDIENTE',  label: 'Pendientes' },
-  { value: 'VISTO',      label: 'Vistas' },
-  { value: 'CONTACTADO', label: 'Contactados' },
-  { value: 'CERRADO',    label: 'Cerrados' },
-  { value: 'CANCELADO',  label: 'Cancelados' },
-  { value: 'RECHAZADO',  label: 'Rechazadas' },
+  { value: 'PENDING',  label: 'Pendientes' },
+  { value: 'SEEN',      label: 'Vistas' },
+  { value: 'CONTACTED', label: 'Contactados' },
+  { value: 'CLOSED',    label: 'Cerrados' },
+  { value: 'CANCELLED',  label: 'Cancelados' },
+  { value: 'REJECTED',  label: 'Rechazadas' },
 ]
 
 const requests     = ref<ServiceRequest[]>([])
@@ -388,33 +388,33 @@ function countByStatus(status: string) {
 
 const headerStats = computed(() => [
   { label: 'Total', value: String(total.value) },
-  { label: 'Pendientes', value: String(countByStatus('PENDIENTE')) },
-  { label: 'Contactados', value: String(countByStatus('CONTACTADO')) },
-  { label: 'Cerrados', value: String(countByStatus('CERRADO')) },
+  { label: 'Pendientes', value: String(countByStatus('PENDING')) },
+  { label: 'Contactados', value: String(countByStatus('CONTACTED')) },
+  { label: 'Cerrados', value: String(countByStatus('CLOSED')) },
 ])
 
 const statusSummary = computed(() => [
-  { status: 'PENDIENTE',  label: 'Pendientes',  count: countByStatus('PENDIENTE'),  dot: 'bg-yellow-400' },
-  { status: 'VISTO',      label: 'Vistos',       count: countByStatus('VISTO'),      dot: 'bg-gray-400'   },
-  { status: 'CONTACTADO', label: 'Contactados',  count: countByStatus('CONTACTADO'), dot: 'bg-blue-400'   },
-  { status: 'CERRADO',    label: 'Cerrados',     count: countByStatus('CERRADO'),    dot: 'bg-green-400'  },
-  { status: 'CANCELADO',  label: 'Cancelados',   count: countByStatus('CANCELADO'),  dot: 'bg-gray-300'   },
-  { status: 'RECHAZADO',  label: 'Rechazados',   count: countByStatus('RECHAZADO'),  dot: 'bg-red-400'    },
+  { status: 'PENDING',  label: 'Pendientes',  count: countByStatus('PENDING'),  dot: 'bg-yellow-400' },
+  { status: 'SEEN',      label: 'Vistos',       count: countByStatus('SEEN'),      dot: 'bg-gray-400'   },
+  { status: 'CONTACTED', label: 'Contactados',  count: countByStatus('CONTACTED'), dot: 'bg-blue-400'   },
+  { status: 'CLOSED',    label: 'Cerrados',     count: countByStatus('CLOSED'),    dot: 'bg-green-400'  },
+  { status: 'CANCELLED',  label: 'Cancelados',   count: countByStatus('CANCELLED'),  dot: 'bg-gray-300'   },
+  { status: 'REJECTED',  label: 'Rechazados',   count: countByStatus('REJECTED'),  dot: 'bg-red-400'    },
 ])
 
 async function openDetail(req: ServiceRequest) {
   selectedReq.value = req
-  // Auto-marcar VISTO cuando el proveedor abre una solicitud PENDIENTE
-  if (viewAs.value === 'provider' && req.status === 'PENDIENTE') {
+  // Auto-marcar SEEN cuando el proveedor abre una solicitud PENDING
+  if (viewAs.value === 'provider' && req.status === 'PENDING') {
     try {
-      await patch(`/services/requests/${req.id}/status`, { status: 'VISTO' })
+      await patch(`/services/requests/${req.id}/status`, { status: 'SEEN' })
       const idx = requests.value.findIndex(r => r.id === req.id)
       if (idx !== -1) {
-        requests.value[idx].status = 'VISTO'
+        requests.value[idx].status = 'SEEN'
         selectedReq.value = { ...requests.value[idx] }
       }
     } catch (e) {
-      console.warn('[solicitudes] auto-mark VISTO failed:', e)
+      console.warn('[solicitudes] auto-mark SEEN failed:', e)
     }
   }
 }

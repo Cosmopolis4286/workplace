@@ -68,9 +68,9 @@
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
                     <select v-model="form.type" required class="input-field">
-                      <option value="OPERATIVO">Operativo</option>
-                      <option value="FIJO">Fijo</option>
-                      <option value="EXTRAORDINARIO">Extraordinario</option>
+                      <option value="OPERATIONAL">Operativo</option>
+                      <option value="FIXED">Fijo</option>
+                      <option value="EXTRAORDINARY">Extraordinario</option>
                     </select>
                   </div>
                 </div>
@@ -80,19 +80,19 @@
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Estado *</label>
                     <select v-model="form.status" required class="input-field">
-                      <option value="PENDIENTE">Pendiente</option>
-                      <option value="PAGADO">Pagado</option>
-                      <option value="VENCIDO">Vencido</option>
-                      <option value="CANCELADO">Cancelado</option>
+                      <option value="PENDING">Pendiente</option>
+                      <option value="PAID">Pagado</option>
+                      <option value="OVERDUE">Vencido</option>
+                      <option value="CANCELLED">Cancelado</option>
                     </select>
                   </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
                     <select v-model="form.paymentMethod" class="input-field">
-                      <option value="EFECTIVO">Efectivo</option>
-                      <option value="TRANSFERENCIA">Transferencia</option>
-                      <option value="TARJETA">Tarjeta</option>
-                      <option value="CHEQUE">Cheque</option>
+                      <option value="CASH">Efectivo</option>
+                      <option value="TRANSFER">Transferencia</option>
+                      <option value="CARD">Tarjeta</option>
+                      <option value="CHECK">Cheque</option>
                     </select>
                   </div>
                 </div>
@@ -171,9 +171,9 @@ const defaultForm = () => ({
   description:   '',
   amount:        0,
   date:          new Date().toISOString().split('T')[0],
-  type:          'OPERATIVO' as const,
-  status:        'PENDIENTE' as const,
-  paymentMethod: 'EFECTIVO' as const,
+  type:          'OPERATIONAL' as const,
+  status:        'PENDING' as const,
+  paymentMethod: 'CASH' as const,
   categoryId:    '',
   supplier:      '',
   receipt:       '',

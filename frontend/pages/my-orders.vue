@@ -376,7 +376,7 @@
           </div>
 
           <!-- Confirmar recepción: solo si el comercio ya contactó -->
-          <div v-if="selectedCatalogOrder.status === 'CONTACTADO'" class="p-4 border-t border-gray-100 bg-blue-50">
+          <div v-if="selectedCatalogOrder.status === 'CONTACTED'" class="p-4 border-t border-gray-100 bg-blue-50">
             <div class="flex items-center justify-between gap-3 flex-wrap">
               <p class="text-xs text-blue-700">Confirma cuando recibas tu pedido para poder dejar tu reseña.</p>
               <button
@@ -388,7 +388,7 @@
               </button>
             </div>
           </div>
-          <div v-else-if="selectedCatalogOrder.status === 'CERRADO'" class="p-4 border-t border-gray-100 bg-green-50">
+          <div v-else-if="selectedCatalogOrder.status === 'CLOSED'" class="p-4 border-t border-gray-100 bg-green-50">
             <p class="text-xs text-green-700 font-medium">Pedido completado. Ya puedes dejar una reseña verificada en el perfil del comercio.</p>
           </div>
 
@@ -450,25 +450,25 @@ interface CatalogOrder {
   address?: string
   city?: string
   notes?: string
-  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
+  status: 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED'
   createdAt: string
 }
 
 const CATALOG_STATUS_LABELS: Record<CatalogOrder['status'], string> = {
-  PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Completado',
+  PENDING: 'Pendiente', SEEN: 'Visto', CONTACTED: 'Contactado', CLOSED: 'Completado',
 }
 const CATALOG_STATUS_CLASSES: Record<CatalogOrder['status'], string> = {
-  PENDIENTE:  'bg-yellow-100 text-yellow-800',
-  VISTO:      'bg-gray-100 text-gray-600',
-  CONTACTADO: 'bg-blue-100 text-blue-700',
-  CERRADO:    'bg-green-100 text-green-700',
+  PENDING:   'bg-yellow-100 text-yellow-800',
+  SEEN:      'bg-gray-100 text-gray-600',
+  CONTACTED: 'bg-blue-100 text-blue-700',
+  CLOSED:    'bg-green-100 text-green-700',
 }
 
 const catalogFilters = [
-  { value: 'ALL',        label: 'Todos'      },
-  { value: 'PENDIENTE',  label: 'Pendientes' },
-  { value: 'CONTACTADO', label: 'Contactados' },
-  { value: 'CERRADO',    label: 'Completados' },
+  { value: 'ALL',       label: 'Todos'      },
+  { value: 'PENDING',   label: 'Pendientes' },
+  { value: 'CONTACTED', label: 'Contactados' },
+  { value: 'CLOSED',    label: 'Completados' },
 ]
 
 const catalogOrders = ref<CatalogOrder[]>([])
@@ -497,10 +497,10 @@ function countByCatalogStatus(status: string) {
 
 function catalogStatusAvatarClass(status: CatalogOrder['status']) {
   const map: Record<CatalogOrder['status'], string> = {
-    PENDIENTE:  'bg-yellow-100 text-yellow-700',
-    VISTO:      'bg-gray-100 text-gray-600',
-    CONTACTADO: 'bg-blue-100 text-blue-700',
-    CERRADO:    'bg-green-100 text-green-700',
+    PENDING:   'bg-yellow-100 text-yellow-700',
+    SEEN:      'bg-gray-100 text-gray-600',
+    CONTACTED: 'bg-blue-100 text-blue-700',
+    CLOSED:    'bg-green-100 text-green-700',
   }
   return map[status]
 }
@@ -524,9 +524,9 @@ async function confirmCatalogOrderCompletion() {
   try {
     const { patch } = useApi()
     await patch(`/catalog/orders/${selectedCatalogOrder.value.id}/confirm-completion`, {})
-    selectedCatalogOrder.value.status = 'CERRADO'
+    selectedCatalogOrder.value.status = 'CLOSED'
     const idx = catalogOrders.value.findIndex((o: CatalogOrder) => o.id === selectedCatalogOrder.value!.id)
-    if (idx !== -1) catalogOrders.value[idx].status = 'CERRADO'
+    if (idx !== -1) catalogOrders.value[idx].status = 'CLOSED'
   } finally {
     confirmingCatalogOrder.value = false
   }
@@ -545,8 +545,8 @@ interface OrderItem {
 interface Order {
   id: string; orderNumber: string; customerName: string
   customerPhone?: string; customerEmail?: string; deliveryAddress?: string
-  status: 'PENDIENTE' | 'CONFIRMADO' | 'PREPARANDO' | 'LISTO' | 'EN_ENTREGA' | 'ENTREGADO' | 'CANCELADO'
-  orderType: 'INMEDIATO' | 'PROGRAMADO'
+  status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
+  orderType: 'IMMEDIATE' | 'SCHEDULED'
   paymentMethod: string; total: number; itemCount: number
   platformFeeRate?: number | null; platformFeeAmount?: number | null; platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
   items: OrderItem[]; commerce?: { id: string; name: string }; createdAt: string
@@ -554,32 +554,32 @@ interface Order {
 
 // ─── Mapas ────────────────────────────────────────────────────────────────────
 const STATUS_LABELS: Record<Order['status'], string> = {
-  PENDIENTE: 'Pendiente', CONFIRMADO: 'Confirmado', PREPARANDO: 'Preparando',
-  LISTO: 'Listo', EN_ENTREGA: 'En Entrega', ENTREGADO: 'Entregado', CANCELADO: 'Cancelado',
+  PENDING: 'Pendiente', CONFIRMED: 'Confirmado', PREPARING: 'Preparando',
+  READY: 'Listo', OUT_FOR_DELIVERY: 'En Entrega', DELIVERED: 'Entregado', CANCELLED: 'Cancelado',
 }
 
 const STATUS_CLASSES: Record<Order['status'], string> = {
-  PENDIENTE:  'bg-yellow-100 text-yellow-800',
-  CONFIRMADO: 'bg-blue-100 text-blue-700',
-  PREPARANDO: 'bg-orange-100 text-orange-700',
-  LISTO:      'bg-purple-100 text-purple-700',
-  EN_ENTREGA: 'bg-indigo-100 text-indigo-700',
-  ENTREGADO:  'bg-green-100 text-green-700',
-  CANCELADO:  'bg-red-100 text-red-700',
+  PENDING:          'bg-yellow-100 text-yellow-800',
+  CONFIRMED:        'bg-blue-100 text-blue-700',
+  PREPARING:        'bg-orange-100 text-orange-700',
+  READY:            'bg-purple-100 text-purple-700',
+  OUT_FOR_DELIVERY: 'bg-indigo-100 text-indigo-700',
+  DELIVERED:        'bg-green-100 text-green-700',
+  CANCELLED:        'bg-red-100 text-red-700',
 }
 
 const ORDER_TYPE_LABELS: Record<Order['orderType'], string> = {
-  INMEDIATO: 'Inmediato', PROGRAMADO: 'Programado',
+  IMMEDIATE: 'Inmediato', SCHEDULED: 'Programado',
 }
 
-const PROCESSING = ['CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
+const PROCESSING = ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
 
 const filters = [
   { value: 'ALL',        label: 'Todos'      },
-  { value: 'PENDIENTE',  label: 'Pendientes' },
+  { value: 'PENDING',    label: 'Pendientes' },
   { value: 'PROCESSING', label: 'En Proceso' },
-  { value: 'ENTREGADO',  label: 'Entregados' },
-  { value: 'CANCELADO',  label: 'Cancelados' },
+  { value: 'DELIVERED',  label: 'Entregados' },
+  { value: 'CANCELLED',  label: 'Cancelados' },
 ]
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
@@ -626,7 +626,7 @@ const statusSummary = computed(() => [
 ])
 
 const latestActive = computed(() =>
-  orders.value.find(o => PROCESSING.includes(o.status) || o.status === 'PENDIENTE') ?? null
+  orders.value.find(o => PROCESSING.includes(o.status) || o.status === 'PENDING') ?? null
 )
 
 const totalSpent = computed(() => stats.value?.totalSpent ?? 0)
@@ -640,22 +640,22 @@ function countByStatusProcessing() {
 }
 function countByFilter(v: string) {
   if (v === 'ALL')        return total.value
-  if (v === 'PENDIENTE')  return stats.value?.pendingOrders ?? countByStatus('PENDIENTE')
+  if (v === 'PENDING')    return stats.value?.pendingOrders ?? countByStatus('PENDING')
   if (v === 'PROCESSING') return stats.value?.processingOrders ?? countByStatusProcessing()
-  if (v === 'ENTREGADO')  return stats.value?.completedOrders ?? countByStatus('ENTREGADO')
-  if (v === 'CANCELADO')  return stats.value?.cancelledOrders ?? countByStatus('CANCELADO')
+  if (v === 'DELIVERED')  return stats.value?.completedOrders ?? countByStatus('DELIVERED')
+  if (v === 'CANCELLED')  return stats.value?.cancelledOrders ?? countByStatus('CANCELLED')
   return countByStatus(v as Order['status'])
 }
 
 function statusAvatarClass(status: Order['status']) {
   const map: Record<Order['status'], string> = {
-    PENDIENTE:  'bg-yellow-100 text-yellow-700',
-    CONFIRMADO: 'bg-blue-100 text-blue-700',
-    PREPARANDO: 'bg-orange-100 text-orange-700',
-    LISTO:      'bg-purple-100 text-purple-700',
-    EN_ENTREGA: 'bg-indigo-100 text-indigo-700',
-    ENTREGADO:  'bg-green-100 text-green-700',
-    CANCELADO:  'bg-red-100 text-red-600',
+    PENDING:          'bg-yellow-100 text-yellow-700',
+    CONFIRMED:        'bg-blue-100 text-blue-700',
+    PREPARING:        'bg-orange-100 text-orange-700',
+    READY:            'bg-purple-100 text-purple-700',
+    OUT_FOR_DELIVERY: 'bg-indigo-100 text-indigo-700',
+    DELIVERED:        'bg-green-100 text-green-700',
+    CANCELLED:        'bg-red-100 text-red-600',
   }
   return map[status]
 }

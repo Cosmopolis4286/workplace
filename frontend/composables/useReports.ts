@@ -9,7 +9,7 @@ export interface Report {
   entityId?: string | null
   reason: string
   description?: string | null
-  status: 'PENDIENTE' | 'EN_REVISION' | 'RESUELTO' | 'DESCARTADO'
+  status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'DISMISSED'
   adminNotes?: string | null
   createdAt: string
 }

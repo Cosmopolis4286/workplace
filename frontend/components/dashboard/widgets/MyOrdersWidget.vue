@@ -115,40 +115,40 @@ const props = defineProps<{
   loading?: boolean
 }>()
 
-const ACTIVE_STATUSES = ['PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
+const ACTIVE_STATUSES = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
 
 const activeCount = computed(() =>
   props.orders.filter(o => ACTIVE_STATUSES.includes(o.status)).length
 )
 
 const statusLabels: Record<string, string> = {
-  PENDIENTE: 'Pendiente',
-  CONFIRMADO: 'Confirmado',
-  PREPARANDO: 'Preparando',
-  LISTO: 'Listo',
-  EN_ENTREGA: 'En camino',
-  ENTREGADO: 'Entregado',
-  CANCELADO: 'Cancelado',
+  PENDING: 'Pendiente',
+  CONFIRMED: 'Confirmado',
+  PREPARING: 'Preparando',
+  READY: 'Listo',
+  OUT_FOR_DELIVERY: 'En camino',
+  DELIVERED: 'Entregado',
+  CANCELLED: 'Cancelado',
 }
 
 const statusClasses: Record<string, string> = {
-  PENDIENTE: 'bg-yellow-100 text-yellow-700',
-  CONFIRMADO: 'bg-blue-100 text-blue-700',
-  PREPARANDO: 'bg-orange-100 text-orange-700',
-  LISTO: 'bg-purple-100 text-purple-700',
-  EN_ENTREGA: 'bg-indigo-100 text-indigo-700',
-  ENTREGADO: 'bg-green-100 text-green-700',
-  CANCELADO: 'bg-red-100 text-red-700',
+  PENDING: 'bg-yellow-100 text-yellow-700',
+  CONFIRMED: 'bg-blue-100 text-blue-700',
+  PREPARING: 'bg-orange-100 text-orange-700',
+  READY: 'bg-purple-100 text-purple-700',
+  OUT_FOR_DELIVERY: 'bg-indigo-100 text-indigo-700',
+  DELIVERED: 'bg-green-100 text-green-700',
+  CANCELLED: 'bg-red-100 text-red-700',
 }
 
 const avatarClasses: Record<string, string> = {
-  PENDIENTE: 'bg-yellow-100 text-yellow-700',
-  CONFIRMADO: 'bg-blue-100 text-blue-700',
-  PREPARANDO: 'bg-orange-100 text-orange-700',
-  LISTO: 'bg-purple-100 text-purple-700',
-  EN_ENTREGA: 'bg-indigo-100 text-indigo-700',
-  ENTREGADO: 'bg-green-100 text-green-700',
-  CANCELADO: 'bg-red-100 text-red-600',
+  PENDING: 'bg-yellow-100 text-yellow-700',
+  CONFIRMED: 'bg-blue-100 text-blue-700',
+  PREPARING: 'bg-orange-100 text-orange-700',
+  READY: 'bg-purple-100 text-purple-700',
+  OUT_FOR_DELIVERY: 'bg-indigo-100 text-indigo-700',
+  DELIVERED: 'bg-green-100 text-green-700',
+  CANCELLED: 'bg-red-100 text-red-600',
 }
 
 function statusLabel(status: string) {

@@ -6,7 +6,7 @@ export interface ProviderServiceRequest {
   serviceName: string
   clientName: string
   clientAvatar?: string | null
-  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO' | 'CANCELADO'
+  status: 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED' | 'CANCELLED'
   price?: number
   priceUnit?: string
   modality?: string

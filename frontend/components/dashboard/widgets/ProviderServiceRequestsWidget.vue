@@ -123,7 +123,7 @@ const props = defineProps<{
 }>()
 
 const pendingCount = computed(() =>
-  props.requests.filter(r => r.status === 'PENDIENTE' || r.status === 'VISTO').length
+  props.requests.filter(r => r.status === 'PENDING' || r.status === 'SEEN').length
 )
 
 const statusLabels = SERVICE_REQUEST_STATUS_LABELS

@@ -116,7 +116,7 @@ export function useDashboard() {
         return
       }
 
-      const ACTIVE_STATUSES: OrderStatus[] = ['PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
+      const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
 
       const [ordersRes, statsRes, analyticsRes, trendsRes] = await Promise.allSettled([
         // Pedidos activos: todos los statuses no-terminales en un solo roundtrip
@@ -152,7 +152,7 @@ export function useDashboard() {
       // Low-stock count — fetch aggregate
       let lowStock = 0
       try {
-        const lowStockRes = await get<any>('/menu/products?status=BAJO_STOCK&limit=50')
+        const lowStockRes = await get<any>('/menu/products?status=LOW_STOCK&limit=50')
         lowStock = lowStockRes?.total ?? lowStockRes?.data?.length ?? 0
       } catch {}
 
@@ -200,7 +200,7 @@ export function useDashboard() {
 
       const idx = activeOrders.value.findIndex(o => o.id === id)
       if (idx !== -1) {
-        const terminalStatuses: OrderStatus[] = ['ENTREGADO', 'CANCELADO']
+        const terminalStatuses: OrderStatus[] = ['DELIVERED', 'CANCELLED']
         if (terminalStatuses.includes(status)) {
           // Remove from active list
           activeOrders.value.splice(idx, 1)
@@ -225,7 +225,7 @@ export function useDashboard() {
   // ── Mark order as paid ────────────────────────────────────────────────────────
   async function markOrderPaid(id: string): Promise<boolean> {
     try {
-      const updated = await put<Order>(`/orders/${id}`, { paymentStatus: 'PAGADO' })
+      const updated = await put<Order>(`/orders/${id}`, { paymentStatus: 'PAID' })
       const idx = activeOrders.value.findIndex(o => o.id === id)
       if (idx !== -1) activeOrders.value[idx] = { ...updated, itemCount: (updated as any).items?.length ?? 0 }
       return true

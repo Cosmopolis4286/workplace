@@ -4,9 +4,9 @@ import { useUserPreferences } from './useUserPreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ExpenseType = 'FIJO' | 'OPERATIVO' | 'EXTRAORDINARIO'
-export type ExpenseStatus = 'PENDIENTE' | 'PAGADO' | 'VENCIDO' | 'CANCELADO'
-export type ExpensePaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CHEQUE'
+export type ExpenseType = 'FIXED' | 'OPERATIONAL' | 'EXTRAORDINARY'
+export type ExpenseStatus = 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED'
+export type ExpensePaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK'
 
 export interface ExpenseCategoryMin {
   id: string
@@ -83,36 +83,36 @@ export interface CreateExpensePayload {
 // ─── Label / style maps ───────────────────────────────────────────────────────
 
 export const EXPENSE_TYPE_LABELS: Record<ExpenseType, string> = {
-  FIJO:           'Fijo',
-  OPERATIVO:      'Operativo',
-  EXTRAORDINARIO: 'Extraordinario',
+  FIXED:         'Fijo',
+  OPERATIONAL:   'Operativo',
+  EXTRAORDINARY: 'Extraordinario',
 }
 
 export const EXPENSE_TYPE_CLASSES: Record<ExpenseType, string> = {
-  FIJO:           'bg-blue-100 text-blue-800',
-  OPERATIVO:      'bg-indigo-100 text-indigo-800',
-  EXTRAORDINARIO: 'bg-orange-100 text-orange-800',
+  FIXED:         'bg-blue-100 text-blue-800',
+  OPERATIONAL:   'bg-indigo-100 text-indigo-800',
+  EXTRAORDINARY: 'bg-orange-100 text-orange-800',
 }
 
 export const EXPENSE_STATUS_LABELS: Record<ExpenseStatus, string> = {
-  PENDIENTE: 'Pendiente',
-  PAGADO:    'Pagado',
-  VENCIDO:   'Vencido',
-  CANCELADO: 'Cancelado',
+  PENDING:   'Pendiente',
+  PAID:      'Pagado',
+  OVERDUE:   'Vencido',
+  CANCELLED: 'Cancelado',
 }
 
 export const EXPENSE_STATUS_CLASSES: Record<ExpenseStatus, string> = {
-  PENDIENTE: 'bg-yellow-100 text-yellow-800',
-  PAGADO:    'bg-green-100 text-green-800',
-  VENCIDO:   'bg-red-100 text-red-800',
-  CANCELADO: 'bg-gray-100 text-gray-600',
+  PENDING:   'bg-yellow-100 text-yellow-800',
+  PAID:      'bg-green-100 text-green-800',
+  OVERDUE:   'bg-red-100 text-red-800',
+  CANCELLED: 'bg-gray-100 text-gray-600',
 }
 
 export const EXPENSE_PAYMENT_METHOD_LABELS: Record<ExpensePaymentMethod, string> = {
-  EFECTIVO:      'Efectivo',
-  TRANSFERENCIA: 'Transferencia',
-  TARJETA:       'Tarjeta',
-  CHEQUE:        'Cheque',
+  CASH:     'Efectivo',
+  TRANSFER: 'Transferencia',
+  CARD:     'Tarjeta',
+  CHECK:    'Cheque',
 }
 
 // ─── Global reactive state ────────────────────────────────────────────────────
@@ -144,8 +144,8 @@ export function useExpenses() {
   const { get, post, put, patch, del } = useApi()
 
   // ── Computed ───────────────────────────────────────────────────────────────
-  const pendingExpenses = computed(() => expenses.value.filter(e => e.status === 'PENDIENTE'))
-  const overdueExpenses = computed(() => expenses.value.filter(e => e.status === 'VENCIDO'))
+  const pendingExpenses = computed(() => expenses.value.filter(e => e.status === 'PENDING'))
+  const overdueExpenses = computed(() => expenses.value.filter(e => e.status === 'OVERDUE'))
 
   const { formatCurrency: _fmt } = useUserPreferences()
   function formatCurrency(value: number) { return _fmt.value(value) }

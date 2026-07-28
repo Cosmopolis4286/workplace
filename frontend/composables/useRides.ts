@@ -1,11 +1,11 @@
 import type { AsyncData } from '#app'
 
-export type CorridaServiceType = 'PASAJERO' | 'FLETE'
-export type CorridaVehicleType = 'MOTO' | 'AUTO' | 'CAMIONETA' | 'CAMION'
+export type RideServiceType = 'PASSENGER' | 'FREIGHT'
+export type RideVehicleType = 'MOTORCYCLE' | 'CAR' | 'PICKUP_TRUCK' | 'TRUCK'
 
-export interface Corrida {
+export interface Ride {
   id: string
-  serviceType: CorridaServiceType
+  serviceType: RideServiceType
   origin: string
   destination: string
   originLat?: number
@@ -22,7 +22,7 @@ export interface Corrida {
   driverId?: string
   driverName?: string
   driverPhone?: string
-  vehicleType: CorridaVehicleType
+  vehicleType: RideVehicleType
   notes?: string
   recipientName?: string
   recipientPhone?: string
@@ -37,15 +37,15 @@ export interface Corrida {
   platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
 }
 
-export interface CreateCorridaDto {
-  serviceType?: CorridaServiceType
+export interface CreateRideDto {
+  serviceType?: RideServiceType
   origin: string
   destination: string
   originLat?: number
   originLng?: number
   destinationLat?: number
   destinationLng?: number
-  vehicleType: CorridaVehicleType
+  vehicleType: RideVehicleType
   notes?: string
   recipientName?: string
   recipientPhone?: string
@@ -54,8 +54,8 @@ export interface CreateCorridaDto {
   declaredValue?: number
 }
 
-export interface UpdateCorridaStatusDto {
-  status: Corrida['status']
+export interface UpdateRideStatusDto {
+  status: Ride['status']
 }
 
 export function useRides() {
@@ -63,9 +63,9 @@ export function useRides() {
   const { can } = usePermissions()
 
   // ─── Estado ─────────────────────────────────────────────────────────────────
-  const corridas = ref<Corrida[]>([])
-  const myCorridas = ref<Corrida[]>([])
-  const activeCorrida = ref<Corrida | null>(null)
+  const corridas = ref<Ride[]>([])
+  const myCorridas = ref<Ride[]>([])
+  const activeCorrida = ref<Ride | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -86,7 +86,7 @@ export function useRides() {
   /**
    * Obtener todas las corridas disponibles (para conductores)
    */
-  async function fetchAvailableCorridas(serviceType?: CorridaServiceType): Promise<Corrida[]> {
+  async function fetchAvailableCorridas(serviceType?: RideServiceType): Promise<Ride[]> {
     if (!can('corridas:view')) {
       throw new Error('No tienes permiso para ver corridas')
     }
@@ -94,7 +94,7 @@ export function useRides() {
     clearError()
     try {
       const query = serviceType ? `?serviceType=${serviceType}` : ''
-      const data = await get<Corrida[]>(`/corridas/available${query}`)
+      const data = await get<Ride[]>(`/rides/available${query}`)
       corridas.value = data
       return data
     } catch (e: any) {
@@ -108,7 +108,7 @@ export function useRides() {
   /**
    * Obtener mis corridas (como pasajero)
    */
-  async function fetchMyCorridas(): Promise<Corrida[]> {
+  async function fetchMyCorridas(): Promise<Ride[]> {
     // Usuarios con corridas:view o corridas:create pueden ver sus propias corridas
     if (!can('corridas:view') && !can('corridas:create')) {
       throw new Error('No tienes permiso para ver tus corridas')
@@ -116,7 +116,7 @@ export function useRides() {
     loading.value = true
     clearError()
     try {
-      const data = await get<Corrida[]>('/corridas/mine')
+      const data = await get<Ride[]>('/rides/mine')
       myCorridas.value = data
       // Restaurar corrida activa desde el historial al cargar
       const active = data.find(c =>
@@ -135,14 +135,14 @@ export function useRides() {
   /**
    * Obtener corridas asignadas al conductor actual
    */
-  async function fetchDriverCorridas(): Promise<Corrida[]> {
+  async function fetchDriverCorridas(): Promise<Ride[]> {
     if (!can('corridas:manage')) {
       throw new Error('No tienes permiso para gestionar corridas')
     }
     loading.value = true
     clearError()
     try {
-      const data = await get<Corrida[]>('/corridas/driver')
+      const data = await get<Ride[]>('/rides/driver')
       corridas.value = data
       return data
     } catch (e: any) {
@@ -156,14 +156,14 @@ export function useRides() {
   /**
    * Crear una nueva corrida (solicitar viaje)
    */
-  async function createCorrida(dto: CreateCorridaDto): Promise<Corrida> {
+  async function createCorrida(dto: CreateRideDto): Promise<Ride> {
     if (!can('corridas:create')) {
       throw new Error('No tienes permiso para solicitar corridas')
     }
     loading.value = true
     clearError()
     try {
-      const data = await post<Corrida>('/corridas', dto)
+      const data = await post<Ride>('/rides', dto)
       myCorridas.value.unshift(data)
       activeCorrida.value = data
       return data
@@ -178,14 +178,14 @@ export function useRides() {
   /**
    * Aceptar una corrida (como conductor)
    */
-  async function acceptCorrida(corridaId: string): Promise<Corrida> {
+  async function acceptCorrida(corridaId: string): Promise<Ride> {
     if (!can('corridas:manage')) {
       throw new Error('No tienes permiso para aceptar corridas')
     }
     loading.value = true
     clearError()
     try {
-      const data = await post<Corrida>(`/corridas/${corridaId}/accept`, {})
+      const data = await post<Ride>(`/rides/${corridaId}/accept`, {})
       const idx = corridas.value.findIndex(c => c.id === corridaId)
       if (idx >= 0) corridas.value[idx] = data
       activeCorrida.value = data
@@ -203,15 +203,15 @@ export function useRides() {
    */
   async function updateCorridaStatus(
     corridaId: string,
-    status: Corrida['status']
-  ): Promise<Corrida> {
+    status: Ride['status']
+  ): Promise<Ride> {
     if (!can('corridas:manage') && !can('corridas:create')) {
       throw new Error('No tienes permiso para actualizar corridas')
     }
     loading.value = true
     clearError()
     try {
-      const data = await patch<Corrida>(`/corridas/${corridaId}/status`, { status })
+      const data = await patch<Ride>(`/rides/${corridaId}/status`, { status })
       // Actualizar en todas las listas
       const idx1 = corridas.value.findIndex(c => c.id === corridaId)
       if (idx1 >= 0) corridas.value[idx1] = data
@@ -236,7 +236,7 @@ export function useRides() {
     loading.value = true
     clearError()
     try {
-      await post(`/corridas/${corridaId}/cancel`, {})
+      await post(`/rides/${corridaId}/cancel`, {})
       // Actualizar estado localmente
       const idx1 = corridas.value.findIndex(c => c.id === corridaId)
       if (idx1 >= 0) corridas.value[idx1].status = 'CANCELLED'
@@ -256,10 +256,10 @@ export function useRides() {
   /**
    * Obtener detalle de una corrida
    */
-  async function fetchCorridaById(corridaId: string): Promise<Corrida> {
+  async function fetchCorridaById(corridaId: string): Promise<Ride> {
     clearError()
     try {
-      const data = await get<Corrida>(`/corridas/${corridaId}`)
+      const data = await get<Ride>(`/rides/${corridaId}`)
       activeCorrida.value = data
       return data
     } catch (e: any) {
@@ -276,10 +276,10 @@ export function useRides() {
     originLng: number,
     destinationLat: number,
     destinationLng: number,
-    vehicleType: CorridaVehicleType
+    vehicleType: RideVehicleType
   ): Promise<{ price: number; distance: number; duration: number }> {
     try {
-      return await post('/corridas/calculate-price', {
+      return await post('/rides/calculate-price', {
         originLat,
         originLng,
         destinationLat,
@@ -314,12 +314,12 @@ export function useRides() {
     activeCorrida,
     loading,
     error,
-    
+
     // Computados
     hasActiveCorrida,
     canRequestCorrida,
     canManageCorridas,
-    
+
     // Métodos
     fetchAvailableCorridas,
     fetchMyCorridas,

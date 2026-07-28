@@ -73,8 +73,8 @@ const props = defineProps<{
   loading?: boolean
 }>()
 
-const ACTIVE_ORDER_STATUSES = ['PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
-const ACTIVE_REQUEST_STATUSES = ['PENDIENTE', 'VISTO', 'CONTACTADO']
+const ACTIVE_ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
+const ACTIVE_REQUEST_STATUSES = ['PENDING', 'SEEN', 'CONTACTED']
 
 const totalOrders = computed(() => props.orders.length)
 
@@ -84,7 +84,7 @@ const activeOrdersCount = computed(() =>
 
 const totalSpent = computed(() =>
   props.orders
-    .filter(o => o.status === 'ENTREGADO')
+    .filter(o => o.status === 'DELIVERED')
     .reduce((sum, o) => sum + (o.total ?? 0), 0)
 )
 

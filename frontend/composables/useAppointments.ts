@@ -2,11 +2,11 @@ import { ref, computed } from 'vue'
 import { useApi } from './useApi'
 
 export type AppointmentStatus =
-  | 'PENDIENTE'
-  | 'CONFIRMADA'
-  | 'SENTADA'
-  | 'COMPLETADA'
-  | 'CANCELADA'
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'SEATED'
+  | 'COMPLETED'
+  | 'CANCELLED'
   | 'NO_SHOW'
 
 export interface AppointmentCustomer {
@@ -85,20 +85,20 @@ const totalCount = ref(0)
 
 // ─── Status labels / colors ───────────────────────────────────────────────────
 export const STATUS_LABELS: Record<AppointmentStatus, string> = {
-  PENDIENTE: 'Pendiente',
-  CONFIRMADA: 'Confirmada',
-  SENTADA: 'Sentada',
-  COMPLETADA: 'Completada',
-  CANCELADA: 'Cancelada',
+  PENDING: 'Pendiente',
+  CONFIRMED: 'Confirmada',
+  SEATED: 'Sentada',
+  COMPLETED: 'Completada',
+  CANCELLED: 'Cancelada',
   NO_SHOW: 'No Show',
 }
 
 export const STATUS_CLASSES: Record<AppointmentStatus, string> = {
-  PENDIENTE: 'bg-yellow-100 text-yellow-800',
-  CONFIRMADA: 'bg-green-100 text-green-800',
-  SENTADA: 'bg-blue-100 text-blue-800',
-  COMPLETADA: 'bg-gray-100 text-gray-700',
-  CANCELADA: 'bg-red-100 text-red-800',
+  PENDING: 'bg-yellow-100 text-yellow-800',
+  CONFIRMED: 'bg-green-100 text-green-800',
+  SEATED: 'bg-blue-100 text-blue-800',
+  COMPLETED: 'bg-gray-100 text-gray-700',
+  CANCELLED: 'bg-red-100 text-red-800',
   NO_SHOW: 'bg-orange-100 text-orange-800',
 }
 
@@ -108,8 +108,8 @@ export const useAppointments = () => {
 
   // ─── Computed ──────────────────────────────────────────────────────────────
 
-  const pendingCount = computed(() => appointments.value.filter((a) => a.status === 'PENDIENTE').length)
-  const confirmedCount = computed(() => appointments.value.filter((a) => a.status === 'CONFIRMADA').length)
+  const pendingCount = computed(() => appointments.value.filter((a) => a.status === 'PENDING').length)
+  const confirmedCount = computed(() => appointments.value.filter((a) => a.status === 'CONFIRMED').length)
 
   // ─── Load ──────────────────────────────────────────────────────────────────
 
@@ -148,8 +148,8 @@ export const useAppointments = () => {
       appointments.value.unshift(item)
       totalCount.value++
       stats.value.total++
-      if (item.status === 'PENDIENTE') stats.value.pending++
-      else if (item.status === 'CONFIRMADA') stats.value.confirmed++
+      if (item.status === 'PENDING') stats.value.pending++
+      else if (item.status === 'CONFIRMED') stats.value.confirmed++
       return item
     } catch (err: any) {
       error.value = err?.message ?? 'Error al crear el agendamiento'
@@ -177,9 +177,9 @@ export const useAppointments = () => {
       totalCount.value = Math.max(0, totalCount.value - 1)
       if (removed) {
         stats.value.total = Math.max(0, stats.value.total - 1)
-        if (removed.status === 'PENDIENTE') stats.value.pending = Math.max(0, stats.value.pending - 1)
-        else if (removed.status === 'CONFIRMADA') stats.value.confirmed = Math.max(0, stats.value.confirmed - 1)
-        else if (removed.status === 'CANCELADA') stats.value.cancelled = Math.max(0, stats.value.cancelled - 1)
+        if (removed.status === 'PENDING') stats.value.pending = Math.max(0, stats.value.pending - 1)
+        else if (removed.status === 'CONFIRMED') stats.value.confirmed = Math.max(0, stats.value.confirmed - 1)
+        else if (removed.status === 'CANCELLED') stats.value.cancelled = Math.max(0, stats.value.cancelled - 1)
       }
       return true
     } catch (err: any) {

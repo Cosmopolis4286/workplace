@@ -387,15 +387,15 @@
           </div>
 
           <!-- Footer estado completado — proveedor -->
-          <div v-else-if="isProvider && req.status === 'CERRADO'" class="p-4 border-t border-gray-100 bg-green-50">
+          <div v-else-if="isProvider && req.status === 'CLOSED'" class="p-4 border-t border-gray-100 bg-green-50">
             <div class="flex items-center gap-2">
               <CheckCircleIcon class="h-4 w-4 text-green-600 flex-shrink-0" />
               <p class="text-xs text-green-700 font-medium">Servicio completado. Puedes dejar observaciones finales si lo deseas.</p>
             </div>
           </div>
 
-          <!-- Footer esperando confirmación del cliente — proveedor (CONTACTADO) -->
-          <div v-else-if="isProvider && req.status === 'CONTACTADO'" class="p-4 border-t border-gray-100 bg-blue-50">
+          <!-- Footer esperando confirmación del cliente — proveedor (CONTACTED) -->
+          <div v-else-if="isProvider && req.status === 'CONTACTED'" class="p-4 border-t border-gray-100 bg-blue-50">
             <div class="flex items-center gap-2">
               <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0" />
               <p class="text-xs text-blue-700">Esperando que el cliente confirme la finalización del servicio.</p>
@@ -403,7 +403,7 @@
           </div>
 
           <!-- Footer estado rechazado — proveedor -->
-          <div v-else-if="isProvider && req.status === 'RECHAZADO'" class="p-4 border-t border-gray-100 bg-red-50">
+          <div v-else-if="isProvider && req.status === 'REJECTED'" class="p-4 border-t border-gray-100 bg-red-50">
             <div class="flex items-center gap-2">
               <XCircleIcon class="h-4 w-4 text-red-600 flex-shrink-0" />
               <p class="text-xs text-red-700 font-medium">Rechazaste esta solicitud.</p>
@@ -411,7 +411,7 @@
           </div>
 
           <!-- Footer — cliente: confirmar finalización -->
-          <div v-else-if="!isProvider && req.status === 'CONTACTADO'" class="p-4 border-t border-gray-100 bg-blue-50">
+          <div v-else-if="!isProvider && req.status === 'CONTACTED'" class="p-4 border-t border-gray-100 bg-blue-50">
             <div class="flex items-center justify-between gap-3 flex-wrap">
               <div class="flex items-start gap-2">
                 <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -430,7 +430,7 @@
             </div>
           </div>
 
-          <!-- Footer — cliente (solo lectura / cancelar, PENDIENTE/VISTO/CANCELADO) -->
+          <!-- Footer — cliente (solo lectura / cancelar, PENDING/SEEN/CANCELLED) -->
           <div v-else-if="!isProvider" class="p-4 border-t border-gray-100 bg-blue-50">
             <div v-if="confirmingCancel" class="space-y-2">
               <p class="text-xs text-gray-700 font-medium">¿Seguro? Esta acción no se puede deshacer.</p>
@@ -445,10 +445,10 @@
               <div class="flex items-start gap-2">
                 <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
                 <p class="text-xs text-blue-700">
-                  <template v-if="req.status === 'PENDIENTE'">Tu solicitud está en espera de respuesta del proveedor.</template>
-                  <template v-else-if="req.status === 'VISTO'">El proveedor ya vio tu solicitud y pronto se pondrá en contacto.</template>
-                  <template v-else-if="req.status === 'CANCELADO'">Cancelaste esta solicitud.</template>
-                  <template v-else-if="req.status === 'RECHAZADO'">El proveedor no podrá atender esta solicitud. Puedes buscar otro proveedor.</template>
+                  <template v-if="req.status === 'PENDING'">Tu solicitud está en espera de respuesta del proveedor.</template>
+                  <template v-else-if="req.status === 'SEEN'">El proveedor ya vio tu solicitud y pronto se pondrá en contacto.</template>
+                  <template v-else-if="req.status === 'CANCELLED'">Cancelaste esta solicitud.</template>
+                  <template v-else-if="req.status === 'REJECTED'">El proveedor no podrá atender esta solicitud. Puedes buscar otro proveedor.</template>
                   <template v-else>Este servicio fue cerrado/completado. Ya puedes dejar una reseña verificada en el perfil del proveedor.</template>
                 </p>
               </div>
@@ -463,7 +463,7 @@
           </div>
 
           <!-- Reportar problema (cliente) -->
-          <div v-if="!isProvider && !['CANCELADO', 'RECHAZADO'].includes(req.status)" class="px-4 pb-3 text-center">
+          <div v-if="!isProvider && !['CANCELLED', 'REJECTED'].includes(req.status)" class="px-4 pb-3 text-center">
             <button class="text-xs text-gray-400 hover:text-red-500 font-medium" @click="showReportModal = true">
               ¿Tuviste un problema con esta solicitud? Reportarlo
             </button>
@@ -653,12 +653,12 @@ const MODALITY_LABELS: Record<string, string> = {
 if (!defaultRate.value) fetchRates(false, true)
 
 const TIMELINE = [
-  { status: 'PENDIENTE',  label: 'Pendiente',  icon: ClockIcon },
-  { status: 'VISTO',      label: 'Visto',       icon: EyeIcon },
-  { status: 'CONTACTADO', label: 'Contactado',  icon: PhoneArrowUpRightIcon },
-  { status: 'CERRADO',    label: 'Cerrado',     icon: CheckCircleIcon },
+  { status: 'PENDING',  label: 'Pendiente',  icon: ClockIcon },
+  { status: 'SEEN',      label: 'Visto',       icon: EyeIcon },
+  { status: 'CONTACTED', label: 'Contactado',  icon: PhoneArrowUpRightIcon },
+  { status: 'CLOSED',    label: 'Cerrado',     icon: CheckCircleIcon },
 ]
-const STATUS_ORDER = ['PENDIENTE', 'VISTO', 'CONTACTADO', 'CERRADO']
+const STATUS_ORDER = ['PENDING', 'SEEN', 'CONTACTED', 'CLOSED']
 
 const contactInitial = computed(() =>
   (props.isProvider ? props.req.clientName : props.req.providerName)[0]?.toUpperCase() ?? '?'
@@ -675,21 +675,21 @@ function timelineClass(status: string) {
 }
 
 // Timestamp a mostrar bajo cada paso del timeline.
-// PENDIENTE siempre usa la fecha de creación; el paso actual usa statusUpdatedAt
+// PENDING siempre usa la fecha de creación; el paso actual usa statusUpdatedAt
 // (no se conserva un historial por paso intermedio).
 function stepTimestamp(status: string): string | null {
-  if (status === 'PENDIENTE') return props.req.createdAt
+  if (status === 'PENDING') return props.req.createdAt
   if (props.req.status === status) return props.req.statusUpdatedAt ?? null
   return null
 }
 
 const nextActions = computed(() => {
   if (!props.isProvider) return []
-  if (props.req.status === 'PENDIENTE' || props.req.status === 'VISTO') return [
-    { status: 'CONTACTADO', label: 'Marcar contactado', icon: PhoneArrowUpRightIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
-    { status: 'RECHAZADO', label: 'Rechazar', icon: XCircleIcon, class: 'bg-red-50 text-red-600 hover:bg-red-100' },
+  if (props.req.status === 'PENDING' || props.req.status === 'SEEN') return [
+    { status: 'CONTACTED', label: 'Marcar contactado', icon: PhoneArrowUpRightIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
+    { status: 'REJECTED', label: 'Rechazar', icon: XCircleIcon, class: 'bg-red-50 text-red-600 hover:bg-red-100' },
   ]
-  // CONTACTADO: el proveedor ya no puede forzar el cierre — solo el cliente puede
+  // CONTACTED: el proveedor ya no puede forzar el cierre — solo el cliente puede
   // confirmar la finalización (así se garantiza el cobro de la comisión de plataforma).
   return []
 })
@@ -746,7 +746,7 @@ async function doStatusChange(status: string) {
   }
 }
 
-// Confirmación del cliente: marca la solicitud como CERRADO y habilita su reseña verificada
+// Confirmación del cliente: marca la solicitud como CLOSED y habilita su reseña verificada
 const confirming = ref(false)
 const showReportModal = ref(false)
 
@@ -756,7 +756,7 @@ async function confirmCompletion() {
   try {
     const { patch } = useApi()
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/confirm-completion`, {})
-    emit('updated', { ...props.req, ...updated, status: 'CERRADO' })
+    emit('updated', { ...props.req, ...updated, status: 'CLOSED' })
   } catch (e: any) {
     actionError.value = e?.data?.message ?? e?.message ?? 'Error al confirmar la finalización'
   } finally {
@@ -764,8 +764,8 @@ async function confirmCompletion() {
   }
 }
 
-// Cancelación del cliente: solo disponible en PENDIENTE/VISTO, con confirmación inline
-const canCancel = computed(() => !props.isProvider && ['PENDIENTE', 'VISTO'].includes(props.req.status))
+// Cancelación del cliente: solo disponible en PENDING/SEEN, con confirmación inline
+const canCancel = computed(() => !props.isProvider && ['PENDING', 'SEEN'].includes(props.req.status))
 const confirmingCancel = ref(false)
 const cancelling = ref(false)
 
@@ -775,7 +775,7 @@ async function cancelRequest() {
   try {
     const { patch } = useApi()
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/cancel`, {})
-    emit('updated', { ...props.req, ...updated, status: 'CANCELADO' })
+    emit('updated', { ...props.req, ...updated, status: 'CANCELLED' })
     confirmingCancel.value = false
   } catch (e: any) {
     actionError.value = e?.data?.message ?? e?.message ?? 'Error al cancelar la solicitud'

@@ -7,7 +7,7 @@ export interface MyServiceRequest {
   serviceName: string
   providerName: string
   providerAvatar?: string | null
-  status: 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
+  status: 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED'
   price?: number
   priceUnit?: string
   modality?: string

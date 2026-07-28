@@ -143,10 +143,10 @@
         <div class="flex items-center gap-2">
           <select v-model="reportStatusFilter" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5" @change="loadUserReports">
             <option value="">Todos</option>
-            <option value="PENDIENTE">Pendientes</option>
-            <option value="EN_REVISION">En revisión</option>
-            <option value="RESUELTO">Resueltos</option>
-            <option value="DESCARTADO">Descartados</option>
+            <option value="PENDING">Pendientes</option>
+            <option value="IN_REVIEW">En revisión</option>
+            <option value="RESOLVED">Resueltos</option>
+            <option value="DISMISSED">Descartados</option>
           </select>
         </div>
       </div>
@@ -169,22 +169,22 @@
           <p v-if="r.description" class="text-sm text-gray-500 italic">"{{ r.description }}"</p>
           <p v-if="r.adminNotes" class="text-xs text-gray-400">Nota interna: {{ r.adminNotes }}</p>
 
-          <div v-if="r.status === 'PENDIENTE' || r.status === 'EN_REVISION'" class="flex gap-2 pt-1">
+          <div v-if="r.status === 'PENDING' || r.status === 'IN_REVIEW'" class="flex gap-2 pt-1">
             <button
-              v-if="r.status === 'PENDIENTE'"
-              @click="moderateUserReport(r.id, 'EN_REVISION')"
+              v-if="r.status === 'PENDING'"
+              @click="moderateUserReport(r.id, 'IN_REVIEW')"
               class="text-xs font-semibold border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50"
             >
               Marcar en revisión
             </button>
             <button
-              @click="moderateUserReport(r.id, 'RESUELTO')"
+              @click="moderateUserReport(r.id, 'RESOLVED')"
               class="text-xs font-semibold bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700"
             >
               Marcar resuelto
             </button>
             <button
-              @click="moderateUserReport(r.id, 'DESCARTADO')"
+              @click="moderateUserReport(r.id, 'DISMISSED')"
               class="text-xs font-semibold text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-50"
             >
               Descartar
@@ -603,7 +603,7 @@ interface UserReport {
   entityType: 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'ORDER' | 'GENERAL'
   reason: string
   description?: string
-  status: 'PENDIENTE' | 'EN_REVISION' | 'RESUELTO' | 'DESCARTADO'
+  status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'DISMISSED'
   adminNotes?: string
   reporter: { firstName: string; lastName: string }
   createdAt: string
@@ -738,17 +738,17 @@ const ENTITY_TYPE_LABELS: Record<UserReport['entityType'], string> = {
 }
 
 const REPORT_STATUS_LABELS: Record<UserReport['status'], string> = {
-  PENDIENTE: 'Pendiente',
-  EN_REVISION: 'En revisión',
-  RESUELTO: 'Resuelto',
-  DESCARTADO: 'Descartado',
+  PENDING: 'Pendiente',
+  IN_REVIEW: 'En revisión',
+  RESOLVED: 'Resuelto',
+  DISMISSED: 'Descartado',
 }
 
 const REPORT_STATUS_CLASSES: Record<UserReport['status'], string> = {
-  PENDIENTE: 'bg-yellow-50 text-yellow-700',
-  EN_REVISION: 'bg-blue-50 text-blue-700',
-  RESUELTO: 'bg-green-50 text-green-700',
-  DESCARTADO: 'bg-gray-100 text-gray-400',
+  PENDING: 'bg-yellow-50 text-yellow-700',
+  IN_REVIEW: 'bg-blue-50 text-blue-700',
+  RESOLVED: 'bg-green-50 text-green-700',
+  DISMISSED: 'bg-gray-100 text-gray-400',
 }
 
 async function loadUserReports() {

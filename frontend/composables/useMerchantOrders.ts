@@ -5,17 +5,17 @@ import { useUserPreferences } from './useUserPreferences'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type OrderStatus =
-  | 'PENDIENTE'
-  | 'CONFIRMADO'
-  | 'PREPARANDO'
-  | 'LISTO'
-  | 'EN_ENTREGA'
-  | 'ENTREGADO'
-  | 'CANCELADO'
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'PREPARING'
+  | 'READY'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'CANCELLED'
 
-export type OrderType = 'INMEDIATO' | 'PROGRAMADO' | 'PARA_LLEVAR' | 'EN_SITIO'
-export type PaymentMethod = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'EN_LINEA' | 'CASHEA' | 'KRECE'
-export type PaymentStatus = 'PENDIENTE' | 'PAGADO' | 'REEMBOLSADO'
+export type OrderType = 'IMMEDIATE' | 'SCHEDULED' | 'TAKEAWAY' | 'DINE_IN'
+export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'ONLINE' | 'CASHEA' | 'KRECE'
+export type PaymentStatus = 'PENDING' | 'PAID' | 'REFUNDED'
 
 export interface OrderItem {
   id: string
@@ -118,52 +118,52 @@ export interface OrderFilters {
 // ─── Status maps ──────────────────────────────────────────────────────────────
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  PENDIENTE:   'Pendiente',
-  CONFIRMADO:  'Confirmado',
-  PREPARANDO:  'Preparando',
-  LISTO:       'Listo',
-  EN_ENTREGA:  'En Entrega',
-  ENTREGADO:   'Entregado',
-  CANCELADO:   'Cancelado',
+  PENDING:          'Pendiente',
+  CONFIRMED:        'Confirmado',
+  PREPARING:        'Preparando',
+  READY:            'Listo',
+  OUT_FOR_DELIVERY: 'En Entrega',
+  DELIVERED:        'Entregado',
+  CANCELLED:        'Cancelado',
 }
 
 export const ORDER_STATUS_CLASSES: Record<OrderStatus, string> = {
-  PENDIENTE:   'bg-yellow-100 text-yellow-800',
-  CONFIRMADO:  'bg-blue-100 text-blue-800',
-  PREPARANDO:  'bg-indigo-100 text-indigo-800',
-  LISTO:       'bg-green-100 text-green-800',
-  EN_ENTREGA:  'bg-purple-100 text-purple-800',
-  ENTREGADO:   'bg-gray-100 text-gray-700',
-  CANCELADO:   'bg-red-100 text-red-800',
+  PENDING:          'bg-yellow-100 text-yellow-800',
+  CONFIRMED:        'bg-blue-100 text-blue-800',
+  PREPARING:        'bg-indigo-100 text-indigo-800',
+  READY:            'bg-green-100 text-green-800',
+  OUT_FOR_DELIVERY: 'bg-purple-100 text-purple-800',
+  DELIVERED:        'bg-gray-100 text-gray-700',
+  CANCELLED:        'bg-red-100 text-red-800',
 }
 
 export const ORDER_TYPE_LABELS: Record<OrderType, string> = {
-  INMEDIATO:  'Inmediato',
-  PROGRAMADO: 'Programado',
-  PARA_LLEVAR: 'Para Llevar',
-  EN_SITIO:   'En Sitio',
+  IMMEDIATE: 'Inmediato',
+  SCHEDULED: 'Programado',
+  TAKEAWAY:  'Para Llevar',
+  DINE_IN:   'En Sitio',
 }
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  EFECTIVO:      'Efectivo',
-  TARJETA:       'Tarjeta',
-  TRANSFERENCIA: 'Transferencia',
-  EN_LINEA:      'En Línea',
-  CASHEA:        'Cashea (BNPL)',
-  KRECE:         'Krece (BNPL)',
+  CASH:     'Efectivo',
+  CARD:     'Tarjeta',
+  TRANSFER: 'Transferencia',
+  ONLINE:   'En Línea',
+  CASHEA:   'Cashea (BNPL)',
+  KRECE:    'Krece (BNPL)',
 }
 
 // Valid next statuses for progression UI
 export const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus[]>> = {
-  PENDIENTE:  ['CONFIRMADO', 'CANCELADO'],
-  CONFIRMADO: ['PREPARANDO', 'CANCELADO'],
-  PREPARANDO: ['LISTO', 'CANCELADO'],
-  LISTO:      ['EN_ENTREGA', 'ENTREGADO'],
-  EN_ENTREGA: ['ENTREGADO'],
+  PENDING:          ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED:        ['PREPARING', 'CANCELLED'],
+  PREPARING:        ['READY', 'CANCELLED'],
+  READY:            ['OUT_FOR_DELIVERY', 'DELIVERED'],
+  OUT_FOR_DELIVERY: ['DELIVERED'],
 }
 
 // ─── Active statuses (non-terminal) ──────────────────────────────────────────
-const ACTIVE_STATUSES: OrderStatus[] = ['PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
+const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
 
 // ─── Composable ───────────────────────────────────────────────────────────────
 

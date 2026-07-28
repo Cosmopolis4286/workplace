@@ -4,23 +4,23 @@ import { useApi } from './useApi'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type DeliveryStatus =
-  | 'PENDIENTE'
-  | 'ASIGNADO'
-  | 'RECOGIENDO'
-  | 'EN_CAMINO'
-  | 'ENTREGADO'
-  | 'CANCELADO'
-  | 'FALLIDO'
+  | 'PENDING'
+  | 'ASSIGNED'
+  | 'PICKING_UP'
+  | 'IN_TRANSIT'
+  | 'DELIVERED'
+  | 'CANCELLED'
+  | 'FAILED'
 
-export type DriverStatus = 'DISPONIBLE' | 'EN_ENTREGA' | 'DESCANSO' | 'INACTIVO'
+export type DriverStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'INACTIVE'
 
 export type VehicleType =
-  | 'MOTO'
-  | 'BICICLETA'
-  | 'BICICLETA_ELECTRICA'
-  | 'CARRO'
+  | 'MOTORCYCLE'
+  | 'BICYCLE'
+  | 'ELECTRIC_BICYCLE'
+  | 'CAR'
   | 'SCOOTER'
-  | 'A_PIE'
+  | 'ON_FOOT'
 
 export interface Driver {
   id: string
@@ -120,46 +120,46 @@ export interface CreateDeliveryPayload {
 // ─── Status metadata ──────────────────────────────────────────────────────────
 
 export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
-  PENDIENTE: 'Pendiente',
-  ASIGNADO: 'Asignado',
-  RECOGIENDO: 'Recogiendo',
-  EN_CAMINO: 'En camino',
-  ENTREGADO: 'Entregado',
-  CANCELADO: 'Cancelado',
-  FALLIDO: 'Fallido',
+  PENDING: 'Pendiente',
+  ASSIGNED: 'Asignado',
+  PICKING_UP: 'Recogiendo',
+  IN_TRANSIT: 'En camino',
+  DELIVERED: 'Entregado',
+  CANCELLED: 'Cancelado',
+  FAILED: 'Fallido',
 }
 
 export const DELIVERY_STATUS_CLASSES: Record<DeliveryStatus, string> = {
-  PENDIENTE: 'bg-yellow-100 text-yellow-800',
-  ASIGNADO: 'bg-purple-100 text-purple-800',
-  RECOGIENDO: 'bg-orange-100 text-orange-800',
-  EN_CAMINO: 'bg-blue-100 text-blue-800',
-  ENTREGADO: 'bg-green-100 text-green-800',
-  CANCELADO: 'bg-red-100 text-red-800',
-  FALLIDO: 'bg-gray-100 text-gray-700',
+  PENDING: 'bg-yellow-100 text-yellow-800',
+  ASSIGNED: 'bg-purple-100 text-purple-800',
+  PICKING_UP: 'bg-orange-100 text-orange-800',
+  IN_TRANSIT: 'bg-blue-100 text-blue-800',
+  DELIVERED: 'bg-green-100 text-green-800',
+  CANCELLED: 'bg-red-100 text-red-800',
+  FAILED: 'bg-gray-100 text-gray-700',
 }
 
 export const DRIVER_STATUS_LABELS: Record<DriverStatus, string> = {
-  DISPONIBLE: 'Disponible',
-  EN_ENTREGA: 'En entrega',
-  DESCANSO: 'Descanso',
-  INACTIVO: 'Inactivo',
+  AVAILABLE: 'Disponible',
+  ON_DELIVERY: 'En entrega',
+  ON_BREAK: 'Descanso',
+  INACTIVE: 'Inactivo',
 }
 
 export const DRIVER_STATUS_CLASSES: Record<DriverStatus, string> = {
-  DISPONIBLE: 'bg-green-100 text-green-800',
-  EN_ENTREGA: 'bg-blue-100 text-blue-800',
-  DESCANSO: 'bg-yellow-100 text-yellow-800',
-  INACTIVO: 'bg-gray-100 text-gray-700',
+  AVAILABLE: 'bg-green-100 text-green-800',
+  ON_DELIVERY: 'bg-blue-100 text-blue-800',
+  ON_BREAK: 'bg-yellow-100 text-yellow-800',
+  INACTIVE: 'bg-gray-100 text-gray-700',
 }
 
 export const VEHICLE_LABELS: Record<VehicleType, string> = {
-  MOTO: 'Moto',
-  BICICLETA: 'Bicicleta',
-  BICICLETA_ELECTRICA: 'Bicicleta Eléctrica',
-  CARRO: 'Carro',
+  MOTORCYCLE: 'Moto',
+  BICYCLE: 'Bicicleta',
+  ELECTRIC_BICYCLE: 'Bicicleta Eléctrica',
+  CAR: 'Carro',
   SCOOTER: 'Scooter',
-  A_PIE: 'A pie',
+  ON_FOOT: 'A pie',
 }
 
 // ─── Global reactive state ────────────────────────────────────────────────────
@@ -191,12 +191,12 @@ export const useDelivery = () => {
 
   const activeDeliveries = computed(() =>
     deliveries.value.filter((d) =>
-      ['ASIGNADO', 'RECOGIENDO', 'EN_CAMINO'].includes(d.status),
+      ['ASSIGNED', 'PICKING_UP', 'IN_TRANSIT'].includes(d.status),
     ),
   )
 
   const availableDrivers = computed(() =>
-    drivers.value.filter((d) => d.status === 'DISPONIBLE'),
+    drivers.value.filter((d) => d.status === 'AVAILABLE'),
   )
 
   function extractMessage(err: any, fallback: string): string {

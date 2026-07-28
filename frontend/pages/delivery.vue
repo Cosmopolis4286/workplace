@@ -71,7 +71,7 @@
               </div>
               <div>
                 <p class="text-sm font-semibold text-gray-900">{{ delivery.driver?.name ?? 'Sin asignar' }}</p>
-                <p class="text-xs text-gray-400">{{ VEHICLE_LABELS[delivery.driver?.vehicleType ?? 'MOTO'] }}</p>
+                <p class="text-xs text-gray-400">{{ VEHICLE_LABELS[delivery.driver?.vehicleType ?? 'MOTORCYCLE'] }}</p>
               </div>
             </div>
             <span class="badge" :class="DELIVERY_STATUS_CLASSES[delivery.status]">
@@ -101,23 +101,23 @@
           <!-- Acciones -->
           <div class="flex gap-1.5 flex-wrap">
             <button
-              v-if="!delivery.driverId && delivery.status === 'PENDIENTE'"
+              v-if="!delivery.driverId && delivery.status === 'PENDING'"
               class="flex-1 btn-secondary text-xs py-1.5 flex items-center justify-center gap-1"
               @click="openAssign(delivery)"
             >
               <UserPlusIcon class="h-3.5 w-3.5" />Asignar
             </button>
-            <button v-if="delivery.status === 'ASIGNADO'"   class="flex-1 text-xs py-1.5 px-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-medium transition-colors" @click="changeStatus(delivery.id, 'RECOGIENDO')">Recogiendo</button>
-            <button v-if="delivery.status === 'RECOGIENDO'" class="flex-1 text-xs py-1.5 px-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-medium transition-colors" @click="changeStatus(delivery.id, 'EN_CAMINO')">En camino</button>
-            <button v-if="delivery.status === 'EN_CAMINO'"  class="flex-1 text-xs py-1.5 px-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-medium transition-colors" @click="changeStatus(delivery.id, 'ENTREGADO')">Entregado</button>
+            <button v-if="delivery.status === 'ASSIGNED'"   class="flex-1 text-xs py-1.5 px-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-medium transition-colors" @click="changeStatus(delivery.id, 'PICKING_UP')">Recogiendo</button>
+            <button v-if="delivery.status === 'PICKING_UP'" class="flex-1 text-xs py-1.5 px-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-medium transition-colors" @click="changeStatus(delivery.id, 'IN_TRANSIT')">En camino</button>
+            <button v-if="delivery.status === 'IN_TRANSIT'"  class="flex-1 text-xs py-1.5 px-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-medium transition-colors" @click="changeStatus(delivery.id, 'DELIVERED')">Entregado</button>
             <button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar" @click="openEditDelivery(delivery)">
               <PencilIcon class="h-3.5 w-3.5" />
             </button>
             <button
-              v-if="!['ENTREGADO','CANCELADO','FALLIDO'].includes(delivery.status)"
+              v-if="!['DELIVERED','CANCELLED','FAILED'].includes(delivery.status)"
               class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               title="Cancelar"
-              @click="changeStatus(delivery.id, 'CANCELADO')"
+              @click="changeStatus(delivery.id, 'CANCELLED')"
             ><XCircleIcon class="h-3.5 w-3.5" /></button>
             <button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar" @click="confirmDeleteDelivery(delivery.id)">
               <TrashIcon class="h-3.5 w-3.5" />
@@ -171,10 +171,10 @@
               <span
                 class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white"
                 :class="{
-                  'bg-green-400':  driver.status === 'DISPONIBLE',
-                  'bg-blue-400':   driver.status === 'EN_ENTREGA',
-                  'bg-yellow-400': driver.status === 'DESCANSO',
-                  'bg-gray-400':   driver.status === 'INACTIVO',
+                  'bg-green-400':  driver.status === 'AVAILABLE',
+                  'bg-blue-400':   driver.status === 'ON_DELIVERY',
+                  'bg-yellow-400': driver.status === 'ON_BREAK',
+                  'bg-gray-400':   driver.status === 'INACTIVE',
                 }"
               />
             </div>
@@ -469,7 +469,7 @@ const showDriverModal = ref(false)
 const editingDriver   = ref<Driver | null>(null)
 const savingDriver    = ref(false)
 
-const defaultDriverForm = (): CreateDriverPayload => ({ name: '', phone: '', vehicleType: 'MOTO', vehicleModel: '', vehiclePlate: '' })
+const defaultDriverForm = (): CreateDriverPayload => ({ name: '', phone: '', vehicleType: 'MOTORCYCLE', vehicleModel: '', vehiclePlate: '' })
 const driverForm = ref<CreateDriverPayload>(defaultDriverForm())
 
 function openNewDriver() { editingDriver.value = null; driverForm.value = defaultDriverForm(); showDriverModal.value = true }

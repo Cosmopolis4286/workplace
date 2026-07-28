@@ -480,18 +480,18 @@ const headerStats = computed(() => [
 
 // ─── Sidebar computados ───────────────────────────────────────────────────────
 const statusSummary = computed(() => [
-  { key: 'PENDIENTE',  label: 'Pendientes',  count: stats.value.pending,   dot: 'bg-yellow-400' },
-  { key: 'CONFIRMADA', label: 'Confirmadas', count: stats.value.confirmed, dot: 'bg-green-400'  },
-  { key: 'SENTADA',    label: 'Sentadas',    count: appointments.value.filter(a => a.status === 'SENTADA').length,    dot: 'bg-blue-400'   },
-  { key: 'COMPLETADA', label: 'Completadas', count: appointments.value.filter(a => a.status === 'COMPLETADA').length, dot: 'bg-gray-400'   },
-  { key: 'CANCELADA',  label: 'Canceladas',  count: stats.value.cancelled, dot: 'bg-red-400'    },
-  { key: 'NO_SHOW',    label: 'No show',     count: appointments.value.filter(a => a.status === 'NO_SHOW').length,    dot: 'bg-orange-400' },
+  { key: 'PENDING',   label: 'Pendientes',  count: stats.value.pending,   dot: 'bg-yellow-400' },
+  { key: 'CONFIRMED', label: 'Confirmadas', count: stats.value.confirmed, dot: 'bg-green-400'  },
+  { key: 'SEATED',    label: 'Sentadas',    count: appointments.value.filter(a => a.status === 'SEATED').length,    dot: 'bg-blue-400'   },
+  { key: 'COMPLETED', label: 'Completadas', count: appointments.value.filter(a => a.status === 'COMPLETED').length, dot: 'bg-gray-400'   },
+  { key: 'CANCELLED', label: 'Canceladas',  count: stats.value.cancelled, dot: 'bg-red-400'    },
+  { key: 'NO_SHOW',   label: 'No show',     count: appointments.value.filter(a => a.status === 'NO_SHOW').length,    dot: 'bg-orange-400' },
 ])
 
 const upcomingAppointments = computed(() => {
   const now = new Date()
   return appointments.value
-    .filter(a => new Date(a.date) >= now && (a.status === 'PENDIENTE' || a.status === 'CONFIRMADA'))
+    .filter(a => new Date(a.date) >= now && (a.status === 'PENDING' || a.status === 'CONFIRMED'))
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 5)
 })
@@ -602,7 +602,7 @@ const emptyForm = () => ({
   partySize:     2,
   tableNumber:   undefined as number | undefined,
   notes:         '',
-  status:        'PENDIENTE' as AppointmentStatus,
+  status:        'PENDING' as AppointmentStatus,
 })
 
 const form = ref(emptyForm())
