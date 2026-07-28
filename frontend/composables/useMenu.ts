@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { useApi } from './useApi'
 
-export type ProductStatus = 'DISPONIBLE' | 'AGOTADO' | 'BAJO_STOCK' | 'NO_DISPONIBLE'
+export type ProductStatus = 'AVAILABLE' | 'OUT_OF_STOCK' | 'LOW_STOCK' | 'UNAVAILABLE'
 
 export interface Category {
   id: string
@@ -56,8 +56,8 @@ export const useMenu = () => {
   )
 
   const totalProducts = computed(() => products.value.length)
-  const availableProducts = computed(() => products.value.filter((p) => p.status === 'DISPONIBLE').length)
-  const lowStockProducts = computed(() => products.value.filter((p) => p.status === 'BAJO_STOCK'))
+  const availableProducts = computed(() => products.value.filter((p) => p.status === 'AVAILABLE').length)
+  const lowStockProducts = computed(() => products.value.filter((p) => p.status === 'LOW_STOCK'))
 
   // ─── Load all ──────────────────────────────────────────────────────────────
 

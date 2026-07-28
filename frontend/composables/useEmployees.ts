@@ -1,8 +1,8 @@
 import { ref, computed } from 'vue'
 import { useApi } from './useApi'
 
-export type EmployeeRole = 'GERENTE' | 'SUPERVISOR' | 'COCINERO' | 'MESERO' | 'CAJERO' | 'REPARTIDOR' | 'LIMPIEZA' | 'SEGURIDAD' | 'OTRO'
-export type EmployeeStatus = 'ACTIVO' | 'INACTIVO' | 'VACACIONES' | 'LICENCIA' | 'SUSPENDIDO'
+export type EmployeeRole = 'MANAGER' | 'SUPERVISOR' | 'COOK' | 'WAITER' | 'CASHIER' | 'DELIVERY_PERSON' | 'CLEANING' | 'SECURITY' | 'OTHER'
+export type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'ON_VACATION' | 'ON_LEAVE' | 'SUSPENDED'
 
 export interface Employee {
   id: string
@@ -52,43 +52,43 @@ export interface UpdateEmployeePayload extends Partial<CreateEmployeePayload> {
 }
 
 export const EMPLOYEE_ROLE_LABELS: Record<EmployeeRole, string> = {
-  GERENTE: 'Gerente',
+  MANAGER: 'Gerente',
   SUPERVISOR: 'Supervisor',
-  COCINERO: 'Cocinero',
-  MESERO: 'Mesero',
-  CAJERO: 'Cajero',
-  REPARTIDOR: 'Repartidor',
-  LIMPIEZA: 'Limpieza',
-  SEGURIDAD: 'Seguridad',
-  OTRO: 'Otro',
+  COOK: 'Cocinero',
+  WAITER: 'Mesero',
+  CASHIER: 'Cajero',
+  DELIVERY_PERSON: 'Repartidor',
+  CLEANING: 'Limpieza',
+  SECURITY: 'Seguridad',
+  OTHER: 'Otro',
 }
 
 export const EMPLOYEE_ROLE_CLASSES: Record<EmployeeRole, string> = {
-  GERENTE: 'bg-purple-100 text-purple-800',
+  MANAGER: 'bg-purple-100 text-purple-800',
   SUPERVISOR: 'bg-blue-100 text-blue-800',
-  COCINERO: 'bg-orange-100 text-orange-800',
-  MESERO: 'bg-green-100 text-green-800',
-  CAJERO: 'bg-teal-100 text-teal-800',
-  REPARTIDOR: 'bg-yellow-100 text-yellow-800',
-  LIMPIEZA: 'bg-gray-100 text-gray-700',
-  SEGURIDAD: 'bg-red-100 text-red-800',
-  OTRO: 'bg-slate-100 text-slate-700',
+  COOK: 'bg-orange-100 text-orange-800',
+  WAITER: 'bg-green-100 text-green-800',
+  CASHIER: 'bg-teal-100 text-teal-800',
+  DELIVERY_PERSON: 'bg-yellow-100 text-yellow-800',
+  CLEANING: 'bg-gray-100 text-gray-700',
+  SECURITY: 'bg-red-100 text-red-800',
+  OTHER: 'bg-slate-100 text-slate-700',
 }
 
 export const EMPLOYEE_STATUS_LABELS: Record<EmployeeStatus, string> = {
-  ACTIVO: 'Activo',
-  INACTIVO: 'Inactivo',
-  VACACIONES: 'Vacaciones',
-  LICENCIA: 'Licencia',
-  SUSPENDIDO: 'Suspendido',
+  ACTIVE: 'Activo',
+  INACTIVE: 'Inactivo',
+  ON_VACATION: 'Vacaciones',
+  ON_LEAVE: 'Licencia',
+  SUSPENDED: 'Suspendido',
 }
 
 export const EMPLOYEE_STATUS_CLASSES: Record<EmployeeStatus, string> = {
-  ACTIVO: 'bg-green-100 text-green-800',
-  INACTIVO: 'bg-gray-100 text-gray-700',
-  VACACIONES: 'bg-blue-100 text-blue-800',
-  LICENCIA: 'bg-yellow-100 text-yellow-800',
-  SUSPENDIDO: 'bg-red-100 text-red-800',
+  ACTIVE: 'bg-green-100 text-green-800',
+  INACTIVE: 'bg-gray-100 text-gray-700',
+  ON_VACATION: 'bg-blue-100 text-blue-800',
+  ON_LEAVE: 'bg-yellow-100 text-yellow-800',
+  SUSPENDED: 'bg-red-100 text-red-800',
 }
 
 // Estado global compartido
@@ -106,7 +106,7 @@ export const useEmployees = () => {
   const totalEmployees = computed(() => employees.value.length)
   const activeEmployees = computed(() => employees.value.filter((e) => e.isActive).length)
   const managerCount = computed(() =>
-    employees.value.filter((e) => e.role === 'GERENTE' || e.role === 'SUPERVISOR').length,
+    employees.value.filter((e) => e.role === 'MANAGER' || e.role === 'SUPERVISOR').length,
   )
 
   // ─── Load ──────────────────────────────────────────────────────────────────

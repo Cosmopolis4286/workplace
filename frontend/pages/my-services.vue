@@ -61,9 +61,9 @@
         class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 bg-white"
       >
         <option value="">Todos los estados</option>
-        <option value="ACTIVO">Activos</option>
-        <option value="PAUSADO">Pausados</option>
-        <option value="INACTIVO">Inactivos</option>
+        <option value="ACTIVE">Activos</option>
+        <option value="PAUSED">Pausados</option>
+        <option value="INACTIVE">Inactivos</option>
       </select>
     </div>
 
@@ -179,11 +179,11 @@
           <button
             @click="confirmToggleStatus(service)"
             class="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-            :class="service.status === 'ACTIVO'
+            :class="service.status === 'ACTIVE'
               ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
               : 'bg-green-50 text-green-700 hover:bg-green-100'"
           >
-            {{ service.status === 'ACTIVO' ? 'Pausar' : 'Activar' }}
+            {{ service.status === 'ACTIVE' ? 'Pausar' : 'Activar' }}
           </button>
           <div class="flex gap-1">
             <button
@@ -329,9 +329,9 @@
                   v-model="form.status"
                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 bg-white"
                 >
-                  <option value="ACTIVO">Activo</option>
-                  <option value="PAUSADO">Pausado</option>
-                  <option value="INACTIVO">Inactivo</option>
+                  <option value="ACTIVE">Activo</option>
+                  <option value="PAUSED">Pausado</option>
+                  <option value="INACTIVE">Inactivo</option>
                 </select>
               </div>
 
@@ -460,20 +460,20 @@
           <div class="flex items-center gap-3 mb-3">
             <div
               class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-              :class="toggleTarget.status === 'ACTIVO' ? 'bg-yellow-100' : 'bg-green-100'"
+              :class="toggleTarget.status === 'ACTIVE' ? 'bg-yellow-100' : 'bg-green-100'"
             >
-              <PauseCircleIcon v-if="toggleTarget.status === 'ACTIVO'" class="h-5 w-5 text-yellow-600" />
+              <PauseCircleIcon v-if="toggleTarget.status === 'ACTIVE'" class="h-5 w-5 text-yellow-600" />
               <PlayCircleIcon v-else class="h-5 w-5 text-green-600" />
             </div>
             <h3 class="text-lg font-semibold text-gray-900">
-              {{ toggleTarget.status === 'ACTIVO' ? 'Pausar servicio' : 'Activar servicio' }}
+              {{ toggleTarget.status === 'ACTIVE' ? 'Pausar servicio' : 'Activar servicio' }}
             </h3>
           </div>
           <p class="text-sm text-gray-600 mb-6">
             ¿Estás seguro de que deseas
-            <strong>{{ toggleTarget.status === 'ACTIVO' ? 'pausar' : 'activar' }}</strong>
+            <strong>{{ toggleTarget.status === 'ACTIVE' ? 'pausar' : 'activar' }}</strong>
             el servicio <strong>{{ toggleTarget.name }}</strong>?
-            <span v-if="toggleTarget.status === 'ACTIVO'" class="block mt-1 text-yellow-700">
+            <span v-if="toggleTarget.status === 'ACTIVE'" class="block mt-1 text-yellow-700">
               El servicio dejará de ser visible para los clientes.
             </span>
             <span v-else class="block mt-1 text-green-700">
@@ -494,9 +494,9 @@
               @click="doToggleStatus"
               :disabled="saving"
               class="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
-              :class="toggleTarget.status === 'ACTIVO' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'"
+              :class="toggleTarget.status === 'ACTIVE' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'"
             >
-              {{ saving ? 'Guardando...' : (toggleTarget.status === 'ACTIVO' ? 'Pausar' : 'Activar') }}
+              {{ saving ? 'Guardando...' : (toggleTarget.status === 'ACTIVE' ? 'Pausar' : 'Activar') }}
             </button>
           </div>
         </div>
@@ -745,7 +745,7 @@
                         ? 'Tu tasa de conversión es razonable. Mejorar las fotos o la descripción puede aumentarla.'
                         : 'Tienes vistas pero pocas solicitudes. Revisa el precio, añade descripción detallada y elige buenas fotos.' }}
                   </div>
-                  <div v-else-if="metricsTarget?.status === 'PAUSADO'" class="p-3.5 rounded-xl border border-gray-200 bg-gray-50 text-xs leading-relaxed text-gray-600">
+                  <div v-else-if="metricsTarget?.status === 'PAUSED'" class="p-3.5 rounded-xl border border-gray-200 bg-gray-50 text-xs leading-relaxed text-gray-600">
                     <span class="font-semibold block mb-1">⏸️ Servicio pausado</span>
                     Mientras esté pausado no aparece en el catálogo y no puede recibir vistas ni solicitudes. Actívalo desde la lista para empezar a medir su desempeño.
                   </div>
@@ -1009,7 +1009,7 @@ const emptyForm = () => ({
   priceUnit: '',
   duration: undefined as number | undefined,
   image: '',
-  status: 'ACTIVO' as Service['status'],
+  status: 'ACTIVE' as Service['status'],
   tags: [] as string[],
   modalities: [] as string[],
   itemFields: [] as string[],

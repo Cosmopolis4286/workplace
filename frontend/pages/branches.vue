@@ -224,7 +224,7 @@ const headerStats = computed(() => [
   { label: 'Total',           value: String(stats.value.total)  },
   { label: 'Activas',         value: String(stats.value.active) },
   { label: 'En construcción', value: String(inConstructionCount.value) },
-  { label: 'Inactivas',       value: String(branches.value.filter(b => b.status === 'INACTIVA' || b.status === 'CERRADA').length) },
+  { label: 'Inactivas',       value: String(branches.value.filter(b => b.status === 'INACTIVE' || b.status === 'CLOSED').length) },
 ])
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
@@ -232,7 +232,7 @@ const showModal     = ref(false)
 const editingBranch = ref<Branch | null>(null)
 const saving        = ref(false)
 
-const emptyForm = () => ({ name: '', address: '', phone: '', email: '', type: '', managerName: '', managerPhone: '', status: 'ACTIVA' as BranchStatus, color: BRANCH_COLORS[5], notes: '' })
+const emptyForm = () => ({ name: '', address: '', phone: '', email: '', type: '', managerName: '', managerPhone: '', status: 'ACTIVE' as BranchStatus, color: BRANCH_COLORS[5], notes: '' })
 const form = ref(emptyForm())
 
 function openModal(branch?: Branch) {

@@ -88,7 +88,7 @@
                 leave-from-class="opacity-100 translate-y-0"
                 leave-to-class="opacity-0 -translate-y-2"
               >
-                <div v-if="form.deliveryType === 'DOMICILIO'" class="space-y-2.5">
+                <div v-if="form.deliveryType === 'HOME_DELIVERY'" class="space-y-2.5">
                   <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">Dirección <span class="text-red-500">*</span></label>
                     <input
@@ -192,8 +192,8 @@ const emit = defineEmits<{
 const { user } = useAuth()
 
 const deliveryOptions = [
-  { value: 'DOMICILIO', label: 'Domicilio', emoji: '🛵' },
-  { value: 'RECOGER', label: 'Recoger', emoji: '🏪' },
+  { value: 'HOME_DELIVERY', label: 'Domicilio', emoji: '🛵' },
+  { value: 'PICKUP', label: 'Recoger', emoji: '🏪' },
   { value: 'DIGITAL', label: 'Digital', emoji: '💻' },
 ]
 
@@ -202,7 +202,7 @@ const totalItems = computed(() =>
 )
 
 const defaultForm = () => ({
-  deliveryType: 'DOMICILIO' as 'DOMICILIO' | 'RECOGER' | 'DIGITAL',
+  deliveryType: 'HOME_DELIVERY' as 'HOME_DELIVERY' | 'PICKUP' | 'DIGITAL',
   address: '',
   city: '',
   buyerName: user.value ? `${user.value.firstName} ${user.value.lastName}`.trim() : '',
@@ -233,7 +233,7 @@ function formatPrice(price: number): string {
 
 async function submit() {
   errorMsg.value = ''
-  if (form.value.deliveryType === 'DOMICILIO' && !form.value.address.trim()) {
+  if (form.value.deliveryType === 'HOME_DELIVERY' && !form.value.address.trim()) {
     errorMsg.value = 'La dirección es requerida para entrega a domicilio.'
     return
   }

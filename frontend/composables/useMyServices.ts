@@ -25,7 +25,7 @@ export interface Service {
   priceUnit?: string
   duration?: number
   image?: string
-  status: 'ACTIVO' | 'INACTIVO' | 'PAUSADO'
+  status: 'ACTIVE' | 'INACTIVE' | 'PAUSED'
   tags: string[]
   modalities: string[]
   itemFields: string[]
@@ -36,15 +36,15 @@ export interface Service {
 }
 
 export const SERVICE_STATUS_LABELS: Record<Service['status'], string> = {
-  ACTIVO: 'Activo',
-  PAUSADO: 'Pausado',
-  INACTIVO: 'Inactivo',
+  ACTIVE: 'Activo',
+  PAUSED: 'Pausado',
+  INACTIVE: 'Inactivo',
 }
 
 export const SERVICE_STATUS_CLASSES: Record<Service['status'], string> = {
-  ACTIVO: 'bg-green-100 text-green-800',
-  PAUSADO: 'bg-yellow-100 text-yellow-800',
-  INACTIVO: 'bg-gray-100 text-gray-600',
+  ACTIVE: 'bg-green-100 text-green-800',
+  PAUSED: 'bg-yellow-100 text-yellow-800',
+  INACTIVE: 'bg-gray-100 text-gray-600',
 }
 
 const services = ref<Service[]>([])

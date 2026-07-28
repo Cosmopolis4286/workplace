@@ -56,10 +56,10 @@
         class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 bg-white"
       >
         <option value="">Todos los estados</option>
-        <option value="ACTIVO">Activos</option>
-        <option value="PAUSADO">Pausados</option>
-        <option value="INACTIVO">Inactivos</option>
-        <option value="CERRADO">Cerrados</option>
+        <option value="ACTIVE">Activos</option>
+        <option value="PAUSED">Pausados</option>
+        <option value="INACTIVE">Inactivos</option>
+        <option value="CLOSED">Cerrados</option>
       </select>
     </div>
 
@@ -135,7 +135,7 @@
             {{ JOB_TYPE_LABELS[job.type] }}
           </span>
           <span class="text-gray-500 flex items-center gap-1">
-            {{ { PRESENCIAL: '📍', REMOTO: '💻', HIBRIDO: '🔀' }[job.modality] }} {{ JOB_MODALITY_LABELS[job.modality] }}
+            {{ { IN_PERSON: '📍', REMOTE: '💻', HYBRID: '🔀' }[job.modality] }} {{ JOB_MODALITY_LABELS[job.modality] }}
           </span>
         </div>
 
@@ -160,14 +160,14 @@
         <!-- Actions -->
         <div class="flex items-center justify-between pt-2 border-t border-gray-100">
           <button
-            v-if="job.status !== 'CERRADO'"
+            v-if="job.status !== 'CLOSED'"
             @click="confirmToggleStatus(job)"
             class="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-            :class="job.status === 'ACTIVO'
+            :class="job.status === 'ACTIVE'
               ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
               : 'bg-green-50 text-green-700 hover:bg-green-100'"
           >
-            {{ job.status === 'ACTIVO' ? 'Pausar' : 'Activar' }}
+            {{ job.status === 'ACTIVE' ? 'Pausar' : 'Activar' }}
           </button>
           <span v-else />
           <div class="flex gap-1">
@@ -305,10 +305,10 @@
               <div v-if="editing">
                 <label class="block text-xs font-medium text-gray-700 mb-1">Estado</label>
                 <select v-model="form.status" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 bg-white">
-                  <option value="ACTIVO">Activo</option>
-                  <option value="PAUSADO">Pausado</option>
-                  <option value="INACTIVO">Inactivo</option>
-                  <option value="CERRADO">Cerrado</option>
+                  <option value="ACTIVE">Activo</option>
+                  <option value="PAUSED">Pausado</option>
+                  <option value="INACTIVE">Inactivo</option>
+                  <option value="CLOSED">Cerrado</option>
                 </select>
               </div>
 
@@ -348,20 +348,20 @@
           <div class="flex items-center gap-3 mb-3">
             <div
               class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-              :class="toggleTarget.status === 'ACTIVO' ? 'bg-yellow-100' : 'bg-green-100'"
+              :class="toggleTarget.status === 'ACTIVE' ? 'bg-yellow-100' : 'bg-green-100'"
             >
-              <PauseCircleIcon v-if="toggleTarget.status === 'ACTIVO'" class="h-5 w-5 text-yellow-600" />
+              <PauseCircleIcon v-if="toggleTarget.status === 'ACTIVE'" class="h-5 w-5 text-yellow-600" />
               <PlayCircleIcon v-else class="h-5 w-5 text-green-600" />
             </div>
             <h3 class="text-lg font-semibold text-gray-900">
-              {{ toggleTarget.status === 'ACTIVO' ? 'Pausar empleo' : 'Activar empleo' }}
+              {{ toggleTarget.status === 'ACTIVE' ? 'Pausar empleo' : 'Activar empleo' }}
             </h3>
           </div>
           <p class="text-sm text-gray-600 mb-6">
             ¿Estás seguro de que deseas
-            <strong>{{ toggleTarget.status === 'ACTIVO' ? 'pausar' : 'activar' }}</strong>
+            <strong>{{ toggleTarget.status === 'ACTIVE' ? 'pausar' : 'activar' }}</strong>
             el empleo <strong>{{ toggleTarget.title }}</strong>?
-            <span v-if="toggleTarget.status === 'ACTIVO'" class="block mt-1 text-yellow-700">
+            <span v-if="toggleTarget.status === 'ACTIVE'" class="block mt-1 text-yellow-700">
               El empleo dejará de ser visible para los candidatos.
             </span>
             <span v-else class="block mt-1 text-green-700">
@@ -382,9 +382,9 @@
               @click="doToggleStatus"
               :disabled="saving"
               class="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
-              :class="toggleTarget.status === 'ACTIVO' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'"
+              :class="toggleTarget.status === 'ACTIVE' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'"
             >
-              {{ saving ? 'Guardando...' : (toggleTarget.status === 'ACTIVO' ? 'Pausar' : 'Activar') }}
+              {{ saving ? 'Guardando...' : (toggleTarget.status === 'ACTIVE' ? 'Pausar' : 'Activar') }}
             </button>
           </div>
         </div>
@@ -457,28 +457,28 @@ const {
 } = useJobs()
 
 const JOB_STATUS_LABELS: Record<JobWithApplicationCount['status'], string> = {
-  ACTIVO: 'Activo',
-  PAUSADO: 'Pausado',
-  INACTIVO: 'Inactivo',
-  CERRADO: 'Cerrado',
+  ACTIVE: 'Activo',
+  PAUSED: 'Pausado',
+  INACTIVE: 'Inactivo',
+  CLOSED: 'Cerrado',
 }
 const JOB_STATUS_CLASSES: Record<JobWithApplicationCount['status'], string> = {
-  ACTIVO: 'bg-green-100 text-green-800',
-  PAUSADO: 'bg-yellow-100 text-yellow-800',
-  INACTIVO: 'bg-gray-100 text-gray-600',
-  CERRADO: 'bg-gray-200 text-gray-500',
+  ACTIVE: 'bg-green-100 text-green-800',
+  PAUSED: 'bg-yellow-100 text-yellow-800',
+  INACTIVE: 'bg-gray-100 text-gray-600',
+  CLOSED: 'bg-gray-200 text-gray-500',
 }
 const JOB_TYPE_LABELS: Record<JobWithApplicationCount['type'], string> = {
-  TIEMPO_COMPLETO: 'Tiempo completo',
-  MEDIO_TIEMPO: 'Medio tiempo',
+  FULL_TIME: 'Tiempo completo',
+  PART_TIME: 'Medio tiempo',
   FREELANCE: 'Freelance',
-  TEMPORAL: 'Temporal',
-  PRACTICAS: 'Prácticas',
+  TEMPORARY: 'Temporal',
+  INTERNSHIP: 'Prácticas',
 }
 const JOB_MODALITY_LABELS: Record<JobWithApplicationCount['modality'], string> = {
-  PRESENCIAL: 'Presencial',
-  REMOTO: 'Remoto',
-  HIBRIDO: 'Híbrido',
+  IN_PERSON: 'Presencial',
+  REMOTE: 'Remoto',
+  HYBRID: 'Híbrido',
 }
 
 const search = ref('')
@@ -498,12 +498,12 @@ const emptyForm = () => ({
   salaryMax: undefined as number | undefined,
   salaryCurrency: 'USD',
   location: '',
-  type: 'TIEMPO_COMPLETO' as JobWithApplicationCount['type'],
-  modality: 'PRESENCIAL' as JobWithApplicationCount['modality'],
+  type: 'FULL_TIME' as JobWithApplicationCount['type'],
+  modality: 'IN_PERSON' as JobWithApplicationCount['modality'],
   experienceLevel: '',
   tags: [] as string[],
   categoryId: '',
-  status: 'ACTIVO' as JobWithApplicationCount['status'],
+  status: 'ACTIVE' as JobWithApplicationCount['status'],
 })
 
 const form = ref(emptyForm())

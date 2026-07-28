@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { useApi } from './useApi'
 
-export type BranchStatus = 'ACTIVA' | 'INACTIVA' | 'EN_CONSTRUCCION' | 'CERRADA'
+export type BranchStatus = 'ACTIVE' | 'INACTIVE' | 'UNDER_CONSTRUCTION' | 'CLOSED'
 
 export interface Branch {
   id: string
@@ -42,17 +42,17 @@ export interface CreateBranchPayload {
 export interface UpdateBranchPayload extends Partial<CreateBranchPayload> {}
 
 export const BRANCH_STATUS_LABELS: Record<BranchStatus, string> = {
-  ACTIVA: 'Activa',
-  INACTIVA: 'Inactiva',
-  EN_CONSTRUCCION: 'En Construcción',
-  CERRADA: 'Cerrada',
+  ACTIVE: 'Activa',
+  INACTIVE: 'Inactiva',
+  UNDER_CONSTRUCTION: 'En Construcción',
+  CLOSED: 'Cerrada',
 }
 
 export const BRANCH_STATUS_CLASSES: Record<BranchStatus, string> = {
-  ACTIVA: 'bg-green-100 text-green-800',
-  INACTIVA: 'bg-gray-100 text-gray-700',
-  EN_CONSTRUCCION: 'bg-yellow-100 text-yellow-800',
-  CERRADA: 'bg-red-100 text-red-800',
+  ACTIVE: 'bg-green-100 text-green-800',
+  INACTIVE: 'bg-gray-100 text-gray-700',
+  UNDER_CONSTRUCTION: 'bg-yellow-100 text-yellow-800',
+  CLOSED: 'bg-red-100 text-red-800',
 }
 
 export const BRANCH_COLORS = [
@@ -74,8 +74,8 @@ export const useBranches = () => {
   // ─── Computed ──────────────────────────────────────────────────────────────
 
   const totalBranches = computed(() => branches.value.length)
-  const activeBranches = computed(() => branches.value.filter((b) => b.status === 'ACTIVA').length)
-  const inConstructionCount = computed(() => branches.value.filter((b) => b.status === 'EN_CONSTRUCCION').length)
+  const activeBranches = computed(() => branches.value.filter((b) => b.status === 'ACTIVE').length)
+  const inConstructionCount = computed(() => branches.value.filter((b) => b.status === 'UNDER_CONSTRUCTION').length)
 
   // ─── Load ──────────────────────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ export const useBranches = () => {
       const branch = await post<Branch>('/branches', payload)
       branches.value.push(branch)
       stats.value.total++
-      if (branch.status === 'ACTIVA') stats.value.active++
+      if (branch.status === 'ACTIVE') stats.value.active++
       return branch
     } catch (err: any) {
       error.value = err?.message ?? 'Error al crear la sucursal'
@@ -117,7 +117,7 @@ export const useBranches = () => {
       const branch = await put<Branch>(`/branches/${id}`, payload)
       const idx = branches.value.findIndex((b) => b.id === id)
       if (idx !== -1) branches.value[idx] = branch
-      stats.value.active = branches.value.filter((b) => b.status === 'ACTIVA').length
+      stats.value.active = branches.value.filter((b) => b.status === 'ACTIVE').length
       return branch
     } catch (err: any) {
       error.value = err?.message ?? 'Error al actualizar la sucursal'
@@ -131,7 +131,7 @@ export const useBranches = () => {
       const removed = branches.value.find((b) => b.id === id)
       branches.value = branches.value.filter((b) => b.id !== id)
       stats.value.total = Math.max(0, stats.value.total - 1)
-      if (removed?.status === 'ACTIVA') stats.value.active = Math.max(0, stats.value.active - 1)
+      if (removed?.status === 'ACTIVE') stats.value.active = Math.max(0, stats.value.active - 1)
       return true
     } catch (err: any) {
       error.value = err?.message ?? 'Error al eliminar la sucursal'
@@ -144,7 +144,7 @@ export const useBranches = () => {
       const branch = await patch<Branch>(`/branches/${id}/status`, { status })
       const idx = branches.value.findIndex((b) => b.id === id)
       if (idx !== -1) branches.value[idx] = branch
-      stats.value.active = branches.value.filter((b) => b.status === 'ACTIVA').length
+      stats.value.active = branches.value.filter((b) => b.status === 'ACTIVE').length
       return branch
     } catch (err: any) {
       error.value = err?.message ?? 'Error al cambiar el estado'

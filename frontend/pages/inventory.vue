@@ -59,10 +59,10 @@
 
           <select v-model="filterStatus" class="input-field py-2 text-sm min-w-36">
             <option value="">Todos los estados</option>
-            <option value="DISPONIBLE">Disponible</option>
-            <option value="BAJO_STOCK">Bajo Stock</option>
-            <option value="AGOTADO">Agotado</option>
-            <option value="NO_DISPONIBLE">No disponible</option>
+            <option value="AVAILABLE">Disponible</option>
+            <option value="LOW_STOCK">Bajo Stock</option>
+            <option value="OUT_OF_STOCK">Agotado</option>
+            <option value="UNAVAILABLE">No disponible</option>
           </select>
 
           <div class="flex rounded-lg border overflow-hidden">
@@ -184,9 +184,9 @@
                 <button
                   @click.stop="handleToggleStatus(product)"
                   class="p-1 text-gray-500 hover:text-indigo-600 transition-colors"
-                  :title="product.status === 'DISPONIBLE' ? 'Deshabilitar' : 'Habilitar'"
+                  :title="product.status === 'AVAILABLE' ? 'Deshabilitar' : 'Habilitar'"
                 >
-                  <component :is="product.status === 'DISPONIBLE' ? EyeSlashIcon : EyeIcon" class="h-3.5 w-3.5" />
+                  <component :is="product.status === 'AVAILABLE' ? EyeSlashIcon : EyeIcon" class="h-3.5 w-3.5" />
                 </button>
                 <button
                   @click.stop="confirmDelete(product)"
@@ -256,8 +256,8 @@
                       <button @click="openEditProduct(product)" class="text-gray-400 hover:text-blue-600 transition-colors" title="Editar">
                         <PencilIcon class="h-4 w-4" />
                       </button>
-                      <button @click="handleToggleStatus(product)" class="text-gray-400 hover:text-indigo-600 transition-colors" :title="product.status === 'DISPONIBLE' ? 'Deshabilitar' : 'Habilitar'">
-                        <component :is="product.status === 'DISPONIBLE' ? EyeSlashIcon : EyeIcon" class="h-4 w-4" />
+                      <button @click="handleToggleStatus(product)" class="text-gray-400 hover:text-indigo-600 transition-colors" :title="product.status === 'AVAILABLE' ? 'Deshabilitar' : 'Habilitar'">
+                        <component :is="product.status === 'AVAILABLE' ? EyeSlashIcon : EyeIcon" class="h-4 w-4" />
                       </button>
                       <button @click="confirmDelete(product)" class="text-gray-400 hover:text-red-600 transition-colors" title="Eliminar">
                         <TrashIcon class="h-4 w-4" />
@@ -295,7 +295,7 @@
           <div class="space-y-2">
             <button
               v-if="outOfStockProducts.length > 0"
-              @click="filterStatus = 'AGOTADO'"
+              @click="filterStatus = 'OUT_OF_STOCK'"
               class="w-full flex items-center justify-between p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 hover:bg-red-100 transition-colors"
             >
               <span>{{ outOfStockProducts.length }} producto(s) agotado(s)</span>
@@ -303,7 +303,7 @@
             </button>
             <button
               v-if="lowStockProducts.length > 0"
-              @click="filterStatus = 'BAJO_STOCK'"
+              @click="filterStatus = 'LOW_STOCK'"
               class="w-full flex items-center justify-between p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-700 hover:bg-yellow-100 transition-colors"
             >
               <span>{{ lowStockProducts.length }} producto(s) con bajo stock</span>
@@ -498,15 +498,15 @@ onMounted(() => init())
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function statusLabel(status) {
-  return { DISPONIBLE: 'Disponible', BAJO_STOCK: 'Bajo Stock', AGOTADO: 'Agotado', NO_DISPONIBLE: 'No disponible' }[status] ?? status
+  return { AVAILABLE: 'Disponible', LOW_STOCK: 'Bajo Stock', OUT_OF_STOCK: 'Agotado', UNAVAILABLE: 'No disponible' }[status] ?? status
 }
 
 function statusBadgeClass(status) {
   return {
-    DISPONIBLE: 'bg-green-100 text-green-700',
-    BAJO_STOCK: 'bg-yellow-100 text-yellow-700',
-    AGOTADO: 'bg-red-100 text-red-700',
-    NO_DISPONIBLE: 'bg-gray-100 text-gray-500',
+    AVAILABLE: 'bg-green-100 text-green-700',
+    LOW_STOCK: 'bg-yellow-100 text-yellow-700',
+    OUT_OF_STOCK: 'bg-red-100 text-red-700',
+    UNAVAILABLE: 'bg-gray-100 text-gray-500',
   }[status] ?? 'bg-gray-100 text-gray-500'
 }
 

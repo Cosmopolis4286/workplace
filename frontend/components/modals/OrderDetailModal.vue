@@ -44,17 +44,17 @@
                   v-for="next in NEXT_STATUS[order.status]"
                   :key="next"
                   class="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
-                  :class="next === 'CANCELADO'
+                  :class="next === 'CANCELLED'
                     ? 'bg-red-50 text-red-700 hover:bg-red-100'
                     : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'"
                   :disabled="transitioning"
                   @click="handleStatusChange(next)"
                 >
                   <span v-if="transitioning && pendingStatus === next" class="inline-block h-3 w-3 border-2 border-current/30 border-t-current rounded-full animate-spin mr-1" />
-                  {{ next === 'CANCELADO' ? 'Cancelar' : ORDER_STATUS_LABELS[next] }}
+                  {{ next === 'CANCELLED' ? 'Cancelar' : ORDER_STATUS_LABELS[next] }}
                 </button>
               </div>
-              <p v-else-if="order.status === 'CANCELADO'" class="text-sm text-red-600">
+              <p v-else-if="order.status === 'CANCELLED'" class="text-sm text-red-600">
                 Pedido cancelado{{ order.cancelReason ? `: ${order.cancelReason}` : '' }}
               </p>
               <p v-else class="text-sm text-gray-400">Pedido completado.</p>
@@ -142,12 +142,12 @@
               <div class="mt-3 flex items-center gap-2">
                 <span
                   class="text-xs px-2 py-0.5 rounded-full font-medium"
-                  :class="order.paymentStatus === 'PAGADO' ? 'bg-green-100 text-green-700' : order.paymentStatus === 'REEMBOLSADO' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'"
+                  :class="order.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : order.paymentStatus === 'REFUNDED' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'"
                 >
                   Pago: {{ PAYMENT_STATUS_LABELS[order.paymentStatus] }}
                 </span>
                 <button
-                  v-if="order.paymentStatus === 'PENDIENTE' && order.status !== 'CANCELADO'"
+                  v-if="order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED'"
                   class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                   :disabled="transitioning"
                   @click="handleMarkPaid"
@@ -160,7 +160,7 @@
             <!-- Footer actions -->
             <div class="px-6 py-4 flex justify-between items-center">
               <button
-                v-if="order.status !== 'ENTREGADO' && order.status !== 'CANCELADO'"
+                v-if="order.status !== 'DELIVERED' && order.status !== 'CANCELLED'"
                 class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1.5"
                 @click="$emit('edit', order)"
               >
@@ -170,7 +170,7 @@
               <div v-else />
               <div class="flex items-center gap-2">
                 <button
-                  v-if="order.status !== 'CANCELADO'"
+                  v-if="order.status !== 'CANCELLED'"
                   class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1.5"
                   :disabled="downloadingReceipt"
                   @click="handleDownloadReceipt"
@@ -207,13 +207,13 @@ import {
 const { formatCurrency: _fmt } = useUserPreferences()
 
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  PENDIENTE:   'Pendiente',
-  PAGADO:      'Pagado',
-  REEMBOLSADO: 'Reembolsado',
+  PENDING:  'Pendiente',
+  PAID:     'Pagado',
+  REFUNDED: 'Reembolsado',
 }
 
 // Flow for the progress bar (non-delivery path)
-const statusFlow: OrderStatus[] = ['PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'LISTO', 'ENTREGADO']
+const statusFlow: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED']
 
 const props = defineProps<{
   isOpen: boolean
@@ -240,7 +240,7 @@ async function handleDownloadReceipt() {
 function isStepReached(step: OrderStatus) {
   if (!props.order) return false
   const order = props.order
-  if (order.status === 'CANCELADO') return step === 'PENDIENTE'
+  if (order.status === 'CANCELLED') return step === 'PENDING'
   return statusFlow.indexOf(step) <= statusFlow.indexOf(order.status as any)
 }
 

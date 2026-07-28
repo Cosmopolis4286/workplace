@@ -4,8 +4,8 @@ import { useUserPreferences } from './useUserPreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type CashSessionStatus = 'ABIERTA' | 'CERRADA'
-export type CashMovementType = 'INGRESO' | 'RETIRO'
+export type CashSessionStatus = 'OPEN' | 'CLOSED'
+export type CashMovementType = 'INCOME' | 'WITHDRAWAL'
 
 export interface CashMovement {
   id: string
@@ -54,18 +54,18 @@ export interface CashSessionFilters {
 // ─── Label / style maps ───────────────────────────────────────────────────────
 
 export const CASH_STATUS_LABELS: Record<CashSessionStatus, string> = {
-  ABIERTA: 'Abierta',
-  CERRADA: 'Cerrada',
+  OPEN: 'Abierta',
+  CLOSED: 'Cerrada',
 }
 
 export const CASH_STATUS_CLASSES: Record<CashSessionStatus, string> = {
-  ABIERTA: 'bg-green-100 text-green-800',
-  CERRADA: 'bg-gray-100 text-gray-600',
+  OPEN: 'bg-green-100 text-green-800',
+  CLOSED: 'bg-gray-100 text-gray-600',
 }
 
 export const CASH_MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
-  INGRESO: 'Ingreso',
-  RETIRO: 'Retiro',
+  INCOME: 'Ingreso',
+  WITHDRAWAL: 'Retiro',
 }
 
 // ─── Global reactive state ────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ export function useCash() {
   const { formatCurrency: _fmt } = useUserPreferences()
   function formatCurrency(value: number) { return _fmt.value(value) }
 
-  const isOpen = computed(() => current.value?.status === 'ABIERTA')
+  const isOpen = computed(() => current.value?.status === 'OPEN')
 
   // ── Current session ───────────────────────────────────────────────────────
   async function loadCurrent() {

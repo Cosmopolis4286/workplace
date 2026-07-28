@@ -163,7 +163,7 @@
                 v-for="next in NEXT_STATUS[order.status]"
                 :key="next"
                 @click="patchStatus(order.id, next)"
-                :class="next === 'CANCELADO'
+                :class="next === 'CANCELLED'
                   ? 'flex-1 bg-red-100 text-red-700 hover:bg-red-200'
                   : 'flex-1 bg-green-100 text-green-700 hover:bg-green-200'"
                 class="py-1 rounded-lg text-xs font-semibold transition-colors"
@@ -268,8 +268,8 @@
               <div>
                 <p class="text-xs text-gray-500 font-medium uppercase">Pago</p>
                 <p class="font-semibold text-gray-800">{{ PAYMENT_METHOD_LABELS[selectedOrder.paymentMethod] }}</p>
-                <span :class="selectedOrder.paymentStatus === 'PAGADO' ? 'text-green-600' : 'text-yellow-600'" class="text-sm font-medium">
-                  {{ selectedOrder.paymentStatus === 'PAGADO' ? 'Pagado' : selectedOrder.paymentStatus === 'REEMBOLSADO' ? 'Reembolsado' : 'Pendiente de pago' }}
+                <span :class="selectedOrder.paymentStatus === 'PAID' ? 'text-green-600' : 'text-yellow-600'" class="text-sm font-medium">
+                  {{ selectedOrder.paymentStatus === 'PAID' ? 'Pagado' : selectedOrder.paymentStatus === 'REFUNDED' ? 'Reembolsado' : 'Pendiente de pago' }}
                 </span>
               </div>
               <div>
@@ -354,7 +354,7 @@
               Cerrar
             </button>
             <button
-              v-if="selectedOrder.status === 'PENDIENTE'"
+              v-if="selectedOrder.status === 'PENDING'"
               @click="cancelOrder(selectedOrder)"
               class="flex-1 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-semibold text-sm"
             >
@@ -430,7 +430,7 @@
             </div>
 
             <!-- Delivery address (if needed) -->
-            <div v-if="newOrder.orderType === 'INMEDIATO' || newOrder.orderType === 'PROGRAMADO'">
+            <div v-if="newOrder.orderType === 'IMMEDIATE' || newOrder.orderType === 'SCHEDULED'">
               <label class="text-xs font-medium text-gray-600 uppercase tracking-wide">Dirección de entrega</label>
               <input
                 v-model="newOrder.deliveryAddress"
@@ -441,7 +441,7 @@
             </div>
 
             <!-- Scheduled date -->
-            <div v-if="newOrder.orderType === 'PROGRAMADO'">
+            <div v-if="newOrder.orderType === 'SCHEDULED'">
               <label class="text-xs font-medium text-gray-600 uppercase tracking-wide">Fecha programada *</label>
               <input
                 v-model="newOrder.scheduledAt"
@@ -585,10 +585,10 @@ let   searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const filterTabs = [
   { label: 'Todos',      value: undefined },
-  { label: 'Pendientes', value: 'PENDIENTE' as OrderStatus },
-  { label: 'Activos',    value: 'PREPARANDO' as OrderStatus },
-  { label: 'Entregados', value: 'ENTREGADO'  as OrderStatus },
-  { label: 'Cancelados', value: 'CANCELADO'  as OrderStatus },
+  { label: 'Pendientes', value: 'PENDING' as OrderStatus },
+  { label: 'Activos',    value: 'PREPARING' as OrderStatus },
+  { label: 'Entregados', value: 'DELIVERED'  as OrderStatus },
+  { label: 'Cancelados', value: 'CANCELLED'  as OrderStatus },
 ]
 
 const statusCount = computed(() => {
@@ -671,16 +671,16 @@ async function patchStatus(id: string, status: OrderStatus) {
 }
 
 async function cancelOrder(order: any) {
-  const ok = await updateStatus(order.id, 'CANCELADO')
+  const ok = await updateStatus(order.id, 'CANCELLED')
   if (ok) closeDetailsModal()
 }
 
 function orderTypeDot(type: OrderType) {
   const map: Record<OrderType, string> = {
-    INMEDIATO:   'bg-green-400',
-    PROGRAMADO:  'bg-blue-400',
-    PARA_LLEVAR: 'bg-purple-400',
-    EN_SITIO:    'bg-orange-400',
+    IMMEDIATE: 'bg-green-400',
+    SCHEDULED: 'bg-blue-400',
+    TAKEAWAY:  'bg-purple-400',
+    DINE_IN:   'bg-orange-400',
   }
   return map[type] ?? 'bg-gray-400'
 }
@@ -694,8 +694,8 @@ const newOrder = ref<CreateOrderPayload & { items: { productName: string; quanti
   customerEmail:   '',
   deliveryAddress: '',
   notes:           '',
-  orderType:       'INMEDIATO',
-  paymentMethod:   'EFECTIVO',
+  orderType:       'IMMEDIATE',
+  paymentMethod:   'CASH',
   scheduledAt:     '',
   items:           [defaultItem()],
 })
@@ -716,7 +716,7 @@ function closeNewOrderModal() {
   showNewOrderModal.value = false
   newOrder.value = {
     customerName: '', customerPhone: '', customerEmail: '', deliveryAddress: '',
-    notes: '', orderType: 'INMEDIATO', paymentMethod: 'EFECTIVO', scheduledAt: '',
+    notes: '', orderType: 'IMMEDIATE', paymentMethod: 'CASH', scheduledAt: '',
     items: [defaultItem()],
   }
 }

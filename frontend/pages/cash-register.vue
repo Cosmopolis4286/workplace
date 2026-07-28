@@ -54,7 +54,7 @@
     <div v-else class="space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <span class="badge" :class="CASH_STATUS_CLASSES.ABIERTA">Caja abierta</span>
+          <span class="badge" :class="CASH_STATUS_CLASSES.OPEN">Caja abierta</span>
           <p class="text-sm text-gray-500 mt-1">
             Abierta por {{ current!.openedBy }} · {{ formatDateTime(current!.openedAt) }}
           </p>
@@ -108,8 +108,8 @@
               <p class="text-sm font-medium text-gray-900">{{ m.reason }}</p>
               <p class="text-xs text-gray-400">{{ formatDateTime(m.createdAt) }}</p>
             </div>
-            <p class="font-semibold" :class="m.type === 'INGRESO' ? 'text-green-600' : 'text-red-600'">
-              {{ m.type === 'INGRESO' ? '+' : '-' }}{{ formatCurrency(m.amount) }}
+            <p class="font-semibold" :class="m.type === 'INCOME' ? 'text-green-600' : 'text-red-600'">
+              {{ m.type === 'INCOME' ? '+' : '-' }}{{ formatCurrency(m.amount) }}
             </p>
           </div>
         </div>
@@ -162,16 +162,16 @@
                 <button
                   type="button"
                   class="flex-1 py-2 rounded-lg text-sm font-medium border"
-                  :class="movementForm.type === 'INGRESO' ? 'bg-green-50 border-green-300 text-green-700' : 'border-gray-200 text-gray-500'"
-                  @click="movementForm.type = 'INGRESO'"
+                  :class="movementForm.type === 'INCOME' ? 'bg-green-50 border-green-300 text-green-700' : 'border-gray-200 text-gray-500'"
+                  @click="movementForm.type = 'INCOME'"
                 >
                   Ingreso
                 </button>
                 <button
                   type="button"
                   class="flex-1 py-2 rounded-lg text-sm font-medium border"
-                  :class="movementForm.type === 'RETIRO' ? 'bg-red-50 border-red-300 text-red-700' : 'border-gray-200 text-gray-500'"
-                  @click="movementForm.type = 'RETIRO'"
+                  :class="movementForm.type === 'WITHDRAWAL' ? 'bg-red-50 border-red-300 text-red-700' : 'border-gray-200 text-gray-500'"
+                  @click="movementForm.type = 'WITHDRAWAL'"
                 >
                   Retiro
                 </button>
@@ -257,7 +257,7 @@ const breadcrumbItems = [
 ]
 
 const loadingHistory = ref(false)
-const closedSessions = computed(() => sessions.value.filter(s => s.status === 'CERRADA'))
+const closedSessions = computed(() => sessions.value.filter(s => s.status === 'CLOSED'))
 
 // ── Open form ──────────────────────────────────────────────────────────────
 const openForm = ref<{ openingAmount: number | null; notes: string }>({ openingAmount: null, notes: '' })
@@ -271,7 +271,7 @@ async function handleOpen() {
 // ── Movement modal ─────────────────────────────────────────────────────────
 const showMovementModal = ref(false)
 const movementForm = ref<{ type: CashMovementType; amount: number | null; reason: string }>({
-  type: 'RETIRO', amount: null, reason: '',
+  type: 'WITHDRAWAL', amount: null, reason: '',
 })
 
 async function handleAddMovement() {
@@ -283,7 +283,7 @@ async function handleAddMovement() {
   })
   if (ok) {
     showMovementModal.value = false
-    movementForm.value = { type: 'RETIRO', amount: null, reason: '' }
+    movementForm.value = { type: 'WITHDRAWAL', amount: null, reason: '' }
   }
 }
 
@@ -332,7 +332,7 @@ function formatDateTime(dateStr: string) {
 
 async function loadHistory() {
   loadingHistory.value = true
-  await loadSessions({ status: 'CERRADA', limit: 10 })
+  await loadSessions({ status: 'CLOSED', limit: 10 })
   loadingHistory.value = false
 }
 

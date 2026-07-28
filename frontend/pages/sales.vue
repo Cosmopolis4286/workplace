@@ -169,9 +169,9 @@
                 </span>
                 <span
                   class="badge text-xs"
-                  :class="order.paymentStatus === 'PAGADO' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
+                  :class="order.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
                 >
-                  {{ order.paymentStatus === 'PAGADO' ? 'Pagado' : 'Por cobrar' }}
+                  {{ order.paymentStatus === 'PAID' ? 'Pagado' : 'Por cobrar' }}
                 </span>
               </div>
 
@@ -192,7 +192,7 @@
                   <ArrowRightIcon class="h-4 w-4" />
                 </button>
                 <button
-                  v-if="order.status !== 'ENTREGADO' && order.status !== 'CANCELADO'"
+                  v-if="order.status !== 'DELIVERED' && order.status !== 'CANCELLED'"
                   class="p-1.5 rounded hover:bg-gray-100 text-gray-500"
                   title="Editar"
                   @click="openEdit(order)"
@@ -516,20 +516,20 @@ function filterByStatus(status: OrderStatus) {
 
 // ── Sidebar computed data ─────────────────────────────────────────────────────
 
-const pipelineStatuses: OrderStatus[] = ['PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'LISTO', 'EN_ENTREGA']
+const pipelineStatuses: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
 
 function countByStatus(status: OrderStatus) {
   return orders.value.filter(o => o.status === status).length
 }
 
 const pipelineDots: Record<OrderStatus, string> = {
-  PENDIENTE:   'bg-yellow-400',
-  CONFIRMADO:  'bg-blue-400',
-  PREPARANDO:  'bg-indigo-500',
-  LISTO:       'bg-green-500',
-  EN_ENTREGA:  'bg-purple-500',
-  ENTREGADO:   'bg-gray-400',
-  CANCELADO:   'bg-red-400',
+  PENDING:          'bg-yellow-400',
+  CONFIRMED:        'bg-blue-400',
+  PREPARING:        'bg-indigo-500',
+  READY:            'bg-green-500',
+  OUT_FOR_DELIVERY: 'bg-purple-500',
+  DELIVERED:        'bg-gray-400',
+  CANCELLED:        'bg-red-400',
 }
 
 function pipelineDot(status: OrderStatus) {
@@ -545,46 +545,46 @@ const paymentBreakdown = computed(() => {
 })
 
 const unpaidCount = computed(() =>
-  orders.value.filter(o => o.paymentStatus === 'PENDIENTE' && o.status !== 'CANCELADO').length,
+  orders.value.filter(o => o.paymentStatus === 'PENDING' && o.status !== 'CANCELLED').length,
 )
 
 // ── Status icon helpers ───────────────────────────────────────────────────────
 
 function statusIcon(status: OrderStatus) {
   const map: Record<OrderStatus, any> = {
-    PENDIENTE:   ClockIcon,
-    CONFIRMADO:  CheckCircleIcon,
-    PREPARANDO:  FireIcon,
-    LISTO:       CheckCircleIcon,
-    EN_ENTREGA:  TruckIcon,
-    ENTREGADO:   CheckCircleIcon,
-    CANCELADO:   NoSymbolIcon,
+    PENDING:          ClockIcon,
+    CONFIRMED:        CheckCircleIcon,
+    PREPARING:        FireIcon,
+    READY:            CheckCircleIcon,
+    OUT_FOR_DELIVERY: TruckIcon,
+    DELIVERED:        CheckCircleIcon,
+    CANCELLED:        NoSymbolIcon,
   }
   return map[status] ?? ClockIcon
 }
 
 function statusBg(status: OrderStatus) {
   const map: Record<OrderStatus, string> = {
-    PENDIENTE:   'bg-yellow-100',
-    CONFIRMADO:  'bg-blue-100',
-    PREPARANDO:  'bg-indigo-100',
-    LISTO:       'bg-green-100',
-    EN_ENTREGA:  'bg-purple-100',
-    ENTREGADO:   'bg-gray-100',
-    CANCELADO:   'bg-red-100',
+    PENDING:          'bg-yellow-100',
+    CONFIRMED:        'bg-blue-100',
+    PREPARING:        'bg-indigo-100',
+    READY:            'bg-green-100',
+    OUT_FOR_DELIVERY: 'bg-purple-100',
+    DELIVERED:        'bg-gray-100',
+    CANCELLED:        'bg-red-100',
   }
   return map[status] ?? 'bg-gray-100'
 }
 
 function statusIconColor(status: OrderStatus) {
   const map: Record<OrderStatus, string> = {
-    PENDIENTE:   'text-yellow-600',
-    CONFIRMADO:  'text-blue-600',
-    PREPARANDO:  'text-indigo-600',
-    LISTO:       'text-green-600',
-    EN_ENTREGA:  'text-purple-600',
-    ENTREGADO:   'text-gray-500',
-    CANCELADO:   'text-red-500',
+    PENDING:          'text-yellow-600',
+    CONFIRMED:        'text-blue-600',
+    PREPARING:        'text-indigo-600',
+    READY:            'text-green-600',
+    OUT_FOR_DELIVERY: 'text-purple-600',
+    DELIVERED:        'text-gray-500',
+    CANCELLED:        'text-red-500',
   }
   return map[status] ?? 'text-gray-500'
 }
@@ -593,7 +593,7 @@ function statusIconColor(status: OrderStatus) {
 
 async function quickAdvance(order: Order) {
   const nexts = NEXT_STATUS[order.status] ?? []
-  const next  = nexts.find(s => s !== 'CANCELADO')
+  const next  = nexts.find(s => s !== 'CANCELLED')
   if (next) await updateStatus(order.id, next)
 }
 
@@ -661,7 +661,7 @@ async function handleStatusChange(id: string, status: OrderStatus) {
 }
 
 async function handleMarkPaid(id: string) {
-  await updateOrder(id, { paymentStatus: 'PAGADO' })
+  await updateOrder(id, { paymentStatus: 'PAID' })
   if (detailOrder.value?.id === id) {
     detailOrder.value = orders.value.find(o => o.id === id) ?? detailOrder.value
   }

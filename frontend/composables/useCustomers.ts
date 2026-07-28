@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { useApi } from './useApi'
 
-export type CustomerSegment = 'VIP' | 'PREMIUM' | 'REGULAR' | 'NUEVO'
+export type CustomerSegment = 'VIP' | 'PREMIUM' | 'REGULAR' | 'NEW'
 
 export interface Customer {
   id: string

@@ -35,11 +35,11 @@ export interface Job {
   salaryMax: number | null
   salaryCurrency: string
   location: string | null
-  type: 'TIEMPO_COMPLETO' | 'MEDIO_TIEMPO' | 'FREELANCE' | 'TEMPORAL' | 'PRACTICAS'
-  modality: 'PRESENCIAL' | 'REMOTO' | 'HIBRIDO'
+  type: 'FULL_TIME' | 'PART_TIME' | 'FREELANCE' | 'TEMPORARY' | 'INTERNSHIP'
+  modality: 'IN_PERSON' | 'REMOTE' | 'HYBRID'
   experienceLevel: string | null
   tags: string[]
-  status: 'ACTIVO' | 'PAUSADO' | 'INACTIVO' | 'CERRADO'
+  status: 'ACTIVE' | 'PAUSED' | 'INACTIVE' | 'CLOSED'
   expiresAt: string | null
   createdAt: string
   category: {
@@ -170,7 +170,7 @@ export const useJobs = () => {
   // No hay endpoint de toggle dedicado: el backend acepta `status` directo en
   // el PATCH genérico de update, así que el toggle es un caso particular de él.
   async function toggleJobStatus(job: JobWithApplicationCount) {
-    const next = job.status === 'ACTIVO' ? 'PAUSADO' : 'ACTIVO'
+    const next = job.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE'
     return updateJob(job.id, { status: next })
   }
 

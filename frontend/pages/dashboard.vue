@@ -341,15 +341,15 @@ async function handleStatusChange(payload: { id: string; status: string }) {
   const ok = await updateOrderStatus(id, status as OrderStatus)
   if (ok) {
     const labels: Record<OrderStatus, string> = {
-      PENDIENTE: 'Pendiente',
-      CONFIRMADO: 'Confirmado',
-      PREPARANDO: 'Preparando',
-      LISTO: 'Listo',
-      EN_ENTREGA: 'En entrega',
-      ENTREGADO: 'Entregado',
-      CANCELADO: 'Cancelado',
+      PENDING: 'Pendiente',
+      CONFIRMED: 'Confirmado',
+      PREPARING: 'Preparando',
+      READY: 'Listo',
+      OUT_FOR_DELIVERY: 'En entrega',
+      DELIVERED: 'Entregado',
+      CANCELLED: 'Cancelado',
     }
-    const type = status === 'CANCELADO' ? 'warning' : 'success'
+    const type = status === 'CANCELLED' ? 'warning' : 'success'
     showToast(type, `Pedido actualizado: ${labels[status as OrderStatus]}`)
     if (selectedOrder.value?.id === id) closeDetail()
   } else {

@@ -55,7 +55,7 @@ interface RegisterCredentials {
   lastName: string
   email: string
   birthDate: string
-  sex: 'MASCULINO' | 'FEMENINO' | 'OTRO'
+  sex: 'MALE' | 'FEMALE' | 'OTHER'
   password: string
   acceptTerms: boolean
 }

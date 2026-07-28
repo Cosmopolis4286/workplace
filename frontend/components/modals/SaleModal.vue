@@ -47,14 +47,14 @@
                   Este pedido incluye productos no financiables con Cashea/Krece.
                 </p>
               </div>
-              <div v-if="form.orderType === 'PROGRAMADO'" class="col-span-2">
+              <div v-if="form.orderType === 'SCHEDULED'" class="col-span-2">
                 <label class="label-field">Programado para</label>
                 <input v-model="form.scheduledAt" type="datetime-local" class="input-field" />
               </div>
-              <div v-if="form.orderType === 'EN_SITIO' || form.orderType === 'PARA_LLEVAR'" class="col-span-2 sm:col-span-1">
+              <div v-if="form.orderType === 'DINE_IN' || form.orderType === 'TAKEAWAY'" class="col-span-2 sm:col-span-1">
                 <!-- No delivery address needed for dine-in or takeaway -->
               </div>
-              <div v-if="form.orderType === 'INMEDIATO' || form.orderType === 'PROGRAMADO'" class="col-span-2">
+              <div v-if="form.orderType === 'IMMEDIATE' || form.orderType === 'SCHEDULED'" class="col-span-2">
                 <label class="label-field">Dirección de Entrega</label>
                 <input v-model="form.deliveryAddress" type="text" class="input-field" placeholder="Calle, número, colonia..." />
               </div>
@@ -256,8 +256,8 @@ const defaultForm = () => ({
   customerPhone:   '',
   deliveryAddress: '',
   notes:           '',
-  orderType:       'INMEDIATO' as OrderType,
-  paymentMethod:   'EFECTIVO' as PaymentMethod,
+  orderType:       'IMMEDIATE' as OrderType,
+  paymentMethod:   'CASH' as PaymentMethod,
   discount:        0,
   deliveryFee:     0,
   scheduledAt:     '',

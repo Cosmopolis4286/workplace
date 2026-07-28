@@ -45,7 +45,7 @@
               <option value="VIP">VIP</option>
               <option value="PREMIUM">Premium</option>
               <option value="REGULAR">Regular</option>
-              <option value="NUEVO">Nuevo</option>
+              <option value="NEW">Nuevo</option>
             </select>
             <select v-model="selectedStatus" class="input-field w-auto" @change="currentPage = 1">
               <option value="">Todos los estados</option>
@@ -324,7 +324,7 @@
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">Segmento</label>
                   <select v-model="form.segment" class="input-field">
-                    <option value="NUEVO">Nuevo</option>
+                    <option value="NEW">Nuevo</option>
                     <option value="REGULAR">Regular</option>
                     <option value="PREMIUM">Premium</option>
                     <option value="VIP">VIP</option>
@@ -401,13 +401,13 @@ const {
 
 // ─── Segmento maps ────────────────────────────────────────────────────────────
 const SEGMENT_LABELS: Record<CustomerSegment, string> = {
-  VIP: 'VIP', PREMIUM: 'Premium', REGULAR: 'Regular', NUEVO: 'Nuevo',
+  VIP: 'VIP', PREMIUM: 'Premium', REGULAR: 'Regular', NEW: 'Nuevo',
 }
 const SEGMENT_CLASSES: Record<CustomerSegment, string> = {
   VIP:     'bg-purple-100 text-purple-800',
   PREMIUM: 'bg-blue-100 text-blue-800',
   REGULAR: 'bg-green-100 text-green-800',
-  NUEVO:   'bg-yellow-100 text-yellow-800',
+  NEW:   'bg-yellow-100 text-yellow-800',
 }
 
 // ─── Filtros y paginación ─────────────────────────────────────────────────────
@@ -459,7 +459,7 @@ const segmentSummary = computed(() => {
     { key: 'VIP',     label: 'VIP',     emoji: '⭐', count: count('VIP'),     bar: 'bg-purple-400' },
     { key: 'PREMIUM', label: 'Premium', emoji: '💎', count: count('PREMIUM'), bar: 'bg-blue-400'   },
     { key: 'REGULAR', label: 'Regular', emoji: '✅', count: count('REGULAR'), bar: 'bg-green-400'  },
-    { key: 'NUEVO',   label: 'Nuevo',   emoji: '🆕', count: count('NUEVO'),   bar: 'bg-yellow-400' },
+    { key: 'NEW',   label: 'Nuevo',   emoji: '🆕', count: count('NEW'),   bar: 'bg-yellow-400' },
   ]
 })
 
@@ -481,7 +481,7 @@ const editingClient = ref<Customer | null>(null)
 const saving        = ref(false)
 const formError     = ref<string | null>(null)
 
-const defaultForm = () => ({ name: '', email: '', phone: '', address: '', notes: '', segment: 'NUEVO' as CustomerSegment })
+const defaultForm = () => ({ name: '', email: '', phone: '', address: '', notes: '', segment: 'NEW' as CustomerSegment })
 const form = ref(defaultForm())
 
 function openModal(client?: Customer) {

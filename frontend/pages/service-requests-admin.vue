@@ -165,7 +165,7 @@ interface ServiceRequestDetail extends ServiceRequestRow {
   statusHistory: StatusHistoryEntry[]
 }
 
-const STATUS_OPTIONS: ServiceRequestStatus[] = ['PENDIENTE', 'VISTO', 'CONTACTADO', 'CERRADO', 'CANCELADO', 'RECHAZADO']
+const STATUS_OPTIONS: ServiceRequestStatus[] = ['PENDING', 'SEEN', 'CONTACTED', 'CLOSED', 'CANCELLED', 'REJECTED']
 
 const requests = ref<ServiceRequestRow[]>([])
 const total = ref(0)

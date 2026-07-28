@@ -124,7 +124,7 @@
                 leave-from-class="opacity-100 translate-y-0"
                 leave-to-class="opacity-0 -translate-y-2"
               >
-                <div v-if="form.modality === 'PRESENCIAL'" class="space-y-3">
+                <div v-if="form.modality === 'IN_PERSON'" class="space-y-3">
                   <!-- Aviso de alcance del prestador -->
                   <div v-if="providerLocationLabel" class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
                     <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -406,15 +406,15 @@ const convertedPrice = computed(() => {
 })
 
 const ALL_MODALITY_OPTIONS: Record<string, { label: string; emoji: string }> = {
-  PRESENCIAL: { label: 'Presencial', emoji: '📍' },
-  REMOTO: { label: 'Remoto', emoji: '💻' },
-  CUALQUIERA: { label: 'Cualquiera', emoji: '🤝' },
+  IN_PERSON: { label: 'Presencial', emoji: '📍' },
+  REMOTE: { label: 'Remoto', emoji: '💻' },
+  ANY: { label: 'Cualquiera', emoji: '🤝' },
 }
 
 const modalityOptions = computed(() => {
   const vals = props.service?.modalities?.length
     ? props.service.modalities
-    : ['PRESENCIAL', 'REMOTO', 'CUALQUIERA']
+    : ['IN_PERSON', 'REMOTE', 'ANY']
   return vals.map(v => ({
     value: v,
     label: ALL_MODALITY_OPTIONS[v]?.label ?? v,
@@ -436,7 +436,7 @@ const cityMismatch = computed(() => {
 })
 
 const defaultForm = () => ({
-  modality: (modalityOptions.value[0]?.value ?? 'CUALQUIERA') as string,
+  modality: (modalityOptions.value[0]?.value ?? 'ANY') as string,
   preferredDate: '',
   preferredTime: '',
   address: '',
@@ -533,7 +533,7 @@ const fieldErrors = computed(() => {
   if (touched.value.preferredTime && !form.value.preferredTime) {
     e.preferredTime = 'Selecciona una hora'
   }
-  if (touched.value.address && form.value.modality === 'PRESENCIAL' && form.value.address.trim().length < 5) {
+  if (touched.value.address && form.value.modality === 'IN_PERSON' && form.value.address.trim().length < 5) {
     e.address = 'Ingresa una dirección más detallada'
   }
   if (touched.value.clientName && form.value.clientName.trim().length < 3) {
@@ -557,7 +557,7 @@ watch(() => props.service, () => {
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
-    form.value.modality = modalityOptions.value[0]?.value ?? 'CUALQUIERA'
+    form.value.modality = modalityOptions.value[0]?.value ?? 'ANY'
   }
 })
 
@@ -592,7 +592,7 @@ function validateAll(): boolean {
     errorMsg.value = 'Selecciona una fecha preferida.'
     return false
   }
-  if (form.value.modality === 'PRESENCIAL' && !form.value.address.trim()) {
+  if (form.value.modality === 'IN_PERSON' && !form.value.address.trim()) {
     errorMsg.value = 'La dirección es requerida para modalidad presencial.'
     return false
   }

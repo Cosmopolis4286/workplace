@@ -58,12 +58,12 @@
           v-for="next in (NEXT_STATUS[order.status] ?? [])"
           :key="next"
           class="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors"
-          :class="next === 'CANCELADO'
+          :class="next === 'CANCELLED'
             ? 'bg-red-50 text-red-700 hover:bg-red-100'
             : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'"
           @click="handleAction(next)"
         >
-          {{ next === 'CANCELADO' ? 'Cancelar' : ORDER_STATUS_LABELS[next] }}
+          {{ next === 'CANCELLED' ? 'Cancelar' : ORDER_STATUS_LABELS[next] }}
         </button>
       </div>
 

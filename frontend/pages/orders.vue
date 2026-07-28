@@ -114,7 +114,7 @@
                   v-for="ns in (NEXT_STATUS[order.status] ?? [])"
                   :key="ns"
                   class="text-xs px-2 py-1 rounded-lg font-medium transition-colors"
-                  :class="ns === 'CANCELADO' ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'"
+                  :class="ns === 'CANCELLED' ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'"
                   @click="doUpdateStatus(order, ns)"
                 >→ {{ ORDER_STATUS_LABELS[ns] }}</button>
               </div>
@@ -168,7 +168,7 @@
                   v-for="ns in (NEXT_STATUS[order.status] ?? [])"
                   :key="ns"
                   class="text-xs px-2 py-1 rounded-lg font-medium transition-colors"
-                  :class="ns === 'CANCELADO' ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'"
+                  :class="ns === 'CANCELLED' ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'"
                   @click="doUpdateStatus(order, ns)"
                 >→ {{ ORDER_STATUS_LABELS[ns] }}</button>
               </div>
@@ -187,10 +187,10 @@
             <div class="flex items-center gap-2">
               <select v-model="mktStatusFilter" class="input-field text-xs py-1 w-auto" @change="loadMktOrders">
                 <option value="">Todos</option>
-                <option value="PENDIENTE">Pendiente</option>
-                <option value="VISTO">Visto</option>
-                <option value="CONTACTADO">Contactado</option>
-                <option value="CERRADO">Cerrado</option>
+                <option value="PENDING">Pendiente</option>
+                <option value="SEEN">Visto</option>
+                <option value="CONTACTED">Contactado</option>
+                <option value="CLOSED">Cerrado</option>
               </select>
               <button class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" @click="loadMktOrders">
                 <ArrowPathIcon class="h-4 w-4 text-gray-400" :class="{ 'animate-spin': mktLoading }" />
@@ -234,7 +234,7 @@
                   v-for="ns in MKT_NEXT_STATUS[mo.status]"
                   :key="ns"
                   class="text-xs px-2 py-1 rounded-lg font-medium transition-colors"
-                  :class="ns === 'CERRADO' ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-red-100 hover:bg-red-200 text-red-700'"
+                  :class="ns === 'CLOSED' ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-red-100 hover:bg-red-200 text-red-700'"
                   @click="updateMktStatus(mo.id, ns)"
                 >{{ MKT_STATUS_LABELS[ns] }}</button>
                 <a v-if="mo.buyerPhone" :href="`https://wa.me/${mo.buyerPhone.replace(/\D/g,'')}`" target="_blank"
@@ -378,11 +378,11 @@
                   </select>
                 </div>
               </div>
-              <div v-if="newOrder.orderType === 'PROGRAMADO'">
+              <div v-if="newOrder.orderType === 'SCHEDULED'">
                 <label class="block text-xs font-medium text-gray-700 mb-1">Fecha y hora programada</label>
                 <input v-model="newOrder.scheduledAt" type="datetime-local" class="input-field" />
               </div>
-              <div v-if="newOrder.orderType === 'PARA_LLEVAR'">
+              <div v-if="newOrder.orderType === 'TAKEAWAY'">
                 <label class="block text-xs font-medium text-gray-700 mb-1">Dirección de entrega</label>
                 <input v-model="newOrder.deliveryAddress" type="text" placeholder="Calle, número..." class="input-field" />
               </div>
@@ -525,8 +525,8 @@
                 <div>
                   <p class="text-xs text-gray-400 font-medium uppercase mb-0.5">Pago</p>
                   <p class="text-sm text-gray-700">{{ PAYMENT_METHOD_LABELS[selectedOrder.paymentMethod] }}</p>
-                  <span class="text-xs font-medium" :class="selectedOrder.paymentStatus === 'PAGADO' ? 'text-green-600' : 'text-yellow-600'">
-                    {{ selectedOrder.paymentStatus === 'PAGADO' ? '✓ Pagado' : '⏳ Pendiente' }}
+                  <span class="text-xs font-medium" :class="selectedOrder.paymentStatus === 'PAID' ? 'text-green-600' : 'text-yellow-600'">
+                    {{ selectedOrder.paymentStatus === 'PAID' ? '✓ Pagado' : '⏳ Pendiente' }}
                   </span>
                 </div>
                 <div v-if="selectedOrder.scheduledAt">
@@ -570,7 +570,7 @@
                     v-for="ns in NEXT_STATUS[selectedOrder.status]"
                     :key="ns"
                     class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-                    :class="ns === 'CANCELADO' ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'"
+                    :class="ns === 'CANCELLED' ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'"
                     @click="doUpdateStatus(selectedOrder, ns); showDetailsModal = false"
                   >→ {{ ORDER_STATUS_LABELS[ns] }}</button>
                 </div>
@@ -579,7 +579,7 @@
             <div class="sticky bottom-0 bg-white px-6 py-4 border-t border-gray-100 flex gap-3">
               <button class="btn-secondary flex-1" @click="showDetailsModal = false">Cerrar</button>
               <button
-                v-if="selectedOrder.status !== 'CANCELADO'"
+                v-if="selectedOrder.status !== 'CANCELLED'"
                 class="px-5 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-medium hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
                 :disabled="downloadingReceipt"
                 @click="handleDownloadReceipt(selectedOrder)"
@@ -648,10 +648,10 @@ const {
 } = useMerchantOrders()
 
 const scheduledOrders = computed(() =>
-  orders.value.filter(o => o.orderType === 'PROGRAMADO' && o.scheduledAt && !['ENTREGADO','CANCELADO'].includes(o.status))
+  orders.value.filter(o => o.orderType === 'SCHEDULED' && o.scheduledAt && !['DELIVERED','CANCELLED'].includes(o.status))
 )
 const scheduledCount = computed(() =>
-  orders.value.filter(o => o.orderType === 'PROGRAMADO' && !['ENTREGADO','CANCELADO'].includes(o.status)).length
+  orders.value.filter(o => o.orderType === 'SCHEDULED' && !['DELIVERED','CANCELLED'].includes(o.status)).length
 )
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / 20)))
 
@@ -672,13 +672,13 @@ const orderSummary = computed(() => [
 // Status chips
 const statusChips = [
   { label: 'Todos', value: undefined },
-  { label: 'Pendiente',   value: 'PENDIENTE'   as OrderStatus },
-  { label: 'Confirmado',  value: 'CONFIRMADO'  as OrderStatus },
-  { label: 'Preparando',  value: 'PREPARANDO'  as OrderStatus },
-  { label: 'Listo',       value: 'LISTO'       as OrderStatus },
-  { label: 'En Entrega',  value: 'EN_ENTREGA'  as OrderStatus },
-  { label: 'Entregado',   value: 'ENTREGADO'   as OrderStatus },
-  { label: 'Cancelado',   value: 'CANCELADO'   as OrderStatus },
+  { label: 'Pendiente',   value: 'PENDING'   as OrderStatus },
+  { label: 'Confirmado',  value: 'CONFIRMED'  as OrderStatus },
+  { label: 'Preparando',  value: 'PREPARING'  as OrderStatus },
+  { label: 'Listo',       value: 'READY'       as OrderStatus },
+  { label: 'En Entrega',  value: 'OUT_FOR_DELIVERY'  as OrderStatus },
+  { label: 'Entregado',   value: 'DELIVERED'   as OrderStatus },
+  { label: 'Cancelado',   value: 'CANCELLED'   as OrderStatus },
 ]
 const activeStatusFilter = ref<OrderStatus | undefined>(undefined)
 const searchQuery = ref('')
@@ -717,7 +717,7 @@ async function doUpdateStatus(order: Order, nextStatus: OrderStatus) { await upd
 
 // New order form
 const defaultNewOrder = (): CreateOrderPayload & { orderType: OrderType; paymentMethod: PaymentMethod } => ({
-  customerName: '', customerPhone: '', orderType: 'INMEDIATO', paymentMethod: 'EFECTIVO',
+  customerName: '', customerPhone: '', orderType: 'IMMEDIATE', paymentMethod: 'CASH',
   deliveryFee: 0, discount: 0, items: [{ productName: '', quantity: 1, unitPrice: 0 }],
 })
 const newOrder = ref(defaultNewOrder())
@@ -735,7 +735,7 @@ async function submitNewOrder() {
 }
 
 // Schedule form
-const defaultSchedule = () => ({ customerName: '', customerPhone: '', scheduledAt: '', serviceName: '', unitPrice: 0, paymentMethod: 'EFECTIVO' as PaymentMethod, notes: '' })
+const defaultSchedule = () => ({ customerName: '', customerPhone: '', scheduledAt: '', serviceName: '', unitPrice: 0, paymentMethod: 'CASH' as PaymentMethod, notes: '' })
 const scheduleForm = ref(defaultSchedule())
 function openScheduleModal() { scheduleForm.value = defaultSchedule(); showScheduleModal.value = true }
 async function submitSchedule() {
@@ -743,28 +743,28 @@ async function submitSchedule() {
   if (!f.customerName.trim() || !f.scheduledAt || !f.serviceName.trim()) return
   const created = await createOrder({
     customerName: f.customerName, customerPhone: f.customerPhone || undefined,
-    orderType: 'PROGRAMADO', paymentMethod: f.paymentMethod, scheduledAt: f.scheduledAt,
+    orderType: 'SCHEDULED', paymentMethod: f.paymentMethod, scheduledAt: f.scheduledAt,
     notes: f.notes || undefined, items: [{ productName: f.serviceName, quantity: 1, unitPrice: f.unitPrice || 0 }],
   })
   if (created) showScheduleModal.value = false
 }
 
 // Marketplace
-type MktOrderStatus = 'PENDIENTE' | 'VISTO' | 'CONTACTADO' | 'CERRADO'
-type MktDeliveryType = 'DOMICILIO' | 'RECOGER' | 'DIGITAL'
+type MktOrderStatus = 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED'
+type MktDeliveryType = 'HOME_DELIVERY' | 'PICKUP' | 'DIGITAL'
 interface MktOrder { id: string; productId: string; productName: string; quantity: number; deliveryType: MktDeliveryType; address?: string; city?: string; buyerName: string; buyerPhone: string; buyerEmail?: string; notes?: string; totalEstimate?: number; status: MktOrderStatus; createdAt: string }
 
-const MKT_STATUS_LABELS: Record<MktOrderStatus, string>  = { PENDIENTE: 'Pendiente', VISTO: 'Visto', CONTACTADO: 'Contactado', CERRADO: 'Cerrado' }
-const MKT_STATUS_CLASSES: Record<MktOrderStatus, string>  = { PENDIENTE: 'bg-orange-100 text-orange-700', VISTO: 'bg-blue-100 text-blue-700', CONTACTADO: 'bg-green-100 text-green-700', CERRADO: 'bg-gray-100 text-gray-500' }
-const MKT_NEXT_STATUS: Record<MktOrderStatus, MktOrderStatus[]> = { PENDIENTE: ['VISTO', 'CONTACTADO'], VISTO: ['CONTACTADO'], CONTACTADO: ['CERRADO'], CERRADO: [] }
-const MKT_DELIVERY_LABELS: Record<MktDeliveryType, string> = { DOMICILIO: '🛵 Domicilio', RECOGER: '🏪 Recoger', DIGITAL: '💻 Digital' }
+const MKT_STATUS_LABELS: Record<MktOrderStatus, string>  = { PENDING: 'Pendiente', SEEN: 'Visto', CONTACTED: 'Contactado', CLOSED: 'Cerrado' }
+const MKT_STATUS_CLASSES: Record<MktOrderStatus, string>  = { PENDING: 'bg-orange-100 text-orange-700', SEEN: 'bg-blue-100 text-blue-700', CONTACTED: 'bg-green-100 text-green-700', CLOSED: 'bg-gray-100 text-gray-500' }
+const MKT_NEXT_STATUS: Record<MktOrderStatus, MktOrderStatus[]> = { PENDING: ['SEEN', 'CONTACTED'], SEEN: ['CONTACTED'], CONTACTED: ['CLOSED'], CLOSED: [] }
+const MKT_DELIVERY_LABELS: Record<MktDeliveryType, string> = { HOME_DELIVERY: '🛵 Domicilio', PICKUP: '🏪 Recoger', DIGITAL: '💻 Digital' }
 
 const mktOrders = ref<MktOrder[]>([])
 const mktLoading = ref(false)
 const mktPage = ref(1)
 const mktTotalPages = ref(1)
 const mktStatusFilter = ref('')
-const mktPending = computed(() => mktOrders.value.filter(o => o.status === 'PENDIENTE').length)
+const mktPending = computed(() => mktOrders.value.filter(o => o.status === 'PENDING').length)
 
 const { usage, fetchUsage } = usePlans()
 

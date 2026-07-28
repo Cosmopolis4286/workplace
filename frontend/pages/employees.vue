@@ -273,7 +273,7 @@ const filteredEmployees = computed(() => {
 
 const totalPages        = computed(() => Math.ceil(filteredEmployees.value.length / pageSize))
 const paginatedEmployees = computed(() => filteredEmployees.value.slice((currentPage.value - 1) * pageSize, currentPage.value * pageSize))
-const absentCount       = computed(() => employees.value.filter(e => e.status === 'VACACIONES' || e.status === 'LICENCIA').length)
+const absentCount       = computed(() => employees.value.filter(e => e.status === 'ON_VACATION' || e.status === 'ON_LEAVE').length)
 
 watch([searchQuery, filterRole, filterStatus], () => { currentPage.value = 1 })
 
@@ -286,10 +286,10 @@ const headerStats = computed(() => [
 
 const teamSummary = computed(() => [
   { label: 'Activos',        count: stats.value.active,  dot: 'bg-green-400'  },
-  { label: 'Vacaciones',     count: employees.value.filter(e => e.status === 'VACACIONES').length, dot: 'bg-yellow-400' },
-  { label: 'Licencia',       count: employees.value.filter(e => e.status === 'LICENCIA').length,   dot: 'bg-blue-400'   },
-  { label: 'Suspendidos',    count: employees.value.filter(e => e.status === 'SUSPENDIDO').length, dot: 'bg-orange-400' },
-  { label: 'Inactivos',      count: employees.value.filter(e => e.status === 'INACTIVO').length,   dot: 'bg-gray-400'   },
+  { label: 'Vacaciones',     count: employees.value.filter(e => e.status === 'ON_VACATION').length, dot: 'bg-yellow-400' },
+  { label: 'Licencia',       count: employees.value.filter(e => e.status === 'ON_LEAVE').length,   dot: 'bg-blue-400'   },
+  { label: 'Suspendidos',    count: employees.value.filter(e => e.status === 'SUSPENDED').length, dot: 'bg-orange-400' },
+  { label: 'Inactivos',      count: employees.value.filter(e => e.status === 'INACTIVE').length,   dot: 'bg-gray-400'   },
 ])
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
@@ -297,7 +297,7 @@ const showModal       = ref(false)
 const editingEmployee = ref<Employee | null>(null)
 const saving          = ref(false)
 
-const emptyForm = () => ({ firstName: '', lastName: '', email: '', phone: '', role: 'OTRO' as EmployeeRole, status: 'ACTIVO' as EmployeeStatus, salary: undefined as number | undefined, hireDateInput: '', address: '', emergencyContact: '', emergencyPhone: '', notes: '' })
+const emptyForm = () => ({ firstName: '', lastName: '', email: '', phone: '', role: 'OTHER' as EmployeeRole, status: 'ACTIVE' as EmployeeStatus, salary: undefined as number | undefined, hireDateInput: '', address: '', emergencyContact: '', emergencyPhone: '', notes: '' })
 const form = ref(emptyForm())
 
 function openModal(emp?: Employee) {

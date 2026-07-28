@@ -80,9 +80,9 @@
             @blur="touch('sex')"
           >
             <option value="" disabled>{{ t('auth.register.sexPlaceholder') }}</option>
-            <option value="MASCULINO">{{ t('auth.register.sexMale') }}</option>
-            <option value="FEMENINO">{{ t('auth.register.sexFemale') }}</option>
-            <option value="OTRO">{{ t('auth.register.sexOther') }}</option>
+            <option value="MALE">{{ t('auth.register.sexMale') }}</option>
+            <option value="FEMALE">{{ t('auth.register.sexFemale') }}</option>
+            <option value="OTHER">{{ t('auth.register.sexOther') }}</option>
           </select>
           <p v-if="errors.sex && touched.sex" class="text-xs text-red-500">{{ errors.sex }}</p>
         </div>
@@ -293,7 +293,7 @@ const handleSubmit = async () => {
       lastName: form.lastName,
       email: form.email,
       birthDate: form.birthDate,
-      sex: form.sex as 'MASCULINO' | 'FEMENINO' | 'OTRO',
+      sex: form.sex as 'MALE' | 'FEMALE' | 'OTHER',
       password: form.password,
       acceptTerms: form.acceptTerms,
       recaptchaToken
