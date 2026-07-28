@@ -33,7 +33,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async disconnect(): Promise<void> {
     await this.client.quit();
   }
-  
+
+  // Nueva conexión ioredis con la misma config (host/port/password/retry) que
+  // el cliente principal. Usada por el adapter de Socket.IO, que requiere
+  // conexiones dedicadas de pub/sub separadas del cliente de comandos normal.
+  duplicate(): Redis {
+    return this.client.duplicate();
+  }
+
   // --- Métodos básicos de Redis ---
   async set(key: string, value: string): Promise<void> {
     await this.client.set(key, value);

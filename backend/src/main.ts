@@ -2,6 +2,7 @@ import './config/env'; // valida variables de entorno antes de arrancar
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { createAdapter } from '@socket.io/redis-adapter';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
@@ -84,6 +85,23 @@ async function bootstrap() {
   // Global audit interceptor
   const auditService = app.get(AuditService);
   app.useGlobalInterceptors(new AuditInterceptor(auditService));
+
+  // Adapter de Redis para Socket.IO: sin esto, las salas (user:*, restaurant:*)
+  // viven solo en memoria del proceso y un evento emitido desde una instancia
+  // nunca llega a un cliente conectado a otra instancia. Necesario para poder
+  // escalar el backend a más de un réplica.
+  const redisService = app.get(RedisService);
+  const pubClient = redisService.duplicate();
+  const subClient = pubClient.duplicate();
+  app.useWebSocketAdapter(
+    new (class extends (await import('@nestjs/platform-socket.io')).IoAdapter {
+      createIOServer(port: number, options?: any) {
+        const server = super.createIOServer(port, options);
+        server.adapter(createAdapter(pubClient, subClient));
+        return server;
+      }
+    })(app)
+  );
 
   // 🔥 Graceful shutdown setup
   const server = app.getHttpServer();
