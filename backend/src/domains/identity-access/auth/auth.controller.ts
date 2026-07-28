@@ -17,14 +17,14 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
-import { RateLimit, RateLimitOptions } from '../common/guards/rate-limit.guard';
+import { RateLimit, RateLimitOptions } from '../../../common/guards/rate-limit.guard';
 import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import { extensionForMimetype } from '../common/utils/upload-extension.util';
+import { extensionForMimetype } from '../../../common/utils/upload-extension.util';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -35,11 +35,11 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { VerifyLoginTwoFactorDto } from './dto/verify-login-two-factor.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { JwtRefreshGuard } from '../common/guards/jwt-refresh.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { JwtRefreshGuard } from '../../../common/guards/jwt-refresh.guard';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { ConfigService } from '@nestjs/config';
-import { setAuthCookies, clearAuthCookies } from '../common/utils/auth-cookies.util';
+import { setAuthCookies, clearAuthCookies } from '../../../common/utils/auth-cookies.util';
 
 @Controller('auth')
 export class AuthController {

@@ -11,16 +11,16 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PermissionsService } from './permissions.service';
 import { UpdateRolePermissionDto } from './dto/update-role-permission.dto';
 import { BulkUpdateRolePermissionsDto } from './dto/bulk-update-role-permissions.dto';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
-import { assignableRolesFor } from '../common/utils/role-hierarchy.util';
+import { assignableRolesFor } from '../../../common/utils/role-hierarchy.util';
 
 @Controller('permissions')
 @UseGuards(JwtAuthGuard)

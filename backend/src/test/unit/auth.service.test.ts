@@ -3,13 +3,13 @@ import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { Sex } from '@prisma/client'
 import { I18nService } from 'nestjs-i18n'
-import { AuthService } from '../../auth/auth.service'
+import { AuthService } from '../../domains/identity-access/auth/auth.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { UsersService } from '../../users/users.service'
+import { UsersService } from '../../domains/identity-access/users/users.service'
 import { RedisService } from '../../redis/redis.service'
 import { MailService } from '../../mail/mail.service'
-import { AuditService } from '../../audit/audit.service'
-import { TwoFactorService } from '../../auth/two-factor.service'
+import { AuditService } from '../../domains/identity-access/audit/audit.service'
+import { TwoFactorService } from '../../domains/identity-access/auth/two-factor.service'
 
 describe('AuthService', () => {
   let service: AuthService

@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { UsersService } from '../../users/users.service'
+import { UsersService } from '../../domains/identity-access/users/users.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { MailService } from '../../mail/mail.service'
-import { CommerceProfileCompletionStrategy } from '../../users/strategies/commerce-profile-completion.strategy'
-import { FreelancerProfileCompletionStrategy } from '../../users/strategies/freelancer-profile-completion.strategy'
+import { CommerceProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/commerce-profile-completion.strategy'
+import { FreelancerProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/freelancer-profile-completion.strategy'
 import { Role } from '@prisma/client'
 import { I18nService } from 'nestjs-i18n'
 

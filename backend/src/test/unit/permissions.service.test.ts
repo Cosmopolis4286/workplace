@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { PermissionsService } from '../../permissions/permissions.service'
+import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
-import { UsersService } from '../../users/users.service'
+import { UsersService } from '../../domains/identity-access/users/users.service'
 import { Role } from '@prisma/client'
 
 describe('PermissionsService', () => {

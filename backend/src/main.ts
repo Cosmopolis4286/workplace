@@ -5,9 +5,9 @@ import { PrismaClient } from '@prisma/client';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { AuditInterceptor } from './audit/audit.interceptor';
-import { AuditService } from './audit/audit.service';
-import { AuditLogger } from './audit/audit.logger';
+import { AuditInterceptor } from './domains/identity-access/audit/audit.interceptor';
+import { AuditService } from './domains/identity-access/audit/audit.service';
+import { AuditLogger } from './domains/identity-access/audit/audit.logger';
 import { PrismaService } from './prisma/prisma.service';
 import { RedisService } from './redis/redis.service';
 

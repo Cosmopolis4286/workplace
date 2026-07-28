@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core'
 import { ExecutionContext, ForbiddenException } from '@nestjs/common'
 import { Role } from '@prisma/client'
 import { PermissionsGuard } from '../../common/guards/permissions.guard'
-import { PermissionsService } from '../../permissions/permissions.service'
+import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service'
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard

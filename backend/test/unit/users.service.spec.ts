@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UsersService } from '../../src/users/users.service';
+import { UsersService } from '../../src/domains/identity-access/users/users.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Role } from '@prisma/client';

@@ -1,0 +1,8 @@
+{
+  "src/auth": "src/domains/identity-access/auth",
+  "src/users": "src/domains/identity-access/users",
+  "src/permissions": "src/domains/identity-access/permissions",
+  "src/kyc": "src/domains/identity-access/kyc",
+  "src/audit": "src/domains/identity-access/audit",
+  "src/profiles": "src/domains/identity-access/profiles"
+}

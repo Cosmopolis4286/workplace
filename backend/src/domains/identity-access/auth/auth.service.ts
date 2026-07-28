@@ -12,9 +12,9 @@ import { I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../redis/redis.service';
-import { MailService } from '../mail/mail.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../../redis/redis.service';
+import { MailService } from '../../../mail/mail.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction, Role } from '@prisma/client';
 import { RegisterDto } from './dto/register.dto';
@@ -25,7 +25,7 @@ import { VerifyLoginTwoFactorDto } from './dto/verify-login-two-factor.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { TwoFactorService } from './two-factor.service';
-import { encryptSecret, decryptSecret } from '../common/utils/crypto.util';
+import { encryptSecret, decryptSecret } from '../../../common/utils/crypto.util';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 

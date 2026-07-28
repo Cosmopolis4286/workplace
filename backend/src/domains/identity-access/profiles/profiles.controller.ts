@@ -19,7 +19,7 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import { extensionForMimetype } from '../common/utils/upload-extension.util';
+import { extensionForMimetype } from '../../../common/utils/upload-extension.util';
 import { ProfilesService } from './profiles.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -27,11 +27,11 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { QueryPostsDto } from './dto/query-profile.dto';
 import { RespondReviewDto } from './dto/respond-review.dto';
 import { ReportReviewDto } from './dto/report-review.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
-import { PermissionsGuard } from '../common/guards/permissions.guard';
-import { RequirePermission } from '../common/decorators/require-permission.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 
 @Controller('profiles')
 export class ProfilesController {

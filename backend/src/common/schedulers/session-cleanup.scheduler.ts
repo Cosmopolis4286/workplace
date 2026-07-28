@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { AuthService } from '../../auth/auth.service';
+import { AuthService } from '../../domains/identity-access/auth/auth.service';
 
 @Injectable()
 export class SessionCleanupScheduler {

@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { KycStatus, Role } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { MailService } from '../mail/mail.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { MailService } from '../../../mail/mail.service';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { ReviewVerificationDto } from './dto/review-verification.dto';
 

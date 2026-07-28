@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { Sex } from '@prisma/client'
-import { AuthController } from '../../auth/auth.controller'
-import { AuthService } from '../../auth/auth.service'
+import { AuthController } from '../../domains/identity-access/auth/auth.controller'
+import { AuthService } from '../../domains/identity-access/auth/auth.service'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 

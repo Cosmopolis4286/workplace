@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma, Role, Sex } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
@@ -14,7 +14,7 @@ import { ChangePasswordDto } from '../auth/dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
-import { MailService } from '../mail/mail.service';
+import { MailService } from '../../../mail/mail.service';
 import { CommerceProfileCompletionStrategy } from './strategies/commerce-profile-completion.strategy';
 import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-profile-completion.strategy';
 

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { Role } from '@prisma/client'
 import { NavigationService } from '../../domains/platform/navigation/navigation.service'
-import { PermissionsService } from '../../permissions/permissions.service'
+import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service'
 import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
 
 describe('NavigationService', () => {
