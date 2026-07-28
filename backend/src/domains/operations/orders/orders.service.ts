@@ -4,8 +4,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { NotificationsService } from '../../../notifications/notifications.service';
-import { TelegramService } from '../../../telegram/telegram.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { TelegramService } from '../../engagement/telegram/telegram.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';

@@ -11,7 +11,7 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
-import { NotificationsService } from '../../../notifications/notifications.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { PlatformFeesService } from '../../money/platform-fees/platform-fees.service';
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util';
 

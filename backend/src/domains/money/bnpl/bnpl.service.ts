@@ -7,8 +7,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { BnplProvider, BnplTransactionStatus, NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { NotificationsService } from '../../../notifications/notifications.service';
-import { TelegramService } from '../../../telegram/telegram.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { TelegramService } from '../../engagement/telegram/telegram.service';
 import { encryptSecret, decryptSecret } from '../../../common/utils/crypto.util';
 import { SimulatedAdapter } from './adapters/simulated.adapter';
 import { CasheaAdapter } from './adapters/cashea.adapter';

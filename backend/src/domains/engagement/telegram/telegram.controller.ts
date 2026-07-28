@@ -8,9 +8,9 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { PrismaService } from '../prisma/prisma.service';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 @Controller('telegram')
 export class TelegramController {

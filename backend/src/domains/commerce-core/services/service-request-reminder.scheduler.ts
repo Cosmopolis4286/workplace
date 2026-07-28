@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { NotificationsService } from '../../../notifications/notifications.service';
-import { MailService } from '../../../mail/mail.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { MailService } from '../../engagement/mail/mail.service';
 
 const NO_RESPONSE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 

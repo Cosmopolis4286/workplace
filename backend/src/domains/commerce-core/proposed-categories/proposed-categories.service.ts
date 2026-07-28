@@ -1,8 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ProposalStatus, ProposedCategoryTarget } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { MailService } from '../../../mail/mail.service';
-import { NotificationsService } from '../../../notifications/notifications.service';
+import { MailService } from '../../engagement/mail/mail.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { ProposeCategoryDto } from './dto/propose-category.dto';
 import { ReviewProposedCategoryDto } from './dto/review-proposed-category.dto';
 

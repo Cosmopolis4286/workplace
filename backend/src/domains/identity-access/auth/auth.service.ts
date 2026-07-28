@@ -14,7 +14,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { MailService } from '../../../mail/mail.service';
+import { MailService } from '../../engagement/mail/mail.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction, Role } from '@prisma/client';
 import { RegisterDto } from './dto/register.dto';

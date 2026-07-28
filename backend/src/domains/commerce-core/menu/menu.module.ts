@@ -3,7 +3,7 @@ import { MenuController } from './menu.controller';
 import { MenuService } from './menu.service';
 import { StockSnapshotScheduler } from './stock-snapshot.scheduler';
 import { PrismaModule } from '../../../prisma/prisma.module';
-import { NotificationsModule } from '../../../notifications/notifications.module';
+import { NotificationsModule } from '../../engagement/notifications/notifications.module';
 import { PlansModule } from '../../money/plans/plans.module';
 
 @Module({

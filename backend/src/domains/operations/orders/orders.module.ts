@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
-import { NotificationsModule } from '../../../notifications/notifications.module';
+import { NotificationsModule } from '../../engagement/notifications/notifications.module';
 import { PlansModule } from '../../money/plans/plans.module';
-import { TelegramModule } from '../../../telegram/telegram.module';
+import { TelegramModule } from '../../engagement/telegram/telegram.module';
 import { PlatformFeesModule } from '../../money/platform-fees/platform-fees.module';
 
 @Module({

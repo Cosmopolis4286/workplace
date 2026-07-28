@@ -14,7 +14,7 @@ import { ChangePasswordDto } from '../auth/dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
-import { MailService } from '../../../mail/mail.service';
+import { MailService } from '../../engagement/mail/mail.service';
 import { CommerceProfileCompletionStrategy } from './strategies/commerce-profile-completion.strategy';
 import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-profile-completion.strategy';
 

@@ -8,7 +8,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { UsersModule } from '../users/users.module';
-import { MailModule } from '../../../mail/mail.module';
+import { MailModule } from '../../engagement/mail/mail.module';
 import { SessionCleanupScheduler } from '../../../common/schedulers/session-cleanup.scheduler';
 
 @Module({
