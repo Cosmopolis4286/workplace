@@ -17,7 +17,7 @@ import { RedisModule } from './redis/redis.module';
 import { AccountTypeModule } from './common/account-type/account-type.module';
 import { MenuModule } from './menu/menu.module';
 import { CustomersModule } from './customers/customers.module';
-import { SettingsModule } from './settings/settings.module';
+import { SettingsModule } from './domains/platform/settings/settings.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { DeliveryModule } from './delivery/delivery.module';
@@ -30,28 +30,28 @@ import { EmployeesModule } from './employees/employees.module';
 import { BranchesModule } from './branches/branches.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { PermissionsModule } from './permissions/permissions.module';
-import { SystemModulesModule } from './system-modules/system-modules.module';
+import { SystemModulesModule } from './domains/platform/system-modules/system-modules.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { KycModule } from './kyc/kyc.module';
 import { AuditModule } from './audit/audit.module';
 import { ServicesModule } from './services/services.module';
 import { PlansModule } from './plans/plans.module';
 import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
-import { HealthModule } from './health/health.module';
+import { HealthModule } from './domains/platform/health/health.module';
 import { CategoriesGlobalModule } from './categories-global/categories-global.module';
 import { CorridasModule } from './corridas/corridas.module';
-import { JobsModule } from './jobs/jobs.module';
+import { JobsModule } from './domains/platform/jobs/jobs.module';
 import { ProposedCategoriesModule } from './proposed-categories/proposed-categories.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { WalletsModule } from './wallets/wallets.module'
 import { PlatformFeesModule } from './platform-fees/platform-fees.module';
 import { SearchTabsModule } from './search-tabs/search-tabs.module';
 import { SearchModule } from './search/search.module';
-import { LandingModule } from './landing/landing.module';
+import { LandingModule } from './domains/platform/landing/landing.module';
 import { ReportsModule } from './reports/reports.module';
-import { LocationsModule } from './locations/locations.module';
+import { LocationsModule } from './domains/platform/locations/locations.module';
 import { BnplModule } from './bnpl/bnpl.module';
-import { NavigationModule } from './navigation/navigation.module';
+import { NavigationModule } from './domains/platform/navigation/navigation.module';
 
 @Module({
   imports: [

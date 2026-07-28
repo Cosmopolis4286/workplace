@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
-import { SystemModulesService } from '../system-modules/system-modules.service';
+import { SystemModulesService } from '../domains/platform/system-modules/system-modules.service';
 import { MODULE_CATALOG } from './module-catalog.data';
 
 // Módulos de NEGOCIO (con plan/categoría propia) — subset de MODULE_CATALOG.

@@ -12,9 +12,9 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { LocationsService } from './locations.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../common/guards/permissions.guard';
-import { RequirePermission } from '../common/decorators/require-permission.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CreateVeLocationDto } from './dto/create-ve-location.dto';
 import { UpdateVeLocationDto } from './dto/update-ve-location.dto';
 

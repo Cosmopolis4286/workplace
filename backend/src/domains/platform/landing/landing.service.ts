@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
-import { RedisService } from '../redis/redis.service'
+import { PrismaService } from '../../../prisma/prisma.service'
+import { RedisService } from '../../../redis/redis.service'
 import { LandingGateway } from './landing.gateway'
 import { CreateTestimonialDto } from './dto/create-testimonial.dto'
 import { UpdateTestimonialDto } from './dto/update-testimonial.dto'

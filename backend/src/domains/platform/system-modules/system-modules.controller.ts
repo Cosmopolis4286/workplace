@@ -1,9 +1,9 @@
 import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { SystemModulesService } from './system-modules.service';
 import { ToggleSystemModuleDto } from './dto/toggle-system-module.dto';
 

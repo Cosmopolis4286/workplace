@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { PlanLimitsService } from '../plans/plan-limits.service';
-import { AccountTypeResolver } from '../common/account-type/account-type.resolver';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { PlanLimitsService } from '../../../plans/plan-limits.service';
+import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { CommerceSettingsStrategy } from './strategies/commerce-settings.strategy';
 import { FreelancerSettingsStrategy } from './strategies/freelancer-settings.strategy';
 import { SettingsAccountStrategy } from './strategies/settings-account.strategy.interface';

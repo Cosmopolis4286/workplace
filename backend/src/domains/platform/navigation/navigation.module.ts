@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PlansModule } from '../plans/plans.module';
+import { PlansModule } from '../../../plans/plans.module';
 import { NavigationController } from './navigation.controller';
 import { NavigationService } from './navigation.service';
 

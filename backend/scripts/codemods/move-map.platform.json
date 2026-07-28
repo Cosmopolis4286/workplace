@@ -1,0 +1,9 @@
+{
+  "src/system-modules": "src/domains/platform/system-modules",
+  "src/settings": "src/domains/platform/settings",
+  "src/navigation": "src/domains/platform/navigation",
+  "src/locations": "src/domains/platform/locations",
+  "src/landing": "src/domains/platform/landing",
+  "src/health": "src/domains/platform/health",
+  "src/jobs": "src/domains/platform/jobs"
+}

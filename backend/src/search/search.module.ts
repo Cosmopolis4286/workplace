@@ -3,7 +3,7 @@ import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
 import { CatalogModule } from '../catalog/catalog.module';
 import { ServicesModule } from '../services/services.module';
-import { JobsModule } from '../jobs/jobs.module';
+import { JobsModule } from '../domains/platform/jobs/jobs.module';
 
 @Module({
   imports: [CatalogModule, ServicesModule, JobsModule],

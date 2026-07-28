@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../redis/redis.service';
-import { ALL_MODULES } from '../plans/plan-limits.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../../redis/redis.service';
+import { ALL_MODULES } from '../../../plans/plan-limits.service';
 
 const CACHE_KEY = 'system_modules:disabled';
 const CACHE_TTL = 300; // 5 min, matches the permissions matrix cache pattern

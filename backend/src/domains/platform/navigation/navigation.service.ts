@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { PermissionsService } from '../permissions/permissions.service';
-import { PlanLimitsService } from '../plans/plan-limits.service';
+import { PermissionsService } from '../../../permissions/permissions.service';
+import { PlanLimitsService } from '../../../plans/plan-limits.service';
 import { EXTRA_PROTECTED_ROUTES, NAVIGATION_TREE } from './navigation-tree.data';
 import { NavItemDef, NavigationResponse } from './navigation.types';
 

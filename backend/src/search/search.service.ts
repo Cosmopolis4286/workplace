@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CatalogService } from '../catalog/catalog.service';
 import { ServicesService } from '../services/services.service';
-import { JobsService } from '../jobs/jobs.service';
+import { JobsService } from '../domains/platform/jobs/jobs.service';
 
 export interface SearchSuggestion {
   id: string;

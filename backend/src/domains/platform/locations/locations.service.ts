@@ -4,7 +4,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { VeLocationType } from '@prisma/client';
 import { CreateVeLocationDto } from './dto/create-ve-location.dto';
 import { UpdateVeLocationDto } from './dto/update-ve-location.dto';

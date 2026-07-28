@@ -10,10 +10,10 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import { JobsService, type CreateJobDto, type UpdateJobDto, type JobQuery } from './jobs.service'
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
-import { PermissionsGuard } from '../common/guards/permissions.guard'
-import { RequirePermission } from '../common/decorators/require-permission.decorator'
-import { CurrentUser } from '../common/decorators/current-user.decorator'
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../../../common/guards/permissions.guard'
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator'
+import { CurrentUser } from '../../../common/decorators/current-user.decorator'
 import type { JobApplicationStatus } from '@prisma/client'
 
 @Controller('jobs')

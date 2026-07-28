@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { PlanLimitsService } from '../../plans/plan-limits.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { SystemModulesService } from '../../system-modules/system-modules.service'
+import { SystemModulesService } from '../../domains/platform/system-modules/system-modules.service'
 import { ForbiddenException } from '@nestjs/common'
 import { Role } from '@prisma/client'
 

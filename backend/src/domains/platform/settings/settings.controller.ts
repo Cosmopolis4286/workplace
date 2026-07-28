@@ -1,11 +1,11 @@
 import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
 import { SettingsService } from './settings.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../common/guards/permissions.guard';
-import { AccountTypeGuard } from '../common/guards/account-type.guard';
-import { RequirePermission } from '../common/decorators/require-permission.decorator';
-import { RequireAccountType } from '../common/decorators/require-account-type.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import {
   UpdateRestaurantInfoDto,
   UpdatePaymentSettingsDto,

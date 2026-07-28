@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
+import { PrismaService } from '../../../prisma/prisma.service'
 import type { Job, JobType, JobModality, JobStatus, JobApplication, JobApplicationStatus } from '@prisma/client'
-import { normalizeTags, tagSearchCondition } from '../common/utils/tags.util'
+import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util'
 
 export interface JobWithEmployer extends Job {
   employer: {
