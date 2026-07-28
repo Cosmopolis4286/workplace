@@ -475,11 +475,11 @@ export class ServicesService {
         where: { providerId, status: { in: ServicesService.OPEN_REQUEST_STATUSES as any } },
       }),
       this.prisma.serviceRequest.count({
-        where: { providerId, status: 'CERRADO', statusUpdatedAt: { gte: startOfToday } },
+        where: { providerId, status: 'CLOSED', statusUpdatedAt: { gte: startOfToday } },
       }),
-      this.prisma.serviceRequest.count({ where: { providerId, status: 'CANCELADO' } }),
+      this.prisma.serviceRequest.count({ where: { providerId, status: 'CANCELLED' } }),
       this.prisma.serviceRequest.findMany({
-        where: { providerId, status: 'CERRADO', statusUpdatedAt: { gte: startOfMonth } },
+        where: { providerId, status: 'CLOSED', statusUpdatedAt: { gte: startOfMonth } },
         select: { price: true },
       }),
     ]);

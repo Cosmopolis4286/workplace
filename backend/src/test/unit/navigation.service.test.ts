@@ -89,7 +89,7 @@ describe('NavigationService', () => {
     expect(operationsSection?.items.find((i) => i.id === 'orders')).toBeUndefined()
   })
 
-  it('excludes FREELANCER from /pedidos, /empleados but includes /modulos, /mi-plan (accountType)', async () => {
+  it('excludes FREELANCER from /orders, /employees but includes /modules, /my-plan (accountType)', async () => {
     permissionsService.getRolePermissions.mockResolvedValue(['orders:view', 'employees:view'])
     planLimitsService.getPlanLimits.mockResolvedValue({
       effectiveModules: ['orders', 'employees'],
@@ -98,17 +98,17 @@ describe('NavigationService', () => {
 
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.FREELANCER })
 
-    const operacionesSection = result.sections.find((s) => s.id === 'operaciones')
-    const empresaSection = result.sections.find((s) => s.id === 'empresa')
-    const negocioSection = result.sections.find((s) => s.id === 'negocio')
-    expect(operacionesSection?.items.find((i) => i.id === 'pedidos')).toBeUndefined()
-    expect(empresaSection).toBeUndefined()
-    expect(negocioSection?.items.find((i) => i.id === 'modulos')).toBeDefined()
-    expect(negocioSection?.items.find((i) => i.id === 'mi-plan')).toBeDefined()
-    expect(negocioSection?.items.find((i) => i.id === 'precios')).toBeUndefined()
+    const operationsSection = result.sections.find((s) => s.id === 'operations')
+    const companySection = result.sections.find((s) => s.id === 'company')
+    const businessSection = result.sections.find((s) => s.id === 'business')
+    expect(operationsSection?.items.find((i) => i.id === 'orders')).toBeUndefined()
+    expect(companySection).toBeUndefined()
+    expect(businessSection?.items.find((i) => i.id === 'modules')).toBeDefined()
+    expect(businessSection?.items.find((i) => i.id === 'my-plan')).toBeDefined()
+    expect(businessSection?.items.find((i) => i.id === 'pricing')).toBeUndefined()
   })
 
-  it('shows /pedidos, /empleados for COMMERCE and excludes /precios (accountType)', async () => {
+  it('shows /orders, /employees for COMMERCE and excludes /pricing (accountType)', async () => {
     permissionsService.getRolePermissions.mockResolvedValue(['orders:view', 'employees:view'])
     planLimitsService.getPlanLimits.mockResolvedValue({
       effectiveModules: ['orders', 'employees'],
@@ -117,12 +117,12 @@ describe('NavigationService', () => {
 
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.COMMERCE })
 
-    const operacionesSection = result.sections.find((s) => s.id === 'operaciones')
-    const empresaSection = result.sections.find((s) => s.id === 'empresa')
-    const negocioSection = result.sections.find((s) => s.id === 'negocio')
-    expect(operacionesSection?.items.find((i) => i.id === 'pedidos')).toBeDefined()
-    expect(empresaSection?.items.find((i) => i.id === 'empleados')).toBeDefined()
-    expect(negocioSection?.items.find((i) => i.id === 'precios')).toBeUndefined()
+    const operationsSection = result.sections.find((s) => s.id === 'operations')
+    const companySection = result.sections.find((s) => s.id === 'company')
+    const businessSection = result.sections.find((s) => s.id === 'business')
+    expect(operationsSection?.items.find((i) => i.id === 'orders')).toBeDefined()
+    expect(companySection?.items.find((i) => i.id === 'employees')).toBeDefined()
+    expect(businessSection?.items.find((i) => i.id === 'pricing')).toBeUndefined()
   })
 
   it('a user override grants a permission the role does not have', async () => {

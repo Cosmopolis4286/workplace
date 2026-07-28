@@ -292,14 +292,14 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
       VIP: 'VIP',
       PREMIUM: 'Premium',
       REGULAR: 'Regular',
-      NUEVO: 'Nuevos',
+      NEW: 'Nuevos',
     };
 
     const allSegments: CustomerSegment[] = [
       'VIP',
       'PREMIUM',
       'REGULAR',
-      'NUEVO',
+      'NEW',
     ];
     const counts = allSegments.map((s) => ({
       label: segmentMap[s],
