@@ -6,7 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { NotificationsService } from '../../../notifications/notifications.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { RedisService } from '../../../redis/redis.service';
 import { Role } from '@prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -411,7 +411,7 @@ export class ProfilesService {
 
     if (existing) {
       // Actualizar reseña existente
-      return this.prisma.review.update({
+      const updated = await this.prisma.review.update({
         where: { id: existing.id },
         data: { rating: dto.rating, comment: dto.comment ?? null },
         include: {
@@ -426,6 +426,8 @@ export class ProfilesService {
           },
         },
       });
+      await this.recalculateCommerceRating(dto.targetId);
+      return updated;
     }
 
     const review = await this.prisma.review.create({
@@ -450,6 +452,8 @@ export class ProfilesService {
       },
     });
 
+    await this.recalculateCommerceRating(dto.targetId);
+
     this.notifications
       .notifyNewReview(
         dto.targetId,
@@ -460,6 +464,33 @@ export class ProfilesService {
       .catch(() => {});
 
     return review;
+  }
+
+  // Recalcula y persiste el rating cacheado del comercio (Restaurant.avgRating/
+  // reviewsCount) cuyo dueño es `userId`, a partir de sus reviews visibles.
+  // No-op si el usuario reseñado no es dueño de ningún comercio (freelancers).
+  // Ver catalog.service.ts: getProductsSortedByRating ordena por esta columna
+  // en vez de traer todo el catálogo a memoria para ordenar.
+  private async recalculateCommerceRating(userId: string): Promise<void> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!restaurant) return;
+
+    const agg = await this.prisma.review.aggregate({
+      where: { targetId: userId, isHidden: false },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+
+    await this.prisma.restaurant.update({
+      where: { id: restaurant.id },
+      data: {
+        avgRating: agg._avg.rating ? Number(agg._avg.rating.toFixed(2)) : null,
+        reviewsCount: agg._count.rating,
+      },
+    });
   }
 
   // Busca una transacción real completada entre author → target: una
@@ -505,6 +536,7 @@ export class ProfilesService {
     if (review.authorId !== authorId)
       throw new ForbiddenException('No puedes eliminar esta reseña');
     await this.prisma.review.delete({ where: { id: reviewId } });
+    await this.recalculateCommerceRating(review.targetId);
     return { message: 'Reseña eliminada' };
   }
 
@@ -615,6 +647,7 @@ export class ProfilesService {
         where: { id: reviewId },
         data: { isHidden: action === 'HIDE' },
       });
+      await this.recalculateCommerceRating(review.targetId);
     }
 
     await this.prisma.reviewReport.updateMany({

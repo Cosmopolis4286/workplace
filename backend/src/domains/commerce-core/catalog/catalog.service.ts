@@ -7,7 +7,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { ProductStatus, CatalogOrderStatus } from '@prisma/client';
 import { QueryCatalogDto, CatalogSortBy } from './dto/query-catalog.dto';
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
-import { NotificationsService } from '../../../notifications/notifications.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { tagSearchCondition } from '../../../common/utils/tags.util';
 
 function attachProductRating<T extends { commerce: { user: { reviewsReceived: { rating: number }[], [k: string]: any }, [k: string]: any }, [k: string]: any }>(product: T) {
@@ -287,33 +287,30 @@ export class CatalogService {
   } as const;
 
   /**
-   * Ordena por calificación promedio del comercio (Review.targetId = Restaurant.userId).
-   * Se calcula en memoria porque el rating no es un campo persistido del producto.
+   * Ordena por calificación promedio cacheada del comercio (Restaurant.avgRating,
+   * mantenida al día por ProfilesService.recalculateCommerceRating en cada
+   * review creada/editada/oculta). ORDER BY nativo en Postgres — antes traía
+   * TODO el catálogo matcheante a memoria para ordenar con Array.sort.
    */
   private async getProductsSortedByRating(
     where: Record<string, unknown>,
     page: number,
     limit: number
   ) {
-    const allMatching = await this.prisma.product.findMany({
-      where,
-      select: { id: true, ...this.productSelectWithoutId },
-    });
-
-    const total = allMatching.length;
-    const ratingOf = (p: (typeof allMatching)[number]) => {
-      const reviews = p.commerce.user.reviewsReceived;
-      return reviews.length
-        ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
-        : -1; // sin reseñas va al final
-    };
-
-    const sorted = [...allMatching].sort((a, b) => ratingOf(b) - ratingOf(a));
     const skip = (page - 1) * limit;
-    const pageItems = sorted.slice(skip, skip + limit);
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { commerce: { avgRating: { sort: 'desc', nulls: 'last' } } },
+        select: this.productSelect,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
 
     return {
-      data: pageItems.map(attachProductRating),
+      data: products.map(attachProductRating),
       total,
       page,
       limit,
@@ -322,47 +319,33 @@ export class CatalogService {
   }
 
   /**
-   * Ordena por unidades solicitadas (suma de quantity en CatalogOrder).
+   * Ordena por unidades vendidas cacheadas (Product.salesCount, mantenida al
+   * día por CatalogService.createOrder). ORDER BY nativo en Postgres.
    */
   private async getProductsSortedByBestSeller(
     where: Record<string, unknown>,
     page: number,
     limit: number
   ) {
-    const [allMatching, salesGroups] = await Promise.all([
+    const skip = (page - 1) * limit;
+    const [products, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
-        select: { id: true, ...this.productSelectWithoutId },
+        skip,
+        take: limit,
+        orderBy: { salesCount: 'desc' },
+        select: this.productSelect,
       }),
-      this.prisma.catalogOrder.groupBy({
-        by: ['productId'],
-        _sum: { quantity: true },
-      }),
+      this.prisma.product.count({ where }),
     ]);
 
-    const salesByProduct = new Map<string, number>(
-      salesGroups.map((g) => [g.productId, g._sum.quantity ?? 0])
-    );
-
-    const total = allMatching.length;
-    const sorted = [...allMatching].sort(
-      (a, b) => (salesByProduct.get(b.id) ?? 0) - (salesByProduct.get(a.id) ?? 0)
-    );
-    const skip = (page - 1) * limit;
-    const pageItems = sorted.slice(skip, skip + limit);
-
     return {
-      data: pageItems.map(attachProductRating),
+      data: products.map(attachProductRating),
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit),
     };
-  }
-
-  private get productSelectWithoutId() {
-    const { id, ...rest } = this.productSelect;
-    return rest;
   }
 
   async getProduct(id: string) {
@@ -411,6 +394,13 @@ export class CatalogService {
         restaurantName: commerceName,
         requesterId: requesterId ?? null,
       },
+    });
+    // Cache desnormalizado para "más vendidos" (ver getProductsSortedByBestSeller).
+    // updateMany en vez de update: productId no tiene FK hacia Product, así
+    // que el producto pudo haber sido borrado sin romper el pedido histórico.
+    await this.prisma.product.updateMany({
+      where: { id: dto.productId },
+      data: { salesCount: { increment: dto.quantity } },
     });
     // Notificar al comercio (fire-and-forget)
     this.notifications
