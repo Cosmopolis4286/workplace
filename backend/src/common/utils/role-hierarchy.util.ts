@@ -25,3 +25,15 @@ export function canAssignRole(callerRole: Role, targetRole: Role): boolean {
  * estado de) un usuario que actualmente tiene `targetCurrentRole`.
  */
 export const canManageUserWithRole = canAssignRole;
+
+/**
+ * Roles de negocio/consumidor que un ADMIN puede listar/gestionar — nunca
+ * otros SUPERADMIN/ADMIN. SUPERADMIN no tiene esta restricción (ve todos).
+ * Usado en listados de usuarios (users.controller.ts, permissions.controller.ts)
+ * que antes repetían este mismo array inline en cada endpoint.
+ */
+export function assignableRolesFor(callerRole: Role): Role[] | undefined {
+  return callerRole === Role.SUPERADMIN
+    ? undefined
+    : [Role.COMMERCE, Role.FREELANCER, Role.NORMAL];
+}

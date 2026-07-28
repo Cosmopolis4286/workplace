@@ -20,6 +20,7 @@ import { UpdateRolePermissionDto } from './dto/update-role-permission.dto';
 import { BulkUpdateRolePermissionsDto } from './dto/bulk-update-role-permissions.dto';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
+import { assignableRolesFor } from '../common/utils/role-hierarchy.util';
 
 @Controller('permissions')
 @UseGuards(JwtAuthGuard)
@@ -139,10 +140,7 @@ export class PermissionsController {
     // ADMIN no debe ver SUPERADMIN ni otros ADMIN en el listado (ver
     // validateUserAccess, que igualmente bloquea el detalle si se intenta
     // acceder por otra vía).
-    const visibleRoles =
-      admin.role === Role.ADMIN
-        ? [Role.COMMERCE, Role.FREELANCER, Role.NORMAL]
-        : undefined;
+    const visibleRoles = assignableRolesFor(admin.role);
 
     return this.permissionsService.listUsers({
       role,

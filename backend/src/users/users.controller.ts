@@ -21,7 +21,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
-import { canAssignRole } from '../common/utils/role-hierarchy.util';
+import { canAssignRole, assignableRolesFor } from '../common/utils/role-hierarchy.util';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,10 +42,7 @@ export class UsersController {
     @Query('page') page = '1',
     @Query('limit') limit = '20'
   ) {
-    const allowedRoles =
-      caller.role === Role.SUPERADMIN
-        ? undefined // all roles
-        : [Role.COMMERCE, Role.FREELANCER, Role.NORMAL];
+    const allowedRoles = assignableRolesFor(caller.role);
 
     // buildUsersWhere (compartido con /permissions/users) ya intersecta
     // roleFilter con allowedRoles, devolviendo vacío si no hay solapamiento.
@@ -69,10 +66,7 @@ export class UsersController {
     @Query('subcategoryId') subcategoryId?: string,
     @Query('search') search?: string
   ) {
-    const allowedRoles =
-      caller.role === Role.SUPERADMIN
-        ? undefined
-        : [Role.COMMERCE, Role.FREELANCER, Role.NORMAL];
+    const allowedRoles = assignableRolesFor(caller.role);
 
     return this.usersService.getUsersStats({
       roleFilter,

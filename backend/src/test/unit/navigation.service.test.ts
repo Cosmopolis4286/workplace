@@ -89,6 +89,42 @@ describe('NavigationService', () => {
     expect(operacionesSection?.items.find((i) => i.id === 'pedidos')).toBeUndefined()
   })
 
+  it('excludes FREELANCER from /pedidos, /empleados but includes /modulos, /mi-plan (accountType)', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue(['orders:view', 'employees:view'])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['orders', 'employees'],
+      categoryName: null,
+    })
+
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.FREELANCER })
+
+    const operacionesSection = result.sections.find((s) => s.id === 'operaciones')
+    const empresaSection = result.sections.find((s) => s.id === 'empresa')
+    const negocioSection = result.sections.find((s) => s.id === 'negocio')
+    expect(operacionesSection?.items.find((i) => i.id === 'pedidos')).toBeUndefined()
+    expect(empresaSection).toBeUndefined()
+    expect(negocioSection?.items.find((i) => i.id === 'modulos')).toBeDefined()
+    expect(negocioSection?.items.find((i) => i.id === 'mi-plan')).toBeDefined()
+    expect(negocioSection?.items.find((i) => i.id === 'precios')).toBeUndefined()
+  })
+
+  it('shows /pedidos, /empleados for COMMERCE and excludes /precios (accountType)', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue(['orders:view', 'employees:view'])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['orders', 'employees'],
+      categoryName: null,
+    })
+
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.COMMERCE })
+
+    const operacionesSection = result.sections.find((s) => s.id === 'operaciones')
+    const empresaSection = result.sections.find((s) => s.id === 'empresa')
+    const negocioSection = result.sections.find((s) => s.id === 'negocio')
+    expect(operacionesSection?.items.find((i) => i.id === 'pedidos')).toBeDefined()
+    expect(empresaSection?.items.find((i) => i.id === 'empleados')).toBeDefined()
+    expect(negocioSection?.items.find((i) => i.id === 'precios')).toBeUndefined()
+  })
+
   it('a user override grants a permission the role does not have', async () => {
     permissionsService.getRolePermissions.mockResolvedValue([])
     permissionsService.getUserOverrides.mockResolvedValue({ 'users:view': true })
