@@ -1,0 +1,11 @@
+{
+  "src/menu": "src/domains/commerce-core/menu",
+  "src/catalog": "src/domains/commerce-core/catalog",
+  "src/categories-global": "src/domains/commerce-core/categories-global",
+  "src/proposed-categories": "src/domains/commerce-core/proposed-categories",
+  "src/branches": "src/domains/commerce-core/branches",
+  "src/employees": "src/domains/commerce-core/employees",
+  "src/services": "src/domains/commerce-core/services",
+  "src/search": "src/domains/commerce-core/search",
+  "src/search-tabs": "src/domains/commerce-core/search-tabs"
+}
