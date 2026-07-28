@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { PlansService } from '../../plans/plans.service'
+import { PlansService } from '../../domains/money/plans/plans.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common'
 

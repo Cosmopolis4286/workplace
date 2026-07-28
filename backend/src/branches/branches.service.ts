@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 import { BranchStatus } from '@prisma/client';
-import { PlanLimitsService } from '../plans/plan-limits.service';
+import { PlanLimitsService } from '../domains/money/plans/plan-limits.service';
 
 @Injectable()
 export class BranchesService {

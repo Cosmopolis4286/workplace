@@ -14,10 +14,10 @@ import { ExchangeRatesService } from './exchange-rates.service';
 import { BcvSyncService } from './bcv-sync.service';
 import { CreateExchangeRateDto } from './dto/create-exchange-rate.dto';
 import { UpdateExchangeRateDto } from './dto/update-exchange-rate.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../common/guards/permissions.guard';
-import { RequirePermission } from '../common/decorators/require-permission.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 
 @Controller('exchange-rates')
 export class ExchangeRatesController {

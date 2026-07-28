@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { PlanLimitsService } from '../../plans/plan-limits.service'
+import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { SystemModulesService } from '../../domains/platform/system-modules/system-modules.service'
 import { ForbiddenException } from '@nestjs/common'

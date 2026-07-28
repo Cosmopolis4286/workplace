@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MenuService } from '../../src/menu/menu.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { NotificationsService } from '../../src/notifications/notifications.service';
-import { PlanLimitsService } from '../../src/plans/plan-limits.service';
+import { PlanLimitsService } from '../../src/domains/money/plans/plan-limits.service';
 import { NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
 

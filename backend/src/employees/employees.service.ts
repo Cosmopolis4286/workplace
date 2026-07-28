@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeeRole } from '@prisma/client';
-import { PlanLimitsService } from '../plans/plan-limits.service';
+import { PlanLimitsService } from '../domains/money/plans/plan-limits.service';
 
 @Injectable()
 export class EmployeesService {

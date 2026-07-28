@@ -4,7 +4,7 @@ import { MenuService } from './menu.service';
 import { StockSnapshotScheduler } from './stock-snapshot.scheduler';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { PlansModule } from '../plans/plans.module';
+import { PlansModule } from '../domains/money/plans/plans.module';
 
 @Module({
   imports: [PrismaModule, NotificationsModule, PlansModule],

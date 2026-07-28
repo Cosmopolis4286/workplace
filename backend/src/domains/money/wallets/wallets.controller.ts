@@ -10,13 +10,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { EmailVerifiedGuard } from '../common/guards/email-verified.guard';
-import { KycApprovedGuard } from '../common/guards/kyc-approved.guard';
-import { RateLimitGuard, RateLimit } from '../common/guards/rate-limit.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { EmailVerifiedGuard } from '../../../common/guards/email-verified.guard';
+import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
+import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { WalletsService } from './wallets.service';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { QueryWalletTransactionsDto } from './dto/query-wallet-transactions.dto';

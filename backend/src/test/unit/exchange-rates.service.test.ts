@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { ExchangeRatesService } from '../../exchange-rates/exchange-rates.service'
+import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { BcvSyncService } from '../../exchange-rates/bcv-sync.service'
+import { BcvSyncService } from '../../domains/money/exchange-rates/bcv-sync.service'
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
 
 describe('ExchangeRatesService', () => {

@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as https from 'https';
 import * as cheerio from 'cheerio';
-import { RedisService } from '../redis/redis.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../../../redis/redis.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 export interface BCVRateResult {
   rate: number;

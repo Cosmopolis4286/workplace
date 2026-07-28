@@ -5,8 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../redis/redis.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../../redis/redis.service';
 
 const PIN_MAX_ATTEMPTS = 5;
 const PIN_LOCK_TTL = 15 * 60;       // 15 min lockout after max failed attempts

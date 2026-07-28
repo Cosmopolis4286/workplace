@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FeeTransactionType, FeePayer } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsService } from '../../../notifications/notifications.service';
 
 export interface FeeConfig {
   rate: number;

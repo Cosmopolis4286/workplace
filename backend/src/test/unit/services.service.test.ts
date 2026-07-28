@@ -3,7 +3,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { ServicesService } from '../../services/services.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
-import { PlatformFeesService } from '../../platform-fees/platform-fees.service';
+import { PlatformFeesService } from '../../domains/money/platform-fees/platform-fees.service';
 
 describe('ServicesService — service request status transitions', () => {
   let service: ServicesService;

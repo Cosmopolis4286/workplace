@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { BnplProvider } from '@prisma/client';
 import { BnplService } from './bnpl.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../common/guards/permissions.guard';
-import { RequirePermission } from '../common/decorators/require-permission.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { UpsertBnplSettingsDto } from './dto/upsert-bnpl-settings.dto';
 import { InitiateBnplDto } from './dto/initiate-bnpl.dto';
 

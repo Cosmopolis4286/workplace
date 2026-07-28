@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CorridaStatus, CorridaVehicleType, CorridaServiceType } from '@prisma/client';
 import { CreateCorridaDto } from './dto/create-corrida.dto';
 import { CalculatePriceDto } from './dto/calculate-price.dto';
-import { PlatformFeesService } from '../platform-fees/platform-fees.service';
+import { PlatformFeesService } from '../domains/money/platform-fees/platform-fees.service';
 
 const PRICE_PER_KM: Record<CorridaVehicleType, number> = { MOTO: 8, AUTO: 12, CAMIONETA: 16, CAMION: 22 };
 const BASE_FARE: Record<CorridaVehicleType, number> = { MOTO: 20, AUTO: 35, CAMIONETA: 60, CAMION: 90 };

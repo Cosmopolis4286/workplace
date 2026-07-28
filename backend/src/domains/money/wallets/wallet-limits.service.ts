@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { RedisService } from '../redis/redis.service';
+import { RedisService } from '../../../redis/redis.service';
 
 export interface WalletLimits {
   maxSingleTx: number;        // Max per single transaction

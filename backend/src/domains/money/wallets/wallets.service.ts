@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { Role, WalletTransactionType, WalletTransactionStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
-import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../redis/redis.service';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../../redis/redis.service';
 import { WalletPinService } from './wallet-pin.service';
 import { WalletLimitsService } from './wallet-limits.service';
 import { CreateWalletDto } from './dto/create-wallet.dto';

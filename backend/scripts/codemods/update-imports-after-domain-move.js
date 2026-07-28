@@ -21,6 +21,7 @@ const ts = require('typescript');
 
 const repoRoot = path.resolve(__dirname, '..', '..'); // backend/
 const srcRoot = path.join(repoRoot, 'src');
+const testRoot = path.join(repoRoot, 'test'); // test/ vive fuera de src/, tiene sus propios imports a src/
 
 function loadMoveMap(moveMapPath) {
   const raw = JSON.parse(fs.readFileSync(moveMapPath, 'utf8'));
@@ -157,7 +158,10 @@ function main() {
   }
   const moves = loadMoveMap(moveMapPath);
 
-  const allFiles = listTsFiles(srcRoot);
+  const allFiles = [
+    ...listTsFiles(srcRoot),
+    ...(fs.existsSync(testRoot) ? listTsFiles(testRoot) : []),
+  ];
   let changedCount = 0;
   for (const file of allFiles) {
     const changed = rewriteFile(file, moves);

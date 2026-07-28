@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { BranchesService } from '../../branches/branches.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { PlanLimitsService } from '../../plans/plan-limits.service'
+import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
 import { CreateBranchDto } from '../../branches/dto/create-branch.dto'
 import { UpdateBranchDto } from '../../branches/dto/update-branch.dto'
 import { NotFoundException, BadRequestException } from '@nestjs/common'

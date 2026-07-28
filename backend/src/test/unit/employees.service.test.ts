@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { EmployeesService } from '../../employees/employees.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { PlanLimitsService } from '../../plans/plan-limits.service'
+import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
 import { CreateEmployeeDto } from '../../employees/dto/create-employee.dto'
 import { UpdateEmployeeDto } from '../../employees/dto/update-employee.dto'
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common'

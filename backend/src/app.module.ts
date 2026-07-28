@@ -35,22 +35,22 @@ import { ProfilesModule } from './profiles/profiles.module';
 import { KycModule } from './kyc/kyc.module';
 import { AuditModule } from './audit/audit.module';
 import { ServicesModule } from './services/services.module';
-import { PlansModule } from './plans/plans.module';
-import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
+import { PlansModule } from './domains/money/plans/plans.module';
+import { ExchangeRatesModule } from './domains/money/exchange-rates/exchange-rates.module';
 import { HealthModule } from './domains/platform/health/health.module';
 import { CategoriesGlobalModule } from './categories-global/categories-global.module';
 import { CorridasModule } from './corridas/corridas.module';
 import { JobsModule } from './domains/platform/jobs/jobs.module';
 import { ProposedCategoriesModule } from './proposed-categories/proposed-categories.module';
 import { TelegramModule } from './telegram/telegram.module';
-import { WalletsModule } from './wallets/wallets.module'
-import { PlatformFeesModule } from './platform-fees/platform-fees.module';
+import { WalletsModule } from './domains/money/wallets/wallets.module'
+import { PlatformFeesModule } from './domains/money/platform-fees/platform-fees.module';
 import { SearchTabsModule } from './search-tabs/search-tabs.module';
 import { SearchModule } from './search/search.module';
 import { LandingModule } from './domains/platform/landing/landing.module';
 import { ReportsModule } from './reports/reports.module';
 import { LocationsModule } from './domains/platform/locations/locations.module';
-import { BnplModule } from './bnpl/bnpl.module';
+import { BnplModule } from './domains/money/bnpl/bnpl.module';
 import { NavigationModule } from './domains/platform/navigation/navigation.module';
 
 @Module({

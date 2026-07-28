@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
+import { PrismaModule } from '../../../prisma/prisma.module';
 import { WalletsController } from './wallets.controller';
 import { WalletsService } from './wallets.service';
 import { WalletPinService } from './wallet-pin.service';

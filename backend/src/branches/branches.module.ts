@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { BranchesController } from './branches.controller';
 import { BranchesService } from './branches.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { PlansModule } from '../plans/plans.module';
+import { PlansModule } from '../domains/money/plans/plans.module';
 
 @Module({
   imports: [PrismaModule, PlansModule],

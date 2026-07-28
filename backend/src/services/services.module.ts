@@ -3,7 +3,7 @@ import { ServicesService } from './services.service';
 import { ServicesController } from './services.controller';
 import { ServiceRequestReminderScheduler } from './service-request-reminder.scheduler';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { PlatformFeesModule } from '../platform-fees/platform-fees.module';
+import { PlatformFeesModule } from '../domains/money/platform-fees/platform-fees.module';
 import { MailModule } from '../mail/mail.module';
 
 @Module({

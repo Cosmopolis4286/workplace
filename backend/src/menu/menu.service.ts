@@ -13,7 +13,7 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto, StockUpdateType } from './dto/update-stock.dto';
-import { PlanLimitsService } from '../plans/plan-limits.service';
+import { PlanLimitsService } from '../domains/money/plans/plan-limits.service';
 import { normalizeTags } from '../common/utils/tags.util';
 
 @Injectable()

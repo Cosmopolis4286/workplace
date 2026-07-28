@@ -1,0 +1,7 @@
+{
+  "src/plans": "src/domains/money/plans",
+  "src/platform-fees": "src/domains/money/platform-fees",
+  "src/wallets": "src/domains/money/wallets",
+  "src/exchange-rates": "src/domains/money/exchange-rates",
+  "src/bnpl": "src/domains/money/bnpl"
+}

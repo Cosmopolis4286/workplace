@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { MenuService } from '../../menu/menu.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { PlanLimitsService } from '../../plans/plan-limits.service'
+import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
 import { NotificationsService } from '../../notifications/notifications.service'
 import { CategoryHelper } from '../../common/helpers/category.helper'
 import { CreateCategoryDto } from '../../menu/dto/create-category.dto'

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { CorridasController } from './corridas.controller';
 import { CorridasService } from './corridas.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { PlatformFeesModule } from '../platform-fees/platform-fees.module';
+import { PlatformFeesModule } from '../domains/money/platform-fees/platform-fees.module';
 
 @Module({
   imports: [PrismaModule, PlatformFeesModule],
