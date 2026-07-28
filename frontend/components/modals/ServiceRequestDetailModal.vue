@@ -647,7 +647,7 @@ const QUICK_REPLY_TEMPLATES = [
   'Necesito más información del trabajo',
 ]
 const MODALITY_LABELS: Record<string, string> = {
-  PRESENCIAL: '📍 Presencial', REMOTO: '💻 Remoto', CUALQUIERA: '🤝 Cualquiera',
+  IN_PERSON: '📍 Presencial', REMOTE: '💻 Remoto', ANY: '🤝 Cualquiera',
 }
 
 if (!defaultRate.value) fetchRates(false, true)

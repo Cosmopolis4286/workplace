@@ -158,7 +158,7 @@
             :key="m"
             class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium"
           >
-            {{ { PRESENCIAL: '📍 Presencial', REMOTO: '💻 Remoto', CUALQUIERA: '🤝 Cualquiera' }[m] ?? m }}
+            {{ { IN_PERSON: '📍 Presencial', REMOTE: '💻 Remoto', ANY: '🤝 Cualquiera' }[m] ?? m }}
           </span>
         </div>
 
@@ -717,7 +717,7 @@
                       <p class="text-[10px] text-gray-500 mt-0.5">
                         Última solicitud · {{ formatMetricsDate(metricsData.lastRequest.date) }}
                         <span v-if="metricsData.lastRequest.modality" class="ml-1">
-                          · {{ { PRESENCIAL: '📍 Presencial', REMOTO: '💻 Remoto', CUALQUIERA: '🤝 Cualquiera' }[metricsData.lastRequest.modality] ?? metricsData.lastRequest.modality }}
+                          · {{ { IN_PERSON: '📍 Presencial', REMOTE: '💻 Remoto', ANY: '🤝 Cualquiera' }[metricsData.lastRequest.modality] ?? metricsData.lastRequest.modality }}
                         </span>
                       </p>
                     </div>
@@ -823,7 +823,7 @@
               <input
                 v-model="newModality.value"
                 type="text"
-                placeholder="Valor (ej: PRESENCIAL)"
+                placeholder="Valor (ej: IN_PERSON)"
                 class="col-span-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20"
               />
               <input
@@ -997,9 +997,9 @@ const deletingModality = ref(false)
 const modalityError = ref<string | null>(null)
 
 const ALL_MODALITIES = [
-  { value: 'PRESENCIAL', label: 'Presencial', emoji: '📍' },
-  { value: 'REMOTO', label: 'Remoto', emoji: '💻' },
-  { value: 'CUALQUIERA', label: 'Cualquiera', emoji: '🤝' },
+  { value: 'IN_PERSON', label: 'Presencial', emoji: '📍' },
+  { value: 'REMOTE', label: 'Remoto', emoji: '💻' },
+  { value: 'ANY', label: 'Cualquiera', emoji: '🤝' },
 ]
 
 const emptyForm = () => ({

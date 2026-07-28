@@ -137,17 +137,17 @@ const myReports = ref<Report[]>([])
 const loadingHistory = ref(false)
 
 const STATUS_LABELS: Record<Report['status'], string> = {
-  PENDIENTE: 'Pendiente',
-  EN_REVISION: 'En Revisión',
-  RESUELTO: 'Resuelto',
-  DESCARTADO: 'Descartado',
+  PENDING: 'Pendiente',
+  IN_REVIEW: 'En Revisión',
+  RESOLVED: 'Resuelto',
+  DISMISSED: 'Descartado',
 }
 
 const STATUS_CLASSES: Record<Report['status'], string> = {
-  PENDIENTE: 'bg-amber-100 text-amber-700',
-  EN_REVISION: 'bg-blue-100 text-blue-700',
-  RESUELTO: 'bg-green-100 text-green-700',
-  DESCARTADO: 'bg-gray-100 text-gray-600',
+  PENDING: 'bg-amber-100 text-amber-700',
+  IN_REVIEW: 'bg-blue-100 text-blue-700',
+  RESOLVED: 'bg-green-100 text-green-700',
+  DISMISSED: 'bg-gray-100 text-gray-600',
 }
 
 function formatDate(value: string): string {

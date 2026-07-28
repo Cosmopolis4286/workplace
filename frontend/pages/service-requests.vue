@@ -353,9 +353,9 @@ const STATUS_CLASSES = SERVICE_REQUEST_STATUS_CLASSES
 const STATUS_ICONS = SERVICE_REQUEST_STATUS_ICONS
 
 const MODALITY_LABELS: Record<string, string> = {
-  PRESENCIAL: '📍 Presencial',
-  REMOTO:     '💻 Remoto',
-  CUALQUIERA: '🤝 Cualquiera',
+  IN_PERSON: '📍 Presencial',
+  REMOTE:    '💻 Remoto',
+  ANY:       '🤝 Cualquiera',
 }
 
 const filters = [

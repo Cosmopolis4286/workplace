@@ -12,15 +12,15 @@
         Úsala solo para probar el flujo completo de checkout.
       </p>
 
-      <div v-if="resolved" class="p-4 rounded-xl mb-4" :class="resolved === 'APROBADA' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'">
-        {{ resolved === 'APROBADA' ? 'Financiamiento aprobado' : 'Financiamiento rechazado' }}
+      <div v-if="resolved" class="p-4 rounded-xl mb-4" :class="resolved === 'APPROVED' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'">
+        {{ resolved === 'APPROVED' ? 'Financiamiento aprobado' : 'Financiamiento rechazado' }}
       </div>
 
       <div v-else class="flex flex-col gap-3">
-        <button class="btn-primary" :disabled="loading" @click="resolve('APROBADA')">
+        <button class="btn-primary" :disabled="loading" @click="resolve('APPROVED')">
           Aprobar (simulado)
         </button>
-        <button class="btn-secondary" :disabled="loading" @click="resolve('RECHAZADA')">
+        <button class="btn-secondary" :disabled="loading" @click="resolve('REJECTED')">
           Rechazar (simulado)
         </button>
       </div>
@@ -45,10 +45,10 @@ const externalReference = route.params.ref as string
 const config = useRuntimeConfig()
 
 const loading = ref(false)
-const resolved = ref<'APROBADA' | 'RECHAZADA' | null>(null)
+const resolved = ref<'APPROVED' | 'REJECTED' | null>(null)
 const error = ref<string | null>(null)
 
-async function resolve(status: 'APROBADA' | 'RECHAZADA') {
+async function resolve(status: 'APPROVED' | 'REJECTED') {
   loading.value = true
   error.value = null
   try {

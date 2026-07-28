@@ -786,8 +786,8 @@ function formatPrice(n: number) {
   return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(n)
 }
 
-const VEHICLE_EMOJI: Record<string, string> = { MOTO: '🏍️', AUTO: '🚗', CAMIONETA: '🛻', CAMION: '🚚' }
-const VEHICLE_LABEL: Record<string, string> = { MOTO: 'Moto', AUTO: 'Auto', CAMIONETA: 'Camioneta', CAMION: 'Camión' }
+const VEHICLE_EMOJI: Record<string, string> = { MOTORCYCLE: '🏍️', CAR: '🚗', PICKUP_TRUCK: '🛻', TRUCK: '🚚' }
+const VEHICLE_LABEL: Record<string, string> = { MOTORCYCLE: 'Moto', CAR: 'Auto', PICKUP_TRUCK: 'Camioneta', TRUCK: 'Camión' }
 
 function vehicleEmoji(v: string) {
   return VEHICLE_EMOJI[v] ?? '🚗'

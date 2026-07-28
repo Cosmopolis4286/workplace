@@ -397,13 +397,13 @@
                 >Todos</button>
                 <button
                   class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="jActiveType === 'TIEMPO_COMPLETO' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="jFilterByType('TIEMPO_COMPLETO')"
+                  :class="jActiveType === 'FULL_TIME' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByType('FULL_TIME')"
                 >Tiempo Completo</button>
                 <button
                   class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="jActiveType === 'MEDIO_TIEMPO' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="jFilterByType('MEDIO_TIEMPO')"
+                  :class="jActiveType === 'PART_TIME' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByType('PART_TIME')"
                 >Medio Tiempo</button>
                 <button
                   class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
@@ -412,13 +412,13 @@
                 >Freelance</button>
                 <button
                   class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="jActiveType === 'TEMPORAL' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="jFilterByType('TEMPORAL')"
+                  :class="jActiveType === 'TEMPORARY' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByType('TEMPORARY')"
                 >Temporal</button>
                 <button
                   class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="jActiveType === 'PRACTICAS' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="jFilterByType('PRACTICAS')"
+                  :class="jActiveType === 'INTERNSHIP' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByType('INTERNSHIP')"
                 >Prácticas</button>
               </div>
             </div>
@@ -432,18 +432,18 @@
                 >Todas</button>
                 <button
                   class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="jActiveModality === 'PRESENCIAL' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="jFilterByModality('PRESENCIAL')"
+                  :class="jActiveModality === 'IN_PERSON' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByModality('IN_PERSON')"
                 >Presencial</button>
                 <button
                   class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="jActiveModality === 'REMOTO' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="jFilterByModality('REMOTO')"
+                  :class="jActiveModality === 'REMOTE' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByModality('REMOTE')"
                 >Remoto</button>
                 <button
                   class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="jActiveModality === 'HIBRIDO' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="jFilterByModality('HIBRIDO')"
+                  :class="jActiveModality === 'HYBRID' ? 'bg-emerald-50 text-emerald-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="jFilterByModality('HYBRID')"
                 >Híbrido</button>
               </div>
             </div>

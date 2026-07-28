@@ -274,7 +274,7 @@ const showProductDropdown = ref(false)
 const filteredProducts = computed(() => {
   const q = productSearch.value.toLowerCase()
   return props.products
-    .filter(p => p.status === 'DISPONIBLE' && (!q || p.name.toLowerCase().includes(q)))
+    .filter(p => p.status === 'AVAILABLE' && (!q || p.name.toLowerCase().includes(q)))
     .slice(0, 8)
 })
 
