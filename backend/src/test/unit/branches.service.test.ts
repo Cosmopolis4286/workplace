@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { BranchesService } from '../../domains/commerce-core/branches/branches.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
+import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { CreateBranchDto } from '../../domains/commerce-core/branches/dto/create-branch.dto'
 import { UpdateBranchDto } from '../../domains/commerce-core/branches/dto/update-branch.dto'
 import { NotFoundException, BadRequestException } from '@nestjs/common'
@@ -10,7 +10,7 @@ import { I18nService } from 'nestjs-i18n'
 describe('BranchesService', () => {
   let service: BranchesService
   let prismaService: PrismaService
-  let planLimitsService: PlanLimitsService
+  let planLimitsService: typeof mockPlanLimitsService
 
   const mockPrismaService = {
     branch: {
@@ -45,7 +45,7 @@ describe('BranchesService', () => {
           useValue: mockPrismaService,
         },
         {
-          provide: PlanLimitsService,
+          provide: PLAN_LIMITS_FACADE,
           useValue: mockPlanLimitsService,
         },
         {
@@ -57,7 +57,7 @@ describe('BranchesService', () => {
 
     service = module.get<BranchesService>(BranchesService)
     prismaService = module.get<PrismaService>(PrismaService)
-    planLimitsService = module.get<PlanLimitsService>(PlanLimitsService)
+    planLimitsService = module.get(PLAN_LIMITS_FACADE)
   })
 
   it('should be defined', () => {

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { Role } from '@prisma/client'
 import { NavigationService } from '../../domains/platform/navigation/navigation.service'
 import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service'
-import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
+import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 
 describe('NavigationService', () => {
   let service: NavigationService
@@ -25,7 +25,7 @@ describe('NavigationService', () => {
       providers: [
         NavigationService,
         { provide: PermissionsService, useValue: permissionsService },
-        { provide: PlanLimitsService, useValue: planLimitsService },
+        { provide: PLAN_LIMITS_FACADE, useValue: planLimitsService },
       ],
     }).compile()
 

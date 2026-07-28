@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { EmployeesService } from '../../domains/commerce-core/employees/employees.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
+import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { CreateEmployeeDto } from '../../domains/commerce-core/employees/dto/create-employee.dto'
 import { UpdateEmployeeDto } from '../../domains/commerce-core/employees/dto/update-employee.dto'
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common'
@@ -47,7 +47,7 @@ describe('EmployeesService', () => {
           useValue: mockPrismaService,
         },
         {
-          provide: PlanLimitsService,
+          provide: PLAN_LIMITS_FACADE,
           useValue: mockPlanLimitsService,
         },
         {

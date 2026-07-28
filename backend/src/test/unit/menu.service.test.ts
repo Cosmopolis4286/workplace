@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { MenuService } from '../../domains/commerce-core/menu/menu.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
+import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { CategoryHelper } from '../../common/helpers/category.helper'
 import { CreateCategoryDto } from '../../domains/commerce-core/menu/dto/create-category.dto'
@@ -14,7 +14,7 @@ import { I18nService } from 'nestjs-i18n'
 describe('MenuService', () => {
   let service: MenuService
   let prismaService: PrismaService
-  let planLimitsService: PlanLimitsService
+  let planLimitsService: typeof mockPlanLimitsService
   let notificationsService: NotificationsService
 
   const mockPrismaService = {
@@ -67,7 +67,7 @@ describe('MenuService', () => {
           useValue: mockPrismaService,
         },
         {
-          provide: PlanLimitsService,
+          provide: PLAN_LIMITS_FACADE,
           useValue: mockPlanLimitsService,
         },
         {
@@ -87,7 +87,7 @@ describe('MenuService', () => {
 
     service = module.get<MenuService>(MenuService)
     prismaService = module.get<PrismaService>(PrismaService)
-    planLimitsService = module.get<PlanLimitsService>(PlanLimitsService)
+    planLimitsService = module.get(PLAN_LIMITS_FACADE)
     notificationsService = module.get<NotificationsService>(NotificationsService)
   })
 

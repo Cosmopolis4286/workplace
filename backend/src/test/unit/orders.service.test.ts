@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { OrdersService } from '../../domains/operations/orders/orders.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
-import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
+import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { TelegramService } from '../../domains/engagement/telegram/telegram.service'
 import { PlatformFeesService } from '../../domains/money/platform-fees/platform-fees.service'
 import { OrderStatus } from '@prisma/client'
@@ -15,7 +15,7 @@ describe('OrdersService', () => {
   let service: OrdersService
   let prismaService: PrismaService
   let notificationsService: NotificationsService
-  let planLimitsService: PlanLimitsService
+  let planLimitsService: typeof mockPlanLimitsService
 
   const mockPrismaService = {
     order: {
@@ -78,7 +78,7 @@ describe('OrdersService', () => {
           useValue: mockNotificationsService,
         },
         {
-          provide: PlanLimitsService,
+          provide: PLAN_LIMITS_FACADE,
           useValue: mockPlanLimitsService,
         },
         {
@@ -95,7 +95,7 @@ describe('OrdersService', () => {
     service = module.get<OrdersService>(OrdersService)
     prismaService = module.get<PrismaService>(PrismaService)
     notificationsService = module.get<NotificationsService>(NotificationsService)
-    planLimitsService = module.get<PlanLimitsService>(PlanLimitsService)
+    planLimitsService = module.get(PLAN_LIMITS_FACADE)
   })
 
   it('should be defined', () => {
