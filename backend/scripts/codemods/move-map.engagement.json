@@ -1,0 +1,7 @@
+{
+  "src/notifications": "src/domains/engagement/notifications",
+  "src/telegram": "src/domains/engagement/telegram",
+  "src/mail": "src/domains/engagement/mail",
+  "src/reports": "src/domains/engagement/reports",
+  "src/analytics": "src/domains/engagement/analytics"
+}
