@@ -1,0 +1,162 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  HttpStatus,
+  HttpCode,
+  NotFoundException
+} from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger'
+import { CategoriesGlobalService } from './categories-global.service'
+import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto'
+import { CreateSubcategoryDto, UpdateSubcategoryDto } from './dto/subcategory.dto'
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
+import { PermissionsGuard } from '../../../common/guards/permissions.guard'
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator'
+
+@ApiTags('Categorías Globales')
+@Controller('categories-global')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@ApiBearerAuth()
+export class CategoriesGlobalController {
+  constructor(private readonly categoriesGlobalService: CategoriesGlobalService) {}
+
+  // ==================== CATEGORÍAS GLOBALES ====================
+
+  @Get()
+  @ApiOperation({ summary: 'Obtener todas las categorías globales' })
+  @ApiResponse({ status: 200, description: 'Categorías globales encontradas' })
+  @RequirePermission('categories_global:view')
+  async findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.categoriesGlobalService.findAll({
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 50
+    })
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener categoría global por ID' })
+  @ApiResponse({ status: 200, description: 'Categoría global encontrada' })
+  @ApiResponse({ status: 404, description: 'Categoría global no encontrada' })
+  @RequirePermission('categories_global:view')
+  async findOne(@Param('id') id: string) {
+    return this.categoriesGlobalService.findOne(id)
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Crear nueva categoría global' })
+  @ApiResponse({ status: 201, description: 'Categoría global creada' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 409, description: 'Categoría global ya existe' })
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermission('categories_global:create')
+  async createCategory(@Body() createCategoryDto: CreateCategoryDto) {
+    return this.categoriesGlobalService.createCategory(createCategoryDto)
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Actualizar categoría global' })
+  @ApiResponse({ status: 200, description: 'Categoría global actualizada' })
+  @ApiResponse({ status: 404, description: 'Categoría global no encontrada' })
+  @RequirePermission('categories_global:edit')
+  async updateCategory(
+    @Param('id') id: string,
+    @Body() updateCategoryDto: UpdateCategoryDto,
+  ) {
+    return this.categoriesGlobalService.updateCategory(id, updateCategoryDto)
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Eliminar categoría global' })
+  @ApiResponse({ status: 200, description: 'Categoría global eliminada' })
+  @ApiResponse({ status: 404, description: 'Categoría global no encontrada' })
+  @RequirePermission('categories_global:delete')
+  async deleteCategory(@Param('id') id: string) {
+    return this.categoriesGlobalService.deleteCategory(id)
+  }
+
+  // ==================== SUBCATEGORÍAS GLOBALES ====================
+
+  @Get(':categoryId/subcategories')
+  @ApiOperation({ summary: 'Obtener subcategorías de una categoría global' })
+  @ApiResponse({ status: 200, description: 'Subcategorías encontradas' })
+  @RequirePermission('subcategories_global:view')
+  async findSubcategoriesByCategory(@Param('categoryId') categoryId: string) {
+    return this.categoriesGlobalService.findSubcategories(categoryId)
+  }
+
+  @Get('subcategories/:id')
+  @ApiOperation({ summary: 'Obtener subcategoría global por ID' })
+  @ApiResponse({ status: 200, description: 'Subcategoría global encontrada' })
+  @ApiResponse({ status: 404, description: 'Subcategoría global no encontrada' })
+  @RequirePermission('subcategories_global:view')
+  async findSubcategoryById(@Param('id') id: string) {
+    const subcategories = await this.categoriesGlobalService.findSubcategories('dummy')
+    const subcategory = subcategories.find(sub => sub.id === id)
+    if (!subcategory) {
+      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`)
+    }
+    return subcategory
+  }
+
+  @Post(':categoryId/subcategories')
+  @ApiOperation({ summary: 'Crear nueva subcategoría global' })
+  @ApiResponse({ status: 201, description: 'Subcategoría global creada' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 409, description: 'Subcategoría global ya existe' })
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermission('subcategories_global:create')
+  async createSubcategory(
+    @Param('categoryId') categoryId: string,
+    @Body() createSubcategoryDto: CreateSubcategoryDto,
+  ) {
+    return this.categoriesGlobalService.createSubcategory(categoryId, createSubcategoryDto)
+  }
+
+  @Put('subcategories/:id')
+  @ApiOperation({ summary: 'Actualizar subcategoría global' })
+  @ApiResponse({ status: 200, description: 'Subcategoría global actualizada' })
+  @ApiResponse({ status: 404, description: 'Subcategoría global no encontrada' })
+  @RequirePermission('subcategories_global:edit')
+  async updateSubcategory(
+    @Param('id') id: string,
+    @Body() updateSubcategoryDto: UpdateSubcategoryDto,
+  ) {
+    return this.categoriesGlobalService.updateSubcategory(id, updateSubcategoryDto)
+  }
+
+  @Delete('subcategories/:id')
+  @ApiOperation({ summary: 'Eliminar subcategoría global' })
+  @ApiResponse({ status: 200, description: 'Subcategoría global eliminada' })
+  @ApiResponse({ status: 404, description: 'Subcategoría global no encontrada' })
+  @RequirePermission('subcategories_global:delete')
+  async deleteSubcategory(@Param('id') id: string) {
+    return this.categoriesGlobalService.deleteSubcategory(id)
+  }
+
+  // ==================== UTILIDADES ====================
+
+  @Get('export/csv')
+  @ApiOperation({ summary: 'Exportar categorías globales a CSV' })
+  @ApiResponse({ status: 200, description: 'Archivo CSV generado' })
+  @RequirePermission('categories_global:view')
+  async exportCategoriesToCsv() {
+    return this.categoriesGlobalService.exportCategoriesToCsv()
+  }
+
+  @Post('import/csv')
+  @ApiOperation({ summary: 'Importar categorías globales desde CSV' })
+  @ApiResponse({ status: 201, description: 'Categorías importadas' })
+  @ApiResponse({ status: 400, description: 'Formato de archivo inválido' })
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermission('categories_global:create')
+  async importCategoriesFromCsv(@Body() data: { categories: any[] }) {
+    return this.categoriesGlobalService.importCategoriesFromCsv(data.categories)
+  }
+}

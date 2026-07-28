@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
-import { ServicesService } from '../../services/services.service';
+import { ServicesService } from '../../domains/commerce-core/services/services.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { PlatformFeesService } from '../../domains/money/platform-fees/platform-fees.service';

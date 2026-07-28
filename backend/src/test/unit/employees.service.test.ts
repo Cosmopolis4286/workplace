@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { EmployeesService } from '../../employees/employees.service'
+import { EmployeesService } from '../../domains/commerce-core/employees/employees.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
-import { CreateEmployeeDto } from '../../employees/dto/create-employee.dto'
-import { UpdateEmployeeDto } from '../../employees/dto/update-employee.dto'
+import { CreateEmployeeDto } from '../../domains/commerce-core/employees/dto/create-employee.dto'
+import { UpdateEmployeeDto } from '../../domains/commerce-core/employees/dto/update-employee.dto'
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common'
 import { I18nService } from 'nestjs-i18n'
 

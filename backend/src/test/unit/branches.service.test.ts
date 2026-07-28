@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { BranchesService } from '../../branches/branches.service'
+import { BranchesService } from '../../domains/commerce-core/branches/branches.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
-import { CreateBranchDto } from '../../branches/dto/create-branch.dto'
-import { UpdateBranchDto } from '../../branches/dto/update-branch.dto'
+import { CreateBranchDto } from '../../domains/commerce-core/branches/dto/create-branch.dto'
+import { UpdateBranchDto } from '../../domains/commerce-core/branches/dto/update-branch.dto'
 import { NotFoundException, BadRequestException } from '@nestjs/common'
 import { I18nService } from 'nestjs-i18n'
 
