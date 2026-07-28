@@ -1,6 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { PlanLimitsService } from '../../money/plans/plan-limits.service';
+import { RedisService } from '../../../redis/redis.service';
+import { findByIdCacheKey } from '../../identity-access/users/users.service';
+import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { CommerceSettingsStrategy } from './strategies/commerce-settings.strategy';
 import { FreelancerSettingsStrategy } from './strategies/freelancer-settings.strategy';
@@ -29,7 +31,8 @@ import {
 export class SettingsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly planLimitsService: PlanLimitsService,
+    private readonly redis: RedisService,
+    @Inject(PLAN_LIMITS_FACADE) private readonly planLimitsService: PlanLimitsFacade,
     private readonly accountTypeResolver: AccountTypeResolver,
     private readonly commerceStrategy: CommerceSettingsStrategy,
     private readonly freelancerStrategy: FreelancerSettingsStrategy
@@ -51,10 +54,12 @@ export class SettingsService {
 
   async updateRestaurantInfo(userId: string, dto: UpdateRestaurantInfoDto) {
     const restaurant = await this.commerceStrategy.getRestaurant(userId);
-    return this.prisma.restaurant.update({
+    const updated = await this.prisma.restaurant.update({
       where: { id: restaurant.id },
       data: dto,
     });
+    await this.redis.del(findByIdCacheKey(userId));
+    return updated;
   }
 
   // ─── Payment settings ───────────────────────────────────────────────────────

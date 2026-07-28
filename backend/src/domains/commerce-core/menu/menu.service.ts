@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ConflictException,
@@ -7,21 +8,24 @@ import {
 import { I18nService } from 'nestjs-i18n';
 import { ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../../redis/redis.service';
+import { findByIdCacheKey } from '../../identity-access/users/users.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto, StockUpdateType } from './dto/update-stock.dto';
-import { PlanLimitsService } from '../../money/plans/plan-limits.service';
+import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { normalizeTags } from '../../../common/utils/tags.util';
 
 @Injectable()
 export class MenuService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
-    private readonly planLimits: PlanLimitsService,
+    @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly i18n: I18nService,
   ) {}
 
@@ -46,6 +50,9 @@ export class MenuService {
       data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
       select: { id: true },
     });
+    // findById cachea `commerce` (Restaurant) — sin esto un findById previo a
+    // la creación del restaurant (commerce: null) queda stale hasta el TTL.
+    await this.redis.del(findByIdCacheKey(userId));
     return created.id;
   }
 

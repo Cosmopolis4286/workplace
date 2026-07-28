@@ -3,6 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { Role } from '@prisma/client';
 import { SystemModulesService } from '../../platform/system-modules/system-modules.service';
 import { MODULE_CATALOG } from './module-catalog.data';
+import { PlanLimitsFacade } from './plan-limits.facade';
 
 // Módulos de NEGOCIO (con plan/categoría propia) — subset de MODULE_CATALOG.
 // Los módulos "de sistema" (users, permissions, audit, etc.) viven en el
@@ -66,7 +67,7 @@ const FREE_LIMITS: PlanLimits = {
 };
 
 @Injectable()
-export class PlanLimitsService {
+export class PlanLimitsService implements PlanLimitsFacade {
   constructor(
     private readonly prisma: PrismaService,
     private readonly systemModulesService: SystemModulesService

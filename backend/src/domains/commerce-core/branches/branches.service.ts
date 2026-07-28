@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ConflictException,
@@ -9,13 +10,13 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 import { BranchStatus } from '@prisma/client';
-import { PlanLimitsService } from '../../money/plans/plan-limits.service';
+import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 
 @Injectable()
 export class BranchesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly planLimits: PlanLimitsService,
+    @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly i18n: I18nService
   ) {}
 
