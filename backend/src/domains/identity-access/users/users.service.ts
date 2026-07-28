@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../../redis/redis.service';
 import { Prisma, Role, Sex } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
@@ -20,15 +21,36 @@ import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-pro
 
 export const CURRENT_TERMS_VERSION = '2.0';
 
+// findById se llama en JwtStrategy.validate() en CADA request autenticado —
+// cachear evita una query a Postgres por request. TTL corto porque además de
+// la invalidación explícita en cada write (ver findByIdCacheKey), hay un
+// caso de fan-out (UserCategory.update/delete) donde el TTL es el único
+// límite de staleness aceptado a propósito en vez de invalidar N usuarios.
+//
+// Exportado porque otros servicios (ProfilesService, KycService, AuthService,
+// PlansService, y las strategies de settings/menu que tocan Restaurant) también
+// mutan datos incluidos en el payload cacheado y deben invalidar esta misma key.
+export const FIND_BY_ID_CACHE_TTL = 120;
+export const findByIdCacheKey = (id: string) => `user:find-by-id:${id}`;
+
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService,
+    private redis: RedisService,
     private mail: MailService,
     private i18n: I18nService,
     private commerceProfileCompletion: CommerceProfileCompletionStrategy,
     private freelancerProfileCompletion: FreelancerProfileCompletionStrategy,
   ) {}
+
+  // Invalida el caché de findById para un usuario. Llamar después de
+  // cualquier write que toque User, su Restaurant (commerce), UserCategory
+  // (category) o ProfileSettings — ver auditoría de escalabilidad para el
+  // mapeo completo de puntos de invalidación.
+  private async invalidateFindByIdCache(userId: string): Promise<void> {
+    await this.redis.del(findByIdCacheKey(userId));
+  }
 
   async create(data: {
     email: string;
@@ -265,6 +287,7 @@ export class UsersService {
     }
 
     const { password, twoFactorSecret, ...result } = user;
+    await this.invalidateFindByIdCache(id);
     return result;
   }
 
@@ -283,6 +306,7 @@ export class UsersService {
     });
 
     const { password, twoFactorSecret, ...result } = user;
+    await this.invalidateFindByIdCache(id);
     return result;
   }
 
@@ -295,12 +319,17 @@ export class UsersService {
       data: { isActive: !user.isActive },
       select: { id: true, isActive: true },
     });
+    // Crítico: isActive es lo que JwtStrategy.validate() chequea en cada
+    // request — un caché stale acá dejaría a un usuario desactivado seguir
+    // autenticado hasta que expire el TTL.
+    await this.invalidateFindByIdCache(id);
     return updated;
   }
 
   async deleteUser(id: string) {
     await this.prisma.user.findUnique({ where: { id } });
     await this.prisma.user.delete({ where: { id } });
+    await this.invalidateFindByIdCache(id);
     return { message: this.i18n.t('users.deleted') };
   }
 
@@ -347,7 +376,7 @@ export class UsersService {
       if (existing)
         throw new ConflictException(this.i18n.t('users.category.name_taken'));
     }
-    return this.prisma.userCategory.update({
+    const updated = await this.prisma.userCategory.update({
       where: { id },
       data,
       include: {
@@ -355,6 +384,11 @@ export class UsersService {
         _count: { select: { users: true } },
       },
     });
+    // Fan-out: findById cachea la categoría completa (nombre/icon/módulos),
+    // así que TODOS los usuarios de esta categoría quedan con caché stale,
+    // no solo uno. No hay forma de resolver esto por un único userId.
+    await this.invalidateFindByIdCacheForCategory(id);
+    return updated;
   }
 
   async deleteCategory(id: string) {
@@ -363,8 +397,22 @@ export class UsersService {
       throw new BadRequestException(
         this.i18n.t('users.category.in_use', { args: { count } })
       );
+    // Sin fan-out necesario: el guard de arriba garantiza 0 usuarios
+    // referenciando esta categoría al llegar acá.
     await this.prisma.userCategory.delete({ where: { id } });
     return { message: this.i18n.t('users.category.deleted') };
+  }
+
+  private async invalidateFindByIdCacheForCategory(
+    categoryId: string
+  ): Promise<void> {
+    const affectedUsers = await this.prisma.user.findMany({
+      where: { categoryId },
+      select: { id: true },
+    });
+    await Promise.all(
+      affectedUsers.map((u) => this.invalidateFindByIdCache(u.id))
+    );
   }
 
   // ─── Subcategories CRUD ───────────────────────────────────────────────────────
@@ -431,12 +479,21 @@ export class UsersService {
   }
 
   async findById(id: string) {
+    const cached = await this.redis.get(findByIdCacheKey(id));
+    if (cached) return JSON.parse(cached);
+
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: { commerce: true, category: true, profileSettings: true },
     });
     if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
     const { password, twoFactorSecret, ...result } = user;
+
+    await this.redis.setex(
+      findByIdCacheKey(id),
+      FIND_BY_ID_CACHE_TTL,
+      JSON.stringify(result)
+    );
     return result;
   }
 
@@ -542,6 +599,7 @@ export class UsersService {
     }
 
     const { password, twoFactorSecret, ...result } = user;
+    await this.invalidateFindByIdCache(id);
     return result;
   }
 
@@ -591,6 +649,7 @@ export class UsersService {
       include: { commerce: true },
     });
     const { password, twoFactorSecret, ...result } = user;
+    await this.invalidateFindByIdCache(id);
     return result;
   }
 

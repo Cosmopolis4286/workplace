@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { RedisService } from '../../../redis/redis.service';
+import { findByIdCacheKey } from '../users/users.service';
 import { Role } from '@prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -491,6 +492,8 @@ export class ProfilesService {
         reviewsCount: agg._count.rating,
       },
     });
+    // findById cachea `commerce` (Restaurant) anidado, incluyendo avgRating.
+    await this.redis.del(findByIdCacheKey(userId));
   }
 
   // Busca una transacción real completada entre author → target: una
@@ -813,7 +816,7 @@ export class ProfilesService {
     if (dto.dashboardQuickActionIds && dto.dashboardQuickActionIds.length > 6) {
       throw new BadRequestException('Máximo 6 acciones rápidas');
     }
-    return this.prisma.profileSettings.upsert({
+    const settings = await this.prisma.profileSettings.upsert({
       where: { userId },
       create: { userId, ...dto },
       update: dto,
@@ -824,6 +827,8 @@ export class ProfilesService {
         dashboardQuickActionIds: true,
       },
     });
+    await this.redis.del(findByIdCacheKey(userId));
+    return settings;
   }
 
   async updateCoverImage(userId: string, coverUrl: string) {
@@ -832,6 +837,7 @@ export class ProfilesService {
       data: { coverImage: coverUrl },
       select: { id: true, coverImage: true },
     });
+    await this.redis.del(findByIdCacheKey(userId));
     return user;
   }
 

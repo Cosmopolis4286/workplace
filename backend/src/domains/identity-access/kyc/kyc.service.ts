@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { KycStatus, Role } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../../redis/redis.service';
+import { findByIdCacheKey } from '../users/users.service';
 import { MailService } from '../../engagement/mail/mail.service';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { ReviewVerificationDto } from './dto/review-verification.dto';
@@ -12,6 +14,7 @@ type ImageField = (typeof IMAGE_FIELDS)[number];
 export class KycService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly mail: MailService,
   ) {}
 
@@ -162,6 +165,7 @@ export class KycService {
         data: { kycStatus: dto.status },
       }),
     ]);
+    await this.redis.del(findByIdCacheKey(verification.userId));
 
     const user = await this.prisma.user.findUnique({
       where: { id: verification.userId },

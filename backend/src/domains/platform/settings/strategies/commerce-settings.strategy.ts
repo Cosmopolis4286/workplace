@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { RedisService } from '../../../../redis/redis.service';
+import { findByIdCacheKey } from '../../../identity-access/users/users.service';
 import {
   UpdatePaymentSettingsDto,
   UpdateNotificationSettingsDto,
@@ -9,7 +11,10 @@ import { SettingsAccountStrategy } from './settings-account.strategy.interface';
 
 @Injectable()
 export class CommerceSettingsStrategy implements SettingsAccountStrategy {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService
+  ) {}
 
   async getRestaurant(userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
@@ -21,9 +26,13 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
       where: { id: userId },
       select: { firstName: true, lastName: true },
     });
-    return this.prisma.restaurant.create({
+    const created = await this.prisma.restaurant.create({
       data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
     });
+    // findById cachea `commerce` (Restaurant) — sin esto un findById previo a
+    // la creación del restaurant (commerce: null) queda stale hasta el TTL.
+    await this.redis.del(findByIdCacheKey(userId));
+    return created;
   }
 
   async getOrCreateSettings(commerceId: string) {

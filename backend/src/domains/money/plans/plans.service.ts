@@ -5,6 +5,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisService } from '../../../redis/redis.service';
+import { findByIdCacheKey } from '../../identity-access/users/users.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
@@ -12,7 +14,7 @@ import { SubscriptionStatus, KycStatus, AccountType } from '@prisma/client';
 
 @Injectable()
 export class PlansService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private redis: RedisService) {}
 
   // ─── Plans CRUD ──────────────────────────────────────────────────────────────
 
@@ -273,6 +275,7 @@ export class PlansService {
       where: { id: userId },
       data: { categoryId: dto.categoryId },
     });
+    await this.redis.del(findByIdCacheKey(userId));
 
     const subscription = await this.prisma.subscription.create({
       data: {
@@ -342,6 +345,7 @@ export class PlansService {
         data: { role: targetRole as any, accountType: targetRole as AccountType },
       }),
     ]);
+    await this.redis.del(findByIdCacheKey(subscription.userId));
 
     return { subscription: updatedSubscription, targetRole };
   }
