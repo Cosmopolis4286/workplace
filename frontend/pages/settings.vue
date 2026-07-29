@@ -673,7 +673,7 @@ const restaurantForm = ref({ name: '', type: '', address: '', phone: '', email: 
 const { getCountries } = useLocationData()
 const { getStates: getVeStates, getMunicipios: getVeMunicipios, getCiudades: getVeCiudades, getParroquias: getVeParroquias } = useVeLocations()
 
-const countryNames = computed(() => getCountries().map((c) => c.name))
+const countryNames = ref<string[]>([])
 const isVenezuelaSettings = computed(() => restaurantForm.value.country.trim().toLowerCase() === 'venezuela')
 
 const veStates = ref<string[]>([])
@@ -943,6 +943,7 @@ async function toggleAppLock() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
+  getCountries().then((countries) => { countryNames.value = countries.map((c) => c.name) })
   await fetchRates(false, true)
   if (isCommerce.value) {
     await loadSettings()

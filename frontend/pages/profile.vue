@@ -782,7 +782,7 @@ const passwordForm = ref({ current: '', new: '', confirm: '' })
 const { getCountries } = useLocationData()
 const { getStates: getVeStates, getMunicipios: getVeMunicipios, getCiudades: getVeCiudades, getParroquias: getVeParroquias } = useVeLocations()
 
-const countryNames = computed(() => getCountries().map((c) => c.name))
+const countryNames = ref<string[]>([])
 const isVenezuelaProfile = computed(() => profileForm.value.country.trim().toLowerCase() === 'venezuela')
 
 const veStates = ref<string[]>([])
@@ -1232,6 +1232,7 @@ async function revokeSession(session: Session) {
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 onMounted(async () => {
+  getCountries().then((countries) => { countryNames.value = countries.map((c) => c.name) })
   if (!auth.user.value) {
     loadingProfile.value = true
     await auth.fetchProfile()

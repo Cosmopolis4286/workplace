@@ -84,21 +84,22 @@ const emit = defineEmits<{
 const { getCountries, getStatesByCountry, getCitiesByState, findCountryByName, findStateByName } = useLocationData()
 const { user } = useAuth()
 
-const countries = getCountries()
+const countries = ref<LocationOption[]>([])
+getCountries().then((c) => { countries.value = c })
 
 const countryIso = ref('')
 const stateIso = ref('')
 const cityName = ref('')
 
-function syncFromProps() {
+async function syncFromProps() {
   if (props.modelCountry) {
-    const c = findCountryByName(props.modelCountry)
+    const c = await findCountryByName(props.modelCountry)
     countryIso.value = c?.isoCode ?? ''
   } else {
     countryIso.value = ''
   }
   if (props.modelState && countryIso.value) {
-    const s = findStateByName(countryIso.value, props.modelState)
+    const s = await findStateByName(countryIso.value, props.modelState)
     stateIso.value = s?.isoCode ?? ''
   } else {
     stateIso.value = ''
@@ -108,8 +109,14 @@ function syncFromProps() {
 syncFromProps()
 watch([() => props.modelCountry, () => props.modelState, () => props.modelCity], syncFromProps)
 
-const states = computed<LocationOption[]>(() => getStatesByCountry(countryIso.value))
-const cities = computed<LocationOption[]>(() => getCitiesByState(countryIso.value, stateIso.value))
+const states = ref<LocationOption[]>([])
+const cities = ref<LocationOption[]>([])
+watch(countryIso, async (iso) => {
+  states.value = await getStatesByCountry(iso)
+}, { immediate: true })
+watch([countryIso, stateIso], async ([cIso, sIso]) => {
+  cities.value = await getCitiesByState(cIso, sIso)
+}, { immediate: true })
 
 function onCountryChange() {
   stateIso.value = ''
@@ -121,15 +128,19 @@ function onStateChange() {
 
 const hasProfileLocation = computed(() => !!(user.value?.city || user.value?.state || user.value?.country))
 
-function useMyLocation() {
+async function useMyLocation() {
   const u = user.value
   if (!u) return
   if (u.country) {
-    const c = findCountryByName(u.country)
+    const c = await findCountryByName(u.country)
     countryIso.value = c?.isoCode ?? ''
+    // El watch de countryIso repuebla `states` de forma async — se espera
+    // explícito acá en vez de confiar en el watch para que apply() ya vea
+    // el estado correcto (findStateByName necesita el país resuelto).
+    states.value = countryIso.value ? await getStatesByCountry(countryIso.value) : []
   }
   if (u.state && countryIso.value) {
-    const s = findStateByName(countryIso.value, u.state)
+    const s = await findStateByName(countryIso.value, u.state)
     stateIso.value = s?.isoCode ?? ''
   }
   cityName.value = u.city || ''
@@ -137,7 +148,7 @@ function useMyLocation() {
 }
 
 function apply() {
-  const countryObj = countries.find(c => c.isoCode === countryIso.value)
+  const countryObj = countries.value.find(c => c.isoCode === countryIso.value)
   const stateObj = states.value.find(s => s.isoCode === stateIso.value)
   emit('apply', countryObj?.name ?? '', stateObj?.name ?? '', cityName.value)
 }

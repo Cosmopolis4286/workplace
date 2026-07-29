@@ -98,7 +98,15 @@ export default defineNuxtConfig({
     registerType: 'autoUpdate',
     workbox: {
       navigateFallback: '/',
-      globPatterns: ['**/*.{js,css,html,png,svg,ico}']
+      globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+      // country-state-city (dataset completo de países/estados/ciudades del
+      // mundo, cargado on-demand vía import() dinámico en useLocationData.ts)
+      // pesa ~8.7MB minificado — muy por encima de lo que tiene sentido
+      // precachear para offline. maximumFileSizeToCacheInBytes lo excluye del
+      // precache manifest sin tocar el runtime caching del resto de la app;
+      // el selector de ubicación simplemente requiere red la primera vez que
+      // se abre (igual que el resto de la app, que ya depende de la API).
+      maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
     },
     client: {
       installPrompt: true

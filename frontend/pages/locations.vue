@@ -337,6 +337,6 @@ async function deleteNode_() {
 onMounted(async () => {
   await loadTree()
   states.value = await getStates()
-  venezuelaStates.value = getStatesByCountry('VE').map((s) => s.name)
+  venezuelaStates.value = (await getStatesByCountry('VE')).map((s) => s.name)
 })
 </script>
