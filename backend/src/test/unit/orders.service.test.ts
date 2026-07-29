@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { TelegramService } from '../../domains/engagement/telegram/telegram.service'
-import { PlatformFeesService } from '../../domains/money/platform-fees/platform-fees.service'
+import { PLATFORM_FEES_FACADE } from '../../domains/money/platform-fees/platform-fees.facade'
 import { OrderStatus } from '@prisma/client'
 import { CreateOrderDto } from '../../domains/operations/orders/dto/create-order.dto'
 import { UpdateOrderDto } from '../../domains/operations/orders/dto/update-order.dto'
@@ -86,7 +86,7 @@ describe('OrdersService', () => {
           useValue: mockTelegramService,
         },
         {
-          provide: PlatformFeesService,
+          provide: PLATFORM_FEES_FACADE,
           useValue: mockPlatformFeesService,
         },
       ],

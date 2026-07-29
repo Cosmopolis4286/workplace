@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { UsersService } from '../../domains/identity-access/users/users.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { RedisService } from '../../redis/redis.service'
 import { MailService } from '../../domains/engagement/mail/mail.service'
 import { CommerceProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/commerce-profile-completion.strategy'
 import { FreelancerProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/freelancer-profile-completion.strategy'
@@ -22,6 +23,13 @@ describe('UsersService', () => {
     },
   }
 
+  const redisStore = new Map<string, string>()
+  const mockRedisService = {
+    get: jest.fn((key: string) => Promise.resolve(redisStore.get(key) ?? null)),
+    setex: jest.fn((key: string, _ttl: number, value: string) => { redisStore.set(key, value); return Promise.resolve() }),
+    del: jest.fn((key: string) => { redisStore.delete(key); return Promise.resolve() }),
+  }
+
   const mockMailService = {
     sendSecurityAlert: jest.fn().mockResolvedValue(undefined),
   }
@@ -35,6 +43,8 @@ describe('UsersService', () => {
   }
 
   beforeEach(async () => {
+    redisStore.clear()
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -43,6 +53,10 @@ describe('UsersService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: RedisService,
+          useValue: mockRedisService,
         },
         {
           provide: MailService,

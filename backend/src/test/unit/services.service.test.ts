@@ -3,13 +3,13 @@ import { ForbiddenException } from '@nestjs/common';
 import { ServicesService } from '../../domains/commerce-core/services/services.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
-import { PlatformFeesService } from '../../domains/money/platform-fees/platform-fees.service';
+import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../domains/money/platform-fees/platform-fees.facade';
 
 describe('ServicesService — service request status transitions', () => {
   let service: ServicesService;
   let mockPrismaService: any;
   let mockNotificationsService: Partial<NotificationsService>;
-  let mockPlatformFeesService: Partial<PlatformFeesService>;
+  let mockPlatformFeesService: Partial<PlatformFeesFacade>;
 
   function baseRequest(overrides: Partial<any> = {}) {
     return {
@@ -59,7 +59,7 @@ describe('ServicesService — service request status transitions', () => {
         ServicesService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: NotificationsService, useValue: mockNotificationsService },
-        { provide: PlatformFeesService, useValue: mockPlatformFeesService },
+        { provide: PLATFORM_FEES_FACADE, useValue: mockPlatformFeesService },
       ],
     }).compile();
 

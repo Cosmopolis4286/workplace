@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { MenuService } from '../../domains/commerce-core/menu/menu.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { RedisService } from '../../redis/redis.service'
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { CategoryHelper } from '../../common/helpers/category.helper'
@@ -43,6 +44,10 @@ describe('MenuService', () => {
     assertProductLimit: jest.fn(),
   }
 
+  const mockRedisService = {
+    del: jest.fn().mockResolvedValue(undefined),
+  }
+
   const mockNotificationsService = {
     notifyLowStock: jest.fn(),
   }
@@ -65,6 +70,10 @@ describe('MenuService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: RedisService,
+          useValue: mockRedisService,
         },
         {
           provide: PLAN_LIMITS_FACADE,

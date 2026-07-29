@@ -961,15 +961,15 @@
         "src/common/guards/optional-jwt-auth.guard.ts",
         "src/common/guards/roles.guard.ts",
         "src/domains/money/plans/plans.service.ts",
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/engagement/mail/mail.service.ts",
+        "src/domains/identity-access/users/strategies/commerce-profile-completion.strategy.ts",
+        "src/domains/identity-access/users/strategies/freelancer-profile-completion.strategy.ts",
         "src/domains/money/plans/subscriptions.scheduler.ts",
         "src/domains/commerce-core/branches/branches.controller.ts",
         "src/common/decorators/require-permission.decorator.ts",
         "src/common/guards/permissions.guard.ts",
         "src/domains/identity-access/permissions/permissions.service.ts",
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/engagement/mail/mail.service.ts",
-        "src/domains/identity-access/users/strategies/commerce-profile-completion.strategy.ts",
-        "src/domains/identity-access/users/strategies/freelancer-profile-completion.strategy.ts",
         "src/domains/commerce-core/branches/branches.service.ts",
         "src/domains/commerce-core/catalog/catalog.module.ts",
         "src/domains/engagement/notifications/notifications.module.ts",
@@ -1446,10 +1446,10 @@
         "src/domains/money/plans/plan-limits.service.ts",
         "src/domains/platform/system-modules/system-modules.service.ts",
         "src/domains/money/plans/plans.service.ts",
-        "src/domains/money/plans/subscriptions.scheduler.ts",
-        "src/domains/identity-access/permissions/permissions.service.ts",
         "src/domains/identity-access/users/users.service.ts",
         "src/domains/identity-access/users/strategies/commerce-profile-completion.strategy.ts",
+        "src/domains/money/plans/subscriptions.scheduler.ts",
+        "src/domains/identity-access/permissions/permissions.service.ts",
         "src/domains/commerce-core/branches/branches.service.ts",
         "src/domains/engagement/notifications/notifications.service.ts",
         "src/domains/engagement/notifications/notifications.gateway.ts",
@@ -1541,11 +1541,11 @@
         "src/domains/money/plans/dto/assign-subscription.dto.ts",
         "src/domains/money/plans/dto/create-plan.dto.ts",
         "src/domains/money/plans/plans.service.ts",
-        "src/common/guards/permissions.guard.ts",
-        "src/domains/identity-access/permissions/permissions.service.ts",
         "src/domains/identity-access/users/users.service.ts",
         "src/domains/identity-access/users/dto/create-user.dto.ts",
         "src/domains/identity-access/users/dto/update-user.dto.ts",
+        "src/common/guards/permissions.guard.ts",
+        "src/domains/identity-access/permissions/permissions.service.ts",
         "src/domains/identity-access/permissions/dto/create-permission.dto.ts",
         "src/domains/commerce-core/branches/branches.service.ts",
         "src/domains/commerce-core/branches/dto/create-branch.dto.ts",
@@ -1573,6 +1573,7 @@
         "src/domains/money/wallets/wallets.service.ts",
         "src/domains/money/platform-fees/platform-fees.controller.ts",
         "src/domains/money/platform-fees/platform-fees.service.ts",
+        "src/domains/money/platform-fees/platform-fees.facade.ts",
         "src/domains/commerce-core/services/services.controller.ts",
         "src/domains/commerce-core/services/dto/create-service.dto.ts",
         "src/domains/commerce-core/services/dto/query-services.dto.ts",
@@ -1895,21 +1896,30 @@
         "src/common/guards/rate-limit.guard.ts",
         "src/common/middleware/security-context.middleware.ts",
         "src/domains/platform/system-modules/system-modules.service.ts",
+        "src/domains/money/plans/plans.service.ts",
+        "src/domains/identity-access/users/users.service.ts",
         "src/domains/identity-access/permissions/permissions.service.ts",
+        "src/domains/commerce-core/menu/menu.service.ts",
         "src/domains/money/wallets/wallet-limits.service.ts",
         "src/domains/money/wallets/wallet-pin.service.ts",
         "src/domains/money/wallets/wallets.service.ts",
         "src/domains/identity-access/auth/auth.service.ts",
         "src/domains/identity-access/auth/strategies/jwt.strategy.ts",
+        "src/domains/identity-access/kyc/kyc.service.ts",
         "src/redis/redis.module.ts",
         "src/domains/identity-access/profiles/profiles.service.ts",
         "src/domains/money/exchange-rates/bcv-sync.service.ts",
         "src/domains/platform/health/health.controller.ts",
         "src/domains/platform/landing/landing.service.ts",
+        "src/domains/platform/settings/settings.service.ts",
+        "src/domains/platform/settings/strategies/commerce-settings.strategy.ts",
         "src/main.ts",
         "src/test/unit/auth.service.test.ts",
         "src/test/unit/health.controller.test.ts",
-        "src/test/unit/permissions.service.test.ts"
+        "src/test/unit/menu.service.test.ts",
+        "src/test/unit/permissions.service.test.ts",
+        "src/test/unit/plans.service.test.ts",
+        "src/test/unit/users.service.test.ts"
       ],
       "orphan": false,
       "valid": true
@@ -2344,6 +2354,23 @@
       "dependencies": [
         {
           "dynamic": false,
+          "module": "./plan-limits.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "./plan-limits.service",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -2441,6 +2468,27 @@
       "valid": true
     },
     {
+      "source": "src/domains/money/plans/plan-limits.facade.ts",
+      "dependencies": [],
+      "dependents": [
+        "src/domains/money/plans/plans.module.ts",
+        "src/domains/money/plans/plan-limits.service.ts",
+        "src/domains/commerce-core/branches/branches.service.ts",
+        "src/domains/commerce-core/employees/employees.service.ts",
+        "src/domains/commerce-core/menu/menu.service.ts",
+        "src/domains/operations/orders/orders.service.ts",
+        "src/domains/platform/navigation/navigation.service.ts",
+        "src/domains/platform/settings/settings.service.ts",
+        "src/test/unit/branches.service.test.ts",
+        "src/test/unit/employees.service.test.ts",
+        "src/test/unit/menu.service.test.ts",
+        "src/test/unit/navigation.service.test.ts",
+        "src/test/unit/orders.service.test.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "src/domains/money/plans/plan-limits.service.ts",
       "dependencies": [
         {
@@ -2522,6 +2570,23 @@
         },
         {
           "dynamic": false,
+          "module": "./plan-limits.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "@nestjs/common",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -2559,17 +2624,6 @@
         "src/domains/money/plans/plans.module.ts",
         "src/domains/platform/system-modules/system-modules.service.ts",
         "src/domains/money/plans/plans.controller.ts",
-        "src/domains/commerce-core/branches/branches.service.ts",
-        "src/domains/commerce-core/employees/employees.service.ts",
-        "src/domains/commerce-core/menu/menu.service.ts",
-        "src/domains/operations/orders/orders.service.ts",
-        "src/domains/platform/navigation/navigation.service.ts",
-        "src/domains/platform/settings/settings.service.ts",
-        "src/test/unit/branches.service.test.ts",
-        "src/test/unit/employees.service.test.ts",
-        "src/test/unit/menu.service.test.ts",
-        "src/test/unit/navigation.service.test.ts",
-        "src/test/unit/orders.service.test.ts",
         "src/test/unit/plan-limits.service.test.ts"
       ],
       "orphan": false,
@@ -3595,6 +3649,46 @@
         },
         {
           "dynamic": false,
+          "module": "../../../redis/redis.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/redis/redis.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../identity-access/users/users.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/users.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": false,
+          "rules": [
+            {
+              "severity": "warn",
+              "name": "cross-business-module-service-import"
+            }
+          ]
+        },
+        {
+          "dynamic": false,
           "module": "./dto/assign-subscription.dto",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -3683,6 +3777,713 @@
         "src/domains/money/plans/plans.module.ts",
         "src/domains/money/plans/plans.controller.ts",
         "src/test/unit/plans.service.test.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/users/users.service.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "../../../prisma/prisma.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/prisma/prisma.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../../redis/redis.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/redis/redis.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../engagement/mail/mail.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/engagement/mail/mail.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": false,
+          "rules": [
+            {
+              "severity": "warn",
+              "name": "cross-business-module-service-import"
+            }
+          ]
+        },
+        {
+          "dynamic": false,
+          "module": "../auth/dto/change-password.dto",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/auth/dto/change-password.dto.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../auth/dto/update-profile.dto",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/auth/dto/update-profile.dto.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./dto/create-user.dto",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/dto/create-user.dto.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./dto/update-own-profile.dto",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/dto/update-own-profile.dto.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./dto/update-user.dto",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/dto/update-user.dto.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./strategies/commerce-profile-completion.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/strategies/commerce-profile-completion.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./strategies/freelancer-profile-completion.strategy",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/strategies/freelancer-profile-completion.strategy.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@prisma/client",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/default.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "bcrypt",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/bcrypt@5.1.1/node_modules/bcrypt/bcrypt.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "nestjs-i18n",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/nestjs-i18n@10.8.4_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_refl_ze6eayxm7dzrizzvoyiatflljq/node_modules/nestjs-i18n/dist/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/money/plans/plans.service.ts",
+        "src/domains/identity-access/permissions/permissions.service.ts",
+        "src/domains/commerce-core/menu/menu.service.ts",
+        "src/domains/identity-access/auth/auth.service.ts",
+        "src/domains/identity-access/users/users.module.ts",
+        "src/domains/identity-access/users/users.controller.ts",
+        "src/domains/identity-access/auth/strategies/jwt.strategy.ts",
+        "src/domains/identity-access/kyc/kyc.service.ts",
+        "src/domains/identity-access/profiles/profiles.service.ts",
+        "src/domains/platform/settings/settings.service.ts",
+        "src/domains/platform/settings/strategies/commerce-settings.strategy.ts",
+        "src/test/unit/auth.service.test.ts",
+        "src/test/unit/permissions.service.test.ts",
+        "src/test/unit/users.service.test.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "../node_modules/.pnpm/bcrypt@5.1.1/node_modules/bcrypt/bcrypt.js",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": false,
+      "matchesDoNotFollow": true,
+      "dependencyTypes": [
+        "npm",
+        "import"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/money/wallets/wallet-pin.service.ts",
+        "src/domains/identity-access/auth/auth.service.ts",
+        "src/domains/identity-access/auth/two-factor.service.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/engagement/mail/mail.service.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "fs",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "core",
+            "import"
+          ],
+          "resolved": "fs",
+          "coreModule": true,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "nodemailer",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/nodemailer@8.0.2/node_modules/nodemailer/lib/nodemailer.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "path",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "core",
+            "import"
+          ],
+          "resolved": "path",
+          "coreModule": true,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/engagement/mail/mail.module.ts",
+        "src/domains/commerce-core/proposed-categories/proposed-categories.service.ts",
+        "src/domains/commerce-core/services/service-request-reminder.scheduler.ts",
+        "src/domains/identity-access/auth/auth.service.ts",
+        "src/domains/identity-access/kyc/kyc.service.ts",
+        "src/test/unit/auth.service.test.ts",
+        "src/test/unit/users.service.test.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "fs",
+      "followable": false,
+      "coreModule": true,
+      "couldNotResolve": false,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "core",
+        "import"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/domains/engagement/mail/mail.service.ts",
+        "src/domains/commerce-core/menu/menu.controller.ts",
+        "src/domains/commerce-core/services/services.controller.ts",
+        "src/domains/identity-access/auth/auth.controller.ts",
+        "src/domains/identity-access/kyc/kyc.controller.ts",
+        "src/domains/identity-access/profiles/profiles.controller.ts",
+        "src/domains/operations/expenses/expenses.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "../node_modules/.pnpm/nodemailer@8.0.2/node_modules/nodemailer/lib/nodemailer.js",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": false,
+      "matchesDoNotFollow": true,
+      "dependencyTypes": [
+        "npm",
+        "import"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/domains/engagement/mail/mail.service.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/auth/dto/change-password.dto.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "class-validator",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/identity-access/auth/auth.service.ts",
+        "src/domains/identity-access/auth/auth.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/auth/dto/update-profile.dto.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "class-validator",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/identity-access/auth/auth.service.ts",
+        "src/domains/identity-access/auth/auth.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/users/dto/create-user.dto.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "@prisma/client",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/default.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "class-validator",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/identity-access/users/users.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/users/dto/update-own-profile.dto.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "class-validator",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/identity-access/users/users.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/users/dto/update-user.dto.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "@prisma/client",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/default.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "class-validator",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/identity-access/users/users.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/users/strategies/commerce-profile-completion.strategy.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "../../../../prisma/prisma.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/prisma/prisma.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./profile-completion.strategy.interface",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/strategies/profile-completion.strategy.interface.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/identity-access/users/users.module.ts",
+        "src/test/unit/users.service.test.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/users/strategies/profile-completion.strategy.interface.ts",
+      "dependencies": [],
+      "dependents": [
+        "src/domains/identity-access/users/strategies/commerce-profile-completion.strategy.ts",
+        "src/domains/identity-access/users/strategies/freelancer-profile-completion.strategy.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/users/strategies/freelancer-profile-completion.strategy.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "./profile-completion.strategy.interface",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/strategies/profile-completion.strategy.interface.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/identity-access/users/users.service.ts",
+        "src/domains/identity-access/users/users.module.ts",
+        "src/test/unit/users.service.test.ts"
       ],
       "orphan": false,
       "valid": true
@@ -4229,690 +5030,6 @@
       "valid": true
     },
     {
-      "source": "src/domains/identity-access/users/users.service.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "../../../prisma/prisma.service",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/prisma/prisma.service.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "../../engagement/mail/mail.service",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/engagement/mail/mail.service.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "cross-business-module-service-import"
-            }
-          ]
-        },
-        {
-          "dynamic": false,
-          "module": "../auth/dto/change-password.dto",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/identity-access/auth/dto/change-password.dto.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "../auth/dto/update-profile.dto",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/identity-access/auth/dto/update-profile.dto.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "./dto/create-user.dto",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/identity-access/users/dto/create-user.dto.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "./dto/update-own-profile.dto",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/identity-access/users/dto/update-own-profile.dto.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "./dto/update-user.dto",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/identity-access/users/dto/update-user.dto.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "./strategies/commerce-profile-completion.strategy",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/identity-access/users/strategies/commerce-profile-completion.strategy.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "./strategies/freelancer-profile-completion.strategy",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/identity-access/users/strategies/freelancer-profile-completion.strategy.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "@nestjs/common",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "@prisma/client",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/default.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "bcrypt",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/bcrypt@5.1.1/node_modules/bcrypt/bcrypt.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "nestjs-i18n",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/nestjs-i18n@10.8.4_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_refl_ze6eayxm7dzrizzvoyiatflljq/node_modules/nestjs-i18n/dist/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        }
-      ],
-      "dependents": [
-        "src/domains/identity-access/permissions/permissions.service.ts",
-        "src/domains/identity-access/auth/auth.service.ts",
-        "src/domains/identity-access/users/users.module.ts",
-        "src/domains/identity-access/users/users.controller.ts",
-        "src/domains/identity-access/auth/strategies/jwt.strategy.ts",
-        "src/test/unit/auth.service.test.ts",
-        "src/test/unit/permissions.service.test.ts",
-        "src/test/unit/users.service.test.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "../node_modules/.pnpm/bcrypt@5.1.1/node_modules/bcrypt/bcrypt.js",
-      "followable": false,
-      "coreModule": false,
-      "couldNotResolve": false,
-      "matchesDoNotFollow": true,
-      "dependencyTypes": [
-        "npm",
-        "import"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/money/wallets/wallet-pin.service.ts",
-        "src/domains/identity-access/auth/auth.service.ts",
-        "src/domains/identity-access/auth/two-factor.service.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/domains/engagement/mail/mail.service.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "@nestjs/common",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "fs",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "core",
-            "import"
-          ],
-          "resolved": "fs",
-          "coreModule": true,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "nodemailer",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/nodemailer@8.0.2/node_modules/nodemailer/lib/nodemailer.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "path",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "core",
-            "import"
-          ],
-          "resolved": "path",
-          "coreModule": true,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        }
-      ],
-      "dependents": [
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/engagement/mail/mail.module.ts",
-        "src/domains/commerce-core/proposed-categories/proposed-categories.service.ts",
-        "src/domains/commerce-core/services/service-request-reminder.scheduler.ts",
-        "src/domains/identity-access/auth/auth.service.ts",
-        "src/domains/identity-access/kyc/kyc.service.ts",
-        "src/test/unit/auth.service.test.ts",
-        "src/test/unit/users.service.test.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "fs",
-      "followable": false,
-      "coreModule": true,
-      "couldNotResolve": false,
-      "matchesDoNotFollow": false,
-      "dependencyTypes": [
-        "core",
-        "import"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/domains/engagement/mail/mail.service.ts",
-        "src/domains/commerce-core/menu/menu.controller.ts",
-        "src/domains/commerce-core/services/services.controller.ts",
-        "src/domains/identity-access/auth/auth.controller.ts",
-        "src/domains/identity-access/kyc/kyc.controller.ts",
-        "src/domains/identity-access/profiles/profiles.controller.ts",
-        "src/domains/operations/expenses/expenses.controller.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "../node_modules/.pnpm/nodemailer@8.0.2/node_modules/nodemailer/lib/nodemailer.js",
-      "followable": false,
-      "coreModule": false,
-      "couldNotResolve": false,
-      "matchesDoNotFollow": true,
-      "dependencyTypes": [
-        "npm",
-        "import"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/domains/engagement/mail/mail.service.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/domains/identity-access/auth/dto/change-password.dto.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "class-validator",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        }
-      ],
-      "dependents": [
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/identity-access/auth/auth.service.ts",
-        "src/domains/identity-access/auth/auth.controller.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/domains/identity-access/auth/dto/update-profile.dto.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "class-validator",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        }
-      ],
-      "dependents": [
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/identity-access/auth/auth.service.ts",
-        "src/domains/identity-access/auth/auth.controller.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/domains/identity-access/users/dto/create-user.dto.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "@prisma/client",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/default.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "class-validator",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        }
-      ],
-      "dependents": [
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/identity-access/users/users.controller.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/domains/identity-access/users/dto/update-own-profile.dto.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "class-validator",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        }
-      ],
-      "dependents": [
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/identity-access/users/users.controller.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/domains/identity-access/users/dto/update-user.dto.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "@prisma/client",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/default.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "class-validator",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/class-validator@0.14.4/node_modules/class-validator/cjs/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        }
-      ],
-      "dependents": [
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/identity-access/users/users.controller.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/domains/identity-access/users/strategies/commerce-profile-completion.strategy.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "../../../../prisma/prisma.service",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/prisma/prisma.service.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "./profile-completion.strategy.interface",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/identity-access/users/strategies/profile-completion.strategy.interface.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "@nestjs/common",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        }
-      ],
-      "dependents": [
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/identity-access/users/users.module.ts",
-        "src/test/unit/users.service.test.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/domains/identity-access/users/strategies/profile-completion.strategy.interface.ts",
-      "dependencies": [],
-      "dependents": [
-        "src/domains/identity-access/users/strategies/commerce-profile-completion.strategy.ts",
-        "src/domains/identity-access/users/strategies/freelancer-profile-completion.strategy.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/domains/identity-access/users/strategies/freelancer-profile-completion.strategy.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "./profile-completion.strategy.interface",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/domains/identity-access/users/strategies/profile-completion.strategy.interface.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "@nestjs/common",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        }
-      ],
-      "dependents": [
-        "src/domains/identity-access/users/users.service.ts",
-        "src/domains/identity-access/users/users.module.ts",
-        "src/test/unit/users.service.test.ts"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
       "source": "src/domains/identity-access/permissions/dto/create-permission.dto.ts",
       "dependencies": [
         {
@@ -5007,26 +5124,20 @@
         },
         {
           "dynamic": false,
-          "module": "../../money/plans/plan-limits.service",
+          "module": "../../money/plans/plan-limits.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
           "matchesDoNotFollow": false,
           "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "cross-business-module-service-import"
-            }
-          ]
+          "valid": true
         },
         {
           "dynamic": false,
@@ -7164,26 +7275,20 @@
         },
         {
           "dynamic": false,
-          "module": "../../money/plans/plan-limits.service",
+          "module": "../../money/plans/plan-limits.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
           "matchesDoNotFollow": false,
           "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "cross-business-module-service-import"
-            }
-          ]
+          "valid": true
         },
         {
           "dynamic": false,
@@ -8086,6 +8191,23 @@
         },
         {
           "dynamic": false,
+          "module": "../../../redis/redis.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/redis/redis.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "../../engagement/notifications/notifications.service",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -8109,14 +8231,14 @@
         },
         {
           "dynamic": false,
-          "module": "../../money/plans/plan-limits.service",
+          "module": "../../identity-access/users/users.service",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/identity-access/users/users.service.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -8129,6 +8251,23 @@
               "name": "cross-business-module-service-import"
             }
           ]
+        },
+        {
+          "dynamic": false,
+          "module": "../../money/plans/plan-limits.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
         },
         {
           "dynamic": false,
@@ -9794,6 +9933,23 @@
         },
         {
           "dynamic": false,
+          "module": "./platform-fees.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/money/platform-fees/platform-fees.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "./platform-fees.service",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -11258,6 +11414,23 @@
         },
         {
           "dynamic": false,
+          "module": "./platform-fees.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/money/platform-fees/platform-fees.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "@nestjs/common",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -11293,7 +11466,35 @@
       ],
       "dependents": [
         "src/domains/money/platform-fees/platform-fees.module.ts",
-        "src/domains/money/platform-fees/platform-fees.controller.ts",
+        "src/domains/money/platform-fees/platform-fees.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/money/platform-fees/platform-fees.facade.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "@prisma/client",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/default.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/money/platform-fees/platform-fees.module.ts",
+        "src/domains/money/platform-fees/platform-fees.service.ts",
         "src/domains/commerce-core/services/services.service.ts",
         "src/domains/operations/orders/orders.service.ts",
         "src/domains/operations/rides/rides.service.ts",
@@ -12160,26 +12361,20 @@
         },
         {
           "dynamic": false,
-          "module": "../../money/platform-fees/platform-fees.service",
+          "module": "../../money/platform-fees/platform-fees.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/platform-fees/platform-fees.service.ts",
+          "resolved": "src/domains/money/platform-fees/platform-fees.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
           "matchesDoNotFollow": false,
           "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "cross-business-module-service-import"
-            }
-          ]
+          "valid": true
         },
         {
           "dynamic": false,
@@ -16964,6 +17159,23 @@
         },
         {
           "dynamic": false,
+          "module": "../../../redis/redis.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/redis/redis.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "../../engagement/mail/mail.service",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -16972,6 +17184,29 @@
             "import"
           ],
           "resolved": "src/domains/engagement/mail/mail.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": false,
+          "rules": [
+            {
+              "severity": "warn",
+              "name": "cross-business-module-service-import"
+            }
+          ]
+        },
+        {
+          "dynamic": false,
+          "module": "../users/users.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/users.service.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -18230,6 +18465,29 @@
             "import"
           ],
           "resolved": "src/domains/engagement/notifications/notifications.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": false,
+          "rules": [
+            {
+              "severity": "warn",
+              "name": "cross-business-module-service-import"
+            }
+          ]
+        },
+        {
+          "dynamic": false,
+          "module": "../users/users.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/users.service.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -23824,49 +24082,37 @@
         },
         {
           "dynamic": false,
-          "module": "../../money/plans/plan-limits.service",
+          "module": "../../money/plans/plan-limits.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
           "matchesDoNotFollow": false,
           "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "cross-business-module-service-import"
-            }
-          ]
+          "valid": true
         },
         {
           "dynamic": false,
-          "module": "../../money/platform-fees/platform-fees.service",
+          "module": "../../money/platform-fees/platform-fees.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/platform-fees/platform-fees.service.ts",
+          "resolved": "src/domains/money/platform-fees/platform-fees.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
           "matchesDoNotFollow": false,
           "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "cross-business-module-service-import"
-            }
-          ]
+          "valid": true
         },
         {
           "dynamic": false,
@@ -24708,26 +24954,20 @@
         },
         {
           "dynamic": false,
-          "module": "../../money/platform-fees/platform-fees.service",
+          "module": "../../money/platform-fees/platform-fees.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/platform-fees/platform-fees.service.ts",
+          "resolved": "src/domains/money/platform-fees/platform-fees.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
           "matchesDoNotFollow": false,
           "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "cross-business-module-service-import"
-            }
-          ]
+          "valid": true
         },
         {
           "dynamic": false,
@@ -26394,26 +26634,20 @@
         },
         {
           "dynamic": false,
-          "module": "../../money/plans/plan-limits.service",
+          "module": "../../money/plans/plan-limits.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
           "matchesDoNotFollow": false,
           "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "cross-business-module-service-import"
-            }
-          ]
+          "valid": true
         },
         {
           "dynamic": false,
@@ -26932,14 +27166,31 @@
         },
         {
           "dynamic": false,
-          "module": "../../money/plans/plan-limits.service",
+          "module": "../../../redis/redis.service",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/redis/redis.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../identity-access/users/users.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/users.service.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -26952,6 +27203,23 @@
               "name": "cross-business-module-service-import"
             }
           ]
+        },
+        {
+          "dynamic": false,
+          "module": "../../money/plans/plan-limits.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
         },
         {
           "dynamic": false,
@@ -27059,6 +27327,40 @@
             "import"
           ],
           "resolved": "src/prisma/prisma.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../../../redis/redis.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/redis/redis.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../../identity-access/users/users.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/users/users.service.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -29239,14 +29541,14 @@
         },
         {
           "dynamic": false,
-          "module": "../../domains/money/plans/plan-limits.service",
+          "module": "../../domains/money/plans/plan-limits.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -29476,14 +29778,14 @@
         },
         {
           "dynamic": false,
-          "module": "../../domains/money/plans/plan-limits.service",
+          "module": "../../domains/money/plans/plan-limits.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -29899,14 +30201,14 @@
         },
         {
           "dynamic": false,
-          "module": "../../domains/money/plans/plan-limits.service",
+          "module": "../../domains/money/plans/plan-limits.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -29924,6 +30226,23 @@
             "import"
           ],
           "resolved": "src/prisma/prisma.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../redis/redis.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/redis/redis.service.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -29992,14 +30311,14 @@
         },
         {
           "dynamic": false,
-          "module": "../../domains/money/plans/plan-limits.service",
+          "module": "../../domains/money/plans/plan-limits.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -30195,14 +30514,14 @@
         },
         {
           "dynamic": false,
-          "module": "../../domains/money/plans/plan-limits.service",
+          "module": "../../domains/money/plans/plan-limits.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/plans/plan-limits.service.ts",
+          "resolved": "src/domains/money/plans/plan-limits.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -30212,14 +30531,14 @@
         },
         {
           "dynamic": false,
-          "module": "../../domains/money/platform-fees/platform-fees.service",
+          "module": "../../domains/money/platform-fees/platform-fees.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/platform-fees/platform-fees.service.ts",
+          "resolved": "src/domains/money/platform-fees/platform-fees.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -30737,6 +31056,23 @@
         },
         {
           "dynamic": false,
+          "module": "../../redis/redis.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/redis/redis.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "@nestjs/common",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -30862,14 +31198,14 @@
         },
         {
           "dynamic": false,
-          "module": "../../domains/money/platform-fees/platform-fees.service",
+          "module": "../../domains/money/platform-fees/platform-fees.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/money/platform-fees/platform-fees.service.ts",
+          "resolved": "src/domains/money/platform-fees/platform-fees.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -31055,6 +31391,23 @@
         },
         {
           "dynamic": false,
+          "module": "../../redis/redis.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/redis/redis.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "@nestjs/testing",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -31153,20 +31506,6 @@
       },
       {
         "type": "dependency",
-        "from": "src/domains/commerce-core/branches/branches.service.ts",
-        "to": "src/domains/money/plans/plan-limits.service.ts",
-        "unresolvedTo": "../../money/plans/plan-limits.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "cross-business-module-service-import"
-        }
-      },
-      {
-        "type": "dependency",
         "from": "src/domains/commerce-core/catalog/catalog.controller.ts",
         "to": "src/domains/commerce-core/catalog/catalog.service.ts",
         "unresolvedTo": "./catalog.service",
@@ -31223,20 +31562,6 @@
       },
       {
         "type": "dependency",
-        "from": "src/domains/commerce-core/employees/employees.service.ts",
-        "to": "src/domains/money/plans/plan-limits.service.ts",
-        "unresolvedTo": "../../money/plans/plan-limits.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "cross-business-module-service-import"
-        }
-      },
-      {
-        "type": "dependency",
         "from": "src/domains/commerce-core/menu/menu.controller.ts",
         "to": "src/domains/commerce-core/menu/menu.service.ts",
         "unresolvedTo": "./menu.service",
@@ -31266,8 +31591,8 @@
       {
         "type": "dependency",
         "from": "src/domains/commerce-core/menu/menu.service.ts",
-        "to": "src/domains/money/plans/plan-limits.service.ts",
-        "unresolvedTo": "../../money/plans/plan-limits.service",
+        "to": "src/domains/identity-access/users/users.service.ts",
+        "unresolvedTo": "../../identity-access/users/users.service",
         "dependencyTypes": [
           "local",
           "import"
@@ -31408,20 +31733,6 @@
         "from": "src/domains/commerce-core/services/services.service.ts",
         "to": "src/domains/engagement/notifications/notifications.service.ts",
         "unresolvedTo": "../../engagement/notifications/notifications.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "cross-business-module-service-import"
-        }
-      },
-      {
-        "type": "dependency",
-        "from": "src/domains/commerce-core/services/services.service.ts",
-        "to": "src/domains/money/platform-fees/platform-fees.service.ts",
-        "unresolvedTo": "../../money/platform-fees/platform-fees.service",
         "dependencyTypes": [
           "local",
           "import"
@@ -31615,6 +31926,20 @@
       },
       {
         "type": "dependency",
+        "from": "src/domains/identity-access/kyc/kyc.service.ts",
+        "to": "src/domains/identity-access/users/users.service.ts",
+        "unresolvedTo": "../users/users.service",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ],
+        "rule": {
+          "severity": "warn",
+          "name": "cross-business-module-service-import"
+        }
+      },
+      {
+        "type": "dependency",
         "from": "src/domains/identity-access/permissions/permissions.controller.ts",
         "to": "src/domains/identity-access/permissions/permissions.service.ts",
         "unresolvedTo": "./permissions.service",
@@ -31660,6 +31985,20 @@
         "from": "src/domains/identity-access/profiles/profiles.service.ts",
         "to": "src/domains/engagement/notifications/notifications.service.ts",
         "unresolvedTo": "../../engagement/notifications/notifications.service",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ],
+        "rule": {
+          "severity": "warn",
+          "name": "cross-business-module-service-import"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "src/domains/identity-access/profiles/profiles.service.ts",
+        "to": "src/domains/identity-access/users/users.service.ts",
+        "unresolvedTo": "../users/users.service",
         "dependencyTypes": [
           "local",
           "import"
@@ -31828,6 +32167,20 @@
         "from": "src/domains/money/plans/plans.controller.ts",
         "to": "src/domains/money/plans/plans.service.ts",
         "unresolvedTo": "./plans.service",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ],
+        "rule": {
+          "severity": "warn",
+          "name": "cross-business-module-service-import"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "src/domains/money/plans/plans.service.ts",
+        "to": "src/domains/identity-access/users/users.service.ts",
+        "unresolvedTo": "../../identity-access/users/users.service",
         "dependencyTypes": [
           "local",
           "import"
@@ -32063,34 +32416,6 @@
       },
       {
         "type": "dependency",
-        "from": "src/domains/operations/orders/orders.service.ts",
-        "to": "src/domains/money/plans/plan-limits.service.ts",
-        "unresolvedTo": "../../money/plans/plan-limits.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "cross-business-module-service-import"
-        }
-      },
-      {
-        "type": "dependency",
-        "from": "src/domains/operations/orders/orders.service.ts",
-        "to": "src/domains/money/platform-fees/platform-fees.service.ts",
-        "unresolvedTo": "../../money/platform-fees/platform-fees.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "cross-business-module-service-import"
-        }
-      },
-      {
-        "type": "dependency",
         "from": "src/domains/operations/receipts/receipts.controller.ts",
         "to": "src/domains/operations/receipts/receipts.service.ts",
         "unresolvedTo": "./receipts.service",
@@ -32108,20 +32433,6 @@
         "from": "src/domains/operations/rides/rides.controller.ts",
         "to": "src/domains/operations/rides/rides.service.ts",
         "unresolvedTo": "./rides.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "cross-business-module-service-import"
-        }
-      },
-      {
-        "type": "dependency",
-        "from": "src/domains/operations/rides/rides.service.ts",
-        "to": "src/domains/money/platform-fees/platform-fees.service.ts",
-        "unresolvedTo": "../../money/platform-fees/platform-fees.service",
         "dependencyTypes": [
           "local",
           "import"
@@ -32203,20 +32514,6 @@
       },
       {
         "type": "dependency",
-        "from": "src/domains/platform/navigation/navigation.service.ts",
-        "to": "src/domains/money/plans/plan-limits.service.ts",
-        "unresolvedTo": "../../money/plans/plan-limits.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "cross-business-module-service-import"
-        }
-      },
-      {
-        "type": "dependency",
         "from": "src/domains/platform/settings/settings.controller.ts",
         "to": "src/domains/platform/settings/settings.service.ts",
         "unresolvedTo": "./settings.service",
@@ -32232,8 +32529,8 @@
       {
         "type": "dependency",
         "from": "src/domains/platform/settings/settings.service.ts",
-        "to": "src/domains/money/plans/plan-limits.service.ts",
-        "unresolvedTo": "../../money/plans/plan-limits.service",
+        "to": "src/domains/identity-access/users/users.service.ts",
+        "unresolvedTo": "../../identity-access/users/users.service",
         "dependencyTypes": [
           "local",
           "import"
@@ -32312,11 +32609,11 @@
       }
     ],
     "error": 0,
-    "warn": 83,
+    "warn": 79,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 374,
-    "totalDependenciesCruised": 1498,
+    "totalCruised": 376,
+    "totalDependenciesCruised": 1518,
     "optionsUsed": {
       "baseDir": "C:\\Users\\Eisker\\Documents\\projects\\workplace\\backend",
       "combinedDependencies": false,
