@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -12,7 +13,7 @@ import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
-import { PlatformFeesService } from '../../money/platform-fees/platform-fees.service';
+import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util';
 
 const SERVICE_SELECT = {
@@ -61,7 +62,7 @@ export class ServicesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-    private platformFees: PlatformFeesService
+    @Inject(PLATFORM_FEES_FACADE) private platformFees: PlatformFeesFacade
   ) {}
 
   // ─── Catalog (public) ─────────────────────────────────────────────────────

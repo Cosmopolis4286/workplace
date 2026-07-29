@@ -12,7 +12,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { OrderStatus } from '@prisma/client';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
-import { PlatformFeesService } from '../../money/platform-fees/platform-fees.service';
+import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
 
 // Valid status transitions for business logic enforcement
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -32,7 +32,7 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly telegram: TelegramService,
-    private readonly platformFees: PlatformFeesService,
+    @Inject(PLATFORM_FEES_FACADE) private readonly platformFees: PlatformFeesFacade,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────

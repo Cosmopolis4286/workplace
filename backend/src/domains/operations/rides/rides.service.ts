@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -8,7 +9,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { RideStatus, RideVehicleType, RideServiceType } from '@prisma/client';
 import { CreateRideDto } from './dto/create-ride.dto';
 import { CalculatePriceDto } from './dto/calculate-price.dto';
-import { PlatformFeesService } from '../../money/platform-fees/platform-fees.service';
+import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
 
 const PRICE_PER_KM: Record<RideVehicleType, number> = { MOTORCYCLE: 8, CAR: 12, PICKUP_TRUCK: 16, TRUCK: 22 };
 const BASE_FARE: Record<RideVehicleType, number> = { MOTORCYCLE: 20, CAR: 35, PICKUP_TRUCK: 60, TRUCK: 90 };
@@ -100,7 +101,7 @@ const ALLOWED_TRANSITIONS: Partial<Record<RideStatus, RideStatus[]>> = {
 export class RidesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly platformFees: PlatformFeesService,
+    @Inject(PLATFORM_FEES_FACADE) private readonly platformFees: PlatformFeesFacade,
   ) {}
 
   calculatePrice(dto: CalculatePriceDto) {

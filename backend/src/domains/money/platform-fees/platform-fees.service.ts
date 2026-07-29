@@ -3,11 +3,9 @@ import { FeeTransactionType, FeePayer } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { PlatformFeesFacade, FeeConfig } from './platform-fees.facade';
 
-export interface FeeConfig {
-  rate: number;
-  payer: FeePayer;
-}
+export type { FeeConfig };
 
 export interface UpsertRateDto {
   rate: number;
@@ -23,7 +21,7 @@ export interface CreateOverrideDto {
 }
 
 @Injectable()
-export class PlatformFeesService {
+export class PlatformFeesService implements PlatformFeesFacade {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallets: WalletsService,
