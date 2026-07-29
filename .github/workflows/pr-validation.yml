@@ -37,6 +37,9 @@ jobs:
     - name: Lint
       run: cd backend && pnpm lint:ci
 
+    - name: Validar límites de dominio
+      run: cd backend && pnpm deps:check
+
     - name: Format check
       run: cd backend && pnpm format:check
 

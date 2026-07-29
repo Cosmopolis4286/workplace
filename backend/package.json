@@ -24,7 +24,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=./prisma/schema.prisma",
     "seed": "node prisma/seed.js",
-    "deps:check": "depcruise --config .dependency-cruiser.js --output-type err src",
+    "deps:check": "node scripts/check-cross-domain-imports.js",
     "deps:report": "depcruise --config .dependency-cruiser.js --output-type json src > docs/architecture/dependency-baseline.json",
     "deps:graph": "depcruise --config .dependency-cruiser.js --output-type dot src | dot -T svg > docs/architecture/dependency-graph.svg"
   },

@@ -1,12 +1,20 @@
 /**
- * Fase 0 del refactor arquitectónico: modo solo-reporte.
- * Los módulos de negocio todavía viven planos bajo src/*, sin la estructura
- * src/domains/<categoria>/ de la Fase 3, así que ninguna regla es `error`
- * todavía — bloquear ahora generaría falsos positivos constantes.
+ * Fase 5 del refactor arquitectónico: enforcement real en CI.
  *
- * Esta config se reemplaza en la Fase 5 por reglas `error` reales
- * (no-cross-domain-service-imports, no-business-module-imports-permissions-service)
- * una vez completada la Fase 3.
+ * Tras completar la Fase 3 (mover los ~40 módulos a src/domains/<categoria>/)
+ * y la Fase 4 (PlanLimitsFacade/PlatformFeesFacade), esta config marca
+ * `error` cualquier import de un archivo interno de un dominio desde otro
+ * dominio distinto (no-cross-domain-service-import) o de PermissionsService
+ * fuera de identity-access (no-business-module-imports-permissions-service).
+ *
+ * dependency-cruiser no permite excluir pares (origen, destino) específicos
+ * en su DSL — solo patrones de path. Por eso el CI no corre `depcruise`
+ * directo: corre `node scripts/check-cross-domain-imports.js`, que ejecuta
+ * depcruise con ESTA config y filtra las violaciones ya documentadas en
+ * scripts/known-cross-domain-edges.json antes de decidir el exit code.
+ * Un import cruzado NUEVO que no esté en ese JSON rompe el build de
+ * inmediato; los pares ya listados no bloquean nada pero tampoco crecen
+ * sin que alguien los agregue explícitamente.
  */
 module.exports = {
   forbidden: [
@@ -29,24 +37,55 @@ module.exports = {
     },
     {
       name: 'no-circular',
-      comment: 'Dependencia circular entre módulos — dificulta separar dominios más adelante.',
+      comment:
+        'Dependencia circular entre módulos. Excepción conocida: ' +
+        'domains/money/plans/plan-limits.service.ts <-> domains/platform/system-modules/system-modules.service.ts ' +
+        '(vía la constante ALL_MODULES) — deuda documentada, requiere un rediseño ' +
+        'fuera del alcance de PlanLimitsFacade (Fase 4).',
       severity: 'warn',
       from: {},
       to: { circular: true },
     },
     {
-      name: 'cross-business-module-service-import',
+      // dependency-cruiser no soporta backreferences entre from.path y
+      // to.path en su DSL declarativo, así que esta regla por sí sola NO
+      // distingue "mismo dominio" de "dominio distinto" — reporta TODO
+      // acceso a un archivo .service.ts desde otro archivo de dominio,
+      // intra o inter-dominio. Se deja en 'warn' (informativa) a propósito:
+      // quien decide qué es realmente cross-domain y bloquea el build es
+      // scripts/check-cross-domain-imports.js, que sí compara los
+      // segmentos domains/<A>/ vs domains/<B>/ con JS y aplica la baseline
+      // de scripts/known-cross-domain-edges.json. Correr `depcruise` a
+      // secas para esta regla es ruidoso por diseño — usar `pnpm deps:check`.
+      name: 'no-cross-domain-service-import',
       comment:
-        'Import directo de un archivo interno de otro módulo de negocio (fuera de common/, guards/, decorators/, prisma/, redis/, config/, interceptors/). ' +
-        'Reportado en modo warn para medir la línea base de acoplamiento antes de mover a src/domains/* (Fase 3) ' +
-        'y de introducir facades (Fase 4). No bloquea el build todavía.',
+        'Acceso a un archivo .service.ts de otro archivo dentro de domains/. Filtrado real ' +
+        '(intra vs inter-dominio) y enforcement en scripts/check-cross-domain-imports.js.',
       severity: 'warn',
       from: {
-        path: '^src/(?!common/|guards/|decorators/|prisma/|redis/|config/|interceptors/|i18n/|database/|test/).+\\.(service|controller)\\.ts$',
+        path: '^src/domains/[^/]+/.+\\.(service|controller)\\.ts$',
       },
       to: {
-        path: '^src/(?!common/|guards/|decorators/|prisma/|redis/|config/|interceptors/|i18n/|database/).+\\.(service)\\.ts$',
-        pathNot: '^src/$1',
+        path: '^src/domains/[^/]+/.+\\.service\\.ts$',
+      },
+    },
+    {
+      name: 'no-business-module-imports-permissions-service',
+      comment:
+        'PermissionsService es infraestructura transversal de RBAC: solo guards/controllers ' +
+        'en el borde (o el propio domains/identity-access/permissions/) pueden usarlo directo. ' +
+        'El resto de los dominios debe recibir el resultado ya resuelto vía @CurrentUser()/@RequirePermission(), ' +
+        'no consultar permisos ellos mismos dentro de un service. ' +
+        'Excepción conocida (ver scripts/known-cross-domain-edges.json): ' +
+        'domains/platform/navigation/navigation.service.ts necesita permisos por rol para construir ' +
+        'el árbol de navegación completo — no hay borde HTTP que se lo resuelva antes. ' +
+        'Enforcement real vía scripts/check-cross-domain-imports.js, no esta regla sola.',
+      severity: 'warn',
+      from: {
+        path: '^src/domains/(?!identity-access/).*\\.service\\.ts$',
+      },
+      to: {
+        path: 'domains/identity-access/permissions/permissions\\.service\\.ts$',
       },
     },
   ],
