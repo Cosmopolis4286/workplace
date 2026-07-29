@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { Role } from '@prisma/client'
 import { NavigationService } from '../../domains/platform/navigation/navigation.service'
-import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service'
+import { PERMISSIONS_FACADE } from '../../domains/identity-access/permissions/permissions.facade'
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 
 describe('NavigationService', () => {
@@ -24,7 +24,7 @@ describe('NavigationService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NavigationService,
-        { provide: PermissionsService, useValue: permissionsService },
+        { provide: PERMISSIONS_FACADE, useValue: permissionsService },
         { provide: PLAN_LIMITS_FACADE, useValue: planLimitsService },
       ],
     }).compile()
