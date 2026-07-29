@@ -10,6 +10,7 @@ import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { UsersService } from '../users/users.service';
+import { PermissionsFacade } from './permissions.facade';
 
 const CACHE_TTL = 300;
 const cacheKey = (role: Role) => `permissions:role:${role}`;
@@ -22,7 +23,7 @@ const userVersionKey = (userId: string) => `permissions:version:user:${userId}`;
 const roleVersionKey = (role: Role) => `permissions:version:${role}`;
 
 @Injectable()
-export class PermissionsService {
+export class PermissionsService implements PermissionsFacade {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,

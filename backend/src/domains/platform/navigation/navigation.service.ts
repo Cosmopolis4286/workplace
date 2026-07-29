@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { PermissionsService } from '../../identity-access/permissions/permissions.service';
+import { PermissionsFacade, PERMISSIONS_FACADE } from '../../identity-access/permissions/permissions.facade';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { EXTRA_PROTECTED_ROUTES, NAVIGATION_TREE } from './navigation-tree.data';
 import { NavItemDef, NavigationResponse } from './navigation.types';
@@ -8,7 +8,7 @@ import { NavItemDef, NavigationResponse } from './navigation.types';
 @Injectable()
 export class NavigationService {
   constructor(
-    private readonly permissionsService: PermissionsService,
+    @Inject(PERMISSIONS_FACADE) private readonly permissionsService: PermissionsFacade,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimitsService: PlanLimitsFacade,
   ) {}
 
