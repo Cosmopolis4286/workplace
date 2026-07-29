@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { ALL_MODULES } from '../../money/plans/plan-limits.service';
+import { MODULE_CATALOG } from '../../../common/data/module-catalog.data';
 
 const CACHE_KEY = 'system_modules:disabled';
 const CACHE_TTL = 300; // 5 min, matches the permissions matrix cache pattern
@@ -13,12 +13,18 @@ export class SystemModulesService {
     private redis: RedisService
   ) {}
 
-  /** Full list of modules with their current global enabled state, for the admin panel. */
+  /**
+   * Full list of modules with their current global enabled state, for the
+   * admin panel. Usa el catálogo COMPLETO (incluye módulos "de sistema" como
+   * users/permissions, no solo los de negocio de ALL_MODULES en
+   * plan-limits.service.ts) — el kill-switch global debe poder alcanzar
+   * cualquier módulo, no solo los que tienen plan/categoría propia.
+   */
   async listAll() {
     const rows = await this.prisma.systemModule.findMany();
     const byModule = new Map(rows.map((r) => [r.module, r]));
 
-    return ALL_MODULES.map((module) => {
+    return MODULE_CATALOG.map(({ key: module }) => {
       const row = byModule.get(module);
       return {
         module,

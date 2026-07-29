@@ -2,7 +2,7 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Role } from '@prisma/client';
 import { SystemModulesService } from '../../platform/system-modules/system-modules.service';
-import { MODULE_CATALOG } from './module-catalog.data';
+import { MODULE_CATALOG } from '../../../common/data/module-catalog.data';
 import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
 
 // Módulos de NEGOCIO (con plan/categoría propia) — subset de MODULE_CATALOG.
