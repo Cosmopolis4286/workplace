@@ -1,4 +1,14 @@
-import { PlanLimits } from './plan-limits.service';
+export interface PlanLimits {
+  maxProducts: number;
+  maxEmployees: number;
+  maxBranches: number;
+  maxOrders: number; // per month, -1 = unlimited
+  maxStorage: number;
+  enabledModules: string[]; // modules included in the plan
+  effectiveModules: string[]; // plan ∩ category (what the user actually sees)
+  planName: string;
+  categoryName: string | null;
+}
 
 /**
  * Contrato público de PlanLimitsService para consumidores de otros

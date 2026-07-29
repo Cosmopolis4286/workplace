@@ -3,7 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { Role } from '@prisma/client';
 import { SystemModulesService } from '../../platform/system-modules/system-modules.service';
 import { MODULE_CATALOG } from './module-catalog.data';
-import { PlanLimitsFacade } from './plan-limits.facade';
+import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
 
 // Módulos de NEGOCIO (con plan/categoría propia) — subset de MODULE_CATALOG.
 // Los módulos "de sistema" (users, permissions, audit, etc.) viven en el
@@ -20,18 +20,7 @@ export const ALL_MODULES = MODULE_CATALOG
   .map((m) => m.key) as (typeof BUSINESS_MODULE_KEYS)[number][];
 
 export type AppModule = (typeof ALL_MODULES)[number];
-
-export interface PlanLimits {
-  maxProducts: number;
-  maxEmployees: number;
-  maxBranches: number;
-  maxOrders: number; // per month, -1 = unlimited
-  maxStorage: number;
-  enabledModules: string[]; // modules included in the plan
-  effectiveModules: string[]; // plan ∩ category (what the user actually sees)
-  planName: string;
-  categoryName: string | null;
-}
+export type { PlanLimits };
 
 const UNLIMITED_LIMITS: PlanLimits = {
   maxProducts: -1,
