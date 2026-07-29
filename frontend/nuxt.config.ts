@@ -96,16 +96,17 @@ export default defineNuxtConfig({
 
   pwa: {
     registerType: 'autoUpdate',
+    // country-state-city (dataset completo de países/estados/ciudades del
+    // mundo, cargado on-demand vía import() dinámico en useLocationData.ts)
+    // genera un chunk de ~8.7MB minificado que excede maximumFileSizeToCacheInBytes
+    // — sin este flag, vite-plugin-pwa aborta el build entero por ese único
+    // warning (ver logWorkboxResult) en vez de solo excluir el archivo del
+    // precache. El selector de ubicación requiere red la primera vez que se
+    // abre sin conexión, igual que el resto de la app.
+    showMaximumFileSizeToCacheInBytesWarning: true,
     workbox: {
       navigateFallback: '/',
       globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
-      // country-state-city (dataset completo de países/estados/ciudades del
-      // mundo, cargado on-demand vía import() dinámico en useLocationData.ts)
-      // pesa ~8.7MB minificado — muy por encima de lo que tiene sentido
-      // precachear para offline. maximumFileSizeToCacheInBytes lo excluye del
-      // precache manifest sin tocar el runtime caching del resto de la app;
-      // el selector de ubicación simplemente requiere red la primera vez que
-      // se abre (igual que el resto de la app, que ya depende de la API).
       maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
     },
     client: {
