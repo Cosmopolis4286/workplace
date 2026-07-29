@@ -1,5 +1,6 @@
 import './config/env'; // valida variables de entorno antes de arrancar
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { createAdapter } from '@socket.io/redis-adapter';
@@ -18,7 +19,9 @@ async function bootstrap() {
   const loggerPrisma = new PrismaClient();
   const auditLogger = new AuditLogger(loggerPrisma);
 
-  const app = await NestFactory.create(AppModule, { logger: auditLogger });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: auditLogger,
+  });
 
   // Hay exactamente un proxy (Traefik/nginx) delante del backend: solo ese
   // hop puede sobrescribir x-forwarded-for de forma confiable. Sin esto,
