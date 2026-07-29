@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { RedisService } from '../../../redis/redis.service';
-import { findByIdCacheKey } from '../users/users.service';
+import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { Role } from '@prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -493,7 +493,7 @@ export class ProfilesService {
       },
     });
     // findById cachea `commerce` (Restaurant) anidado, incluyendo avgRating.
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
   }
 
   // Busca una transacción real completada entre author → target: una
@@ -827,7 +827,7 @@ export class ProfilesService {
         dashboardQuickActionIds: true,
       },
     });
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
     return settings;
   }
 
@@ -837,7 +837,7 @@ export class ProfilesService {
       data: { coverImage: coverUrl },
       select: { id: true, coverImage: true },
     });
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
     return user;
   }
 

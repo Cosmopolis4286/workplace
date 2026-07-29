@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisService } from '../../../../redis/redis.service';
-import { findByIdCacheKey } from '../../../identity-access/users/users.service';
+import { userFindByIdCacheKey } from '../../../../common/utils/cache-keys.util';
 import {
   UpdatePaymentSettingsDto,
   UpdateNotificationSettingsDto,
@@ -31,7 +31,7 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
     });
     // findById cachea `commerce` (Restaurant) — sin esto un findById previo a
     // la creación del restaurant (commerce: null) queda stale hasta el TTL.
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
     return created;
   }
 

@@ -1,7 +1,7 @@
 import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { findByIdCacheKey } from '../../identity-access/users/users.service';
+import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { CommerceSettingsStrategy } from './strategies/commerce-settings.strategy';
@@ -58,7 +58,7 @@ export class SettingsService {
       where: { id: restaurant.id },
       data: dto,
     });
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
     return updated;
   }
 

@@ -11,7 +11,8 @@ import { ConfigService } from '@nestjs/config';
 import { I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
-import { UsersService, findByIdCacheKey } from '../users/users.service';
+import { UsersService } from '../users/users.service';
+import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { MailService } from '../../engagement/mail/mail.service';
@@ -272,7 +273,7 @@ export class AuthService {
     ]);
 
     await this.redis.del(`2fa-setup:${userId}`);
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
 
     this.audit.log({
       userId: user.id,
@@ -315,7 +316,7 @@ export class AuthService {
       }),
       this.prisma.twoFactorBackupCode.deleteMany({ where: { userId } }),
     ]);
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
 
     this.audit.log({
       userId: user.id,
@@ -733,7 +734,7 @@ export class AuthService {
         data: { usedAt: new Date() },
       }),
     ]);
-    await this.redis.del(findByIdCacheKey(record.userId));
+    await this.redis.del(userFindByIdCacheKey(record.userId));
 
     return { message: this.i18n.t('auth.email_verification.success') };
   }

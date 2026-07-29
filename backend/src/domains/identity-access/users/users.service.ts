@@ -18,20 +18,17 @@ import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
 import { MailService } from '../../engagement/mail/mail.service';
 import { CommerceProfileCompletionStrategy } from './strategies/commerce-profile-completion.strategy';
 import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-profile-completion.strategy';
+import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 
 export const CURRENT_TERMS_VERSION = '2.0';
 
 // findById se llama en JwtStrategy.validate() en CADA request autenticado —
 // cachear evita una query a Postgres por request. TTL corto porque además de
-// la invalidación explícita en cada write (ver findByIdCacheKey), hay un
-// caso de fan-out (UserCategory.update/delete) donde el TTL es el único
-// límite de staleness aceptado a propósito en vez de invalidar N usuarios.
-//
-// Exportado porque otros servicios (ProfilesService, KycService, AuthService,
-// PlansService, y las strategies de settings/menu que tocan Restaurant) también
-// mutan datos incluidos en el payload cacheado y deben invalidar esta misma key.
+// la invalidación explícita en cada write (ver userFindByIdCacheKey en
+// common/utils/cache-keys.util.ts), hay un caso de fan-out
+// (UserCategory.update/delete) donde el TTL es el único límite de staleness
+// aceptado a propósito en vez de invalidar N usuarios.
 export const FIND_BY_ID_CACHE_TTL = 120;
-export const findByIdCacheKey = (id: string) => `user:find-by-id:${id}`;
 
 @Injectable()
 export class UsersService {
@@ -49,7 +46,7 @@ export class UsersService {
   // (category) o ProfileSettings — ver auditoría de escalabilidad para el
   // mapeo completo de puntos de invalidación.
   private async invalidateFindByIdCache(userId: string): Promise<void> {
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
   }
 
   async create(data: {
@@ -479,7 +476,7 @@ export class UsersService {
   }
 
   async findById(id: string) {
-    const cached = await this.redis.get(findByIdCacheKey(id));
+    const cached = await this.redis.get(userFindByIdCacheKey(id));
     if (cached) return JSON.parse(cached);
 
     const user = await this.prisma.user.findUnique({
@@ -490,7 +487,7 @@ export class UsersService {
     const { password, twoFactorSecret, ...result } = user;
 
     await this.redis.setex(
-      findByIdCacheKey(id),
+      userFindByIdCacheKey(id),
       FIND_BY_ID_CACHE_TTL,
       JSON.stringify(result)
     );

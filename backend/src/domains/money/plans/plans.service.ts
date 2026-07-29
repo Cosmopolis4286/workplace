@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { findByIdCacheKey } from '../../identity-access/users/users.service';
+import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
@@ -275,7 +275,7 @@ export class PlansService {
       where: { id: userId },
       data: { categoryId: dto.categoryId },
     });
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
 
     const subscription = await this.prisma.subscription.create({
       data: {
@@ -345,7 +345,7 @@ export class PlansService {
         data: { role: targetRole as any, accountType: targetRole as AccountType },
       }),
     ]);
-    await this.redis.del(findByIdCacheKey(subscription.userId));
+    await this.redis.del(userFindByIdCacheKey(subscription.userId));
 
     return { subscription: updatedSubscription, targetRole };
   }

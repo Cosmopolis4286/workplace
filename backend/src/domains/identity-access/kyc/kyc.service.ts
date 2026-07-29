@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { KycStatus, Role } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { findByIdCacheKey } from '../users/users.service';
+import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { MailService } from '../../engagement/mail/mail.service';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { ReviewVerificationDto } from './dto/review-verification.dto';
@@ -165,7 +165,7 @@ export class KycService {
         data: { kycStatus: dto.status },
       }),
     ]);
-    await this.redis.del(findByIdCacheKey(verification.userId));
+    await this.redis.del(userFindByIdCacheKey(verification.userId));
 
     const user = await this.prisma.user.findUnique({
       where: { id: verification.userId },

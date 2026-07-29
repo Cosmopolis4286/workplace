@@ -9,7 +9,7 @@ import { I18nService } from 'nestjs-i18n';
 import { ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { findByIdCacheKey } from '../../identity-access/users/users.service';
+import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -52,7 +52,7 @@ export class MenuService {
     });
     // findById cachea `commerce` (Restaurant) — sin esto un findById previo a
     // la creación del restaurant (commerce: null) queda stale hasta el TTL.
-    await this.redis.del(findByIdCacheKey(userId));
+    await this.redis.del(userFindByIdCacheKey(userId));
     return created.id;
   }
 
