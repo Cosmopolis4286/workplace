@@ -2,12 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { MODULE_CATALOG } from '../../../common/data/module-catalog.data';
+import { SystemModulesFacade } from './system-modules.facade';
 
 const CACHE_KEY = 'system_modules:disabled';
 const CACHE_TTL = 300; // 5 min, matches the permissions matrix cache pattern
 
 @Injectable()
-export class SystemModulesService {
+export class SystemModulesService implements SystemModulesFacade {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService

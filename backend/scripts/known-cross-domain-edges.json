@@ -1,5 +1,5 @@
 {
-  "_comment": "Pares (origen -> destino) de imports cross-domain ya existentes al activar dependency-cruiser en modo error (Fase 5 del refactor arquitectónico). Ver check-cross-domain-imports.js. Notifications/Telegram/Mail son utilitarios de salida sin lógica de negocio propia — permanentes, no son deuda. El resto está marcado como deuda real a resolver con una facade futura.",
+  "_comment": "Pares (origen -> destino) de imports cross-domain ya existentes al activar dependency-cruiser en modo error (Fase 5 del refactor arquitectónico). Ver check-cross-domain-imports.js. Notifications/Telegram/Mail son utilitarios de salida sin lógica de negocio propia — permanentes, no son deuda. La sección 'debt' original (menu/plans/settings -> users, plans <-> system-modules, navigation -> permissions) ya se resolvió con facades (PermissionsFacade, SystemModulesFacade) y moviendo cache-keys/module-catalog a common/ — queda vacía a propósito, no se elimina la clave para que quede claro que este JSON es donde documentar nueva deuda si aparece.",
   "permanent": [
     "src/domains/commerce-core/catalog/catalog.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
     "src/domains/commerce-core/menu/menu.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
@@ -19,7 +19,5 @@
     "src/domains/operations/orders/orders.service.ts -> src/domains/engagement/telegram/telegram.service.ts",
     "src/domains/commerce-core/search/search.service.ts -> src/domains/platform/jobs/jobs.service.ts"
   ],
-  "debt": [
-    "src/domains/money/plans/plan-limits.service.ts -> src/domains/platform/system-modules/system-modules.service.ts"
-  ]
+  "debt": []
 }

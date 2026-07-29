@@ -1,7 +1,7 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Inject, Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Role } from '@prisma/client';
-import { SystemModulesService } from '../../platform/system-modules/system-modules.service';
+import { SystemModulesFacade, SYSTEM_MODULES_FACADE } from '../../platform/system-modules/system-modules.facade';
 import { MODULE_CATALOG } from '../../../common/data/module-catalog.data';
 import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
 
@@ -59,7 +59,7 @@ const FREE_LIMITS: PlanLimits = {
 export class PlanLimitsService implements PlanLimitsFacade {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly systemModulesService: SystemModulesService
+    @Inject(SYSTEM_MODULES_FACADE) private readonly systemModulesService: SystemModulesFacade
   ) {}
 
   // ─── Core: plan limits + effective modules ──────────────────────────────────

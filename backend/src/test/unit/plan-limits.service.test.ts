@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { SystemModulesService } from '../../domains/platform/system-modules/system-modules.service'
+import { SYSTEM_MODULES_FACADE } from '../../domains/platform/system-modules/system-modules.facade'
 import { ForbiddenException } from '@nestjs/common'
 import { Role } from '@prisma/client'
 
@@ -34,7 +34,7 @@ describe('PlanLimitsService', () => {
       providers: [
         PlanLimitsService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: SystemModulesService, useValue: mockSystemModulesService },
+        { provide: SYSTEM_MODULES_FACADE, useValue: mockSystemModulesService },
       ],
     }).compile()
 

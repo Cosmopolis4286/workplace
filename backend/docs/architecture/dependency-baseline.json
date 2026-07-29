@@ -953,7 +953,6 @@
         "src/prisma/prisma.module.ts",
         "src/domains/money/plans/plans.module.ts",
         "src/domains/money/plans/plan-limits.service.ts",
-        "src/domains/platform/system-modules/system-modules.service.ts",
         "src/domains/money/plans/plans.controller.ts",
         "src/common/decorators/current-user.decorator.ts",
         "src/common/decorators/roles.decorator.ts",
@@ -1106,6 +1105,7 @@
         "src/domains/platform/settings/strategies/freelancer-settings.strategy.ts",
         "src/domains/platform/system-modules/system-modules.module.ts",
         "src/domains/platform/system-modules/system-modules.controller.ts",
+        "src/domains/platform/system-modules/system-modules.service.ts",
         "src/common/helpers/category.helper.ts",
         "src/common/helpers/category.module.ts",
         "src/database/migration-strategy.service.ts",
@@ -1444,7 +1444,6 @@
         "src/common/middleware/security-context.middleware.ts",
         "src/prisma/prisma.module.ts",
         "src/domains/money/plans/plan-limits.service.ts",
-        "src/domains/platform/system-modules/system-modules.service.ts",
         "src/domains/money/plans/plans.service.ts",
         "src/domains/money/plans/subscriptions.scheduler.ts",
         "src/domains/identity-access/permissions/permissions.service.ts",
@@ -1495,6 +1494,7 @@
         "src/domains/platform/settings/settings.service.ts",
         "src/domains/platform/settings/strategies/commerce-settings.strategy.ts",
         "src/domains/platform/settings/strategies/freelancer-settings.strategy.ts",
+        "src/domains/platform/system-modules/system-modules.service.ts",
         "src/common/helpers/category.helper.ts",
         "src/database/migration-strategy.service.ts",
         "src/database/safe-migration.service.ts",
@@ -1547,6 +1547,7 @@
         "src/domains/identity-access/users/dto/create-user.dto.ts",
         "src/domains/identity-access/users/dto/update-user.dto.ts",
         "src/domains/identity-access/permissions/dto/create-permission.dto.ts",
+        "src/domains/identity-access/permissions/permissions.facade.ts",
         "src/domains/commerce-core/branches/branches.service.ts",
         "src/domains/commerce-core/branches/dto/create-branch.dto.ts",
         "src/domains/commerce-core/branches/dto/update-branch-status.dto.ts",
@@ -1895,7 +1896,6 @@
       "dependents": [
         "src/common/guards/rate-limit.guard.ts",
         "src/common/middleware/security-context.middleware.ts",
-        "src/domains/platform/system-modules/system-modules.service.ts",
         "src/domains/money/plans/plans.service.ts",
         "src/domains/identity-access/permissions/permissions.service.ts",
         "src/domains/identity-access/users/users.service.ts",
@@ -1913,6 +1913,7 @@
         "src/domains/platform/landing/landing.service.ts",
         "src/domains/platform/settings/settings.service.ts",
         "src/domains/platform/settings/strategies/commerce-settings.strategy.ts",
+        "src/domains/platform/system-modules/system-modules.service.ts",
         "src/main.ts",
         "src/test/unit/auth.service.test.ts",
         "src/test/unit/health.controller.test.ts",
@@ -2527,26 +2528,20 @@
         },
         {
           "dynamic": false,
-          "module": "../../platform/system-modules/system-modules.service",
+          "module": "../../platform/system-modules/system-modules.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/platform/system-modules/system-modules.service.ts",
+          "resolved": "src/domains/platform/system-modules/system-modules.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
           "matchesDoNotFollow": false,
           "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "no-cross-domain-service-import"
-            }
-          ]
+          "valid": true
         },
         {
           "dynamic": false,
@@ -2613,88 +2608,19 @@
       "dependencies": [],
       "dependents": [
         "src/domains/money/plans/plan-limits.service.ts",
-        "src/domains/platform/system-modules/system-modules.service.ts",
-        "src/domains/money/plans/plans.controller.ts"
+        "src/domains/money/plans/plans.controller.ts",
+        "src/domains/platform/system-modules/system-modules.service.ts"
       ],
       "orphan": false,
       "valid": true
     },
     {
-      "source": "src/domains/platform/system-modules/system-modules.service.ts",
-      "dependencies": [
-        {
-          "dynamic": false,
-          "module": "../../../common/data/module-catalog.data",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/common/data/module-catalog.data.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "../../../prisma/prisma.service",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/prisma/prisma.service.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "../../../redis/redis.service",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/redis/redis.service.ts",
-          "coreModule": false,
-          "followable": true,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "dynamic": false,
-          "module": "@nestjs/common",
-          "moduleSystem": "es6",
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "npm",
-            "import"
-          ],
-          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": true,
-          "circular": false,
-          "valid": true
-        }
-      ],
+      "source": "src/domains/platform/system-modules/system-modules.facade.ts",
+      "dependencies": [],
       "dependents": [
         "src/domains/money/plans/plan-limits.service.ts",
         "src/domains/platform/system-modules/system-modules.module.ts",
-        "src/domains/platform/system-modules/system-modules.controller.ts",
+        "src/domains/platform/system-modules/system-modules.service.ts",
         "src/test/unit/plan-limits.service.test.ts"
       ],
       "orphan": false,
@@ -4240,6 +4166,23 @@
         },
         {
           "dynamic": false,
+          "module": "./permissions.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/permissions/permissions.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "@nestjs/common",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -4277,9 +4220,7 @@
         "src/common/guards/permissions.guard.ts",
         "src/domains/identity-access/permissions/permissions.module.ts",
         "src/domains/identity-access/permissions/permissions.controller.ts",
-        "src/domains/platform/navigation/navigation.service.ts",
         "src/test/unit/analytics.controller.test.ts",
-        "src/test/unit/navigation.service.test.ts",
         "src/test/unit/permissions.guard.test.ts",
         "src/test/unit/permissions.service.test.ts"
       ],
@@ -5073,6 +5014,36 @@
       "dependents": [
         "src/domains/identity-access/permissions/permissions.service.ts",
         "src/domains/identity-access/permissions/permissions.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/identity-access/permissions/permissions.facade.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "@prisma/client",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client/default.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/identity-access/permissions/permissions.service.ts",
+        "src/domains/identity-access/permissions/permissions.module.ts",
+        "src/domains/platform/navigation/navigation.service.ts",
+        "src/test/unit/navigation.service.test.ts"
       ],
       "orphan": false,
       "valid": true
@@ -17350,6 +17321,23 @@
         },
         {
           "dynamic": false,
+          "module": "./permissions.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/identity-access/permissions/permissions.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "./permissions.service",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -26586,30 +26574,20 @@
       "dependencies": [
         {
           "dynamic": false,
-          "module": "../../identity-access/permissions/permissions.service",
+          "module": "../../identity-access/permissions/permissions.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/identity-access/permissions/permissions.service.ts",
+          "resolved": "src/domains/identity-access/permissions/permissions.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
           "matchesDoNotFollow": false,
           "circular": false,
-          "valid": false,
-          "rules": [
-            {
-              "severity": "warn",
-              "name": "no-cross-domain-service-import"
-            },
-            {
-              "severity": "warn",
-              "name": "no-business-module-imports-permissions-service"
-            }
-          ]
+          "valid": true
         },
         {
           "dynamic": false,
@@ -27564,6 +27542,23 @@
         },
         {
           "dynamic": false,
+          "module": "./system-modules.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/platform/system-modules/system-modules.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
           "module": "./system-modules.service",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
@@ -27777,6 +27772,102 @@
         }
       ],
       "dependents": [
+        "src/domains/platform/system-modules/system-modules.controller.ts"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "src/domains/platform/system-modules/system-modules.service.ts",
+      "dependencies": [
+        {
+          "dynamic": false,
+          "module": "../../../common/data/module-catalog.data",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/common/data/module-catalog.data.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../../prisma/prisma.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/prisma/prisma.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "../../../redis/redis.service",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/redis/redis.service.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "./system-modules.facade",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "local",
+            "import"
+          ],
+          "resolved": "src/domains/platform/system-modules/system-modules.facade.ts",
+          "coreModule": false,
+          "followable": true,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "dynamic": false,
+          "module": "@nestjs/common",
+          "moduleSystem": "es6",
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "npm",
+            "import"
+          ],
+          "resolved": "../node_modules/.pnpm/@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/common/index.js",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": false,
+          "matchesDoNotFollow": true,
+          "circular": false,
+          "valid": true
+        }
+      ],
+      "dependents": [
+        "src/domains/platform/system-modules/system-modules.module.ts",
         "src/domains/platform/system-modules/system-modules.controller.ts"
       ],
       "orphan": false,
@@ -30284,14 +30375,14 @@
       "dependencies": [
         {
           "dynamic": false,
-          "module": "../../domains/identity-access/permissions/permissions.service",
+          "module": "../../domains/identity-access/permissions/permissions.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/identity-access/permissions/permissions.service.ts",
+          "resolved": "src/domains/identity-access/permissions/permissions.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -30919,14 +31010,14 @@
         },
         {
           "dynamic": false,
-          "module": "../../domains/platform/system-modules/system-modules.service",
+          "module": "../../domains/platform/system-modules/system-modules.facade",
           "moduleSystem": "es6",
           "exoticallyRequired": false,
           "dependencyTypes": [
             "local",
             "import"
           ],
-          "resolved": "src/domains/platform/system-modules/system-modules.service.ts",
+          "resolved": "src/domains/platform/system-modules/system-modules.facade.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -31480,20 +31571,6 @@
   ],
   "summary": {
     "violations": [
-      {
-        "type": "dependency",
-        "from": "src/domains/platform/navigation/navigation.service.ts",
-        "to": "src/domains/identity-access/permissions/permissions.service.ts",
-        "unresolvedTo": "../../identity-access/permissions/permissions.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "no-business-module-imports-permissions-service"
-        }
-      },
       {
         "type": "dependency",
         "from": "src/domains/commerce-core/branches/branches.controller.ts",
@@ -32098,20 +32175,6 @@
       },
       {
         "type": "dependency",
-        "from": "src/domains/money/plans/plan-limits.service.ts",
-        "to": "src/domains/platform/system-modules/system-modules.service.ts",
-        "unresolvedTo": "../../platform/system-modules/system-modules.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "no-cross-domain-service-import"
-        }
-      },
-      {
-        "type": "dependency",
         "from": "src/domains/money/plans/plans.controller.ts",
         "to": "src/domains/money/plans/plan-limits.service.ts",
         "unresolvedTo": "./plan-limits.service",
@@ -32448,20 +32511,6 @@
       },
       {
         "type": "dependency",
-        "from": "src/domains/platform/navigation/navigation.service.ts",
-        "to": "src/domains/identity-access/permissions/permissions.service.ts",
-        "unresolvedTo": "../../identity-access/permissions/permissions.service",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ],
-        "rule": {
-          "severity": "warn",
-          "name": "no-cross-domain-service-import"
-        }
-      },
-      {
-        "type": "dependency",
         "from": "src/domains/platform/settings/settings.controller.ts",
         "to": "src/domains/platform/settings/settings.service.ts",
         "unresolvedTo": "./settings.service",
@@ -32499,11 +32548,11 @@
       }
     ],
     "error": 0,
-    "warn": 73,
+    "warn": 70,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 377,
-    "totalDependenciesCruised": 1521,
+    "totalCruised": 379,
+    "totalDependenciesCruised": 1526,
     "optionsUsed": {
       "baseDir": "C:\\Users\\Eisker\\Documents\\projects\\workplace\\backend",
       "combinedDependencies": false,
