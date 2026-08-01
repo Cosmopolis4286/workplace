@@ -90,6 +90,13 @@ async function bootstrap() {
   const auditService = app.get(AuditService);
   app.useGlobalInterceptors(new AuditInterceptor(auditService));
 
+  // app.get() no dispara onModuleInit() — solo resuelve del contenedor DI.
+  // RedisService.client se asigna en su onModuleInit(), así que sin este
+  // init() explícito, duplicate() truena con "Cannot read properties of
+  // undefined" porque el client aún no existe (init real ocurre recién en
+  // app.listen(), varias líneas más abajo).
+  await app.init();
+
   // Adapter de Redis para Socket.IO: sin esto, las salas (user:*, restaurant:*)
   // viven solo en memoria del proceso y un evento emitido desde una instancia
   // nunca llega a un cliente conectado a otra instancia. Necesario para poder

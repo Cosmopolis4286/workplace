@@ -286,15 +286,18 @@ export class OrdersService {
 
     if (dto.status === 'DELIVERED') {
       data.completedAt = new Date();
-      // Update customer stats for revenue
-      if (existing.customerId && existing.status !== 'DELIVERED') {
-        await this.prisma.customer.update({
-          where: { id: existing.customerId },
-          data: { totalSpent: { increment: existing.total } },
-        });
-      }
 
-      // Comisión de plataforma a cargo del comercio, si aplica
+      // Comisión de plataforma a cargo del comercio, si aplica. Se cobra
+      // ANTES de la transacción de abajo a propósito: chargeProviderFee toca
+      // el sistema de wallets (su propia lógica de idempotencia, fuera de
+      // este archivo), y no es seguro anidarlo dentro de un $transaction de
+      // Prisma sin auditar ese código primero. Riesgo residual conocido: si
+      // el cobro tiene éxito pero la $transaction de abajo falla después,
+      // queda una comisión cobrada sin que el pedido refleje
+      // platformFeePayer='PROVIDER' — el guard `!existing.platformFeePayer`
+      // no protegería un reintento posterior contra un segundo cobro. No es
+      // best-effort: requeriría revisar chargeProviderFee para hacerlo
+      // seguro de anidar, o agregar una tabla de idempotencia por orderId.
       if (!existing.platformFeePayer) {
         const restaurant = await this.prisma.restaurant.findUnique({
           where: { id: commerceId },
@@ -320,9 +323,22 @@ export class OrdersService {
     }
     if (dto.status === 'CANCELLED') {
       data.cancelledAt = new Date();
-      // Reverse customer stats if was previously counted
-      if (existing.customerId) {
-        await this.prisma.customer.update({
+    }
+
+    // Stats del cliente + el pedido mismo sí son seguros de atomizar: ambos
+    // son escrituras directas de Prisma sobre esta misma base de datos. Sin
+    // esto, un fallo entre el update de Customer y el de Order dejaba las
+    // stats (totalOrders/totalSpent) desincronizadas del estado real del
+    // pedido de forma permanente, sin ningún mecanismo de reconciliación.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (dto.status === 'DELIVERED' && existing.customerId && existing.status !== 'DELIVERED') {
+        await tx.customer.update({
+          where: { id: existing.customerId },
+          data: { totalSpent: { increment: existing.total } },
+        });
+      }
+      if (dto.status === 'CANCELLED' && existing.customerId) {
+        await tx.customer.update({
           where: { id: existing.customerId },
           data: {
             totalOrders: { decrement: 1 },
@@ -330,12 +346,12 @@ export class OrdersService {
           },
         });
       }
-    }
 
-    const updated = await this.prisma.order.update({
-      where: { id },
-      data,
-      include: { items: true },
+      return tx.order.update({
+        where: { id },
+        data,
+        include: { items: true },
+      });
     });
 
     if (dto.status && dto.status !== existing.status) {

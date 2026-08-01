@@ -39,7 +39,9 @@ describe('OrdersService', () => {
     customer: {
       update: jest.fn(),
     },
-    $transaction: jest.fn(),
+    $transaction: jest.fn((callback: (tx: any) => unknown) =>
+      callback(mockPrismaService)
+    ),
   }
 
   const mockNotificationsService = {
