@@ -4,12 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
+import { Prisma, CashMovementType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { OpenSessionDto } from './dto/open-session.dto';
 import { CloseSessionDto } from './dto/close-session.dto';
 import { CreateMovementDto } from './dto/create-movement.dto';
 import { QuerySessionsDto } from './dto/query-sessions.dto';
-import { CashMovementType } from '@prisma/client';
 
 @Injectable()
 export class CashService {
@@ -47,36 +47,61 @@ export class CashService {
     });
     if (existing) throw new ConflictException(this.i18n.t('cash.session.already_open'));
 
-    return this.prisma.cashSession.create({
-      data: {
-        commerceId,
-        openedBy,
-        openingAmount: dto.openingAmount,
-        notes: dto.notes,
-      },
-    });
+    // El chequeo de arriba deja una ventana de carrera (dos requests
+    // concurrentes pueden pasarlo antes de que cualquiera haga el create).
+    // La garantía real es el índice único parcial
+    // cash_sessions_commerceId_open_unique (WHERE status='OPEN') agregado en
+    // la migración unique_open_cash_session_per_commerce — si la carrera
+    // ocurre, el segundo create() falla con P2002 y lo traducimos al mismo
+    // error legible en vez de dejar que caiga al 409 genérico del filtro global.
+    try {
+      return await this.prisma.cashSession.create({
+        data: {
+          commerceId,
+          openedBy,
+          openingAmount: dto.openingAmount,
+          notes: dto.notes,
+        },
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException(this.i18n.t('cash.session.already_open'));
+      }
+      throw e;
+    }
   }
 
   async close(commerceId: string, closedBy: string, dto: CloseSessionDto) {
-    const session = await this.prisma.cashSession.findFirst({
-      where: { commerceId, status: 'OPEN' },
-    });
-    if (!session) throw new NotFoundException(this.i18n.t('cash.session.no_open_session'));
+    // Lectura (ventas/movimientos → expectedAmount) y escritura (el update
+    // que cierra la sesión) en una sola transacción: si quedaran separadas,
+    // un CashMovement agregado entre el cálculo y el update dejaría la
+    // sesión cerrada con un expectedAmount que ya no refleja lo que había en
+    // el momento real del cierre — el "arqueo" quedaría mal calculado sin
+    // que nada lo señale.
+    return this.prisma.$transaction(async (tx) => {
+      const session = await tx.cashSession.findFirst({
+        where: { commerceId, status: 'OPEN' },
+      });
+      if (!session) throw new NotFoundException(this.i18n.t('cash.session.no_open_session'));
 
-    const { expectedAmount } = await this.getSummary(commerceId, session);
-    const difference = dto.countedAmount - expectedAmount;
+      const { expectedAmount } = await this.getSummary(commerceId, session, tx);
+      const difference = dto.countedAmount - expectedAmount;
 
-    return this.prisma.cashSession.update({
-      where: { id: session.id },
-      data: {
-        status: 'CLOSED',
-        countedAmount: dto.countedAmount,
-        expectedAmount,
-        difference,
-        closedAt: new Date(),
-        closedBy,
-        closingNotes: dto.closingNotes,
-      },
+      return tx.cashSession.update({
+        where: { id: session.id },
+        data: {
+          status: 'CLOSED',
+          countedAmount: dto.countedAmount,
+          expectedAmount,
+          difference,
+          closedAt: new Date(),
+          closedBy,
+          closingNotes: dto.closingNotes,
+        },
+      });
     });
   }
 
@@ -138,10 +163,11 @@ export class CashService {
 
   private async getSummary(
     commerceId: string,
-    session: { id: string; openingAmount: number; openedAt: Date }
+    session: { id: string; openingAmount: number; openedAt: Date },
+    client: Prisma.TransactionClient | PrismaService = this.prisma
   ) {
     const [cashSales, movements] = await Promise.all([
-      this.prisma.order.aggregate({
+      client.order.aggregate({
         where: {
           commerceId,
           paymentMethod: 'CASH',
@@ -151,7 +177,7 @@ export class CashService {
         _sum: { total: true },
         _count: true,
       }),
-      this.prisma.cashMovement.groupBy({
+      client.cashMovement.groupBy({
         by: ['type'],
         where: { sessionId: session.id },
         _sum: { amount: true },

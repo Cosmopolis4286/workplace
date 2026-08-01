@@ -22,6 +22,9 @@ describe('CashService', () => {
     order: {
       aggregate: jest.fn(),
     },
+    $transaction: jest.fn((callback: (tx: any) => unknown) =>
+      callback(mockPrismaService)
+    ),
   }
 
   const I18N_MESSAGES: Record<string, string> = {
