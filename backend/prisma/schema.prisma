@@ -1005,9 +1005,12 @@ model CashSession {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  // Solo puede existir una sesión OPEN a la vez por comercio — se aplica en
-  // el service (Prisma no soporta unique parcial multiplataforma aquí), ver
-  // CashService.open().
+  // Solo puede existir una sesión OPEN a la vez por comercio. Prisma no
+  // soporta índices únicos parciales en su DSL, así que la garantía real es
+  // un índice único parcial agregado a mano en la migración
+  // unique_open_cash_session_per_commerce (SQL crudo, WHERE status='OPEN').
+  // CashService.open() igual chequea antes de crear, solo para devolver un
+  // 409 legible en el caso común — el índice es lo que evita la carrera.
   @@map("cash_sessions")
 }
 
@@ -1692,7 +1695,7 @@ model Subscription {
 enum FeeTransactionType {
   ORDER
   SERVICE_REQUEST
-  CORRIDA
+  RIDE
 }
 
 enum FeePayer {

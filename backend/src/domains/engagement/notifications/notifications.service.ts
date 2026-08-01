@@ -297,13 +297,13 @@ export class NotificationsService {
 
   async notifyPlatformFeeCharged(
     userId: string,
-    type: 'ORDER' | 'SERVICE_REQUEST' | 'CORRIDA',
+    type: 'ORDER' | 'SERVICE_REQUEST' | 'RIDE',
     feeAmount: number
   ) {
     const labels: Record<string, string> = {
       ORDER: 'pedido',
       SERVICE_REQUEST: 'servicio',
-      CORRIDA: 'viaje',
+      RIDE: 'viaje',
     };
     return this.createForUser(userId, {
       type: NotificationType.SYSTEM,

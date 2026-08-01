@@ -126,7 +126,7 @@ export class RidesService {
       duration = est.duration;
     }
 
-    const feeConfig = await this.platformFees.resolveFeeConfig('CORRIDA', passengerId);
+    const feeConfig = await this.platformFees.resolveFeeConfig('RIDE', passengerId);
     let platformFeeAmount: number | undefined;
     if (feeConfig?.payer === 'CLIENT' && price != null) {
       platformFeeAmount = this.platformFees.calculateFee(price, feeConfig).feeAmount;
@@ -237,11 +237,11 @@ export class RidesService {
       extra.completedAt = new Date();
 
       if (!ride.platformFeePayer && ride.price && ride.driverId) {
-        const feeConfig = await this.platformFees.resolveFeeConfig('CORRIDA', ride.driverId);
+        const feeConfig = await this.platformFees.resolveFeeConfig('RIDE', ride.driverId);
         if (feeConfig?.payer === 'PROVIDER') {
           const { feeAmount } = this.platformFees.calculateFee(ride.price, feeConfig);
           await this.platformFees.chargeProviderFee(
-            'CORRIDA',
+            'RIDE',
             ride.driverId,
             feeAmount,
             `FEE-RIDE-${rideId}`,
