@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { Role, WalletTransactionType, WalletTransactionStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { WalletPinService } from './wallet-pin.service';
@@ -18,6 +21,8 @@ import { TransferDto } from './dto/transfer.dto';
 import { PaymentDto } from './dto/payment.dto';
 import { AdjustDto } from './dto/adjust.dto';
 import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
+import { ESCROW_SYSTEM_USER_EMAIL } from './escrow-system-user.const';
+import { ServicesService } from '../../commerce-core/services/services.service';
 
 const ADMIN_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
 const IDEMPOTENCY_TTL = 60 * 60; // 1 hour
@@ -29,6 +34,8 @@ export class WalletsService {
     private readonly redis: RedisService,
     private readonly pinService: WalletPinService,
     private readonly limitsService: WalletLimitsService,
+    @Inject(forwardRef(() => ServicesService))
+    private readonly services: ServicesService,
   ) {}
 
   // ─── Wallet CRUD ─────────────────────────────────────────────────────────────
@@ -193,6 +200,12 @@ export class WalletsService {
     if (dto.idempotencyKey) {
       await this.setIdempotent(dto.idempotencyKey, userId, 'deposit', result);
     }
+
+    // Fire-and-forget: si este depósito le da saldo suficiente a alguna
+    // solicitud de servicio con escrow pendiente (PENDING_FUNDS), reintenta
+    // la retención ahora en vez de esperar al cron de respaldo (hasta 1h).
+    this.services.retryPendingEscrowsForClient(userId).catch(() => {});
+
     return result;
   }
 
@@ -444,6 +457,206 @@ export class WalletsService {
       });
 
       return { wallet: { ...wallet, balance: row.new_balance }, transaction };
+    });
+  }
+
+  // ─── Escrow (garantía de plataforma para ServiceRequest) ──────────────────────
+
+  private escrowSystemUserId: string | null = null;
+
+  // Resuelve (y crea perezosamente si no existe) el usuario de sistema cuya
+  // wallet intermedia los fondos retenidos. Cacheado en memoria: el id es
+  // estable una vez creado, no hace falta ir a la DB en cada retención.
+  private async ensureEscrowSystemUserId(): Promise<string> {
+    if (this.escrowSystemUserId) return this.escrowSystemUserId;
+
+    let user = await this.prisma.user.findUnique({
+      where: { email: ESCROW_SYSTEM_USER_EMAIL },
+      select: { id: true },
+    });
+    if (!user) {
+      const hashedPassword = await bcrypt.hash(uuidv4(), 12);
+      user = await this.prisma.user.create({
+        data: {
+          email: ESCROW_SYSTEM_USER_EMAIL,
+          password: hashedPassword,
+          firstName: 'Escrow',
+          lastName: 'Sistema',
+          role: Role.ADMIN,
+          userType: 'APP',
+          isActive: true,
+          emailVerified: true,
+        },
+        select: { id: true },
+      });
+    }
+    this.escrowSystemUserId = user.id;
+    return user.id;
+  }
+
+  // Retiene el monto total del cliente en la wallet de plataforma cuando el
+  // proveedor fija el precio de una solicitud con hasEscrow=true. Atómico:
+  // débito del cliente + crédito a la wallet de plataforma en una transacción.
+  // Lanza BadRequestException si el cliente no tiene saldo suficiente — el
+  // caller (services.service.ts) es responsable de dejar la solicitud en
+  // escrowStatus=PENDING_FUNDS y disparar la notificación/reintento.
+  async holdEscrow(clientUserId: string, amount: number, serviceRequestId: string) {
+    this.assertPositiveAmount(amount);
+    const { wallet: clientWallet } = await this.getActiveWallet(clientUserId);
+    this.assertSufficientFunds(clientWallet.balance, amount);
+
+    const systemUserId = await this.ensureEscrowSystemUserId();
+    const systemWallet = await this.ensureWalletForUser(systemUserId);
+    const ref = `ESCROW-HOLD-${serviceRequestId}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      const [clientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = balance - ${amount}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${clientWallet.id}
+          AND balance >= ${amount}::numeric
+        RETURNING balance AS new_balance
+      `;
+      if (!clientRow) throw new BadRequestException('Saldo insuficiente para retener la garantía');
+
+      const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = balance + ${amount}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${systemWallet.id}
+        RETURNING balance AS new_balance
+      `;
+
+      await tx.walletTransaction.create({
+        data: {
+          walletId: clientWallet.id, userId: clientUserId,
+          type: WalletTransactionType.DEBIT,
+          status: WalletTransactionStatus.COMPLETED,
+          amount, balanceAfter: clientRow.new_balance,
+          description: 'Garantía retenida para solicitud de servicio',
+          reference: ref,
+          metadata: { serviceRequestId },
+        },
+      });
+      const systemTransaction = await tx.walletTransaction.create({
+        data: {
+          walletId: systemWallet.id, userId: systemUserId,
+          type: WalletTransactionType.CREDIT,
+          status: WalletTransactionStatus.COMPLETED,
+          amount, balanceAfter: systemRow.new_balance,
+          description: 'Garantía retenida (intermediación)',
+          reference: ref,
+          metadata: { serviceRequestId, clientUserId },
+        },
+      });
+
+      return { transaction: systemTransaction };
+    });
+  }
+
+  // Libera el escrow al proveedor cuando el cliente confirma la finalización.
+  // El monto liberado ya debe venir neto de la comisión de plataforma (el
+  // caller resta platformFeeAmount antes de invocar esto) — la comisión en sí
+  // se cobra aparte vía chargeProviderFee, no se duplica acá.
+  async releaseEscrow(serviceRequestId: string, providerId: string, amount: number) {
+    this.assertPositiveAmount(amount);
+    const systemUserId = await this.ensureEscrowSystemUserId();
+    const systemWallet = await this.ensureWalletForUser(systemUserId);
+    const providerWallet = await this.ensureWalletForUser(providerId);
+    const ref = `ESCROW-RELEASE-${serviceRequestId}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = GREATEST(balance - ${amount}::numeric, 0),
+            "updatedAt" = NOW()
+        WHERE id = ${systemWallet.id}
+        RETURNING balance AS new_balance
+      `;
+      const [providerRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = balance + ${amount}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${providerWallet.id}
+        RETURNING balance AS new_balance
+      `;
+
+      await tx.walletTransaction.create({
+        data: {
+          walletId: systemWallet.id, userId: systemUserId,
+          type: WalletTransactionType.DEBIT,
+          status: WalletTransactionStatus.COMPLETED,
+          amount, balanceAfter: systemRow.new_balance,
+          description: 'Garantía liberada (intermediación)',
+          reference: ref,
+          metadata: { serviceRequestId, providerId },
+        },
+      });
+      const providerTransaction = await tx.walletTransaction.create({
+        data: {
+          walletId: providerWallet.id, userId: providerId,
+          type: WalletTransactionType.CREDIT,
+          status: WalletTransactionStatus.COMPLETED,
+          amount, balanceAfter: providerRow.new_balance,
+          description: 'Pago de servicio (garantía liberada)',
+          reference: ref,
+          metadata: { serviceRequestId },
+        },
+      });
+
+      return { transaction: providerTransaction };
+    });
+  }
+
+  // Reembolsa el escrow al cliente (cancelación/rechazo de la solicitud).
+  async refundEscrow(serviceRequestId: string, clientUserId: string, amount: number) {
+    this.assertPositiveAmount(amount);
+    const systemUserId = await this.ensureEscrowSystemUserId();
+    const systemWallet = await this.ensureWalletForUser(systemUserId);
+    const clientWallet = await this.ensureWalletForUser(clientUserId);
+    const ref = `ESCROW-REFUND-${serviceRequestId}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = GREATEST(balance - ${amount}::numeric, 0),
+            "updatedAt" = NOW()
+        WHERE id = ${systemWallet.id}
+        RETURNING balance AS new_balance
+      `;
+      const [clientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+        UPDATE "Wallet"
+        SET balance = balance + ${amount}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${clientWallet.id}
+        RETURNING balance AS new_balance
+      `;
+
+      await tx.walletTransaction.create({
+        data: {
+          walletId: systemWallet.id, userId: systemUserId,
+          type: WalletTransactionType.DEBIT,
+          status: WalletTransactionStatus.COMPLETED,
+          amount, balanceAfter: systemRow.new_balance,
+          description: 'Reembolso de garantía (intermediación)',
+          reference: ref,
+          metadata: { serviceRequestId, clientUserId },
+        },
+      });
+      const clientTransaction = await tx.walletTransaction.create({
+        data: {
+          walletId: clientWallet.id, userId: clientUserId,
+          type: WalletTransactionType.CREDIT,
+          status: WalletTransactionStatus.COMPLETED,
+          amount, balanceAfter: clientRow.new_balance,
+          description: 'Garantía reembolsada',
+          reference: ref,
+          metadata: { serviceRequestId },
+        },
+      });
+
+      return { transaction: clientTransaction };
     });
   }
 

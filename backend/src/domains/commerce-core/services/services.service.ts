@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ServiceStatus, ServiceEventType, Prisma, Role } from '@prisma/client';
@@ -14,6 +15,8 @@ import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
+import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
+import { WalletsService } from '../../money/wallets/wallets.service';
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util';
 
 const SERVICE_SELECT = {
@@ -62,7 +65,9 @@ export class ServicesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-    @Inject(PLATFORM_FEES_FACADE) private platformFees: PlatformFeesFacade
+    @Inject(PLATFORM_FEES_FACADE) private platformFees: PlatformFeesFacade,
+    @Inject(PLAN_LIMITS_FACADE) private planLimits: PlanLimitsFacade,
+    @Inject(forwardRef(() => WalletsService)) private wallets: WalletsService
   ) {}
 
   // ─── Catalog (public) ─────────────────────────────────────────────────────
@@ -273,6 +278,9 @@ export class ServicesService {
   }
 
   async createService(userId: string, dto: CreateServiceDto) {
+    if (dto.status !== ServiceStatus.PAUSED && dto.status !== ServiceStatus.INACTIVE) {
+      await this.planLimits.assertServiceLimit(userId);
+    }
     return this.prisma.service.create({
       data: { ...dto, tags: normalizeTags(dto.tags) ?? [], userId },
       select: SERVICE_SELECT,
@@ -299,6 +307,9 @@ export class ServicesService {
       s.status === ServiceStatus.ACTIVE
         ? ServiceStatus.PAUSED
         : ServiceStatus.ACTIVE;
+    if (next === ServiceStatus.ACTIVE) {
+      await this.planLimits.assertServiceLimit(userId);
+    }
     return this.prisma.service.update({
       where: { id },
       data: { status: next },
@@ -415,6 +426,8 @@ export class ServicesService {
         'Has enviado demasiadas solicitudes en poco tiempo. Espera unos minutos antes de intentar de nuevo.'
       );
     }
+
+    await this.planLimits.assertServiceRequestLimit(dto.providerId);
 
     const preferredDate = new Date(dto.preferredDate);
     if (dto.preferredTime) {
@@ -655,6 +668,56 @@ export class ServicesService {
       } else {
         update.price = data.price;
       }
+
+      // Retención de garantía: solo si el proveedor ofrece este servicio con
+      // escrow, todavía no se retuvo nada para esta solicitud (evita
+      // doble-retención si el precio se corrige más de una vez), y esta misma
+      // llamada no está rechazando/cancelando la solicitud a la vez.
+      const resultingStatus = update.status ?? req.status;
+      const isTerminalNow = ServicesService.TERMINAL_STATUSES.includes(resultingStatus);
+      if (req.escrowStatus === 'NONE' && !isTerminalNow) {
+        const service = await this.prisma.service.findUnique({
+          where: { id: req.serviceId },
+          select: { hasEscrow: true },
+        });
+        if (service?.hasEscrow) {
+          if (!req.requesterId) {
+            throw new BadRequestException(
+              'Este servicio requiere garantía de plataforma; el cliente debe estar autenticado con una billetera.'
+            );
+          }
+          try {
+            await this.wallets.holdEscrow(req.requesterId, update.price, id);
+            update.escrowStatus = 'HELD';
+            update.escrowAmount = update.price;
+            update.escrowHeldAt = new Date();
+          } catch {
+            // Saldo insuficiente: la solicitud igual avanza (el proveedor ya
+            // fijó el precio), pero el escrow queda pendiente de reintento
+            // automático (hook de depósito + cron de respaldo, ver 3.3b).
+            update.escrowStatus = 'PENDING_FUNDS';
+            update.escrowAmount = update.price;
+            this.notifications
+              .notifyEscrowFundsNeeded(req.requesterId, req.providerName, req.serviceName, update.price)
+              .catch(() => {});
+          }
+        }
+      }
+    }
+
+    // Reembolsa la garantía si ya estaba retenida/pendiente y esta misma
+    // llamada rechaza la solicitud (edge case: precio y rechazo en un solo
+    // request). En el flujo normal REJECTED solo es alcanzable desde
+    // PENDING/SEEN, antes de que exista nada que retener — esto es solo
+    // defensa en profundidad, no-op si no hay escrow que devolver.
+    if (data.status === 'REJECTED' && req.requesterId) {
+      if (update.escrowStatus === 'HELD' && update.escrowAmount) {
+        await this.wallets.refundEscrow(id, req.requesterId, update.escrowAmount);
+        update.escrowStatus = 'REFUNDED';
+      } else if (update.escrowStatus === 'PENDING_FUNDS') {
+        update.escrowStatus = 'NONE';
+        update.escrowAmount = null;
+      }
     }
 
     const updated = await this.prisma.serviceRequest.update({ where: { id }, data: update });
@@ -732,11 +795,25 @@ export class ServicesService {
       );
     }
 
+    // Libera el escrow al proveedor. El monto liberado ya viene neto de la
+    // comisión cuando el proveedor la paga (feeData) — la comisión en sí ya se
+    // cobró arriba vía chargeProviderFee, así que acá no se duplica. Si el
+    // escrow quedó PENDING_FUNDS (el cliente nunca alcanzó a cubrir la
+    // garantía), no hay nada que liberar — el servicio igual se marca
+    // completado, pero el proveedor cobró $0 de este trato.
+    if (req.escrowStatus === 'HELD' && req.escrowAmount) {
+      const releaseAmount = feeData ? req.escrowAmount - feeData.feeAmount : req.escrowAmount;
+      if (releaseAmount > 0) {
+        await this.wallets.releaseEscrow(id, req.providerId, releaseAmount);
+      }
+    }
+
     const updated = await this.prisma.serviceRequest.update({
       where: { id },
       data: {
         status: 'CLOSED',
         statusUpdatedAt: new Date(),
+        ...(req.escrowStatus === 'HELD' ? { escrowStatus: 'RELEASED' } : {}),
         ...(feeData ? {
           platformFeeRate: feeData.feeConfig.rate,
           platformFeeAmount: feeData.feeAmount,
@@ -760,7 +837,10 @@ export class ServicesService {
   }
 
   // El cliente (requester) cancela su propia solicitud antes de que el proveedor
-  // invierta tiempo contactándolo. Solo válido desde PENDING/SEEN.
+  // invierta tiempo contactándolo. Solo válido desde PENDING/SEEN — en el flujo
+  // normal esto es antes de que exista precio/escrow (se fijan en CONTACTED),
+  // pero el reembolso condicional de abajo es defensa en profundidad por si
+  // las transiciones válidas cambian más adelante.
   async cancelServiceRequest(id: string, userId: string) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
@@ -768,9 +848,18 @@ export class ServicesService {
       throw new ForbiddenException('No tienes permiso');
     this.assertValidStatusTransition(req.status, 'CANCELLED');
 
+    const escrowUpdate: any = {};
+    if (req.escrowStatus === 'HELD' && req.escrowAmount) {
+      await this.wallets.refundEscrow(id, userId, req.escrowAmount);
+      escrowUpdate.escrowStatus = 'REFUNDED';
+    } else if (req.escrowStatus === 'PENDING_FUNDS') {
+      escrowUpdate.escrowStatus = 'NONE';
+      escrowUpdate.escrowAmount = null;
+    }
+
     const updated = await this.prisma.serviceRequest.update({
       where: { id },
-      data: { status: 'CANCELLED', statusUpdatedAt: new Date() },
+      data: { status: 'CANCELLED', statusUpdatedAt: new Date(), ...escrowUpdate },
     });
 
     await this.prisma.serviceRequestStatusHistory.create({
@@ -787,6 +876,63 @@ export class ServicesService {
       .catch(() => {});
 
     return updated;
+  }
+
+  // ─── Escrow retry (3.3b) ────────────────────────────────────────────────────
+
+  // Reintenta la retención de garantía para una solicitud puntual que quedó en
+  // PENDING_FUNDS. No-op si ya no está pendiente (otro reintento la resolvió
+  // primero) — hace que llamar esto en paralelo desde el hook y el cron sea seguro.
+  private async retryPendingEscrow(requestId: string): Promise<boolean> {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id: requestId } });
+    if (!req || req.escrowStatus !== 'PENDING_FUNDS' || !req.requesterId || !req.escrowAmount) {
+      return false;
+    }
+    try {
+      await this.wallets.holdEscrow(req.requesterId, req.escrowAmount, req.id);
+    } catch {
+      return false;
+    }
+    await this.prisma.serviceRequest.update({
+      where: { id: req.id },
+      data: { escrowStatus: 'HELD', escrowHeldAt: new Date() },
+    });
+    this.notifications
+      .notifyEscrowHeld(req.requesterId, req.providerName, req.serviceName, req.escrowAmount)
+      .catch(() => {});
+    return true;
+  }
+
+  // Llamado fire-and-forget desde WalletsService tras un depósito exitoso.
+  // Reintenta las solicitudes pendientes del mismo cliente, más antigua primero,
+  // deteniéndose en el primer saldo insuficiente (las siguientes tampoco alcanzarían).
+  async retryPendingEscrowsForClient(clientUserId: string) {
+    const pending = await this.prisma.serviceRequest.findMany({
+      where: { requesterId: clientUserId, escrowStatus: 'PENDING_FUNDS' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    for (const { id } of pending) {
+      const held = await this.retryPendingEscrow(id);
+      if (!held) break;
+    }
+  }
+
+  // Cron de respaldo (por si el hook de depósito falla o el saldo llegó por
+  // otra vía, ej. ajuste manual de admin). Reintenta todas las solicitudes
+  // pendientes; si sigue sin alcanzar, no reenvía la notificación en cada
+  // corrida — solo la primera vez fue vía updateServiceRequest.
+  async retryAllPendingEscrows() {
+    const pending = await this.prisma.serviceRequest.findMany({
+      where: { escrowStatus: 'PENDING_FUNDS' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    let resolved = 0;
+    for (const { id } of pending) {
+      if (await this.retryPendingEscrow(id)) resolved++;
+    }
+    return { checked: pending.length, resolved };
   }
 
   // ─── Admin (solo lectura) ─────────────────────────────────────────────────

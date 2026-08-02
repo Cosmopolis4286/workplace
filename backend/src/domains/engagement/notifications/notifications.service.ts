@@ -314,6 +314,36 @@ export class NotificationsService {
     });
   }
 
+  async notifyEscrowFundsNeeded(
+    clientId: string,
+    providerName: string,
+    serviceName: string,
+    amount: number
+  ) {
+    return this.createForUser(clientId, {
+      type: NotificationType.SYSTEM,
+      title: '⚠️ Carga saldo para continuar',
+      message: `${providerName} fijó el precio de "${serviceName}" en $${amount.toFixed(2)}. Carga saldo a tu billetera para retener la garantía y continuar.`,
+      link: '/wallet',
+      metadata: { providerName, serviceName, amount },
+    });
+  }
+
+  async notifyEscrowHeld(
+    clientId: string,
+    providerName: string,
+    serviceName: string,
+    amount: number
+  ) {
+    return this.createForUser(clientId, {
+      type: NotificationType.SYSTEM,
+      title: '✅ Garantía retenida',
+      message: `Se retuvo $${amount.toFixed(2)} de tu billetera como garantía para "${serviceName}" con ${providerName}. Se liberará al confirmar la finalización del servicio.`,
+      link: '/wallet',
+      metadata: { providerName, serviceName, amount },
+    });
+  }
+
   async notifyNewReview(
     targetUserId: string,
     authorName: string,
