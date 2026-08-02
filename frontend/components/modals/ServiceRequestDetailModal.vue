@@ -103,6 +103,26 @@
                 </div>
               </div>
 
+              <!-- Garantía de plataforma (escrow) -->
+              <div v-if="req.escrowStatus && req.escrowStatus !== 'NONE'" class="rounded-xl p-4 border" :class="ESCROW_CLASSES[req.escrowStatus]">
+                <div class="flex items-start gap-2.5">
+                  <component :is="ESCROW_ICONS[req.escrowStatus]" class="h-4.5 w-4.5 flex-shrink-0 mt-0.5" />
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold">{{ ESCROW_LABELS[req.escrowStatus] }}</p>
+                    <p class="text-xs mt-0.5 opacity-90">{{ escrowDescription }}</p>
+                  </div>
+                  <span v-if="req.escrowAmount != null" class="text-sm font-bold flex-shrink-0">${{ formatPrice(req.escrowAmount) }}</span>
+                </div>
+                <button
+                  v-if="!isProvider && req.escrowStatus === 'PENDING_FUNDS'"
+                  type="button"
+                  class="mt-2.5 w-full text-xs font-semibold py-1.5 rounded-lg bg-white/70 hover:bg-white transition-colors"
+                  @click="goToWallet"
+                >
+                  Ir a cargar saldo
+                </button>
+              </div>
+
               <!-- Ubicación (presencial) -->
               <div v-if="req.address" class="flex items-start gap-2.5 bg-gray-50/70 rounded-xl px-4 py-3">
                 <MapPinIcon class="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
@@ -498,6 +518,9 @@ import {
   PlayCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ShieldCheckIcon,
+  ExclamationTriangleIcon,
+  ArrowUturnLeftIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useExchangeRates } from '~/composables/useExchangeRates'
@@ -542,6 +565,9 @@ interface ServiceRequest {
   platformFeeRate?: number | null
   platformFeeAmount?: number | null
   platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
+  escrowStatus?: 'NONE' | 'HELD' | 'PENDING_FUNDS' | 'RELEASED' | 'REFUNDED'
+  escrowAmount?: number | null
+  escrowHeldAt?: string | null
   providerAvatar?: string | null
   clientAvatar?: string | null
 }
@@ -648,6 +674,54 @@ const QUICK_REPLY_TEMPLATES = [
 ]
 const MODALITY_LABELS: Record<string, string> = {
   IN_PERSON: '📍 Presencial', REMOTE: '💻 Remoto', ANY: '🤝 Cualquiera',
+}
+
+const ESCROW_LABELS: Record<string, string> = {
+  HELD: 'Garantía retenida',
+  PENDING_FUNDS: 'Pendiente de saldo',
+  RELEASED: 'Garantía liberada',
+  REFUNDED: 'Garantía reembolsada',
+}
+const ESCROW_ICONS: Record<string, unknown> = {
+  HELD: ShieldCheckIcon,
+  PENDING_FUNDS: ExclamationTriangleIcon,
+  RELEASED: CheckCircleIcon,
+  REFUNDED: ArrowUturnLeftIcon,
+}
+const ESCROW_CLASSES: Record<string, string> = {
+  HELD: 'bg-emerald-50 border-emerald-100 text-emerald-800',
+  PENDING_FUNDS: 'bg-amber-50 border-amber-100 text-amber-800',
+  RELEASED: 'bg-emerald-50 border-emerald-100 text-emerald-800',
+  REFUNDED: 'bg-gray-50 border-gray-200 text-gray-700',
+}
+const escrowDescription = computed(() => {
+  const isProvider = props.isProvider
+  switch (props.req.escrowStatus) {
+    case 'HELD':
+      return isProvider
+        ? 'La plataforma retiene el pago del cliente y te lo liberará al confirmar la finalización.'
+        : 'Se retuvo el monto de tu billetera como garantía. Se liberará al proveedor cuando confirmes que el servicio se completó.'
+    case 'PENDING_FUNDS':
+      return isProvider
+        ? 'El cliente todavía no tiene saldo suficiente para cubrir la garantía. Se reintentará automáticamente.'
+        : 'No tenías saldo suficiente para la garantía. Carga saldo y se retendrá automáticamente.'
+    case 'RELEASED':
+      return isProvider
+        ? 'La garantía ya fue liberada a tu billetera.'
+        : 'La garantía fue liberada al proveedor.'
+    case 'REFUNDED':
+      return isProvider
+        ? 'La garantía fue reembolsada al cliente.'
+        : 'La garantía fue reembolsada a tu billetera.'
+    default:
+      return ''
+  }
+})
+
+const router = useRouter()
+function goToWallet() {
+  emit('close')
+  router.push('/wallet')
 }
 
 if (!defaultRate.value) fetchRates(false, true)

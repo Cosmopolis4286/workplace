@@ -26,6 +26,7 @@ export interface Service {
   duration?: number
   image?: string
   status: 'ACTIVE' | 'INACTIVE' | 'PAUSED'
+  hasEscrow?: boolean
   tags: string[]
   modalities: string[]
   itemFields: string[]

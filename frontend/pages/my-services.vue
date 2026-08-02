@@ -335,6 +335,30 @@
                 </select>
               </div>
 
+              <!-- Garantía de plataforma -->
+              <div class="flex items-start justify-between gap-3 rounded-xl border border-gray-200 p-3">
+                <div class="min-w-0">
+                  <p class="text-xs font-medium text-gray-700">Ofrecer con garantía de plataforma</p>
+                  <p class="mt-0.5 text-xs text-gray-400">
+                    El cliente deposita el pago del servicio en la plataforma al acordar el precio; te lo liberamos al confirmar la finalización.
+                    Cambiarlo solo afecta solicitudes nuevas.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  :aria-checked="form.hasEscrow"
+                  class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors"
+                  :class="form.hasEscrow ? 'bg-red-500' : 'bg-gray-200'"
+                  @click="form.hasEscrow = !form.hasEscrow"
+                >
+                  <span
+                    class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                    :class="form.hasEscrow ? 'translate-x-6' : 'translate-x-1'"
+                  />
+                </button>
+              </div>
+
               <!-- Tags -->
               <div>
                 <label class="block text-xs font-medium text-gray-700 mb-1">Etiquetas</label>
@@ -1014,6 +1038,7 @@ const emptyForm = () => ({
   modalities: [] as string[],
   itemFields: [] as string[],
   categoryId: '',
+  hasEscrow: false,
 })
 
 const form = ref(emptyForm())
@@ -1073,6 +1098,7 @@ function openEdit(service: Service) {
     modalities: [...(service.modalities ?? [])],
     itemFields: [...(service.itemFields ?? [])],
     categoryId: service.categoryId ?? '',
+    hasEscrow: service.hasEscrow ?? false,
   }
   formError.value = null
   showModal.value = true
@@ -1112,6 +1138,7 @@ async function handleSubmit() {
       modalities: form.value.modalities,
       itemFields: form.value.itemFields,
       categoryId: form.value.categoryId || undefined,
+      hasEscrow: form.value.hasEscrow,
     }
     if (editing.value) {
       await updateService(editing.value.id, payload)
