@@ -313,7 +313,12 @@ async function seedPlans() {
       maxOrders: 50,
       maxStorage: 100,
       features: ['20 productos', '1 empleado', '1 sucursal', '50 pedidos/mes', 'Soporte por email'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers'],
+      // Debe reflejar el mismo set que FREE_MODULES (plan-limits.service.ts) —
+      // un freelancer suscrito EXPLÍCITAMENTE al plan Gratis (no solo el fallback
+      // sin-suscripción) también necesita poder operar servicios/solicitudes/billetera.
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'settings', 'notifications', 'services', 'service_requests', 'wallets'],
+      maxServices: 3,
+      maxServiceRequests: -1,
     },
     {
       name: 'Básico',
@@ -1269,6 +1274,54 @@ async function seedVeLocations() {
   )
 }
 
+// Tasa global de comisión (fallback) + overrides por plan. Sin esto,
+// resolveFeeConfig() devuelve null y la plataforma no cobra comisión a nadie
+// (platform-fees.service.ts:37-64). Prioridad de resolución: override por
+// userId > override por planId > tasa global.
+async function seedPlatformFees() {
+  console.log('\n💰 Seeding platform fee rates...\n')
+
+  const globalRates = [{ type: 'SERVICE_REQUEST', rate: 10, payer: 'PROVIDER' }]
+
+  for (const rate of globalRates) {
+    const existing = await prisma.platformFeeRate.findFirst({ where: { type: rate.type, isActive: true } })
+    if (existing) {
+      await prisma.platformFeeRate.update({ where: { id: existing.id }, data: rate })
+    } else {
+      await prisma.platformFeeRate.create({ data: rate })
+    }
+    console.log(`  ✅ Tasa global ${rate.type}: ${rate.rate}% (paga ${rate.payer})`)
+  }
+
+  // Plan "Básico" no tiene override — usa la tasa global (10%, PROVIDER) tal
+  // cual, evita un registro redundante que duplique el valor global.
+  const planOverrides = [
+    { planName: 'Gratis', rate: 12, payer: 'PROVIDER' },
+    { planName: 'Pro', rate: 7, payer: 'PROVIDER' },
+    { planName: 'Enterprise', rate: 5, payer: 'PROVIDER' },
+  ]
+
+  for (const ov of planOverrides) {
+    const plan = await prisma.plan.findFirst({ where: { name: ov.planName } })
+    if (!plan) {
+      console.log(`  ⚠️  Plan "${ov.planName}" no encontrado, se omite el override de comisión.`)
+      continue
+    }
+    const existing = await prisma.platformFeeOverride.findFirst({
+      where: { type: 'SERVICE_REQUEST', planId: plan.id, isActive: true },
+    })
+    const data = { type: 'SERVICE_REQUEST', rate: ov.rate, payer: ov.payer, planId: plan.id }
+    if (existing) {
+      await prisma.platformFeeOverride.update({ where: { id: existing.id }, data })
+    } else {
+      await prisma.platformFeeOverride.create({ data })
+    }
+    console.log(`  ✅ Override ${ov.planName} → SERVICE_REQUEST: ${ov.rate}% (paga ${ov.payer})`)
+  }
+
+  console.log('\n✨ Platform fees seeded.')
+}
+
 async function main() {
   console.log('🌱 Seeding demo users...\n')
 
@@ -1401,6 +1454,7 @@ async function main() {
   await seedSearchTabs()
   await seedVeLocations()
   await seedDemoSubscriptions()
+  await seedPlatformFees()
 }
 
 // Sin esta suscripción, los usuarios COMMERCE/FREELANCER demo caen al plan

@@ -1419,6 +1419,11 @@ model Service {
   duration        Int? // minutos estimados
   image           String?
   status          ServiceStatus    @default(ACTIVE)
+  // El proveedor decide, por servicio, si la plataforma retiene el pago en
+  // garantía (escrow) hasta completar el trabajo. Cambiarlo solo afecta
+  // solicitudes NUEVAS — las que ya están en curso guardan su propio modo
+  // en ServiceRequest.escrowStatus/escrowAmount al momento de crearse.
+  hasEscrow       Boolean          @default(false)
   tags            String[]
   modalities      String[]
   itemFields      String[]         @default([]) // plantilla de campos por ítem, ej. ["Marca", "Modelo"]
@@ -1453,6 +1458,22 @@ enum ServiceRequestModality {
   ANY
 }
 
+// NONE: el servicio no usa escrow (modelo actual, pago directo fuera de la
+//   plataforma; solo se cobra comisión al proveedor al completar).
+// HELD: fondos retenidos en la wallet del usuario de sistema de plataforma.
+// PENDING_FUNDS: el precio quedó fijado pero el cliente no tenía saldo
+//   suficiente para la retención — se reintenta automáticamente (hook de
+//   depósito + cron de respaldo) hasta lograr HELD.
+// RELEASED: fondos liberados al proveedor (menos comisión) al completar.
+// REFUNDED: fondos devueltos al cliente (cancelación/rechazo).
+enum EscrowStatus {
+  NONE
+  HELD
+  PENDING_FUNDS
+  RELEASED
+  REFUNDED
+}
+
 model ServiceRequest {
   id                String                 @id @default(uuid())
   serviceId         String
@@ -1473,6 +1494,11 @@ model ServiceRequest {
   platformFeeRate   Float?
   platformFeeAmount Float?
   platformFeePayer  FeePayer?
+  // Escrow opcional (Service.hasEscrow) — retención del monto total en la
+  // wallet de plataforma entre la fijación de precio y la finalización.
+  escrowStatus      EscrowStatus           @default(NONE)
+  escrowAmount      Float?
+  escrowHeldAt      DateTime?
   status            ServiceRequestStatus   @default(PENDING)
   providerNotes     String?
   statusUpdatedAt   DateTime?
@@ -1496,6 +1522,8 @@ model ServiceRequest {
   @@index([providerId, status])
   // Acelera getSuggestedPrice: WHERE serviceId=X AND providerId=Y AND status='CLOSED'
   @@index([serviceId, providerId, status])
+  // Acelera el cron de reintento de escrow: WHERE escrowStatus='PENDING_FUNDS'
+  @@index([escrowStatus])
   @@map("service_requests")
 }
 
@@ -1639,11 +1667,13 @@ model Plan {
   categoryIds String[] @default([])
 
   // Límites (-1 = ilimitado)
-  maxProducts  Int @default(50)
-  maxEmployees Int @default(5)
-  maxBranches  Int @default(1)
-  maxOrders    Int @default(-1) // por mes
-  maxStorage   Int @default(1) // GB
+  maxProducts        Int @default(50)
+  maxEmployees       Int @default(5)
+  maxBranches        Int @default(1)
+  maxOrders          Int @default(-1) // por mes
+  maxStorage         Int @default(1) // GB
+  maxServices        Int @default(-1) // servicios ACTIVOS simultáneos (freelancer)
+  maxServiceRequests Int @default(-1) // solicitudes recibidas por mes (freelancer)
 
   // Features habilitadas (bullets de marketing)
   features Json @default("[]") // string[]

@@ -4,6 +4,8 @@ export interface PlanLimits {
   maxBranches: number;
   maxOrders: number; // per month, -1 = unlimited
   maxStorage: number;
+  maxServices: number; // active services at once (freelancer), -1 = unlimited
+  maxServiceRequests: number; // received per month (freelancer), -1 = unlimited
   enabledModules: string[]; // modules included in the plan
   effectiveModules: string[]; // plan ∩ category (what the user actually sees)
   planName: string;
@@ -25,6 +27,8 @@ export interface PlanLimitsFacade {
   assertEmployeeLimit(userId: string, commerceId: string): Promise<void>;
   assertBranchLimit(userId: string, commerceId: string): Promise<void>;
   assertOrderLimit(userId: string, commerceId: string): Promise<void>;
+  assertServiceLimit(userId: string): Promise<void>;
+  assertServiceRequestLimit(providerId: string): Promise<void>;
   getUsage(
     userId: string,
     commerceId: string

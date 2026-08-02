@@ -1,6 +1,6 @@
 import { Inject, Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role, ServiceStatus } from '@prisma/client';
 import { SystemModulesFacade, SYSTEM_MODULES_FACADE } from '../../platform/system-modules/system-modules.facade';
 import { MODULE_CATALOG } from '../../../common/data/module-catalog.data';
 import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
@@ -28,6 +28,8 @@ const UNLIMITED_LIMITS: PlanLimits = {
   maxBranches: -1,
   maxOrders: -1,
   maxStorage: -1,
+  maxServices: -1,
+  maxServiceRequests: -1,
   enabledModules: [...ALL_MODULES],
   effectiveModules: [...ALL_MODULES],
   planName: 'Sin límite',
@@ -42,6 +44,13 @@ const FREE_MODULES = [
   'customers',
   'settings',
   'notifications',
+  // Un freelancer sin plan sigue necesitando poder operar su negocio básico:
+  // publicar servicios, recibir solicitudes y ver su billetera. Los límites
+  // reales del tier gratuito (cantidad de servicios/solicitudes) se aplican
+  // aparte vía assertServiceLimit/assertServiceRequestLimit, no ocultando el módulo.
+  'services',
+  'service_requests',
+  'wallets',
 ];
 const FREE_LIMITS: PlanLimits = {
   maxProducts: 10,
@@ -49,6 +58,8 @@ const FREE_LIMITS: PlanLimits = {
   maxBranches: 1,
   maxOrders: 30,
   maxStorage: 0,
+  maxServices: 3,
+  maxServiceRequests: -1,
   enabledModules: FREE_MODULES,
   effectiveModules: FREE_MODULES,
   planName: 'Sin plan',
@@ -103,6 +114,8 @@ export class PlanLimitsService implements PlanLimitsFacade {
           maxBranches: sub.plan.maxBranches,
           maxOrders: sub.plan.maxOrders,
           maxStorage: sub.plan.maxStorage,
+          maxServices: sub.plan.maxServices,
+          maxServiceRequests: sub.plan.maxServiceRequests,
           enabledModules: sub.plan.enabledModules,
           planName: sub.plan.name,
         }
@@ -112,6 +125,8 @@ export class PlanLimitsService implements PlanLimitsFacade {
           maxBranches: FREE_LIMITS.maxBranches,
           maxOrders: FREE_LIMITS.maxOrders,
           maxStorage: FREE_LIMITS.maxStorage,
+          maxServices: FREE_LIMITS.maxServices,
+          maxServiceRequests: FREE_LIMITS.maxServiceRequests,
           enabledModules: FREE_MODULES,
           planName: FREE_LIMITS.planName,
         };
@@ -291,6 +306,34 @@ export class PlanLimitsService implements PlanLimitsFacade {
     if (count >= limits.maxOrders) {
       throw new ForbiddenException(
         `Has alcanzado el límite de ${limits.maxOrders} pedidos mensuales de tu plan "${limits.planName}". Actualiza tu plan para continuar.`
+      );
+    }
+  }
+
+  async assertServiceLimit(userId: string) {
+    const limits = await this.getPlanLimits(userId);
+    if (limits.maxServices === -1) return;
+    const count = await this.prisma.service.count({
+      where: { userId, status: ServiceStatus.ACTIVE },
+    });
+    if (count >= limits.maxServices) {
+      throw new ForbiddenException(
+        `Has alcanzado el límite de ${limits.maxServices} servicios activos de tu plan "${limits.planName}". Actualiza tu plan para agregar más.`
+      );
+    }
+  }
+
+  async assertServiceRequestLimit(providerId: string) {
+    const limits = await this.getPlanLimits(providerId);
+    if (limits.maxServiceRequests === -1) return;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const count = await this.prisma.serviceRequest.count({
+      where: { providerId, createdAt: { gte: startOfMonth } },
+    });
+    if (count >= limits.maxServiceRequests) {
+      throw new ForbiddenException(
+        `Has alcanzado el límite de ${limits.maxServiceRequests} solicitudes mensuales de tu plan "${limits.planName}". Actualiza tu plan para continuar.`
       );
     }
   }
