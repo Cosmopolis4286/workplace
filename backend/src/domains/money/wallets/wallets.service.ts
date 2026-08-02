@@ -1,11 +1,10 @@
 import {
   BadRequestException,
   ForbiddenException,
-  Inject,
   Injectable,
   NotFoundException,
-  forwardRef,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { Role, WalletTransactionType, WalletTransactionStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
@@ -22,7 +21,7 @@ import { PaymentDto } from './dto/payment.dto';
 import { AdjustDto } from './dto/adjust.dto';
 import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
 import { ESCROW_SYSTEM_USER_EMAIL } from './escrow-system-user.const';
-import { ServicesService } from '../../commerce-core/services/services.service';
+import type { ServicesService } from '../../commerce-core/services/services.service';
 
 const ADMIN_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
 const IDEMPOTENCY_TTL = 60 * 60; // 1 hour
@@ -34,8 +33,12 @@ export class WalletsService {
     private readonly redis: RedisService,
     private readonly pinService: WalletPinService,
     private readonly limitsService: WalletLimitsService,
-    @Inject(forwardRef(() => ServicesService))
-    private readonly services: ServicesService,
+    // Resuelto perezosamente vía ModuleRef (no como provider inyectado) para
+    // no declarar WalletsModule ↔ ServicesModule como imports circulares —
+    // ese ciclo rompe la carga de módulos de Nest incluso con forwardRef()
+    // porque el import estático de TypeScript entre los dos .module.ts ya
+    // es circular a nivel de archivo. Ver retryPendingEscrowsForClient.
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   // ─── Wallet CRUD ─────────────────────────────────────────────────────────────
@@ -204,9 +207,17 @@ export class WalletsService {
     // Fire-and-forget: si este depósito le da saldo suficiente a alguna
     // solicitud de servicio con escrow pendiente (PENDING_FUNDS), reintenta
     // la retención ahora en vez de esperar al cron de respaldo (hasta 1h).
-    this.services.retryPendingEscrowsForClient(userId).catch(() => {});
+    // Resuelto por nombre de clase (token implícito de Nest) vía ModuleRef en
+    // vez de inyección normal — ver comentario en el constructor.
+    this.getServicesService()
+      .retryPendingEscrowsForClient(userId)
+      .catch(() => {});
 
     return result;
+  }
+
+  private getServicesService(): ServicesService {
+    return this.moduleRef.get('ServicesService', { strict: false });
   }
 
   async withdraw(userId: string, role: Role, dto: WithdrawDto) {

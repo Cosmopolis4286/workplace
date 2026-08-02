@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsArray,
   IsEnum,
+  IsBoolean,
   Min,
   MaxLength,
   IsInt,
@@ -42,6 +43,10 @@ export class CreateServiceDto {
   @IsOptional()
   @IsEnum(ServiceStatus)
   status?: ServiceStatus;
+
+  @IsOptional()
+  @IsBoolean()
+  hasEscrow?: boolean;
 
   @IsOptional()
   @IsArray()

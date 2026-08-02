@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { ServicesController } from './services.controller';
 import { ServiceRequestReminderScheduler } from './service-request-reminder.scheduler';
@@ -10,11 +10,11 @@ import { PlansModule } from '../../money/plans/plans.module';
 import { WalletsModule } from '../../money/wallets/wallets.module';
 
 @Module({
-  // forwardRef: WalletsModule necesita llamar de vuelta a ServicesService tras
-  // un depósito (reintento de escrow pendiente por saldo), y ServicesModule
-  // necesita WalletsService para retener/liberar/reembolsar — dependencia mutua
-  // genuina entre los dos dominios, no un descuido de capas.
-  imports: [NotificationsModule, PlatformFeesModule, MailModule, PlansModule, forwardRef(() => WalletsModule)],
+  // ServicesService necesita WalletsService para retener/liberar/reembolsar
+  // escrow — dependencia unidireccional normal. WalletsService, a su vez,
+  // llama de vuelta a ServicesService (reintento tras depósito) sin declarar
+  // este módulo como import — ver comentario en wallets.module.ts.
+  imports: [NotificationsModule, PlatformFeesModule, MailModule, PlansModule, WalletsModule],
   providers: [ServicesService, ServiceRequestReminderScheduler, EscrowRetryScheduler],
   controllers: [ServicesController],
   exports: [ServicesService],

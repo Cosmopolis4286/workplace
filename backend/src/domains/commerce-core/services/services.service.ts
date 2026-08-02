@@ -4,7 +4,6 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ServiceStatus, ServiceEventType, Prisma, Role } from '@prisma/client';
@@ -28,6 +27,7 @@ const SERVICE_SELECT = {
   duration: true,
   image: true,
   status: true,
+  hasEscrow: true,
   tags: true,
   modalities: true,
   itemFields: true,
@@ -67,7 +67,7 @@ export class ServicesService {
     private notifications: NotificationsService,
     @Inject(PLATFORM_FEES_FACADE) private platformFees: PlatformFeesFacade,
     @Inject(PLAN_LIMITS_FACADE) private planLimits: PlanLimitsFacade,
-    @Inject(forwardRef(() => WalletsService)) private wallets: WalletsService
+    private wallets: WalletsService
   ) {}
 
   // ─── Catalog (public) ─────────────────────────────────────────────────────
