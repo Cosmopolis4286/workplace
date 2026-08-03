@@ -33,6 +33,7 @@ import { PermissionsModule } from './domains/identity-access/permissions/permiss
 import { SystemModulesModule } from './domains/platform/system-modules/system-modules.module';
 import { ProfilesModule } from './domains/identity-access/profiles/profiles.module';
 import { KycModule } from './domains/identity-access/kyc/kyc.module';
+import { FreelancerApplicationsModule } from './domains/identity-access/freelancer-applications/freelancer-applications.module';
 import { AuditModule } from './domains/identity-access/audit/audit.module';
 import { ServicesModule } from './domains/commerce-core/services/services.module';
 import { PlansModule } from './domains/money/plans/plans.module';
@@ -101,6 +102,7 @@ import { NavigationModule } from './domains/platform/navigation/navigation.modul
     NavigationModule,
     ProfilesModule,
     KycModule,
+    FreelancerApplicationsModule,
     AuditModule,
     ServicesModule,
     PlansModule,
