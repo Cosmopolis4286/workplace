@@ -344,6 +344,31 @@ export class NotificationsService {
     });
   }
 
+  async notifyFreelancerApplicationReviewed(
+    userId: string,
+    status: 'APPROVED' | 'REJECTED',
+    rejectionReason?: string
+  ) {
+    if (status === 'APPROVED') {
+      return this.createForUser(userId, {
+        type: NotificationType.SYSTEM,
+        title: '🎉 ¡Ya eres freelancer!',
+        message: 'Tu solicitud fue aprobada. Ya puedes publicar servicios y recibir solicitudes de clientes.',
+        link: '/my-services',
+        metadata: { status },
+      });
+    }
+    return this.createForUser(userId, {
+      type: NotificationType.SYSTEM,
+      title: '❌ Solicitud de freelancer rechazada',
+      message: rejectionReason
+        ? `Tu solicitud para convertirte en freelancer fue rechazada: ${rejectionReason}`
+        : 'Tu solicitud para convertirte en freelancer fue rechazada.',
+      link: '/profile',
+      metadata: { status, rejectionReason },
+    });
+  }
+
   async notifyNewReview(
     targetUserId: string,
     authorName: string,

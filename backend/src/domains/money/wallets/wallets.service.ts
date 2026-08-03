@@ -26,6 +26,13 @@ import type { ServicesService } from '../../commerce-core/services/services.serv
 const ADMIN_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
 const IDEMPOTENCY_TTL = 60 * 60; // 1 hour
 
+// Error interno (no HTTP) que distingue "saldo insuficiente" — la única causa
+// de holdEscrow() que amerita dejar la solicitud en PENDING_FUNDS para
+// reintento automático — de cualquier otra falla (wallet inexistente,
+// congelada, suspendida) que debe propagarse como error real y NO reintentarse
+// indefinidamente sin que nadie lo note.
+export class InsufficientEscrowFundsError extends Error {}
+
 @Injectable()
 export class WalletsService {
   constructor(
@@ -514,7 +521,9 @@ export class WalletsService {
   async holdEscrow(clientUserId: string, amount: number, serviceRequestId: string) {
     this.assertPositiveAmount(amount);
     const { wallet: clientWallet } = await this.getActiveWallet(clientUserId);
-    this.assertSufficientFunds(clientWallet.balance, amount);
+    if (clientWallet.balance < amount) {
+      throw new InsufficientEscrowFundsError('Saldo insuficiente para retener la garantía');
+    }
 
     const systemUserId = await this.ensureEscrowSystemUserId();
     const systemWallet = await this.ensureWalletForUser(systemUserId);
@@ -529,7 +538,7 @@ export class WalletsService {
           AND balance >= ${amount}::numeric
         RETURNING balance AS new_balance
       `;
-      if (!clientRow) throw new BadRequestException('Saldo insuficiente para retener la garantía');
+      if (!clientRow) throw new InsufficientEscrowFundsError('Saldo insuficiente para retener la garantía');
 
       const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
         UPDATE "Wallet"

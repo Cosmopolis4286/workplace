@@ -15,7 +15,7 @@ import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
-import { WalletsService } from '../../money/wallets/wallets.service';
+import { WalletsService, InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util';
 
 const SERVICE_SELECT = {
@@ -691,10 +691,14 @@ export class ServicesService {
             update.escrowStatus = 'HELD';
             update.escrowAmount = update.price;
             update.escrowHeldAt = new Date();
-          } catch {
-            // Saldo insuficiente: la solicitud igual avanza (el proveedor ya
-            // fijó el precio), pero el escrow queda pendiente de reintento
-            // automático (hook de depósito + cron de respaldo, ver 3.3b).
+          } catch (err) {
+            // Solo el saldo insuficiente es recuperable por reintento
+            // automático (hook de depósito + cron, ver 3.3b) — la solicitud
+            // igual avanza (el proveedor ya fijó el precio) y queda
+            // PENDING_FUNDS. Cualquier otro error (wallet inexistente,
+            // congelada, suspendida) NO se puede resolver reintentando solo,
+            // así que se propaga como falla real de la transición.
+            if (!(err instanceof InsufficientEscrowFundsError)) throw err;
             update.escrowStatus = 'PENDING_FUNDS';
             update.escrowAmount = update.price;
             this.notifications
@@ -797,10 +801,7 @@ export class ServicesService {
 
     // Libera el escrow al proveedor. El monto liberado ya viene neto de la
     // comisión cuando el proveedor la paga (feeData) — la comisión en sí ya se
-    // cobró arriba vía chargeProviderFee, así que acá no se duplica. Si el
-    // escrow quedó PENDING_FUNDS (el cliente nunca alcanzó a cubrir la
-    // garantía), no hay nada que liberar — el servicio igual se marca
-    // completado, pero el proveedor cobró $0 de este trato.
+    // cobró arriba vía chargeProviderFee, así que acá no se duplica.
     if (req.escrowStatus === 'HELD' && req.escrowAmount) {
       const releaseAmount = feeData ? req.escrowAmount - feeData.feeAmount : req.escrowAmount;
       if (releaseAmount > 0) {
@@ -808,12 +809,22 @@ export class ServicesService {
       }
     }
 
+    // Si el escrow seguía PENDING_FUNDS (el cliente nunca alcanzó a cubrir la
+    // garantía) hay que cerrarlo acá mismo — de lo contrario el cron/hook de
+    // reintento seguiría encontrando esta solicitud ya CLOSED y le cobraría al
+    // cliente retroactivamente un servicio ya cerrado, sin volver a liberar
+    // nada al proveedor (releaseEscrow solo se dispara desde este método).
+    const escrowResolution =
+      req.escrowStatus === 'HELD' ? { escrowStatus: 'RELEASED' as const } :
+      req.escrowStatus === 'PENDING_FUNDS' ? { escrowStatus: 'NONE' as const, escrowAmount: null } :
+      {};
+
     const updated = await this.prisma.serviceRequest.update({
       where: { id },
       data: {
         status: 'CLOSED',
         statusUpdatedAt: new Date(),
-        ...(req.escrowStatus === 'HELD' ? { escrowStatus: 'RELEASED' } : {}),
+        ...escrowResolution,
         ...(feeData ? {
           platformFeeRate: feeData.feeConfig.rate,
           platformFeeAmount: feeData.feeAmount,

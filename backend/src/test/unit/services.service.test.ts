@@ -4,12 +4,16 @@ import { ServicesService } from '../../domains/commerce-core/services/services.s
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../domains/money/platform-fees/platform-fees.facade';
+import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade';
+import { WalletsService } from '../../domains/money/wallets/wallets.service';
 
 describe('ServicesService — service request status transitions', () => {
   let service: ServicesService;
   let mockPrismaService: any;
   let mockNotificationsService: Partial<NotificationsService>;
   let mockPlatformFeesService: Partial<PlatformFeesFacade>;
+  let mockPlanLimitsService: Partial<PlanLimitsFacade>;
+  let mockWalletsService: Partial<WalletsService>;
 
   function baseRequest(overrides: Partial<any> = {}) {
     return {
@@ -54,12 +58,25 @@ describe('ServicesService — service request status transitions', () => {
       chargeProviderFee: jest.fn().mockResolvedValue(null),
     };
 
+    mockPlanLimitsService = {
+      assertServiceLimit: jest.fn().mockResolvedValue(undefined),
+      assertServiceRequestLimit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    mockWalletsService = {
+      holdEscrow: jest.fn().mockResolvedValue({ transaction: {} }),
+      releaseEscrow: jest.fn().mockResolvedValue({ transaction: {} }),
+      refundEscrow: jest.fn().mockResolvedValue({ transaction: {} }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ServicesService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: PLATFORM_FEES_FACADE, useValue: mockPlatformFeesService },
+        { provide: PLAN_LIMITS_FACADE, useValue: mockPlanLimitsService },
+        { provide: WalletsService, useValue: mockWalletsService },
       ],
     }).compile();
 
