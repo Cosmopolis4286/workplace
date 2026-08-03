@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useApi } from './useApi'
 
 export type ReportEntityType = 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'ORDER' | 'GENERAL'
+export type ReportStatus = 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'DISMISSED'
 
 export interface Report {
   id: string
@@ -9,13 +10,15 @@ export interface Report {
   entityId?: string | null
   reason: string
   description?: string | null
-  status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'DISMISSED'
+  status: ReportStatus
   adminNotes?: string | null
+  reporterId?: string
+  reporter?: { id: string; username?: string; firstName: string; lastName: string; email: string }
   createdAt: string
 }
 
 export function useReports() {
-  const { post, get } = useApi()
+  const { post, get, patch } = useApi()
 
   const sending = ref(false)
   const error = ref('')
@@ -42,5 +45,16 @@ export function useReports() {
     return get<Report[]>('/reports/mine')
   }
 
-  return { sending, error, fileReport, fetchMyReports }
+  // ─── Admin (moderación) ───────────────────────────────────────────────────────
+
+  async function fetchAllReports(status?: ReportStatus) {
+    const qs = status ? `?status=${status}` : ''
+    return get<Report[]>(`/reports/admin${qs}`)
+  }
+
+  async function moderateReport(id: string, status: ReportStatus, adminNotes?: string) {
+    return patch<Report>(`/reports/admin/${id}`, { status, adminNotes })
+  }
+
+  return { sending, error, fileReport, fetchMyReports, fetchAllReports, moderateReport }
 }

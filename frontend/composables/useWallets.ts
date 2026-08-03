@@ -272,6 +272,26 @@ export function useWallets() {
     return post<Wallet>(`/wallets/users/${userId}`, { currency })
   }
 
+  async function fetchUserWallet(userId: string) {
+    return get<Wallet>(`/wallets/users/${userId}`)
+  }
+
+  async function fetchUserTransactions(userId: string, page = 1, limit = 20) {
+    return get<Paginated<WalletTransaction>>(`/wallets/users/${userId}/transactions?page=${page}&limit=${limit}`)
+  }
+
+  async function adjustUserBalance(userId: string, type: 'CREDIT' | 'DEBIT', amount: number, description?: string) {
+    return post<{ wallet: Wallet; transaction: WalletTransaction }>(`/wallets/users/${userId}/adjust`, { type, amount, description })
+  }
+
+  async function freezeUserWallet(userId: string) {
+    return post<Wallet>(`/wallets/users/${userId}/freeze`, {})
+  }
+
+  async function unfreezeUserWallet(userId: string) {
+    return post<Wallet>(`/wallets/users/${userId}/unfreeze`, {})
+  }
+
   function formatMoney(amount: number, currency = wallet.value?.currency ?? 'USD') {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency', currency, minimumFractionDigits: 2,
@@ -299,6 +319,11 @@ export function useWallets() {
     payment,
     fetchWallets,
     createUserWallet,
+    fetchUserWallet,
+    fetchUserTransactions,
+    adjustUserBalance,
+    freezeUserWallet,
+    unfreezeUserWallet,
     formatMoney,
     STATUS_LABELS: WALLET_STATUS_LABELS,
     STATUS_CLASSES: WALLET_STATUS_CLASSES,

@@ -1,0 +1,185 @@
+<template>
+  <div class="p-6 max-w-5xl mx-auto space-y-6">
+
+    <PageHeader
+      title="Billeteras"
+      description="Congela, descongela o ajusta el saldo de cualquier billetera."
+      :icon="BanknotesIcon"
+      :breadcrumb="[{ label: 'Billeteras' }]"
+      :stats="headerStats"
+    />
+
+    <div v-if="loading" class="space-y-3">
+      <div v-for="i in 5" :key="i" class="h-16 bg-gray-100 rounded-2xl animate-pulse" />
+    </div>
+
+    <div v-else class="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+      <div v-for="w in items" :key="w.id" class="px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-sm font-bold text-gray-900 truncate">{{ w.user?.firstName }} {{ w.user?.lastName }}</p>
+          <p class="text-xs text-gray-400 truncate">{{ w.user?.email }} · {{ w.user?.role }}</p>
+        </div>
+        <div class="flex items-center gap-3 flex-shrink-0">
+          <span class="text-sm font-bold text-gray-900">{{ formatMoney(w.balance, w.currency) }}</span>
+          <span class="badge" :class="STATUS_CLASSES[w.status]">{{ STATUS_LABELS[w.status] }}</span>
+          <button
+            class="text-xs font-semibold text-workplace-red hover:underline"
+            @click="openDetail(w)"
+          >
+            Gestionar
+          </button>
+        </div>
+      </div>
+      <div v-if="items.length === 0" class="px-6 py-12 text-center text-sm text-gray-500">No hay billeteras registradas.</div>
+    </div>
+
+    <div v-if="meta.totalPages > 1" class="flex items-center justify-center gap-2">
+      <button class="btn-secondary text-xs" :disabled="meta.page <= 1" @click="load(meta.page - 1)">Anterior</button>
+      <span class="text-xs text-gray-500">Página {{ meta.page }} de {{ meta.totalPages }}</span>
+      <button class="btn-secondary text-xs" :disabled="meta.page >= meta.totalPages" @click="load(meta.page + 1)">Siguiente</button>
+    </div>
+
+    <!-- Modal de gestión -->
+    <Teleport to="body">
+      <div v-if="selected" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="selected = null" />
+        <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-bold text-gray-900">{{ selected.user?.firstName }} {{ selected.user?.lastName }}</h3>
+              <p class="text-xs text-gray-400">{{ formatMoney(selected.balance, selected.currency) }} · {{ STATUS_LABELS[selected.status] }}</p>
+            </div>
+            <button class="text-gray-400 hover:text-gray-600" @click="selected = null"><XMarkIcon class="h-5 w-5" /></button>
+          </div>
+
+          <div class="flex gap-2">
+            <button
+              v-if="!selected.frozenAt"
+              class="flex-1 px-3 py-2 border border-amber-200 text-amber-700 rounded-xl text-sm font-medium hover:bg-amber-50 disabled:opacity-60"
+              :disabled="actionLoading"
+              @click="doFreeze"
+            >
+              Congelar billetera
+            </button>
+            <button
+              v-else
+              class="flex-1 px-3 py-2 border border-green-200 text-green-700 rounded-xl text-sm font-medium hover:bg-green-50 disabled:opacity-60"
+              :disabled="actionLoading"
+              @click="doUnfreeze"
+            >
+              Descongelar billetera
+            </button>
+          </div>
+
+          <div class="border-t border-gray-100 pt-4 space-y-3">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ajuste manual de saldo</p>
+            <div class="flex gap-2">
+              <select v-model="adjustType" class="input flex-shrink-0 w-28">
+                <option value="CREDIT">Acreditar</option>
+                <option value="DEBIT">Debitar</option>
+              </select>
+              <input v-model.number="adjustAmount" type="number" min="0.01" step="0.01" placeholder="Monto" class="input flex-1" />
+            </div>
+            <input v-model="adjustDescription" type="text" placeholder="Motivo del ajuste" class="input w-full" />
+            <button
+              class="w-full px-3 py-2 bg-workplace-red hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60"
+              :disabled="actionLoading || !adjustAmount"
+              @click="doAdjust"
+            >
+              {{ actionLoading ? 'Procesando…' : 'Aplicar ajuste' }}
+            </button>
+          </div>
+
+          <p v-if="actionError" class="text-xs text-red-600">{{ actionError }}</p>
+        </div>
+      </div>
+    </Teleport>
+  </div>
+</template>
+
+<script setup lang="ts">
+definePageMeta({ middleware: ['auth'] })
+
+import { ref, computed, onMounted } from 'vue'
+import { BanknotesIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { useWallets, type Wallet } from '~/composables/useWallets'
+import PageHeader from '~/components/ui/PageHeader.vue'
+
+// El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
+const {
+  fetchWallets, freezeUserWallet, unfreezeUserWallet, adjustUserBalance,
+  formatMoney, STATUS_LABELS, STATUS_CLASSES,
+} = useWallets()
+
+const items = ref<Wallet[]>([])
+const loading = ref(true)
+const meta = ref({ page: 1, totalPages: 1 })
+
+const headerStats = computed(() => [{ label: 'Billeteras', value: items.value.length }])
+
+async function load(page = 1) {
+  loading.value = true
+  try {
+    const res = await fetchWallets(page, 20)
+    items.value = res.data
+    meta.value = { page: res.page, totalPages: res.totalPages }
+  } finally {
+    loading.value = false
+  }
+}
+
+const selected = ref<Wallet | null>(null)
+const actionLoading = ref(false)
+const actionError = ref('')
+const adjustType = ref<'CREDIT' | 'DEBIT'>('CREDIT')
+const adjustAmount = ref<number | undefined>(undefined)
+const adjustDescription = ref('')
+
+function openDetail(w: Wallet) {
+  selected.value = w
+  actionError.value = ''
+  adjustType.value = 'CREDIT'
+  adjustAmount.value = undefined
+  adjustDescription.value = ''
+}
+
+async function doFreeze() {
+  if (!selected.value) return
+  actionLoading.value = true; actionError.value = ''
+  try {
+    const updated = await freezeUserWallet(selected.value.userId)
+    applyUpdate(updated)
+  } catch (e: any) { actionError.value = e?.data?.message ?? e?.message ?? 'Error al congelar' }
+  finally { actionLoading.value = false }
+}
+
+async function doUnfreeze() {
+  if (!selected.value) return
+  actionLoading.value = true; actionError.value = ''
+  try {
+    const updated = await unfreezeUserWallet(selected.value.userId)
+    applyUpdate(updated)
+  } catch (e: any) { actionError.value = e?.data?.message ?? e?.message ?? 'Error al descongelar' }
+  finally { actionLoading.value = false }
+}
+
+async function doAdjust() {
+  if (!selected.value || !adjustAmount.value) return
+  actionLoading.value = true; actionError.value = ''
+  try {
+    const { wallet } = await adjustUserBalance(selected.value.userId, adjustType.value, adjustAmount.value, adjustDescription.value || undefined)
+    applyUpdate(wallet)
+    adjustAmount.value = undefined
+    adjustDescription.value = ''
+  } catch (e: any) { actionError.value = e?.data?.message ?? e?.message ?? 'Error al ajustar el saldo' }
+  finally { actionLoading.value = false }
+}
+
+function applyUpdate(updated: Wallet) {
+  selected.value = { ...selected.value!, ...updated }
+  const idx = items.value.findIndex(i => i.id === selected.value!.id)
+  if (idx !== -1) items.value[idx] = { ...items.value[idx], ...updated }
+}
+
+onMounted(() => load())
+</script>
