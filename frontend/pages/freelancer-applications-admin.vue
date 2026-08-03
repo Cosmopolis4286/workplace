@@ -54,6 +54,10 @@
           />
         </div>
 
+        <p v-if="reviewError === item.id" class="mx-6 mb-3 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          No se pudo aprobar: {{ item.user?.kycStatus === 'APPROVED' ? 'ocurrió un error inesperado' : 'el solicitante debe verificar su identidad (KYC) primero' }}
+        </p>
+
         <div class="px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
           <template v-if="rejectingId === item.id">
             <button class="btn-secondary text-sm" @click="rejectingId = null">Cancelar</button>
@@ -75,7 +79,8 @@
             </button>
             <button
               class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium disabled:opacity-60"
-              :disabled="processingId === item.id"
+              :disabled="processingId === item.id || item.user?.kycStatus !== 'APPROVED'"
+              :title="item.user?.kycStatus !== 'APPROVED' ? 'El solicitante debe verificar su identidad (KYC) antes de aprobar' : ''"
               @click="confirmApprove(item.id)"
             >
               {{ processingId === item.id ? 'Procesando…' : 'Aprobar' }}
@@ -103,6 +108,7 @@ const loading = ref(true)
 const processingId = ref<string | null>(null)
 const rejectingId = ref<string | null>(null)
 const rejectionReason = ref('')
+const reviewError = ref<string | null>(null)
 
 const headerStats = computed(() => [
   { label: 'Pendientes', value: items.value.length },
@@ -120,9 +126,12 @@ async function load() {
 
 async function confirmApprove(id: string) {
   processingId.value = id
+  reviewError.value = null
   try {
     await review(id, 'APPROVED')
     items.value = items.value.filter(i => i.id !== id)
+  } catch {
+    reviewError.value = id
   } finally {
     processingId.value = null
   }

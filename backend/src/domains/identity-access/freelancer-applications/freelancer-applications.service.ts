@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ProposalStatus, Role } from '@prisma/client';
+import { KycStatus, ProposalStatus, Role } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
@@ -77,10 +77,18 @@ export class FreelancerApplicationsService {
   }
 
   async review(id: string, reviewerId: string, dto: ReviewFreelancerApplicationDto) {
-    const application = await this.prisma.freelancerApplication.findUnique({ where: { id } });
+    const application = await this.prisma.freelancerApplication.findUnique({
+      where: { id },
+      include: { user: { select: { kycStatus: true } } },
+    });
     if (!application) throw new NotFoundException('Solicitud no encontrada');
     if (application.status !== ProposalStatus.PENDING) {
       throw new BadRequestException('Esta solicitud ya fue revisada');
+    }
+    if (dto.status === ProposalStatus.APPROVED && application.user.kycStatus !== KycStatus.APPROVED) {
+      throw new BadRequestException(
+        'El solicitante debe tener su identidad verificada (KYC aprobado) antes de convertirse en freelancer'
+      );
     }
 
     const [updated] = await this.prisma.$transaction([
