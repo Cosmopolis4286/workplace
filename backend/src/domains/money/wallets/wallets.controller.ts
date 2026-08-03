@@ -20,7 +20,6 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { WalletsService } from './wallets.service';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { QueryWalletTransactionsDto } from './dto/query-wallet-transactions.dto';
-import { DepositDto } from './dto/deposit.dto';
 import { WithdrawDto } from './dto/withdraw.dto';
 import { TransferDto } from './dto/transfer.dto';
 import { PaymentDto } from './dto/payment.dto';
@@ -82,12 +81,11 @@ export class WalletsController {
 
   // ─── Financial operations ─────────────────────────────────────────────────────
 
-  @Post('me/deposit')
-  @UseGuards(EmailVerifiedGuard)
-  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `wallet:deposit:${(req as any).user?.id}` })
-  deposit(@CurrentUser() user: any, @Body() dto: DepositDto) {
-    return this.walletsService.deposit(user.id, user.role, dto);
-  }
+  // No hay endpoint público de depósito directo: acreditar saldo sin
+  // verificar que el dinero exista realmente es el hueco financiero que
+  // motivó este módulo. La única vía de carga de saldo es
+  // WalletDepositRequestsController (comprobante + aprobación admin), que
+  // internamente llama a WalletsService.deposit() ya aprobado.
 
   @Post('me/withdraw')
   @UseGuards(EmailVerifiedGuard, KycApprovedGuard)

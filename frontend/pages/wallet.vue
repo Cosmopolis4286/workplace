@@ -295,17 +295,33 @@
               <XMarkIcon class="h-5 w-5" />
             </button>
 
-            <!-- Deposit -->
+            <!-- Deposit request: el saldo no se acredita al enviar el formulario — queda
+                 pendiente de que un admin verifique el comprobante (ver WalletDepositRequest) -->
             <template v-if="activeModal === 'deposit'">
-              <ModalHeader icon-class="bg-green-100" icon-color="text-green-700" title="Depositar fondos" subtitle="Agrega saldo a tu billetera">
+              <ModalHeader icon-class="bg-green-100" icon-color="text-green-700" title="Solicitar depósito" subtitle="Un admin verificará tu comprobante antes de acreditar el saldo">
                 <template #icon><ArrowDownTrayIcon class="h-5 w-5" /></template>
               </ModalHeader>
-              <form class="space-y-4" @submit.prevent="handleDeposit">
+              <form class="space-y-4" @submit.prevent="handleDepositRequest">
                 <AmountField v-model="form.amount" :currency="wallet?.currency" />
-                <div><label class="field-label">Descripción</label><input v-model="form.description" type="text" class="input" placeholder="Ej. Recarga de saldo" /></div>
-                <div><label class="field-label">Referencia</label><input v-model="form.reference" type="text" class="input" placeholder="Ej. TRX-123456" /></div>
+                <div>
+                  <label class="field-label">Método de pago *</label>
+                  <select v-model="form.paymentMethod" class="input" required>
+                    <option value="" disabled>Selecciona un método</option>
+                    <option value="Transferencia bancaria">Transferencia bancaria</option>
+                    <option value="Pago móvil">Pago móvil</option>
+                    <option value="Zelle">Zelle</option>
+                    <option value="Binance Pay">Binance Pay</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                <div><label class="field-label">Número de referencia</label><input v-model="form.reference" type="text" class="input" placeholder="Ej. TRX-123456" /></div>
+                <div>
+                  <label class="field-label">Comprobante *</label>
+                  <input type="file" accept="image/png,image/jpeg,image/webp" class="input" required @change="onProofImageChange" />
+                  <p class="mt-1 text-xs text-gray-400">Foto o captura del comprobante de pago (jpeg, png o webp)</p>
+                </div>
                 <ModalError :message="modalError" />
-                <ModalActions :loading="loading" confirm-label="Depositar" @cancel="closeModal" />
+                <ModalActions :loading="loading" confirm-label="Enviar solicitud" @cancel="closeModal" />
               </form>
             </template>
 
@@ -382,6 +398,7 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useWallets, type WalletTransactionType } from '~/composables/useWallets'
+import { useWalletDepositRequests } from '~/composables/useWalletDepositRequests'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -391,10 +408,12 @@ const {
   loading, loadingTx, error,
   fetchMyWallet, createMyWallet, fetchMyTransactions, fetchMyLimits,
   setPin, changePin,
-  deposit, withdraw, transfer,
+  withdraw, transfer,
   formatMoney,
   STATUS_LABELS, STATUS_CLASSES, TYPE_LABELS, TYPE_CLASSES,
 } = useWallets()
+
+const { create: createDepositRequest } = useWalletDepositRequests()
 
 const isAdmin = computed(() => ['SUPERADMIN', 'ADMIN'].includes(user.value?.role ?? ''))
 
@@ -538,24 +557,36 @@ const activeModal = ref<ModalType | null>(null)
 const modalError  = ref<string | null>(null)
 const form = ref({
   amount: undefined as number | undefined,
-  description: '', reference: '',
+  description: '', reference: '', paymentMethod: '',
   pin: '', pinConfirm: '', currentPin: '',
   recipientUserId: '',
 })
+const proofImage = ref<File | null>(null)
 
 function openModal(type: ModalType) {
   activeModal.value = type; modalError.value = null
-  form.value = { amount: undefined, description: '', reference: '', pin: '', pinConfirm: '', currentPin: '', recipientUserId: '' }
+  form.value = { amount: undefined, description: '', reference: '', paymentMethod: '', pin: '', pinConfirm: '', currentPin: '', recipientUserId: '' }
+  proofImage.value = null
 }
 function closeModal() { activeModal.value = null; modalError.value = null }
 
-async function handleDeposit() {
-  if (!form.value.amount) return
+function onProofImageChange(e: Event) {
+  proofImage.value = (e.target as HTMLInputElement).files?.[0] ?? null
+}
+
+async function handleDepositRequest() {
+  if (!form.value.amount || !form.value.paymentMethod || !proofImage.value) return
   modalError.value = null
   try {
-    await deposit({ amount: form.value.amount, description: form.value.description || undefined, reference: form.value.reference || undefined })
-    closeModal(); showToast('success', `Depósito de ${formatMoney(form.value.amount, wallet.value?.currency)} realizado`)
-  } catch (e: any) { modalError.value = e?.message ?? 'Error al depositar' }
+    await createDepositRequest({
+      amount: form.value.amount,
+      paymentMethod: form.value.paymentMethod,
+      reference: form.value.reference || undefined,
+      proofImage: proofImage.value,
+    })
+    closeModal()
+    showToast('success', 'Solicitud enviada. Un admin verificará tu comprobante y acreditará el saldo.')
+  } catch (e: any) { modalError.value = e?.data?.message ?? e?.message ?? 'Error al enviar la solicitud' }
 }
 
 async function handleWithdraw() {

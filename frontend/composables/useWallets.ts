@@ -213,19 +213,9 @@ export function useWallets() {
   }
 
   // ─── Financial operations ────────────────────────────────────────────────────
-
-  async function deposit(payload: DepositPayload) {
-    loading.value = true; error.value = null
-    try {
-      const result = await post<{ wallet: Wallet; transaction: WalletTransaction }>('/wallets/me/deposit', payload)
-      wallet.value = { ...wallet.value!, ...result.wallet }
-      transactions.value = [result.transaction, ...transactions.value]
-      transactionsMeta.value.total++
-      return result
-    } catch (e: any) {
-      error.value = e?.message ?? 'No se pudo realizar el depósito'; throw e
-    } finally { loading.value = false }
-  }
+  // No hay deposit() directo aquí: acreditar saldo sin verificar que el dinero
+  // exista es el hueco que se cerró. Ver useWalletDepositRequests (comprobante
+  // + aprobación admin) — solo esa vía puede terminar acreditando saldo real.
 
   async function withdraw(payload: WithdrawPayload) {
     loading.value = true; error.value = null
@@ -304,7 +294,6 @@ export function useWallets() {
     setPin,
     changePin,
     removePin,
-    deposit,
     withdraw,
     transfer,
     payment,

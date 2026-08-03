@@ -45,6 +45,7 @@ import { JobsModule } from './domains/platform/jobs/jobs.module';
 import { ProposedCategoriesModule } from './domains/commerce-core/proposed-categories/proposed-categories.module';
 import { TelegramModule } from './domains/engagement/telegram/telegram.module';
 import { WalletsModule } from './domains/money/wallets/wallets.module'
+import { WalletDepositRequestsModule } from './domains/money/wallet-deposit-requests/wallet-deposit-requests.module';
 import { PlatformFeesModule } from './domains/money/platform-fees/platform-fees.module';
 import { SearchTabsModule } from './domains/commerce-core/search-tabs/search-tabs.module';
 import { SearchModule } from './domains/commerce-core/search/search.module';
@@ -114,6 +115,7 @@ import { NavigationModule } from './domains/platform/navigation/navigation.modul
     ProposedCategoriesModule,
     TelegramModule,
     WalletsModule,
+    WalletDepositRequestsModule,
     PlatformFeesModule,
     SearchTabsModule,
     SearchModule,
