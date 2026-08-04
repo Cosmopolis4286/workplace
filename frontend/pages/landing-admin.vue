@@ -733,7 +733,7 @@ const reportStatusFilter = ref('')
 const ENTITY_TYPE_LABELS: Record<UserReport['entityType'], string> = {
   CATALOG_ORDER: 'un pedido de catálogo',
   SERVICE_REQUEST: 'una solicitud de servicio',
-  ORDER: 'un pedido de restaurante',
+  ORDER: 'un pedido de comida',
   GENERAL: 'un problema general de la app',
 }
 

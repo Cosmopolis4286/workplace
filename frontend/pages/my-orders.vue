@@ -16,14 +16,14 @@
       </button>
     </div>
 
-    <!-- Toggle origen: pedidos de restaurante vs. pedidos del marketplace de catálogo -->
+    <!-- Toggle origen: pedidos de comida (menú de comercio) vs. pedidos del marketplace de catálogo -->
     <div class="card p-1 flex gap-1 mb-4 w-fit">
       <button
         class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-        :class="activeSource === 'restaurant' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
-        @click="activeSource = 'restaurant'"
+        :class="activeSource === 'food' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
+        @click="activeSource = 'food'"
       >
-        Restaurante
+        Comida
       </button>
       <button
         class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
@@ -132,7 +132,7 @@
       </div>
     </div>
 
-    <!-- ── Vista: pedidos de restaurante (Order) ─────────────────────────────── -->
+    <!-- ── Vista: pedidos de comida (Order, menú de comercio categoría Comida) ── -->
     <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
       <!-- ── Lista principal ─────────────────────────────────────────────── -->
@@ -438,7 +438,7 @@ import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import { useApi } from '~/composables/useApi'
 
 // ─── Toggle de origen ───────────────────────────────────────────────────────────
-const activeSource = ref<'restaurant' | 'catalog'>('restaurant')
+const activeSource = ref<'food' | 'catalog'>('food')
 
 // ─── Pedidos de catálogo (CatalogOrder) ────────────────────────────────────────
 interface CatalogOrder {
@@ -532,7 +532,7 @@ async function confirmCatalogOrderCompletion() {
   }
 }
 
-watch(activeSource, (src: 'restaurant' | 'catalog') => {
+watch(activeSource, (src: 'food' | 'catalog') => {
   if (src === 'catalog' && catalogOrders.value.length === 0) fetchCatalogOrders()
 })
 

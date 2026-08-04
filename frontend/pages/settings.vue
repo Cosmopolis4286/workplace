@@ -228,7 +228,7 @@
 
           <div class="mt-4 flex flex-wrap gap-3">
             <span class="text-sm text-gray-500 font-medium self-center">Soporte:</span>
-            <a href="mailto:soporte@workplacemanager.com" class="text-sm text-workplace-red hover:underline font-medium">soporte@workplacemanager.com</a>
+            <a href="mailto:soporte@workplace-manager.app" class="text-sm text-workplace-red hover:underline font-medium">soporte@workplace-manager.app</a>
             <span class="text-gray-300">|</span>
             <span class="text-sm text-gray-500">© 2026 WorkPlace Manager. Todos los derechos reservados.</span>
           </div>
@@ -871,7 +871,7 @@ const favoritesCount = computed(() => {
 })
 
 const userNotifItems = [
-  { key: 'promotions' as const, title: 'Promociones', description: 'Ofertas y descuentos de restaurantes' },
+  { key: 'promotions' as const, title: 'Promociones', description: 'Ofertas y descuentos de comercios' },
   { key: 'newProducts' as const, title: 'Nuevos productos', description: 'Cuando se añadan productos de tus favoritos' },
   { key: 'priceAlerts' as const, title: 'Alertas de precio', description: 'Cambios en precios de productos que sigues' },
   { key: 'recommendations' as const, title: 'Recomendaciones', description: 'Sugerencias personalizadas basadas en tu actividad' },
