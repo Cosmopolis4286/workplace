@@ -1130,6 +1130,14 @@
                     Este es tu servicio
                   </span>
                 </div>
+                <button
+                  v-if="!isOwnService(selectedService!)"
+                  type="button"
+                  class="w-full mt-2 text-xs text-gray-400 hover:text-red-500 font-medium"
+                  @click="reportingService = selectedService"
+                >
+                  ¿Algo sospechoso con este servicio? Reportarlo
+                </button>
               </div>
             </div>
           </Transition>
@@ -1291,6 +1299,14 @@
         </div>
       </Transition>
     </Teleport>
+
+    <ReportProblemModal
+      v-if="reportingService"
+      :model-value="true"
+      entity-type="SERVICE"
+      :entity-id="reportingService.id"
+      @update:model-value="reportingService = null"
+    />
   </div>
 </template>
 
@@ -1310,6 +1326,7 @@ import SortDropdown from '~/components/search/SortDropdown.vue'
 import ActiveFilterChips from '~/components/search/ActiveFilterChips.vue'
 import LocationFilter from '~/components/search/LocationFilter.vue'
 import TagChips from '~/components/search/TagChips.vue'
+import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 
 definePageMeta({ layout: 'default' })
 
@@ -1376,6 +1393,7 @@ const searchInput = ref('')
 const searchFocused = ref(false)
 const selectedProduct = ref<CatalogProduct | null>(null)
 const selectedService = ref<CatalogService | null>(null)
+const reportingService = ref<CatalogService | null>(null)
 const selectedJob = ref<Job | null>(null)
 const showScrollTop = ref(false)
 const showOrderModal = ref(false)

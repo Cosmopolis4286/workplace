@@ -14,7 +14,12 @@
         <HeaderActionButton :icon="UserPlusIcon" @click="openNewDriver">
           Repartidor
         </HeaderActionButton>
-        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openNewDelivery">
+        <HeaderActionButton
+          variant="primary"
+          :icon="PlusIcon"
+          :disabled="kycStatus !== undefined && kycStatus !== 'APPROVED'"
+          @click="openNewDelivery"
+        >
           Nueva Entrega
         </HeaderActionButton>
       </template>
@@ -24,6 +29,12 @@
     <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
       <p class="text-red-700 text-sm">{{ error }}</p>
       <button class="text-red-500 hover:text-red-700" @click="error = null"><XMarkIcon class="h-4 w-4" /></button>
+    </div>
+
+    <!-- KYC banner -->
+    <div v-if="kycStatus && kycStatus !== 'APPROVED'" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+      Debes verificar tu identidad antes de crear una entrega.
+      <NuxtLink to="/verification" class="font-semibold underline">Completa la verificación</NuxtLink>.
     </div>
 
     <!-- ── Entregas en curso ──────────────────────────────────────────────── -->
@@ -381,6 +392,7 @@ import {
   DRIVER_STATUS_LABELS, DRIVER_STATUS_CLASSES, VEHICLE_LABELS,
   type Delivery, type Driver, type CreateDeliveryPayload, type CreateDriverPayload, type DeliveryStatus,
 } from '~/composables/useDelivery'
+import { useKyc } from '~/composables/useKyc'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -390,6 +402,9 @@ const {
   createDelivery, updateDelivery, deleteDelivery, updateDeliveryStatus, assignDriver,
   createDriver, updateDriver, deleteDriver,
 } = useDelivery()
+
+const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
+const kycStatus = computed(() => myKycStatus.value?.kycStatus)
 
 const statusFilter = ref<string>('')
 const currentPage  = ref(1)
@@ -492,6 +507,6 @@ async function confirmDeleteDriver(id: string) {
 }
 
 onMounted(async () => {
-  await Promise.all([loadDeliveries({ limit: pageSize }), loadDrivers()])
+  await Promise.all([loadDeliveries({ limit: pageSize }), loadDrivers(), fetchMyKycStatus()])
 })
 </script>

@@ -38,6 +38,15 @@
       </button>
     </div>
 
+    <!-- KYC banner -->
+    <div
+      v-if="activeTab === 'request' && kycStatus && kycStatus !== 'APPROVED'"
+      class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700"
+    >
+      Debes verificar tu identidad antes de pedir una corrida.
+      <NuxtLink to="/verification" class="font-semibold underline">Completa la verificación</NuxtLink>.
+    </div>
+
     <!-- ═══════════════════════════════════════════════════════════ -->
     <!--  TAB: Solicitar Viaje                                      -->
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -612,6 +621,7 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import type { PlaceSuggestion } from '~/composables/useNominatim'
 import type { Ride } from '~/composables/useRides'
+import { useKyc } from '~/composables/useKyc'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -622,6 +632,9 @@ const {
   createCorrida, acceptCorrida, updateCorridaStatus, cancelCorrida,
   calculatePrice, clearError,
 } = useRides()
+
+const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
+const kycStatus = computed(() => myKycStatus.value?.kycStatus)
 
 const { reloadPermissions, userCategory, userSubcategory } = usePermissions()
 
@@ -708,7 +721,9 @@ watch(serviceType, () => {
 
 // ─── Computados ───────────────────────────────────────────────────────────────
 const canCalculate = computed(() => !!originPlace.value && !!destinationPlace.value)
-const canSubmit    = computed(() => canCalculate.value && !!priceEstimate.value)
+const canSubmit    = computed(() =>
+  canCalculate.value && !!priceEstimate.value && (kycStatus.value === undefined || kycStatus.value === 'APPROVED')
+)
 
 const TRANSPORTE_SUBCATEGORIES = ['carros', 'motos', 'Mudanzas', 'Delivery']
 
@@ -907,6 +922,7 @@ onMounted(async () => {
   if (!canRequestCorrida.value && canViewAvailableCorridas.value) activeTab.value = 'available'
   else if (!canRequestCorrida.value) activeTab.value = 'history'
   if (canViewAvailableCorridas.value) refreshAvailable()
+  if (canRequestCorrida.value) fetchMyKycStatus()
 })
 </script>
 

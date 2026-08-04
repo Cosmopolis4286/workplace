@@ -343,13 +343,19 @@
                 </div>
               </div>
 
+              <!-- KYC banner -->
+              <p v-if="kycStatus && kycStatus !== 'APPROVED'" class="text-xs text-amber-700 font-medium bg-amber-50 px-3 py-2 rounded-xl">
+                Debes verificar tu identidad antes de solicitar un servicio.
+                <NuxtLink to="/verification" class="font-semibold underline" @click="$emit('update:modelValue', false)">Completa la verificación</NuxtLink>.
+              </p>
+
               <!-- Error -->
               <p v-if="errorMsg" class="text-xs text-red-600 font-medium bg-red-50 px-3 py-2 rounded-xl">{{ errorMsg }}</p>
 
               <!-- Submit -->
               <button
                 type="submit"
-                :disabled="sending"
+                :disabled="sending || (kycStatus !== undefined && kycStatus !== 'APPROVED')"
                 class="w-full py-3.5 bg-blue-600 text-white font-black text-sm rounded-2xl hover:bg-blue-700 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-blue-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <span v-if="sending" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -373,6 +379,7 @@ import { ref, computed, watch } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
+import { useKyc } from '~/composables/useKyc'
 import { useExchangeRates } from '~/composables/useExchangeRates'
 import {
   useServiceRequestItems,
@@ -397,6 +404,8 @@ const emit = defineEmits<{
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 const { user } = useAuth()
+const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
+const kycStatus = computed(() => myKycStatus.value?.kycStatus)
 const { defaultRate } = useExchangeRates()
 
 const convertedPrice = computed(() => {
@@ -558,6 +567,7 @@ watch(() => props.service, () => {
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
     form.value.modality = modalityOptions.value[0]?.value ?? 'ANY'
+    fetchMyKycStatus()
   }
 })
 
@@ -656,7 +666,7 @@ async function submit() {
     items.value = []
     itemErrors.value = {}
   } catch (e: any) {
-    errorMsg.value = e?.data?.message ?? 'No se pudo enviar la solicitud. Intenta de nuevo.'
+    errorMsg.value = e?.message ?? 'No se pudo enviar la solicitud. Intenta de nuevo.'
   } finally {
     sending.value = false
   }
