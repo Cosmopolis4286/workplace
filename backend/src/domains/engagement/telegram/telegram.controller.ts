@@ -4,13 +4,16 @@ import {
   Post,
   Param,
   Body,
+  Headers,
   UseGuards,
   HttpCode,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.guard';
 
 @Controller('telegram')
 export class TelegramController {
@@ -27,7 +30,7 @@ export class TelegramController {
     @Param('customerId') customerId: string,
     @CurrentUser() user: { id: string },
   ) {
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.commerce.findUnique({
       where: { userId: user.id },
       select: { id: true },
     });
@@ -56,10 +59,23 @@ export class TelegramController {
   }
 
   // ─── Webhook: Telegram bot sends updates here ─────────────────────────────────
+  // Sin JwtAuthGuard (Telegram no manda un JWT nuestro) — la autenticación
+  // real es el secret token que Telegram reenvía en el header configurado
+  // vía setWebhook({secret_token}). Sin él, cualquiera en internet podía
+  // llamar este endpoint sin restricción alguna.
 
   @Post('webhook')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ windowMs: 60_000, maxRequests: 30 })
   @HttpCode(200)
-  async webhook(@Body() body: any) {
+  async webhook(
+    @Body() body: any,
+    @Headers('x-telegram-bot-api-secret-token') secretToken: string | undefined,
+  ) {
+    if (!this.telegram.verifyWebhookSecret(secretToken)) {
+      throw new UnauthorizedException();
+    }
+
     const message = body?.message;
     if (!message) return { ok: true };
 

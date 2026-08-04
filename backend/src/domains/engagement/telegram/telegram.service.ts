@@ -61,6 +61,17 @@ export class TelegramService {
     return this.config.get<string>('TELEGRAM_BOT_USERNAME') ?? '';
   }
 
+  // Telegram reenvía este mismo valor en el header X-Telegram-Bot-Api-Secret-Token
+  // en cada request al webhook si se configuró vía setWebhook({secret_token}).
+  // Sin esto, POST /telegram/webhook queda abierto a cualquiera en internet.
+  verifyWebhookSecret(receivedSecret: string | undefined): boolean {
+    const expected = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET');
+    // Fail-closed: sin secret configurado, no se acepta ningún webhook — más
+    // seguro que aceptar todo por defecto solo porque el operador no lo configuró.
+    if (!expected) return false;
+    return receivedSecret === expected;
+  }
+
   // ─── Process /start payload from webhook ─────────────────────────────────────
 
   async processStart(chatId: string, startPayload: string): Promise<string> {
