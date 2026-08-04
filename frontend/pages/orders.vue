@@ -11,10 +11,20 @@
         <HeaderActionButton :icon="ArrowPathIcon" :loading="loading" :disabled="loading" @click="applyFilters">
           Actualizar
         </HeaderActionButton>
-        <HeaderActionButton variant="primary" :icon="CalendarIcon" @click="openScheduleModal">
+        <HeaderActionButton
+          variant="primary"
+          :icon="CalendarIcon"
+          :disabled="kycStatus !== undefined && kycStatus !== 'APPROVED'"
+          @click="openScheduleModal"
+        >
           Programar
         </HeaderActionButton>
-        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openNewOrderModal">
+        <HeaderActionButton
+          variant="primary"
+          :icon="PlusIcon"
+          :disabled="kycStatus !== undefined && kycStatus !== 'APPROVED'"
+          @click="openNewOrderModal"
+        >
           Nuevo Pedido
         </HeaderActionButton>
       </template>
@@ -24,6 +34,12 @@
     <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
       <p class="text-red-700 text-sm">{{ error }}</p>
       <button class="text-red-500 hover:text-red-700" @click="error = null"><XMarkIcon class="h-4 w-4" /></button>
+    </div>
+
+    <!-- KYC banner -->
+    <div v-if="kycStatus && kycStatus !== 'APPROVED'" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+      Debes verificar tu identidad antes de crear pedidos.
+      <NuxtLink to="/verification" class="font-semibold underline">Completa la verificación</NuxtLink>.
     </div>
 
     <!-- Plan banner -->
@@ -637,6 +653,7 @@ import {
 import { usePlans } from '~/composables/usePlans'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 import { useReceipts } from '~/composables/useReceipts'
+import { useKyc } from '~/composables/useKyc'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -646,6 +663,9 @@ const {
   loadOrders, loadStats, createOrder, updateStatus, deleteOrder,
   formatCurrency, formatDate,
 } = useMerchantOrders()
+
+const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
+const kycStatus = computed(() => myKycStatus.value?.kycStatus)
 
 const scheduledOrders = computed(() =>
   orders.value.filter(o => o.orderType === 'SCHEDULED' && o.scheduledAt && !['DELIVERED','CANCELLED'].includes(o.status))
@@ -798,6 +818,7 @@ function formatMktDate(d: string) { return new Date(d).toLocaleDateString('es-CO
 onMounted(async () => {
   loadOrders({ page: 1, limit: 20 })
   loadStats()
+  fetchMyKycStatus()
   await fetchUsage()
   if (hasCatalogProducts.value) loadMktOrders()
 })

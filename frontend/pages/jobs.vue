@@ -8,7 +8,12 @@
       :stats="headerStats"
     >
       <template #actions>
-        <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreate">
+        <HeaderActionButton
+          variant="primary"
+          :icon="PlusIcon"
+          :disabled="kycStatus !== undefined && kycStatus !== 'APPROVED'"
+          @click="openCreate"
+        >
           Nuevo Empleo
         </HeaderActionButton>
       </template>
@@ -18,6 +23,12 @@
     <div v-if="myJobsError" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
       <p class="text-sm text-red-700">{{ myJobsError }}</p>
       <button @click="myJobsError = null"><XMarkIcon class="h-5 w-5 text-red-400" /></button>
+    </div>
+
+    <!-- KYC banner -->
+    <div v-if="kycStatus && kycStatus !== 'APPROVED'" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+      Debes verificar tu identidad antes de publicar un empleo.
+      <NuxtLink to="/verification" class="font-semibold underline">Completa la verificación</NuxtLink>.
     </div>
 
     <!-- Stats cards -->
@@ -438,6 +449,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import TagsInput from '~/components/ui/TagsInput.vue'
 import { useJobs, type JobWithApplicationCount, type CreateJobData } from '~/composables/useJobs'
+import { useKyc } from '~/composables/useKyc'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -455,6 +467,9 @@ const {
   toggleJobStatus,
   deleteJob,
 } = useJobs()
+
+const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
+const kycStatus = computed(() => myKycStatus.value?.kycStatus)
 
 const JOB_STATUS_LABELS: Record<JobWithApplicationCount['status'], string> = {
   ACTIVE: 'Activo',
@@ -637,6 +652,6 @@ async function doToggleStatus() {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchMyJobs(), loadCategories(), fetchMyJobsStats()])
+  await Promise.all([fetchMyJobs(), loadCategories(), fetchMyJobsStats(), fetchMyKycStatus()])
 })
 </script>

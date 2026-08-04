@@ -132,12 +132,38 @@ export function useMyServices() {
     fetchStats()
   }
 
+  // ─── Admin: categorías y modalidades de servicio ───────────────────────────
+
+  async function createCategory(data: { name: string; color?: string; icon?: string }) {
+    const res = await post<MyServiceCategory>('/services/categories', data)
+    catalogCategories.value.push(res)
+    return res
+  }
+
+  async function updateCategory(id: string, data: Partial<{ name: string; color: string; icon: string }>) {
+    const res = await put<MyServiceCategory>(`/services/categories/${id}`, data)
+    const idx = catalogCategories.value.findIndex(c => c.id === id)
+    if (idx !== -1) catalogCategories.value[idx] = res
+    return res
+  }
+
+  async function deleteCategory(id: string) {
+    await del(`/services/categories/${id}`)
+    catalogCategories.value = catalogCategories.value.filter(c => c.id !== id)
+  }
+
   async function fetchModalities() {
     try {
       modalities.value = await get<ServiceModality[]>('/services/modalities')
     } catch {
       // non-blocking
     }
+  }
+
+  // Incluye modalidades inactivas — solo para el panel admin, que necesita
+  // poder reactivarlas (fetchModalities solo trae las activas).
+  async function fetchAllModalities() {
+    modalities.value = await get<ServiceModality[]>('/services/modalities/all')
   }
 
   async function createModality(data: { name: string; value: string; emoji?: string; sortOrder?: number }) {
@@ -171,10 +197,14 @@ export function useMyServices() {
     fetchServices,
     fetchCatalogCategories,
     fetchModalities,
+    fetchAllModalities,
     createService,
     updateService,
     toggleStatus,
     deleteService,
+    createCategory,
+    updateCategory,
+    deleteCategory,
     createModality,
     updateModality,
     deleteModality,
