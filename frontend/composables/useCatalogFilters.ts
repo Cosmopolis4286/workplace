@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import type { Ref, ComputedRef } from 'vue'
-import type { CatalogCategory, CatalogRestaurant, CatalogQuery } from '~/composables/useCatalog'
+import type { CatalogCategory, CatalogCommerce, CatalogQuery } from '~/composables/useCatalog'
 
 export interface FilterChip {
   id: string
@@ -11,10 +11,10 @@ export interface FilterChip {
 interface UseCatalogFiltersOptions {
   query: Ref<CatalogQuery> | ComputedRef<CatalogQuery>
   categories: Ref<readonly CatalogCategory[]> | ComputedRef<readonly CatalogCategory[]>
-  restaurants: Ref<readonly CatalogRestaurant[]> | ComputedRef<readonly CatalogRestaurant[]>
+  commerces: Ref<readonly CatalogCommerce[]> | ComputedRef<readonly CatalogCommerce[]>
   searchInput: Ref<string>
   filterByCategory: (name: string) => void
-  filterByRestaurant: (id: string) => void
+  filterByCommerce: (id: string) => void
   filterByPriceRange: (min: number | null, max: number | null) => void
   filterByLocation?: (country: string, state: string, city: string) => void
   search: (term: string) => void
@@ -30,8 +30,8 @@ function formatChipPrice(value: number): string {
  */
 export function useCatalogFilters(options: UseCatalogFiltersOptions) {
   const {
-    query, categories, restaurants, searchInput,
-    filterByCategory, filterByRestaurant, filterByPriceRange, filterByLocation, search,
+    query, categories, commerces, searchInput,
+    filterByCategory, filterByCommerce, filterByPriceRange, filterByLocation, search,
   } = options
 
   const activeChips = computed<FilterChip[]>(() => {
@@ -59,11 +59,11 @@ export function useCatalogFilters(options: UseCatalogFiltersOptions) {
     }
 
     if (q.commerceId) {
-      const restaurant = restaurants.value.find((r: CatalogRestaurant) => r.id === q.commerceId)
+      const commerce = commerces.value.find((c: CatalogCommerce) => c.id === q.commerceId)
       chips.push({
         id: 'commerce',
-        label: restaurant ? restaurant.name : 'Comercio',
-        onRemove: () => filterByRestaurant(q.commerceId),
+        label: commerce ? commerce.name : 'Comercio',
+        onRemove: () => filterByCommerce(q.commerceId),
       })
     }
 
