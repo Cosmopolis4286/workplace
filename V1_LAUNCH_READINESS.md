@@ -156,11 +156,37 @@ estado `HELD`, más el total y conteo de solicitudes en `PENDING_FUNDS`. Tarjeta
 - [ ] **Falta probar manualmente en producción** con datos reales tras el primer ciclo de
   escrow completo, para confirmar que `isBalanced` da `true` en operación normal.
 
+### 15. Rides (corridas/fletes) inalcanzable para FREELANCER
+La UI de conductor ya existía en el frontend (`rides.vue`, `useRides.ts`), pero nadie podía
+llegar a ella en v1: el permiso `corridas:manage` solo estaba en el seed para `COMMERCE`
+(fuera de alcance). Se decidió habilitarlo para `FREELANCER` como un servicio más que puede
+ofrecer (mismo modelo de comisión post-viaje que ya tenía Rides, sin escrow todavía — análogo
+al estado de ServiceRequest antes de agregar escrow).
+- `corridas:manage` agregado a `ROLE_DEFAULTS.FREELANCER` en `seed.js` — **seed corrido en la
+  base de datos real**, verificado con `role_permissions` (`FREELANCER: corridas:manage = t`).
+- `KycApprovedGuard` agregado a `POST /rides/:id/accept` (aceptar corridas como conductor) —
+  mismo criterio que otros flujos donde ganar dinero exige KYC aprobado.
+- `@RateLimit` agregado a `create`/`accept`/`updateStatus`/`cancel` (antes sin límite, a
+  diferencia del resto de módulos de dinero).
+- Notificaciones in-app nuevas: `notifyRideAccepted` (pasajero, cuando un conductor acepta) y
+  `notifyRideStatusChanged` (pasajero, en IN_PROGRESS/COMPLETED) — antes Rides no notificaba nada.
+- [x] Implementado — commits `feat(backend): notificaciones en tiempo real para corridas...`,
+  `chore(backend): agregar corridas:manage al rol freelancer en seed`,
+  `test(backend): tests unitarios para... RidesService`
+- 17 tests unitarios nuevos (`RidesService`), **385/385 tests del backend pasan**.
+- **No incluido en esta ronda** (decisión explícita, fuera de alcance): escrow para Rides (el
+  pago pasajero→conductor sigue sin pasar por la plataforma, solo la comisión), y filtro
+  geográfico en `findAvailable` (hoy expone todas las corridas PENDING a cualquier conductor
+  sin importar distancia). Documentado para una ronda futura si se prioriza.
+- [ ] **Falta probar manualmente end-to-end**: un FREELANCER real solicitando `corridas:manage`
+  (vía admin o re-login para refrescar permisos en sesión), aceptando una corrida, avanzando
+  estados, y confirmando que el pasajero recibe las notificaciones.
+
 ---
 
 ## 🟡 Importante — pendiente
 
-### 15. Push notifications (FCM) es un no-op — feature incompleta, no un bug
+### 16. Push notifications (FCM) es un no-op — feature incompleta, no un bug
 `NotificationsService.sendPush()` está vacío (falta configurar Firebase). El flujo de
 `DeviceToken`/registro sí está completo y expuesto, lo que puede dar la falsa impresión de que
 las notificaciones push ya funcionan. Documentado explícitamente para que no se asuma resuelto.
@@ -184,7 +210,10 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
       `localhost`) en el pipeline de build del APK — ver `CAPACITOR_MOBILE_APP.md`
 - [ ] Todas las migraciones de Prisma de las tres rondas aplicadas en la base de datos de
       producción (incluida `20260804150000_add_service_request_messages`)
+- [ ] **Seed de permisos (`node prisma/seed.js`) corrido en producción** para que `FREELANCER`
+      tenga `corridas:manage` — sin esto, la corrección del ítem 15 no tiene efecto real
 - [ ] Prueba manual end-to-end del chat interno por ServiceRequest (ver ítem 13)
 - [ ] Prueba manual del endpoint de reconciliación de escrow con datos reales (ver ítem 14)
-- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 15, pendiente —
+- [ ] Prueba manual end-to-end de Rides como FREELANCER/conductor (ver ítem 15)
+- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 16, pendiente —
       requiere credenciales externas, no accionable por código)
