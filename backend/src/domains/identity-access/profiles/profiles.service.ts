@@ -606,6 +606,16 @@ export class ProfilesService {
     if (review.authorId === reporterId)
       throw new BadRequestException('No puedes reportar tu propia reseña');
 
+    // @@unique([reviewId, reporterId]) en el schema respalda esto contra
+    // condiciones de carrera, pero se verifica antes también para devolver un
+    // 409 claro en vez de un error crudo de constraint — sin esto, un mismo
+    // usuario podía reportar la misma reseña N veces y notificar a todos los
+    // moderadores en cada intento.
+    const existing = await this.prisma.reviewReport.findUnique({
+      where: { reviewId_reporterId: { reviewId, reporterId } },
+    });
+    if (existing) throw new ConflictException('Ya reportaste esta reseña');
+
     const report = await this.prisma.reviewReport.create({
       data: { reviewId, reporterId, reason: dto.reason },
     });

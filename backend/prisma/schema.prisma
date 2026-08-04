@@ -8,9 +8,9 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(uuid())
-  email             String    @unique
-  username          String?   @unique
+  id                String       @id @default(uuid())
+  email             String       @unique
+  username          String?      @unique
   usernameUpdatedAt DateTime?
   password          String
   firstName         String
@@ -20,16 +20,16 @@ model User {
   sex               Sex?
   avatar            String?
   coverImage        String?
-  role              Role      @default(NORMAL)
+  role              Role         @default(NORMAL)
   // Tipo de cuenta de negocio (COMMERCE/FREELANCER), separado del nivel de
   // acceso RBAC que vive en `role`. Null para SUPERADMIN/ADMIN/NORMAL.
   // Fuente de verdad preferida sobre `role` para decidir comportamiento de
   // negocio — ver AccountTypeResolver en common/account-type.
   accountType       AccountType?
-  userType          UserType  @default(REGULAR)
-  isActive          Boolean   @default(true)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  userType          UserType     @default(REGULAR)
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   country      String?
   state        String?
@@ -93,6 +93,7 @@ model User {
   ridesAsPassenger        Ride[]                   @relation("RidePassenger")
   ridesAsDriver           Ride[]                   @relation("RideDriver")
   reportsFiled            Report[]
+  driverProfile           Driver?
 
   // Jobs / Empleos
   jobsPosted      Job[]            @relation("UserJobs")
@@ -124,23 +125,23 @@ model ProfileSettings {
 // ─── User Categories ──────────────────────────────────────────────────────────
 
 model UserCategory {
-  id             String            @id @default(uuid())
-  name           String            @unique
-  icon           String?
-  allowedModules String[]          @default([]) // módulos habilitados para esta categoría de negocio
-  subcategories  UserSubcategory[]
-  users          User[]
+  id                     String                  @id @default(uuid())
+  name                   String                  @unique
+  icon                   String?
+  allowedModules         String[]                @default([]) // módulos habilitados para esta categoría de negocio
+  subcategories          UserSubcategory[]
+  users                  User[]
   freelancerApplications FreelancerApplication[]
 
   @@map("user_categories")
 }
 
 model UserSubcategory {
-  id         String       @id @default(uuid())
-  name       String
-  categoryId String
-  category   UserCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  users      User[]
+  id                     String                  @id @default(uuid())
+  name                   String
+  categoryId             String
+  category               UserCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  users                  User[]
   freelancerApplications FreelancerApplication[]
 
   @@unique([name, categoryId])
@@ -172,7 +173,7 @@ model Commerce {
   // comercio se crea/edita/oculta/restaura — permite ORDER BY nativo en
   // Postgres en vez de traer todo el catálogo a memoria para ordenar por rating.
   avgRating    Float?
-  reviewsCount Int      @default(0)
+  reviewsCount Int    @default(0)
 
   userId            String                 @unique
   user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -195,6 +196,7 @@ model Commerce {
   receipts          Receipt[]
   bnplSettings      BnplSettings[]
   bnplTransactions  BnplTransaction[]
+  driverInvitations DriverInvitation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -277,7 +279,7 @@ model Customer {
   isActive       Boolean         @default(true)
   telegramChatId String?
   commerceId     String
-  commerce       Commerce      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce       Commerce        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   appointments   Appointment[]
   orders         Order[]
   createdAt      DateTime        @default(now())
@@ -299,7 +301,7 @@ model Appointment {
   notes         String?
   status        AppointmentStatus @default(PENDING)
   commerceId    String
-  commerce      Commerce        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce      Commerce          @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
@@ -426,7 +428,7 @@ model Product {
   subcategoryId   String?
   subcategory     Subcategory?  @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
   commerceId      String
-  commerce        Commerce    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce        Commerce      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -438,12 +440,12 @@ model Product {
 // El stock es mutable y no versionado, así que esto es lo único que permite
 // graficar una tendencia real en vez de recalcular un historial inexistente.
 model ProductStockSnapshot {
-  id            String     @id @default(uuid())
+  id            String   @id @default(uuid())
   commerceId    String
   commerce      Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   lowStockCount Int
-  date          DateTime   @db.Date
-  createdAt     DateTime   @default(now())
+  date          DateTime @db.Date
+  createdAt     DateTime @default(now())
 
   @@unique([commerceId, date])
   @@index([commerceId, date])
@@ -527,12 +529,51 @@ model Driver {
   rating          Float        @default(5.0)
   totalDeliveries Int          @default(0)
   commerceId      String
-  commerce        Commerce   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce        Commerce     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   deliveries      Delivery[]
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+
+  // Cuenta propia del repartidor (con su propio KYC). Nullable: drivers
+  // creados antes de este cambio no tienen cuenta todavía — ver `graceUntil`.
+  // Una vez vinculado, solo puede recibir asignaciones si user.kycStatus = APPROVED.
+  userId     String?   @unique
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Fecha límite para vincularse a una cuenta verificada antes de quedar
+  // inactivo para nuevas asignaciones. Null = sin restricción (ya vinculado,
+  // o creado ya bajo el régimen nuevo vía invitación).
+  graceUntil DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("drivers")
+}
+
+enum DriverInvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+// Invitación que el comercio envía para que un repartidor cree su propia
+// cuenta y quede vinculado como Driver verificado (ver Driver.userId).
+model DriverInvitation {
+  id         String                 @id @default(uuid())
+  token      String                 @unique
+  commerceId String
+  commerce   Commerce               @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  email      String
+  phone      String?
+  name       String?
+  status     DriverInvitationStatus @default(PENDING)
+  driverId   String? // Driver resultante, una vez aceptada
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime               @default(now())
+
+  @@index([commerceId])
+  @@index([email])
+  @@map("driver_invitations")
 }
 
 model Delivery {
@@ -551,7 +592,7 @@ model Delivery {
   driverId        String?
   driver          Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
   commerceId      String
-  commerce        Commerce     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce        Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -632,7 +673,7 @@ model Order {
   customerId        String?
   customer          Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   commerceId        String
-  commerce          Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce          Commerce         @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   items             OrderItem[]
   receipt           Receipt?
   bnplTransaction   BnplTransaction?
@@ -662,7 +703,7 @@ model OrderItem {
 model BnplSettings {
   id         String       @id @default(uuid())
   commerceId String
-  commerce   Commerce   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   provider   BnplProvider
 
   isEnabled   Boolean @default(false)
@@ -689,7 +730,7 @@ model BnplTransaction {
   orderId    String                @unique
   order      Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
   commerceId String
-  commerce   Commerce            @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce              @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   provider   BnplProvider
   status     BnplTransactionStatus @default(PENDING)
 
@@ -726,10 +767,10 @@ model BnplTransaction {
 // deliberadamente rotulado como no-fiscal en el PDF generado.
 
 model Receipt {
-  id              String     @id @default(uuid())
-  receiptNumber   String     @unique
-  orderId         String     @unique
-  order           Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id              String   @id @default(uuid())
+  receiptNumber   String   @unique
+  orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   commerceId      String
   commerce        Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   // Snapshot de datos del comercio al momento de emitir — si el comercio
@@ -737,7 +778,7 @@ model Receipt {
   commerceName    String
   commerceAddress String?
   commercePhone   String?
-  issuedAt        DateTime   @default(now())
+  issuedAt        DateTime @default(now())
 
   @@map("receipts")
 }
@@ -766,7 +807,7 @@ model Notification {
   link       String?
   metadata   Json?
   commerceId String?
-  commerce   Commerce?      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce?        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   userId     String?
   user       User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime         @default(now())
@@ -897,9 +938,9 @@ model FreelancerApplication {
   user   User   @relation("FreelancerApplicant", fields: [userId], references: [id], onDelete: Cascade)
 
   categoryId    String
-  category      UserCategory        @relation(fields: [categoryId], references: [id])
+  category      UserCategory     @relation(fields: [categoryId], references: [id])
   subcategoryId String?
-  subcategory   UserSubcategory?    @relation(fields: [subcategoryId], references: [id])
+  subcategory   UserSubcategory? @relation(fields: [subcategoryId], references: [id])
   message       String? // por qué quiere ofrecer servicios, experiencia, etc.
 
   status          ProposalStatus @default(PENDING)
@@ -1016,15 +1057,15 @@ enum ExpensePaymentMethod {
 }
 
 model ExpenseCategory {
-  id         String     @id @default(uuid())
+  id         String    @id @default(uuid())
   name       String
-  color      String     @default("#6b7280")
-  budget     Float      @default(0)
+  color      String    @default("#6b7280")
+  budget     Float     @default(0)
   commerceId String
-  commerce   Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce  @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   expenses   Expense[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@unique([name, commerceId])
   @@map("expense_categories")
@@ -1044,7 +1085,7 @@ model Expense {
   categoryId    String?
   category      ExpenseCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   commerceId    String
-  commerce      Commerce           @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce      Commerce             @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
@@ -1078,7 +1119,7 @@ model CashSession {
   closingNotes   String?
   movements      CashMovement[]
   commerceId     String
-  commerce       Commerce        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce       Commerce          @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -1099,7 +1140,7 @@ model CashMovement {
   sessionId  String
   session    CashSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   commerceId String
-  commerce   Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce         @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt  DateTime         @default(now())
 
   @@map("cash_movements")
@@ -1144,7 +1185,7 @@ model Employee {
   notes            String?
   isActive         Boolean        @default(true)
   commerceId       String
-  commerce         Commerce     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce         Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -1174,7 +1215,7 @@ model Branch {
   color        String       @default("#6b7280")
   notes        String?
   commerceId   String
-  commerce     Commerce   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce     Commerce     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -1301,6 +1342,7 @@ model ReviewReport {
   status     ReviewReportStatus @default(PENDING)
   createdAt  DateTime           @default(now())
 
+  @@unique([reviewId, reporterId])
   @@index([reviewId])
   @@index([status])
   @@map("review_reports")
@@ -1429,24 +1471,24 @@ enum CatalogOrderStatus {
 }
 
 model CatalogOrder {
-  id             String              @id @default(uuid())
-  productId      String
-  productName    String
-  commerceId     String
-  restaurantName String
-  quantity       Int                 @default(1)
-  deliveryType   CatalogDeliveryType @default(HOME_DELIVERY)
-  address        String?
-  city           String?
-  buyerName      String
-  buyerPhone     String
-  buyerEmail     String?
-  notes          String?
-  totalEstimate  Float?
-  status         CatalogOrderStatus  @default(PENDING)
-  requesterId    String?
-  requester      User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
-  createdAt      DateTime            @default(now())
+  id            String              @id @default(uuid())
+  productId     String
+  productName   String
+  commerceId    String
+  commerceName  String
+  quantity      Int                 @default(1)
+  deliveryType  CatalogDeliveryType @default(HOME_DELIVERY)
+  address       String?
+  city          String?
+  buyerName     String
+  buyerPhone    String
+  buyerEmail    String?
+  notes         String?
+  totalEstimate Float?
+  status        CatalogOrderStatus  @default(PENDING)
+  requesterId   String?
+  requester     User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  createdAt     DateTime            @default(now())
 
   @@index([commerceId])
   @@index([status])
@@ -1552,13 +1594,13 @@ enum EscrowStatus {
 }
 
 model ServiceRequest {
-  id                String                 @id @default(uuid())
+  id                String                        @id @default(uuid())
   serviceId         String
-  service           Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  service           Service                       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   serviceName       String
   providerId        String
   providerName      String
-  modality          ServiceRequestModality @default(ANY)
+  modality          ServiceRequestModality        @default(ANY)
   preferredDate     DateTime
   address           String?
   city              String?
@@ -1573,21 +1615,21 @@ model ServiceRequest {
   platformFeePayer  FeePayer?
   // Escrow opcional (Service.hasEscrow) — retención del monto total en la
   // wallet de plataforma entre la fijación de precio y la finalización.
-  escrowStatus      EscrowStatus           @default(NONE)
+  escrowStatus      EscrowStatus                  @default(NONE)
   escrowAmount      Float?
   escrowHeldAt      DateTime?
-  status            ServiceRequestStatus   @default(PENDING)
+  status            ServiceRequestStatus          @default(PENDING)
   providerNotes     String?
   statusUpdatedAt   DateTime?
   // Marca cuándo se envió el recordatorio automático por falta de respuesta del
   // proveedor (cron); evita reenviarlo en cada corrida del scheduler.
   reminderSentAt    DateTime?
   requesterId       String?
-  requester         User?                  @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  requester         User?                         @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   items             ServiceRequestItem[]
   statusHistory     ServiceRequestStatusHistory[]
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
 
   @@index([serviceId])
   @@index([providerId])
@@ -1899,16 +1941,16 @@ enum RideServiceType {
 }
 
 model Ride {
-  id                String           @id @default(uuid())
-  serviceType       RideServiceType  @default(PASSENGER)
+  id                String          @id @default(uuid())
+  serviceType       RideServiceType @default(PASSENGER)
   origin            String
   destination       String
   originLat         Float?
   originLng         Float?
   destinationLat    Float?
   destinationLng    Float?
-  status            RideStatus       @default(PENDING)
-  vehicleType       RideVehicleType  @default(MOTORCYCLE)
+  status            RideStatus      @default(PENDING)
+  vehicleType       RideVehicleType @default(MOTORCYCLE)
   price             Float?
   distance          Float?
   duration          Int? // minutes
