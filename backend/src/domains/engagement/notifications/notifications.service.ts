@@ -74,6 +74,21 @@ export class NotificationsService {
     });
   }
 
+  async notifyNewServiceRequestMessage(
+    recipientId: string,
+    senderName: string,
+    serviceName: string,
+    serviceRequestId: string,
+  ) {
+    return this.createForUser(recipientId, {
+      type: NotificationType.ORDER,
+      title: '💬 Nuevo mensaje',
+      message: `${senderName} te escribió sobre "${serviceName}"`,
+      link: `/service-requests?open=${serviceRequestId}`,
+      metadata: { senderName, serviceName, serviceRequestId },
+    });
+  }
+
   async notifyServiceRequestStatusChanged(
     clientId: string,
     providerName: string,

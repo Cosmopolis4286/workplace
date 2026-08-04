@@ -77,17 +77,13 @@ export class DeliveryService {
 
     if (driver.userId) {
       if (driver.user?.kycStatus !== KycStatus.APPROVED) {
-        throw new ForbiddenException(
-          'Este repartidor debe verificar su identidad antes de recibir entregas.'
-        );
+        throw new ForbiddenException(this.i18n.t('delivery.driver.kyc_required'));
       }
       return driver;
     }
 
     if (driver.graceUntil && driver.graceUntil < new Date()) {
-      throw new ForbiddenException(
-        'Este repartidor no tiene una cuenta verificada vinculada. Invítalo a registrarse para volver a asignarle entregas.'
-      );
+      throw new ForbiddenException(this.i18n.t('delivery.driver.grace_expired'));
     }
 
     return driver;
@@ -259,7 +255,7 @@ export class DeliveryService {
       where: { token },
       include: { commerce: { select: { name: true } } },
     });
-    if (!invitation) throw new NotFoundException('Invitación no encontrada');
+    if (!invitation) throw new NotFoundException(this.i18n.t('delivery.invitation.not_found'));
 
     const isExpired = invitation.status === DriverInvitationStatus.EXPIRED
       || (invitation.status === DriverInvitationStatus.PENDING && invitation.expiresAt < new Date());
@@ -277,7 +273,7 @@ export class DeliveryService {
       where: { commerceId, email: dto.email, status: DriverInvitationStatus.PENDING },
     });
     if (existingPending) {
-      throw new BadRequestException('Ya existe una invitación pendiente para este correo');
+      throw new BadRequestException(this.i18n.t('delivery.invitation.already_pending'));
     }
 
     const commerce = await this.prisma.commerce.findUnique({
