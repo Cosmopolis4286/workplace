@@ -167,7 +167,7 @@
 
             <!-- Comercio -->
             <div class="col-span-2 hidden lg:block text-xs text-gray-500 truncate">
-              {{ u.restaurant?.name ?? '—' }}
+              {{ u.commerce?.name ?? '—' }}
             </div>
 
             <!-- Estado -->

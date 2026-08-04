@@ -87,12 +87,12 @@
                 class="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-sm"
                 :class="catalogStatusAvatarClass(order.status)"
               >
-                {{ order.restaurantName?.[0]?.toUpperCase() ?? 'C' }}
+                {{ order.commerceName?.[0]?.toUpperCase() ?? 'C' }}
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-start justify-between gap-2 mb-1">
                   <div class="min-w-0">
-                    <p class="text-sm font-semibold text-gray-900 truncate">{{ order.restaurantName }}</p>
+                    <p class="text-sm font-semibold text-gray-900 truncate">{{ order.commerceName }}</p>
                     <p class="text-xs text-red-600 font-medium truncate">{{ order.quantity }}× {{ order.productName }}</p>
                   </div>
                   <span class="badge flex-shrink-0" :class="CATALOG_STATUS_CLASSES[order.status]">
@@ -352,7 +352,7 @@
         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
           <div class="p-6 border-b border-gray-100 flex items-start justify-between">
             <div>
-              <h3 class="font-black text-gray-900">{{ selectedCatalogOrder.restaurantName }}</h3>
+              <h3 class="font-black text-gray-900">{{ selectedCatalogOrder.commerceName }}</h3>
               <p class="text-sm text-gray-500 mt-0.5">{{ selectedCatalogOrder.quantity }}× {{ selectedCatalogOrder.productName }}</p>
             </div>
             <span class="badge flex-shrink-0" :class="CATALOG_STATUS_CLASSES[selectedCatalogOrder.status]">
@@ -444,7 +444,7 @@ const activeSource = ref<'restaurant' | 'catalog'>('restaurant')
 interface CatalogOrder {
   id: string
   productName: string
-  restaurantName: string
+  commerceName: string
   quantity: number
   totalEstimate?: number
   address?: string

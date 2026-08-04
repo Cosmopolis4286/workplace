@@ -5,7 +5,7 @@ export interface CatalogCategory {
   productCount: number
 }
 
-export interface CatalogRestaurant {
+export interface CatalogCommerce {
   id: string
   name: string
   type: string | null
@@ -55,7 +55,7 @@ export type LocationTier = 'city' | 'state' | 'country' | null
 // ─── Singleton state ────────────────────────────────────────────────────────
 const products = ref<CatalogProduct[]>([])
 const categories = ref<CatalogCategory[]>([])
-const restaurants = ref<CatalogRestaurant[]>([])
+const commerces = ref<CatalogCommerce[]>([])
 const loading = ref(false)
 const loadingCategories = ref(false)
 const loadingDetail = ref(false)
@@ -111,10 +111,10 @@ export const useCatalog = () => {
     }
   }
 
-  async function loadRestaurants() {
+  async function loadCommerces() {
     try {
-      const res = await get<{ data: CatalogRestaurant[] }>('/catalog/restaurants')
-      restaurants.value = res.data
+      const res = await get<{ data: CatalogCommerce[] }>('/catalog/commerces')
+      commerces.value = res.data
     } catch {
       // non-fatal
     }
@@ -193,7 +193,7 @@ export const useCatalog = () => {
     loadProducts()
   }
 
-  function filterByRestaurant(id: string) {
+  function filterByCommerce(id: string) {
     query.value.commerceId = query.value.commerceId === id ? '' : id
     query.value.page = 1
     loadProducts()
@@ -266,7 +266,7 @@ export const useCatalog = () => {
     // state
     products: readonly(products),
     categories: readonly(categories),
-    restaurants: readonly(restaurants),
+    commerces: readonly(commerces),
     loading: readonly(loading),
     loadingCategories: readonly(loadingCategories),
     loadingDetail: readonly(loadingDetail),
@@ -279,12 +279,12 @@ export const useCatalog = () => {
     locationTier: readonly(locationTier),
     // actions
     loadCategories,
-    loadRestaurants,
+    loadCommerces,
     loadProducts,
     fetchProduct,
     search,
     filterByCategory,
-    filterByRestaurant,
+    filterByCommerce,
     filterByPriceRange,
     changePage,
     changeSort,

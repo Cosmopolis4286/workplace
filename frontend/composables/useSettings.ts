@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { useApi } from './useApi'
 
-export interface RestaurantInfo {
+export interface CommerceInfo {
   id: string
   name: string
   type?: string
@@ -16,7 +16,7 @@ export interface RestaurantInfo {
   parish?: string
 }
 
-export interface RestaurantSettings {
+export interface CommerceSettings {
   id: string
   commerceId: string
   currency: string
@@ -34,7 +34,7 @@ export interface RestaurantSettings {
 }
 
 // Settings de un FREELANCER (proveedor de servicios): sin campos de comercio
-// físico (tax/delivery/avgPrepTime) ni restaurant asociado.
+// físico (tax/delivery/avgPrepTime) ni commerce asociado.
 export interface FreelancerSettingsData {
   id: string
   userId: string
@@ -47,13 +47,13 @@ export interface FreelancerSettingsData {
 }
 
 export interface FullSettings {
-  restaurant: RestaurantInfo | null
-  settings: RestaurantSettings | FreelancerSettingsData
+  commerce: CommerceInfo | null
+  settings: CommerceSettings | FreelancerSettingsData
 }
 
 // Global reactive state
-const restaurant = ref<RestaurantInfo | null>(null)
-const settings = ref<RestaurantSettings | FreelancerSettingsData | null>(null)
+const commerce = ref<CommerceInfo | null>(null)
+const settings = ref<CommerceSettings | FreelancerSettingsData | null>(null)
 const loading = ref(false)
 const saving = ref<string | null>(null)  // tracks which section is saving
 const error = ref<string | null>(null)
@@ -75,7 +75,7 @@ export const useSettings = () => {
     error.value = null
     try {
       const data = await get<FullSettings>('/settings')
-      restaurant.value = data.restaurant
+      commerce.value = data.commerce
       settings.value = data.settings
     } catch (err: any) {
       error.value = err?.message ?? 'Error al cargar la configuración'
@@ -85,15 +85,15 @@ export const useSettings = () => {
     }
   }
 
-  // ─── Update restaurant info ─────────────────────────────────────────────────
+  // ─── Update commerce info ───────────────────────────────────────────────────
 
-  async function saveRestaurantInfo(data: Partial<RestaurantInfo>): Promise<boolean> {
-    saving.value = 'restaurant'
+  async function saveCommerceInfo(data: Partial<CommerceInfo>): Promise<boolean> {
+    saving.value = 'commerce'
     error.value = null
     try {
-      const updated = await patch<RestaurantInfo>('/settings/restaurant', data)
-      restaurant.value = updated
-      showSuccess('Información del restaurante guardada')
+      const updated = await patch<CommerceInfo>('/settings/commerce', data)
+      commerce.value = updated
+      showSuccess('Información del comercio guardada')
       return true
     } catch (err: any) {
       error.value = err?.message ?? 'Error al guardar la información'
@@ -105,11 +105,11 @@ export const useSettings = () => {
 
   // ─── Update payment settings ────────────────────────────────────────────────
 
-  async function savePaymentSettings(data: Partial<RestaurantSettings> | Partial<FreelancerSettingsData>): Promise<boolean> {
+  async function savePaymentSettings(data: Partial<CommerceSettings> | Partial<FreelancerSettingsData>): Promise<boolean> {
     saving.value = 'payment'
     error.value = null
     try {
-      const updated = await patch<RestaurantSettings | FreelancerSettingsData>('/settings/payment', data)
+      const updated = await patch<CommerceSettings | FreelancerSettingsData>('/settings/payment', data)
       settings.value = { ...settings.value!, ...updated }
       showSuccess('Configuración de pagos guardada')
       return true
@@ -123,11 +123,11 @@ export const useSettings = () => {
 
   // ─── Update operation settings ──────────────────────────────────────────────
 
-  async function saveOperationSettings(data: Partial<RestaurantSettings>): Promise<boolean> {
+  async function saveOperationSettings(data: Partial<CommerceSettings>): Promise<boolean> {
     saving.value = 'operations'
     error.value = null
     try {
-      const updated = await patch<RestaurantSettings>('/settings/operations', data)
+      const updated = await patch<CommerceSettings>('/settings/operations', data)
       settings.value = { ...settings.value!, ...updated }
       showSuccess('Configuración de operaciones guardada')
       return true
@@ -145,7 +145,7 @@ export const useSettings = () => {
     saving.value = 'notifications'
     error.value = null
     try {
-      const updated = await patch<RestaurantSettings | FreelancerSettingsData>('/settings/notifications', data)
+      const updated = await patch<CommerceSettings | FreelancerSettingsData>('/settings/notifications', data)
       settings.value = { ...settings.value!, ...updated }
       showSuccess('Preferencias de notificaciones guardadas')
       return true
@@ -185,7 +185,7 @@ export const useSettings = () => {
 
   return {
     // state
-    restaurant,
+    commerce,
     settings,
     loading,
     saving,
@@ -193,7 +193,7 @@ export const useSettings = () => {
     successMsg,
     // actions
     loadSettings,
-    saveRestaurantInfo,
+    saveCommerceInfo,
     savePaymentSettings,
     saveOperationSettings,
     saveNotificationSettings,

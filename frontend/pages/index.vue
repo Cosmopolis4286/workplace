@@ -454,7 +454,7 @@
           <div class="space-y-3">
             <h2 class="text-3xl sm:text-4xl font-black text-white">{{ t('landing.ctaBanner.title') }}</h2>
             <p class="text-red-100 text-lg max-w-xl mx-auto">
-              {{ t('landing.ctaBanner.subtitle', { count: restaurantCountLabel, appName: t('common.appName') }) }}
+              {{ t('landing.ctaBanner.subtitle', { count: commerceCountLabel, appName: t('common.appName') }) }}
             </p>
           </div>
 
@@ -826,13 +826,13 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
 })
 
-// ─── CTA banner restaurantCountLabel ─────────────────────────────────────────
+// ─── CTA banner commerceCountLabel ────────────────────────────────────────────
 // Uses stat key for stability (admin can rename labels without breaking this)
-const restaurantCountLabel = computed(() => {
-  const restaurantStat = socialStats.value.find(s => s.key === 'restaurants')
-  if (!restaurantStat) return t('landing.ctaBanner.moreThanFallback')
+const commerceCountLabel = computed(() => {
+  const commerceStat = socialStats.value.find(s => s.key === 'commerces')
+  if (!commerceStat) return t('landing.ctaBanner.moreThanFallback')
   // Strip trailing + to avoid "more than 500+" — the phrase already implies "more than"
-  const cleanValue = restaurantStat.value.replace(/\+$/, '')
+  const cleanValue = commerceStat.value.replace(/\+$/, '')
   return t('landing.ctaBanner.moreThan', { value: cleanValue })
 })
 

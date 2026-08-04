@@ -99,8 +99,8 @@
                 <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="roleBadge">{{ roleLabel }}</span>
               </div>
               <p v-if="profile.username" class="text-gray-400 text-sm mb-1">@{{ profile.username }}</p>
-              <p v-if="profile.restaurant" class="text-gray-500 text-sm mb-3">
-                🏪 {{ profile.restaurant.name }}<span v-if="profile.restaurant.type"> · {{ profile.restaurant.type }}</span>
+              <p v-if="profile.commerce" class="text-gray-500 text-sm mb-3">
+                🏪 {{ profile.commerce.name }}<span v-if="profile.commerce.type"> · {{ profile.commerce.type }}</span>
               </p>
               <!-- Stats row -->
               <div class="flex flex-wrap gap-6 text-center">
@@ -1318,7 +1318,7 @@ const tabs = computed(() => {
   const ps = profile.value?.profileSettings ?? { showCatalog: true, showServices: true }
   const role = profile.value?.role ?? ''
   // Catálogo: solo COMMERCE/ADMIN/SUPERADMIN con commerce
-  if (ps.showCatalog && profile.value?.restaurant && ['COMMERCE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
+  if (ps.showCatalog && profile.value?.commerce && ['COMMERCE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
     t.push({ key: 'catalog', label: 'Catálogo' })
   }
   // Servicios: FREELANCER o COMMERCE
@@ -1497,12 +1497,12 @@ const orderTarget = ref<any>(null)
 const catalogToast = ref('')
 
 async function fetchCatalogProducts(page = 1) {
-  if (!profile.value?.restaurant?.id) return
+  if (!profile.value?.commerce?.id) return
   catalogLoading.value = true
   try {
     const { get } = useApi()
     const res = await get<{ data: any[]; total: number; totalPages: number }>(
-      `/catalog/products?commerceId=${profile.value.restaurant.id}&limit=12&page=${page}`,
+      `/catalog/products?commerceId=${profile.value.commerce.id}&limit=12&page=${page}`,
     )
     if (page === 1) catalogProducts.value = res.data
     else catalogProducts.value.push(...res.data)

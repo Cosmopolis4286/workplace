@@ -288,31 +288,31 @@
           <div class="space-y-5">
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre del Comercio</label>
-              <input v-model="restaurantForm.name" type="text" class="input-field" placeholder="Mi Comercio">
+              <input v-model="commerceForm.name" type="text" class="input-field" placeholder="Mi Comercio">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Establecimiento</label>
-              <input v-model="restaurantForm.type" type="text" class="input-field" placeholder="Restaurante, Tienda, Servicio...">
+              <input v-model="commerceForm.type" type="text" class="input-field" placeholder="Restaurante, Tienda, Servicio...">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Dirección</label>
-              <input v-model="restaurantForm.address" type="text" class="input-field" placeholder="Av. Principal 123, Col. Centro">
+              <input v-model="commerceForm.address" type="text" class="input-field" placeholder="Av. Principal 123, Col. Centro">
             </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Teléfono</label>
-                <input v-model="restaurantForm.phone" type="tel" class="input-field" placeholder="+52 123 456 7890">
+                <input v-model="commerceForm.phone" type="tel" class="input-field" placeholder="+52 123 456 7890">
               </div>
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-                <input v-model="restaurantForm.email" type="email" class="input-field" placeholder="contacto@micomercio.com">
+                <input v-model="commerceForm.email" type="email" class="input-field" placeholder="contacto@micomercio.com">
               </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">País</label>
                 <SearchableSelect
-                  v-model="restaurantForm.country"
+                  v-model="commerceForm.country"
                   :options="countryNames"
                   placeholder="Ej: Venezuela"
                   @update:model-value="onSettingsCountryChange"
@@ -324,7 +324,7 @@
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Estado</label>
                   <SearchableSelect
-                    v-model="restaurantForm.state"
+                    v-model="commerceForm.state"
                     :options="veStates"
                     placeholder="Selecciona un estado"
                     @update:model-value="onSettingsStateChange"
@@ -333,9 +333,9 @@
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Municipio</label>
                   <SearchableSelect
-                    v-model="restaurantForm.municipality"
+                    v-model="commerceForm.municipality"
                     :options="veMunicipios.map(m => m.name)"
-                    :disabled="!restaurantForm.state"
+                    :disabled="!commerceForm.state"
                     placeholder="Selecciona un municipio"
                     @update:model-value="onSettingsMunicipalityChange"
                   />
@@ -343,9 +343,9 @@
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
                   <SearchableSelect
-                    v-model="restaurantForm.city"
+                    v-model="commerceForm.city"
                     :options="veCiudades.map(c => c.name)"
-                    :disabled="!restaurantForm.municipality"
+                    :disabled="!commerceForm.municipality"
                     placeholder="Selecciona una ciudad"
                     @update:model-value="onSettingsCityChange"
                   />
@@ -355,9 +355,9 @@
                     Parroquia <span class="text-gray-400 font-normal">(opcional)</span>
                   </label>
                   <SearchableSelect
-                    v-model="restaurantForm.parish"
+                    v-model="commerceForm.parish"
                     :options="veParroquias.map(p => p.name)"
-                    :disabled="!restaurantForm.city"
+                    :disabled="!commerceForm.city"
                     placeholder="Selecciona una parroquia"
                   />
                 </div>
@@ -365,25 +365,25 @@
               <template v-else>
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Estado / Provincia</label>
-                  <input v-model="restaurantForm.state" type="text" class="input-field" placeholder="Ej: Miranda">
+                  <input v-model="commerceForm.state" type="text" class="input-field" placeholder="Ej: Miranda">
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
-                  <input v-model="restaurantForm.city" type="text" class="input-field" placeholder="Ej: Caracas">
+                  <input v-model="commerceForm.city" type="text" class="input-field" placeholder="Ej: Caracas">
                 </div>
               </template>
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-2">Horario de Atención</label>
               <textarea
-                v-model="restaurantForm.schedule"
+                v-model="commerceForm.schedule"
                 rows="3"
                 class="input-field resize-none"
                 placeholder="Lunes a Viernes: 9:00 - 22:00&#10;Sábados y Domingos: 10:00 - 23:00"
               />
             </div>
-            <button :disabled="saving === 'restaurant'" class="btn-save btn-blue" @click="handleSaveRestaurant">
-              <span v-if="saving === 'restaurant'" class="flex items-center justify-center gap-2">
+            <button :disabled="saving === 'commerce'" class="btn-save btn-blue" @click="handleSaveCommerce">
+              <span v-if="saving === 'commerce'" class="flex items-center justify-center gap-2">
                 <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
@@ -618,7 +618,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import SearchableSelect from '~/components/ui/SearchableSelect.vue'
 import TwoFactorSettings from '~/components/settings/TwoFactorSettings.vue'
 import BnplSettingsSection from '~/components/settings/BnplSettingsSection.vue'
-import { useSettings, type RestaurantSettings, type FreelancerSettingsData } from '~/composables/useSettings'
+import { useSettings, type CommerceSettings, type FreelancerSettingsData } from '~/composables/useSettings'
 import { useAuth } from '~/composables/useAuth'
 import { usePermissions } from '~/composables/usePermissions'
 import { useUserPreferences } from '~/composables/useUserPreferences'
@@ -631,7 +631,7 @@ const { userCategory } = usePermissions()
 const role = computed(() => user.value?.role ?? 'NORMAL')
 // Solo COMMERCE y FREELANCER tienen un negocio propio con configuración de backend
 const isCommerce = computed(() => ['COMMERCE', 'FREELANCER'].includes(role.value))
-// Un freelancer es proveedor de servicios independiente: sin Restaurant, sin
+// Un freelancer es proveedor de servicios independiente: sin Commerce, sin
 // campos de comercio físico (dirección, horario, tax, delivery, etc.)
 const isFreelancer = computed(() => role.value === 'FREELANCER')
 // Solo usuarios de categoría "Comida" pueden ver Operaciones y Configuración de Pagos
@@ -654,27 +654,27 @@ const { prefs: userPrefs, activeRates, fetchRates, savePreferences } = useUserPr
 // ─── COMMERCE settings (backend) ─────────────────────────────────────────────
 
 const {
-  restaurant,
+  commerce,
   settings,
   loading,
   saving,
   error,
   successMsg,
   loadSettings,
-  saveRestaurantInfo,
+  saveCommerceInfo,
   savePaymentSettings,
   saveOperationSettings,
   saveNotificationSettings,
 } = useSettings()
 
-const restaurantForm = ref({ name: '', type: '', address: '', phone: '', email: '', schedule: '', country: '', state: '', city: '', municipality: '', parish: '' })
+const commerceForm = ref({ name: '', type: '', address: '', phone: '', email: '', schedule: '', country: '', state: '', city: '', municipality: '', parish: '' })
 
 // ─── Ubicación: catálogo VE en cascada Estado→Municipio→Ciudad→Parroquia ─────
 const { getCountries } = useLocationData()
 const { getStates: getVeStates, getMunicipios: getVeMunicipios, getCiudades: getVeCiudades, getParroquias: getVeParroquias } = useVeLocations()
 
 const countryNames = ref<string[]>([])
-const isVenezuelaSettings = computed(() => restaurantForm.value.country.trim().toLowerCase() === 'venezuela')
+const isVenezuelaSettings = computed(() => commerceForm.value.country.trim().toLowerCase() === 'venezuela')
 
 const veStates = ref<string[]>([])
 const veMunicipios = ref<VeMunicipio[]>([])
@@ -699,25 +699,25 @@ async function loadVeParroquias(ciudadName: string) {
 
 function onSettingsCountryChange() {
   if (!isVenezuelaSettings.value) return
-  restaurantForm.value.state = ''
-  restaurantForm.value.municipality = ''
-  restaurantForm.value.city = ''
-  restaurantForm.value.parish = ''
+  commerceForm.value.state = ''
+  commerceForm.value.municipality = ''
+  commerceForm.value.city = ''
+  commerceForm.value.parish = ''
 }
 
 function onSettingsStateChange() {
-  restaurantForm.value.municipality = ''
-  restaurantForm.value.city = ''
-  restaurantForm.value.parish = ''
+  commerceForm.value.municipality = ''
+  commerceForm.value.city = ''
+  commerceForm.value.parish = ''
 }
 
 function onSettingsMunicipalityChange() {
-  restaurantForm.value.city = ''
-  restaurantForm.value.parish = ''
+  commerceForm.value.city = ''
+  commerceForm.value.parish = ''
 }
 
 function onSettingsCityChange() {
-  restaurantForm.value.parish = ''
+  commerceForm.value.parish = ''
 }
 
 watch(isVenezuelaSettings, (isVe) => {
@@ -726,15 +726,15 @@ watch(isVenezuelaSettings, (isVe) => {
   }
 }, { immediate: true })
 
-watch(() => restaurantForm.value.state, (state) => {
+watch(() => commerceForm.value.state, (state) => {
   if (isVenezuelaSettings.value && state) loadVeMunicipios(state)
 })
 
-watch(() => restaurantForm.value.municipality, (municipality) => {
+watch(() => commerceForm.value.municipality, (municipality) => {
   if (isVenezuelaSettings.value && municipality) loadVeCiudades(municipality)
 })
 
-watch(() => restaurantForm.value.city, (city) => {
+watch(() => commerceForm.value.city, (city) => {
   if (isVenezuelaSettings.value && city) loadVeParroquias(city)
 })
 
@@ -766,19 +766,19 @@ const freelancerNotificationItems = [
 const notificationItems = computed(() => isFreelancer.value ? freelancerNotificationItems : commerceNotificationItems)
 
 function syncForms() {
-  if (restaurant.value) {
-    restaurantForm.value = {
-      name: restaurant.value.name ?? '',
-      type: restaurant.value.type ?? '',
-      address: restaurant.value.address ?? '',
-      phone: restaurant.value.phone ?? '',
-      email: restaurant.value.email ?? '',
-      schedule: restaurant.value.schedule ?? '',
-      country: restaurant.value.country ?? '',
-      state: restaurant.value.state ?? '',
-      city: restaurant.value.city ?? '',
-      municipality: restaurant.value.municipality ?? '',
-      parish: restaurant.value.parish ?? '',
+  if (commerce.value) {
+    commerceForm.value = {
+      name: commerce.value.name ?? '',
+      type: commerce.value.type ?? '',
+      address: commerce.value.address ?? '',
+      phone: commerce.value.phone ?? '',
+      email: commerce.value.email ?? '',
+      schedule: commerce.value.schedule ?? '',
+      country: commerce.value.country ?? '',
+      state: commerce.value.state ?? '',
+      city: commerce.value.city ?? '',
+      municipality: commerce.value.municipality ?? '',
+      parish: commerce.value.parish ?? '',
     }
   }
   if (settings.value) {
@@ -794,7 +794,7 @@ function syncForms() {
       return
     }
 
-    const s = settings.value as RestaurantSettings
+    const s = settings.value as CommerceSettings
     paymentForm.value = {
       currency: s.currency,
       tax: s.tax,
@@ -816,9 +816,9 @@ function syncForms() {
   }
 }
 
-watch([restaurant, settings], syncForms)
+watch([commerce, settings], syncForms)
 
-async function handleSaveRestaurant() { await saveRestaurantInfo({ ...restaurantForm.value }) }
+async function handleSaveCommerce() { await saveCommerceInfo({ ...commerceForm.value }) }
 async function handleSavePayment() { await savePaymentSettings({ ...paymentForm.value }) }
 async function handleSaveOperations() { await saveOperationSettings({ ...operationForm.value }) }
 function togglePaymentMethod(id: string) {

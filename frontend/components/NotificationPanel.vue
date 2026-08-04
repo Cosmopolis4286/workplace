@@ -185,7 +185,7 @@ const {
   disconnectWebSocket,
 } = useNotifications()
 
-const { restaurant } = useAuth()
+const { commerce } = useAuth()
 
 const isOpen             = ref(false)
 const wsOffline          = ref(false)
@@ -273,7 +273,7 @@ let stopWatch: (() => void) | null = null
 onMounted(async () => {
   document.addEventListener('click', handleClickOutside)
 
-  const commerceId = restaurant.value?.id
+  const commerceId = commerce.value?.id
   if (commerceId) {
     try {
       await init(commerceId)
@@ -283,7 +283,7 @@ onMounted(async () => {
       await fetchNotifications({ limit: 30 })
     }
   } else {
-    stopWatch = watch(restaurant, async (r) => {
+    stopWatch = watch(commerce, async (r) => {
       if (r?.id) {
         stopWatch?.()
         try {

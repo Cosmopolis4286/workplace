@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { resetWallets } from './useWallets'
 
-interface Restaurant {
+interface Commerce {
   id: string
   name: string
   type?: string
@@ -22,7 +22,7 @@ interface User {
   role: 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
   isActive: boolean
   emailVerified?: boolean
-  commerce?: Restaurant
+  commerce?: Commerce
   categoryId?: string
   category?: { id: string; name: string; icon?: string | null } | null
   country?: string
@@ -141,7 +141,7 @@ export const useAuth = () => {
 
   const user = computed(() => currentUser.value)
   const isAuthenticated = computed(() => !!currentUser.value)
-  const restaurant = computed(() => currentUser.value?.commerce)
+  const commerce = computed(() => currentUser.value?.commerce)
   const token = computed(() => accessToken.value)
 
   function setSession(data: AuthResponse): void {
@@ -411,7 +411,7 @@ export const useAuth = () => {
   return {
     user,
     isAuthenticated,
-    restaurant,
+    commerce,
     token,
     currentUser,
     login,

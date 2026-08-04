@@ -9,7 +9,7 @@ export interface UserCategory {
 export interface UserItem {
   id: string; firstName: string; lastName: string; email: string; phone?: string
   role: Role; isActive: boolean; createdAt: string
-  restaurant?: { id: string; name: string }
+  commerce?: { id: string; name: string }
   category?: { id: string; name: string; icon?: string } | null
   subcategory?: { id: string; name: string } | null
 }

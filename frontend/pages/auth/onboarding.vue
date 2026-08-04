@@ -84,7 +84,7 @@ const handleSubmit = async () => {
 
   isLoading.value = true
   try {
-    await patch('/settings/restaurant', { name: commerceName.value })
+    await patch('/settings/commerce', { name: commerceName.value })
     await navigateTo('/dashboard')
   } catch (err: unknown) {
     toast.error(getApiErrorMessage(err, t('auth.onboarding.saveError')))

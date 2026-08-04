@@ -61,7 +61,7 @@ const FALLBACK_TESTIMONIALS: PublicTestimonial[] = [
 ]
 
 const FALLBACK_STATS: PublicStat[] = [
-  { key: 'restaurants', value: '500+', label: 'Restaurantes activos', rawValue: 500 },
+  { key: 'commerces', value: '500+', label: 'Comercios activos', rawValue: 500 },
   { key: 'uptime', value: '99.9%', label: 'Tiempo en línea' },
   { key: 'orders', value: '50k+', label: 'Pedidos procesados', rawValue: 50000 },
   { key: 'rating', value: '4.9★', label: 'Valoración promedio', rawValue: 500 },

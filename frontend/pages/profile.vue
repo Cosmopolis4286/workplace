@@ -107,9 +107,9 @@
               </span>
             </div>
             <div v-if="isCommerce" class="flex items-center justify-between text-sm">
-              <span class="text-gray-500">Restaurante</span>
-              <span class="font-semibold text-gray-900 truncate max-w-[120px]" :title="auth.restaurant.value?.name">
-                {{ auth.restaurant.value?.name ?? '—' }}
+              <span class="text-gray-500">Comercio</span>
+              <span class="font-semibold text-gray-900 truncate max-w-[120px]" :title="auth.commerce.value?.name">
+                {{ auth.commerce.value?.name ?? '—' }}
               </span>
             </div>
             <div v-if="auth.user.value?.phone" class="flex items-center justify-between text-sm">
@@ -1074,7 +1074,7 @@ const ROLE_STYLES: Record<string, { label: string; badge: string }> = {
 }
 
 const roleStyle = computed(() => ROLE_STYLES[auth.user.value?.role ?? 'NORMAL'] ?? ROLE_STYLES.NORMAL)
-// Solo COMMERCE tiene restaurante asociado y perfil público
+// Solo COMMERCE tiene comercio asociado y perfil público
 const isCommerce = computed(() => auth.user.value?.role === 'COMMERCE')
 const isCommerceOrFreelancer = computed(() => ['COMMERCE', 'FREELANCER'].includes(auth.user.value?.role ?? ''))
 
