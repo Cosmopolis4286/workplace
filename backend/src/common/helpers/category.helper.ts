@@ -22,18 +22,18 @@ export class CategoryHelper {
   }
 
   /**
-   * Verifica si un usuario necesita restaurante (solo usuarios de categoría "Comida")
+   * Verifica si un usuario necesita un comercio asociado (solo usuarios de categoría "Comida")
    */
-  async userNeedsRestaurant(userId: string): Promise<boolean> {
+  async userNeedsCommerce(userId: string): Promise<boolean> {
     return this.isUserInFoodCategory(userId);
   }
 
   /**
    * Obtiene el commerce ID de un usuario (solo si es de categoría "Comida")
    */
-  async getRestaurantIdForUser(userId: string): Promise<string | null> {
-    const needsRestaurant = await this.userNeedsRestaurant(userId);
-    if (!needsRestaurant) {
+  async getCommerceIdForUser(userId: string): Promise<string | null> {
+    const needsCommerce = await this.userNeedsCommerce(userId);
+    if (!needsCommerce) {
       return null;
     }
 
@@ -46,14 +46,14 @@ export class CategoryHelper {
   }
 
   /**
-   * Valida que un usuario de categoría "Comida" tenga restaurante asociado
-   * Lanza excepción si el usuario es de "Comida" pero no tiene restaurante
+   * Valida que un usuario de categoría "Comida" tenga un comercio asociado
+   * Lanza excepción si el usuario es de "Comida" pero no tiene comercio
    */
-  async validateRestaurantForFoodCategory(userId: string): Promise<string> {
-    const needsRestaurant = await this.userNeedsRestaurant(userId);
-    
-    if (!needsRestaurant) {
-      // Usuario no es de categoría "Comida", no necesita restaurante
+  async validateCommerceForFoodCategory(userId: string): Promise<string> {
+    const needsCommerce = await this.userNeedsCommerce(userId);
+
+    if (!needsCommerce) {
+      // Usuario no es de categoría "Comida", no necesita comercio
       return null;
     }
 
@@ -64,7 +64,7 @@ export class CategoryHelper {
 
     if (!commerce) {
       throw new ForbiddenException(
-        'Los usuarios de la categoría "Comida" deben tener un restaurante asociado'
+        'Los usuarios de la categoría "Comida" deben tener un comercio asociado'
       );
     }
 

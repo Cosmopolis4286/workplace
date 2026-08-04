@@ -54,9 +54,9 @@ describe('MenuService', () => {
 
   const mockCategoryHelper = {
     isUserInFoodCategory: jest.fn().mockResolvedValue(true),
-    userNeedsRestaurant: jest.fn().mockResolvedValue(true),
-    getRestaurantIdForUser: jest.fn().mockResolvedValue('restaurant-123'),
-    validateRestaurantForFoodCategory: jest.fn().mockResolvedValue('restaurant-123'),
+    userNeedsCommerce: jest.fn().mockResolvedValue(true),
+    getCommerceIdForUser: jest.fn().mockResolvedValue('commerce-123'),
+    validateCommerceForFoodCategory: jest.fn().mockResolvedValue('commerce-123'),
   }
 
   const mockI18nService = {
