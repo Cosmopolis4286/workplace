@@ -11,7 +11,7 @@ export class KycApprovedGuard implements CanActivate {
 
     if (user?.kycStatus !== KycStatus.APPROVED) {
       throw new ForbiddenException(
-        'Debes verificar tu identidad antes de retirar, transferir o pagar. Completa la verificación en tu perfil.'
+        'Debes verificar tu identidad antes de realizar esta acción. Completa la verificación en tu perfil.'
       );
     }
 
