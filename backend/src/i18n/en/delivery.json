@@ -1,7 +1,7 @@
 {
   "driver": {
     "not_found": "Driver not found",
-    "not_found_in_restaurant": "Driver not found in this restaurant",
+    "not_found_in_commerce": "Driver not found in this commerce",
     "not_active": "The driver is not active",
     "kyc_required": "This driver must verify their identity before receiving deliveries.",
     "grace_expired": "This driver doesn't have a verified account linked. Invite them to sign up to assign deliveries again."

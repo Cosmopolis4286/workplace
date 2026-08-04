@@ -305,10 +305,10 @@ export class DeliveryService {
       where: { id: invitationId },
     });
     if (!invitation || invitation.commerceId !== commerceId) {
-      throw new NotFoundException('Invitación no encontrada');
+      throw new NotFoundException(this.i18n.t('delivery.invitation.not_found'));
     }
     if (invitation.status !== DriverInvitationStatus.PENDING) {
-      throw new BadRequestException('Esta invitación ya no está pendiente');
+      throw new BadRequestException(this.i18n.t('delivery.invitation.no_longer_pending'));
     }
     return this.prisma.driverInvitation.update({
       where: { id: invitationId },
@@ -321,30 +321,30 @@ export class DeliveryService {
   // sin periodo de gracia, porque nace ya con cuenta propia.
   async acceptInvitation(token: string, acceptingUserId: string) {
     const invitation = await this.prisma.driverInvitation.findUnique({ where: { token } });
-    if (!invitation) throw new NotFoundException('Invitación no encontrada');
+    if (!invitation) throw new NotFoundException(this.i18n.t('delivery.invitation.not_found'));
     if (invitation.status !== DriverInvitationStatus.PENDING) {
-      throw new BadRequestException('Esta invitación ya no está disponible');
+      throw new BadRequestException(this.i18n.t('delivery.invitation.no_longer_available'));
     }
     if (invitation.expiresAt < new Date()) {
       await this.prisma.driverInvitation.update({
         where: { id: invitation.id },
         data: { status: DriverInvitationStatus.EXPIRED },
       });
-      throw new BadRequestException('Esta invitación expiró. Solicita una nueva.');
+      throw new BadRequestException(this.i18n.t('delivery.invitation.expired'));
     }
 
     const existingDriverProfile = await this.prisma.driver.findUnique({
       where: { userId: acceptingUserId },
     });
     if (existingDriverProfile) {
-      throw new BadRequestException('Tu cuenta ya está vinculada como repartidor');
+      throw new BadRequestException(this.i18n.t('delivery.invitation.already_linked'));
     }
 
     const user = await this.prisma.user.findUnique({
       where: { id: acceptingUserId },
       select: { firstName: true, lastName: true, phone: true },
     });
-    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user) throw new NotFoundException(this.i18n.t('delivery.invitation.user_not_found'));
 
     const [driver] = await this.prisma.$transaction([
       this.prisma.driver.create({
@@ -360,6 +360,10 @@ export class DeliveryService {
         data: { status: DriverInvitationStatus.ACCEPTED, acceptedAt: new Date() },
       }),
     ]);
+
+    this.notifications
+      .notifyDriverInvitationAccepted(invitation.commerceId, driver.name)
+      .catch(() => null);
 
     return driver;
   }
@@ -456,7 +460,7 @@ export class DeliveryService {
         where: { id: dto.driverId },
       });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_restaurant'));
+        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_commerce'));
       await this.assertDriverAssignable(dto.driverId);
     }
 
@@ -504,7 +508,7 @@ export class DeliveryService {
         where: { id: dto.driverId },
       });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_restaurant'));
+        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_commerce'));
       await this.assertDriverAssignable(dto.driverId);
     }
 
@@ -630,9 +634,7 @@ export class DeliveryService {
       where: { id: driverId },
     });
     if (!driver || driver.commerceId !== commerceId)
-      throw new BadRequestException(
-        'Repartidor no encontrado en este restaurante'
-      );
+      throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_commerce'));
     if (!driver.isActive)
       throw new BadRequestException(this.i18n.t('delivery.driver.not_active'));
     await this.assertDriverAssignable(driverId);
