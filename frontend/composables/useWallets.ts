@@ -61,6 +61,16 @@ interface Paginated<T> {
   totalPages: number
 }
 
+export interface EscrowReconciliation {
+  systemWalletBalance: number
+  heldTotal: number
+  heldCount: number
+  pendingFundsTotal: number
+  pendingFundsCount: number
+  discrepancy: number
+  isBalanced: boolean
+}
+
 export interface DepositPayload {
   amount: number
   description?: string
@@ -268,6 +278,10 @@ export function useWallets() {
     return res
   }
 
+  async function fetchEscrowReconciliation() {
+    return get<EscrowReconciliation>('/wallets/escrow-reconciliation')
+  }
+
   async function createUserWallet(userId: string, currency = 'USD') {
     return post<Wallet>(`/wallets/users/${userId}`, { currency })
   }
@@ -318,6 +332,7 @@ export function useWallets() {
     transfer,
     payment,
     fetchWallets,
+    fetchEscrowReconciliation,
     createUserWallet,
     fetchUserWallet,
     fetchUserTransactions,
