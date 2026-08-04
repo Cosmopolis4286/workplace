@@ -158,9 +158,16 @@ const toast = useToast()
 const config = useRuntimeConfig()
 const route = useRoute()
 
+// H: destino tras login — solo rutas internas (?redirect=), nunca URLs externas
+function safeRedirectTarget(): string {
+  const raw = route.query.redirect as string | undefined
+  if (raw && raw.startsWith('/') && !raw.startsWith('//')) return raw
+  return '/dashboard'
+}
+
 // F: auto-redirect si ya hay sesión activa
 onMounted(() => {
-  if (isAuthenticated.value) navigateTo('/dashboard')
+  if (isAuthenticated.value) navigateTo(safeRedirectTarget())
   // G: pre-rellenar email desde query param (?email= viene de register/recover-password)
   const emailParam = route.query.email as string | undefined
   if (emailParam) form.email = decodeURIComponent(emailParam)
@@ -217,10 +224,12 @@ const handleLogin = async () => {
     const recaptchaToken = await executeRecaptcha('login')
     const result = await login({ ...form, recaptchaToken })
     if ('requiresTwoFactor' in result) {
-      await navigateTo(`/auth/2fa-verify?sessionId=${encodeURIComponent(result.sessionId)}`)
+      const redirect = route.query.redirect as string | undefined
+      const suffix = redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+      await navigateTo(`/auth/2fa-verify?sessionId=${encodeURIComponent(result.sessionId)}${suffix}`)
       return
     }
-    await navigateTo('/dashboard')
+    await navigateTo(safeRedirectTarget())
   } catch (err: unknown) {
     const seconds = getRateLimitSeconds(err)
     if (seconds !== null) {

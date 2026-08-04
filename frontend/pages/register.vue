@@ -213,10 +213,18 @@ useHead({ title: () => `${t('auth.register.title')} — ${t('common.appName')}` 
 const { register, isAuthenticated } = useAuth()
 const { executeRecaptcha, isEnabled: recaptchaEnabled } = useRecaptcha()
 const toast = useToast()
+const route = useRoute()
 const { required, email, minLength, maxLength, passwordStrength, matches, validateAll, passwordScore, strengthLabel: slabel, strengthColor: scolor } = useFormValidation()
 
+// Solo rutas internas (?redirect=), nunca URLs externas
+function safeRedirectTarget(): string {
+  const raw = route.query.redirect as string | undefined
+  if (raw && raw.startsWith('/') && !raw.startsWith('//')) return raw
+  return '/dashboard'
+}
+
 // F: auto-redirect si ya hay sesión activa
-onMounted(() => { if (isAuthenticated.value) navigateTo('/dashboard') })
+onMounted(() => { if (isAuthenticated.value) navigateTo(safeRedirectTarget()) })
 
 const form = reactive({
   firstName: '', lastName: '', email: '', birthDate: '', sex: '',
@@ -298,7 +306,9 @@ const handleSubmit = async () => {
       acceptTerms: form.acceptTerms,
       recaptchaToken
     })
-    await navigateTo(`/verify-email?email=${encodeURIComponent(form.email)}`)
+    const redirect = route.query.redirect as string | undefined
+    const suffix = redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+    await navigateTo(`/verify-email?email=${encodeURIComponent(form.email)}${suffix}`)
   } catch (err: unknown) {
     toast.error(getApiErrorMessage(err, t('auth.register.createError')))
   } finally {

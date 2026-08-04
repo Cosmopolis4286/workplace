@@ -143,6 +143,11 @@ const { post } = useApi()
 const toast = useToast()
 const route = useRoute()
 
+function loginRedirectUrl(): string {
+  const redirect = route.query.redirect as string | undefined
+  return redirect ? `/login?verified=true&redirect=${encodeURIComponent(redirect)}` : '/login?verified=true'
+}
+
 // email puede venir de ?email= cuando se llega desde register
 const displayEmail = computed(() => {
   const emailParam = route.query.email as string | undefined
@@ -167,7 +172,7 @@ function startPolling() {
     const profile = await fetchProfile().catch(() => null)
     if (profile?.emailVerified) {
       clearInterval(pollTimer!)
-      await navigateTo('/login?verified=true')
+      await navigateTo(loginRedirectUrl())
     }
   }, 5000)
 }
@@ -210,7 +215,7 @@ onMounted(async () => {
     isVerifying.value = true
     try {
       await post('/auth/verify-email', { token })
-      await navigateTo('/login?verified=true')
+      await navigateTo(loginRedirectUrl())
     } catch (err: unknown) {
       verificationError.value = getApiErrorMessage(err, t('auth.verifyEmail.verificationFailedDefault'))
     } finally {

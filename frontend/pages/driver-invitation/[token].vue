@@ -41,13 +41,13 @@
           <!-- Sin sesión: pedir login/registro -->
           <div v-if="!isAuthenticated" class="space-y-3">
             <p class="text-sm text-gray-600 text-center">
-              Para aceptar, primero crea una cuenta o inicia sesión. Vuelve a este mismo enlace después.
+              Para aceptar, primero crea una cuenta o inicia sesión. Te traeremos de vuelta automáticamente.
             </p>
             <div class="flex gap-3">
-              <NuxtLink to="/register" class="flex-1 text-center py-2.5 bg-workplace-red text-white rounded-xl font-semibold text-sm">
+              <NuxtLink :to="`/register?redirect=${encodeURIComponent(currentPath)}`" class="flex-1 text-center py-2.5 bg-workplace-red text-white rounded-xl font-semibold text-sm">
                 Crear cuenta
               </NuxtLink>
-              <NuxtLink to="/login" class="flex-1 text-center py-2.5 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm">
+              <NuxtLink :to="`/login?redirect=${encodeURIComponent(currentPath)}`" class="flex-1 text-center py-2.5 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm">
                 Iniciar sesión
               </NuxtLink>
             </div>
@@ -96,6 +96,7 @@ const kycStatus = computed(() => myKycStatus.value?.kycStatus)
 const { previewInvitation, acceptInvitation } = useDelivery()
 
 const layout = computed(() => isAuthenticated.value ? 'default' : 'public')
+const currentPath = `/driver-invitation/${token}`
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
