@@ -126,7 +126,7 @@ describe('EmployeesService', () => {
       await expect(service.create(userId, createDto)).rejects.toThrow('Employee limit reached')
     })
 
-    it('should fall back to userId as commerceId if user has no restaurant', async () => {
+    it('should fall back to userId as commerceId if user has no commerce', async () => {
       mockPrismaService.commerce.findUnique.mockResolvedValue(null)
       mockPlanLimitsService.assertEmployeeLimit.mockResolvedValue(undefined)
       mockPrismaService.employee.findUnique.mockResolvedValue(null)

@@ -109,8 +109,8 @@ describe('i18n pilot setup', () => {
   it('resuelve mensajes del modulo appointments (es/en)', () => {
     expect(i18n.t('appointments.not_found', { lang: 'es' })).toBe('Agendamiento no encontrado');
     expect(i18n.t('appointments.not_found', { lang: 'en' })).toBe('Appointment not found');
-    expect(i18n.t('appointments.customer_not_found', { lang: 'es' })).toBe('Cliente no encontrado en este restaurante');
-    expect(i18n.t('appointments.customer_not_found', { lang: 'en' })).toBe('Customer not found in this restaurant');
+    expect(i18n.t('appointments.customer_not_found', { lang: 'es' })).toBe('Cliente no encontrado en este comercio');
+    expect(i18n.t('appointments.customer_not_found', { lang: 'en' })).toBe('Customer not found in this commerce');
   });
 
   it('resuelve mensajes del modulo delivery (es/en)', () => {

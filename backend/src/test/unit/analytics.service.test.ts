@@ -185,11 +185,11 @@ describe('AnalyticsService', () => {
       expect(result.period).toBe('invalid')
     })
 
-    it('should fall back to userId as commerceId if user has no restaurant', async () => {
+    it('should fall back to userId as commerceId if user has no commerce', async () => {
       const userId = 'user-123'
       const queryDto = { period: 'today' as AnalyticsPeriod }
 
-      // getCommerceId falls back to userId when there's no restaurant, so
+      // getCommerceId falls back to userId when there's no commerce, so
       // the overview still resolves (with empty/zeroed metrics) instead of throwing.
       mockPrismaService.commerce.findUnique.mockResolvedValue(null)
 
@@ -308,7 +308,7 @@ describe('AnalyticsService', () => {
       )
     })
 
-    it('should handle missing restaurant by falling back to userId', async () => {
+    it('should handle missing commerce by falling back to userId', async () => {
       const userId = 'user-123'
       const queryDto = { period: 'today' as AnalyticsPeriod }
 
