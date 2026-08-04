@@ -128,17 +128,37 @@ veces, cada intento notificando a todos los moderadores. Se agregó
 
 ---
 
-## 🟡 Importante — pendiente
+## ✅ No bloqueantes resueltos (2026-08-04) — tercera ronda
 
-### 13. No existe chat/mensajería interna
-Todo el contacto cliente-proveedor se resuelve exponiendo `clientPhone` en el modal de solicitud
-— contacto fuera de plataforma. No bloqueante, pero sin esto no hay registro de la conversación
-ni forma de mediar disputas. No se abordó (cambio de alcance grande).
+### 13. Chat interno mínimo por ServiceRequest
+Se agregó un chat 1:1 scoped a cada `ServiceRequest` (`ServiceRequestMessage`): mensajes de
+texto simples entre cliente y proveedor, con notificación in-app al recibir uno nuevo
+(reutilizando `NotificationsGateway`, sin WebSocket dedicado — el modal hace polling cada 10s
+mientras está abierto). Reemplaza el "contacto por teléfono" como canal principal, aunque
+`clientPhone` se mantiene visible para el proveedor por si lo prefiere.
+- Backend: `GET/POST /services/requests/:id/messages`, `PATCH .../messages/read`,
+  `GET .../messages/unread-count` — solo accesible a `providerId`/`requesterId` de la solicitud.
+- Frontend: sección de mensajes en `ServiceRequestDetailModal.vue` + composable
+  `useServiceRequestMessages.ts`.
+- [x] Implementado — commits `feat(backend): módulo de mensajería en solicitudes de servicio`,
+  `feat(frontend): UI de chat 1:1 en el detalle de ServiceRequest`
+- 10 tests unitarios nuevos (`ServiceRequestMessagesService`), **368/368 tests del backend pasan**.
+- [ ] **Falta probar manualmente end-to-end**: dos usuarios reales (cliente/proveedor) enviando
+  mensajes, confirmar notificación in-app y que `unread-count` baja al abrir el modal.
 
 ### 14. Endpoint de reconciliación financiera de escrow
-Sin esto, un admin no puede auditar que el saldo de la wallet del usuario-sistema de escrow
-coincide con lo efectivamente debido a proveedores en solicitudes `HELD`. No urgente para
-lanzar, conviene antes de operar con volumen.
+Nuevo `GET /wallets/escrow-reconciliation` (solo ADMIN/SUPERADMIN): compara el saldo real de la
+wallet del usuario-sistema de escrow contra la suma esperada de `ServiceRequest.escrowAmount` en
+estado `HELD`, más el total y conteo de solicitudes en `PENDING_FUNDS`. Tarjeta visual en
+`/wallets-admin` (verde si cuadra, roja si hay discrepancia).
+- [x] Implementado — commit `feat(backend+frontend): reconciliación de escrow para admin`
+- 3 tests unitarios nuevos en `wallets.service.test.ts`.
+- [ ] **Falta probar manualmente en producción** con datos reales tras el primer ciclo de
+  escrow completo, para confirmar que `isBalanced` da `true` en operación normal.
+
+---
+
+## 🟡 Importante — pendiente
 
 ### 15. Push notifications (FCM) es un no-op — feature incompleta, no un bug
 `NotificationsService.sendPush()` está vacío (falta configurar Firebase). El flujo de
@@ -162,7 +182,9 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
       Telegram (`setWebhook` con `secret_token`) — ver ítem 8
 - [ ] `NUXT_PUBLIC_API_URL` de producción confirmado apuntando a la URL pública real (no
       `localhost`) en el pipeline de build del APK — ver `CAPACITOR_MOBILE_APP.md`
-- [ ] Todas las migraciones de Prisma de ambas rondas aplicadas en la base de datos de producción
-- [ ] Endpoint de reconciliación financiera de escrow (ítem 14, pendiente — no bloqueante)
-- [ ] Chat/mensajería interna (ítem 13, pendiente — no bloqueante, cambio de alcance mayor)
-- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 15)
+- [ ] Todas las migraciones de Prisma de las tres rondas aplicadas en la base de datos de
+      producción (incluida `20260804150000_add_service_request_messages`)
+- [ ] Prueba manual end-to-end del chat interno por ServiceRequest (ver ítem 13)
+- [ ] Prueba manual del endpoint de reconciliación de escrow con datos reales (ver ítem 14)
+- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 15, pendiente —
+      requiere credenciales externas, no accionable por código)
