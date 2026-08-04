@@ -63,10 +63,7 @@ como se decidió: no hay alta pública de FREELANCER. En su lugar:
 - `/wallets-admin`: listado paginado de billeteras + modal de gestión (congelar/descongelar,
   ajuste manual de saldo con motivo). El backend ya existía, solo faltaba la UI.
 - [x] Implementado — commit `feat(admin): paneles de reportes de usuario y gestion de billeteras`
-- [ ] **Sigue pendiente**: endpoint de reconciliación financiera (saldo total en la wallet del
-  usuario-sistema de escrow vs. lo debido a proveedores). No es urgente para el lanzamiento en sí,
-  pero conviene tenerlo antes de operar con volumen — sin esto, un admin no puede auditar que la
-  plataforma no está "perdiendo" dinero en escrow retenido.
+- Ver ítem 14 (reconciliación financiera de escrow) para lo que sigue pendiente de este panel.
 
 ### 5. Cobertura de tests del código de dinero
 `wallets.service.ts`, `wallet-deposit-requests.service.ts` y `freelancer-applications.service.ts`
@@ -74,16 +71,79 @@ no tenían ningún test. Se agregaron 23 tests nuevos cubriendo escrow (incluida
 se corrigió en esta misma ronda — `holdEscrow` distinguiendo saldo insuficiente de otros errores),
 aprobación/rechazo de depósitos, y el requisito de KYC para freelancer.
 - [x] Implementado — commit `test(money): cobertura de escrow, depositos y solicitudes de freelancer`
-- 337/337 tests del backend pasan.
+
+---
+
+## ✅ Bloqueantes e importantes resueltos (2026-08-04) — segunda ronda de auditoría
+
+Auditoría más amplia sobre el resto del backend (commerce-core, engagement, money restante,
+identity-access/operations/platform), no solo lo ya cubierto el día anterior.
+
+### 7. `POST /plans/self-subscribe` activaba planes pagos sin verificación
+Mismo patrón que el bug de `deposit()` ya corregido: un `FREELANCER`/`COMMERCE` podía cambiar de
+plan gratuito a uno pago (Pro, Enterprise) con un solo POST, sin pasar por ningún pago ni
+aprobación — quedaba `ACTIVE` de inmediato. Ahora un plan gratuito se activa igual de inmediato,
+pero un plan pago **siempre** queda `PENDING`, reutilizando el mismo flujo de aprobación admin que
+ya existía para el upgrade NORMAL→FREELANCER (`approveSubscription`).
+- [x] Implementado — commit `fix(plans): self-subscribe no debe activar planes pagos sin aprobacion`
+
+### 8. Webhook de Telegram público sin autenticación
+`POST /telegram/webhook` no validaba ningún secret — cualquiera en internet podía llamarlo sin
+restricción. Ahora exige el header `X-Telegram-Bot-Api-Secret-Token` (fail-closed: sin
+`TELEGRAM_WEBHOOK_SECRET` configurado, rechaza todo) más rate limit.
+- [x] Implementado — commit `fix(security): verificar secret token en webhook de Telegram`
+
+### 9. Fallback inseguro `commerceId ?? userId` sin defensa en profundidad
+Patrón repetido en 12 servicios (`orders`, `receipts`, `expenses`, `delivery`, `customers`,
+`appointments`, `cash`, `branches`, `employees`, `bnpl`...): si el usuario no tiene `Commerce`
+propio, el `commerceId` resuelto caía a su propio `userId`. Hoy no explotable (el sistema de
+permisos ya no otorga esos permisos a FREELANCER/NORMAL) pero frágil — bastaba un permiso mal
+asignado por un admin. Se agregó `AccountTypeGuard` + `@RequireAccountType('COMMERCE')` a los 10
+controllers HTTP correspondientes como defensa en profundidad real, sin tocar las rutas `mine`
+que sí usan NORMAL/FREELANCER (`orders/mine`, `orders/stats/mine`).
+- [x] Implementado
+
+### 10. UI admin de categorías/modalidades de servicio
+El backend ya tenía el CRUD completo (`/services/categories`, `/services/modalities`) protegido
+correctamente, pero ninguna pantalla lo consumía. Nueva página `/service-categories-admin`.
+- [x] Implementado — commit `feat(frontend): admin de categorías de servicio...`
+
+### 11. Sin moderación admin de `Service` ni forma de reportarlo directamente
+Un admin no podía ocultar el anuncio de un `Service` ajeno (solo el dueño podía, vía
+`assertOwner`), y un cliente solo podía reportar un servicio después de contratarlo
+(`SERVICE_REQUEST`), no el anuncio del catálogo en sí. Se agregó `PATCH /services/:id/moderate`
+(SUPERADMIN/ADMIN, pone el servicio en `INACTIVE` — el dueño no puede reactivarlo con su propio
+toggle, que solo alterna ACTIVE↔PAUSED) y `ReportEntityType.SERVICE` como motivo reportable desde
+el catálogo público, con acción "Ocultar servicio" integrada en `/reports-admin`.
+- [x] Implementado — commits `feat(backend): moderación de servicios para admin...`,
+  `feat(frontend): acción de moderación de servicios en panel de reportes`
+
+### 12. Reportes de reseña duplicados sin límite
+`ReviewReport` no tenía restricción de unicidad — un usuario podía reportar la misma reseña N
+veces, cada intento notificando a todos los moderadores. Se agregó
+`@@unique([reviewId, reporterId])` + verificación explícita con 409 claro.
+- [x] Implementado — commit `fix(reviews): evitar reportes duplicados de la misma reseña`
+
+**341/341 tests del backend pasan** tras toda la ronda.
 
 ---
 
 ## 🟡 Importante — pendiente
 
-### 6. No existe chat/mensajería interna
+### 13. No existe chat/mensajería interna
 Todo el contacto cliente-proveedor se resuelve exponiendo `clientPhone` en el modal de solicitud
 — contacto fuera de plataforma. No bloqueante, pero sin esto no hay registro de la conversación
-ni forma de mediar disputas. No se abordó en esta ronda (cambio de alcance grande).
+ni forma de mediar disputas. No se abordó (cambio de alcance grande).
+
+### 14. Endpoint de reconciliación financiera de escrow
+Sin esto, un admin no puede auditar que el saldo de la wallet del usuario-sistema de escrow
+coincide con lo efectivamente debido a proveedores en solicitudes `HELD`. No urgente para
+lanzar, conviene antes de operar con volumen.
+
+### 15. Push notifications (FCM) es un no-op — feature incompleta, no un bug
+`NotificationsService.sendPush()` está vacío (falta configurar Firebase). El flujo de
+`DeviceToken`/registro sí está completo y expuesto, lo que puede dar la falsa impresión de que
+las notificaciones push ya funcionan. Documentado explícitamente para que no se asuma resuelto.
 
 ---
 
@@ -91,15 +151,18 @@ ni forma de mediar disputas. No se abordó en esta ronda (cambio de alcance gran
 
 - [ ] Prueba manual end-to-end de conversión NORMAL → FREELANCER (ver ítem 1)
 - [ ] Prueba manual end-to-end de depósito con comprobante (ver ítem 2)
+- [ ] Prueba manual end-to-end de cambio a plan pago vía self-subscribe (ver ítem 7): debe quedar
+      PENDING, no ACTIVE
 - [ ] Prueba manual del ciclo completo de escrow con dos usuarios reales (cliente con saldo,
       proveedor con `hasEscrow: true`): crear solicitud → fijar precio → retención → confirmar
       finalización → liberación neta de comisión; y un segundo caso con cancelación → reembolso
 - [ ] Prueba manual del límite de plan gratuito: 4to servicio activo debe devolver 403 con
       mensaje claro
+- [ ] `TELEGRAM_WEBHOOK_SECRET` configurado en producción antes de registrar el webhook con
+      Telegram (`setWebhook` con `secret_token`) — ver ítem 8
 - [ ] `NUXT_PUBLIC_API_URL` de producción confirmado apuntando a la URL pública real (no
       `localhost`) en el pipeline de build del APK — ver `CAPACITOR_MOBILE_APP.md`
-- [ ] Migraciones de Prisma de esta ronda aplicadas en la base de datos de producción
-      (`add_freelancer_applications`, `add_wallet_deposit_requests`, además de las de
-      `add_service_plan_limits`/`add_service_escrow` de la ronda anterior)
-- [ ] Endpoint de reconciliación financiera de escrow (ítem 4, pendiente — no bloqueante)
-- [ ] Chat/mensajería interna (ítem 6, pendiente — no bloqueante, cambio de alcance mayor)
+- [ ] Todas las migraciones de Prisma de ambas rondas aplicadas en la base de datos de producción
+- [ ] Endpoint de reconciliación financiera de escrow (ítem 14, pendiente — no bloqueante)
+- [ ] Chat/mensajería interna (ítem 13, pendiente — no bloqueante, cambio de alcance mayor)
+- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 15)
