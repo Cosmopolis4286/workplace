@@ -2,9 +2,20 @@
   "driver": {
     "not_found": "Repartidor no encontrado",
     "not_found_in_restaurant": "Repartidor no encontrado en este restaurante",
-    "not_active": "El repartidor no está activo"
+    "not_active": "El repartidor no está activo",
+    "kyc_required": "Este repartidor debe verificar su identidad antes de recibir entregas.",
+    "grace_expired": "Este repartidor no tiene una cuenta verificada vinculada. Invítalo a registrarse para volver a asignarle entregas."
   },
   "delivery": {
     "not_found": "Entrega no encontrada"
+  },
+  "invitation": {
+    "not_found": "Invitación no encontrada",
+    "already_pending": "Ya existe una invitación pendiente para este correo",
+    "no_longer_pending": "Esta invitación ya no está pendiente",
+    "no_longer_available": "Esta invitación ya no está disponible",
+    "expired": "Esta invitación expiró. Solicita una nueva.",
+    "already_linked": "Tu cuenta ya está vinculada como repartidor",
+    "user_not_found": "Usuario no encontrado"
   }
 }

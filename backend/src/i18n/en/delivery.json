@@ -2,9 +2,20 @@
   "driver": {
     "not_found": "Driver not found",
     "not_found_in_restaurant": "Driver not found in this restaurant",
-    "not_active": "The driver is not active"
+    "not_active": "The driver is not active",
+    "kyc_required": "This driver must verify their identity before receiving deliveries.",
+    "grace_expired": "This driver doesn't have a verified account linked. Invite them to sign up to assign deliveries again."
   },
   "delivery": {
     "not_found": "Delivery not found"
+  },
+  "invitation": {
+    "not_found": "Invitation not found",
+    "already_pending": "There's already a pending invitation for this email",
+    "no_longer_pending": "This invitation is no longer pending",
+    "no_longer_available": "This invitation is no longer available",
+    "expired": "This invitation expired. Request a new one.",
+    "already_linked": "Your account is already linked as a driver",
+    "user_not_found": "User not found"
   }
 }
