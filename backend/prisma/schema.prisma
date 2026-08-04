@@ -85,6 +85,7 @@ model User {
   services                Service[]
   catalogOrders           CatalogOrder[]
   serviceRequests         ServiceRequest[]
+  serviceRequestMessages  ServiceRequestMessage[]
   notifications           Notification[]
   deviceTokens            DeviceToken[]
   wallet                  Wallet?
@@ -1628,6 +1629,7 @@ model ServiceRequest {
   requester         User?                         @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   items             ServiceRequestItem[]
   statusHistory     ServiceRequestStatusHistory[]
+  messages          ServiceRequestMessage[]
   createdAt         DateTime                      @default(now())
   updatedAt         DateTime                      @updatedAt
 
@@ -1644,6 +1646,25 @@ model ServiceRequest {
   // Acelera el cron de reintento de escrow: WHERE escrowStatus='PENDING_FUNDS'
   @@index([escrowStatus])
   @@map("service_requests")
+}
+
+// Chat 1:1 entre cliente y proveedor sobre una ServiceRequest concreta.
+// Reemplaza el "contactar por teléfono" del modal — deja registro dentro de
+// la plataforma y habilita mediar disputas más adelante. Solo existe si la
+// solicitud tiene requesterId (cliente autenticado); una solicitud anónima
+// (solo clientPhone) no tiene con quién chatear del lado de la plataforma.
+model ServiceRequestMessage {
+  id               String         @id @default(uuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  senderId         String
+  sender           User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body             String
+  readAt           DateTime?
+  createdAt        DateTime       @default(now())
+
+  @@index([serviceRequestId, createdAt])
+  @@map("service_request_messages")
 }
 
 model ServiceRequestStatusHistory {
