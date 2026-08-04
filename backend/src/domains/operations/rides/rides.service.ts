@@ -10,6 +10,7 @@ import { RideStatus, RideVehicleType, RideServiceType } from '@prisma/client';
 import { CreateRideDto } from './dto/create-ride.dto';
 import { CalculatePriceDto } from './dto/calculate-price.dto';
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
 
 const PRICE_PER_KM: Record<RideVehicleType, number> = { MOTORCYCLE: 8, CAR: 12, PICKUP_TRUCK: 16, TRUCK: 22 };
 const BASE_FARE: Record<RideVehicleType, number> = { MOTORCYCLE: 20, CAR: 35, PICKUP_TRUCK: 60, TRUCK: 90 };
@@ -102,6 +103,7 @@ export class RidesService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PLATFORM_FEES_FACADE) private readonly platformFees: PlatformFeesFacade,
+    private readonly notifications: NotificationsService,
   ) {}
 
   calculatePrice(dto: CalculatePriceDto) {
@@ -217,7 +219,11 @@ export class RidesService {
       data: { status: RideStatus.ACCEPTED, driverId, acceptedAt: new Date() },
       select: RIDE_SELECT,
     });
-    return formatRide(updated);
+    const formatted = formatRide(updated);
+    this.notifications
+      .notifyRideAccepted(formatted.passengerId, formatted.driverName ?? 'El conductor')
+      .catch(() => {});
+    return formatted;
   }
 
   async updateStatus(userId: string, rideId: string, status: RideStatus) {
@@ -259,7 +265,13 @@ export class RidesService {
       data: { status, ...extra },
       select: RIDE_SELECT,
     });
-    return formatRide(updated);
+    const formatted = formatRide(updated);
+    if (status === RideStatus.IN_PROGRESS || status === RideStatus.COMPLETED) {
+      this.notifications
+        .notifyRideStatusChanged(formatted.passengerId, formatted.driverName ?? 'El conductor', status)
+        .catch(() => {});
+    }
+    return formatted;
   }
 
   async cancel(passengerId: string, rideId: string) {

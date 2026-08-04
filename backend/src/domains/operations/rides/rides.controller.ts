@@ -14,6 +14,7 @@ import { RidesService } from './rides.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
+import { RateLimit } from '../../../common/guards/rate-limit.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreateRideDto } from './dto/create-ride.dto';
@@ -71,13 +72,16 @@ export class RidesController {
   @Post()
   @UseGuards(KycApprovedGuard)
   @RequirePermission('corridas:create')
+  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `rides:create:${(req as any).user?.id}` })
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateRideDto) {
     return this.ridesService.create(user.id, dto);
   }
 
   // POST /api/rides/:id/accept — driver accepts
   @Post(':id/accept')
+  @UseGuards(KycApprovedGuard)
   @RequirePermission('corridas:manage')
+  @RateLimit({ windowMs: 60_000, maxRequests: 20, keyGenerator: (req) => `rides:accept:${(req as any).user?.id}` })
   accept(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.ridesService.accept(user.id, id);
   }
@@ -85,6 +89,7 @@ export class RidesController {
   // PATCH /api/rides/:id/status — driver advances (IN_PROGRESS, COMPLETED)
   @Patch(':id/status')
   @RequirePermission('corridas:manage')
+  @RateLimit({ windowMs: 60_000, maxRequests: 20, keyGenerator: (req) => `rides:status:${(req as any).user?.id}` })
   updateStatus(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
@@ -96,6 +101,7 @@ export class RidesController {
   // POST /api/rides/:id/cancel — passenger cancels PENDING
   @Post(':id/cancel')
   @RequirePermission('corridas:create')
+  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `rides:cancel:${(req as any).user?.id}` })
   cancel(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.ridesService.cancel(user.id, id);
   }

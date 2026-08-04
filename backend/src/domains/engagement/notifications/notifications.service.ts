@@ -212,6 +212,46 @@ export class NotificationsService {
     });
   }
 
+  async notifyRideAccepted(
+    passengerId: string,
+    driverName: string,
+  ) {
+    return this.createForUser(passengerId, {
+      type: NotificationType.ORDER,
+      title: '🚗 Conductor asignado',
+      message: `${driverName} aceptó tu corrida y va en camino.`,
+      link: '/rides',
+      metadata: { driverName },
+    });
+  }
+
+  async notifyRideStatusChanged(
+    passengerId: string,
+    driverName: string,
+    status: 'IN_PROGRESS' | 'COMPLETED',
+  ) {
+    const STATUS_COPY: Record<typeof status, { icon: string; title: string; message: string }> = {
+      IN_PROGRESS: {
+        icon: '🏍️',
+        title: 'Tu corrida comenzó',
+        message: `${driverName} inició el viaje.`,
+      },
+      COMPLETED: {
+        icon: '✅',
+        title: 'Corrida completada',
+        message: `Tu corrida con ${driverName} finalizó.`,
+      },
+    };
+    const copy = STATUS_COPY[status];
+    return this.createForUser(passengerId, {
+      type: NotificationType.ORDER,
+      title: `${copy.icon} ${copy.title}`,
+      message: copy.message,
+      link: '/rides',
+      metadata: { driverName, status },
+    });
+  }
+
   // ── Convenience factory methods ───────────────────────────────────────────
   async notifyNewOrder(commerceId: string, orderNumber: string, total: number) {
     return this.create(commerceId, {
@@ -450,7 +490,7 @@ export class NotificationsService {
     const labels: Record<string, string> = {
       CATALOG_ORDER: 'un pedido',
       SERVICE_REQUEST: 'una solicitud de servicio',
-      ORDER: 'un pedido de restaurante',
+      ORDER: 'un pedido de comida',
       GENERAL: 'la app',
     };
     const label = labels[entityType] ?? entityType.toLowerCase();
