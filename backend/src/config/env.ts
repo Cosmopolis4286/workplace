@@ -41,7 +41,7 @@ const envSchema = z.object({
   // Demo (solo dev)
   DEMO_EMAIL: z.string().email().optional(),
   DEMO_PASSWORD: z.string().optional(),
-  DEMO_RESTAURANT: z.string().optional(),
+  DEMO_COMMERCE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

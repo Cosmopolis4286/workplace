@@ -16,7 +16,7 @@ export interface PlanLimits {
  * Contrato público de PlanLimitsService para consumidores de otros
  * dominios (orders, menu, employees, branches en Operations/Commerce Core;
  * settings, navigation en Platform). No expone los helpers internos de
- * intersección de módulos (intersectWithCategory/intersectWithRestaurantPreference)
+ * intersección de módulos (intersectWithCategory/intersectWithCommercePreference)
  * ni assertModuleAccess/hasModule, que hoy no tienen consumidores fuera de
  * este módulo — si llegan a necesitarse, se agregan acá explícitamente.
  */
