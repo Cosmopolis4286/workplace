@@ -301,7 +301,7 @@
 
           <!-- SIDEBAR PRODUCTOS -->
           <template v-if="activeTab === 'productos'">
-            <div v-if="pRestaurants.length > 0" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+            <div v-if="pCommerces.length > 0" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
               <h3 class="text-xs font-bold text-gray-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -312,17 +312,17 @@
               <div class="space-y-0.5">
                 <button
                   class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-                  :class="!pActiveRestaurantId ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="pClearRestaurant"
+                  :class="!pActiveCommerceId ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="pClearCommerce"
                 >
                   <span>Todos</span>
                   <span class="opacity-60 text-[11px]">{{ pTotal }}</span>
                 </button>
                 <button
-                  v-for="r in pRestaurants" :key="r.id"
+                  v-for="r in pCommerces" :key="r.id"
                   class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors"
-                  :class="pActiveRestaurantId === r.id ? 'bg-red-50 text-red-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="pFilterByRestaurant(r.id)"
+                  :class="pActiveCommerceId === r.id ? 'bg-red-50 text-red-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'"
+                  @click="pFilterByCommerce(r.id)"
                 >
                   <span class="truncate mr-2">{{ r.name }}</span>
                   <span class="text-[11px] opacity-60 flex-shrink-0">{{ r.productCount }}</span>
@@ -337,7 +337,7 @@
             />
             <SortDropdown v-model="pSelectedSort" :options="sortOptions" accent="red" @update:model-value="pApplySort" />
             <button
-              v-if="pActiveCategory || pActiveRestaurantId || (activeTab === 'productos' && searchInput)"
+              v-if="pActiveCategory || pActiveCommerceId || (activeTab === 'productos' && searchInput)"
               class="w-full text-xs font-semibold text-red-600 py-2.5 px-4 rounded-xl border border-red-200 hover:bg-red-50 transition-colors"
               @click="pResetFilters"
             >
@@ -472,10 +472,10 @@
                   <span v-if="pLoading">Buscando...</span>
                   <span v-else><span class="text-red-600">{{ pTotal }}</span> {{ pTotal === 1 ? ' producto disponible' : ' productos disponibles' }}</span>
                 </p>
-                <p v-if="pActiveCategory || pActiveRestaurantId" class="text-xs text-gray-400 mt-0.5">
+                <p v-if="pActiveCategory || pActiveCommerceId" class="text-xs text-gray-400 mt-0.5">
                   <span v-if="pActiveCategory">Categoría: <strong>{{ pActiveCategory }}</strong></span>
-                  <span v-if="pActiveCategory && pActiveRestaurantId"> · </span>
-                  <span v-if="pActiveRestaurantId">{{ pRestaurants.find(r => r.id === pActiveRestaurantId)?.name }}</span>
+                  <span v-if="pActiveCategory && pActiveCommerceId"> · </span>
+                  <span v-if="pActiveCommerceId">{{ pCommerces.find(r => r.id === pActiveCommerceId)?.name }}</span>
                 </p>
               </div>
               <div class="lg:hidden">
@@ -1338,12 +1338,12 @@ const { totalItems: cartTotalItems, totalPrice: cartTotalPrice, openCart } = use
 
 // ─── Productos ────────────────────────────────────────────────────────────────
 const {
-  products: pProducts, categories: pCategories, restaurants: pRestaurants,
+  products: pProducts, categories: pCategories, commerces: pCommerces,
   loading: pLoading, loadingCategories: pLoadingCategories,
   error: pError, total: pTotal, totalPages: pTotalPages, query: pQuery,
   locationTier: pLocationTier,
-  loadCategories: pLoadCategories, loadRestaurants: pLoadRestaurants, loadProducts: pLoadProducts,
-  search: pSearch, filterByCategory: pFilterByCategory, filterByRestaurant: pFilterByRestaurant,
+  loadCategories: pLoadCategories, loadCommerces: pLoadCommerces, loadProducts: pLoadProducts,
+  search: pSearch, filterByCategory: pFilterByCategory, filterByCommerce: pFilterByCommerce,
   filterByPriceRange: pFilterByPriceRange,
   changePage: pChangePage, changeSort: pChangeSort, resetFilters: pResetFilters, toggleNearMe: pToggleNearMe,
   filterByLocation: pFilterByLocation,
@@ -1438,10 +1438,10 @@ const jobSortOptions = [
 const { activeChips: pActiveChips } = useCatalogFilters({
   query: pQuery,
   categories: pCategories,
-  restaurants: pRestaurants,
+  commerces: pCommerces,
   searchInput,
   filterByCategory: pFilterByCategory,
-  filterByRestaurant: pFilterByRestaurant,
+  filterByCommerce: pFilterByCommerce,
   filterByPriceRange: pFilterByPriceRange,
   filterByLocation: pFilterByLocation,
   search: pSearch,
@@ -1500,7 +1500,7 @@ function darken(hex: string, amount: number): string {
 }
 const pCurrentPage = computed(() => pQuery.value.page)
 const pActiveCategory = computed(() => pQuery.value.categoryName)
-const pActiveRestaurantId = computed(() => pQuery.value.commerceId)
+const pActiveCommerceId = computed(() => pQuery.value.commerceId)
 const sCurrentPage = computed(() => sQuery.value.page)
 const sActiveCategoryId = computed(() => sQuery.value.categoryId)
 const sActiveProviderId = computed(() => sQuery.value.userId)
@@ -1691,10 +1691,10 @@ function animateCounter(target: { value: number }, end: number, duration = 700) 
   requestAnimationFrame(step)
 }
 
-watch([activeTab, pTotal, sTotal, jTotal, () => pRestaurants.value.length, () => sProviders.value.length], () => {
+watch([activeTab, pTotal, sTotal, jTotal, () => pCommerces.value.length, () => sProviders.value.length], () => {
   if (activeTab.value === 'productos') {
     animateCounter(displayCount, pTotal.value)
-    animateCounter(displayGroups, pRestaurants.value.length)
+    animateCounter(displayGroups, pCommerces.value.length)
   } else if (activeTab.value === 'servicios') {
     animateCounter(displayCount, sTotal.value)
     animateCounter(displayGroups, sProviders.value.length)
@@ -1782,7 +1782,7 @@ function handleSearchEnter() {
 }
 
 function pClearCategory() { if (pActiveCategory.value) pFilterByCategory(pActiveCategory.value) }
-function pClearRestaurant() { if (pActiveRestaurantId.value) pFilterByRestaurant(pActiveRestaurantId.value) }
+function pClearCommerce() { if (pActiveCommerceId.value) pFilterByCommerce(pActiveCommerceId.value) }
 function pApplySort(val: string) { pSelectedSort.value = val as CatalogSortBy; pChangeSort(val as CatalogSortBy) }
 function pApplyPriceRange(min: number | null, max: number | null) { pFilterByPriceRange(min, max) }
 
@@ -1880,7 +1880,7 @@ onMounted(async () => {
   document.addEventListener('click', handleClickOutsideLocation)
   await Promise.all([
     loadSearchTabs(),
-    pLoadCategories(), pLoadRestaurants(), pLoadProducts(),
+    pLoadCategories(), pLoadCommerces(), pLoadProducts(),
     sLoadCategories(), sLoadProviders(), sLoadServices(),
     jLoadCategories(), jLoadJobs(),
     fetchRates(false, true),

@@ -37,7 +37,7 @@ export interface PublicProfile {
   avatar?: string
   coverImage?: string
   role: string
-  restaurant?: { id: string; name: string; type?: string }
+  commerce?: { id: string; name: string; type?: string }
   profileSettings: { showCatalog: boolean; showServices: boolean }
   followersCount: number
   followingCount: number

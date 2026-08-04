@@ -229,7 +229,7 @@ const ROLE_DEFAULTS = {
   // FREELANCER es un proveedor de servicios independiente (Service/ServiceRequest),
   // no un comercio físico: NO hereda de COMMERCE_KEYS porque ese set trae
   // menu/inventory/orders/customers/appointments/delivery/expenses/cash, módulos
-  // atados a Restaurant/Product/Order que un freelancer nunca usa.
+  // atados a Commerce/Product/Order que un freelancer nunca usa.
   FREELANCER: [
     'dashboard:view',
     'settings:view', 'settings:edit',
@@ -393,7 +393,7 @@ async function seedPlans() {
 }
 
 const CATEGORIES = [
-  // 🍔 Restaurant / Comida
+  // 🍔 Comercios de categoría Comida
   {
     name: 'Comida Rápida',
     description: 'Hamburguesas, pizzas, hot dogs, etc.',
@@ -1107,8 +1107,8 @@ async function seedCategories() {
   // También crear categorías de ejemplo para el comercio demo
   console.log('\n🏪 Creating sample commerce-specific categories...')
   
-  let commerce = await prisma.restaurant.findFirst({ 
-    where: { name: 'Restaurante Demo' } 
+  let commerce = await prisma.commerce.findFirst({
+    where: { name: 'Restaurante Demo' }
   })
   
   if (commerce) {
@@ -1374,7 +1374,7 @@ async function main() {
       })
 
       if (demo.commerceName) {
-        await prisma.restaurant.updateMany({
+        await prisma.commerce.updateMany({
           where: { user: { email: demo.email } },
           data: {
             ...(demo.country && { country: demo.country }),
@@ -1441,7 +1441,7 @@ async function main() {
     })
 
     const categoryInfo = user.category ? ` | 📦 ${user.category.name}${user.subcategory ? ' → ' + user.subcategory.name : ''}` : ''
-    console.log(`✅ [${demo.role}] Created: ${user.email}${user.commerce ? ` | Restaurant: ${user.commerce.name}` : ''}${categoryInfo}`)
+    console.log(`✅ [${demo.role}] Created: ${user.email}${user.commerce ? ` | Commerce: ${user.commerce.name}` : ''}${categoryInfo}`)
     console.log(`   Password: ${demo.password}`)
   }
 

@@ -29,7 +29,7 @@ const error          = ref<string | null>(null)
 const totalCount     = ref(0)
 const unreadCount    = computed(() => notifications.value.filter(n => !n.read).length)
 
-let socketRestaurantId: string | null = null
+let socketCommerceId: string | null = null
 
 // ─── Composable ───────────────────────────────────────────────────────────────
 
@@ -106,10 +106,10 @@ export const useNotifications = () => {
 
   // ── WebSocket: connect usando plugin ─────────────────────────────────────
   function connectWebSocket(commerceId: string) {
-    if (socketRestaurantId === commerceId && $socketio.isConnected.value) return
+    if (socketCommerceId === commerceId && $socketio.isConnected.value) return
 
     disconnectWebSocket()
-    socketRestaurantId = commerceId
+    socketCommerceId = commerceId
 
     // Usar plugin Socket.IO
     const socket = $socketio.connect('/notifications', {
@@ -135,7 +135,7 @@ export const useNotifications = () => {
 
   function disconnectWebSocket() {
     $socketio.disconnect()
-    socketRestaurantId = null
+    socketCommerceId = null
   }
 
   // ── Init: fetch + connect ─────────────────────────────────────────────────

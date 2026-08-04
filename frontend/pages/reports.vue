@@ -118,7 +118,7 @@
           </div>
         </div>
 
-        <!-- Reporte de Gastos: no aplica a un freelancer sin Restaurant/Expense -->
+        <!-- Reporte de Gastos: no aplica a un freelancer sin Commerce/Expense -->
         <div v-if="!isFreelancer" class="card overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -362,7 +362,7 @@ definePageMeta({ middleware: 'auth' })
 const { formatCurrency: _fmt } = useUserPreferences()
 const { get } = useApi()
 const { user } = useAuth()
-// Un freelancer no tiene Restaurant/Expense/Employee: su reporte de negocio
+// Un freelancer no tiene Commerce/Expense/Employee: su reporte de negocio
 // se basa en ServiceRequest (solicitudes recibidas), no en Order/Expense.
 const isFreelancer = computed(() => user.value?.role === 'FREELANCER')
 
