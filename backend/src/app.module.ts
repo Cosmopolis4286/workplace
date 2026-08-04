@@ -36,6 +36,7 @@ import { KycModule } from './domains/identity-access/kyc/kyc.module';
 import { FreelancerApplicationsModule } from './domains/identity-access/freelancer-applications/freelancer-applications.module';
 import { AuditModule } from './domains/identity-access/audit/audit.module';
 import { ServicesModule } from './domains/commerce-core/services/services.module';
+import { ServiceRequestMessagesModule } from './domains/commerce-core/services/messages/service-request-messages.module';
 import { PlansModule } from './domains/money/plans/plans.module';
 import { ExchangeRatesModule } from './domains/money/exchange-rates/exchange-rates.module';
 import { HealthModule } from './domains/platform/health/health.module';
@@ -106,6 +107,7 @@ import { NavigationModule } from './domains/platform/navigation/navigation.modul
     FreelancerApplicationsModule,
     AuditModule,
     ServicesModule,
+    ServiceRequestMessagesModule,
     PlansModule,
     ExchangeRatesModule,
     HealthModule,
