@@ -243,7 +243,10 @@ const ROLE_DEFAULTS = {
     'analytics:view', 'reports:view',
     'search:view',
     'catalog:view',
-    'corridas:view', 'corridas:create',
+    // corridas:manage habilita el rol de conductor: un freelancer puede
+    // ofrecer corridas/fletes como otro servicio más, con el mismo modelo de
+    // comisión (sin escrow todavía) que el resto de las corridas.
+    'corridas:view', 'corridas:create', 'corridas:manage',
     'wallets:use',
     'categories_user:propose',
   ],
