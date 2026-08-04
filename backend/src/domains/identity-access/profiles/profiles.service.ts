@@ -467,7 +467,7 @@ export class ProfilesService {
     return review;
   }
 
-  // Recalcula y persiste el rating cacheado del comercio (Restaurant.avgRating/
+  // Recalcula y persiste el rating cacheado del comercio (Commerce.avgRating/
   // reviewsCount) cuyo dueño es `userId`, a partir de sus reviews visibles.
   // No-op si el usuario reseñado no es dueño de ningún comercio (freelancers).
   // Ver catalog.service.ts: getProductsSortedByRating ordena por esta columna
@@ -492,13 +492,13 @@ export class ProfilesService {
         reviewsCount: agg._count.rating,
       },
     });
-    // findById cachea `commerce` (Restaurant) anidado, incluyendo avgRating.
+    // findById cachea `commerce` (Commerce) anidado, incluyendo avgRating.
     await this.redis.del(userFindByIdCacheKey(userId));
   }
 
   // Busca una transacción real completada entre author → target: una
   // ServiceRequest cerrada al proveedor, o un CatalogOrder cerrado al
-  // comercio (resuelto via Restaurant.userId).
+  // comercio (resuelto via Commerce.userId).
   private async findVerifiedTransaction(
     authorId: string,
     targetId: string,

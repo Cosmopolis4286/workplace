@@ -30,7 +30,7 @@ export class NotificationsService {
     // Broadcast to all sockets subscribed to this restaurant
     this.gateway.broadcast(commerceId, notification);
 
-    // Restaurant.userId is the commerce owner — push goes to their devices
+    // Commerce.userId is the commerce owner — push goes to their devices
     const commerce = await this.prisma.commerce.findUnique({
       where: { id: commerceId },
       select: { userId: true },

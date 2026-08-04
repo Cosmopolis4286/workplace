@@ -31,7 +31,7 @@ export class MenuService {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  // Un freelancer no tiene (ni debe tener) un Restaurant: vende vía
+  // Un freelancer no tiene (ni debe tener) un Commerce: vende vía
   // Service/ServiceRequest, no Product/Order. La defensa en profundidad
   // vive en AccountTypeGuard (@RequireAccountType('COMMERCE') en
   // MenuController) — este método ya no necesita conocer Role.
@@ -50,8 +50,8 @@ export class MenuService {
       data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
       select: { id: true },
     });
-    // findById cachea `commerce` (Restaurant) — sin esto un findById previo a
-    // la creación del restaurant (commerce: null) queda stale hasta el TTL.
+    // findById cachea `commerce` (Commerce) — sin esto un findById previo a
+    // la creación del commerce (commerce: null) queda stale hasta el TTL.
     await this.redis.del(userFindByIdCacheKey(userId));
     return created.id;
   }

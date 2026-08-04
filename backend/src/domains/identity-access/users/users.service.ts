@@ -42,7 +42,7 @@ export class UsersService {
   ) {}
 
   // Invalida el caché de findById para un usuario. Llamar después de
-  // cualquier write que toque User, su Restaurant (commerce), UserCategory
+  // cualquier write que toque User, su Commerce (commerce), UserCategory
   // (category) o ProfileSettings — ver auditoría de escalabilidad para el
   // mapeo completo de puntos de invalidación.
   private async invalidateFindByIdCache(userId: string): Promise<void> {
@@ -73,7 +73,7 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
     const role = data.role ?? Role.NORMAL;
-    const createRestaurant =
+    const createCommerce =
       role === Role.COMMERCE || role === Role.ADMIN || role === Role.FREELANCER;
 
     const now = new Date();
@@ -95,7 +95,7 @@ export class UsersService {
           ...(data.categoryId && { categoryId: data.categoryId }),
           ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
           wallet: { create: { currency: 'USD' } },
-          ...(createRestaurant && data.commerceName
+          ...(createCommerce && data.commerceName
             ? { commerce: { create: { name: data.commerceName } } }
             : {}),
           ...(data.acceptTerms
