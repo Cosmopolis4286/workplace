@@ -28,13 +28,13 @@ export class AppointmentsService {
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private async getCommerceId(userId: string): Promise<string> {
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });
 
-    // Si no tiene restaurante, usar el userId como commerceId
-    return restaurant?.id ?? userId;
+    // Si no tiene commerce, usar el userId como commerceId
+    return commerce?.id ?? userId;
   }
 
   private async assertOwnership(appointmentId: string, commerceId: string) {
@@ -131,7 +131,7 @@ export class AppointmentsService {
   async create(userId: string, dto: CreateAppointmentDto) {
     const commerceId = await this.getCommerceId(userId);
 
-    // Validate customer belongs to restaurant if provided
+    // Validate customer belongs to commerce if provided
     if (dto.customerId) {
       const customer = await this.prisma.customer.findUnique({
         where: { id: dto.customerId },

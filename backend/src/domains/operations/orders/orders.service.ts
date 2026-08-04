@@ -39,11 +39,11 @@ export class OrdersService {
   // Helpers
   // ──────────────────────────────────────────────────────────────────────────
   async getCommerceId(userId: string): Promise<string> {
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });
-    return restaurant?.id ?? userId;
+    return commerce?.id ?? userId;
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -299,18 +299,18 @@ export class OrdersService {
       // best-effort: requeriría revisar chargeProviderFee para hacerlo
       // seguro de anidar, o agregar una tabla de idempotencia por orderId.
       if (!existing.platformFeePayer) {
-        const restaurant = await this.prisma.commerce.findUnique({
+        const commerce = await this.prisma.commerce.findUnique({
           where: { id: commerceId },
           select: { userId: true },
         });
-        const feeConfig = restaurant
-          ? await this.platformFees.resolveFeeConfig('ORDER', restaurant.userId)
+        const feeConfig = commerce
+          ? await this.platformFees.resolveFeeConfig('ORDER', commerce.userId)
           : null;
-        if (feeConfig?.payer === 'PROVIDER' && restaurant) {
+        if (feeConfig?.payer === 'PROVIDER' && commerce) {
           const { feeAmount } = this.platformFees.calculateFee(existing.total, feeConfig);
           await this.platformFees.chargeProviderFee(
             'ORDER',
-            restaurant.userId,
+            commerce.userId,
             feeAmount,
             `FEE-ORDER-${id}`,
             { orderId: id },

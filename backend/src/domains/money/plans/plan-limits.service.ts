@@ -138,13 +138,13 @@ export class PlanLimitsService implements PlanLimitsFacade {
     );
 
     // Intersect with the commerce's own self-service opt-outs
-    const restaurantFiltered = await this.intersectWithRestaurantPreference(
+    const commercePreferenceFiltered = await this.intersectWithCommercePreference(
       categoryFiltered,
       userId
     );
 
     // Finally, the global kill-switch — overrides everything above
-    const effectiveModules = restaurantFiltered.filter(
+    const effectiveModules = commercePreferenceFiltered.filter(
       (m) => !globallyDisabled.includes(m)
     );
 
@@ -215,15 +215,15 @@ export class PlanLimitsService implements PlanLimitsFacade {
   // Removes modules the commerce itself chose to hide from its own sidebar.
   // Self-service only restricts further — it can never grant access beyond
   // what the plan/category already allow.
-  private async intersectWithRestaurantPreference(
+  private async intersectWithCommercePreference(
     modules: string[],
     userId: string
   ): Promise<string[]> {
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { settings: { select: { disabledModules: true } } },
     });
-    const disabled = restaurant?.settings?.disabledModules ?? [];
+    const disabled = commerce?.settings?.disabledModules ?? [];
     if (disabled.length === 0) return modules;
     return modules.filter((m) => !disabled.includes(m));
   }

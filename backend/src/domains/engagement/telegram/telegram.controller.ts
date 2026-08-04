@@ -30,11 +30,11 @@ export class TelegramController {
     @Param('customerId') customerId: string,
     @CurrentUser() user: { id: string },
   ) {
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId: user.id },
       select: { id: true },
     });
-    const commerceId = restaurant?.id ?? user.id;
+    const commerceId = commerce?.id ?? user.id;
 
     const customer = await this.prisma.customer.findFirst({
       where: { id: customerId, commerceId },

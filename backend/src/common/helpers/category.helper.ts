@@ -29,7 +29,7 @@ export class CategoryHelper {
   }
 
   /**
-   * Obtiene el restaurant ID de un usuario (solo si es de categoría "Comida")
+   * Obtiene el commerce ID de un usuario (solo si es de categoría "Comida")
    */
   async getRestaurantIdForUser(userId: string): Promise<string | null> {
     const needsRestaurant = await this.userNeedsRestaurant(userId);
@@ -37,12 +37,12 @@ export class CategoryHelper {
       return null;
     }
 
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true }
     });
 
-    return restaurant?.id || null;
+    return commerce?.id || null;
   }
 
   /**
@@ -57,17 +57,17 @@ export class CategoryHelper {
       return null;
     }
 
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true }
     });
 
-    if (!restaurant) {
+    if (!commerce) {
       throw new ForbiddenException(
         'Los usuarios de la categoría "Comida" deben tener un restaurante asociado'
       );
     }
 
-    return restaurant.id;
+    return commerce.id;
   }
 }

@@ -106,7 +106,7 @@ export class ProfilesService {
       avatar: user.avatar,
       coverImage: user.coverImage,
       role: user.role,
-      restaurant: user.commerce,
+      commerce: user.commerce,
       profileSettings: user.profileSettings ?? {
         showCatalog: true,
         showServices: true,
@@ -473,11 +473,11 @@ export class ProfilesService {
   // Ver catalog.service.ts: getProductsSortedByRating ordena por esta columna
   // en vez de traer todo el catálogo a memoria para ordenar.
   private async recalculateCommerceRating(userId: string): Promise<void> {
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!restaurant) return;
+    if (!commerce) return;
 
     const agg = await this.prisma.review.aggregate({
       where: { targetId: userId, isHidden: false },
@@ -486,7 +486,7 @@ export class ProfilesService {
     });
 
     await this.prisma.commerce.update({
-      where: { id: restaurant.id },
+      where: { id: commerce.id },
       data: {
         avgRating: agg._avg.rating ? Number(agg._avg.rating.toFixed(2)) : null,
         reviewsCount: agg._count.rating,
@@ -513,14 +513,14 @@ export class ProfilesService {
     });
     if (request) return { requestId: request.id };
 
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId: targetId },
     });
-    if (restaurant) {
+    if (commerce) {
       const order = await this.prisma.catalogOrder.findFirst({
         where: {
           requesterId: authorId,
-          commerceId: restaurant.id,
+          commerceId: commerce.id,
           status: 'CLOSED',
         },
         orderBy: { createdAt: 'desc' },

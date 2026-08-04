@@ -51,15 +51,15 @@ export class NotificationsGateway
       client.data.userId = payload.sub;
       await client.join(`user:${payload.sub}`);
 
-      // Also join restaurant room if the user has one
-      const restaurant = await this.prisma.commerce.findUnique({
+      // Also join commerce room if the user has one
+      const commerce = await this.prisma.commerce.findUnique({
         where: { userId: payload.sub },
         select: { id: true },
       });
 
-      if (restaurant) {
-        client.data.commerceId = restaurant.id;
-        await client.join(`restaurant:${restaurant.id}`);
+      if (commerce) {
+        client.data.commerceId = commerce.id;
+        await client.join(`commerce:${commerce.id}`);
       }
     } catch {
       client.disconnect();
@@ -76,14 +76,14 @@ export class NotificationsGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { commerceId: string }
   ) {
-    client.join(`restaurant:${data.commerceId}`);
+    client.join(`commerce:${data.commerceId}`);
     return { event: 'joined', data: { commerceId: data.commerceId } };
   }
 
   // ── Broadcast helpers ─────────────────────────────────────────────────────
   broadcast(commerceId: string, notification: any) {
     this.server
-      .to(`restaurant:${commerceId}`)
+      .to(`commerce:${commerceId}`)
       .emit('notification', notification);
   }
 
@@ -92,6 +92,6 @@ export class NotificationsGateway
   }
 
   broadcastUnreadCount(commerceId: string, count: number) {
-    this.server.to(`restaurant:${commerceId}`).emit('unread_count', { count });
+    this.server.to(`commerce:${commerceId}`).emit('unread_count', { count });
   }
 }

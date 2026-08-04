@@ -97,7 +97,7 @@ async function bootstrap() {
   // app.listen(), varias líneas más abajo).
   await app.init();
 
-  // Adapter de Redis para Socket.IO: sin esto, las salas (user:*, restaurant:*)
+  // Adapter de Redis para Socket.IO: sin esto, las salas (user:*, commerce:*)
   // viven solo en memoria del proceso y un evento emitido desde una instancia
   // nunca llega a un cliente conectado a otra instancia. Necesario para poder
   // escalar el backend a más de un réplica.

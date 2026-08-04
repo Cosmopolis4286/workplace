@@ -21,11 +21,11 @@ export class CashService {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   async getCommerceId(userId: string): Promise<string> {
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });
-    return restaurant?.id ?? userId;
+    return commerce?.id ?? userId;
   }
 
   // ── Sesión activa ──────────────────────────────────────────────────────────

@@ -88,13 +88,23 @@ export class ReportsService {
         where: { id: entityId },
       });
       if (!order) throw new NotFoundException('Pedido no encontrado');
-      const restaurant = await this.prisma.commerce.findUnique({
+      const commerce = await this.prisma.commerce.findUnique({
         where: { id: order.commerceId },
         select: { userId: true },
       });
-      if (order.requesterId !== userId && restaurant?.userId !== userId) {
+      if (order.requesterId !== userId && commerce?.userId !== userId) {
         throw new ForbiddenException('No tienes permiso para reportar este pedido');
       }
+      return;
+    }
+
+    if (entityType === 'SERVICE') {
+      // A diferencia de SERVICE_REQUEST/ORDER, un Service es un anuncio
+      // público en el catálogo — cualquier usuario autenticado puede
+      // reportarlo (ej. sospecha de fraude) sin haberlo contratado antes.
+      // Solo se verifica que exista.
+      const service = await this.prisma.service.findUnique({ where: { id: entityId } });
+      if (!service) throw new NotFoundException('Servicio no encontrado');
       return;
     }
 

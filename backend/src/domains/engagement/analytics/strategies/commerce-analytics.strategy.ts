@@ -16,13 +16,13 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
   constructor(private readonly prisma: PrismaService) {}
 
   private async getCommerceId(userId: string): Promise<string> {
-    const restaurant = await this.prisma.commerce.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });
 
-    // Si no tiene restaurante, usar el userId como commerceId
-    return restaurant?.id ?? userId;
+    // Si no tiene commerce, usar el userId como commerceId
+    return commerce?.id ?? userId;
   }
 
   async getOverview(userId: string, dto: QueryAnalyticsDto) {
