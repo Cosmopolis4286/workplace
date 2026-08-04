@@ -27,7 +27,7 @@ export class NotificationsService {
       },
     });
 
-    // Broadcast to all sockets subscribed to this restaurant
+    // Broadcast to all sockets subscribed to this commerce
     this.gateway.broadcast(commerceId, notification);
 
     // Commerce.userId is the commerce owner — push goes to their devices
@@ -277,6 +277,17 @@ export class NotificationsService {
           : 'blue',
       link: '/delivery',
       metadata: { orderNumber, status },
+    });
+  }
+
+  async notifyDriverInvitationAccepted(commerceId: string, driverName: string) {
+    return this.create(commerceId, {
+      type: NotificationType.DELIVERY,
+      title: '🛵 Repartidor vinculado',
+      message: `${driverName} aceptó tu invitación y ya está disponible para recibir entregas`,
+      color: 'green',
+      link: '/delivery',
+      metadata: { driverName },
     });
   }
 
