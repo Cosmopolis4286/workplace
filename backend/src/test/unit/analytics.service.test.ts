@@ -42,8 +42,8 @@ describe('AnalyticsService', () => {
   }
 
   const defaultMocks = () => {
-    mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
-    mockPrismaService.restaurantSettings.findUnique.mockResolvedValue(null)
+    mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+    mockPrismaService.commerceSettings.findUnique.mockResolvedValue(null)
     mockPrismaService.order.findMany.mockResolvedValue([])
     mockPrismaService.order.aggregate.mockResolvedValue({ _sum: { total: 0 }, _avg: { total: 0 }, _count: { id: 0 } })
     mockPrismaService.order.count.mockResolvedValue(0)
@@ -95,7 +95,7 @@ describe('AnalyticsService', () => {
       const queryDto = { period: 'today' as AnalyticsPeriod }
 
       // Mock user with commerce
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
         id: userId,
         commerceId: 'commerce-123',
         role: 'OWNER',
@@ -150,7 +150,7 @@ describe('AnalyticsService', () => {
         dateTo: '2024-01-31',
       }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
         id: userId,
         commerceId: 'commerce-123',
         role: 'OWNER',
@@ -191,7 +191,7 @@ describe('AnalyticsService', () => {
 
       // getCommerceId falls back to userId when there's no restaurant, so
       // the overview still resolves (with empty/zeroed metrics) instead of throwing.
-      mockPrismaService.restaurant.findUnique.mockResolvedValue(null)
+      mockPrismaService.commerce.findUnique.mockResolvedValue(null)
 
       const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
@@ -203,7 +203,7 @@ describe('AnalyticsService', () => {
       const userId = 'user-123'
       const queryDto = { period: 'week' as AnalyticsPeriod }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
         id: userId,
         commerceId: 'commerce-123',
         role: 'OWNER',
@@ -231,7 +231,7 @@ describe('AnalyticsService', () => {
       const userId = 'user-123'
       const queryDto = { period: 'quarter' as AnalyticsPeriod }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
         id: userId,
         commerceId: 'commerce-123',
         role: 'OWNER',
@@ -258,7 +258,7 @@ describe('AnalyticsService', () => {
       const userId = 'user-123'
       const queryDto = { period: 'today' as AnalyticsPeriod }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
         id: userId,
         commerceId: 'commerce-123',
         role: 'OWNER',
@@ -301,7 +301,7 @@ describe('AnalyticsService', () => {
       const userId = 'user-123'
       const queryDto = { period: 'today' as AnalyticsPeriod }
 
-      mockPrismaService.restaurant.findUnique.mockRejectedValue(new Error('Database error'))
+      mockPrismaService.commerce.findUnique.mockRejectedValue(new Error('Database error'))
 
       await expect(service.getOverview(userId, 'COMMERCE', queryDto)).rejects.toThrow(
         'Database error'
@@ -312,7 +312,7 @@ describe('AnalyticsService', () => {
       const userId = 'user-123'
       const queryDto = { period: 'today' as AnalyticsPeriod }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue(null)
+      mockPrismaService.commerce.findUnique.mockResolvedValue(null)
 
       const result = await service.getOverview(userId, 'COMMERCE', queryDto)
 
@@ -327,7 +327,7 @@ describe('AnalyticsService', () => {
         dateTo: '2024-01-31',
       }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
         id: userId,
         commerceId: 'commerce-123',
         role: 'OWNER',

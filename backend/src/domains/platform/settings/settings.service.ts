@@ -54,7 +54,7 @@ export class SettingsService {
 
   async updateRestaurantInfo(userId: string, dto: UpdateRestaurantInfoDto) {
     const restaurant = await this.commerceStrategy.getRestaurant(userId);
-    const updated = await this.prisma.restaurant.update({
+    const updated = await this.prisma.commerce.update({
       where: { id: restaurant.id },
       data: dto,
     });
@@ -89,7 +89,7 @@ export class SettingsService {
   ) {
     const restaurant = await this.commerceStrategy.getRestaurant(userId);
     await this.commerceStrategy.getOrCreateSettings(restaurant.id);
-    return this.prisma.restaurantSettings.update({
+    return this.prisma.commerceSettings.update({
       where: { commerceId: restaurant.id },
       data: dto,
     });

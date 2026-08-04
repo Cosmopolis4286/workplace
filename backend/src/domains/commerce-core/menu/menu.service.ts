@@ -35,8 +35,8 @@ export class MenuService {
   // Service/ServiceRequest, no Product/Order. La defensa en profundidad
   // vive en AccountTypeGuard (@RequireAccountType('COMMERCE') en
   // MenuController) — este método ya no necesita conocer Role.
-  private async getRestaurantId(userId: string): Promise<string> {
-    const commerce = await this.prisma.restaurant.findUnique({
+  private async getCommerceId(userId: string): Promise<string> {
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });
@@ -46,7 +46,7 @@ export class MenuService {
       where: { id: userId },
       select: { firstName: true, lastName: true },
     });
-    const created = await this.prisma.restaurant.create({
+    const created = await this.prisma.commerce.create({
       data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
       select: { id: true },
     });
@@ -82,7 +82,7 @@ export class MenuService {
   // ─── Categories ─────────────────────────────────────────────────────────────
 
   async getCategories(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.prisma.category.findMany({
       where: { commerceId },
       include: { _count: { select: { products: true } } },
@@ -91,7 +91,7 @@ export class MenuService {
   }
 
   async createCategory(userId: string, dto: CreateCategoryDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const exists = await this.prisma.category.findUnique({
       where: { name_commerceId: { name: dto.name, commerceId } },
     });
@@ -108,7 +108,7 @@ export class MenuService {
     categoryId: string,
     dto: UpdateCategoryDto
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertCategoryOwnership(categoryId, commerceId);
 
     if (dto.name) {
@@ -126,7 +126,7 @@ export class MenuService {
   }
 
   async deleteCategory(userId: string, categoryId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertCategoryOwnership(categoryId, commerceId);
 
     const productCount = await this.prisma.product.count({
@@ -141,7 +141,7 @@ export class MenuService {
   // ─── Products ────────────────────────────────────────────────────────────────
 
   async getProducts(userId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     return this.prisma.product.findMany({
       where: { commerceId },
       include: { category: { select: { id: true, name: true, color: true } } },
@@ -150,7 +150,7 @@ export class MenuService {
   }
 
   async getProductsByCategory(userId: string, categoryId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertCategoryOwnership(categoryId, commerceId);
     return this.prisma.product.findMany({
       where: { commerceId, categoryId },
@@ -160,7 +160,7 @@ export class MenuService {
   }
 
   async createProduct(userId: string, dto: CreateProductDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.planLimits.assertProductLimit(userId, commerceId);
     await this.assertCategoryOwnership(dto.categoryId, commerceId);
 
@@ -176,7 +176,7 @@ export class MenuService {
     productId: string,
     dto: UpdateProductDto
   ) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertProductOwnership(productId, commerceId);
 
     if (dto.categoryId) {
@@ -192,13 +192,13 @@ export class MenuService {
   }
 
   async deleteProduct(userId: string, productId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertProductOwnership(productId, commerceId);
     await this.prisma.product.delete({ where: { id: productId } });
   }
 
   async updateProductImage(userId: string, productId: string, image: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     await this.assertProductOwnership(productId, commerceId);
     return this.prisma.product.update({
       where: { id: productId },
@@ -208,7 +208,7 @@ export class MenuService {
   }
 
   async updateStock(userId: string, productId: string, dto: UpdateStockDto) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const product = await this.assertProductOwnership(productId, commerceId);
 
     let newStock: number;
@@ -244,7 +244,7 @@ export class MenuService {
   }
 
   async toggleProductStatus(userId: string, productId: string) {
-    const commerceId = await this.getRestaurantId(userId);
+    const commerceId = await this.getCommerceId(userId);
     const product = await this.assertProductOwnership(productId, commerceId);
 
     const newStatus =

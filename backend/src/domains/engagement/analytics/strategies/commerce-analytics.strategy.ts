@@ -16,7 +16,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
   constructor(private readonly prisma: PrismaService) {}
 
   private async getCommerceId(userId: string): Promise<string> {
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });
@@ -396,7 +396,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
     to: Date
   ) {
     const [settings, customers, appointments] = await Promise.all([
-      this.prisma.restaurantSettings.findUnique({ where: { commerceId } }),
+      this.prisma.commerceSettings.findUnique({ where: { commerceId } }),
       this.prisma.customer.aggregate({
         where: { commerceId, isActive: true },
         _avg: { totalSpent: true, totalOrders: true },

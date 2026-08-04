@@ -13,6 +13,7 @@ import {
 import { RidesService } from './rides.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreateRideDto } from './dto/create-ride.dto';
@@ -68,6 +69,7 @@ export class RidesController {
 
   // POST /api/rides — passenger requests a ride
   @Post()
+  @UseGuards(KycApprovedGuard)
   @RequirePermission('corridas:create')
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateRideDto) {
     return this.ridesService.create(user.id, dto);

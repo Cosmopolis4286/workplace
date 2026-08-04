@@ -219,7 +219,7 @@ export class PlanLimitsService implements PlanLimitsFacade {
     modules: string[],
     userId: string
   ): Promise<string[]> {
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { settings: { select: { disabledModules: true } } },
     });

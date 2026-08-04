@@ -88,7 +88,7 @@ export class ReportsService {
         where: { id: entityId },
       });
       if (!order) throw new NotFoundException('Pedido no encontrado');
-      const restaurant = await this.prisma.restaurant.findUnique({
+      const restaurant = await this.prisma.commerce.findUnique({
         where: { id: order.commerceId },
         select: { userId: true },
       });

@@ -9,7 +9,7 @@ export class CommerceProfileCompletionStrategy implements ProfileCompletionAccou
   async check(user: { id: string; commerce: unknown }, context: ProfileCompletionContext) {
     if (context.category?.name === 'Comida') {
       // Para categoría Comida, necesita restaurante
-      const restaurant = await this.prisma.restaurant.findUnique({ where: { userId: user.id } });
+      const restaurant = await this.prisma.commerce.findUnique({ where: { userId: user.id } });
       return { isSetupComplete: !!restaurant };
     }
     // Para otras categorías, necesita comercio configurado

@@ -81,8 +81,8 @@ export class CatalogService {
       .map(([tag, count]) => ({ tag, count }));
   }
 
-  async getRestaurants() {
-    const restaurants = await this.prisma.restaurant.findMany({
+  async getCommerces() {
+    const commerces = await this.prisma.commerce.findMany({
       where: {
         products: {
           some: { status: ProductStatus.AVAILABLE, forSale: true },
@@ -102,11 +102,11 @@ export class CatalogService {
     });
 
     return {
-      data: restaurants.map((r) => ({
-        id: r.id,
-        name: r.name,
-        type: r.type,
-        productCount: r._count.products,
+      data: commerces.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+        productCount: c._count.products,
       })),
     };
   }
@@ -287,7 +287,7 @@ export class CatalogService {
   } as const;
 
   /**
-   * Ordena por calificación promedio cacheada del comercio (Restaurant.avgRating,
+   * Ordena por calificación promedio cacheada del comercio (Commerce.avgRating,
    * mantenida al día por ProfilesService.recalculateCommerceRating en cada
    * review creada/editada/oculta). ORDER BY nativo en Postgres — antes traía
    * TODO el catálogo matcheante a memoria para ordenar con Array.sort.
@@ -415,7 +415,7 @@ export class CatalogService {
     return { data: order };
   }
 
-  async getOrdersForRestaurant(
+  async getOrdersForCommerce(
     commerceId: string,
     query?: { status?: string; page?: number; limit?: number }
   ) {

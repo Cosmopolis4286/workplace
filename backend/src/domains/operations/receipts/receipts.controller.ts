@@ -4,11 +4,14 @@ import { ReceiptsService } from './receipts.service';
 import { CreateReceiptDto } from './dto/create-receipt.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
+@RequireAccountType('COMMERCE')
 @Controller('receipts')
 export class ReceiptsController {
   constructor(
@@ -17,7 +20,7 @@ export class ReceiptsController {
   ) {}
 
   private async getCommerceId(userId: string): Promise<string> {
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });

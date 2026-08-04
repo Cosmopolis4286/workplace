@@ -15,7 +15,10 @@ import {
 import { DeliveryService } from './delivery.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
@@ -41,7 +44,8 @@ class AssignDriverDto {
 }
 
 @Controller('delivery')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
+@RequireAccountType('COMMERCE')
 export class DeliveryController {
   constructor(private readonly deliveryService: DeliveryService) {}
 
@@ -115,6 +119,7 @@ export class DeliveryController {
   }
 
   @Post()
+  @UseGuards(KycApprovedGuard)
   @RequirePermission('delivery:create')
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateDeliveryDto) {
     return this.deliveryService.createDelivery(user.id, dto);

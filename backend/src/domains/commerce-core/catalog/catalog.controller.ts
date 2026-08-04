@@ -30,10 +30,10 @@ export class CatalogController {
     return this.catalogService.getCategories();
   }
 
-  @Get('restaurants')
+  @Get('commerces')
   @UseGuards(OptionalJwtAuthGuard)
-  getRestaurants() {
-    return this.catalogService.getRestaurants();
+  getCommerces() {
+    return this.catalogService.getCommerces();
   }
 
   @Get('tags')
@@ -68,13 +68,13 @@ export class CatalogController {
     @Query('page') page?: string,
     @Query('limit') limit?: string
   ) {
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId: user.id },
       select: { id: true },
     });
-    if (!restaurant)
+    if (!commerce)
       return { data: [], total: 0, page: 1, limit: 50, totalPages: 0 };
-    return this.catalogService.getOrdersForRestaurant(restaurant.id, {
+    return this.catalogService.getOrdersForCommerce(commerce.id, {
       status,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 50,
@@ -88,13 +88,13 @@ export class CatalogController {
     @Body('status') status: CatalogOrderStatus,
     @CurrentUser() user: any
   ) {
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId: user.id },
       select: { id: true },
     });
     return this.catalogService.updateOrderStatus(
       id,
-      restaurant?.id ?? '',
+      commerce?.id ?? '',
       status
     );
   }

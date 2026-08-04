@@ -3,12 +3,15 @@ import { BnplProvider } from '@prisma/client';
 import { BnplService } from './bnpl.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { UpsertBnplSettingsDto } from './dto/upsert-bnpl-settings.dto';
 import { InitiateBnplDto } from './dto/initiate-bnpl.dto';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
+@RequireAccountType('COMMERCE')
 @Controller('bnpl')
 export class BnplController {
   constructor(private readonly bnplService: BnplService) {}

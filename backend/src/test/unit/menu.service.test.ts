@@ -121,7 +121,7 @@ describe('MenuService', () => {
           },
         ]
 
-        mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
         mockPrismaService.category.findMany.mockResolvedValue(mockCategories)
 
         const result = await service.getCategories(userId)
@@ -145,7 +145,7 @@ describe('MenuService', () => {
           color: '#FF0000',
         }
 
-        mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
         mockPrismaService.category.findUnique.mockResolvedValue(null)
         mockPrismaService.category.create.mockResolvedValue(mockCategory)
 
@@ -169,7 +169,7 @@ describe('MenuService', () => {
           },
         ]
 
-        mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
         mockPrismaService.product.findMany.mockResolvedValue(mockProducts)
 
         const result = await service.getProducts(userId)
@@ -204,7 +204,7 @@ describe('MenuService', () => {
           category: { id: 'cat-123', name: 'Categoría', color: '#FF0000' },
         }
 
-        mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'restaurant-123' })
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'restaurant-123' })
         mockPlanLimitsService.assertProductLimit.mockResolvedValue(undefined)
         mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-123', commerceId: 'restaurant-123' })
         mockPrismaService.product.create.mockResolvedValue(mockProduct)
@@ -238,7 +238,7 @@ describe('MenuService', () => {
           category: { id: 'cat-123', name: 'Categoría', color: '#FF0000' },
         }
 
-        mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'restaurant-123' })
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'restaurant-123' })
         mockPrismaService.product.findUnique.mockResolvedValue(existingProduct)
         mockPrismaService.product.update.mockResolvedValue(updatedProduct)
 

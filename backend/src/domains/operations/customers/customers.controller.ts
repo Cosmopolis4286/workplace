@@ -14,13 +14,16 @@ import {
 import { CustomersService } from './customers.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 @Controller('customers')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
+@RequireAccountType('COMMERCE')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 

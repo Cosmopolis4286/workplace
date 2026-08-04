@@ -39,7 +39,7 @@ export class OrdersService {
   // Helpers
   // ──────────────────────────────────────────────────────────────────────────
   async getCommerceId(userId: string): Promise<string> {
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });
@@ -183,7 +183,7 @@ export class OrdersService {
       (sum, item) => sum + item.unitPrice * item.quantity,
       0
     );
-    const settings = await this.prisma.restaurantSettings.findUnique({
+    const settings = await this.prisma.commerceSettings.findUnique({
       where: { commerceId },
     });
     const taxRate = settings?.tax ?? 0;
@@ -299,7 +299,7 @@ export class OrdersService {
       // best-effort: requeriría revisar chargeProviderFee para hacerlo
       // seguro de anidar, o agregar una tabla de idempotencia por orderId.
       if (!existing.platformFeePayer) {
-        const restaurant = await this.prisma.restaurant.findUnique({
+        const restaurant = await this.prisma.commerce.findUnique({
           where: { id: commerceId },
           select: { userId: true },
         });

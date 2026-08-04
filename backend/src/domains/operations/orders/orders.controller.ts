@@ -16,7 +16,10 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { OrderStatus } from '@prisma/client';
@@ -30,7 +33,7 @@ class PatchStatusDto {
   cancelReason?: string;
 }
 
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
@@ -59,6 +62,7 @@ export class OrdersController {
 
   @Get('stats')
   @RequirePermission('orders:view')
+  @RequireAccountType('COMMERCE')
   async getStats(@CurrentUser() user: any) {
     const commerceId = await this.ordersService.getCommerceId(user.id);
     return this.ordersService.getStats(commerceId);
@@ -66,6 +70,7 @@ export class OrdersController {
 
   @Get()
   @RequirePermission('orders:view')
+  @RequireAccountType('COMMERCE')
   async findAll(@CurrentUser() user: any, @Query() query: QueryOrdersDto) {
     const commerceId = await this.ordersService.getCommerceId(user.id);
     return this.ordersService.findAll(commerceId, query);
@@ -73,13 +78,16 @@ export class OrdersController {
 
   @Get(':id')
   @RequirePermission('orders:view')
+  @RequireAccountType('COMMERCE')
   async findOne(@Param('id') id: string, @CurrentUser() user: any) {
     const commerceId = await this.ordersService.getCommerceId(user.id);
     return this.ordersService.findOne(id, commerceId);
   }
 
   @Post()
+  @UseGuards(KycApprovedGuard)
   @RequirePermission('orders:create')
+  @RequireAccountType('COMMERCE')
   async create(@CurrentUser() user: any, @Body() dto: CreateOrderDto) {
     const commerceId = await this.ordersService.getCommerceId(user.id);
     return this.ordersService.create(commerceId, dto, user.id);
@@ -87,6 +95,7 @@ export class OrdersController {
 
   @Put(':id')
   @RequirePermission('orders:edit')
+  @RequireAccountType('COMMERCE')
   async update(
     @Param('id') id: string,
     @CurrentUser() user: any,
@@ -98,6 +107,7 @@ export class OrdersController {
 
   @Patch(':id/status')
   @RequirePermission('orders:change_status')
+  @RequireAccountType('COMMERCE')
   async updateStatus(
     @Param('id') id: string,
     @CurrentUser() user: any,
@@ -114,6 +124,7 @@ export class OrdersController {
 
   @Delete(':id')
   @RequirePermission('orders:delete')
+  @RequireAccountType('COMMERCE')
   async remove(@Param('id') id: string, @CurrentUser() user: any) {
     const commerceId = await this.ordersService.getCommerceId(user.id);
     return this.ordersService.remove(id, commerceId);

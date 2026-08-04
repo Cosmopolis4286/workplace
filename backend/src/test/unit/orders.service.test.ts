@@ -188,7 +188,7 @@ describe('OrdersService', () => {
         updatedAt: new Date(),
       }
 
-      mockPrismaService.restaurantSettings.findUnique.mockResolvedValue(null)
+      mockPrismaService.commerceSettings.findUnique.mockResolvedValue(null)
       mockPrismaService.order.count.mockResolvedValue(0)
       mockPrismaService.order.create.mockResolvedValue(mockOrder)
 

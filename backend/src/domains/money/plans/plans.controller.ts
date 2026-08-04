@@ -60,7 +60,7 @@ export class PlansController {
   async getUsage(@CurrentUser() user: any) {
     const commerce = await this.planLimitsService[
       'prisma'
-    ].restaurant.findUnique({
+    ].commerce.findUnique({
       where: { userId: user.id },
       select: { id: true },
     });

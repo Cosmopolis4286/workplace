@@ -99,7 +99,7 @@ export class LandingService {
   private async computeDynamicStat(key: string): Promise<string | null> {
     switch (key) {
       case 'restaurants': {
-        const count = await this.prisma.restaurant.count()
+        const count = await this.prisma.commerce.count()
         return count > 0 ? `${count}+` : null
       }
       case 'orders': {

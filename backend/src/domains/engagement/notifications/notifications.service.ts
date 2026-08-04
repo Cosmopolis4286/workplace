@@ -31,7 +31,7 @@ export class NotificationsService {
     this.gateway.broadcast(commerceId, notification);
 
     // Restaurant.userId is the commerce owner — push goes to their devices
-    const commerce = await this.prisma.restaurant.findUnique({
+    const commerce = await this.prisma.commerce.findUnique({
       where: { id: commerceId },
       select: { userId: true },
     });

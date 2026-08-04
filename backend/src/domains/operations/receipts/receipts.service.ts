@@ -18,7 +18,7 @@ export class ReceiptsService {
     if (!order) throw new NotFoundException(this.i18n.t('receipts.order_not_found'));
     if (order.receipt) throw new ConflictException(this.i18n.t('receipts.already_issued'));
 
-    const commerce = await this.prisma.restaurant.findUnique({ where: { id: commerceId } });
+    const commerce = await this.prisma.commerce.findUnique({ where: { id: commerceId } });
 
     const count = await this.prisma.receipt.count({ where: { commerceId } });
     const receiptNumber = `COMP-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
@@ -55,7 +55,7 @@ export class ReceiptsService {
 
   async generatePdf(id: string, commerceId: string): Promise<Buffer> {
     const receipt = await this.findOne(id, commerceId);
-    const settings = await this.prisma.restaurantSettings.findUnique({ where: { commerceId } });
+    const settings = await this.prisma.commerceSettings.findUnique({ where: { commerceId } });
     const currency = settings?.currency ?? 'USD';
 
     return new Promise((resolve, reject) => {

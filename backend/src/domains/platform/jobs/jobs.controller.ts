@@ -12,6 +12,7 @@ import {
 import { JobsService, type CreateJobDto, type UpdateJobDto, type JobQuery } from './jobs.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../../common/guards/permissions.guard'
+import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard'
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
 import type { JobApplicationStatus } from '@prisma/client'
@@ -71,7 +72,7 @@ export class JobsController {
 
   // ─── CRUD (Authenticated) ───────────────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, KycApprovedGuard)
   @RequirePermission('jobs:create')
   @Post()
   async createJob(@Body() dto: CreateJobDto, @CurrentUser() user: { id: string }) {

@@ -85,7 +85,7 @@ describe('BranchesService', () => {
         updatedAt: new Date(),
       }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: commerceId })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: commerceId })
       mockPlanLimitsService.assertBranchLimit.mockResolvedValue(undefined)
       mockPrismaService.branch.create.mockResolvedValue(mockBranch)
 
@@ -130,7 +130,7 @@ describe('BranchesService', () => {
         },
       ]
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
       mockPrismaService.branch.findMany.mockResolvedValue(mockBranches)
 
       const result = await service.findAll(userId)
@@ -151,7 +151,7 @@ describe('BranchesService', () => {
         name: 'Sucursal Principal',
       }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
       mockPrismaService.branch.findUnique.mockResolvedValue(mockBranch)
 
       const result = await service.findOne(userId, branchId)
@@ -179,7 +179,7 @@ describe('BranchesService', () => {
         name: 'Sucursal Actualizada',
       }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
       mockPrismaService.branch.findUnique.mockResolvedValue(existingBranch)
       mockPrismaService.branch.update.mockResolvedValue(updatedBranch)
 
@@ -194,7 +194,7 @@ describe('BranchesService', () => {
       const userId = 'user-123'
       const branchId = 'branch-123'
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
       mockPrismaService.branch.findUnique.mockResolvedValue({ id: branchId, commerceId: 'commerce-123' })
       mockPrismaService.branch.delete.mockResolvedValue({ id: branchId })
 
@@ -220,7 +220,7 @@ describe('BranchesService', () => {
         ],
       }
 
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: 'commerce-123' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
       mockPrismaService.branch.count
         .mockResolvedValueOnce(mockStats.total)
         .mockResolvedValueOnce(mockStats.active)

@@ -37,7 +37,7 @@ export class CategoryHelper {
       return null;
     }
 
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true }
     });
@@ -57,7 +57,7 @@ export class CategoryHelper {
       return null;
     }
 
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true }
     });

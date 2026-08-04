@@ -60,7 +60,7 @@ describe('EmployeesService', () => {
     service = module.get<EmployeesService>(EmployeesService)
 
     // Default: user always resolves to commerceId
-    mockPrismaService.restaurant.findUnique.mockResolvedValue({ id: commerceId })
+    mockPrismaService.commerce.findUnique.mockResolvedValue({ id: commerceId })
   })
 
   it('should be defined', () => {
@@ -127,7 +127,7 @@ describe('EmployeesService', () => {
     })
 
     it('should fall back to userId as commerceId if user has no restaurant', async () => {
-      mockPrismaService.restaurant.findUnique.mockResolvedValue(null)
+      mockPrismaService.commerce.findUnique.mockResolvedValue(null)
       mockPlanLimitsService.assertEmployeeLimit.mockResolvedValue(undefined)
       mockPrismaService.employee.findUnique.mockResolvedValue(null)
       mockPrismaService.employee.create.mockResolvedValue({ id: 'employee-1' })

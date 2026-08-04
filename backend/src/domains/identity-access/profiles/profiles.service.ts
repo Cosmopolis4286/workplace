@@ -473,7 +473,7 @@ export class ProfilesService {
   // Ver catalog.service.ts: getProductsSortedByRating ordena por esta columna
   // en vez de traer todo el catálogo a memoria para ordenar.
   private async recalculateCommerceRating(userId: string): Promise<void> {
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.commerce.findUnique({
       where: { userId },
       select: { id: true },
     });
@@ -485,7 +485,7 @@ export class ProfilesService {
       _count: { rating: true },
     });
 
-    await this.prisma.restaurant.update({
+    await this.prisma.commerce.update({
       where: { id: restaurant.id },
       data: {
         avgRating: agg._avg.rating ? Number(agg._avg.rating.toFixed(2)) : null,
@@ -513,7 +513,7 @@ export class ProfilesService {
     });
     if (request) return { requestId: request.id };
 
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.commerce.findUnique({
       where: { userId: targetId },
     });
     if (restaurant) {

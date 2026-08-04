@@ -52,7 +52,7 @@ export class NotificationsGateway
       await client.join(`user:${payload.sub}`);
 
       // Also join restaurant room if the user has one
-      const restaurant = await this.prisma.restaurant.findUnique({
+      const restaurant = await this.prisma.commerce.findUnique({
         where: { userId: payload.sub },
         select: { id: true },
       });

@@ -119,7 +119,7 @@ describe('PlanLimitsService', () => {
       mockPrismaService.userCategory.findUnique
         .mockResolvedValueOnce({ allowedModules: ['dashboard', 'menu'] }) // intersectWithCategory
         .mockResolvedValueOnce({ name: 'Servicios' }) // categoryName lookup
-      mockPrismaService.restaurant.findUnique.mockResolvedValue({ settings: null })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
 
       const limits = await service.getPlanLimits(userId)
 

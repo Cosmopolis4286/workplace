@@ -67,7 +67,7 @@ model User {
   twoFactorEnabledAt   DateTime?
   twoFactorBackupCodes TwoFactorBackupCode[]
 
-  commerce                Restaurant?
+  commerce                Commerce?
   profileSettings         ProfileSettings?
   freelancerSettings      FreelancerSettings?
   refreshTokens           RefreshToken[]
@@ -147,7 +147,12 @@ model UserSubcategory {
   @@map("user_subcategories")
 }
 
-model Restaurant {
+// Un comercio de cualquier rubro (restaurante, tienda, farmacia, etc.) — el
+// nombre del modelo era Restaurant por legado histórico del proyecto
+// (originalmente solo restaurantes); `type` ya distingue el rubro y ningún
+// campo es específico de comida, así que se renombró a Commerce para
+// reflejar lo que el dato ya representaba.
+model Commerce {
   id       String  @id @default(uuid())
   name     String
   type     String?
@@ -175,7 +180,7 @@ model Restaurant {
   products          Product[]
   customers         Customer[]
   appointments      Appointment[]
-  settings          RestaurantSettings?
+  settings          CommerceSettings?
   drivers           Driver[]
   deliveries        Delivery[]
   orders            Order[]
@@ -195,13 +200,13 @@ model Restaurant {
   updatedAt DateTime @updatedAt
 
   @@index([avgRating])
-  @@map("restaurants")
+  @@map("commerces")
 }
 
-model RestaurantSettings {
-  id         String     @id @default(uuid())
-  commerceId String     @unique
-  commerce   Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+model CommerceSettings {
+  id         String   @id @default(uuid())
+  commerceId String   @unique
+  commerce   Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
 
   // Payment
   currency       String   @default("MXN")
@@ -229,11 +234,11 @@ model RestaurantSettings {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("restaurant_settings")
+  @@map("commerce_settings")
 }
 
 // Settings de un FREELANCER (proveedor de servicios independiente). Separado
-// de RestaurantSettings porque un freelancer no tiene Restaurant ni opera
+// de CommerceSettings porque un freelancer no tiene Commerce ni opera
 // con conceptos de comercio físico (tax, delivery, avgPrepTime, etc.) — solo
 // moneda de pago, notificaciones relevantes a ServiceRequest, y módulos.
 model FreelancerSettings {
@@ -250,7 +255,7 @@ model FreelancerSettings {
   notifyDailyReports    Boolean @default(false)
   notifyCustomerReviews Boolean @default(true)
 
-  // Modules: self-service opt-out, igual semántica que RestaurantSettings.disabledModules
+  // Modules: self-service opt-out, igual semántica que CommerceSettings.disabledModules
   disabledModules String[] @default([])
 
   createdAt DateTime @default(now())
@@ -272,7 +277,7 @@ model Customer {
   isActive       Boolean         @default(true)
   telegramChatId String?
   commerceId     String
-  commerce       Restaurant      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce       Commerce      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   appointments   Appointment[]
   orders         Order[]
   createdAt      DateTime        @default(now())
@@ -294,7 +299,7 @@ model Appointment {
   notes         String?
   status        AppointmentStatus @default(PENDING)
   commerceId    String
-  commerce      Restaurant        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce      Commerce        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
@@ -362,7 +367,7 @@ model Category {
 
   // Categoría de comercio específico (opcional) - solo si es de un comercio
   commerceId String?
-  commerce   Restaurant? @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce? @relation(fields: [commerceId], references: [id], onDelete: Cascade)
 
   products      Product[]
   subcategories Subcategory[]
@@ -421,7 +426,7 @@ model Product {
   subcategoryId   String?
   subcategory     Subcategory?  @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
   commerceId      String
-  commerce        Restaurant    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce        Commerce    @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -435,7 +440,7 @@ model Product {
 model ProductStockSnapshot {
   id            String     @id @default(uuid())
   commerceId    String
-  commerce      Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce      Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   lowStockCount Int
   date          DateTime   @db.Date
   createdAt     DateTime   @default(now())
@@ -522,7 +527,7 @@ model Driver {
   rating          Float        @default(5.0)
   totalDeliveries Int          @default(0)
   commerceId      String
-  commerce        Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce        Commerce   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   deliveries      Delivery[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -546,7 +551,7 @@ model Delivery {
   driverId        String?
   driver          Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
   commerceId      String
-  commerce        Restaurant     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce        Commerce     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -627,7 +632,7 @@ model Order {
   customerId        String?
   customer          Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   commerceId        String
-  commerce          Restaurant       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce          Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   items             OrderItem[]
   receipt           Receipt?
   bnplTransaction   BnplTransaction?
@@ -657,7 +662,7 @@ model OrderItem {
 model BnplSettings {
   id         String       @id @default(uuid())
   commerceId String
-  commerce   Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   provider   BnplProvider
 
   isEnabled   Boolean @default(false)
@@ -684,7 +689,7 @@ model BnplTransaction {
   orderId    String                @unique
   order      Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
   commerceId String
-  commerce   Restaurant            @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce            @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   provider   BnplProvider
   status     BnplTransactionStatus @default(PENDING)
 
@@ -726,7 +731,7 @@ model Receipt {
   orderId         String     @unique
   order           Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
   commerceId      String
-  commerce        Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce        Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   // Snapshot de datos del comercio al momento de emitir — si el comercio
   // cambia nombre/dirección después, el comprobante histórico no debe mutar.
   commerceName    String
@@ -761,7 +766,7 @@ model Notification {
   link       String?
   metadata   Json?
   commerceId String?
-  commerce   Restaurant?      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce?      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   userId     String?
   user       User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime         @default(now())
@@ -1016,7 +1021,7 @@ model ExpenseCategory {
   color      String     @default("#6b7280")
   budget     Float      @default(0)
   commerceId String
-  commerce   Restaurant @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   expenses   Expense[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
@@ -1039,7 +1044,7 @@ model Expense {
   categoryId    String?
   category      ExpenseCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   commerceId    String
-  commerce      Restaurant           @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce      Commerce           @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
@@ -1073,7 +1078,7 @@ model CashSession {
   closingNotes   String?
   movements      CashMovement[]
   commerceId     String
-  commerce       Restaurant        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce       Commerce        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -1094,7 +1099,7 @@ model CashMovement {
   sessionId  String
   session    CashSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   commerceId String
-  commerce   Restaurant       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce   Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt  DateTime         @default(now())
 
   @@map("cash_movements")
@@ -1139,7 +1144,7 @@ model Employee {
   notes            String?
   isActive         Boolean        @default(true)
   commerceId       String
-  commerce         Restaurant     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce         Commerce     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -1169,7 +1174,7 @@ model Branch {
   color        String       @default("#6b7280")
   notes        String?
   commerceId   String
-  commerce     Restaurant   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce     Commerce   @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
