@@ -212,6 +212,32 @@ export class MailService {
     }
   }
 
+  async sendDriverGraceExpiringReminder(
+    email: string,
+    driverName: string,
+    daysLeft: number,
+  ) {
+    try {
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to: email,
+        subject: `Acción requerida: ${driverName} necesita verificar su identidad — WorkPlace Manager`,
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+            <h2>Hola</h2>
+            <p>Tu repartidor <strong>${escapeHtml(driverName)}</strong> todavía no tiene una cuenta verificada en WorkPlace Manager.</p>
+            <p>En <strong>${daysLeft} día${daysLeft === 1 ? '' : 's'}</strong> dejará de poder recibir nuevas entregas si no se registra y verifica su identidad.</p>
+            <p>Invítalo desde tu panel de repartidores en la sección Delivery.</p>
+          </div>
+        `,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Could not send driver grace reminder email to ${email}: ${err.message}`
+      );
+    }
+  }
+
   async sendProposedCategoryStatusUpdate(
     email: string,
     firstName: string,

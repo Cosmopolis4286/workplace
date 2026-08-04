@@ -280,6 +280,17 @@ export class NotificationsService {
     });
   }
 
+  async notifyDriverGraceExpiringSoon(commerceId: string, driverName: string, daysLeft: number) {
+    return this.create(commerceId, {
+      type: NotificationType.DELIVERY,
+      title: '⚠️ Repartidor sin cuenta verificada',
+      message: `${driverName} no tiene cuenta verificada. En ${daysLeft} día${daysLeft === 1 ? '' : 's'} dejará de poder recibir entregas — invítalo a registrarse.`,
+      color: 'yellow',
+      link: '/delivery',
+      metadata: { driverName, daysLeft },
+    });
+  }
+
   async notifyDriverInvitationAccepted(commerceId: string, driverName: string) {
     return this.create(commerceId, {
       type: NotificationType.DELIVERY,
