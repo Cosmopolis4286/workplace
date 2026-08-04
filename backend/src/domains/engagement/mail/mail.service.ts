@@ -184,6 +184,34 @@ export class MailService {
     }
   }
 
+  async sendDriverInvitation(
+    email: string,
+    commerceName: string,
+    token: string,
+  ) {
+    const acceptUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/driver-invitation/${token}`;
+    try {
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to: email,
+        subject: `${commerceName} te invitó a ser repartidor — WorkPlace Manager`,
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+            <h2>¡Hola!</h2>
+            <p><strong>${escapeHtml(commerceName)}</strong> te invitó a unirte como repartidor en WorkPlace Manager.</p>
+            <p>Para aceptar, crea o inicia sesión con tu cuenta y verifica tu identidad — es un requisito para poder recibir entregas.</p>
+            <p><a href="${acceptUrl}" style="display:inline-block;background:#dc2626;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">Aceptar invitación</a></p>
+            <p style="color:#6b7280;font-size:12px">Este enlace expira en 7 días.</p>
+          </div>
+        `,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Could not send driver invitation email to ${email}: ${err.message}`
+      );
+    }
+  }
+
   async sendProposedCategoryStatusUpdate(
     email: string,
     firstName: string,

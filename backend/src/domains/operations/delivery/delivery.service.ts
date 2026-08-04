@@ -5,15 +5,26 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
+import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { TelegramService } from '../../engagement/telegram/telegram.service';
+import { MailService } from '../../engagement/mail/mail.service';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
+import { InviteDriverDto } from './dto/invite-driver.dto';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
 import { QueryDeliveriesDto } from './dto/query-delivery.dto';
-import { DeliveryStatus, DriverStatus } from '@prisma/client';
+import {
+  DeliveryStatus,
+  DriverStatus,
+  DriverInvitationStatus,
+  KycStatus,
+} from '@prisma/client';
+
+const DRIVER_INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+const LEGACY_DRIVER_GRACE_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
 
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
@@ -28,6 +39,7 @@ export class DeliveryService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly telegram: TelegramService,
+    private readonly mail: MailService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -50,6 +62,34 @@ export class DeliveryService {
     if (!driver) throw new NotFoundException(this.i18n.t('delivery.driver.not_found'));
     if (driver.commerceId !== commerceId)
       throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
+    return driver;
+  }
+
+  // Un driver solo puede recibir una nueva asignación si: (a) ya tiene cuenta
+  // propia con KYC aprobado, o (b) todavía está dentro de su periodo de
+  // gracia como driver legado sin cuenta (ver LEGACY_DRIVER_GRACE_MS).
+  private async assertDriverAssignable(driverId: string) {
+    const driver = await this.prisma.driver.findUnique({
+      where: { id: driverId },
+      include: { user: { select: { kycStatus: true } } },
+    });
+    if (!driver) throw new NotFoundException(this.i18n.t('delivery.driver.not_found'));
+
+    if (driver.userId) {
+      if (driver.user?.kycStatus !== KycStatus.APPROVED) {
+        throw new ForbiddenException(
+          'Este repartidor debe verificar su identidad antes de recibir entregas.'
+        );
+      }
+      return driver;
+    }
+
+    if (driver.graceUntil && driver.graceUntil < new Date()) {
+      throw new ForbiddenException(
+        'Este repartidor no tiene una cuenta verificada vinculada. Invítalo a registrarse para volver a asignarle entregas.'
+      );
+    }
+
     return driver;
   }
 
@@ -157,9 +197,10 @@ export class DeliveryService {
 
   async findAllDrivers(userId: string) {
     const commerceId = await this.getCommerceId(userId);
-    return this.prisma.driver.findMany({
+    const drivers = await this.prisma.driver.findMany({
       where: { commerceId, isActive: true },
       include: {
+        user: { select: { kycStatus: true } },
         _count: {
           select: {
             deliveries: {
@@ -175,11 +216,156 @@ export class DeliveryService {
       },
       orderBy: { name: 'asc' },
     });
+
+    const now = new Date();
+    return drivers.map((d) => ({
+      ...d,
+      isAssignable: d.userId
+        ? d.user?.kycStatus === KycStatus.APPROVED
+        : !d.graceUntil || d.graceUntil >= now,
+    }));
   }
 
+  // Alta directa sin cuenta propia — solo por compatibilidad hacia atrás.
+  // El driver resultante queda en periodo de gracia (ver LEGACY_DRIVER_GRACE_MS)
+  // y no podrá recibir nuevas asignaciones una vez vencido si no se vincula a
+  // una cuenta con KYC aprobado (ver assertDriverAssignable). El flujo nuevo
+  // recomendado es inviteDriver().
   async createDriver(userId: string, dto: CreateDriverDto) {
     const commerceId = await this.getCommerceId(userId);
-    return this.prisma.driver.create({ data: { ...dto, commerceId } });
+    return this.prisma.driver.create({
+      data: {
+        ...dto,
+        commerceId,
+        graceUntil: new Date(Date.now() + LEGACY_DRIVER_GRACE_MS),
+      },
+    });
+  }
+
+  // ─── Invitaciones de repartidor ───────────────────────────────────────────
+
+  async listInvitations(userId: string) {
+    const commerceId = await this.getCommerceId(userId);
+    return this.prisma.driverInvitation.findMany({
+      where: { commerceId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // Endpoint público: contexto mínimo para la página de aceptación antes de
+  // pedir login/registro. No expone email/teléfono de la invitación.
+  async previewInvitation(token: string) {
+    const invitation = await this.prisma.driverInvitation.findUnique({
+      where: { token },
+      include: { commerce: { select: { name: true } } },
+    });
+    if (!invitation) throw new NotFoundException('Invitación no encontrada');
+
+    const isExpired = invitation.status === DriverInvitationStatus.EXPIRED
+      || (invitation.status === DriverInvitationStatus.PENDING && invitation.expiresAt < new Date());
+
+    return {
+      commerceName: invitation.commerce.name,
+      status: isExpired ? DriverInvitationStatus.EXPIRED : invitation.status,
+    };
+  }
+
+  async inviteDriver(userId: string, dto: InviteDriverDto) {
+    const commerceId = await this.getCommerceId(userId);
+
+    const existingPending = await this.prisma.driverInvitation.findFirst({
+      where: { commerceId, email: dto.email, status: DriverInvitationStatus.PENDING },
+    });
+    if (existingPending) {
+      throw new BadRequestException('Ya existe una invitación pendiente para este correo');
+    }
+
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { id: commerceId },
+      select: { name: true },
+    });
+
+    const invitation = await this.prisma.driverInvitation.create({
+      data: {
+        token: uuidv4(),
+        commerceId,
+        email: dto.email,
+        phone: dto.phone,
+        name: dto.name,
+        expiresAt: new Date(Date.now() + DRIVER_INVITATION_TTL_MS),
+      },
+    });
+
+    this.mail
+      .sendDriverInvitation(dto.email, commerce?.name ?? 'Un comercio', invitation.token)
+      .catch(() => null);
+
+    return invitation;
+  }
+
+  async cancelInvitation(userId: string, invitationId: string) {
+    const commerceId = await this.getCommerceId(userId);
+    const invitation = await this.prisma.driverInvitation.findUnique({
+      where: { id: invitationId },
+    });
+    if (!invitation || invitation.commerceId !== commerceId) {
+      throw new NotFoundException('Invitación no encontrada');
+    }
+    if (invitation.status !== DriverInvitationStatus.PENDING) {
+      throw new BadRequestException('Esta invitación ya no está pendiente');
+    }
+    return this.prisma.driverInvitation.update({
+      where: { id: invitationId },
+      data: { status: DriverInvitationStatus.CANCELLED },
+    });
+  }
+
+  // El repartidor invitado, ya autenticado con su propia cuenta, "reclama"
+  // la invitación con el token. Se crea el Driver vinculado a su userId —
+  // sin periodo de gracia, porque nace ya con cuenta propia.
+  async acceptInvitation(token: string, acceptingUserId: string) {
+    const invitation = await this.prisma.driverInvitation.findUnique({ where: { token } });
+    if (!invitation) throw new NotFoundException('Invitación no encontrada');
+    if (invitation.status !== DriverInvitationStatus.PENDING) {
+      throw new BadRequestException('Esta invitación ya no está disponible');
+    }
+    if (invitation.expiresAt < new Date()) {
+      await this.prisma.driverInvitation.update({
+        where: { id: invitation.id },
+        data: { status: DriverInvitationStatus.EXPIRED },
+      });
+      throw new BadRequestException('Esta invitación expiró. Solicita una nueva.');
+    }
+
+    const existingDriverProfile = await this.prisma.driver.findUnique({
+      where: { userId: acceptingUserId },
+    });
+    if (existingDriverProfile) {
+      throw new BadRequestException('Tu cuenta ya está vinculada como repartidor');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: acceptingUserId },
+      select: { firstName: true, lastName: true, phone: true },
+    });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const [driver] = await this.prisma.$transaction([
+      this.prisma.driver.create({
+        data: {
+          name: invitation.name || `${user.firstName} ${user.lastName}`.trim(),
+          phone: invitation.phone || user.phone || undefined,
+          commerceId: invitation.commerceId,
+          userId: acceptingUserId,
+        },
+      }),
+      this.prisma.driverInvitation.update({
+        where: { id: invitation.id },
+        data: { status: DriverInvitationStatus.ACCEPTED, acceptedAt: new Date() },
+      }),
+    ]);
+
+    return driver;
   }
 
   async updateDriver(userId: string, driverId: string, dto: UpdateDriverDto) {
@@ -275,6 +461,7 @@ export class DeliveryService {
       });
       if (!driver || driver.commerceId !== commerceId)
         throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_restaurant'));
+      await this.assertDriverAssignable(dto.driverId);
     }
 
     const delivery = await this.prisma.delivery.create({
@@ -322,6 +509,7 @@ export class DeliveryService {
       });
       if (!driver || driver.commerceId !== commerceId)
         throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_restaurant'));
+      await this.assertDriverAssignable(dto.driverId);
     }
 
     return this.prisma.delivery.update({
@@ -451,6 +639,7 @@ export class DeliveryService {
       );
     if (!driver.isActive)
       throw new BadRequestException(this.i18n.t('delivery.driver.not_active'));
+    await this.assertDriverAssignable(driverId);
 
     const [delivery] = await Promise.all([
       this.prisma.delivery.update({

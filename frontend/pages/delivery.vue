@@ -11,8 +11,8 @@
         <HeaderActionButton :icon="ArrowPathIcon" :loading="loading" :disabled="loading" @click="refreshAll">
           Actualizar
         </HeaderActionButton>
-        <HeaderActionButton :icon="UserPlusIcon" @click="openNewDriver">
-          Repartidor
+        <HeaderActionButton :icon="UserPlusIcon" @click="openInviteDriver">
+          Invitar repartidor
         </HeaderActionButton>
         <HeaderActionButton
           variant="primary"
@@ -154,9 +154,21 @@
           <UsersIcon class="h-4 w-4 text-green-500" />
           <h2 class="text-sm font-semibold text-gray-900">Repartidores</h2>
         </div>
-        <button class="btn-primary text-sm flex items-center gap-1.5" @click="openNewDriver">
-          <UserPlusIcon class="h-4 w-4" />Agregar
+        <button class="btn-primary text-sm flex items-center gap-1.5" @click="openInviteDriver">
+          <UserPlusIcon class="h-4 w-4" />Invitar
         </button>
+      </div>
+
+      <!-- Invitaciones pendientes -->
+      <div v-if="pendingInvitations.length" class="px-5 py-4 border-b border-gray-100 space-y-2 bg-amber-50/50">
+        <p class="text-xs font-semibold text-amber-700">Invitaciones pendientes</p>
+        <div v-for="inv in pendingInvitations" :key="inv.id" class="flex items-center justify-between gap-3 text-sm">
+          <div class="min-w-0">
+            <p class="text-gray-900 truncate">{{ inv.email }}</p>
+            <p class="text-xs text-gray-400">Expira {{ new Date(inv.expiresAt).toLocaleDateString('es-VE') }}</p>
+          </div>
+          <button class="text-xs text-red-500 hover:text-red-700 flex-shrink-0" @click="handleCancelInvitation(inv.id)">Cancelar</button>
+        </div>
       </div>
 
       <div v-if="loadingDrivers" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-5">
@@ -196,6 +208,12 @@
           </div>
 
           <div class="space-y-1.5">
+            <div v-if="driver.isAssignable === false" class="text-[11px] text-red-600 bg-red-50 rounded-lg px-2 py-1">
+              Sin cuenta verificada — no puede recibir nuevas entregas
+            </div>
+            <div v-else-if="!driver.userId && driver.graceUntil" class="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
+              Invítalo a registrarse antes del {{ new Date(driver.graceUntil).toLocaleDateString('es-VE') }}
+            </div>
             <div class="flex items-center justify-between">
               <span class="text-xs text-gray-500">Estado</span>
               <span class="badge" :class="DRIVER_STATUS_CLASSES[driver.status]">{{ DRIVER_STATUS_LABELS[driver.status] }}</span>
@@ -301,7 +319,7 @@
           <div class="absolute inset-0 bg-black/40" @click="closeDriverModal" />
           <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-5">
-              <h3 class="text-base font-semibold text-gray-900">{{ editingDriver ? 'Editar Repartidor' : 'Agregar Repartidor' }}</h3>
+              <h3 class="text-base font-semibold text-gray-900">Editar Repartidor</h3>
               <button class="p-1 text-gray-400 hover:text-gray-600 rounded-lg" @click="closeDriverModal"><XMarkIcon class="h-5 w-5" /></button>
             </div>
             <form @submit.prevent="saveDriver" class="space-y-4">
@@ -332,7 +350,47 @@
               <div class="flex gap-3 pt-2">
                 <button type="button" class="btn-secondary flex-1" @click="closeDriverModal">Cancelar</button>
                 <button type="submit" class="btn-primary flex-1" :disabled="savingDriver">
-                  {{ savingDriver ? 'Guardando...' : (editingDriver ? 'Actualizar' : 'Agregar') }}
+                  {{ savingDriver ? 'Guardando...' : 'Actualizar' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ── Modal Invitar Repartidor ────────────────────────────────────────── -->
+    <Teleport to="body">
+      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
+        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="showInviteModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeInviteModal">
+          <div class="absolute inset-0 bg-black/40" @click="closeInviteModal" />
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div class="flex items-center justify-between mb-5">
+              <h3 class="text-base font-semibold text-gray-900">Invitar Repartidor</h3>
+              <button class="p-1 text-gray-400 hover:text-gray-600 rounded-lg" @click="closeInviteModal"><XMarkIcon class="h-5 w-5" /></button>
+            </div>
+            <p class="text-xs text-gray-500 mb-4">
+              El repartidor recibirá un correo para crear su cuenta y verificar su identidad. Solo podrá recibir entregas una vez aprobada su verificación.
+            </p>
+            <form @submit.prevent="sendInvite" class="space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Correo <span class="text-red-500">*</span></label>
+                <input v-model="inviteForm.email" type="email" required placeholder="repartidor@correo.com" class="input-field" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Nombre (opcional)</label>
+                <input v-model="inviteForm.name" placeholder="Nombre completo" class="input-field" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Teléfono (opcional)</label>
+                <input v-model="inviteForm.phone" placeholder="+58 412 000 0000" class="input-field" />
+              </div>
+              <div v-if="inviteError" class="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{{ inviteError }}</div>
+              <div class="flex gap-3 pt-2">
+                <button type="button" class="btn-secondary flex-1" @click="closeInviteModal">Cancelar</button>
+                <button type="submit" class="btn-primary flex-1" :disabled="sendingInvite">
+                  {{ sendingInvite ? 'Enviando...' : 'Enviar invitación' }}
                 </button>
               </div>
             </form>
@@ -390,7 +448,8 @@ import {
   useDelivery,
   DELIVERY_STATUS_LABELS, DELIVERY_STATUS_CLASSES,
   DRIVER_STATUS_LABELS, DRIVER_STATUS_CLASSES, VEHICLE_LABELS,
-  type Delivery, type Driver, type CreateDeliveryPayload, type CreateDriverPayload, type DeliveryStatus,
+  type Delivery, type Driver, type CreateDeliveryPayload, type CreateDriverPayload,
+  type DeliveryStatus, type InviteDriverPayload,
 } from '~/composables/useDelivery'
 import { useKyc } from '~/composables/useKyc'
 
@@ -398,9 +457,11 @@ definePageMeta({ middleware: 'auth' })
 
 const {
   deliveries, drivers, stats, loading, loadingDrivers, error, totalCount,
+  invitations,
   loadDeliveries, loadDrivers,
   createDelivery, updateDelivery, deleteDelivery, updateDeliveryStatus, assignDriver,
-  createDriver, updateDriver, deleteDriver,
+  updateDriver, deleteDriver,
+  loadInvitations, inviteDriver, cancelInvitation,
 } = useDelivery()
 
 const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
@@ -487,7 +548,6 @@ const savingDriver    = ref(false)
 const defaultDriverForm = (): CreateDriverPayload => ({ name: '', phone: '', vehicleType: 'MOTORCYCLE', vehicleModel: '', vehiclePlate: '' })
 const driverForm = ref<CreateDriverPayload>(defaultDriverForm())
 
-function openNewDriver() { editingDriver.value = null; driverForm.value = defaultDriverForm(); showDriverModal.value = true }
 function openEditDriver(d: Driver) {
   editingDriver.value = d
   driverForm.value = { name: d.name, phone: d.phone ?? '', vehicleType: d.vehicleType, vehicleModel: d.vehicleModel ?? '', vehiclePlate: d.vehiclePlate ?? '' }
@@ -495,10 +555,10 @@ function openEditDriver(d: Driver) {
 }
 function closeDriverModal() { showDriverModal.value = false; editingDriver.value = null }
 async function saveDriver() {
+  if (!editingDriver.value) return
   savingDriver.value = true
   try {
-    if (editingDriver.value) await updateDriver(editingDriver.value.id, driverForm.value)
-    else await createDriver(driverForm.value)
+    await updateDriver(editingDriver.value.id, driverForm.value)
     closeDriverModal()
   } finally { savingDriver.value = false }
 }
@@ -506,7 +566,38 @@ async function confirmDeleteDriver(id: string) {
   if (confirm('¿Desactivar este repartidor?')) await deleteDriver(id)
 }
 
+// ── Invite Modal ──────────────────────────────────────────────────────────────
+const showInviteModal = ref(false)
+const sendingInvite    = ref(false)
+const inviteError      = ref<string | null>(null)
+const inviteForm = ref<InviteDriverPayload>({ email: '', name: '', phone: '' })
+const pendingInvitations = computed(() => invitations.value.filter((i) => i.status === 'PENDING'))
+
+function openInviteDriver() {
+  inviteForm.value = { email: '', name: '', phone: '' }
+  inviteError.value = null
+  showInviteModal.value = true
+}
+function closeInviteModal() { showInviteModal.value = false }
+async function sendInvite() {
+  sendingInvite.value = true
+  inviteError.value = null
+  try {
+    const payload = {
+      email: inviteForm.value.email,
+      name: inviteForm.value.name || undefined,
+      phone: inviteForm.value.phone || undefined,
+    }
+    const result = await inviteDriver(payload)
+    if (result) closeInviteModal()
+    else inviteError.value = error.value
+  } finally { sendingInvite.value = false }
+}
+async function handleCancelInvitation(id: string) {
+  if (confirm('¿Cancelar esta invitación?')) await cancelInvitation(id)
+}
+
 onMounted(async () => {
-  await Promise.all([loadDeliveries({ limit: pageSize }), loadDrivers(), fetchMyKycStatus()])
+  await Promise.all([loadDeliveries({ limit: pageSize }), loadDrivers(), loadInvitations(), fetchMyKycStatus()])
 })
 </script>

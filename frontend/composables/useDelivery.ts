@@ -34,9 +34,36 @@ export interface Driver {
   rating: number
   totalDeliveries: number
   commerceId: string
+  userId?: string | null
+  graceUntil?: string | null
+  // true si puede recibir nuevas asignaciones: tiene cuenta con KYC aprobado,
+  // o sigue dentro de su periodo de gracia como driver legado sin cuenta.
+  isAssignable?: boolean
   createdAt: string
   updatedAt: string
   _count?: { deliveries: number }
+}
+
+export type DriverInvitationStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED'
+
+export interface DriverInvitation {
+  id: string
+  token: string
+  commerceId: string
+  email: string
+  phone?: string
+  name?: string
+  status: DriverInvitationStatus
+  driverId?: string | null
+  expiresAt: string
+  acceptedAt?: string | null
+  createdAt: string
+}
+
+export interface InviteDriverPayload {
+  email: string
+  phone?: string
+  name?: string
 }
 
 export interface DeliveryDriver {
@@ -166,6 +193,8 @@ export const VEHICLE_LABELS: Record<VehicleType, string> = {
 
 const deliveries = ref<Delivery[]>([])
 const drivers = ref<Driver[]>([])
+const invitations = ref<DriverInvitation[]>([])
+const loadingInvitations = ref(false)
 const stats = ref<DeliveryStats>({
   activeDeliveries: 0,
   todayDeliveries: 0,
@@ -374,6 +403,52 @@ export const useDelivery = () => {
     }
   }
 
+  // ─── Driver invitations ────────────────────────────────────────────────────
+
+  async function loadInvitations() {
+    loadingInvitations.value = true
+    try {
+      invitations.value = await get<DriverInvitation[]>('/delivery/driver-invitations')
+    } catch (err) {
+      error.value = extractMessage(err, 'Error al cargar las invitaciones')
+    } finally {
+      loadingInvitations.value = false
+    }
+  }
+
+  async function inviteDriver(payload: InviteDriverPayload): Promise<DriverInvitation | null> {
+    try {
+      const invitation = await post<DriverInvitation>('/delivery/driver-invitations', payload)
+      invitations.value.unshift(invitation)
+      return invitation
+    } catch (err) {
+      error.value = extractMessage(err, 'Error al enviar la invitación')
+      return null
+    }
+  }
+
+  async function cancelInvitation(id: string): Promise<boolean> {
+    try {
+      const updated = await post<DriverInvitation>(`/delivery/driver-invitations/${id}/cancel`, {})
+      const idx = invitations.value.findIndex((i) => i.id === id)
+      if (idx !== -1) invitations.value[idx] = updated
+      return true
+    } catch (err) {
+      error.value = extractMessage(err, 'Error al cancelar la invitación')
+      return false
+    }
+  }
+
+  // Contexto público (sin sesión) de una invitación, para /driver-invitation/:token
+  async function previewInvitation(token: string): Promise<{ commerceName: string; status: DriverInvitationStatus }> {
+    return get(`/delivery/driver-invitations/${token}`)
+  }
+
+  // El invitado, ya logueado, reclama la invitación con su propia cuenta
+  async function acceptInvitation(token: string): Promise<Driver> {
+    return post<Driver>(`/delivery/driver-invitations/${token}/accept`, {})
+  }
+
   return {
     // state
     deliveries,
@@ -383,6 +458,8 @@ export const useDelivery = () => {
     loadingDrivers,
     error,
     totalCount,
+    invitations,
+    loadingInvitations,
     // computed
     activeDeliveries,
     availableDrivers,
@@ -399,5 +476,10 @@ export const useDelivery = () => {
     updateDriver,
     deleteDriver,
     updateDriverStatus,
+    loadInvitations,
+    inviteDriver,
+    cancelInvitation,
+    previewInvitation,
+    acceptInvitation,
   }
 }
