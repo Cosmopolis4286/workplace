@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -22,7 +23,7 @@ import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.g
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
-import { Role, SubscriptionStatus, BillingInterval } from '@prisma/client';
+import { Role, SubscriptionStatus } from '@prisma/client';
 
 @Controller('plans')
 export class PlansController {
@@ -79,16 +80,8 @@ export class PlansController {
     @Body() dto: { planId: string; interval?: string },
     @CurrentUser() user: { id: string; role: string }
   ) {
-    if (dto.planId && user.id) {
-      const subscriptionDto = {
-        userId: user.id,
-        planId: dto.planId,
-        interval: (dto.interval || 'MONTHLY') as BillingInterval,
-        status: 'ACTIVE' as SubscriptionStatus
-      };
-      return this.plansService.assignSubscription(subscriptionDto, user.id);
-    }
-    throw new Error('Datos inválidos para suscripción');
+    if (!dto.planId) throw new BadRequestException('Datos inválidos para suscripción');
+    return this.plansService.selfSubscribe(user.id, dto);
   }
 
   @Post('upgrade')

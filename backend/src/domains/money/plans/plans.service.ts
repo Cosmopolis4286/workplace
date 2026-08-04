@@ -10,7 +10,7 @@ import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
-import { SubscriptionStatus, KycStatus, AccountType } from '@prisma/client';
+import { SubscriptionStatus, KycStatus, AccountType, BillingInterval } from '@prisma/client';
 
 @Injectable()
 export class PlansService {
@@ -186,6 +186,68 @@ export class PlansService {
         },
         plan: true,
       },
+    });
+  }
+
+  // Cambio de plan iniciado por el propio usuario (no un admin asignando desde
+  // el panel). Un plan gratuito se activa de inmediato — no hay nada que
+  // verificar. Un plan pago SIEMPRE queda PENDING de aprobación admin, igual
+  // que upgradePlan(): activar un plan pago sin pasar por revisión sería
+  // otorgar límites/módulos superiores sin que exista pago real de por medio
+  // (el mismo hueco que ya se corrigió en WalletsService.deposit()).
+  async selfSubscribe(userId: string, dto: { planId: string; interval?: string }) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const plan = await this.prisma.plan.findUnique({ where: { id: dto.planId } });
+    if (!plan) throw new NotFoundException('Plan no encontrado');
+
+    const interval = (dto.interval === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY') as BillingInterval;
+
+    if (plan.price > 0) {
+      const existingPending = await this.prisma.subscription.findFirst({
+        where: { userId, status: 'PENDING' },
+      });
+      if (existingPending) {
+        throw new ConflictException('Ya tienes una solicitud de cambio de plan pendiente de aprobación');
+      }
+
+      return this.prisma.subscription.create({
+        data: {
+          userId,
+          planId: dto.planId,
+          status: 'PENDING',
+          interval,
+          pricePaid: plan.price,
+          assignedBy: userId,
+        },
+        include: { plan: true },
+      });
+    }
+
+    // Plan gratuito: activación inmediata, mismo cálculo de vigencia que assignSubscription.
+    await this.prisma.subscription.updateMany({
+      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+      data: { status: 'CANCELLED' },
+    });
+
+    const startAt = new Date();
+    const endAt = new Date(startAt);
+    if (interval === 'ANNUAL') endAt.setFullYear(endAt.getFullYear() + 1);
+    else endAt.setMonth(endAt.getMonth() + 1);
+
+    return this.prisma.subscription.create({
+      data: {
+        userId,
+        planId: dto.planId,
+        status: 'ACTIVE',
+        interval,
+        startAt,
+        endAt,
+        pricePaid: 0,
+        assignedBy: userId,
+      },
+      include: { plan: true },
     });
   }
 

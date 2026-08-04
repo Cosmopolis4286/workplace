@@ -53,8 +53,8 @@
       </div>
     </div>
 
-    <!-- ── Solicitud pendiente de aprobación (usuario NORMAL) ────────────────── -->
-    <section v-if="isNormalUser && pendingSubscription && upgradeStep !== 3" class="max-w-2xl mx-auto py-6">
+    <!-- ── Solicitud pendiente de aprobación (upgrade NORMAL, o cambio a plan pago ya siendo FREELANCER/COMMERCE) ── -->
+    <section v-if="(isNormalUser || canChangePlan) && pendingSubscription && upgradeStep !== 3" class="max-w-2xl mx-auto py-6">
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="p-8 text-center">
           <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -642,10 +642,17 @@ async function selectCategory(categoryId: string) {
 }
 
 // ─── Cambio de plan (COMMERCE / FREELANCER) ───────────────────────────────────
+// Un plan gratuito se activa de inmediato. Un plan pago queda pendiente de
+// aprobación admin (ver PlansService.selfSubscribe) — el pago no se verifica
+// automáticamente, así que no puede activarse solo con este click.
 async function changePlan(plan: Plan) {
   changePlanError.value = ''
-  const priceLabel = currentPrice(plan) === 0 ? 'Gratis' : formatPrice(currentPrice(plan)) + (annual.value ? '/año' : '/mes')
-  if (!confirm(`¿Cambiar al plan "${plan.name}" (${priceLabel})? Tu suscripción actual será reemplazada.`)) return
+  const isPaid = currentPrice(plan) > 0
+  const priceLabel = isPaid ? formatPrice(currentPrice(plan)) + (annual.value ? '/año' : '/mes') : 'Gratis'
+  const confirmMsg = isPaid
+    ? `¿Solicitar el plan "${plan.name}" (${priceLabel})? Un administrador revisará tu solicitud antes de activarlo.`
+    : `¿Cambiar al plan "${plan.name}" (${priceLabel})? Tu suscripción actual será reemplazada.`
+  if (!confirm(confirmMsg)) return
 
   changingPlan.value = plan.id
   try {

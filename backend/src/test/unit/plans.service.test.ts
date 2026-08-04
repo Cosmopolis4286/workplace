@@ -337,6 +337,64 @@ describe('updatePlan', () => {
     })
   })
 
+  describe('selfSubscribe', () => {
+    // Este archivo no limpia mocks entre tests (patrón preexistente en toda
+    // la suite) — se resetean explícitamente los mocks que este bloque usa
+    // para no depender de llamadas acumuladas de tests anteriores.
+    beforeEach(() => {
+      mockPrismaService.subscription.updateMany.mockReset()
+      mockPrismaService.subscription.create.mockReset()
+      mockPrismaService.subscription.findFirst.mockReset()
+    })
+
+    it('activa un plan gratuito de inmediato (status ACTIVE, sin aprobación)', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123' })
+      mockPrismaService.plan.findUnique.mockResolvedValue({ id: 'plan-free', price: 0 })
+      mockPrismaService.subscription.updateMany.mockResolvedValue({ count: 0 })
+      mockPrismaService.subscription.create.mockImplementation(({ data }: any) => Promise.resolve({ id: 'sub-1', ...data }))
+
+      const result = await service.selfSubscribe('user-123', { planId: 'plan-free' })
+
+      expect(mockPrismaService.subscription.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'ACTIVE', pricePaid: 0 }) }),
+      )
+      expect(result.status).toBe('ACTIVE')
+    })
+
+    it('un plan pago queda PENDING — no se activa sin aprobación admin (bug de deposit() sin verificar, corregido)', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123' })
+      mockPrismaService.plan.findUnique.mockResolvedValue({ id: 'plan-pro', price: 599 })
+      mockPrismaService.subscription.findFirst.mockResolvedValue(null)
+      mockPrismaService.subscription.create.mockImplementation(({ data }: any) => Promise.resolve({ id: 'sub-1', ...data }))
+
+      const result = await service.selfSubscribe('user-123', { planId: 'plan-pro' })
+
+      expect(mockPrismaService.subscription.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'PENDING', pricePaid: 599 }) }),
+      )
+      // No debe tocar suscripciones existentes hasta que se apruebe — eso lo
+      // hace approveSubscription, no selfSubscribe.
+      expect(mockPrismaService.subscription.updateMany).not.toHaveBeenCalled()
+      expect(result.status).toBe('PENDING')
+    })
+
+    it('rechaza una nueva solicitud de plan pago si ya hay una PENDING', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123' })
+      mockPrismaService.plan.findUnique.mockResolvedValue({ id: 'plan-pro', price: 599 })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({ id: 'existing-pending', status: 'PENDING' })
+
+      await expect(service.selfSubscribe('user-123', { planId: 'plan-pro' })).rejects.toThrow(ConflictException)
+      expect(mockPrismaService.subscription.create).not.toHaveBeenCalled()
+    })
+
+    it('lanza NotFoundException si el plan no existe', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123' })
+      mockPrismaService.plan.findUnique.mockResolvedValue(null)
+
+      await expect(service.selfSubscribe('user-123', { planId: 'nope' })).rejects.toThrow(NotFoundException)
+    })
+  })
+
   describe('getMySubscription', () => {
     it('should return user subscription', async () => {
       const userId = 'user-123'
