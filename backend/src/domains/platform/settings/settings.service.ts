@@ -8,7 +8,7 @@ import { CommerceSettingsStrategy } from './strategies/commerce-settings.strateg
 import { FreelancerSettingsStrategy } from './strategies/freelancer-settings.strategy';
 import { SettingsAccountStrategy } from './strategies/settings-account.strategy.interface';
 import {
-  UpdateRestaurantInfoDto,
+  UpdateCommerceInfoDto,
   UpdatePaymentSettingsDto,
   UpdateOperationSettingsDto,
   UpdateNotificationSettingsDto,
@@ -21,7 +21,7 @@ import {
  * este Strategy pattern, este servicio tenía 6 métodos con
  * `if (role === 'FREELANCER')` inline repetido en cada uno.
  *
- * `updateRestaurantInfo`/`updateOperationSettings` no forman parte del
+ * `updateCommerceInfo`/`updateOperationSettings` no forman parte del
  * Strategy: son exclusivos de COMMERCE. La restricción de acceso vive en
  * AccountTypeGuard (@RequireAccountType('COMMERCE') en SettingsController,
  * mismo guard que usa MenuController) — este service ya no necesita
@@ -50,12 +50,12 @@ export class SettingsService {
     return strategy.getSettings(userId);
   }
 
-  // ─── Restaurant info (solo COMMERCE) ────────────────────────────────────────
+  // ─── Commerce info (solo COMMERCE) ──────────────────────────────────────────
 
-  async updateRestaurantInfo(userId: string, dto: UpdateRestaurantInfoDto) {
-    const restaurant = await this.commerceStrategy.getRestaurant(userId);
+  async updateCommerceInfo(userId: string, dto: UpdateCommerceInfoDto) {
+    const commerce = await this.commerceStrategy.getCommerce(userId);
     const updated = await this.prisma.commerce.update({
-      where: { id: restaurant.id },
+      where: { id: commerce.id },
       data: dto,
     });
     await this.redis.del(userFindByIdCacheKey(userId));
@@ -87,10 +87,10 @@ export class SettingsService {
     userId: string,
     dto: UpdateOperationSettingsDto
   ) {
-    const restaurant = await this.commerceStrategy.getRestaurant(userId);
-    await this.commerceStrategy.getOrCreateSettings(restaurant.id);
+    const commerce = await this.commerceStrategy.getCommerce(userId);
+    await this.commerceStrategy.getOrCreateSettings(commerce.id);
     return this.prisma.commerceSettings.update({
-      where: { commerceId: restaurant.id },
+      where: { commerceId: commerce.id },
       data: dto,
     });
   }

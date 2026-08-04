@@ -64,7 +64,7 @@ export class PlansController {
       where: { userId: user.id },
       select: { id: true },
     });
-    // Sin Restaurant (p.ej. FREELANCER): igual calculamos `limits` —
+    // Sin Commerce (p.ej. FREELANCER): igual calculamos `limits` —
     // effectiveModules no depende de tener un comercio — solo se omiten
     // los contadores de uso (products/employees/branches/orders).
     if (!commerce) {

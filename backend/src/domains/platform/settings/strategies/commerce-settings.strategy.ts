@@ -16,11 +16,11 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
     private readonly redis: RedisService
   ) {}
 
-  async getRestaurant(userId: string) {
-    const restaurant = await this.prisma.commerce.findUnique({
+  async getCommerce(userId: string) {
+    const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
     });
-    if (restaurant) return restaurant;
+    if (commerce) return commerce;
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -29,8 +29,8 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
     const created = await this.prisma.commerce.create({
       data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
     });
-    // findById cachea `commerce` (Restaurant) — sin esto un findById previo a
-    // la creación del restaurant (commerce: null) queda stale hasta el TTL.
+    // findById cachea `commerce` (Commerce) — sin esto un findById previo a
+    // la creación del commerce (commerce: null) queda stale hasta el TTL.
     await this.redis.del(userFindByIdCacheKey(userId));
     return created;
   }
@@ -44,41 +44,41 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
   }
 
   async getSettings(userId: string) {
-    const restaurant = await this.getRestaurant(userId);
-    const settings = await this.getOrCreateSettings(restaurant.id);
-    return { restaurant, settings };
+    const commerce = await this.getCommerce(userId);
+    const settings = await this.getOrCreateSettings(commerce.id);
+    return { commerce, settings };
   }
 
   async updatePaymentSettings(userId: string, dto: UpdatePaymentSettingsDto) {
-    const restaurant = await this.getRestaurant(userId);
-    await this.getOrCreateSettings(restaurant.id);
+    const commerce = await this.getCommerce(userId);
+    await this.getOrCreateSettings(commerce.id);
     return this.prisma.commerceSettings.update({
-      where: { commerceId: restaurant.id },
+      where: { commerceId: commerce.id },
       data: dto,
     });
   }
 
   async updateNotificationSettings(userId: string, dto: UpdateNotificationSettingsDto) {
     const { notifyNewOrders, notifyLowStock, notifyDailyReports, notifyCustomerReviews } = dto;
-    const restaurant = await this.getRestaurant(userId);
-    await this.getOrCreateSettings(restaurant.id);
+    const commerce = await this.getCommerce(userId);
+    await this.getOrCreateSettings(commerce.id);
     return this.prisma.commerceSettings.update({
-      where: { commerceId: restaurant.id },
+      where: { commerceId: commerce.id },
       data: { notifyNewOrders, notifyLowStock, notifyDailyReports, notifyCustomerReviews },
     });
   }
 
   async getModuleSettings(userId: string, availableModules: string[]) {
-    const restaurant = await this.getRestaurant(userId);
-    const settings = await this.getOrCreateSettings(restaurant.id);
+    const commerce = await this.getCommerce(userId);
+    const settings = await this.getOrCreateSettings(commerce.id);
     return { availableModules, disabledModules: settings.disabledModules };
   }
 
   async updateModuleSettings(userId: string, dto: UpdateModuleSettingsDto) {
-    const restaurant = await this.getRestaurant(userId);
-    await this.getOrCreateSettings(restaurant.id);
+    const commerce = await this.getCommerce(userId);
+    await this.getOrCreateSettings(commerce.id);
     return this.prisma.commerceSettings.update({
-      where: { commerceId: restaurant.id },
+      where: { commerceId: commerce.id },
       data: { disabledModules: dto.disabledModules },
     });
   }

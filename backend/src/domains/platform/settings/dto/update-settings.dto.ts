@@ -8,7 +8,7 @@ import {
   Max,
 } from 'class-validator';
 
-export class UpdateRestaurantInfoDto {
+export class UpdateCommerceInfoDto {
   @IsOptional()
   @IsString()
   name?: string;

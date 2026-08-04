@@ -21,7 +21,7 @@ export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
 
   async getSettings(userId: string) {
     const settings = await this.getOrCreateFreelancerSettings(userId);
-    return { restaurant: null, settings };
+    return { commerce: null, settings };
   }
 
   async updatePaymentSettings(userId: string, dto: UpdatePaymentSettingsDto) {

@@ -7,7 +7,7 @@ import { RequirePermission } from '../../../common/decorators/require-permission
 import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import {
-  UpdateRestaurantInfoDto,
+  UpdateCommerceInfoDto,
   UpdatePaymentSettingsDto,
   UpdateOperationSettingsDto,
   UpdateNotificationSettingsDto,
@@ -25,14 +25,14 @@ export class SettingsController {
     return this.settingsService.getSettings(user.id);
   }
 
-  @Patch('restaurant')
+  @Patch('commerce')
   @RequirePermission('settings:edit')
   @RequireAccountType('COMMERCE')
-  updateRestaurantInfo(
+  updateCommerceInfo(
     @CurrentUser() user: { id: string },
-    @Body() dto: UpdateRestaurantInfoDto
+    @Body() dto: UpdateCommerceInfoDto
   ) {
-    return this.settingsService.updateRestaurantInfo(user.id, dto);
+    return this.settingsService.updateCommerceInfo(user.id, dto);
   }
 
   @Patch('payment')
