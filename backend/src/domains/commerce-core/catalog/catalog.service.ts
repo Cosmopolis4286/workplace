@@ -387,11 +387,9 @@ export class CatalogService {
   }
 
   async createOrder(dto: CreateCatalogOrderDto, requesterId: string) {
-    const { commerceName, ...rest } = dto;
     const order = await this.prisma.catalogOrder.create({
       data: {
-        ...rest,
-        restaurantName: commerceName,
+        ...dto,
         requesterId,
       },
     });
