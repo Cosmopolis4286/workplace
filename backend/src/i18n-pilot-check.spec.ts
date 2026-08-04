@@ -116,7 +116,7 @@ describe('i18n pilot setup', () => {
   it('resuelve mensajes del modulo delivery (es/en)', () => {
     expect(i18n.t('delivery.driver.not_found', { lang: 'es' })).toBe('Repartidor no encontrado');
     expect(i18n.t('delivery.driver.not_found', { lang: 'en' })).toBe('Driver not found');
-    expect(i18n.t('delivery.driver.not_found_in_restaurant', { lang: 'es' })).toBe('Repartidor no encontrado en este restaurante');
+    expect(i18n.t('delivery.driver.not_found_in_commerce', { lang: 'es' })).toBe('Repartidor no encontrado en este comercio');
     expect(i18n.t('delivery.driver.not_active', { lang: 'es' })).toBe('El repartidor no está activo');
     expect(i18n.t('delivery.driver.not_active', { lang: 'en' })).toBe('The driver is not active');
     expect(i18n.t('delivery.delivery.not_found', { lang: 'es' })).toBe('Entrega no encontrada');
