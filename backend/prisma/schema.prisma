@@ -536,12 +536,15 @@ model Driver {
   // Cuenta propia del repartidor (con su propio KYC). Nullable: drivers
   // creados antes de este cambio no tienen cuenta todavía — ver `graceUntil`.
   // Una vez vinculado, solo puede recibir asignaciones si user.kycStatus = APPROVED.
-  userId     String?   @unique
-  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId              String?   @unique
+  user                User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   // Fecha límite para vincularse a una cuenta verificada antes de quedar
   // inactivo para nuevas asignaciones. Null = sin restricción (ya vinculado,
   // o creado ya bajo el régimen nuevo vía invitación).
-  graceUntil DateTime?
+  graceUntil          DateTime?
+  // Evita reenviar el aviso de gracia al comercio más de una vez (ver
+  // DriverGraceReminderScheduler). Null = aún no se avisó.
+  graceReminderSentAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
