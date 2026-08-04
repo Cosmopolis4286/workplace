@@ -9,6 +9,44 @@
       :stats="headerStats"
     />
 
+    <!-- Reconciliación de escrow: saldo real de la wallet de plataforma vs. lo
+         que debería haber retenido según las solicitudes con garantía activa -->
+    <div
+      v-if="reconciliation"
+      class="rounded-2xl border p-5"
+      :class="reconciliation.isBalanced ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'"
+    >
+      <div class="flex items-start gap-3">
+        <component :is="reconciliation.isBalanced ? CheckCircleIcon : ExclamationTriangleIcon"
+          class="h-5 w-5 flex-shrink-0 mt-0.5" :class="reconciliation.isBalanced ? 'text-green-600' : 'text-red-600'" />
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold" :class="reconciliation.isBalanced ? 'text-green-800' : 'text-red-800'">
+            {{ reconciliation.isBalanced ? 'Escrow cuadrado' : 'Descuadre detectado en escrow' }}
+          </p>
+          <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div>
+              <p class="text-gray-500">Saldo real (wallet plataforma)</p>
+              <p class="font-bold text-gray-900">${{ reconciliation.systemWalletBalance.toFixed(2) }}</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Retenido esperado ({{ reconciliation.heldCount }} solicitudes)</p>
+              <p class="font-bold text-gray-900">${{ reconciliation.heldTotal.toFixed(2) }}</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Diferencia</p>
+              <p class="font-bold" :class="reconciliation.isBalanced ? 'text-green-700' : 'text-red-700'">
+                ${{ reconciliation.discrepancy.toFixed(2) }}
+              </p>
+            </div>
+            <div v-if="reconciliation.pendingFundsCount > 0">
+              <p class="text-gray-500">Pendientes de fondos ({{ reconciliation.pendingFundsCount }})</p>
+              <p class="font-bold text-amber-700">${{ reconciliation.pendingFundsTotal.toFixed(2) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="loading" class="space-y-3">
       <div v-for="i in 5" :key="i" class="h-16 bg-gray-100 rounded-2xl animate-pulse" />
     </div>
@@ -101,19 +139,21 @@
 definePageMeta({ middleware: ['auth'] })
 
 import { ref, computed, onMounted } from 'vue'
-import { BanknotesIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import { useWallets, type Wallet } from '~/composables/useWallets'
+import { BanknotesIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
+import { useWallets, type Wallet, type EscrowReconciliation } from '~/composables/useWallets'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
 const {
   fetchWallets, freezeUserWallet, unfreezeUserWallet, adjustUserBalance,
+  fetchEscrowReconciliation,
   formatMoney, STATUS_LABELS, STATUS_CLASSES,
 } = useWallets()
 
 const items = ref<Wallet[]>([])
 const loading = ref(true)
 const meta = ref({ page: 1, totalPages: 1 })
+const reconciliation = ref<EscrowReconciliation | null>(null)
 
 const headerStats = computed(() => [{ label: 'Billeteras', value: items.value.length }])
 
@@ -125,6 +165,14 @@ async function load(page = 1) {
     meta.value = { page: res.page, totalPages: res.totalPages }
   } finally {
     loading.value = false
+  }
+}
+
+async function loadReconciliation() {
+  try {
+    reconciliation.value = await fetchEscrowReconciliation()
+  } catch {
+    // no bloquea el resto del panel si esto falla
   }
 }
 
@@ -181,5 +229,5 @@ function applyUpdate(updated: Wallet) {
   if (idx !== -1) items.value[idx] = { ...items.value[idx], ...updated }
 }
 
-onMounted(() => load())
+onMounted(() => { load(); loadReconciliation() })
 </script>

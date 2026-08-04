@@ -117,6 +117,14 @@ export class WalletsController {
     return this.walletsService.listWallets(user.role, parseInt(page), parseInt(limit));
   }
 
+  // Saldo real de la wallet de plataforma vs. lo que debería haber retenido
+  // según las ServiceRequest con escrowStatus=HELD — ver getEscrowReconciliation.
+  @Get('escrow-reconciliation')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  getEscrowReconciliation(@CurrentUser() user: any) {
+    return this.walletsService.getEscrowReconciliation(user.role);
+  }
+
   @Post('users/:userId')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `wallet:admin:create:${(req as any).user?.id}` })

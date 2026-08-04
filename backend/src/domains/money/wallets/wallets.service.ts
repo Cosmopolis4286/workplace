@@ -512,6 +512,48 @@ export class WalletsService {
     return user.id;
   }
 
+  // ─── Reconciliación (admin) ────────────────────────────────────────────────
+  // Compara el saldo real de la wallet de plataforma contra lo que
+  // debería haber según las ServiceRequest con escrowStatus=HELD. Sin esto,
+  // un admin no tiene forma de auditar que la plataforma no está
+  // "perdiendo" (o reteniendo de más) dinero de clientes en garantía.
+  async getEscrowReconciliation(actorRole: Role) {
+    this.assertAdmin(actorRole);
+
+    const systemUserId = await this.ensureEscrowSystemUserId();
+    const systemWallet = await this.ensureWalletForUser(systemUserId);
+
+    const [heldAggregate, pendingFundsAggregate, pendingFundsCount] = await Promise.all([
+      this.prisma.serviceRequest.aggregate({
+        where: { escrowStatus: 'HELD' },
+        _sum: { escrowAmount: true },
+        _count: true,
+      }),
+      this.prisma.serviceRequest.aggregate({
+        where: { escrowStatus: 'PENDING_FUNDS' },
+        _sum: { escrowAmount: true },
+      }),
+      this.prisma.serviceRequest.count({ where: { escrowStatus: 'PENDING_FUNDS' } }),
+    ]);
+
+    const actualBalance = systemWallet.balance;
+    // "Esperado" = solo lo efectivamente retenido (HELD). PENDING_FUNDS es
+    // dinero que el cliente todavía no depositó — no debería estar en la
+    // wallet de plataforma, se reporta aparte como referencia.
+    const expectedBalance = heldAggregate._sum.escrowAmount ?? 0;
+    const discrepancy = Math.round((actualBalance - expectedBalance) * 100) / 100;
+
+    return {
+      systemWalletBalance: actualBalance,
+      heldTotal: expectedBalance,
+      heldCount: heldAggregate._count,
+      pendingFundsTotal: pendingFundsAggregate._sum.escrowAmount ?? 0,
+      pendingFundsCount,
+      discrepancy,
+      isBalanced: Math.abs(discrepancy) < 0.01,
+    };
+  }
+
   // Retiene el monto total del cliente en la wallet de plataforma cuando el
   // proveedor fija el precio de una solicitud con hasEscrow=true. Atómico:
   // débito del cliente + crédito a la wallet de plataforma en una transacción.

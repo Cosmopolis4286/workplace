@@ -52,6 +52,10 @@ describe('WalletsService — escrow', () => {
       walletTransaction: {
         create: jest.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'tx-1', ...data })),
       },
+      serviceRequest: {
+        aggregate: jest.fn(),
+        count: jest.fn(),
+      },
       $transaction: jest.fn((callback: (tx: any) => unknown) => callback(mockPrismaService)),
       $queryRaw: jest.fn(),
     }
@@ -201,6 +205,45 @@ describe('WalletsService — escrow', () => {
       // Fire-and-forget: puede no haberse resuelto aún, pero debe haberse invocado.
       expect(moduleRef.get).toHaveBeenCalledWith('ServicesService', { strict: false })
       expect(retrySpy).toHaveBeenCalledWith(CLIENT_ID)
+    })
+  })
+
+  describe('getEscrowReconciliation', () => {
+    it('reporta isBalanced=true cuando el saldo real coincide con lo retenido (HELD)', async () => {
+      mockPrismaService.wallet.upsert.mockResolvedValue(wallet({ userId: SYSTEM_USER_ID, balance: 300 }))
+      mockPrismaService.serviceRequest.aggregate.mockImplementation(({ where }: any) => {
+        if (where.escrowStatus === 'HELD') return Promise.resolve({ _sum: { escrowAmount: 300 }, _count: 2 })
+        return Promise.resolve({ _sum: { escrowAmount: 0 } })
+      })
+      mockPrismaService.serviceRequest.count.mockResolvedValue(0)
+
+      const result = await service.getEscrowReconciliation(Role.SUPERADMIN)
+
+      expect(result.systemWalletBalance).toBe(300)
+      expect(result.heldTotal).toBe(300)
+      expect(result.heldCount).toBe(2)
+      expect(result.discrepancy).toBe(0)
+      expect(result.isBalanced).toBe(true)
+    })
+
+    it('reporta la discrepancia cuando el saldo real no coincide con lo retenido', async () => {
+      mockPrismaService.wallet.upsert.mockResolvedValue(wallet({ userId: SYSTEM_USER_ID, balance: 250 }))
+      mockPrismaService.serviceRequest.aggregate.mockImplementation(({ where }: any) => {
+        if (where.escrowStatus === 'HELD') return Promise.resolve({ _sum: { escrowAmount: 300 }, _count: 2 })
+        return Promise.resolve({ _sum: { escrowAmount: 40 } })
+      })
+      mockPrismaService.serviceRequest.count.mockResolvedValue(1)
+
+      const result = await service.getEscrowReconciliation(Role.ADMIN)
+
+      expect(result.discrepancy).toBe(-50)
+      expect(result.isBalanced).toBe(false)
+      expect(result.pendingFundsTotal).toBe(40)
+      expect(result.pendingFundsCount).toBe(1)
+    })
+
+    it('rechaza a un usuario que no es admin', async () => {
+      await expect(service.getEscrowReconciliation(Role.FREELANCER)).rejects.toThrow()
     })
   })
 })
