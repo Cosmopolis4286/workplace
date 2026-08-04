@@ -12,7 +12,7 @@ describe('PlanLimitsService', () => {
     user: { findUnique: jest.fn() },
     subscription: { findFirst: jest.fn() },
     userCategory: { findUnique: jest.fn() },
-    restaurant: { findUnique: jest.fn() },
+    commerce: { findUnique: jest.fn() },
     product: { count: jest.fn() },
     employee: { count: jest.fn() },
     branch: { count: jest.fn() },

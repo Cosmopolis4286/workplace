@@ -33,7 +33,7 @@ describe('OrdersService', () => {
       createMany: jest.fn(),
       deleteMany: jest.fn(),
     },
-    restaurantSettings: {
+    commerceSettings: {
       findUnique: jest.fn(),
     },
     customer: {

@@ -10,10 +10,10 @@ describe('AnalyticsService', () => {
   let prismaService: PrismaService
 
   const mockPrismaService = {
-    restaurant: {
+    commerce: {
       findUnique: jest.fn(),
     },
-    restaurantSettings: {
+    commerceSettings: {
       findUnique: jest.fn(),
     },
     order: {

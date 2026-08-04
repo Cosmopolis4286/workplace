@@ -17,7 +17,7 @@ describe('NotificationsService', () => {
       deleteMany: jest.fn(),
       count: jest.fn(),
     },
-    restaurant: {
+    commerce: {
       findUnique: jest.fn(),
     },
   }

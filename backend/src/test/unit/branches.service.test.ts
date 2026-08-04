@@ -22,7 +22,7 @@ describe('BranchesService', () => {
       count: jest.fn(),
       groupBy: jest.fn(),
     },
-    restaurant: {
+    commerce: {
       findUnique: jest.fn(),
     },
     $transaction: jest.fn(),

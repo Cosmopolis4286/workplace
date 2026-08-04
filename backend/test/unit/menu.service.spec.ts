@@ -14,7 +14,7 @@ describe('MenuService', () => {
 
   beforeEach(async () => {
     mockPrismaService = {
-      restaurant: {
+      commerce: {
         findUnique: jest.fn(),
       } as any,
       category: {
@@ -62,7 +62,7 @@ describe('MenuService', () => {
         { id: 'cat-2', name: 'Comidas', _count: { products: 10 } },
       ];
 
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.category.findMany = jest.fn().mockResolvedValue(mockCategories);
 
       const result = await service.getCategories('user-id');
@@ -76,7 +76,7 @@ describe('MenuService', () => {
     });
 
     it('should throw ForbiddenException when user has no restaurant', async () => {
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue(null);
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue(null);
 
       await expect(service.getCategories('user-id')).rejects.toThrow(ForbiddenException);
     });
@@ -86,7 +86,7 @@ describe('MenuService', () => {
     it('should create a new category', async () => {
       const mockCategory = { id: 'cat-id', name: 'Nueva Categoría', commerceId: 'commerce-id' };
 
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.category.findUnique = jest.fn().mockResolvedValue(null);
       mockPrismaService.category.create = jest.fn().mockResolvedValue(mockCategory);
 
@@ -97,7 +97,7 @@ describe('MenuService', () => {
     });
 
     it('should throw ConflictException when category name exists', async () => {
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.category.findUnique = jest.fn().mockResolvedValue({ id: 'existing-id' });
 
       await expect(
@@ -108,7 +108,7 @@ describe('MenuService', () => {
 
   describe('deleteCategory', () => {
     it('should delete category when empty', async () => {
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.category.findUnique = jest.fn().mockResolvedValue({ id: 'cat-id', commerceId: 'commerce-id' });
       mockPrismaService.product.count = jest.fn().mockResolvedValue(0);
       mockPrismaService.category.delete = jest.fn().mockResolvedValue({ id: 'cat-id' });
@@ -119,7 +119,7 @@ describe('MenuService', () => {
     });
 
     it('should throw ConflictException when category has products', async () => {
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.category.findUnique = jest.fn().mockResolvedValue({ id: 'cat-id', commerceId: 'commerce-id' });
       mockPrismaService.product.count = jest.fn().mockResolvedValue(5);
 
@@ -133,7 +133,7 @@ describe('MenuService', () => {
         { id: 'prod-1', name: 'Producto 1', category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' } },
       ];
 
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.product.findMany = jest.fn().mockResolvedValue(mockProducts);
 
       const result = await service.getProducts('user-id');
@@ -151,7 +151,7 @@ describe('MenuService', () => {
         category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' },
       };
 
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.category.findUnique = jest.fn().mockResolvedValue({ id: 'cat-id', commerceId: 'commerce-id' });
       mockPrismaService.product.create = jest.fn().mockResolvedValue(mockProduct);
 
@@ -177,7 +177,7 @@ describe('MenuService', () => {
         category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' },
       };
 
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.product.findUnique = jest.fn().mockResolvedValue(mockProduct);
       mockPrismaService.product.update = jest.fn().mockResolvedValue({
         ...mockProduct,
@@ -204,7 +204,7 @@ describe('MenuService', () => {
         category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' },
       };
 
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.product.findUnique = jest.fn().mockResolvedValue(mockProduct);
       mockPrismaService.product.update = jest.fn().mockResolvedValue({
         ...mockProduct,
@@ -230,7 +230,7 @@ describe('MenuService', () => {
         category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' },
       };
 
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.product.findUnique = jest.fn().mockResolvedValue(mockProduct);
       mockPrismaService.product.update = jest.fn().mockResolvedValue({
         ...mockProduct,
@@ -256,7 +256,7 @@ describe('MenuService', () => {
         category: { id: 'cat-1', name: 'Bebidas', color: '#FF0000' },
       };
 
-      mockPrismaService.restaurant.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
+      mockPrismaService.commerce.findUnique = jest.fn().mockResolvedValue({ id: 'commerce-id' });
       mockPrismaService.product.findUnique = jest.fn().mockResolvedValue(mockProduct);
       mockPrismaService.product.update = jest.fn().mockResolvedValue({
         ...mockProduct,

@@ -19,7 +19,7 @@ describe('MenuService', () => {
   let notificationsService: NotificationsService
 
   const mockPrismaService = {
-    restaurant: {
+    commerce: {
       findUnique: jest.fn(),
     },
     category: {

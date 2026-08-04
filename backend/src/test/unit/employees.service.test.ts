@@ -11,7 +11,7 @@ describe('EmployeesService', () => {
   let service: EmployeesService
 
   const mockPrismaService = {
-    restaurant: {
+    commerce: {
       findUnique: jest.fn(),
     },
     employee: {
