@@ -16,7 +16,7 @@
             <h1 class="text-2xl font-bold text-gray-900">Términos de Servicio</h1>
             <p class="text-sm text-gray-400 mt-1">Última actualización: enero 2026 · Versión 2.0</p>
             <p class="text-gray-500 mt-3 leading-relaxed">
-              Al usar FoodManager, aceptas estos términos. Te recomendamos leerlos con atención
+              Al usar WorkPlace Manager, aceptas estos términos. Te recomendamos leerlos con atención
               para entender tus derechos y responsabilidades como usuario de la plataforma.
             </p>
           </div>
@@ -30,7 +30,7 @@
         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
       </svg>
       <p class="text-sm text-amber-700">
-        <span class="font-semibold">Importante:</span> Al crear una cuenta o continuar usando FoodManager, confirmas que has leído y aceptado estos términos en su totalidad.
+        <span class="font-semibold">Importante:</span> Al crear una cuenta o continuar usando WorkPlace Manager, confirmas que has leído y aceptado estos términos en su totalidad.
       </p>
     </div>
 
@@ -97,19 +97,19 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'public' })
-useHead({ title: 'Términos de Servicio — FoodManager' })
+useHead({ title: 'Términos de Servicio — WorkPlace Manager' })
 
 const sections = [
   {
     title: 'Aceptación de los términos',
     paragraphs: [
-      'Al acceder o utilizar FoodManager, aceptas quedar vinculado por estos Términos de Servicio y nuestra Política de Privacidad. Si no estás de acuerdo con alguna parte de estos términos, no podrás acceder al servicio.',
+      'Al acceder o utilizar WorkPlace Manager, aceptas quedar vinculado por estos Términos de Servicio y nuestra Política de Privacidad. Si no estás de acuerdo con alguna parte de estos términos, no podrás acceder al servicio.',
     ],
   },
   {
     title: 'Descripción del servicio',
     paragraphs: [
-      'FoodManager es una plataforma de gestión para restaurantes que incluye módulos de pedidos, inventario, clientes, empleados, delivery, gastos y analytics.',
+      'WorkPlace Manager es una plataforma de gestión para comercios y proveedores de servicios que incluye módulos de pedidos, inventario, clientes, empleados, delivery, gastos y analytics.',
       'Nos reservamos el derecho de modificar o interrumpir el servicio (temporal o permanentemente) con o sin aviso previo.',
     ],
   },
@@ -118,27 +118,27 @@ const sections = [
     paragraphs: [
       'Eres responsable de mantener la confidencialidad de tus credenciales de acceso y de todas las actividades realizadas bajo tu cuenta.',
       'Debes notificarnos inmediatamente de cualquier uso no autorizado de tu cuenta. No nos hacemos responsables de pérdidas derivadas del uso no autorizado.',
-      'Una cuenta corresponde a un restaurante. El uso de una cuenta para múltiples negocios no está permitido sin un plan correspondiente.',
+      'Una cuenta corresponde a un comercio o proveedor de servicios. El uso de una cuenta para múltiples negocios no está permitido sin un plan correspondiente.',
     ],
   },
   {
     title: 'Uso aceptable',
     paragraphs: [
-      'Te comprometes a usar FoodManager únicamente para fines legales y de acuerdo con estos términos. Queda prohibido: intentar acceder a datos de otros restaurantes, realizar ingeniería inversa, o usar el servicio para actividades ilegales.',
+      'Te comprometes a usar WorkPlace Manager únicamente para fines legales y de acuerdo con estos términos. Queda prohibido: intentar acceder a datos de otros comercios o proveedores, realizar ingeniería inversa, o usar el servicio para actividades ilegales.',
       'Nos reservamos el derecho de suspender o cancelar cuentas que violen estas condiciones sin previo aviso.',
     ],
   },
   {
     title: 'Propiedad intelectual',
     paragraphs: [
-      'El servicio y su contenido original, características y funcionalidades son y seguirán siendo propiedad exclusiva de FoodManager y sus licenciantes.',
-      'Tus datos de negocio (pedidos, clientes, productos, etc.) son de tu propiedad. FoodManager solo los procesa para prestarte el servicio.',
+      'El servicio y su contenido original, características y funcionalidades son y seguirán siendo propiedad exclusiva de WorkPlace Manager y sus licenciantes.',
+      'Tus datos de negocio (pedidos, clientes, productos, etc.) son de tu propiedad. WorkPlace Manager solo los procesa para prestarte el servicio.',
     ],
   },
   {
     title: 'Limitación de responsabilidad',
     paragraphs: [
-      'FoodManager no será responsable por daños indirectos, incidentales, especiales o consecuentes derivados del uso o incapacidad de usar el servicio.',
+      'WorkPlace Manager no será responsable por daños indirectos, incidentales, especiales o consecuentes derivados del uso o incapacidad de usar el servicio.',
       'Hacemos nuestro mejor esfuerzo por mantener la disponibilidad del servicio, con un objetivo de uptime del 99.5% mensual, excluyendo mantenimientos programados.',
     ],
   },

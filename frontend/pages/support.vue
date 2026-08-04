@@ -87,7 +87,7 @@
             <input
               v-model="form.email"
               type="email"
-              placeholder="tu@restaurante.com"
+              placeholder="tu@comercio.com"
               class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent placeholder-gray-300"
             />
           </div>
@@ -188,7 +188,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'public' })
-useHead({ title: 'Soporte — FoodManager' })
+useHead({ title: 'Soporte — WorkPlace Manager' })
 
 const contactChannels = [
   {
@@ -204,8 +204,8 @@ const contactChannels = [
   },
   {
     label: 'Correo electrónico',
-    description: 'soporte@foodmanager.app',
-    href: 'mailto:soporte@foodmanager.app',
+    description: 'soporte@workplace-manager.app',
+    href: 'mailto:soporte@workplace-manager.app',
     iconPath: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
     bg: 'bg-indigo-50',
     color: 'text-indigo-500',
@@ -279,8 +279,8 @@ const faqs = reactive([
     open: false,
   },
   {
-    question: '¿FoodManager funciona sin internet?',
-    answer: 'Actualmente FoodManager requiere conexión a internet. Estamos trabajando en un modo offline para operaciones críticas como pedidos y caja.',
+    question: '¿WorkPlace Manager funciona sin internet?',
+    answer: 'Actualmente WorkPlace Manager requiere conexión a internet. Estamos trabajando en un modo offline para operaciones críticas como pedidos y caja.',
     open: false,
   },
   {

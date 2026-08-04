@@ -440,7 +440,7 @@
                 <input v-model="form.name" class="mt-1 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200" />
               </div>
               <div>
-                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cargo / Restaurante</label>
+                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cargo / Comercio</label>
                 <input v-model="form.role" class="mt-1 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200" />
               </div>
             </div>

@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Agendamientos"
-      description="Gestiona las reservas y citas del restaurante"
+      description="Gestiona las reservas y citas del comercio"
       :icon="CalendarDaysIcon"
       :breadcrumb="[{ label: 'Agendamientos' }]"
       :stats="headerStats"

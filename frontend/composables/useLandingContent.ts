@@ -44,9 +44,9 @@ const FALLBACK_TESTIMONIALS: PublicTestimonial[] = [
   },
   {
     id: '2',
-    quote: 'El control de inventario nos ahorró miles al mes. Ahora nunca nos quedamos sin ingredientes clave en hora pico.',
+    quote: 'Como diseñadora independiente, poder recibir y gestionar solicitudes de servicio desde un solo panel me ahorra horas cada semana.',
     name: 'Roberto Núñez',
-    role: 'Chef ejecutivo, Casa del Chef',
+    role: 'Freelancer, Diseño Gráfico',
     initials: 'RN',
     avatarColor: '#8B5CF6',
   },
@@ -54,7 +54,7 @@ const FALLBACK_TESTIMONIALS: PublicTestimonial[] = [
     id: '3',
     quote: 'Los reportes de analytics nos ayudaron a identificar nuestros productos estrella y duplicar su disponibilidad.',
     name: 'Ana Torres',
-    role: 'Gerente, Pizzería Bella Napoli',
+    role: 'Gerente, Farmacia Bella Napoli',
     initials: 'AT',
     avatarColor: '#14B8A6',
   },
@@ -78,9 +78,9 @@ const FALLBACK_FEATURES: PublicFeature[] = [
 ]
 
 const FALLBACK_STEPS: PublicStep[] = [
-  { id: '1', title: 'Crea tu cuenta', desc: 'Regístrate gratis en menos de 2 minutos. Solo necesitas tu correo y el nombre de tu restaurante.', icon: 'UserPlusIcon' },
-  { id: '2', title: 'Configura tu negocio', desc: 'Agrega tu menú, productos y ajusta la configuración según tus necesidades operativas.', icon: 'CogIcon' },
-  { id: '3', title: 'Comienza a gestionar', desc: 'Recibe pedidos, controla inventario y analiza el rendimiento de tu restaurante en tiempo real.', icon: 'RocketLaunchIcon' },
+  { id: '1', title: 'Crea tu cuenta', desc: 'Regístrate gratis en menos de 2 minutos. Solo necesitas tu correo y el nombre de tu comercio.', icon: 'UserPlusIcon' },
+  { id: '2', title: 'Configura tu negocio', desc: 'Agrega tu menú o servicios, productos y ajusta la configuración según tus necesidades operativas.', icon: 'CogIcon' },
+  { id: '3', title: 'Comienza a gestionar', desc: 'Recibe pedidos, controla inventario y analiza el rendimiento de tu negocio en tiempo real.', icon: 'RocketLaunchIcon' },
 ]
 
 type LandingSection = 'testimonials' | 'stats' | 'features' | 'steps'

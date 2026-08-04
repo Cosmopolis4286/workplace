@@ -16,7 +16,7 @@
             <h1 class="text-2xl font-bold text-gray-900">Política de Privacidad</h1>
             <p class="text-sm text-gray-400 mt-1">Última actualización: enero 2026</p>
             <p class="text-gray-500 mt-3 leading-relaxed">
-              En FoodManager nos comprometemos a proteger tu privacidad y la de tu negocio.
+              En WorkPlace Manager nos comprometemos a proteger tu privacidad y la de tu negocio.
               Esta política explica cómo recopilamos, usamos y protegemos tu información.
             </p>
           </div>
@@ -62,7 +62,7 @@
       </div>
       <div class="flex-1">
         <p class="text-sm font-medium text-gray-800">¿Tienes preguntas sobre tu privacidad?</p>
-        <p class="text-sm text-gray-500 mt-0.5">Contáctanos en <span class="text-red-500 font-medium">privacidad@foodmanager.app</span></p>
+        <p class="text-sm text-gray-500 mt-0.5">Contáctanos en <span class="text-red-500 font-medium">privacidad@workplace-manager.app</span></p>
       </div>
       <NuxtLink
         to="/support"
@@ -80,7 +80,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'public' })
-useHead({ title: 'Privacidad — FoodManager' })
+useHead({ title: 'Privacidad — WorkPlace Manager' })
 
 const sections = [
   {
@@ -88,7 +88,7 @@ const sections = [
     iconPath: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4',
     items: [
       'Datos de cuenta: nombre, correo electrónico y contraseña cifrada.',
-      'Datos del restaurante: nombre, dirección y configuración operativa.',
+      'Datos del comercio: nombre, dirección y configuración operativa.',
       'Datos de negocio: pedidos, clientes, productos, empleados y gastos que tú ingresas.',
       'Datos de uso: páginas visitadas y acciones realizadas dentro de la plataforma.',
     ],
@@ -97,7 +97,7 @@ const sections = [
     title: 'Cómo usamos tu información',
     iconPath: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
     items: [
-      'Proveer y mejorar los servicios de FoodManager.',
+      'Proveer y mejorar los servicios de WorkPlace Manager.',
       'Generar reportes y estadísticas para tu negocio.',
       'Enviarte notificaciones relevantes de tu operación.',
       'Garantizar la seguridad y prevenir fraudes.',
@@ -110,7 +110,7 @@ const sections = [
       'Todos los datos se transmiten mediante HTTPS con cifrado TLS 1.3.',
       'Las contraseñas se almacenan con hashing bcrypt (nunca en texto plano).',
       'Tokens de sesión con expiración automática y lista negra en Redis.',
-      'Acceso restringido: solo tu restaurante puede ver sus propios datos.',
+      'Acceso restringido: solo tu comercio puede ver sus propios datos.',
     ],
   },
   {

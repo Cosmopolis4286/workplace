@@ -11,7 +11,7 @@
           </div>
           <span class="text-sm text-gray-400">
             © {{ currentYear }}
-            <span class="font-medium text-gray-500">FoodManager</span>.
+            <span class="font-medium text-gray-500">WorkPlace Manager</span>.
             Todos los derechos reservados.
           </span>
         </div>
