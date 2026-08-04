@@ -13,6 +13,7 @@ import { QueryCatalogDto } from './dto/query-catalog.dto';
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CatalogOrderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -55,9 +56,9 @@ export class CatalogController {
   }
 
   @Post('orders')
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(JwtAuthGuard, KycApprovedGuard)
   createOrder(@Body() dto: CreateCatalogOrderDto, @CurrentUser() user: any) {
-    return this.catalogService.createOrder(dto, user?.id);
+    return this.catalogService.createOrder(dto, user.id);
   }
 
   @Get('orders/mine')

@@ -317,6 +317,23 @@ export class ServicesService {
     });
   }
 
+  // ─── Moderación (admin) ─────────────────────────────────────────────────────
+  // A diferencia de toggleStatus (dueño, alterna ACTIVE↔PAUSED), esto lo usa
+  // un admin para ocultar un servicio ajeno del catálogo — nunca deja el
+  // servicio ACTIVE, y el dueño no puede reactivarlo con su propio toggle
+  // (que solo alterna entre ACTIVE/PAUSED, nunca toca/sale de INACTIVE).
+
+  async moderateService(id: string, hide: boolean) {
+    const s = await this.prisma.service.findUnique({ where: { id }, select: { id: true } });
+    if (!s) throw new NotFoundException('Servicio no encontrado');
+
+    return this.prisma.service.update({
+      where: { id },
+      data: { status: hide ? ServiceStatus.INACTIVE : ServiceStatus.PAUSED },
+      select: SERVICE_SELECT,
+    });
+  }
+
   // ─── Categories (admin) ───────────────────────────────────────────────────
 
   async getCategories() {
@@ -379,7 +396,7 @@ export class ServicesService {
 
   async createServiceRequest(
     dto: CreateServiceRequestDto,
-    requesterId?: string
+    requesterId: string
   ) {
     const service = await this.prisma.service.findUnique({
       where: { id: dto.serviceId },
@@ -391,7 +408,7 @@ export class ServicesService {
     if (service.userId !== dto.providerId) {
       throw new BadRequestException('El proveedor no coincide con el dueño del servicio');
     }
-    if (requesterId && requesterId === dto.providerId) {
+    if (requesterId === dto.providerId) {
       throw new BadRequestException('No puedes solicitar tu propio servicio');
     }
 
@@ -401,7 +418,7 @@ export class ServicesService {
       serviceId: dto.serviceId,
       providerId: dto.providerId,
       status: { in: ServicesService.OPEN_REQUEST_STATUSES as any },
-      ...(requesterId ? { requesterId } : { clientPhone: dto.clientPhone }),
+      requesterId,
     };
     const existingOpen = await this.prisma.serviceRequest.findFirst({ where: duplicateWhere });
     if (existingOpen) {
@@ -410,15 +427,14 @@ export class ServicesService {
       );
     }
 
-    // Anti-spam: tope de solicitudes nuevas (a cualquier proveedor) en una ventana corta,
-    // tanto para usuarios autenticados como anónimos (identificados por teléfono).
+    // Anti-spam: tope de solicitudes nuevas (a cualquier proveedor) en una ventana corta.
     const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
     const RATE_LIMIT_MAX = 5;
     const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
     const recentCount = await this.prisma.serviceRequest.count({
       where: {
         createdAt: { gte: windowStart },
-        ...(requesterId ? { requesterId } : { clientPhone: dto.clientPhone }),
+        requesterId,
       },
     });
     if (recentCount >= RATE_LIMIT_MAX) {
@@ -451,7 +467,7 @@ export class ServicesService {
         description: dto.description,
         price: dto.price,
         priceUnit: dto.priceUnit,
-        requesterId: requesterId ?? null,
+        requesterId,
         items: dto.items?.length
           ? {
               create: dto.items.map((item, i) => ({

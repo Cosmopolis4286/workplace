@@ -30,6 +30,7 @@ import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { UpdateServiceRequestDto } from './dto/update-service-request.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
@@ -130,6 +131,17 @@ export class ServicesController {
     return this.servicesService.deleteService(id, user.id);
   }
 
+  // ─── Moderación (admin) ───────────────────────────────────────────────────
+  // toggle/remove arriba exigen ser el dueño (assertOwner) — un admin
+  // necesita poder ocultar un servicio ajeno reportado sin pasar por eso.
+
+  @Patch(':id/moderate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  moderate(@Param('id') id: string, @Body() dto: { hide: boolean }) {
+    return this.servicesService.moderateService(id, dto.hide);
+  }
+
   // ─── Tracking & Metrics ───────────────────────────────────────────────────
 
   @Post('track')
@@ -205,12 +217,12 @@ export class ServicesController {
   }
 
   @Post('requests')
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(JwtAuthGuard, KycApprovedGuard)
   createRequest(
     @Body() dto: CreateServiceRequestDto,
     @CurrentUser() user: any
   ) {
-    return this.servicesService.createServiceRequest(dto, user?.id);
+    return this.servicesService.createServiceRequest(dto, user.id);
   }
 
   @Get('requests/stats')

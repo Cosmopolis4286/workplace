@@ -386,13 +386,13 @@ export class CatalogService {
     return { data: attachProductRating(product) };
   }
 
-  async createOrder(dto: CreateCatalogOrderDto, requesterId?: string) {
+  async createOrder(dto: CreateCatalogOrderDto, requesterId: string) {
     const { commerceName, ...rest } = dto;
     const order = await this.prisma.catalogOrder.create({
       data: {
         ...rest,
         restaurantName: commerceName,
-        requesterId: requesterId ?? null,
+        requesterId,
       },
     });
     // Cache desnormalizado para "más vendidos" (ver getProductsSortedByBestSeller).

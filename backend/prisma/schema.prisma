@@ -1672,6 +1672,7 @@ model SystemLog {
 enum ReportEntityType {
   CATALOG_ORDER
   SERVICE_REQUEST
+  SERVICE
   ORDER
   GENERAL
 }
