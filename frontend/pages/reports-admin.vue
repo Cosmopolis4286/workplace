@@ -63,6 +63,14 @@
 
         <div v-if="item.status === 'PENDING' || item.status === 'IN_REVIEW'" class="px-6 py-4 bg-gray-50 flex flex-wrap items-center justify-end gap-3">
           <button
+            v-if="item.entityType === 'SERVICE' && item.entityId"
+            class="px-4 py-2 border border-red-200 text-red-600 rounded-xl text-sm font-medium hover:bg-red-50 disabled:opacity-60"
+            :disabled="hidingServiceId === item.id"
+            @click="hideReportedService(item)"
+          >
+            {{ hidingServiceId === item.id ? 'Ocultando…' : 'Ocultar servicio' }}
+          </button>
+          <button
             v-if="item.status === 'PENDING'"
             class="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-white"
             :disabled="processingId === item.id"
@@ -96,15 +104,18 @@ definePageMeta({ middleware: ['auth'] })
 import { ref, reactive, computed, onMounted } from 'vue'
 import { CheckCircleIcon, FlagIcon } from '@heroicons/vue/24/outline'
 import { useReports, type Report, type ReportStatus, type ReportEntityType } from '~/composables/useReports'
+import { useApi } from '~/composables/useApi'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard vive en middleware/auth.ts vía permiso reviews:moderate (ver
 // PermissionsGuard en el backend) — esta página no necesita chequeo propio.
 const { fetchAllReports, moderateReport } = useReports()
+const { patch: apiPatch } = useApi()
 
 const items = ref<Report[]>([])
 const loading = ref(true)
 const processingId = ref<string | null>(null)
+const hidingServiceId = ref<string | null>(null)
 const statusFilter = ref<ReportStatus | undefined>('PENDING')
 const notesDraft = reactive<Record<string, string>>({})
 
@@ -126,7 +137,7 @@ const STATUS_CLASSES: Record<ReportStatus, string> = {
   DISMISSED: 'bg-gray-100 text-gray-600',
 }
 const ENTITY_LABELS: Record<ReportEntityType, string> = {
-  CATALOG_ORDER: 'Pedido de catálogo', SERVICE_REQUEST: 'Solicitud de servicio', ORDER: 'Pedido', GENERAL: 'General',
+  CATALOG_ORDER: 'Pedido de catálogo', SERVICE_REQUEST: 'Solicitud de servicio', SERVICE: 'Servicio publicado', ORDER: 'Pedido', GENERAL: 'General',
 }
 
 const headerStats = computed(() => [
@@ -154,6 +165,19 @@ async function setStatus(id: string, status: ReportStatus) {
     items.value = items.value.filter(i => i.id !== id)
   } finally {
     processingId.value = null
+  }
+}
+
+// Oculta el Service reportado (PATCH /services/:id/moderate) sin cerrar el
+// reporte en sí — el admin todavía decide por separado si marcarlo resuelto.
+async function hideReportedService(item: Report) {
+  if (!item.entityId) return
+  if (!confirm('¿Ocultar este servicio del catálogo? El proveedor deberá reactivarlo manualmente tras revisar el reporte.')) return
+  hidingServiceId.value = item.id
+  try {
+    await apiPatch(`/services/${item.entityId}/moderate`, { hide: true })
+  } finally {
+    hidingServiceId.value = null
   }
 }
 

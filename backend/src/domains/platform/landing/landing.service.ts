@@ -98,7 +98,7 @@ export class LandingService {
 
   private async computeDynamicStat(key: string): Promise<string | null> {
     switch (key) {
-      case 'restaurants': {
+      case 'commerces': {
         const count = await this.prisma.commerce.count()
         return count > 0 ? `${count}+` : null
       }
