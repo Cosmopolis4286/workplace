@@ -112,9 +112,9 @@
     "onboarding": {
       "title": "One last step",
       "description": "Add your business name to get started",
-      "prompt": "What's the name of your restaurant or business? You can change this later from settings.",
+      "prompt": "What's the name of your business? You can change this later from settings.",
       "businessNameLabel": "Business name",
-      "businessNamePlaceholder": "e.g. The Tasty Spot",
+      "businessNamePlaceholder": "e.g. The Tasty Spot, Central Pharmacy, JP Graphic Design",
       "submit": "Get started",
       "configureLater": "Set up later",
       "saveError": "Couldn't save the name. Please try again."
@@ -192,7 +192,7 @@
       "terms": "Terms",
       "support": "Support",
       "registerHeadline": "Start for free\ntoday",
-      "registerSubline": "Create your account in less than 2 minutes and have your restaurant up and running from day one.",
+      "registerSubline": "Create your account in less than 2 minutes and have your business up and running from day one.",
       "registerStep1": "Create your account",
       "registerStep2": "Verify your email",
       "registerStep3": "Set up your business",
@@ -209,7 +209,7 @@
       "resetPasswordSubline": "Choose a secure password. We recommend combining letters, numbers and symbols.",
       "twoFactorHeadline": "Two-step\nverification",
       "twoFactorSubline": "Your account is protected with two-factor authentication. Enter the code from your app.",
-      "loginHeadline": "Manage your\nrestaurant\nwith precision",
+      "loginHeadline": "Manage your\nbusiness\nwith precision",
       "loginSubline": "Everything you need to manage orders, inventory, customers and more in one place.",
       "marketingPanelLabel": "Marketing and platform status panel",
       "testimonialsLabel": "Testimonials",
@@ -246,15 +246,16 @@
       "pricingAria": "View plans and pricing",
       "login": "Sign in",
       "startFree": "Start for free",
+      "downloadApp": "Download app",
       "openMenu": "Open menu",
       "closeMenu": "Close menu"
     },
     "hero": {
       "badge": "All-in-one platform",
       "titleLine1": "Manage your",
-      "titleLine2": "restaurant",
+      "titleLine2": "business",
       "titleHighlight": "without complications",
-      "description": "Orders, inventory, menu, customers, delivery and reports — all from a single panel. Designed for restaurants that want to grow.",
+      "description": "Orders, inventory, menu, customers, delivery and reports — all from a single panel. Designed for businesses and independent professionals that want to grow.",
       "createFreeAccount": "Create free account",
       "viewDemo": "View demo",
       "viewDemoAria": "View platform demo",
@@ -276,11 +277,11 @@
       "minutesAgo": "{minutes} min ago"
     },
     "social": {
-      "restaurants": "Active restaurants"
+      "commerces": "Active businesses"
     },
     "features": {
       "tag": "Features",
-      "title": "Everything your restaurant needs",
+      "title": "Everything your business needs",
       "subtitle": "Professional tools, designed for your business's day-to-day."
     },
     "pricing": {
@@ -303,8 +304,8 @@
       "title": "What our customers say"
     },
     "ctaBanner": {
-      "title": "Ready to transform your restaurant?",
-      "subtitle": "Join {count} restaurants already managing their business with {appName}.",
+      "title": "Ready to transform your business?",
+      "subtitle": "Join {count} businesses and professionals already managing their business with {appName}.",
       "moreThan": "more than {value}",
       "moreThanFallback": "more than 500",
       "createFreeAccount": "Create free account",
@@ -312,13 +313,14 @@
       "footnote": "No credit card · Set up in 5 min · Cancel anytime"
     },
     "footer": {
-      "tagline": "The most complete management platform for modern restaurants.",
+      "tagline": "The most complete management platform for modern businesses.",
       "twitterSoon": "Twitter/X (coming soon)",
       "instagramSoon": "Instagram (coming soon)",
       "linkedinSoon": "LinkedIn (coming soon)",
       "privacy": "Privacy",
       "terms": "Terms",
       "support": "Support",
+      "downloadApp": "Download app",
       "copyright": "© {year} {appName}. All rights reserved."
     },
     "demoModal": {
@@ -335,13 +337,50 @@
       "highlightCrm": "Customer CRM"
     },
     "seo": {
-      "title": "WorkPlace Manager — Manage your restaurant without complications",
-      "description": "Orders, inventory, menu, customers, delivery and reports all from a single panel. The all-in-one platform designed for restaurants that want to grow.",
-      "keywords": "restaurant management, restaurant software, online orders, inventory, delivery, analytics",
+      "title": "WorkPlace Manager — Manage your business without complications",
+      "description": "Orders, inventory, menu, customers, delivery and reports all from a single panel. The all-in-one platform designed for businesses and professionals that want to grow.",
+      "keywords": "business management, business software, online orders, inventory, delivery, analytics",
       "ogDescription": "Orders, inventory, menu, customers, delivery and reports — all from a single panel.",
-      "twitterDescription": "The all-in-one platform to manage your restaurant.",
-      "schemaDescription": "All-in-one platform for restaurant management: orders, inventory, menu, customers, delivery and reports.",
+      "twitterDescription": "The all-in-one platform to manage your business.",
+      "schemaDescription": "All-in-one platform for business management: orders, inventory, menu, customers, delivery and reports.",
       "freePlanAvailable": "Free plan available"
     }
+  },
+  "download": {
+    "seo": {
+      "title": "Download app — {appName}",
+      "description": "Download the {appName} app for Android. Manage your business from your phone: orders, inventory, delivery and more."
+    },
+    "badge": "Android app",
+    "title": "Take your business in your pocket",
+    "subtitle": "Download the {appName} app for Android and manage orders, inventory, delivery and more from your phone.",
+    "version": "Version {version}",
+    "android": {
+      "cta": "Download APK",
+      "note": ".apk file — direct install, no Play Store needed",
+      "howToInstall": "How to install?",
+      "step1": "Download the .apk file with the button above.",
+      "step2": "Open the downloaded file from your notifications or file manager.",
+      "step3": "If Android asks for permission to install from \"unknown sources\", allow it for this install only.",
+      "step4": "Confirm the installation and open the app."
+    },
+    "ios": {
+      "title": "Using an iPhone or iPad?",
+      "description": "We don't have a native iOS app yet. In the meantime, you can install {appName} from Safari: tap \"Share\" and then \"Add to Home Screen\" for quick access, with its own icon and full-screen mode.",
+      "cta": "Go to the web version"
+    },
+    "desktop": {
+      "title": "Scan to download on your phone",
+      "description": "Open your Android phone's camera and point it at the code to download the app directly.",
+      "qrAlt": "QR code to download the {appName} app"
+    },
+    "features": {
+      "title": "Why use the app?",
+      "offline": "Works offline and syncs when you reconnect",
+      "notifications": "Real-time order notifications",
+      "camera": "Built-in camera for product photos and receipts",
+      "faster": "Faster access, no need to open the browser"
+    },
+    "backToSite": "Back to site"
   }
 }

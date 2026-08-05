@@ -19,6 +19,14 @@
         <div class="flex items-center gap-2">
           <LanguageSwitcher />
           <NuxtLink
+            to="/download"
+            :aria-label="t('landing.nav.downloadApp')"
+            class="hidden md:flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-workplace-red px-4 py-2 rounded-lg hover:bg-red-50 transition-all duration-150"
+          >
+            <DevicePhoneMobileIcon class="w-4 h-4" />
+            {{ t('landing.nav.downloadApp') }}
+          </NuxtLink>
+          <NuxtLink
             to="/login"
             class="hidden md:block text-sm font-semibold text-gray-700 hover:text-workplace-red px-4 py-2 rounded-lg hover:bg-red-50 transition-all duration-150"
           >
@@ -68,6 +76,14 @@
               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
               @click="mobileMenuOpen = false"
             >{{ t('landing.nav.pricing') }}</a>
+            <NuxtLink
+              to="/download"
+              class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
+              @click="mobileMenuOpen = false"
+            >
+              <DevicePhoneMobileIcon class="w-4 h-4" />
+              {{ t('landing.nav.downloadApp') }}
+            </NuxtLink>
           </div>
           <div class="px-4 pb-4 pt-2 border-t border-gray-100 flex flex-col gap-2">
             <NuxtLink
@@ -535,6 +551,7 @@
             <NuxtLink to="/privacy" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.privacy') }}</NuxtLink>
             <NuxtLink to="/terms" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.terms') }}</NuxtLink>
             <NuxtLink to="/support" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.support') }}</NuxtLink>
+            <NuxtLink to="/download" class="hover:text-gray-900 transition-colors duration-150">{{ t('landing.footer.downloadApp') }}</NuxtLink>
           </div>
         </div>
 
@@ -643,6 +660,7 @@ import {
   RocketLaunchIcon,
   XMarkIcon,
   Bars3Icon,
+  DevicePhoneMobileIcon,
 } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
 

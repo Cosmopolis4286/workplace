@@ -20,6 +20,13 @@
 
           <!-- Acciones -->
           <div class="flex items-center gap-3">
+            <NuxtLink
+              to="/download"
+              class="hidden sm:flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-700 hover:text-workplace-red transition-colors duration-200"
+            >
+              <DevicePhoneMobileIcon class="w-4 h-4" />
+              {{ t('landing.nav.downloadApp') }}
+            </NuxtLink>
             <template v-if="isAuthenticated">
               <NuxtLink
                 to="/dashboard"
@@ -56,6 +63,9 @@
 </template>
 
 <script setup lang="ts">
+import { DevicePhoneMobileIcon } from '@heroicons/vue/24/outline'
+
+const { t } = useI18n()
 const { isAuthenticated, ensureSessionVerified } = useAuth()
 
 // Layout público: la sesión cacheada podría estar caducada (token expirado).

@@ -112,9 +112,9 @@
     "onboarding": {
       "title": "Un último paso",
       "description": "Completa el nombre de tu negocio para comenzar",
-      "prompt": "¿Cómo se llama tu restaurante o negocio? Podrás cambiar esto más tarde desde la configuración.",
+      "prompt": "¿Cómo se llama tu negocio? Podrás cambiar esto más tarde desde la configuración.",
       "businessNameLabel": "Nombre de tu negocio",
-      "businessNamePlaceholder": "Ej: Restaurante El Sabor",
+      "businessNamePlaceholder": "Ej: Restaurante El Sabor, Farmacia Central, Diseño Gráfico JP",
       "submit": "Comenzar",
       "configureLater": "Configurar más tarde",
       "saveError": "No se pudo guardar el nombre. Inténtalo de nuevo."
@@ -192,7 +192,7 @@
       "terms": "Términos",
       "support": "Soporte",
       "registerHeadline": "Empieza gratis\nhoy mismo",
-      "registerSubline": "Crea tu cuenta en menos de 2 minutos y ten tu restaurante operativo desde el primer día.",
+      "registerSubline": "Crea tu cuenta en menos de 2 minutos y ten tu negocio operativo desde el primer día.",
       "registerStep1": "Crea tu cuenta",
       "registerStep2": "Verifica tu correo",
       "registerStep3": "Configura tu negocio",
@@ -209,7 +209,7 @@
       "resetPasswordSubline": "Elige una contraseña segura. Recomendamos combinar letras, números y símbolos.",
       "twoFactorHeadline": "Verificación\nen dos pasos",
       "twoFactorSubline": "Tu cuenta está protegida con autenticación de dos factores. Ingresa el código de tu app.",
-      "loginHeadline": "Gestiona tu\nrestaurante\ncon precisión",
+      "loginHeadline": "Gestiona tu\nnegocio\ncon precisión",
       "loginSubline": "Todo lo que necesitas para administrar pedidos, inventario, clientes y más en un solo lugar.",
       "marketingPanelLabel": "Panel de marketing y estado de la plataforma",
       "testimonialsLabel": "Testimonios",
@@ -246,15 +246,16 @@
       "pricingAria": "Ver planes y precios",
       "login": "Iniciar sesión",
       "startFree": "Empezar gratis",
+      "downloadApp": "Descargar app",
       "openMenu": "Abrir menú",
       "closeMenu": "Cerrar menú"
     },
     "hero": {
       "badge": "Plataforma todo-en-uno",
       "titleLine1": "Gestiona tu",
-      "titleLine2": "restaurante",
+      "titleLine2": "negocio",
       "titleHighlight": "sin complicaciones",
-      "description": "Pedidos, inventario, menú, clientes, delivery y reportes — todo desde un solo panel. Diseñado para restaurantes que quieren crecer.",
+      "description": "Pedidos, inventario, menú, clientes, delivery y reportes — todo desde un solo panel. Diseñado para comercios y profesionales independientes que quieren crecer.",
       "createFreeAccount": "Crear cuenta gratis",
       "viewDemo": "Ver demo",
       "viewDemoAria": "Ver demo de la plataforma",
@@ -276,11 +277,11 @@
       "minutesAgo": "hace {minutes} min"
     },
     "social": {
-      "restaurants": "Restaurantes activos"
+      "commerces": "Comercios activos"
     },
     "features": {
       "tag": "Funcionalidades",
-      "title": "Todo lo que necesita tu restaurante",
+      "title": "Todo lo que necesita tu negocio",
       "subtitle": "Herramientas profesionales, pensadas para el día a día de tu negocio."
     },
     "pricing": {
@@ -303,8 +304,8 @@
       "title": "Lo que dicen nuestros clientes"
     },
     "ctaBanner": {
-      "title": "¿Listo para transformar tu restaurante?",
-      "subtitle": "Únete a {count} restaurantes que ya gestionan su negocio con {appName}.",
+      "title": "¿Listo para transformar tu negocio?",
+      "subtitle": "Únete a {count} comercios y profesionales que ya gestionan su negocio con {appName}.",
       "moreThan": "más de {value}",
       "moreThanFallback": "más de 500",
       "createFreeAccount": "Crear cuenta gratis",
@@ -312,13 +313,14 @@
       "footnote": "Sin tarjeta de crédito · Configura en 5 min · Cancela cuando quieras"
     },
     "footer": {
-      "tagline": "La plataforma de gestión más completa para restaurantes modernos.",
+      "tagline": "La plataforma de gestión más completa para comercios y negocios modernos.",
       "twitterSoon": "Twitter/X (próximamente)",
       "instagramSoon": "Instagram (próximamente)",
       "linkedinSoon": "LinkedIn (próximamente)",
       "privacy": "Privacidad",
       "terms": "Términos",
       "support": "Soporte",
+      "downloadApp": "Descargar app",
       "copyright": "© {year} {appName}. Todos los derechos reservados."
     },
     "demoModal": {
@@ -335,13 +337,50 @@
       "highlightCrm": "CRM de clientes"
     },
     "seo": {
-      "title": "WorkPlace Manager — Gestiona tu restaurante sin complicaciones",
-      "description": "Pedidos, inventario, menú, clientes, delivery y reportes todo desde un solo panel. La plataforma todo-en-uno diseñada para restaurantes que quieren crecer.",
-      "keywords": "gestión restaurante, software restaurante, pedidos online, inventario, delivery, analytics",
+      "title": "WorkPlace Manager — Gestiona tu negocio sin complicaciones",
+      "description": "Pedidos, inventario, menú, clientes, delivery y reportes todo desde un solo panel. La plataforma todo-en-uno diseñada para comercios y profesionales que quieren crecer.",
+      "keywords": "gestión de negocios, software para comercios, pedidos online, inventario, delivery, analytics",
       "ogDescription": "Pedidos, inventario, menú, clientes, delivery y reportes — todo desde un solo panel.",
-      "twitterDescription": "La plataforma todo-en-uno para gestionar tu restaurante.",
-      "schemaDescription": "Plataforma todo-en-uno para la gestión de restaurantes: pedidos, inventario, menú, clientes, delivery y reportes.",
+      "twitterDescription": "La plataforma todo-en-uno para gestionar tu negocio.",
+      "schemaDescription": "Plataforma todo-en-uno para la gestión de comercios y negocios: pedidos, inventario, menú, clientes, delivery y reportes.",
       "freePlanAvailable": "Plan gratuito disponible"
     }
+  },
+  "download": {
+    "seo": {
+      "title": "Descargar app — {appName}",
+      "description": "Descarga la app de {appName} para Android. Gestiona tu negocio desde el celular: pedidos, inventario, delivery y más."
+    },
+    "badge": "App para Android",
+    "title": "Lleva tu negocio en el bolsillo",
+    "subtitle": "Descarga la app de {appName} para Android y gestiona pedidos, inventario, delivery y más desde tu celular.",
+    "version": "Versión {version}",
+    "android": {
+      "cta": "Descargar APK",
+      "note": "Archivo .apk — instalación directa, sin Play Store",
+      "howToInstall": "¿Cómo instalar?",
+      "step1": "Descarga el archivo .apk con el botón de arriba.",
+      "step2": "Abre el archivo descargado desde las notificaciones o tu gestor de archivos.",
+      "step3": "Si Android pide permiso para instalar de \"fuentes desconocidas\", actívalo solo para esta instalación.",
+      "step4": "Confirma la instalación y abre la app."
+    },
+    "ios": {
+      "title": "¿Usas iPhone o iPad?",
+      "description": "Todavía no tenemos una app nativa para iOS. Mientras tanto, puedes instalar {appName} como app desde Safari: toca \"Compartir\" y luego \"Agregar a pantalla de inicio\" para tener acceso directo, con ícono propio y a pantalla completa.",
+      "cta": "Ir a la versión web"
+    },
+    "desktop": {
+      "title": "Escanea para descargar en tu celular",
+      "description": "Abre la cámara de tu celular Android y apunta al código para descargar la app directamente.",
+      "qrAlt": "Código QR para descargar la app de {appName}"
+    },
+    "features": {
+      "title": "¿Por qué usar la app?",
+      "offline": "Funciona sin conexión y sincroniza al reconectar",
+      "notifications": "Notificaciones de pedidos en tiempo real",
+      "camera": "Cámara integrada para fotos de productos y comprobantes",
+      "faster": "Acceso más rápido, sin abrir el navegador"
+    },
+    "backToSite": "Volver al sitio"
   }
 }
