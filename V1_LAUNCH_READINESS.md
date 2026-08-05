@@ -215,11 +215,32 @@ ronda:
   fallar con 403), aplicar dos veces al mismo empleo (debe fallar con 409 claro), y confirmar
   que ambas notificaciones (nueva aplicación / cambio de estado) llegan correctamente.
 
+### 18. Auditoría de identity-access (auth/users/kyc/permissions/profiles) + analytics/audit
+Ronda dedicada a los módulos de seguridad/identidad restantes. **Resultado: los 7 dominios
+auditados están en buen estado** — jerarquía de roles (`role-hierarchy.util.ts`) aplicada
+consistentemente en `users`/`permissions`/`kyc` sin vector de auto-escalada a ADMIN/SUPERADMIN,
+2FA con rate limit efectivo, perfiles públicos sin fuga de email/teléfono, analytics filtrado
+correctamente por `userId` del JWT (nunca de query/body), y `AuditInterceptor` capturando
+automáticamente todas las escrituras sensibles. Un solo hallazgo real, ya corregido:
+- **`GET /auth/demo-credentials` exponía la contraseña del SUPERADMIN demo sin autenticación**
+  si `USE_DEMO=true` quedaba activo en un entorno con `APP_ENV` distinto de `development` — y
+  el `.env` local de este repo tenía exactamente esa combinación peligrosa
+  (`APP_ENV=production` + `USE_DEMO=true`) al momento de la auditoría. Corregido: el endpoint
+  ahora rechaza siempre que `APP_ENV=production`, sin importar `USE_DEMO` — una sola variable
+  mal configurada ya no puede exponer la credencial.
+- [x] Implementado — commit `fix(backend): bloquear /demo-credentials en APP_ENV=production sin
+  importar USE_DEMO`
+- 4 tests unitarios nuevos (`AuthController.getDemoCredentials`), **403/403 tests del backend
+  pasan**.
+- [ ] **Acción manual requerida, no solo código**: confirmar que el `.env` real de producción
+  tenga `USE_DEMO=false` (o ausente) antes de desplegar — el fix de código es una segunda capa
+  de defensa, no reemplaza configurar la variable correctamente.
+
 ---
 
 ## 🟡 Importante — pendiente
 
-### 17. Push notifications (FCM) es un no-op — feature incompleta, no un bug
+### 19. Push notifications (FCM) es un no-op — feature incompleta, no un bug
 `NotificationsService.sendPush()` está vacío (falta configurar Firebase). El flujo de
 `DeviceToken`/registro sí está completo y expuesto, lo que puede dar la falsa impresión de que
 las notificaciones push ya funcionan. Documentado explícitamente para que no se asuma resuelto.
@@ -252,5 +273,9 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
 - [ ] Prueba manual del endpoint de reconciliación de escrow con datos reales (ver ítem 14)
 - [ ] Prueba manual end-to-end de Rides como FREELANCER/conductor (ver ítem 15)
 - [ ] Prueba manual end-to-end de límites y notificaciones de Jobs (ver ítem 16)
-- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 17, pendiente —
+- [ ] **`USE_DEMO=false` (o ausente) en el `.env` real de producción** — el `.env` local de este
+      repo tenía `APP_ENV=production` + `USE_DEMO=true` al mismo tiempo, la combinación exacta
+      que exponía credenciales demo sin autenticar antes del fix del ítem 18. El código ya no
+      confía solo en esta variable, pero sigue siendo mala práctica dejarla en `true` en prod
+- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 19, pendiente —
       requiere credenciales externas, no accionable por código)
