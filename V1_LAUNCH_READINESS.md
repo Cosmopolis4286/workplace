@@ -175,18 +175,51 @@ al estado de ServiceRequest antes de agregar escrow).
   `test(backend): tests unitarios para... RidesService`
 - 17 tests unitarios nuevos (`RidesService`), **385/385 tests del backend pasan**.
 - **No incluido en esta ronda** (decisión explícita, fuera de alcance): escrow para Rides (el
-  pago pasajero→conductor sigue sin pasar por la plataforma, solo la comisión), y filtro
-  geográfico en `findAvailable` (hoy expone todas las corridas PENDING a cualquier conductor
-  sin importar distancia). Documentado para una ronda futura si se prioriza.
+  pago pasajero→conductor sigue sin pasar por la plataforma, solo la comisión). Documentado
+  para una ronda futura si se prioriza.
+- **Sí resuelto en un segundo paso**: el teléfono del pasajero ya no se expone en
+  `GET /rides/available` (conductores viendo el pool de corridas antes de aceptar) — solo se
+  revela tras `accept()`, cuando existe una relación real conductor↔pasajero. Antes cualquier
+  usuario con `corridas:manage` veía el teléfono de todos los pasajeros con corridas PENDING,
+  sin haber aceptado nada.
 - [ ] **Falta probar manualmente end-to-end**: un FREELANCER real solicitando `corridas:manage`
   (vía admin o re-login para refrescar permisos en sesión), aceptando una corrida, avanzando
   estados, y confirmando que el pasajero recibe las notificaciones.
+
+### 16. Jobs (empleos) sin límites, notificaciones ni defensa en profundidad
+Auditoría dedicada al módulo de empleos, mismo tipo de huecos que tenía Rides antes de esta
+ronda:
+- **Sin límite de plan**: cualquiera podía publicar empleos ilimitados en el plan gratuito, a
+  diferencia de Services (3 activos). Nuevo campo `Plan.maxJobs` (-1 = ilimitado, 3 en el tier
+  gratuito) + `assertJobLimit()` en `PlanLimitsService`, aplicado en `createJob`.
+- **Aplicaciones a empleos completamente silenciosas**: el empleador no se enteraba de una
+  nueva aplicación salvo que revisara `/jobs` manualmente, y el aplicante no se enteraba de un
+  cambio de estado. Nuevas notificaciones in-app: `notifyNewJobApplication` (al empleador) y
+  `notifyJobApplicationStatusChanged` (al aplicante, solo en ACCEPTED/REJECTED — no en
+  transiciones intermedias como SEEN/IN_PROGRESS).
+- **Aplicaciones duplicadas devolvían 500 genérico**: el modelo ya tenía
+  `@@unique([jobId, applicantId])` a nivel de base de datos, pero el service no capturaba el
+  error `P2002` de Prisma. Ahora devuelve `409 ConflictException` con mensaje claro ("Ya
+  aplicaste a este empleo").
+- **Sin `PermissionsGuard`/`RateLimit` en endpoints de aplicaciones**: `createApplication`,
+  `getMyApplications`, `getJobApplications`, `updateApplicationStatus` solo tenían
+  `JwtAuthGuard`, dependiendo únicamente de checks de ownership en el service. Se agregó
+  `PermissionsGuard` (`jobs:view`/`jobs:edit`, ya otorgados a todos los roles activos — defensa
+  en profundidad, no restringe a nadie hoy) y `@RateLimit` en `createJob`/`createApplication`.
+  También se agregó `KycApprovedGuard` a `createApplication` (aplicar expone tu identidad real
+  al empleador, mismo criterio que otros flujos de "ganar visibilidad").
+- [x] Implementado — commit `feat(backend): límite de empleos activos por plan + notificaciones
+  de aplicaciones a empleos`
+- 12 tests unitarios nuevos (`JobsService`), **399/399 tests del backend pasan**.
+- [ ] **Falta probar manualmente end-to-end**: publicar 4 empleos con plan gratuito (el 4to debe
+  fallar con 403), aplicar dos veces al mismo empleo (debe fallar con 409 claro), y confirmar
+  que ambas notificaciones (nueva aplicación / cambio de estado) llegan correctamente.
 
 ---
 
 ## 🟡 Importante — pendiente
 
-### 16. Push notifications (FCM) es un no-op — feature incompleta, no un bug
+### 17. Push notifications (FCM) es un no-op — feature incompleta, no un bug
 `NotificationsService.sendPush()` está vacío (falta configurar Firebase). El flujo de
 `DeviceToken`/registro sí está completo y expuesto, lo que puede dar la falsa impresión de que
 las notificaciones push ya funcionan. Documentado explícitamente para que no se asuma resuelto.
@@ -208,12 +241,16 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
       Telegram (`setWebhook` con `secret_token`) — ver ítem 8
 - [ ] `NUXT_PUBLIC_API_URL` de producción confirmado apuntando a la URL pública real (no
       `localhost`) en el pipeline de build del APK — ver `CAPACITOR_MOBILE_APP.md`
-- [ ] Todas las migraciones de Prisma de las tres rondas aplicadas en la base de datos de
-      producción (incluida `20260804150000_add_service_request_messages`)
+- [ ] Todas las migraciones de Prisma aplicadas en la base de datos de producción — **nota**: el
+      historial de migraciones fue squasheado a un único `..._init` en esta sesión (otra rama de
+      trabajo en el mismo repo), así que no queda un migration file por feature; verificar con
+      `npx prisma migrate status` que la base de datos de destino no tenga drift antes de
+      desplegar, no asumir que cada ítem de este documento tiene su propia migración con nombre
 - [ ] **Seed de permisos (`node prisma/seed.js`) corrido en producción** para que `FREELANCER`
       tenga `corridas:manage` — sin esto, la corrección del ítem 15 no tiene efecto real
 - [ ] Prueba manual end-to-end del chat interno por ServiceRequest (ver ítem 13)
 - [ ] Prueba manual del endpoint de reconciliación de escrow con datos reales (ver ítem 14)
 - [ ] Prueba manual end-to-end de Rides como FREELANCER/conductor (ver ítem 15)
-- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 16, pendiente —
+- [ ] Prueba manual end-to-end de límites y notificaciones de Jobs (ver ítem 16)
+- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 17, pendiente —
       requiere credenciales externas, no accionable por código)
