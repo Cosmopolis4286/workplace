@@ -252,6 +252,38 @@ export class NotificationsService {
     });
   }
 
+  async notifyNewJobApplication(
+    employerId: string,
+    applicantName: string,
+    jobTitle: string,
+  ) {
+    return this.createForUser(employerId, {
+      type: NotificationType.ORDER,
+      title: '📩 Nueva aplicación',
+      message: `${applicantName} aplicó a "${jobTitle}"`,
+      link: '/jobs',
+      metadata: { applicantName, jobTitle },
+    });
+  }
+
+  async notifyJobApplicationStatusChanged(
+    applicantId: string,
+    employerName: string,
+    jobTitle: string,
+    status: 'ACCEPTED' | 'REJECTED',
+  ) {
+    const isAccepted = status === 'ACCEPTED';
+    return this.createForUser(applicantId, {
+      type: NotificationType.ORDER,
+      title: isAccepted ? '🎉 ¡Fuiste aceptado!' : '📋 Actualización de tu aplicación',
+      message: isAccepted
+        ? `${employerName} aceptó tu aplicación a "${jobTitle}"`
+        : `${employerName} no continuará con tu aplicación a "${jobTitle}"`,
+      link: '/jobs',
+      metadata: { employerName, jobTitle, status },
+    });
+  }
+
   // ── Convenience factory methods ───────────────────────────────────────────
   async notifyNewOrder(commerceId: string, orderNumber: string, total: number) {
     return this.create(commerceId, {

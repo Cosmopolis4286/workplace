@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
+import { Inject, Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
+import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../../prisma/prisma.service'
 import type { Job, JobType, JobModality, JobStatus, JobApplication, JobApplicationStatus } from '@prisma/client'
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util'
+import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade'
+import { NotificationsService } from '../../engagement/notifications/notifications.service'
 
 export interface JobWithEmployer extends Job {
   employer: {
@@ -75,7 +78,11 @@ export interface CreateApplicationDto {
 
 @Injectable()
 export class JobsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   // ─── Categories ─────────────────────────────────────────────────────────────
 
@@ -127,6 +134,7 @@ export class JobsService {
   // ─── Jobs CRUD ──────────────────────────────────────────────────────────────
 
   async createJob(userId: string, dto: CreateJobDto): Promise<Job> {
+    await this.planLimits.assertJobLimit(userId);
     return this.prisma.job.create({
       data: {
         ...dto,
@@ -366,15 +374,34 @@ export class JobsService {
     if (job.employerId === userId) throw new ForbiddenException('No puedes aplicar a tu propio empleo')
     if (job.status !== 'ACTIVE') throw new ForbiddenException('Este empleo no está activo')
 
-    return this.prisma.jobApplication.create({
-      data: {
-        jobId: dto.jobId,
-        applicantId: userId,
-        coverLetter: dto.coverLetter,
-        phone: dto.phone,
-        email: dto.email,
-      },
+    let application: JobApplication
+    try {
+      application = await this.prisma.jobApplication.create({
+        data: {
+          jobId: dto.jobId,
+          applicantId: userId,
+          coverLetter: dto.coverLetter,
+          phone: dto.phone,
+          email: dto.email,
+        },
+      })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException('Ya aplicaste a este empleo')
+      }
+      throw e
+    }
+
+    const applicant = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
     })
+    const applicantName = applicant ? `${applicant.firstName} ${applicant.lastName}` : 'Un candidato'
+    this.notifications
+      .notifyNewJobApplication(job.employerId, applicantName, job.title)
+      .catch(() => {})
+
+    return application
   }
 
   async getMyApplications(userId: string) {
@@ -441,17 +468,26 @@ export class JobsService {
   ): Promise<JobApplication> {
     const application = await this.prisma.jobApplication.findUnique({
       where: { id: applicationId },
-      include: { job: true },
+      include: { job: { include: { employer: { select: { firstName: true, lastName: true } } } } },
     })
     if (!application) throw new NotFoundException('Aplicación no encontrada')
     if (application.job.employerId !== employerId) {
       throw new ForbiddenException('No tienes permiso para actualizar esta aplicación')
     }
 
-    return this.prisma.jobApplication.update({
+    const updated = await this.prisma.jobApplication.update({
       where: { id: applicationId },
       data: { status },
     })
+
+    if (status === 'ACCEPTED' || status === 'REJECTED') {
+      const employerName = `${application.job.employer.firstName} ${application.job.employer.lastName}`
+      this.notifications
+        .notifyJobApplicationStatusChanged(application.applicantId, employerName, application.job.title, status)
+        .catch(() => {})
+    }
+
+    return updated
   }
 
   // ─── Statistics ─────────────────────────────────────────────────────────────

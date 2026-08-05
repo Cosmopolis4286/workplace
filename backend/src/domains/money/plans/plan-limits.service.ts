@@ -1,6 +1,6 @@
 import { Inject, Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { Role, ServiceStatus } from '@prisma/client';
+import { Role, ServiceStatus, JobStatus } from '@prisma/client';
 import { SystemModulesFacade, SYSTEM_MODULES_FACADE } from '../../platform/system-modules/system-modules.facade';
 import { MODULE_CATALOG } from '../../../common/data/module-catalog.data';
 import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
@@ -30,6 +30,7 @@ const UNLIMITED_LIMITS: PlanLimits = {
   maxStorage: -1,
   maxServices: -1,
   maxServiceRequests: -1,
+  maxJobs: -1,
   enabledModules: [...ALL_MODULES],
   effectiveModules: [...ALL_MODULES],
   planName: 'Sin límite',
@@ -60,6 +61,7 @@ const FREE_LIMITS: PlanLimits = {
   maxStorage: 0,
   maxServices: 3,
   maxServiceRequests: -1,
+  maxJobs: 3,
   enabledModules: FREE_MODULES,
   effectiveModules: FREE_MODULES,
   planName: 'Sin plan',
@@ -116,6 +118,7 @@ export class PlanLimitsService implements PlanLimitsFacade {
           maxStorage: sub.plan.maxStorage,
           maxServices: sub.plan.maxServices,
           maxServiceRequests: sub.plan.maxServiceRequests,
+          maxJobs: sub.plan.maxJobs,
           enabledModules: sub.plan.enabledModules,
           planName: sub.plan.name,
         }
@@ -127,6 +130,7 @@ export class PlanLimitsService implements PlanLimitsFacade {
           maxStorage: FREE_LIMITS.maxStorage,
           maxServices: FREE_LIMITS.maxServices,
           maxServiceRequests: FREE_LIMITS.maxServiceRequests,
+          maxJobs: FREE_LIMITS.maxJobs,
           enabledModules: FREE_MODULES,
           planName: FREE_LIMITS.planName,
         };
@@ -319,6 +323,19 @@ export class PlanLimitsService implements PlanLimitsFacade {
     if (count >= limits.maxServices) {
       throw new ForbiddenException(
         `Has alcanzado el límite de ${limits.maxServices} servicios activos de tu plan "${limits.planName}". Actualiza tu plan para agregar más.`
+      );
+    }
+  }
+
+  async assertJobLimit(userId: string) {
+    const limits = await this.getPlanLimits(userId);
+    if (limits.maxJobs === -1) return;
+    const count = await this.prisma.job.count({
+      where: { employerId: userId, status: JobStatus.ACTIVE },
+    });
+    if (count >= limits.maxJobs) {
+      throw new ForbiddenException(
+        `Has alcanzado el límite de ${limits.maxJobs} empleos activos de tu plan "${limits.planName}". Actualiza tu plan para publicar más.`
       );
     }
   }

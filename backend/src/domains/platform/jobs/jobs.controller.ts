@@ -15,6 +15,7 @@ import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard'
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
+import { RateLimit } from '../../../common/guards/rate-limit.guard'
 import type { JobApplicationStatus } from '@prisma/client'
 
 @Controller('jobs')
@@ -74,6 +75,7 @@ export class JobsController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard, KycApprovedGuard)
   @RequirePermission('jobs:create')
+  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `jobs:create:${(req as any).user?.id}` })
   @Post()
   async createJob(@Body() dto: CreateJobDto, @CurrentUser() user: { id: string }) {
     return { data: await this.jobsService.createJob(user.id, dto) }
@@ -100,7 +102,9 @@ export class JobsController {
 
   // ─── Applications (Authenticated) ───────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, KycApprovedGuard)
+  @RequirePermission('jobs:view')
+  @RateLimit({ windowMs: 60_000, maxRequests: 20, keyGenerator: (req) => `jobs:apply:${(req as any).user?.id}` })
   @Post('applications')
   async createApplication(
     @Body() dto: { jobId: string; coverLetter?: string; phone?: string; email?: string },
@@ -109,19 +113,22 @@ export class JobsController {
     return { data: await this.jobsService.createApplication(user.id, dto) }
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('jobs:view')
   @Get('applications/mine')
   async getMyApplications(@CurrentUser() user: { id: string }) {
     return { data: await this.jobsService.getMyApplications(user.id) }
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('jobs:edit')
   @Get(':id/applications')
   async getJobApplications(@Param('id') jobId: string, @CurrentUser() user: { id: string }) {
     return { data: await this.jobsService.getJobApplications(jobId, user.id) }
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('jobs:edit')
   @Patch('applications/:id/status')
   async updateApplicationStatus(
     @Param('id') applicationId: string,
