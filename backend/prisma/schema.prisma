@@ -100,6 +100,8 @@ model User {
   jobsPosted      Job[]            @relation("UserJobs")
   jobApplications JobApplication[]
 
+  @@index([categoryId])
+  @@index([subcategoryId])
   @@map("users")
 }
 
@@ -146,6 +148,7 @@ model UserSubcategory {
   freelancerApplications FreelancerApplication[]
 
   @@unique([name, categoryId])
+  @@index([categoryId])
   @@map("user_subcategories")
 }
 
@@ -287,6 +290,7 @@ model Customer {
   updatedAt      DateTime        @updatedAt
 
   @@unique([email, commerceId])
+  @@index([commerceId])
   @@map("customers")
 }
 
@@ -306,6 +310,8 @@ model Appointment {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
+  @@index([commerceId])
+  @@index([customerId])
   @@map("appointments")
 }
 
@@ -379,6 +385,7 @@ model Category {
 
   @@unique([name, commerceId])
   @@unique([name, isGlobal]) // Solo una categoría global con el mismo nombre
+  @@index([commerceId])
   @@map("categories")
 }
 
@@ -397,6 +404,7 @@ model Subcategory {
   updatedAt DateTime  @updatedAt
 
   @@unique([name, categoryId])
+  @@index([categoryId])
   @@map("subcategories")
 }
 
@@ -434,6 +442,9 @@ model Product {
   updatedAt       DateTime      @updatedAt
 
   @@index([status, forSale, salesCount])
+  @@index([commerceId])
+  @@index([categoryId])
+  @@index([subcategoryId])
   @@map("products")
 }
 
@@ -549,6 +560,10 @@ model Driver {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Índice parcial adicional sobre (graceUntil) WHERE graceUntil IS NOT NULL
+  // AND graceReminderSentAt IS NULL, agregado a mano en la migración init
+  // (Prisma DSL no soporta WHERE) — acelera DriverGraceReminderScheduler.
+  @@index([commerceId])
   @@map("drivers")
 }
 
@@ -600,6 +615,8 @@ model Delivery {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
+  @@index([commerceId])
+  @@index([driverId])
   @@map("deliveries")
 }
 
@@ -684,6 +701,8 @@ model Order {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
+  @@index([commerceId])
+  @@index([customerId])
   @@map("orders")
 }
 
@@ -699,6 +718,7 @@ model OrderItem {
   notes       String?
   createdAt   DateTime @default(now())
 
+  @@index([orderId])
   @@map("order_items")
 }
 
@@ -784,6 +804,7 @@ model Receipt {
   commercePhone   String?
   issuedAt        DateTime @default(now())
 
+  @@index([commerceId])
   @@map("receipts")
 }
 
@@ -928,6 +949,8 @@ model ProposedCategory {
 
   @@index([status])
   @@index([target, status])
+  @@index([proposedBy])
+  @@index([reviewedBy])
   @@map("proposed_categories")
 }
 
@@ -959,6 +982,9 @@ model FreelancerApplication {
 
   @@index([status])
   @@index([userId, status])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([reviewedBy])
   @@map("freelancer_applications")
 }
 
@@ -992,6 +1018,7 @@ model WalletDepositRequest {
 
   @@index([status])
   @@index([userId, status])
+  @@index([reviewedBy])
   @@map("wallet_deposit_requests")
 }
 
@@ -1072,6 +1099,7 @@ model ExpenseCategory {
   updatedAt  DateTime  @updatedAt
 
   @@unique([name, commerceId])
+  @@index([commerceId])
   @@map("expense_categories")
 }
 
@@ -1093,6 +1121,8 @@ model Expense {
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
+  @@index([commerceId])
+  @@index([categoryId])
   @@map("expenses")
 }
 
@@ -1133,6 +1163,7 @@ model CashSession {
   // unique_open_cash_session_per_commerce (SQL crudo, WHERE status='OPEN').
   // CashService.open() igual chequea antes de crear, solo para devolver un
   // 409 legible en el caso común — el índice es lo que evita la carrera.
+  @@index([commerceId])
   @@map("cash_sessions")
 }
 
@@ -1147,6 +1178,8 @@ model CashMovement {
   commerce   Commerce         @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   createdAt  DateTime         @default(now())
 
+  @@index([sessionId])
+  @@index([commerceId])
   @@map("cash_movements")
 }
 
@@ -1194,6 +1227,7 @@ model Employee {
   updatedAt        DateTime       @updatedAt
 
   @@unique([email, commerceId])
+  @@index([commerceId])
   @@map("employees")
 }
 
@@ -1224,6 +1258,7 @@ model Branch {
   updatedAt    DateTime     @updatedAt
 
   @@unique([name, commerceId])
+  @@index([commerceId])
   @@map("branches")
 }
 
@@ -1260,7 +1295,7 @@ model PostLike {
   createdAt DateTime @default(now())
 
   @@unique([postId, userId])
-  @@index([postId])
+  @@index([userId])
   @@map("post_likes")
 }
 
@@ -1275,6 +1310,7 @@ model PostComment {
   updatedAt DateTime @updatedAt
 
   @@index([postId, createdAt(sort: Asc)])
+  @@index([userId])
   @@map("post_comments")
 }
 
@@ -1286,6 +1322,7 @@ model PostMedia {
   type   PostMediaType @default(IMAGE)
   order  Int           @default(0)
 
+  @@index([postId])
   @@map("post_media")
 }
 
@@ -1298,6 +1335,7 @@ model Follow {
   createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
+  @@index([followingId])
   @@map("follows")
 }
 
@@ -1332,7 +1370,6 @@ model Review {
   updatedAt DateTime @updatedAt
 
   @@unique([authorId, targetId])
-  @@index([targetId])
   @@index([targetId, isHidden])
   @@map("reviews")
 }
@@ -1347,7 +1384,6 @@ model ReviewReport {
   createdAt  DateTime           @default(now())
 
   @@unique([reviewId, reporterId])
-  @@index([reviewId])
   @@index([status])
   @@map("review_reports")
 }
@@ -1381,6 +1417,7 @@ model RolePermission {
   updatedBy    String?
 
   @@unique([role, permissionId])
+  @@index([permissionId])
   @@map("role_permissions")
 }
 
@@ -1398,7 +1435,6 @@ model UserPermission {
   updatedBy    String?
 
   @@unique([userId, permissionId])
-  @@index([userId])
   @@index([permissionId])
   @@map("user_permissions")
 }
@@ -1497,6 +1533,7 @@ model CatalogOrder {
   @@index([commerceId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
+  @@index([requesterId])
   @@map("catalog_orders")
 }
 
@@ -1648,6 +1685,7 @@ model ServiceRequest {
   @@index([serviceId, providerId, status])
   // Acelera el cron de reintento de escrow: WHERE escrowStatus='PENDING_FUNDS'
   @@index([escrowStatus])
+  @@index([requesterId])
   @@map("service_requests")
 }
 
@@ -1667,6 +1705,7 @@ model ServiceRequestMessage {
   createdAt        DateTime       @default(now())
 
   @@index([serviceRequestId, createdAt])
+  @@index([senderId])
   @@map("service_request_messages")
 }
 
@@ -1818,6 +1857,7 @@ model Plan {
   maxStorage         Int @default(1) // GB
   maxServices        Int @default(-1) // servicios ACTIVOS simultáneos (freelancer)
   maxServiceRequests Int @default(-1) // solicitudes recibidas por mes (freelancer)
+  maxJobs            Int @default(-1) // empleos ACTIVOS simultáneos publicados
 
   // Features habilitadas (bullets de marketing)
   features Json @default("[]") // string[]
@@ -1911,6 +1951,8 @@ model PlatformFeeOverride {
 
   @@index([type, userId])
   @@index([type, planId])
+  @@index([planId])
+  @@index([userId])
   @@map("platform_fee_overrides")
 }
 
@@ -2152,7 +2194,6 @@ model JobApplication {
   updatedAt   DateTime             @updatedAt
 
   @@unique([jobId, applicantId])
-  @@index([jobId])
   @@index([applicantId])
   @@index([status])
   @@map("job_applications")
