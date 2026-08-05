@@ -75,11 +75,15 @@ const RIDE_SELECT = {
   driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
 } as const;
 
-function formatRide(r: any) {
+// hidePassengerContact: en findAvailable() el conductor todavía no aceptó el
+// viaje — no debe ver el teléfono del pasajero hasta que exista una relación
+// real (driverId asignado), igual que el resto del sistema solo revela
+// contacto tras confirmar un trato.
+function formatRide(r: any, hidePassengerContact = false) {
   return {
     ...r,
     passengerName: r.passenger ? `${r.passenger.firstName} ${r.passenger.lastName}` : undefined,
-    passengerPhone: r.passenger?.phone,
+    passengerPhone: hidePassengerContact ? undefined : r.passenger?.phone,
     driverName: r.driver ? `${r.driver.firstName} ${r.driver.lastName}` : undefined,
     driverPhone: r.driver?.phone,
     passenger: undefined,
@@ -170,7 +174,7 @@ export class RidesService {
       orderBy: { createdAt: 'asc' },
       select: RIDE_SELECT,
     });
-    return rides.map(formatRide);
+    return rides.map((r) => formatRide(r, true));
   }
 
   async findMine(passengerId: string) {
@@ -179,7 +183,7 @@ export class RidesService {
       orderBy: { createdAt: 'desc' },
       select: RIDE_SELECT,
     });
-    return rides.map(formatRide);
+    return rides.map((r) => formatRide(r));
   }
 
   async findDriverRides(driverId: string) {
@@ -188,7 +192,7 @@ export class RidesService {
       orderBy: { createdAt: 'desc' },
       select: RIDE_SELECT,
     });
-    return rides.map(formatRide);
+    return rides.map((r) => formatRide(r));
   }
 
   async findOne(userId: string, rideId: string) {

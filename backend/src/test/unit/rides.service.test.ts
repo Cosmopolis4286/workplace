@@ -114,6 +114,17 @@ describe('RidesService', () => {
     })
   })
 
+  describe('findAvailable', () => {
+    it('oculta el teléfono del pasajero antes de que un conductor acepte', async () => {
+      mockPrismaService.ride.findMany.mockResolvedValue([baseRide()])
+
+      const [result] = await service.findAvailable()
+
+      expect(result.passengerName).toBe('Cliente Uno')
+      expect(result.passengerPhone).toBeUndefined()
+    })
+  })
+
   describe('accept', () => {
     it('lanza NotFoundException si la corrida no existe', async () => {
       mockPrismaService.ride.findUnique.mockResolvedValue(null)
@@ -234,6 +245,13 @@ describe('RidesService', () => {
       await expect(service.findOne(DRIVER_ID, RIDE_ID)).resolves.toBeDefined()
       mockPrismaService.ride.findUnique.mockResolvedValue(baseRide({ driverId: DRIVER_ID }))
       await expect(service.findOne('intruso', RIDE_ID)).rejects.toBeInstanceOf(ForbiddenException)
+    })
+
+    it('sí expone el teléfono del pasajero al conductor ya asignado', async () => {
+      mockPrismaService.ride.findUnique.mockResolvedValue(baseRide({ driverId: DRIVER_ID }))
+
+      const result = await service.findOne(DRIVER_ID, RIDE_ID)
+      expect(result.passengerPhone).toBe('+58111')
     })
   })
 })
