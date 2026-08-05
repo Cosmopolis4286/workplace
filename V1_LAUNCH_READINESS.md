@@ -236,11 +236,42 @@ automáticamente todas las escrituras sensibles. Un solo hallazgo real, ya corre
   tenga `USE_DEMO=false` (o ausente) antes de desplegar — el fix de código es una segunda capa
   de defensa, no reemplaza configurar la variable correctamente.
 
+### 20. Catalog: pedido creado con datos no verificados contra la base real
+Auditoría de `catalog` (pedidos tipo cotización sobre productos, sin pago real conectado —
+mismo modelo "solo comisión eventual" que ServiceRequest antes del escrow) y
+`categories-global`/`proposed-categories` (estas dos últimas: **en buen estado, sin
+hallazgos**, guards de ADMIN/SUPERADMIN correctos y rate limit ya presente en propuestas).
+
+En `catalog.service.ts` (`createOrder`), el pedido se creaba con `productName`, `commerceName`
+y `totalEstimate` tal como los enviaba el cliente en el body, sin verificar contra el `Product`
+real — un request directo (no desde la UI) podía notificar a un comercio arbitrario con un
+nombre de producto y monto falsos, o declarar un `commerceId` que no correspondía al dueño real
+del `productId`. El frontend (`CatalogOrderModal.vue`) siempre mandó los valores correctos
+calculados desde el producto real, así que esto no afectaba el uso normal de la app — el hueco
+era solo explotable manipulando el request directamente.
+- Corregido: `createOrder` ahora busca el `Product` real, valida que esté disponible
+  (`forSale && status === AVAILABLE`) y que pertenezca al `commerceId` del body, y deriva
+  `productName`/`commerceName`/`totalEstimate` (`price * quantity`) del registro real en vez de
+  confiar en el cliente.
+- [x] Implementado — commit `fix(backend): validar producto/comercio real al crear pedido de
+  catálogo`
+- 6 tests unitarios nuevos (`CatalogService.createOrder`), **409/409 tests del backend pasan**.
+- **No incluido en esta ronda** (decisión explícita del usuario, alcance acotado): PII
+  (`address`/`phone` exactos del comercio) expuesta sin auth en el detalle público de producto
+  (`getProduct`), y falta de validación de máquina de estados en `updateOrderStatus` (un
+  comercio puede saltar `PENDING`→`CLOSED` sin pasar por `CONTACTED`). Ambos documentados aquí
+  para una ronda futura si se prioriza — ninguno es bloqueante para v1.
+
+Con esto se da por **cerrada la ronda de auditoría de módulos backend** para v1. Los módulos
+restantes sin auditar (`menu`, `settings`, `system-modules`, `health`, `mail`) son exclusivos de
+COMMERCE (fuera de alcance) o de bajo riesgo estructural (health checks, envío de correo) — no
+se considera necesario auditarlos antes de lanzar.
+
 ---
 
 ## 🟡 Importante — pendiente
 
-### 19. Push notifications (FCM) es un no-op — feature incompleta, no un bug
+### 21. Push notifications (FCM) es un no-op — feature incompleta, no un bug
 `NotificationsService.sendPush()` está vacío (falta configurar Firebase). El flujo de
 `DeviceToken`/registro sí está completo y expuesto, lo que puede dar la falsa impresión de que
 las notificaciones push ya funcionan. Documentado explícitamente para que no se asuma resuelto.
@@ -277,5 +308,7 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
       repo tenía `APP_ENV=production` + `USE_DEMO=true` al mismo tiempo, la combinación exacta
       que exponía credenciales demo sin autenticar antes del fix del ítem 18. El código ya no
       confía solo en esta variable, pero sigue siendo mala práctica dejarla en `true` en prod
-- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 19, pendiente —
+- [ ] Prueba manual de crear un pedido de catálogo con datos manipulados (ej. vía curl con
+      `commerceId` de otro comercio) — debe devolver 400, no crear el pedido (ver ítem 20)
+- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 21, pendiente —
       requiere credenciales externas, no accionable por código)
