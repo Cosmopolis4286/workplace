@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProductStatus, CatalogOrderStatus } from '@prisma/client';
@@ -387,9 +388,29 @@ export class CatalogService {
   }
 
   async createOrder(dto: CreateCatalogOrderDto, requesterId: string) {
+    // productName/commerceName/totalEstimate se derivan del producto real,
+    // nunca del body: el cliente no debe poder falsificar a qué comercio
+    // llega el pedido ni el monto que ve el comercio en la notificación.
+    const product = await this.prisma.product.findUnique({
+      where: { id: dto.productId },
+      select: {
+        name: true, price: true, status: true, forSale: true,
+        commerceId: true, commerce: { select: { name: true } },
+      },
+    });
+    if (!product || !product.forSale || product.status !== ProductStatus.AVAILABLE) {
+      throw new NotFoundException('Producto no disponible');
+    }
+    if (product.commerceId !== dto.commerceId) {
+      throw new BadRequestException('El producto no pertenece a este comercio');
+    }
+
     const order = await this.prisma.catalogOrder.create({
       data: {
         ...dto,
+        productName: product.name,
+        commerceName: product.commerce.name,
+        totalEstimate: Math.round(product.price * dto.quantity * 100) / 100,
         requesterId,
       },
     });
@@ -403,11 +424,11 @@ export class CatalogService {
     // Notificar al comercio (fire-and-forget)
     this.notifications
       .notifyNewCatalogOrder(
-        dto.commerceId,
-        dto.buyerName,
-        dto.productName,
-        dto.quantity,
-        dto.totalEstimate
+        order.commerceId,
+        order.buyerName,
+        order.productName,
+        order.quantity,
+        order.totalEstimate ?? undefined
       )
       .catch(() => {});
     return { data: order };
