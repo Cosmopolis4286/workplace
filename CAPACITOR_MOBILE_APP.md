@@ -127,14 +127,18 @@ npx cap run android
 frontend/
 ├── capacitor.config.ts
 ├── android/
+├── ios/                             # generado 2026-08-05 (npx cap add ios), sin compilar aún (requiere macOS)
 ├── assets/
 │   ├── icon.png
 │   └── splash.png
 ├── public/
 │   ├── icon-192.png
 │   ├── icon-512.png
+│   ├── downloads/
+│   │   └── workplace-manager.apk   # NO versionado — ver public/downloads/README.md
 │   └── .well-known/
-│       └── assetlinks.json         # Android App Links: verifica el dominio playrke.com
+│       ├── assetlinks.json                 # Android App Links: verifica el dominio playrke.com
+│       └── apple-app-site-association      # iOS Universal Links: placeholder, falta Team ID real
 ├── stores/
 │   └── offline.ts                  # Pinia store: isOnline, pendingActions (persist)
 ├── plugins/
@@ -147,13 +151,18 @@ frontend/
 ├── composables/
 │   ├── useCamera.ts                 # Camera.getPhoto + fallback <input capture>
 │   ├── useBiometric.ts              # wrapper de capacitor-biometric-auth + pref. App Lock
-│   └── useAppLock.ts                # estado reactivo compartido del bloqueo
+│   ├── useAppLock.ts                # estado reactivo compartido del bloqueo
+│   └── usePlatformDetect.ts         # detecta android/ios/desktop por user agent (página /download)
 ├── components/
 │   ├── PwaPrompt.vue                # install / update prompts
-│   └── AppLockScreen.vue            # overlay de bloqueo (App Lock)
+│   ├── AppLockScreen.vue            # overlay de bloqueo (App Lock)
+│   └── AppDownloadButton.vue        # botón inteligente: APK directo (Android) o /download (iOS/desktop)
+├── pages/
+│   └── download.vue                 # página pública de descarga (QR en desktop, instrucciones iOS)
 ├── docs/
 │   ├── PUSH_NOTIFICATIONS.md        # cliente/backend implementados, falta FCM
-│   └── CAPACITOR_APK_BUILD.md       # build APK + permisos manuales (sección 9)
+│   ├── CAPACITOR_APK_BUILD.md       # build APK + permisos manuales (sección 9)
+│   └── CAPACITOR_IOS_BUILD.md       # estado iOS, checklist tras regenerar ios/, pendiente de macOS
 └── nuxt.config.ts (modified)
 ```
 
@@ -204,8 +213,16 @@ frontend/
 14. **Push notifications — FCM**: pendiente proyecto Firebase, `google-services.json`,
     credenciales `FIREBASE_*` y `firebase-admin` (ver paso 8 y sección 3 de
     `frontend/docs/PUSH_NOTIFICATIONS.md`)
+15. **Plataforma iOS**: hasta el 2026-08-05 el proyecto solo tenía `@capacitor/android` —
+    no existía `@capacitor/ios` ni carpeta `ios/`. `@capacitor/ios` instalado y proyecto
+    `frontend/ios/` generado (`npx cap add ios`) el mismo día — ver
+    `frontend/docs/CAPACITOR_IOS_BUILD.md`. **Compilar y probar el `.ipa` requiere Xcode
+    en macOS**, no disponible en la máquina de desarrollo actual (Windows) — queda
+    pendiente hasta tener acceso a un Mac (propio, CI tipo GitHub Actions `macos-latest`,
+    o servicio de build en la nube como Codemagic/EAS). Mientras tanto, `pages/download.vue`
+    sigue mostrando el mensaje de "app nativa iOS no disponible" + alternativa PWA.
 
 ---
 **Created**: March 24, 2026
 **Branch**: feature/capacitor-mobile-app
-**Status**: In Progress — Phase 4 casi completa (cliente+backend de push notifications listos, solo falta integración FCM/Firebase), Phase 5 completa salvo prueba en dispositivo real con backend accesible
+**Status**: In Progress — Phase 4 casi completa (cliente+backend de push notifications listos, solo falta integración FCM/Firebase), Phase 5 completa salvo prueba en dispositivo real con backend accesible. Plataforma iOS: proyecto generado (paso 15), compilación pendiente de acceso a macOS.

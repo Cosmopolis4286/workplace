@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'workplace-app',
   webDir: '.output/public',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    iosScheme: 'https'
   },
   plugins: {
     SplashScreen: {
