@@ -301,6 +301,13 @@ export class AuthController {
 
   @Get('demo-credentials')
   async getDemoCredentials() {
+    // APP_ENV=production bloquea este endpoint sin importar USE_DEMO: una
+    // sola variable mal configurada (p.ej. USE_DEMO=true copiado de un .env
+    // de staging) no debe poder exponer la contraseña del SUPERADMIN demo
+    // en un entorno marcado como producción.
+    if (this.config.get('APP_ENV') === 'production') {
+      throw new ForbiddenException('Solo disponible en desarrollo');
+    }
     const isDev =
       this.config.get('APP_ENV') === 'development' ||
       this.config.get('USE_DEMO') === 'true';

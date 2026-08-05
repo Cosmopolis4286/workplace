@@ -15,10 +15,11 @@ describe('AuthController', () => {
     refreshToken: jest.fn(),
     refreshTokens: jest.fn(),
     logout: jest.fn(),
+    getDemoCredentials: jest.fn(),
   }
 
   const mockConfigService = {
-    get: jest.fn((key: string) => {
+    get: jest.fn((key: string): string | undefined => {
       if (key === 'JWT_REFRESH_EXPIRES_IN') return '7d'
       if (key === 'JWT_EXPIRES_IN') return '15m'
       return undefined
@@ -158,6 +159,40 @@ describe('AuthController', () => {
 
       expect(result).toEqual({ message: 'Sesión cerrada exitosamente' })
       expect(mockAuthService.logout).toHaveBeenCalledWith('test-user-id', 'test-refresh-token', undefined)
+    })
+  })
+
+  describe('getDemoCredentials', () => {
+    function mockEnv(vars: Record<string, string | undefined>) {
+      mockConfigService.get.mockImplementation((key: string) => vars[key])
+    }
+
+    it('rechaza siempre que APP_ENV=production, sin importar USE_DEMO', async () => {
+      mockEnv({ APP_ENV: 'production', USE_DEMO: 'true' })
+
+      await expect(controller.getDemoCredentials()).rejects.toThrow('Solo disponible en desarrollo')
+      expect(mockAuthService.getDemoCredentials).not.toHaveBeenCalled()
+    })
+
+    it('permite cuando APP_ENV=development', async () => {
+      mockEnv({ APP_ENV: 'development' })
+      mockAuthService.getDemoCredentials.mockResolvedValue([{ email: 'demo@example.com' }])
+
+      const result = await controller.getDemoCredentials()
+      expect(result).toEqual([{ email: 'demo@example.com' }])
+    })
+
+    it('permite cuando USE_DEMO=true y APP_ENV no es production', async () => {
+      mockEnv({ APP_ENV: 'staging', USE_DEMO: 'true' })
+      mockAuthService.getDemoCredentials.mockResolvedValue([])
+
+      await expect(controller.getDemoCredentials()).resolves.toEqual([])
+    })
+
+    it('rechaza cuando ninguna variable habilita modo demo', async () => {
+      mockEnv({ APP_ENV: 'staging' })
+
+      await expect(controller.getDemoCredentials()).rejects.toThrow('Solo disponible en desarrollo')
     })
   })
 })
