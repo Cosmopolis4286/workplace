@@ -18,6 +18,16 @@ function endOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 }
 
+// Ventana de bloqueo por mesa: dos citas no pueden solaparse dentro de este
+// margen (ej. mesa a las 8pm bloquea 6pm–10pm). No hay campo de duración en
+// el modelo, así que se usa una ventana fija en vez de calcular fin real.
+const TABLE_OVERLAP_WINDOW_MS = 2 * 60 * 60 * 1000;
+const TABLE_BLOCKING_STATUSES: AppointmentStatus[] = [
+  AppointmentStatus.PENDING,
+  AppointmentStatus.CONFIRMED,
+  AppointmentStatus.SEATED,
+];
+
 @Injectable()
 export class AppointmentsService {
   constructor(
@@ -45,6 +55,30 @@ export class AppointmentsService {
     if (appointment.commerceId !== commerceId)
       throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return appointment;
+  }
+
+  // Rechaza si la mesa ya tiene otra cita activa dentro de la ventana de
+  // solapamiento. Sin tableNumber no aplica (uso genérico sin mesas).
+  private async assertNoTableOverlap(
+    commerceId: string,
+    tableNumber: number | null | undefined,
+    date: Date,
+    excludeAppointmentId?: string
+  ) {
+    if (tableNumber == null) return;
+    const windowStart = new Date(date.getTime() - TABLE_OVERLAP_WINDOW_MS);
+    const windowEnd = new Date(date.getTime() + TABLE_OVERLAP_WINDOW_MS);
+
+    const conflict = await this.prisma.appointment.findFirst({
+      where: {
+        commerceId,
+        tableNumber,
+        status: { in: TABLE_BLOCKING_STATUSES },
+        date: { gte: windowStart, lte: windowEnd },
+        ...(excludeAppointmentId && { id: { not: excludeAppointmentId } }),
+      },
+    });
+    if (conflict) throw new BadRequestException(this.i18n.t('appointments.table_overlap'));
   }
 
   // ─── Stats ──────────────────────────────────────────────────────────────────
@@ -140,10 +174,13 @@ export class AppointmentsService {
         throw new BadRequestException(this.i18n.t('appointments.customer_not_found'));
     }
 
+    const date = new Date(dto.date);
+    await this.assertNoTableOverlap(commerceId, dto.tableNumber, date);
+
     return this.prisma.appointment.create({
       data: {
         ...dto,
-        date: new Date(dto.date),
+        date,
         commerceId,
       },
       include: {
@@ -160,7 +197,7 @@ export class AppointmentsService {
     dto: UpdateAppointmentDto
   ) {
     const commerceId = await this.getCommerceId(userId);
-    await this.assertOwnership(appointmentId, commerceId);
+    const existing = await this.assertOwnership(appointmentId, commerceId);
 
     if (dto.customerId) {
       const customer = await this.prisma.customer.findUnique({
@@ -168,6 +205,12 @@ export class AppointmentsService {
       });
       if (!customer || customer.commerceId !== commerceId)
         throw new BadRequestException(this.i18n.t('appointments.customer_not_found'));
+    }
+
+    const effectiveTableNumber = dto.tableNumber !== undefined ? dto.tableNumber : existing.tableNumber;
+    const effectiveDate = dto.date ? new Date(dto.date) : existing.date;
+    if (dto.tableNumber !== undefined || dto.date !== undefined) {
+      await this.assertNoTableOverlap(commerceId, effectiveTableNumber, effectiveDate, appointmentId);
     }
 
     return this.prisma.appointment.update({
