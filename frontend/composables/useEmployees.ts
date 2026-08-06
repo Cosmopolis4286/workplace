@@ -131,6 +131,17 @@ export const useEmployees = () => {
 
   // ─── CRUD ──────────────────────────────────────────────────────────────────
 
+  // El listado (/employees) omite campos sensibles (salario, dirección,
+  // contacto de emergencia, etc.) — se cargan aparte solo al abrir edición.
+  async function fetchEmployee(id: string): Promise<Employee | null> {
+    try {
+      return await get<Employee>(`/employees/${id}`)
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar el empleado'
+      return null
+    }
+  }
+
   async function createEmpleado(payload: CreateEmployeePayload): Promise<Employee | null> {
     try {
       const employee = await post<Employee>('/employees', payload)
@@ -195,6 +206,7 @@ export const useEmployees = () => {
     managerCount,
     // actions
     loadEmpleados,
+    fetchEmployee,
     createEmpleado,
     updateEmpleado,
     deleteEmpleado,

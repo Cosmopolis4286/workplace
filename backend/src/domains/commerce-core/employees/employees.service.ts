@@ -66,10 +66,19 @@ export class EmployeesService {
 
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
+  // Listado sin campos sensibles (salario, fecha de nacimiento, dirección,
+  // contacto de emergencia, notas): cualquiera con employees:view puede
+  // llamarlo, no solo el dueño del comercio. El detalle completo solo se
+  // expone vía findOne, que el frontend consulta al abrir edición.
   async findAll(userId: string) {
     const commerceId = await this.getCommerceId(userId);
     return this.prisma.employee.findMany({
       where: { commerceId },
+      select: {
+        id: true, firstName: true, lastName: true, email: true, phone: true,
+        role: true, status: true, hireDate: true, isActive: true,
+        commerceId: true, createdAt: true, updatedAt: true,
+      },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
   }

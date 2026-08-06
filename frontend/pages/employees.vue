@@ -251,7 +251,7 @@ import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 
 definePageMeta({ middleware: 'auth' })
 
-const { employees, stats, loading, error, managerCount, loadEmpleados, createEmpleado, updateEmpleado, deleteEmpleado, toggleStatus } = useEmployees()
+const { employees, stats, loading, error, managerCount, loadEmpleados, fetchEmployee, createEmpleado, updateEmpleado, deleteEmpleado, toggleStatus } = useEmployees()
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 const searchQuery  = ref('')
@@ -300,12 +300,18 @@ const saving          = ref(false)
 const emptyForm = () => ({ firstName: '', lastName: '', email: '', phone: '', role: 'OTHER' as EmployeeRole, status: 'ACTIVE' as EmployeeStatus, salary: undefined as number | undefined, hireDateInput: '', address: '', emergencyContact: '', emergencyPhone: '', notes: '' })
 const form = ref(emptyForm())
 
-function openModal(emp?: Employee) {
-  editingEmployee.value = emp ?? null
-  form.value = emp
-    ? { firstName: emp.firstName, lastName: emp.lastName, email: emp.email ?? '', phone: emp.phone ?? '', role: emp.role, status: emp.status, salary: emp.salary, hireDateInput: emp.hireDate ? emp.hireDate.substring(0, 10) : '', address: emp.address ?? '', emergencyContact: emp.emergencyContact ?? '', emergencyPhone: emp.emergencyPhone ?? '', notes: emp.notes ?? '' }
-    : emptyForm()
+async function openModal(emp?: Employee) {
   showModal.value = true
+  if (!emp) {
+    editingEmployee.value = null
+    form.value = emptyForm()
+    return
+  }
+  // El listado no trae salario/dirección/contacto de emergencia/notas — se
+  // cargan aparte para no perderlos al guardar (payload undefined != borrar).
+  const full = (await fetchEmployee(emp.id)) ?? emp
+  editingEmployee.value = full
+  form.value = { firstName: full.firstName, lastName: full.lastName, email: full.email ?? '', phone: full.phone ?? '', role: full.role, status: full.status, salary: full.salary, hireDateInput: full.hireDate ? full.hireDate.substring(0, 10) : '', address: full.address ?? '', emergencyContact: full.emergencyContact ?? '', emergencyPhone: full.emergencyPhone ?? '', notes: full.notes ?? '' }
 }
 
 function closeModal() { showModal.value = false; editingEmployee.value = null }

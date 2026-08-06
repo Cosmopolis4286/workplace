@@ -155,8 +155,25 @@ describe('EmployeesService', () => {
       expect(result).toEqual(mockEmployees)
       expect(mockPrismaService.employee.findMany).toHaveBeenCalledWith({
         where: { commerceId },
+        select: expect.any(Object),
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       })
+    })
+
+    it('should not select sensitive fields (salary, address, emergency contact, notes)', async () => {
+      mockPrismaService.employee.findMany.mockResolvedValue([])
+
+      await service.findAll(userId)
+
+      const { select } = mockPrismaService.employee.findMany.mock.calls[0][0]
+      expect(select.salary).toBeUndefined()
+      expect(select.birthDate).toBeUndefined()
+      expect(select.address).toBeUndefined()
+      expect(select.emergencyContact).toBeUndefined()
+      expect(select.emergencyPhone).toBeUndefined()
+      expect(select.notes).toBeUndefined()
+      expect(select.firstName).toBe(true)
+      expect(select.role).toBe(true)
     })
   })
 
