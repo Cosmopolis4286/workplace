@@ -262,10 +262,10 @@ era solo explotable manipulando el request directamente.
   comercio puede saltar `PENDING`→`CLOSED` sin pasar por `CONTACTED`). Ambos documentados aquí
   para una ronda futura si se prioriza — ninguno es bloqueante para v1.
 
-Con esto se da por **cerrada la ronda de auditoría de módulos backend** para v1. Los módulos
-restantes sin auditar (`menu`, `settings`, `system-modules`, `health`, `mail`) son exclusivos de
-COMMERCE (fuera de alcance) o de bajo riesgo estructural (health checks, envío de correo) — no
-se considera necesario auditarlos antes de lanzar.
+Con esto se da por **cerrada la ronda de auditoría de módulos backend en el alcance de v1**
+(FREELANCER/NORMAL/ADMIN/SUPERADMIN). Ver sección "Auditoría de COMMERCE" más abajo para la
+ronda que extendió la revisión a los módulos exclusivos de comercio (fuera de v1, pero código
+activo en el repo).
 
 ---
 
@@ -312,3 +312,47 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
       `commerceId` de otro comercio) — debe devolver 400, no crear el pedido (ver ítem 20)
 - [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 21, pendiente —
       requiere credenciales externas, no accionable por código)
+
+---
+
+## Auditoría de COMMERCE (fuera de alcance de v1, código activo en el repo)
+
+`COMMERCE` no se lanza en esta v1, pero el rol y sus módulos (menu, orders internos, employees,
+branches, appointments, expenses, cash, receipts, delivery) siguen activos en el código y
+accesibles a cualquier usuario con ese rol/permisos — por ejemplo, un ADMIN puede asignarlo
+manualmente desde `/users`. El usuario pidió ampliar la auditoría a "toda la app, no solo
+freelancer", así que se revisó la lógica interna de estos módulos (los guards de
+`AccountTypeGuard` ya se habían verificado en una ronda anterior).
+
+**Resultado: en buen estado.** Ownership (`getCommerceId(userId)` + `assertOwnership`/
+`findFirst({..., commerceId})`) verificado correcto y consistente en los 9 módulos — ninguno
+permite que un comercio toque recursos de otro. `Employee` es un registro de RRHH sin cuenta de
+login propia (no `User`), así que no hay vector de auto-escalada de permisos vía empleados.
+Cash (caja/arqueo) es el módulo más sensible y el mejor blindado: apertura protegida contra
+doble sesión con índice único parcial a nivel de DB, cierre calculado dentro de una transacción
+Prisma, discrepancias siempre registradas en `CashSession.difference` (no hay forma de
+"esconder" un descuadre ni endpoints para borrar `CashSession`/`CashMovement`).
+
+Dos hallazgos corregidos:
+
+- **Orders: descuento sin tope permitía total negativo.** `discount` solo validaba `@Min(0)`,
+  sin tope máximo — un valor mayor al subtotal producía `Order.total` negativo, que contaminaba
+  `Customer.totalSpent` y el cálculo de `expectedAmount` en el arqueo de caja para pagos CASH.
+  Corregido: `create` ahora devuelve 400 si `discount > subtotal + tax + deliveryFee`.
+- **Appointments: sin validación de solapamiento de mesa.** `create`/`update` no verificaban
+  ningún conflicto de horario — se podía doble-reservar la misma mesa a la misma hora sin
+  ninguna restricción (ni siquiera era un problema de race condition, faltaba la regla de
+  negocio en sí). Corregido: cuando `tableNumber` está presente, rechaza si ya existe otra cita
+  `PENDING`/`CONFIRMED`/`SEATED` en la misma mesa dentro de una ventana de ±2h. Sin
+  `tableNumber` (uso genérico sin mesas, ej. citas de servicio) no aplica ninguna restricción.
+- [x] Implementado — commits `fix(backend): rechazar descuento mayor al total en creación de
+  pedidos`, `feat(backend): validar solapamiento de mesa al crear/editar citas`
+- 28 tests unitarios nuevos (18 `OrdersService` incluyendo 2 nuevos de discount, 10
+  `AppointmentsService` nuevo), **421/421 tests del backend pasan**.
+
+No corregido en esta ronda (documentado para cuando/si COMMERCE se lance):
+- `delivery.service.ts` (`createDelivery`) no valida `driver.isActive` al asignar directamente
+  en la creación (sí lo hace `assignDriver`) — inconsistencia menor, no bloqueante.
+- `cash:manage` es un único permiso para operar caja del día a día Y hacer ajustes manuales —
+  decisión de granularidad de permisos a revisar antes de dar ese permiso a roles de cajero, no
+  es un bug de código.
