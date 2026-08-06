@@ -313,7 +313,14 @@ export class BnplService {
   // flujo (confirmación de orden, UI) sin sandbox real de Cashea/Krece.
   // Recibe externalReference (no el id local) porque es lo único que conoce
   // la página pública de resolución simulada (viene embebido en checkoutUrl).
+  // Bloqueado por completo en APP_ENV=production a nivel de controller; acá
+  // se agrega una segunda capa: solo resuelve referencias generadas por
+  // SimulatedAdapter (prefijo "SIM-"), nunca una transacción que haya
+  // llegado a usar un adapter real.
   async simulateResolve(externalReference: string, status: 'APPROVED' | 'REJECTED') {
+    if (!externalReference.startsWith('SIM-')) {
+      throw new BadRequestException('Solo se pueden resolver transacciones simuladas');
+    }
     const transaction = await this.prisma.bnplTransaction.findFirst({
       where: { externalReference },
     });
