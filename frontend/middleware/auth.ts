@@ -19,12 +19,6 @@ const GUEST_ONLY_ROUTES: string[] = [
   '/login', '/register', '/recover-password', '/reset-password', '/auth/google/callback', '/auth/2fa-verify',
 ]
 
-// ─── Rutas que requieren autenticación mínima (cualquier rol) ─────────────────
-const AUTH_ROUTES: string[] = [
-  '/dashboard', '/profile', '/settings', '/onboarding',
-  '/search', '/rides', '/service-requests', '/my-plan',
-]
-
 // El mapa ruta→permiso requerido ahora viene de GET /navigation (backend),
 // vía useNavigation().routePermissions — fuente única compartida con
 // SidebarContent.vue y middleware/modules.global.ts. Si el usuario NO tiene
@@ -37,7 +31,7 @@ const AUTH_ROUTES: string[] = [
 const KNOWN_PROTECTED_ROUTES: string[] = [
   '/users', '/categories', '/permissions', '/audit-log', '/logs', '/plans', '/exchange-rates',
   '/menu', '/inventory', '/my-services', '/jobs', '/customer-dashboard',
-  '/employees', '/branches',
+  '/employees', '/branches', '/cash-register',
   '/expenses', '/sales', '/analytics', '/reports', '/appointments', '/customers', '/delivery', '/orders',
   '/service-requests', '/wallet',
   '/commissions', '/search-tabs', '/locations',
@@ -56,7 +50,7 @@ const ADMIN_ONLY_ROUTES: string[] = [
 // Rutas que no necesitan permiso específico pero sí autenticación
 const NEEDS_AUTH_ONLY: string[] = [
   '/dashboard', '/profile', '/settings', '/my-plan', '/onboarding', '/search',
-  '/report-issue', '/verification', '/modules', '/my-orders',
+  '/report-issue', '/verification', '/modules', '/my-orders', '/rides',
 ]
 
 // ─── Excluidas del chequeo de onboarding ─────────────────────────────────────
