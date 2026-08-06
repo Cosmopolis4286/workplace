@@ -190,6 +190,9 @@ export class OrdersService {
     const tax = Math.round(subtotal * (taxRate / 100) * 100) / 100;
     const deliveryFee = dto.deliveryFee ?? 0;
     const discount = dto.discount ?? 0;
+    if (discount > subtotal + tax + deliveryFee) {
+      throw new BadRequestException('El descuento no puede ser mayor al total del pedido');
+    }
 
     const feeConfig = await this.platformFees.resolveFeeConfig('ORDER', userId);
     let platformFeeAmount = 0;

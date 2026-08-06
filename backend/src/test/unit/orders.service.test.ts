@@ -238,6 +238,39 @@ describe('OrdersService', () => {
         BadRequestException
       )
     })
+
+    it('should throw error if discount exceeds subtotal+tax+deliveryFee', async () => {
+      const commerceId = 'commerce-123'
+      const createOrderDto: CreateOrderDto = {
+        customerName: 'John Doe',
+        items: [{ productId: 'product-1', productName: 'Product 1', quantity: 1, unitPrice: 10 }],
+        discount: 999,
+      }
+
+      mockPrismaService.commerceSettings.findUnique.mockResolvedValue(null)
+
+      await expect(service.create(commerceId, createOrderDto)).rejects.toThrow(BadRequestException)
+      expect(mockPrismaService.order.create).not.toHaveBeenCalled()
+    })
+
+    it('should allow a discount equal to the order total', async () => {
+      const commerceId = 'commerce-123'
+      const createOrderDto: CreateOrderDto = {
+        customerName: 'John Doe',
+        items: [{ productId: 'product-1', productName: 'Product 1', quantity: 1, unitPrice: 10 }],
+        discount: 10,
+      }
+
+      mockPrismaService.commerceSettings.findUnique.mockResolvedValue(null)
+      mockPrismaService.order.count.mockResolvedValue(0)
+      mockPrismaService.order.create.mockResolvedValue({ id: 'order-1', total: 0 })
+
+      await service.create(commerceId, createOrderDto)
+
+      expect(mockPrismaService.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ total: 0 }) })
+      )
+    })
   })
 
   describe('updateStatus', () => {
