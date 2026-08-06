@@ -356,3 +356,49 @@ No corregido en esta ronda (documentado para cuando/si COMMERCE se lance):
 - `cash:manage` es un único permiso para operar caja del día a día Y hacer ajustes manuales —
   decisión de granularidad de permisos a revisar antes de dar ese permiso a roles de cajero, no
   es un bug de código.
+
+### Segunda ronda — domains restantes de toda la app (money/bnpl, exchange-rates, customers,
+search, mail, platform/*, segunda pasada de menu/employees)
+
+Auditoría de los domains que nunca se habían revisado con lectura real de código. `exchange-rates`,
+`customers`, `search`/`search-tabs`, `mail` (sin exposición HTTP), y `platform/*` (settings,
+system-modules, landing, locations, navigation, health) — **todos en buen estado, sin
+hallazgos**: guards correctos en escritura, sin datos sensibles en endpoints públicos, sin
+riesgo de injection en búsqueda (Prisma parametrizado). `menu` (segunda pasada): validación de
+inputs correcta, sin hallazgos.
+
+Dos hallazgos corregidos, ambos de mayor severidad que los anteriores:
+
+- **BNPL: endpoint de "resolución simulada" sin ningún guard, explotable en el estado actual
+  del código.** `POST /bnpl/simulate/:externalReference/resolve` no tenía `JwtAuthGuard` ni
+  chequeo de entorno — cualquiera sin autenticación podía marcar un pedido BNPL como `PAID`
+  adivinando/observando un `externalReference`. Agravante real (no solo teórico): los adapters
+  "reales" de Cashea/Krece (`cashea.adapter.ts`, `krece.adapter.ts`) son hoy esqueletos que
+  delegan el 100% al `SimulatedAdapter` — la integración real con esos proveedores está
+  pendiente (requiere credenciales/specs externas, documentado como TODO explícito en el
+  código, igual que el caso de push FCM). Esto significa que en el estado actual, **todo el
+  flujo BNPL es simulado**, y el endpoint sin guard era la única pieza faltante para que
+  cualquiera pudiera falsificar una aprobación de crédito sin que ningún proveedor real
+  interviniera.
+  - Corregido: el endpoint rechaza siempre en `APP_ENV=production` (mismo patrón que
+    `/auth/demo-credentials`), y el service (`simulateResolve`) solo resuelve referencias con
+    prefijo `SIM-` — nunca una transacción que, en el futuro, haya usado un adapter real.
+  - **No es un fix de la integración en sí** — no hay integración real que corregir todavía.
+    Cuando se implementen los adapters reales de Cashea/Krece, agregar validación de firma
+    HMAC/secreto compartido en `handleWebhook` (ya señalado como TODO explícito en el código) es
+    obligatorio antes de activarlos, y no debe asumirse resuelto por este fix.
+- **Employees: salario y datos personales expuestos en el listado.** `GET /employees` devolvía
+  el modelo completo (salario, fecha de nacimiento, dirección, contacto de emergencia, notas) a
+  cualquiera con el permiso `employees:view` — no solo al dueño del comercio, ya que ese permiso
+  es genérico y asignable a cualquier rol de staff. Corregido con cambio en backend y frontend a
+  la vez (el modal de edición usaba el objeto ya cargado del listado, así que restringir el
+  backend solo hubiera vaciado esos campos al editar): el listado ahora usa un `select`
+  restringido, y el frontend hace `fetch` a `GET /employees/:id` (que sí expone todo, protegido
+  por el mismo `employees:view` + ownership) al abrir el modal de edición.
+- [x] Implementado — commits `fix(backend): bloquear /bnpl/simulate/:ref/resolve en producción`,
+  `fix(backend+frontend): no exponer salario/datos sensibles en listado de empleados`
+- 6 tests unitarios nuevos (3 `BnplService`, 2 `BnplWebhookController`, 1 `EmployeesService`
+  adicional), **427/427 tests del backend pasan**.
+- [ ] **Falta probar manualmente**: confirmar que `/bnpl/simulate/:ref/resolve` devuelve 403 con
+  `APP_ENV=production` configurado, y que el modal de edición de empleados sigue mostrando
+  salario/dirección correctamente al abrir (no quedaron vacíos por el cambio de fetch).
