@@ -10,6 +10,14 @@
       :stats="headerStats"
     />
 
+    <!-- Error banner -->
+    <div v-if="error" class="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+      <p class="text-red-700 text-sm">{{ error }}</p>
+      <button class="text-red-500 hover:text-red-700" @click="error = null">
+        <XMarkIcon class="h-4 w-4" />
+      </button>
+    </div>
+
     <!-- ─── Estadísticas públicas ──────────────────────────────────────────── -->
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm">
       <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -579,11 +587,15 @@
 </template>
 
 <script setup lang="ts">
-import { PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon, HomeIcon } from '@heroicons/vue/24/outline'
+import { PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon, HomeIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
+import { useLandingCrudSection } from '~/composables/useLandingCrudSection'
+import { useAlert } from '~/composables/useAlert'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 definePageMeta({ middleware: ['auth'] })
+
+const alert = useAlert()
 
 interface ReportedReview {
   id: string
@@ -657,6 +669,16 @@ interface Step {
   sortOrder: number
 }
 
+interface TestimonialForm {
+  quote: string; name: string; role: string; initials: string; avatarColor: string; isActive: boolean
+}
+interface FeatureForm {
+  title: string; description: string; icon: string; bg: string; isActive: boolean
+}
+interface StepForm {
+  title: string; desc: string; icon: string; isActive: boolean
+}
+
 function formatTestimonialDate(dateStr: string) {
   return new Date(dateStr).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
@@ -669,16 +691,20 @@ const savingStats = ref(false)
 const newStatKey = ref('')
 const newStatLabel = ref('')
 const newStatValue = ref('')
+const statsError = ref<string | null>(null)
 
 async function loadStats() {
   try {
     const { get } = useApi()
     editableStats.value = await get<AdminStat[]>('/landing/admin/stats')
-  } catch {}
+  } catch (e: any) {
+    statsError.value = e?.data?.message ?? e?.message ?? 'Error al cargar las estadísticas'
+  }
 }
 
 async function saveStats() {
   savingStats.value = true
+  statsError.value = null
   try {
     const { patch } = useApi()
     await Promise.all(
@@ -686,6 +712,8 @@ async function saveStats() {
         patch(`/landing/admin/stats/${s.key}`, { label: s.label, value: s.value, isDynamic: s.isDynamic }),
       ),
     )
+  } catch (e: any) {
+    statsError.value = e?.data?.message ?? e?.message ?? 'Error al guardar las estadísticas'
   } finally {
     savingStats.value = false
   }
@@ -708,21 +736,29 @@ async function addStat() {
 // ─── Reseñas reportadas ─────────────────────────────────────────────────────
 const reportedReviews = ref<ReportedReview[]>([])
 const loadingReports = ref(false)
+const reportsError = ref<string | null>(null)
 
 async function loadReportedReviews() {
   loadingReports.value = true
   try {
     const { get } = useApi()
     reportedReviews.value = await get<ReportedReview[]>('/profiles/admin/reviews/reported')
+  } catch (e: any) {
+    reportsError.value = e?.data?.message ?? e?.message ?? 'Error al cargar las reseñas reportadas'
   } finally {
     loadingReports.value = false
   }
 }
 
 async function moderate(reviewId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS_REPORTS') {
-  const { patch } = useApi()
-  await patch(`/profiles/admin/reviews/${reviewId}/moderate`, { action })
-  await loadReportedReviews()
+  reportsError.value = null
+  try {
+    const { patch } = useApi()
+    await patch(`/profiles/admin/reviews/${reviewId}/moderate`, { action })
+    await loadReportedReviews()
+  } catch (e: any) {
+    reportsError.value = e?.data?.message ?? e?.message ?? 'Error al moderar la reseña'
+  }
 }
 
 // ─── Reportes de usuarios (pedidos, servicios, app general) ────────────────
@@ -757,80 +793,47 @@ async function loadUserReports() {
     const query = reportStatusFilter.value ? `?status=${reportStatusFilter.value}` : ''
     const { get } = useApi()
     userReports.value = await get<UserReport[]>(`/reports/admin${query}`)
+  } catch (e: any) {
+    reportsError.value = e?.data?.message ?? e?.message ?? 'Error al cargar los reportes de usuarios'
   } finally {
     loadingUserReports.value = false
   }
 }
 
 async function moderateUserReport(id: string, status: UserReport['status']) {
-  const { patch } = useApi()
-  await patch(`/reports/admin/${id}`, { status })
-  await loadUserReports()
-}
-
-// ─── Testimonials ─────────────────────────────────────────────────────────────
-const testimonials = ref<Testimonial[]>([])
-const loadingTestimonials = ref(false)
-const showModal = ref(false)
-const savingModal = ref(false)
-const editingId = ref<string | null>(null)
-
-const form = reactive({
-  quote: '',
-  name: '',
-  role: '',
-  initials: '',
-  avatarColor: '#EF4444',
-  isActive: true,
-})
-
-async function loadTestimonials() {
-  loadingTestimonials.value = true
+  reportsError.value = null
   try {
-    const { get } = useApi()
-    testimonials.value = await get<Testimonial[]>('/landing/admin/testimonials')
-  } finally {
-    loadingTestimonials.value = false
+    const { patch } = useApi()
+    await patch(`/reports/admin/${id}`, { status })
+    await loadUserReports()
+  } catch (e: any) {
+    reportsError.value = e?.data?.message ?? e?.message ?? 'Error al actualizar el reporte'
   }
 }
 
-function openTestimonialModal(t: Testimonial | null) {
-  editingId.value = t?.id ?? null
-  Object.assign(form, {
-    quote: t?.quote ?? '',
-    name: t?.name ?? '',
-    role: t?.role ?? '',
-    initials: t?.initials ?? '',
-    avatarColor: t?.avatarColor ?? '#EF4444',
-    isActive: t?.isActive ?? true,
-  })
-  showModal.value = true
-}
+// ─── Testimonials, Features, Steps ─────────────────────────────────────────────
+// Las tres secciones comparten la misma forma (listar/crear/editar/eliminar,
+// testimonials además reordena) — ver useLandingCrudSection.
 
+const {
+  items: testimonials, loading: loadingTestimonials, showModal, saving: savingModal,
+  editingId, form, error: testimonialsError,
+  load: loadTestimonials, openModal: openTestimonialModalRaw, save: saveTestimonialRaw,
+  remove: removeTestimonial, move: moveTestimonial,
+} = useLandingCrudSection<Testimonial, TestimonialForm>(
+  '/landing/admin/testimonials',
+  () => ({ quote: '', name: '', role: '', initials: '', avatarColor: '#EF4444', isActive: true }),
+  { reorder: true },
+)
+function openTestimonialModal(t: Testimonial | null) { openTestimonialModalRaw(t) }
 async function saveTestimonial() {
   if (!form.quote || !form.name) return
-  savingModal.value = true
-  try {
-    const { put, post } = useApi()
-    if (editingId.value) {
-      const updated = await put<Testimonial>(`/landing/admin/testimonials/${editingId.value}`, { ...form })
-      const idx = testimonials.value.findIndex((t) => t.id === editingId.value)
-      if (idx !== -1) testimonials.value[idx] = updated
-    } else {
-      const created = await post<Testimonial>('/landing/admin/testimonials', { ...form })
-      testimonials.value.push(created)
-    }
-    showModal.value = false
-  } finally {
-    savingModal.value = false
-  }
+  await saveTestimonialRaw()
 }
-
 async function deleteTestimonial(id: string) {
-  if (!confirm('¿Eliminar este testimonio?')) return
-  const { del } = useApi()
-  await del(`/landing/admin/testimonials/${id}`)
-  testimonials.value = testimonials.value.filter((t) => t.id !== id)
+  const result = await alert.confirm('Eliminar testimonio', '¿Eliminar este testimonio?', 'Eliminar', 'Cancelar')
+  if (!result.isConfirmed) return
+  await removeTestimonial(id)
 }
 
 const showCandidatesModal = ref(false)
@@ -843,6 +846,8 @@ async function loadReviewCandidates() {
   try {
     const { get } = useApi()
     reviewCandidates.value = await get<ReviewCandidate[]>('/landing/admin/testimonials/review-candidates')
+  } catch (e: any) {
+    testimonialsError.value = e?.data?.message ?? e?.message ?? 'Error al cargar reseñas candidatas'
   } finally {
     loadingCandidates.value = false
   }
@@ -855,147 +860,69 @@ async function useAsTestimonial(reviewId: string) {
     const created = await post<Testimonial>(`/landing/admin/testimonials/from-review/${reviewId}`, {})
     testimonials.value.push(created)
     reviewCandidates.value = reviewCandidates.value.filter((c: ReviewCandidate) => c.id !== reviewId)
+  } catch (e: any) {
+    testimonialsError.value = e?.data?.message ?? e?.message ?? 'Error al crear el testimonio'
   } finally {
     creatingFromReview.value = null
   }
 }
 
-async function moveTestimonial(idx: number, direction: -1 | 1) {
-  const targetIdx = idx + direction
-  if (targetIdx < 0 || targetIdx >= testimonials.value.length) return
-  const reordered = [...testimonials.value]
-  ;[reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]]
-  testimonials.value = reordered
-  const { patch } = useApi()
-  await patch('/landing/admin/testimonials/reorder', { orderedIds: reordered.map((t) => t.id) })
-}
-
-// ─── Features ─────────────────────────────────────────────────────────────────
-const features = ref<Feature[]>([])
-const loadingFeatures = ref(false)
-const showFeatureModal = ref(false)
-const savingFeatureModal = ref(false)
-const editingFeatureId = ref<string | null>(null)
-
 const ICON_OPTIONS = ['ShoppingCartIcon', 'CubeIcon', 'ChartBarIcon', 'DocumentTextIcon', 'UsersIcon', 'TruckIcon', 'UserPlusIcon', 'CogIcon', 'RocketLaunchIcon']
 const BG_OPTIONS = ['bg-blue-500', 'bg-violet-500', 'bg-green-500', 'bg-amber-500', 'bg-pink-500', 'bg-teal-500']
 
-const featureForm = reactive({
-  title: '',
-  description: '',
-  icon: ICON_OPTIONS[0],
-  bg: BG_OPTIONS[0],
-  isActive: true,
-})
-
-async function loadFeatures() {
-  loadingFeatures.value = true
-  try {
-    const { get } = useApi()
-    features.value = await get<Feature[]>('/landing/admin/features')
-  } finally {
-    loadingFeatures.value = false
-  }
-}
-
-function openFeatureModal(f: Feature | null) {
-  editingFeatureId.value = f?.id ?? null
-  Object.assign(featureForm, {
-    title: f?.title ?? '',
-    description: f?.description ?? '',
-    icon: f?.icon ?? ICON_OPTIONS[0],
-    bg: f?.bg ?? BG_OPTIONS[0],
-    isActive: f?.isActive ?? true,
-  })
-  showFeatureModal.value = true
-}
-
+// ─── Features ─────────────────────────────────────────────────────────────────
+const {
+  items: features, loading: loadingFeatures, showModal: showFeatureModal, saving: savingFeatureModal,
+  editingId: editingFeatureId, form: featureForm, error: featuresError,
+  load: loadFeatures, openModal: openFeatureModalRaw, save: saveFeatureRaw, remove: removeFeature,
+} = useLandingCrudSection<Feature, FeatureForm>(
+  '/landing/admin/features',
+  () => ({ title: '', description: '', icon: ICON_OPTIONS[0], bg: BG_OPTIONS[0], isActive: true }),
+)
+function openFeatureModal(f: Feature | null) { openFeatureModalRaw(f) }
 async function saveFeature() {
   if (!featureForm.title || !featureForm.description) return
-  savingFeatureModal.value = true
-  try {
-    const { put, post } = useApi()
-    if (editingFeatureId.value) {
-      const updated = await put<Feature>(`/landing/admin/features/${editingFeatureId.value}`, { ...featureForm })
-      const idx = features.value.findIndex((f) => f.id === editingFeatureId.value)
-      if (idx !== -1) features.value[idx] = updated
-    } else {
-      const created = await post<Feature>('/landing/admin/features', { ...featureForm, sortOrder: features.value.length })
-      features.value.push(created)
-    }
-    showFeatureModal.value = false
-  } finally {
-    savingFeatureModal.value = false
-  }
+  await saveFeatureRaw(editingFeatureId.value ? {} : { sortOrder: features.value.length })
 }
-
 async function deleteFeature(id: string) {
-  if (!confirm('¿Eliminar esta función?')) return
-  const { del } = useApi()
-  await del(`/landing/admin/features/${id}`)
-  features.value = features.value.filter((f) => f.id !== id)
+  const result = await alert.confirm('Eliminar función', '¿Eliminar esta función?', 'Eliminar', 'Cancelar')
+  if (!result.isConfirmed) return
+  await removeFeature(id)
 }
 
 // ─── Steps (Cómo funciona) ──────────────────────────────────────────────────
-const steps = ref<Step[]>([])
-const loadingSteps = ref(false)
-const showStepModal = ref(false)
-const savingStepModal = ref(false)
-const editingStepId = ref<string | null>(null)
-
-const stepForm = reactive({
-  title: '',
-  desc: '',
-  icon: ICON_OPTIONS[0],
-  isActive: true,
-})
-
-async function loadSteps() {
-  loadingSteps.value = true
-  try {
-    const { get } = useApi()
-    steps.value = await get<Step[]>('/landing/admin/steps')
-  } finally {
-    loadingSteps.value = false
-  }
-}
-
-function openStepModal(s: Step | null) {
-  editingStepId.value = s?.id ?? null
-  Object.assign(stepForm, {
-    title: s?.title ?? '',
-    desc: s?.desc ?? '',
-    icon: s?.icon ?? ICON_OPTIONS[0],
-    isActive: s?.isActive ?? true,
-  })
-  showStepModal.value = true
-}
-
+const {
+  items: steps, loading: loadingSteps, showModal: showStepModal, saving: savingStepModal,
+  editingId: editingStepId, form: stepForm, error: stepsError,
+  load: loadSteps, openModal: openStepModalRaw, save: saveStepRaw, remove: removeStep,
+} = useLandingCrudSection<Step, StepForm>(
+  '/landing/admin/steps',
+  () => ({ title: '', desc: '', icon: ICON_OPTIONS[0], isActive: true }),
+)
+function openStepModal(s: Step | null) { openStepModalRaw(s) }
 async function saveStep() {
   if (!stepForm.title || !stepForm.desc) return
-  savingStepModal.value = true
-  try {
-    const { put, post } = useApi()
-    if (editingStepId.value) {
-      const updated = await put<Step>(`/landing/admin/steps/${editingStepId.value}`, { ...stepForm })
-      const idx = steps.value.findIndex((s) => s.id === editingStepId.value)
-      if (idx !== -1) steps.value[idx] = updated
-    } else {
-      const created = await post<Step>('/landing/admin/steps', { ...stepForm, sortOrder: steps.value.length })
-      steps.value.push(created)
-    }
-    showStepModal.value = false
-  } finally {
-    savingStepModal.value = false
-  }
+  await saveStepRaw(editingStepId.value ? {} : { sortOrder: steps.value.length })
+}
+async function deleteStep(id: string) {
+  const result = await alert.confirm('Eliminar paso', '¿Eliminar este paso?', 'Eliminar', 'Cancelar')
+  if (!result.isConfirmed) return
+  await removeStep(id)
 }
 
-async function deleteStep(id: string) {
-  if (!confirm('¿Eliminar este paso?')) return
-  const { del } = useApi()
-  await del(`/landing/admin/steps/${id}`)
-  steps.value = steps.value.filter((s) => s.id !== id)
-}
+// Banner de error único para la página: agrega el primer error activo entre
+// las 5 secciones (3 vía useLandingCrudSection + stats/reportes con su
+// propio ref, ya que esas dos no comparten la misma forma de CRUD).
+const error = computed({
+  get: () => testimonialsError.value ?? featuresError.value ?? stepsError.value ?? statsError.value ?? reportsError.value,
+  set: (v: string | null) => {
+    testimonialsError.value = v
+    featuresError.value = v
+    stepsError.value = v
+    statsError.value = v
+    reportsError.value = v
+  },
+})
 
 // ─── Header stats ─────────────────────────────────────────────────────────────
 const headerStats = computed(() => [
