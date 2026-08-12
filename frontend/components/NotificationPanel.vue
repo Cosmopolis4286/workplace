@@ -170,7 +170,9 @@ import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useNotifications } from '~/composables/useNotifications'
 import { useAuth } from '~/composables/useAuth'
+import { useAlert } from '~/composables/useAlert'
 
+const alert = useAlert()
 const {
   notifications,
   loading,
@@ -215,7 +217,12 @@ async function handleMarkAllAsRead() {
 }
 
 async function handleClearAll() {
-  if (confirm('¿Estás seguro de que quieres eliminar todas las notificaciones?')) {
+  const result = await alert.confirm(
+    'Eliminar notificaciones',
+    '¿Estás seguro de que quieres eliminar todas las notificaciones?',
+    'Eliminar todas', 'Cancelar',
+  )
+  if (result.isConfirmed) {
     await clearAll()
   }
 }

@@ -396,6 +396,7 @@ const headerStats = computed(() => [
 ])
 
 const { get, post, patch, del } = useApi()
+const alert = useAlert()
 
 async function loadMatrix() {
   loading.value = true
@@ -558,7 +559,12 @@ async function saveNewPerm() {
 }
 
 async function confirmDelete(perm: PermissionRow) {
-  if (!confirm(`¿Eliminar el permiso "${perm.label}" (${perm.key})?\nEsta acción no se puede deshacer.`)) return
+  const result = await alert.confirm(
+    'Eliminar permiso',
+    `¿Eliminar el permiso "${perm.label}" (${perm.key})? Esta acción no se puede deshacer.`,
+    'Eliminar', 'Cancelar',
+  )
+  if (!result.isConfirmed) return
   try {
     await del(`/permissions/${perm.id}`)
     await loadMatrix()

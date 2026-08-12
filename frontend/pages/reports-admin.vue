@@ -119,10 +119,12 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { CheckCircleIcon, FlagIcon } from '@heroicons/vue/24/outline'
 import { useReports, type Report, type ReportStatus, type ReportEntityType } from '~/composables/useReports'
 import { useApi } from '~/composables/useApi'
+import { useAlert } from '~/composables/useAlert'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard vive en middleware/auth.ts vía permiso reviews:moderate (ver
 // PermissionsGuard en el backend) — esta página no necesita chequeo propio.
+const alert = useAlert()
 const { fetchAllReports, moderateReport } = useReports()
 const { patch: apiPatch } = useApi()
 
@@ -195,7 +197,12 @@ async function setStatus(id: string, status: ReportStatus) {
 // desde este mismo panel con "Reactivar servicio".
 async function hideReportedService(item: Report) {
   if (!item.entityId) return
-  if (!confirm('¿Ocultar este servicio del catálogo? El proveedor NO podrá reactivarlo por su cuenta — solo un admin podrá revertirlo desde este panel.')) return
+  const result = await alert.confirm(
+    'Ocultar servicio',
+    '¿Ocultar este servicio del catálogo? El proveedor NO podrá reactivarlo por su cuenta — solo un admin podrá revertirlo desde este panel.',
+    'Ocultar', 'Cancelar',
+  )
+  if (!result.isConfirmed) return
   hidingServiceId.value = item.id
   try {
     const service = await apiPatch<{ status: 'ACTIVE' | 'PAUSED' | 'INACTIVE' }>(`/services/${item.entityId}/moderate`, { hide: true })
@@ -207,7 +214,8 @@ async function hideReportedService(item: Report) {
 
 async function unhideReportedService(item: Report) {
   if (!item.entityId) return
-  if (!confirm('¿Reactivar este servicio? Volverá a ser visible en el catálogo.')) return
+  const result = await alert.confirm('Reactivar servicio', '¿Reactivar este servicio? Volverá a ser visible en el catálogo.', 'Reactivar', 'Cancelar')
+  if (!result.isConfirmed) return
   hidingServiceId.value = item.id
   try {
     const service = await apiPatch<{ status: 'ACTIVE' | 'PAUSED' | 'INACTIVE' }>(`/services/${item.entityId}/moderate`, { hide: false })

@@ -503,12 +503,15 @@ import { useApi } from '~/composables/useApi'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { usePlans } from '~/composables/usePlans'
 import { useKyc } from '~/composables/useKyc'
+import { useAlert } from '~/composables/useAlert'
 
 // Página híbrida: visitantes anónimos la ven como landing pública (layout
 // 'public'), usuarios con sesión la ven dentro del backoffice (layout
 // 'default', con sidebar) para poder cambiar de plan. Mismo patrón que
 // pages/p/[username].vue.
 definePageMeta({ layout: false })
+
+const alert = useAlert()
 
 interface Plan {
   id: string
@@ -652,7 +655,8 @@ async function changePlan(plan: Plan) {
   const confirmMsg = isPaid
     ? `¿Solicitar el plan "${plan.name}" (${priceLabel})? Un administrador revisará tu solicitud antes de activarlo.`
     : `¿Cambiar al plan "${plan.name}" (${priceLabel})? Tu suscripción actual será reemplazada.`
-  if (!confirm(confirmMsg)) return
+  const result = await alert.confirm(isPaid ? 'Solicitar plan' : 'Cambiar plan', confirmMsg, 'Confirmar', 'Cancelar')
+  if (!result.isConfirmed) return
 
   changingPlan.value = plan.id
   try {

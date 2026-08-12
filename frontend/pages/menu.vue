@@ -174,7 +174,9 @@ import CategoryModal from '~/components/modals/CategoryModal.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
+import { useAlert } from '~/composables/useAlert'
 
+const alertDialog = useAlert()
 const {
   categories,
   products,
@@ -295,10 +297,11 @@ const handleUpdateCategory = async (id: string, data: { name?: string; color?: s
 const confirmDeleteCategory = async (category: Category) => {
   const productCount = categoriesWithProducts.value.find((c) => c.id === category.id)?.products.length ?? 0
   if (productCount > 0) {
-    alert(`La categoría "${category.name}" tiene ${productCount} producto(s). Muévalos o elimínelos primero.`)
+    await alertDialog.warning('No se puede eliminar', `La categoría "${category.name}" tiene ${productCount} producto(s). Muévalos o elimínelos primero.`)
     return
   }
-  if (confirm(`¿Eliminar la categoría "${category.name}"?`)) {
+  const result = await alertDialog.confirm('Eliminar categoría', `¿Eliminar la categoría "${category.name}"?`, 'Eliminar', 'Cancelar')
+  if (result.isConfirmed) {
     await deleteCategory(category.id)
   }
 }
@@ -330,7 +333,8 @@ const handleSaveProduct = async (productData: Partial<Product>) => {
 }
 
 const confirmDeleteProduct = async (productId: string) => {
-  if (confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+  const result = await alertDialog.confirm('Eliminar producto', '¿Estás seguro de que quieres eliminar este producto?', 'Eliminar', 'Cancelar')
+  if (result.isConfirmed) {
     await deleteProduct(productId)
   }
 }

@@ -1205,12 +1205,13 @@ import {
   InformationCircleIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
-import Swal from 'sweetalert2'
 import { useProfiles, type ProfilePost, type PostComment, type ProfileReview } from '~/composables/useProfiles'
 import { useAuth } from '~/composables/useAuth'
+import { useAlert } from '~/composables/useAlert'
 
 definePageMeta({ layout: false })
 
+const alert = useAlert()
 const route = useRoute()
 const username = computed(() => route.params.username as string)
 
@@ -1617,17 +1618,7 @@ function openPost(post: ProfilePost) {
 }
 
 async function confirmDeletePost(id: string) {
-  const result = await Swal.fire({
-    title: '¿Eliminar publicación?',
-    text: 'Esta acción no se puede deshacer.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#e53e3e',
-    cancelButtonColor: '#718096',
-    reverseButtons: true,
-  })
+  const result = await alert.confirm('Eliminar publicación', 'Esta acción no se puede deshacer.', 'Sí, eliminar', 'Cancelar')
   if (!result.isConfirmed) return
   if (selectedPost.value?.id === id) selectedPost.value = null
   await deletePost(id)
@@ -1728,7 +1719,8 @@ async function handleSubmitReview() {
 }
 
 async function handleDeleteReview(id: string) {
-  if (!confirm('¿Eliminar tu reseña?')) return
+  const result = await alert.confirm('Eliminar reseña', '¿Eliminar tu reseña?', 'Eliminar', 'Cancelar')
+  if (!result.isConfirmed) return
   await deleteReview(username.value, id)
   if (profile.value?.username) await fetchProfile(profile.value.username)
 }
@@ -1756,7 +1748,8 @@ async function handleSubmitResponse() {
 }
 
 async function handleDeleteResponse(reviewId: string) {
-  if (!confirm('¿Eliminar tu respuesta?')) return
+  const result = await alert.confirm('Eliminar respuesta', '¿Eliminar tu respuesta?', 'Eliminar', 'Cancelar')
+  if (!result.isConfirmed) return
   await deleteReviewResponse(reviewId)
 }
 

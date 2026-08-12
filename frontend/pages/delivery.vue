@@ -452,9 +452,11 @@ import {
   type DeliveryStatus, type InviteDriverPayload,
 } from '~/composables/useDelivery'
 import { useKyc } from '~/composables/useKyc'
+import { useAlert } from '~/composables/useAlert'
 
 definePageMeta({ middleware: 'auth' })
 
+const alert = useAlert()
 const {
   deliveries, drivers, stats, loading, loadingDrivers, error, totalCount,
   invitations,
@@ -526,7 +528,8 @@ async function saveDelivery() {
   } finally { savingDelivery.value = false }
 }
 async function confirmDeleteDelivery(id: string) {
-  if (confirm('¿Eliminar esta entrega?')) await deleteDelivery(id)
+  const res = await alert.confirm('Eliminar entrega', '¿Eliminar esta entrega?', 'Eliminar', 'Cancelar')
+  if (res.isConfirmed) await deleteDelivery(id)
 }
 
 // ── Assign Modal ──────────────────────────────────────────────────────────────
@@ -563,7 +566,8 @@ async function saveDriver() {
   } finally { savingDriver.value = false }
 }
 async function confirmDeleteDriver(id: string) {
-  if (confirm('¿Desactivar este repartidor?')) await deleteDriver(id)
+  const res = await alert.confirm('Desactivar repartidor', '¿Desactivar este repartidor?', 'Desactivar', 'Cancelar')
+  if (res.isConfirmed) await deleteDriver(id)
 }
 
 // ── Invite Modal ──────────────────────────────────────────────────────────────
@@ -594,7 +598,8 @@ async function sendInvite() {
   } finally { sendingInvite.value = false }
 }
 async function handleCancelInvitation(id: string) {
-  if (confirm('¿Cancelar esta invitación?')) await cancelInvitation(id)
+  const res = await alert.confirm('Cancelar invitación', '¿Cancelar esta invitación?', 'Sí, cancelar', 'No')
+  if (res.isConfirmed) await cancelInvitation(id)
 }
 
 onMounted(async () => {
