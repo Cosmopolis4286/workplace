@@ -61,15 +61,29 @@
           />
         </div>
 
-        <div v-if="item.status === 'PENDING' || item.status === 'IN_REVIEW'" class="px-6 py-4 bg-gray-50 flex flex-wrap items-center justify-end gap-3">
+        <!-- Ocultar/reactivar el servicio reportado: independiente del estado del
+             reporte en sí, para poder revertir una ocultación incluso si el
+             reporte ya se marcó resuelto/descartado. -->
+        <div v-if="item.entityType === 'SERVICE' && item.entityId" class="px-6 pb-4 flex justify-end">
           <button
-            v-if="item.entityType === 'SERVICE' && item.entityId"
+            v-if="serviceStatusById[item.id] !== 'INACTIVE'"
             class="px-4 py-2 border border-red-200 text-red-600 rounded-xl text-sm font-medium hover:bg-red-50 disabled:opacity-60"
             :disabled="hidingServiceId === item.id"
             @click="hideReportedService(item)"
           >
             {{ hidingServiceId === item.id ? 'Ocultando…' : 'Ocultar servicio' }}
           </button>
+          <button
+            v-else
+            class="px-4 py-2 border border-green-200 text-green-700 rounded-xl text-sm font-medium hover:bg-green-50 disabled:opacity-60"
+            :disabled="hidingServiceId === item.id"
+            @click="unhideReportedService(item)"
+          >
+            {{ hidingServiceId === item.id ? 'Reactivando…' : 'Reactivar servicio' }}
+          </button>
+        </div>
+
+        <div v-if="item.status === 'PENDING' || item.status === 'IN_REVIEW'" class="px-6 py-4 bg-gray-50 flex flex-wrap items-center justify-end gap-3">
           <button
             v-if="item.status === 'PENDING'"
             class="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-white"
@@ -118,6 +132,12 @@ const processingId = ref<string | null>(null)
 const hidingServiceId = ref<string | null>(null)
 const statusFilter = ref<ReportStatus | undefined>('PENDING')
 const notesDraft = reactive<Record<string, string>>({})
+// Estado del Service moderado, por reporte (keyed por report.id, no por
+// entityId, porque un mismo servicio puede tener varios reportes activos).
+// Se desconoce hasta la primera acción de este panel — GET /reports/admin
+// no incluye el estado del Service referenciado, así que por defecto se
+// asume visible (muestra "Ocultar", nunca "Reactivar" sin confirmarlo).
+const serviceStatusById = reactive<Record<string, 'ACTIVE' | 'PAUSED' | 'INACTIVE'>>({})
 
 const STATUS_FILTERS: { label: string; value: ReportStatus | undefined }[] = [
   { label: 'Pendientes', value: 'PENDING' },
@@ -170,12 +190,28 @@ async function setStatus(id: string, status: ReportStatus) {
 
 // Oculta el Service reportado (PATCH /services/:id/moderate) sin cerrar el
 // reporte en sí — el admin todavía decide por separado si marcarlo resuelto.
+// El proveedor NO puede reactivarlo por su cuenta (su propio toggle solo
+// alterna ACTIVE↔PAUSED, nunca sale de INACTIVE) — solo otro admin puede,
+// desde este mismo panel con "Reactivar servicio".
 async function hideReportedService(item: Report) {
   if (!item.entityId) return
-  if (!confirm('¿Ocultar este servicio del catálogo? El proveedor deberá reactivarlo manualmente tras revisar el reporte.')) return
+  if (!confirm('¿Ocultar este servicio del catálogo? El proveedor NO podrá reactivarlo por su cuenta — solo un admin podrá revertirlo desde este panel.')) return
   hidingServiceId.value = item.id
   try {
-    await apiPatch(`/services/${item.entityId}/moderate`, { hide: true })
+    const service = await apiPatch<{ status: 'ACTIVE' | 'PAUSED' | 'INACTIVE' }>(`/services/${item.entityId}/moderate`, { hide: true })
+    serviceStatusById[item.id] = service.status
+  } finally {
+    hidingServiceId.value = null
+  }
+}
+
+async function unhideReportedService(item: Report) {
+  if (!item.entityId) return
+  if (!confirm('¿Reactivar este servicio? Volverá a ser visible en el catálogo.')) return
+  hidingServiceId.value = item.id
+  try {
+    const service = await apiPatch<{ status: 'ACTIVE' | 'PAUSED' | 'INACTIVE' }>(`/services/${item.entityId}/moderate`, { hide: false })
+    serviceStatusById[item.id] = service.status
   } finally {
     hidingServiceId.value = null
   }
