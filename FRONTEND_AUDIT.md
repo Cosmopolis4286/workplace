@@ -86,10 +86,18 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       sigue pidiendo un UUID tecleado a mano sin resolver/mostrar el nombre del destinatario — no
       existe ningún endpoint de "buscar usuario por ID" accesible desde este composable. Si se
       prioriza, requiere un endpoint nuevo tipo `GET /users/:id/public` (nombre + avatar, sin PII).
-- [ ] **`components/modals/ServiceRequestDetailModal.vue`** — `confirmCompletion` (libera el escrow
-      al proveedor) y `doStatusChange('REJECTED')` sin guard de reentrada; "Rechazar solicitud" no
-      tiene confirmación (a diferencia de "Cancelar", que sí la tiene con el mismo patrón
-      `confirmingCancel`).
+- [x] **`components/modals/ServiceRequestDetailModal.vue`** — `confirmCompletion` (libera el escrow
+      al proveedor) y `doStatusChange` no tenían guard de reentrada. Corregido con un early-return de
+      una línea en cada función. **Aplicado en el working tree, sin commitear todavía**: este archivo
+      tiene ~280 líneas de trabajo en curso sin commitear de otra sesión en paralelo (feature de
+      propuestas de cambio de precio, que además depende de un modelo Prisma aún no migrado —
+      `serviceRequestPriceChangeProposal` no existe todavía en el cliente generado, el backend no
+      compila en este momento). Commitear el modal solo, sin el composable/DTOs nuevos que también
+      están sin trackear, dejaría el repo en un estado roto — se espera a que esa sesión estabilice
+      su feature para que ambos cambios viajen juntos.
+      **No resuelto**: "Rechazar solicitud" (`doStatusChange('REJECTED')`) sigue sin confirmación —
+      separarlo del `v-for` genérico de `nextActions` requiere un cambio más grande en la misma zona
+      del template donde la otra sesión está trabajando activamente.
 - [ ] **`pages/expenses.vue`** — `markPaid` (marca un gasto como pagado, afecta reportes financieros)
       sin confirmación ni loading, a diferencia de "Eliminar gasto" que sí las tiene.
 - [ ] **`pages/commissions.vue`** — eliminar un override de comisión (afecta cuánto se cobra a un
