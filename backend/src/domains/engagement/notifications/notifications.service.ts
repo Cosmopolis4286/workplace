@@ -453,6 +453,80 @@ export class NotificationsService {
     });
   }
 
+  async notifyPriceChangeProposed(
+    clientId: string,
+    providerName: string,
+    serviceName: string,
+    deltaAmount: number
+  ) {
+    return this.createForUser(clientId, {
+      type: NotificationType.SYSTEM,
+      title: '📋 Nueva propuesta de aumento de precio',
+      message: `${providerName} propuso agregar ítems a "${serviceName}" por un aumento de $${deltaAmount.toFixed(2)}. Revisa y aprueba o rechaza la propuesta.`,
+      link: '/service-requests',
+      metadata: { providerName, serviceName, deltaAmount },
+    });
+  }
+
+  async notifyPriceChangeApproved(
+    providerId: string,
+    clientName: string,
+    serviceName: string,
+    deltaAmount: number
+  ) {
+    return this.createForUser(providerId, {
+      type: NotificationType.SYSTEM,
+      title: '✅ Aumento de precio aprobado',
+      message: `${clientName} aprobó tu propuesta de aumento de $${deltaAmount.toFixed(2)} para "${serviceName}".`,
+      link: '/service-requests',
+      metadata: { clientName, serviceName, deltaAmount },
+    });
+  }
+
+  async notifyPriceChangeRejected(
+    providerId: string,
+    clientName: string,
+    serviceName: string,
+    deltaAmount: number,
+    reason?: string
+  ) {
+    return this.createForUser(providerId, {
+      type: NotificationType.SYSTEM,
+      title: '❌ Aumento de precio rechazado',
+      message: `${clientName} rechazó tu propuesta de aumento de $${deltaAmount.toFixed(2)} para "${serviceName}".${reason ? ` Motivo: ${reason}` : ''}`,
+      link: '/service-requests',
+      metadata: { clientName, serviceName, deltaAmount, reason },
+    });
+  }
+
+  async notifyPriceChangeApprovedPendingFunds(
+    clientId: string,
+    providerName: string,
+    serviceName: string,
+    deltaAmount: number
+  ) {
+    return this.createForUser(clientId, {
+      type: NotificationType.SYSTEM,
+      title: '⚠️ Carga saldo para completar el aumento aprobado',
+      message: `Aprobaste un aumento de $${deltaAmount.toFixed(2)} para "${serviceName}" pero no hay saldo suficiente en tu billetera. Carga saldo para retener la garantía.`,
+      link: '/wallet',
+      metadata: { providerName, serviceName, deltaAmount },
+    });
+  }
+
+  async notifyPriceChangeProposalInvalidated(
+    providerId: string,
+    serviceName: string
+  ) {
+    return this.createForUser(providerId, {
+      type: NotificationType.SYSTEM,
+      title: 'Propuesta de aumento invalidada',
+      message: `Tu propuesta de aumento para "${serviceName}" quedó invalidada porque la solicitud cambió de estado.`,
+      link: '/service-requests',
+      metadata: { serviceName },
+    });
+  }
+
   async notifyFreelancerApplicationReviewed(
     userId: string,
     status: 'APPROVED' | 'REJECTED',

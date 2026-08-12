@@ -29,6 +29,8 @@ import { QueryServicesDto } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { UpdateServiceRequestDto } from './dto/update-service-request.dto';
+import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
+import { RejectPriceChangeProposalDto } from './dto/reject-price-change-proposal.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -311,6 +313,40 @@ export class ServicesController {
   @UseGuards(JwtAuthGuard)
   cancelRequest(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.cancelServiceRequest(id, user.id);
+  }
+
+  // ─── Price change proposals ───────────────────────────────────────────────
+
+  @Post('requests/:id/price-change-proposals')
+  @UseGuards(JwtAuthGuard)
+  proposePriceChange(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: CreatePriceChangeProposalDto
+  ) {
+    return this.servicesService.proposePriceChange(id, user.id, dto);
+  }
+
+  @Get('requests/:id/price-change-proposals')
+  @UseGuards(JwtAuthGuard)
+  listPriceChangeProposals(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.servicesService.listPriceChangeProposals(id, user.id);
+  }
+
+  @Post('requests/:id/price-change-proposals/:proposalId/approve')
+  @UseGuards(JwtAuthGuard)
+  approvePriceChangeProposal(@Param('proposalId') proposalId: string, @CurrentUser() user: any) {
+    return this.servicesService.approvePriceChangeProposal(proposalId, user.id);
+  }
+
+  @Post('requests/:id/price-change-proposals/:proposalId/reject')
+  @UseGuards(JwtAuthGuard)
+  rejectPriceChangeProposal(
+    @Param('proposalId') proposalId: string,
+    @CurrentUser() user: any,
+    @Body() dto: RejectPriceChangeProposalDto
+  ) {
+    return this.servicesService.rejectPriceChangeProposal(proposalId, user.id, dto.reason);
   }
 
   // ─── Categories (admin) ───────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
+import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
@@ -763,6 +764,21 @@ export class ServicesService {
           .notifyServiceRequestRejected(req.requesterId, req.providerName, req.serviceName)
           .catch(() => {});
       }
+
+      // Cualquier propuesta de aumento aún pendiente de respuesta del cliente deja de
+      // tener sentido si la solicitud llega a un estado terminal — invalidarla evita
+      // que el cliente apruebe un aumento sobre un trato ya cerrado/cancelado/rechazado.
+      if (ServicesService.TERMINAL_STATUSES.includes(data.status)) {
+        const invalidated = await this.prisma.serviceRequestPriceChangeProposal.updateMany({
+          where: { serviceRequestId: id, status: 'PENDING' },
+          data: { status: 'INVALIDATED', resolvedAt: new Date() },
+        });
+        if (invalidated.count > 0) {
+          this.notifications
+            .notifyPriceChangeProposalInvalidated(req.providerId, req.serviceName)
+            .catch(() => {});
+        }
+      }
     }
 
     return updated;
@@ -910,11 +926,57 @@ export class ServicesService {
   // Reintenta la retención de garantía para una solicitud puntual que quedó en
   // PENDING_FUNDS. No-op si ya no está pendiente (otro reintento la resolvió
   // primero) — hace que llamar esto en paralelo desde el hook y el cron sea seguro.
+  //
+  // PENDING_FUNDS puede significar dos cosas distintas y hay que desambiguar antes
+  // de reintentar: (a) la retención INICIAL nunca se completó (camino de siempre,
+  // reintenta con req.escrowAmount = req.price completo), o (b) una propuesta de
+  // aumento de precio ya fue APROBADA por el cliente pero no había saldo para el
+  // delta (queda en ServiceRequestPriceChangeProposal.status='APPROVED_PENDING_FUNDS'
+  // — ver approvePriceChangeProposal). En ese segundo caso solo se reintenta el
+  // delta, no el precio total, o se duplicaría la retención ya existente.
   private async retryPendingEscrow(requestId: string): Promise<boolean> {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id: requestId } });
-    if (!req || req.escrowStatus !== 'PENDING_FUNDS' || !req.requesterId || !req.escrowAmount) {
+    if (!req || req.escrowStatus !== 'PENDING_FUNDS' || !req.requesterId) {
       return false;
     }
+
+    const pendingProposal = await this.prisma.serviceRequestPriceChangeProposal.findFirst({
+      where: { serviceRequestId: requestId, status: 'APPROVED_PENDING_FUNDS' },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (pendingProposal) {
+      try {
+        await this.wallets.holdEscrow(
+          req.requesterId,
+          pendingProposal.deltaAmount,
+          req.id,
+          pendingProposal.escrowReference ?? `ESCROW-HOLD-INCREASE-${pendingProposal.id}`
+        );
+      } catch {
+        return false;
+      }
+      await this.prisma.$transaction([
+        this.prisma.serviceRequest.update({
+          where: { id: req.id },
+          data: {
+            escrowStatus: 'HELD',
+            price: req.price! + pendingProposal.deltaAmount,
+            escrowAmount: (req.escrowAmount ?? 0) + pendingProposal.deltaAmount,
+          },
+        }),
+        this.prisma.serviceRequestPriceChangeProposal.update({
+          where: { id: pendingProposal.id },
+          data: { status: 'APPROVED' },
+        }),
+      ]);
+      this.notifications
+        .notifyPriceChangeApproved(req.providerId, req.clientName, req.serviceName, pendingProposal.deltaAmount)
+        .catch(() => {});
+      return true;
+    }
+
+    if (!req.escrowAmount) return false;
     try {
       await this.wallets.holdEscrow(req.requesterId, req.escrowAmount, req.id);
     } catch {
@@ -960,6 +1022,213 @@ export class ServicesService {
       if (await this.retryPendingEscrow(id)) resolved++;
     }
     return { checked: pending.length, resolved };
+  }
+
+  // ─── Price change proposals ───────────────────────────────────────────────
+  // El proveedor propone agregar ítems/aumentar el precio de una solicitud ya
+  // en curso (CONTACTED); requiere aprobación explícita del cliente antes de
+  // tocar el escrow — nunca se autoaplica. Ver plan en playful-dreaming-bunny.md.
+
+  // Solo el proveedor propietario puede proponer, y solo mientras la solicitud
+  // está CONTACTED — antes de eso el precio base sigue negociándose libremente
+  // vía updateServiceRequest; después (CLOSED/CANCELLED/REJECTED) ya no aplica.
+  async proposePriceChange(serviceRequestId: string, providerId: string, dto: CreatePriceChangeProposalDto) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id: serviceRequestId } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.providerId !== providerId) throw new ForbiddenException('No tienes permiso');
+    if (req.status !== 'CONTACTED') {
+      throw new BadRequestException('Solo puedes proponer un aumento de precio mientras la solicitud está en curso (contactada)');
+    }
+
+    const existingPending = await this.prisma.serviceRequestPriceChangeProposal.findFirst({
+      where: { serviceRequestId, status: 'PENDING' },
+    });
+    if (existingPending) {
+      throw new BadRequestException('Ya existe una propuesta de aumento pendiente de respuesta del cliente');
+    }
+
+    const previousPrice = req.price ?? 0;
+    const deltaAmount = dto.proposedPrice - previousPrice;
+    if (deltaAmount <= 0) {
+      throw new BadRequestException('El precio propuesto debe ser mayor al precio actual');
+    }
+
+    const proposal = await this.prisma.serviceRequestPriceChangeProposal.create({
+      data: {
+        serviceRequestId,
+        previousPrice,
+        proposedPrice: dto.proposedPrice,
+        deltaAmount,
+        note: dto.note,
+        proposedBy: providerId,
+        items: {
+          create: dto.items.map((item) => ({
+            fields: item.fields ?? {},
+            notes: item.notes,
+            photos: item.photos ?? [],
+            videos: item.videos ?? [],
+          })),
+        },
+      },
+      include: { items: true },
+    });
+
+    if (req.requesterId) {
+      this.notifications
+        .notifyPriceChangeProposed(req.requesterId, req.providerName, req.serviceName, deltaAmount)
+        .catch(() => {});
+    }
+
+    return proposal;
+  }
+
+  // Ambas partes de la solicitud pueden ver el historial completo de propuestas
+  // (trazabilidad de quién propuso/aprobó/rechazó y cuándo).
+  async listPriceChangeProposals(serviceRequestId: string, userId: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id: serviceRequestId } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.providerId !== userId && req.requesterId !== userId) {
+      throw new ForbiddenException('No tienes permiso');
+    }
+    return this.prisma.serviceRequestPriceChangeProposal.findMany({
+      where: { serviceRequestId },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // El cliente aprueba: retiene el DELTA en escrow (nunca el precio total, ya
+  // se retuvo antes) y, si tiene éxito, migra los ítems propuestos a
+  // ServiceRequestItem y actualiza price/escrowAmount juntos — cierra el bug
+  // de desincronización de escrow que motivó este feature (ver contexto del plan).
+  async approvePriceChangeProposal(proposalId: string, clientUserId: string) {
+    const proposal = await this.prisma.serviceRequestPriceChangeProposal.findUnique({
+      where: { id: proposalId },
+      include: { items: true, serviceRequest: true },
+    });
+    if (!proposal) throw new NotFoundException('Propuesta no encontrada');
+    if (proposal.status !== 'PENDING') {
+      throw new BadRequestException('Esta propuesta ya fue resuelta');
+    }
+    const req = proposal.serviceRequest;
+    if (req.requesterId !== clientUserId) throw new ForbiddenException('No tienes permiso');
+    if (req.status !== 'CONTACTED') {
+      throw new BadRequestException('La solicitud ya no está en un estado que permita aprobar esta propuesta');
+    }
+
+    // El fee de plataforma (si lo paga el cliente) también aplica sobre el
+    // delta aprobado, igual que ya aplica sobre el precio inicial en
+    // updateServiceRequest — mismo criterio, no se cobra aparte.
+    let deltaWithFee = proposal.deltaAmount;
+    const feeConfig = await this.platformFees.resolveFeeConfig('SERVICE_REQUEST', req.providerId);
+    if (feeConfig?.payer === 'CLIENT') {
+      const { feeAmount } = this.platformFees.calculateFee(proposal.deltaAmount, feeConfig);
+      deltaWithFee = proposal.deltaAmount + feeAmount;
+    }
+
+    const escrowReference = `ESCROW-HOLD-INCREASE-${proposal.id}`;
+
+    try {
+      await this.wallets.holdEscrow(clientUserId, deltaWithFee, req.id, escrowReference);
+    } catch (err) {
+      if (!(err instanceof InsufficientEscrowFundsError)) throw err;
+
+      await this.prisma.$transaction([
+        this.prisma.serviceRequestPriceChangeProposal.update({
+          where: { id: proposalId },
+          data: {
+            status: 'APPROVED_PENDING_FUNDS',
+            deltaAmount: deltaWithFee,
+            resolvedBy: clientUserId,
+            resolvedAt: new Date(),
+            escrowReference,
+          },
+        }),
+        this.prisma.serviceRequest.update({
+          where: { id: req.id },
+          data: { escrowStatus: 'PENDING_FUNDS' },
+        }),
+      ]);
+
+      this.notifications
+        .notifyPriceChangeApprovedPendingFunds(clientUserId, req.providerName, req.serviceName, deltaWithFee)
+        .catch(() => {});
+
+      return this.prisma.serviceRequestPriceChangeProposal.findUnique({ where: { id: proposalId }, include: { items: true } });
+    }
+
+    const existingMaxSortOrder = await this.prisma.serviceRequestItem.aggregate({
+      where: { serviceRequestId: req.id },
+      _max: { sortOrder: true },
+    });
+    let nextSortOrder = (existingMaxSortOrder._max.sortOrder ?? -1) + 1;
+
+    await this.prisma.$transaction([
+      this.prisma.serviceRequest.update({
+        where: { id: req.id },
+        data: {
+          price: (req.price ?? 0) + deltaWithFee,
+          escrowAmount: (req.escrowAmount ?? 0) + deltaWithFee,
+          ...(feeConfig?.payer === 'CLIENT'
+            ? { platformFeeAmount: (req.platformFeeAmount ?? 0) + (deltaWithFee - proposal.deltaAmount) }
+            : {}),
+        },
+      }),
+      this.prisma.serviceRequestPriceChangeProposal.update({
+        where: { id: proposalId },
+        data: {
+          status: 'APPROVED',
+          deltaAmount: deltaWithFee,
+          resolvedBy: clientUserId,
+          resolvedAt: new Date(),
+          escrowReference,
+        },
+      }),
+      ...proposal.items.map((item) =>
+        this.prisma.serviceRequestItem.create({
+          data: {
+            serviceRequestId: req.id,
+            fields: item.fields as any,
+            notes: item.notes,
+            photos: item.photos,
+            videos: item.videos,
+            sortOrder: nextSortOrder++,
+          },
+        })
+      ),
+    ]);
+
+    this.notifications
+      .notifyPriceChangeApproved(req.providerId, req.clientName, req.serviceName, deltaWithFee)
+      .catch(() => {});
+
+    return this.prisma.serviceRequestPriceChangeProposal.findUnique({ where: { id: proposalId }, include: { items: true } });
+  }
+
+  // El cliente rechaza: no se toca price/escrow/items, solo queda registrada
+  // la propuesta como REJECTED para auditoría.
+  async rejectPriceChangeProposal(proposalId: string, clientUserId: string, reason?: string) {
+    const proposal = await this.prisma.serviceRequestPriceChangeProposal.findUnique({
+      where: { id: proposalId },
+      include: { serviceRequest: true },
+    });
+    if (!proposal) throw new NotFoundException('Propuesta no encontrada');
+    if (proposal.status !== 'PENDING') {
+      throw new BadRequestException('Esta propuesta ya fue resuelta');
+    }
+    const req = proposal.serviceRequest;
+    if (req.requesterId !== clientUserId) throw new ForbiddenException('No tienes permiso');
+
+    const updated = await this.prisma.serviceRequestPriceChangeProposal.update({
+      where: { id: proposalId },
+      data: { status: 'REJECTED', resolvedBy: clientUserId, resolvedAt: new Date(), rejectionReason: reason },
+    });
+
+    this.notifications
+      .notifyPriceChangeRejected(req.providerId, req.clientName, req.serviceName, proposal.deltaAmount, reason)
+      .catch(() => {});
+
+    return updated;
   }
 
   // ─── Admin (solo lectura) ─────────────────────────────────────────────────

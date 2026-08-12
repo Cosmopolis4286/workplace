@@ -560,7 +560,10 @@ export class WalletsService {
   // Lanza BadRequestException si el cliente no tiene saldo suficiente — el
   // caller (services.service.ts) es responsable de dejar la solicitud en
   // escrowStatus=PENDING_FUNDS y disparar la notificación/reintento.
-  async holdEscrow(clientUserId: string, amount: number, serviceRequestId: string) {
+  // `referenceOverride` permite distinguir en el libro de movimientos una
+  // retención inicial (ESCROW-HOLD-{id}) de un aumento de precio aprobado
+  // (ESCROW-HOLD-INCREASE-{proposalId}) — ver ServicesService.approvePriceChangeProposal.
+  async holdEscrow(clientUserId: string, amount: number, serviceRequestId: string, referenceOverride?: string) {
     this.assertPositiveAmount(amount);
     const { wallet: clientWallet } = await this.getActiveWallet(clientUserId);
     if (clientWallet.balance < amount) {
@@ -569,7 +572,7 @@ export class WalletsService {
 
     const systemUserId = await this.ensureEscrowSystemUserId();
     const systemWallet = await this.ensureWalletForUser(systemUserId);
-    const ref = `ESCROW-HOLD-${serviceRequestId}`;
+    const ref = referenceOverride ?? `ESCROW-HOLD-${serviceRequestId}`;
 
     return this.prisma.$transaction(async (tx) => {
       const [clientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
