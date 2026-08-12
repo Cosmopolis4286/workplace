@@ -726,6 +726,12 @@ export class WalletsService {
     this.assertAdmin(actorRole);
     const { wallet } = await this.getActiveWallet(targetUserId);
     this.assertPositiveAmount(dto.amount);
+    // El motivo es obligatorio: un ajuste manual mueve dinero real sin que
+    // medie una transacción de negocio (orden, escrow, etc.) — sin motivo
+    // registrado, auditar por qué se movió queda imposible después.
+    if (!dto.description?.trim()) {
+      throw new BadRequestException('El motivo del ajuste es obligatorio');
+    }
 
     const isCredit  = dto.type === WalletTransactionType.CREDIT;
     const newBalance = isCredit ? wallet.balance + dto.amount : wallet.balance - dto.amount;
@@ -740,7 +746,7 @@ export class WalletsService {
           type: WalletTransactionType.ADJUSTMENT,
           status: WalletTransactionStatus.COMPLETED,
           amount: dto.amount, balanceAfter: newBalance,
-          description: dto.description ?? `Ajuste manual por admin`,
+          description: dto.description.trim(),
           metadata: { adminId: actorId, ...dto.metadata },
         },
       });
