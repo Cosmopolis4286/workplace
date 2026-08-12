@@ -1670,6 +1670,7 @@ model ServiceRequest {
   items             ServiceRequestItem[]
   statusHistory     ServiceRequestStatusHistory[]
   messages          ServiceRequestMessage[]
+  priceChangeProposals ServiceRequestPriceChangeProposal[]
   createdAt         DateTime                      @default(now())
   updatedAt         DateTime                      @updatedAt
 
@@ -1721,6 +1722,60 @@ model ServiceRequestStatusHistory {
   @@index([serviceRequestId])
   @@index([createdAt(sort: Desc)])
   @@map("service_request_status_history")
+}
+
+enum ServiceRequestProposalStatus {
+  PENDING
+  APPROVED
+  APPROVED_PENDING_FUNDS
+  REJECTED
+  INVALIDATED
+}
+
+// Propuesta del proveedor de agregar ítems/aumentar el precio de una
+// ServiceRequest ya en curso (status=CONTACTED). Requiere aprobación
+// explícita del cliente antes de tocar el escrow — nunca se autoaplica.
+// Ver ServicesService.approvePriceChangeProposal.
+model ServiceRequestPriceChangeProposal {
+  id               String                        @id @default(uuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest                @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  status           ServiceRequestProposalStatus  @default(PENDING)
+  previousPrice    Float
+  proposedPrice    Float
+  deltaAmount      Float
+  note             String?
+  proposedBy       String
+  resolvedBy       String?
+  resolvedAt       DateTime?
+  rejectionReason  String?
+  // reference usada en WalletsService.holdEscrow al aprobar (o al reintentar
+  // tras APPROVED_PENDING_FUNDS) — distinta de la retención inicial para que
+  // el libro de movimientos de la wallet no confunda ambos holds.
+  escrowReference  String?
+  items            ServiceRequestProposalItem[]
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+
+  @@index([serviceRequestId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("service_request_price_change_proposals")
+}
+
+model ServiceRequestProposalItem {
+  id         String                              @id @default(uuid())
+  proposalId String
+  proposal   ServiceRequestPriceChangeProposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  fields     Json                                 @default("{}")
+  notes      String?
+  photos     String[]                             @default([])
+  videos     String[]                             @default([])
+  sortOrder  Int                                  @default(0)
+  createdAt  DateTime                             @default(now())
+
+  @@index([proposalId])
+  @@map("service_request_proposal_items")
 }
 
 model ServiceRequestItem {
