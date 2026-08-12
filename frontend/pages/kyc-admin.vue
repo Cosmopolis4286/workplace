@@ -9,6 +9,13 @@
       :stats="headerStats"
     />
 
+    <div v-if="loadError" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+      <p class="text-red-700 text-sm">{{ loadError }}</p>
+      <button class="text-red-500 hover:text-red-700" @click="loadError = null">
+        <XMarkIcon class="h-4 w-4" />
+      </button>
+    </div>
+
     <div v-if="loading" class="space-y-3">
       <div v-for="i in 3" :key="i" class="h-24 bg-gray-100 rounded-2xl animate-pulse" />
     </div>
@@ -55,6 +62,15 @@
           />
         </div>
 
+        <div v-if="approvingId === item.id" class="px-6 pb-4">
+          <div class="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2">
+            <p class="text-xs text-amber-800 font-medium">
+              ¿Confirmas aprobar la identidad de <strong>{{ item.user?.firstName }} {{ item.user?.lastName }}</strong>?
+              Podrá operar como usuario verificado en la plataforma.
+            </p>
+          </div>
+        </div>
+
         <div class="px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
           <template v-if="rejectingId === item.id">
             <button class="btn-secondary text-sm" @click="rejectingId = null">Cancelar</button>
@@ -64,6 +80,16 @@
               @click="confirmReject(item.id)"
             >
               Confirmar rechazo
+            </button>
+          </template>
+          <template v-else-if="approvingId === item.id">
+            <button class="btn-secondary text-sm" :disabled="processingId === item.id" @click="approvingId = null">Cancelar</button>
+            <button
+              class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium disabled:opacity-60"
+              :disabled="processingId === item.id"
+              @click="confirmApprove(item.id)"
+            >
+              {{ processingId === item.id ? 'Procesando…' : 'Sí, aprobar' }}
             </button>
           </template>
           <template v-else>
@@ -77,9 +103,9 @@
             <button
               class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium disabled:opacity-60"
               :disabled="processingId === item.id"
-              @click="confirmApprove(item.id)"
+              @click="approvingId = item.id"
             >
-              {{ processingId === item.id ? 'Procesando…' : 'Aprobar' }}
+              Aprobar
             </button>
           </template>
         </div>
@@ -92,7 +118,7 @@
 definePageMeta({ middleware: ['auth'] })
 
 import { ref, computed, onMounted } from 'vue'
-import { CheckCircleIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useKyc, type IdentityVerification, type KycDocumentType } from '~/composables/useKyc'
 import KycImagePreview from '~/components/kyc/KycImagePreview.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
@@ -104,8 +130,10 @@ const { fetchPending, review } = useKyc()
 
 const items = ref<IdentityVerification[]>([])
 const loading = ref(true)
+const loadError = ref<string | null>(null)
 const processingId = ref<string | null>(null)
 const rejectingId = ref<string | null>(null)
+const approvingId = ref<string | null>(null)
 const rejectionReason = ref('')
 
 const headerStats = computed(() => [
@@ -124,9 +152,13 @@ async function load() {
 
 async function confirmApprove(id: string) {
   processingId.value = id
+  loadError.value = null
   try {
     await review(id, 'APPROVED')
     items.value = items.value.filter(i => i.id !== id)
+    approvingId.value = null
+  } catch (e: any) {
+    loadError.value = e?.data?.message ?? e?.message ?? 'Error al aprobar la verificación'
   } finally {
     processingId.value = null
   }
@@ -134,10 +166,13 @@ async function confirmApprove(id: string) {
 
 async function confirmReject(id: string) {
   processingId.value = id
+  loadError.value = null
   try {
     await review(id, 'REJECTED', rejectionReason.value.trim())
     items.value = items.value.filter(i => i.id !== id)
     rejectingId.value = null
+  } catch (e: any) {
+    loadError.value = e?.data?.message ?? e?.message ?? 'Error al rechazar la verificación'
   } finally {
     processingId.value = null
   }

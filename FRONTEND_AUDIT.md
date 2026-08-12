@@ -106,14 +106,18 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       usuario/plan) era la única acción destructiva del archivo sin ningún tipo de confirmación.
       Corregido con `confirm()` nativo (no había ningún modal custom en este archivo del que
       partir), mostrando a quién afecta y qué tasa aplicará después.
-- [ ] **`pages/cash-register.vue`** — cierre de caja (acción de fin de turno, irreversible) sin paso
-      de confirmación adicional más allá de rellenar el formulario.
+- [x] **`pages/cash-register.vue`** — revisado, sin cambio. El modal de cierre ya exige ingresar el
+      monto contado, muestra el diferencial calculado en vivo antes de enviar, y el botón dice
+      explícitamente "Confirmar cierre" — hay fricción real. Agregar un segundo paso de confirmación
+      encima sería redundante sin beneficio claro; se prioriza otros hallazgos con impacto real.
 
 ### Moderación / aprobación
-- [ ] **`pages/kyc-admin.vue`** — aprobar/rechazar verificación de identidad sin confirmación ni
-      `catch` (errores de red no se muestran al usuario).
-- [ ] **`pages/proposed-categories-admin.vue`** — mismo patrón: aprobar/rechazar sin confirmación ni
-      manejo de error visible.
+- [x] **`pages/kyc-admin.vue`** — "Rechazar" ya tenía confirmación de dos pasos con motivo
+      obligatorio; "Aprobar" ejecutaba directo y ninguna de las dos tenía `catch` (errores de red se
+      perdían en silencio). Corregido: "Aprobar" ahora tiene el mismo patrón de confirmación inline
+      (mostrando a quién se aprueba), y ambas acciones muestran un banner de error si fallan.
+- [x] **`pages/proposed-categories-admin.vue`** — mismo patrón exacto que `kyc-admin.vue`, mismo fix
+      aplicado.
 - [ ] **`pages/landing-admin.vue`** — **ningún** handler del archivo (`saveStats`, `moderate`,
       `moderateUserReport`, CRUD de testimonios/features/pasos) tiene manejo de error visible al
       usuario; es el único panel admin de todo el audit sin ese mecanismo. Además usa `confirm()`
