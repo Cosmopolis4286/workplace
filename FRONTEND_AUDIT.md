@@ -98,8 +98,10 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       **No resuelto**: "Rechazar solicitud" (`doStatusChange('REJECTED')`) sigue sin confirmación —
       separarlo del `v-for` genérico de `nextActions` requiere un cambio más grande en la misma zona
       del template donde la otra sesión está trabajando activamente.
-- [ ] **`pages/expenses.vue`** — `markPaid` (marca un gasto como pagado, afecta reportes financieros)
-      sin confirmación ni loading, a diferencia de "Eliminar gasto" que sí las tiene.
+- [x] **`pages/expenses.vue`** — `markPaid` (marca un gasto como pagado, afecta reportes financieros)
+      se ejecutaba sin confirmación ni loading, a diferencia de "Eliminar gasto" que sí las tenía.
+      Corregido: se agregó un modal de confirmación (mismo patrón `TransitionRoot`/`Dialog` que ya
+      usaba "Eliminar gasto") con guard de reentrada y estado de carga.
 - [ ] **`pages/commissions.vue`** — eliminar un override de comisión (afecta cuánto se cobra a un
       usuario/plan) es la única acción destructiva del archivo sin ningún tipo de confirmación.
 - [ ] **`pages/cash-register.vue`** — cierre de caja (acción de fin de turno, irreversible) sin paso

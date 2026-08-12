@@ -168,7 +168,7 @@
                   v-if="expense.status === 'PENDING'"
                   class="p-1.5 rounded hover:bg-green-50 text-green-600"
                   title="Marcar como pagado"
-                  @click="markPaid(expense.id)"
+                  @click="expenseToMarkPaid = expense"
                 >
                   <CheckIcon class="h-4 w-4" />
                 </button>
@@ -295,6 +295,28 @@
         </div>
       </Dialog>
     </TransitionRoot>
+
+    <!-- Mark as paid confirmation -->
+    <TransitionRoot appear :show="!!expenseToMarkPaid" as="template">
+      <Dialog as="div" class="relative z-50" @close="expenseToMarkPaid = null">
+        <div class="fixed inset-0 bg-black/25" />
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <DialogTitle class="text-lg font-semibold text-gray-900 mb-2">Marcar como pagado</DialogTitle>
+            <p class="text-sm text-gray-600 mb-5">
+              ¿Marcar "<strong>{{ expenseToMarkPaid?.description }}</strong>" como pagado? Afecta los
+              reportes financieros del período.
+            </p>
+            <div class="flex justify-end gap-3">
+              <button class="btn-secondary" :disabled="markingPaid" @click="expenseToMarkPaid = null">Cancelar</button>
+              <button class="btn-primary" :disabled="markingPaid" @click="doMarkPaid">
+                {{ markingPaid ? 'Guardando…' : 'Marcar como pagado' }}
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+    </TransitionRoot>
   </div>
 </template>
 
@@ -401,6 +423,7 @@ function categorySpend(categoryId: string) {
 const showExpenseModal = ref(false)
 const selectedExpense  = ref<Expense | null>(null)
 const expenseToDelete  = ref<Expense | null>(null)
+const expenseToMarkPaid = ref<Expense | null>(null)
 
 function openCreate() {
   selectedExpense.value  = null
@@ -426,8 +449,17 @@ async function handleSave(payload: any) {
   closeModal()
 }
 
-async function markPaid(id: string) {
-  await updateExpenseStatus(id, 'PAID')
+const markingPaid = ref(false)
+
+async function doMarkPaid() {
+  if (!expenseToMarkPaid.value || markingPaid.value) return
+  markingPaid.value = true
+  try {
+    await updateExpenseStatus(expenseToMarkPaid.value.id, 'PAID')
+    expenseToMarkPaid.value = null
+  } finally {
+    markingPaid.value = false
+  }
 }
 
 function confirmDelete(expense: Expense) {
