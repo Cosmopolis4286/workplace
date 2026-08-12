@@ -366,6 +366,8 @@ async function handleCreateOverride() {
 }
 
 async function handleDeleteOverride(ov: PlatformFeeOverride) {
+  const target = ov.user ? `${ov.user.firstName} ${ov.user.lastName}` : ov.plan?.name ?? 'esta excepción'
+  if (!confirm(`¿Eliminar la excepción de comisión de ${target}? A partir de ahora se le cobrará la tasa global (${FEE_TYPE_LABELS[ov.type]}).`)) return
   try {
     await deleteOverride(ov.id)
     overrides.value = overrides.value.filter(o => o.id !== ov.id)
