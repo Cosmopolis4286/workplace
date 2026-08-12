@@ -118,13 +118,33 @@
               </select>
               <input v-model.number="adjustAmount" type="number" min="0.01" step="0.01" placeholder="Monto" class="input flex-1" />
             </div>
-            <input v-model="adjustDescription" type="text" placeholder="Motivo del ajuste" class="input w-full" />
+            <input v-model="adjustDescription" type="text" placeholder="Motivo del ajuste (obligatorio)" class="input w-full" />
+
+            <div v-if="confirmingAdjust" class="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2">
+              <p class="text-xs text-amber-800 font-medium">
+                ¿Confirmas {{ adjustType === 'CREDIT' ? 'acreditar' : 'debitar' }}
+                <strong>{{ formatMoney(adjustAmount ?? 0, selected.currency) }}</strong>
+                {{ adjustType === 'CREDIT' ? 'a' : 'de' }} la billetera de
+                <strong>{{ selected.user?.firstName }} {{ selected.user?.lastName }}</strong>?
+              </p>
+              <div class="flex justify-end gap-2">
+                <button class="btn-secondary text-xs py-1.5 px-3" :disabled="actionLoading" @click="confirmingAdjust = false">Cancelar</button>
+                <button
+                  class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-workplace-red text-white hover:bg-red-700 disabled:opacity-60"
+                  :disabled="actionLoading"
+                  @click="doAdjust"
+                >
+                  {{ actionLoading ? 'Procesando…' : 'Sí, aplicar ajuste' }}
+                </button>
+              </div>
+            </div>
             <button
+              v-else
               class="w-full px-3 py-2 bg-workplace-red hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60"
-              :disabled="actionLoading || !adjustAmount"
-              @click="doAdjust"
+              :disabled="actionLoading || !adjustAmount || !adjustDescription.trim()"
+              @click="confirmingAdjust = true"
             >
-              {{ actionLoading ? 'Procesando…' : 'Aplicar ajuste' }}
+              Aplicar ajuste
             </button>
           </div>
 
@@ -182,6 +202,7 @@ const actionError = ref('')
 const adjustType = ref<'CREDIT' | 'DEBIT'>('CREDIT')
 const adjustAmount = ref<number | undefined>(undefined)
 const adjustDescription = ref('')
+const confirmingAdjust = ref(false)
 
 function openDetail(w: Wallet) {
   selected.value = w
@@ -189,6 +210,7 @@ function openDetail(w: Wallet) {
   adjustType.value = 'CREDIT'
   adjustAmount.value = undefined
   adjustDescription.value = ''
+  confirmingAdjust.value = false
 }
 
 async function doFreeze() {
@@ -212,13 +234,14 @@ async function doUnfreeze() {
 }
 
 async function doAdjust() {
-  if (!selected.value || !adjustAmount.value) return
+  if (!selected.value || !adjustAmount.value || !adjustDescription.value.trim()) return
   actionLoading.value = true; actionError.value = ''
   try {
-    const { wallet } = await adjustUserBalance(selected.value.userId, adjustType.value, adjustAmount.value, adjustDescription.value || undefined)
+    const { wallet } = await adjustUserBalance(selected.value.userId, adjustType.value, adjustAmount.value, adjustDescription.value.trim())
     applyUpdate(wallet)
     adjustAmount.value = undefined
     adjustDescription.value = ''
+    confirmingAdjust.value = false
   } catch (e: any) { actionError.value = e?.data?.message ?? e?.message ?? 'Error al ajustar el saldo' }
   finally { actionLoading.value = false }
 }
