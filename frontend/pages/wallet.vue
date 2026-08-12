@@ -272,17 +272,6 @@
           </div>
         </div>
 
-        <!-- Admin panel -->
-        <div v-if="isAdmin" class="card p-5">
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Administración</h3>
-          <div class="space-y-2 text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded-xl p-3 font-mono">
-            <p>GET  /wallets</p>
-            <p>POST /wallets/users/:id</p>
-            <p>POST /wallets/users/:id/adjust</p>
-            <p>POST /wallets/users/:id/freeze</p>
-            <p>POST /wallets/users/:id/unfreeze</p>
-          </div>
-        </div>
       </aside>
     </div>
 
@@ -330,12 +319,24 @@
               <ModalHeader icon-class="bg-red-100" icon-color="text-red-700" title="Retirar fondos" :subtitle="`Disponible: ${formatMoney(wallet?.balance ?? 0, wallet?.currency)}`">
                 <template #icon><ArrowUpTrayIcon class="h-5 w-5" /></template>
               </ModalHeader>
-              <form class="space-y-4" @submit.prevent="handleWithdraw">
+              <form class="space-y-4" @submit.prevent="confirmingWithdraw = true">
                 <AmountField v-model="form.amount" :currency="wallet?.currency" :max="wallet?.balance" />
                 <div><label class="field-label">Descripción</label><input v-model="form.description" type="text" class="input" placeholder="Ej. Retiro a cuenta bancaria" /></div>
                 <PinField v-model="form.pin" />
+                <div v-if="confirmingWithdraw" class="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2">
+                  <p class="text-xs text-amber-800 font-medium">
+                    ¿Confirmas retirar <strong>{{ formatMoney(form.amount ?? 0, wallet?.currency) }}</strong>?
+                    Esta acción no se puede deshacer.
+                  </p>
+                  <div class="flex justify-end gap-2">
+                    <button type="button" class="btn-secondary text-xs py-1.5 px-3" :disabled="loading" @click="confirmingWithdraw = false">Cancelar</button>
+                    <button type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-workplace-red text-white hover:bg-red-700 disabled:opacity-60" :disabled="loading" @click="handleWithdraw">
+                      {{ loading ? 'Procesando…' : 'Sí, retirar' }}
+                    </button>
+                  </div>
+                </div>
                 <ModalError :message="modalError" />
-                <ModalActions :loading="loading" confirm-label="Retirar" @cancel="closeModal" />
+                <ModalActions v-if="!confirmingWithdraw" :loading="loading" confirm-label="Retirar" @cancel="closeModal" />
               </form>
             </template>
 
@@ -344,13 +345,30 @@
               <ModalHeader icon-class="bg-blue-100" icon-color="text-blue-700" title="Transferir fondos" :subtitle="`Disponible: ${formatMoney(wallet?.balance ?? 0, wallet?.currency)}`">
                 <template #icon><ArrowsRightLeftIcon class="h-5 w-5" /></template>
               </ModalHeader>
-              <form class="space-y-4" @submit.prevent="handleTransfer">
-                <div><label class="field-label">ID del destinatario *</label><input v-model="form.recipientUserId" type="text" class="input font-mono text-sm" placeholder="UUID del usuario" required /></div>
+              <form class="space-y-4" @submit.prevent="confirmingTransfer = true">
+                <div>
+                  <label class="field-label">ID del destinatario *</label>
+                  <input v-model="form.recipientUserId" type="text" class="input font-mono text-sm" placeholder="UUID del usuario" required />
+                  <p class="mt-1 text-xs text-amber-600">Verifica cuidadosamente el ID — una transferencia a un ID incorrecto no se puede revertir.</p>
+                </div>
                 <AmountField v-model="form.amount" :currency="wallet?.currency" :max="wallet?.balance" />
                 <div><label class="field-label">Descripción</label><input v-model="form.description" type="text" class="input" placeholder="Motivo de la transferencia" /></div>
                 <PinField v-model="form.pin" />
+                <div v-if="confirmingTransfer" class="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2">
+                  <p class="text-xs text-amber-800 font-medium">
+                    ¿Confirmas transferir <strong>{{ formatMoney(form.amount ?? 0, wallet?.currency) }}</strong> al ID
+                    <strong class="font-mono break-all">{{ form.recipientUserId }}</strong>?
+                    Esta acción no se puede deshacer.
+                  </p>
+                  <div class="flex justify-end gap-2">
+                    <button type="button" class="btn-secondary text-xs py-1.5 px-3" :disabled="loading" @click="confirmingTransfer = false">Cancelar</button>
+                    <button type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-workplace-red text-white hover:bg-red-700 disabled:opacity-60" :disabled="loading" @click="handleTransfer">
+                      {{ loading ? 'Procesando…' : 'Sí, transferir' }}
+                    </button>
+                  </div>
+                </div>
                 <ModalError :message="modalError" />
-                <ModalActions :loading="loading" confirm-label="Transferir" @cancel="closeModal" />
+                <ModalActions v-if="!confirmingTransfer" :loading="loading" confirm-label="Transferir" @cancel="closeModal" />
               </form>
             </template>
 
@@ -414,8 +432,6 @@ const {
 } = useWallets()
 
 const { create: createDepositRequest } = useWalletDepositRequests()
-
-const isAdmin = computed(() => ['SUPERADMIN', 'ADMIN'].includes(user.value?.role ?? ''))
 
 // ── Inline sub-components ────────────────────────────────────────────────────────
 const ModalHeader = defineComponent({
@@ -562,11 +578,15 @@ const form = ref({
   recipientUserId: '',
 })
 const proofImage = ref<File | null>(null)
+const confirmingWithdraw = ref(false)
+const confirmingTransfer = ref(false)
 
 function openModal(type: ModalType) {
   activeModal.value = type; modalError.value = null
   form.value = { amount: undefined, description: '', reference: '', paymentMethod: '', pin: '', pinConfirm: '', currentPin: '', recipientUserId: '' }
   proofImage.value = null
+  confirmingWithdraw.value = false
+  confirmingTransfer.value = false
 }
 function closeModal() { activeModal.value = null; modalError.value = null }
 
@@ -590,21 +610,21 @@ async function handleDepositRequest() {
 }
 
 async function handleWithdraw() {
-  if (!form.value.amount || !form.value.pin) return
+  if (!form.value.amount || !form.value.pin || loading.value) return
   modalError.value = null
   try {
     await withdraw({ amount: form.value.amount, pin: form.value.pin, description: form.value.description || undefined })
     closeModal(); showToast('success', `Retiro de ${formatMoney(form.value.amount, wallet.value?.currency)} realizado`)
-  } catch (e: any) { modalError.value = e?.message ?? 'Error al retirar' }
+  } catch (e: any) { modalError.value = e?.message ?? 'Error al retirar'; confirmingWithdraw.value = false }
 }
 
 async function handleTransfer() {
-  if (!form.value.amount || !form.value.recipientUserId || !form.value.pin) return
+  if (!form.value.amount || !form.value.recipientUserId || !form.value.pin || loading.value) return
   modalError.value = null
   try {
     await transfer({ recipientUserId: form.value.recipientUserId, amount: form.value.amount, pin: form.value.pin, description: form.value.description || undefined })
     closeModal(); showToast('success', `Transferencia de ${formatMoney(form.value.amount, wallet.value?.currency)} enviada`)
-  } catch (e: any) { modalError.value = e?.message ?? 'Error al transferir' }
+  } catch (e: any) { modalError.value = e?.message ?? 'Error al transferir'; confirmingTransfer.value = false }
 }
 
 async function handlePin() {

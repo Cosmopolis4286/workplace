@@ -76,10 +76,16 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
 ## 🟡 UX rota — acciones de dinero/irreversibles sin confirmación, loading o feedback de error
 
 ### Dinero
-- [ ] **`pages/wallet.vue`** — retiro y transferencia se ejecutan directo al enviar el formulario, sin
-      paso de confirmación con resumen (monto/tipo/destinatario). La transferencia además pide un
-      **UUID tecleado a mano** sin resolver/mostrar el nombre del destinatario antes de confirmar con
-      el PIN — alto riesgo de transferir a la persona equivocada por un error de tipeo.
+- [x] **`pages/wallet.vue`** — retiro y transferencia se ejecutaban directo al enviar el formulario,
+      sin paso de confirmación con resumen. Corregido: ambos ahora muestran un paso de confirmación
+      (monto, y en transferencia también el ID del destinatario) antes de ejecutar, con guard de
+      reentrada (`loading.value`) agregado a `handleWithdraw`/`handleTransfer`. También se eliminó el
+      bloque "Administración" que solo listaba rutas de API como texto estático sin funcionalidad
+      real (el panel admin real ya existe en `/wallets-admin`, corregido en una ronda anterior).
+      **No resuelto** (requiere backend nuevo, fuera de alcance de un fix de UX): la transferencia
+      sigue pidiendo un UUID tecleado a mano sin resolver/mostrar el nombre del destinatario — no
+      existe ningún endpoint de "buscar usuario por ID" accesible desde este composable. Si se
+      prioriza, requiere un endpoint nuevo tipo `GET /users/:id/public` (nombre + avatar, sin PII).
 - [ ] **`components/modals/ServiceRequestDetailModal.vue`** — `confirmCompletion` (libera el escrow
       al proveedor) y `doStatusChange('REJECTED')` sin guard de reentrada; "Rechazar solicitud" no
       tiene confirmación (a diferencia de "Cancelar", que sí la tiene con el mismo patrón
