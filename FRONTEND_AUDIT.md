@@ -118,10 +118,18 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       (mostrando a quién se aprueba), y ambas acciones muestran un banner de error si fallan.
 - [x] **`pages/proposed-categories-admin.vue`** — mismo patrón exacto que `kyc-admin.vue`, mismo fix
       aplicado.
-- [ ] **`pages/landing-admin.vue`** — **ningún** handler del archivo (`saveStats`, `moderate`,
-      `moderateUserReport`, CRUD de testimonios/features/pasos) tiene manejo de error visible al
-      usuario; es el único panel admin de todo el audit sin ese mecanismo. Además usa `confirm()`
-      nativo (inconsistente) y ningún botón de eliminar tiene loading state.
+- [x] **`pages/landing-admin.vue`** — ningún handler (`saveStats`, `moderate`, `moderateUserReport`,
+      CRUD de testimonios/features/pasos) tenía manejo de error visible; era el único panel admin de
+      todo el audit sin ese mecanismo. Corregido, **y además refactorizado**: las 3 secciones de CRUD
+      (testimonios/funciones/pasos) tenían la misma lógica de listar/crear/editar/eliminar/reordenar
+      triplicada casi al carácter — se extrajo a un composable genérico nuevo,
+      `composables/useLandingCrudSection.ts`, que unifica las tres. Cada sección ahora tiene manejo
+      de error consistente por construcción (viene del composable, no se puede olvidar en una
+      sección y no en otra). `stats`/`reportedReviews`/`userReports` no comparten esa forma (no
+      tienen modal de crear/editar) así que se les agregó `try/catch` con su propio `ref` de error
+      directamente, sin pasar por el composable. Verificado levantando el dev server y solicitando
+      la ruta — compila y sirve 200 sin errores (no hay `vue-tsc` funcional en este entorno para un
+      typecheck automatizado real, ver nota de tooling).
 - [ ] **`pages/service-categories-admin.vue`** — eliminar categoría/modalidad y toggle de modalidad
       sin `try/catch` ni loading state.
 
@@ -201,3 +209,13 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
 De mayor a menor impacto: 🟠 Bugs funcionales → 🟡 UX rota (dinero primero, luego moderación, luego
 otros) → 🟢 Mejoras/duplicación. La sección 🔴 ya está mitigada por el backend; se corrige como parte
 del trabajo de UX (ocultar en vez de solo confiar en el 403).
+
+## Nota de tooling
+
+`npx nuxt typecheck` (que internamente usa `vue-tsc`) falla en este entorno con
+`ERR_PACKAGE_PATH_NOT_EXPORTED` al resolver `typescript/lib/tsc` — incompatibilidad entre la versión
+de `vue-tsc` que trae `npx` y la versión de `typescript` del proyecto, no relacionada a ningún cambio
+de esta ronda. No hay forma de correr un typecheck real de los `.vue` (`tsc` plano no entiende SFCs).
+Verificación usada en su lugar para cambios de frontend: revisión manual línea por línea + levantar
+`npx nuxt dev` y solicitar la ruta afectada para confirmar que compila y sirve 200. Si se prioriza,
+vale la pena fijar la versión de `vue-tsc` en `devDependencies` para tener typecheck real en CI.
