@@ -402,3 +402,32 @@ Dos hallazgos corregidos, ambos de mayor severidad que los anteriores:
 - [ ] **Falta probar manualmente**: confirmar que `/bnpl/simulate/:ref/resolve` devuelve 403 con
   `APP_ENV=production` configurado, y que el modal de edición de empleados sigue mostrando
   salario/dirección correctamente al abrir (no quedaron vacíos por el cambio de fetch).
+
+---
+
+## Auditoría de frontend (middleware de rutas + wallets-admin)
+
+Primera ronda de auditoría dedicada al frontend (Vue/Nuxt), más allá de los ajustes puntuales
+hechos junto a cada fix de backend a lo largo de las rondas anteriores. Dos hallazgos:
+
+- **Middleware de rutas: `/cash-register` y `/rides` accesibles sin sesión.** Ninguna de las dos
+  estaba en `KNOWN_PROTECTED_ROUTES`/`NEEDS_AUTH_ONLY` de `middleware/auth.ts` — un usuario sin
+  sesión que navegara directo a esas rutas no era redirigido a `/login` (la API seguía
+  rechazando con 401, así que no había fuga de datos real, pero la página quedaba renderizando
+  en blanco en vez de mandar a login). Se eliminó también `AUTH_ROUTES`, una constante que
+  listaba ambas rutas pero nunca se usaba en el chequeo real — daba la falsa impresión de que ya
+  estaban cubiertas.
+- **`/wallets-admin`: ajuste manual de saldo sin confirmación ni motivo obligatorio.** Un solo
+  click ejecutaba el crédito/débito directo a la wallet de cualquier usuario, sin paso de
+  confirmación, y el campo de motivo era opcional (backend lo reemplazaba por un texto genérico
+  si venía vacío) — dificultando auditar después por qué un admin movió dinero manualmente.
+  Corregido en ambas capas: backend rechaza con 400 si el motivo viene vacío/solo espacios;
+  frontend deshabilita el botón sin motivo y agrega un paso de confirmación mostrando monto,
+  tipo y usuario afectado antes de ejecutar.
+- [x] Implementado — commits `fix(frontend): agregar /cash-register y /rides a rutas protegidas
+  del middleware`, `fix(backend): exigir motivo obligatorio en ajuste manual de saldo`,
+  `feat(frontend): confirmación y motivo obligatorio antes de ajustar saldo`
+- 5 tests unitarios nuevos (`WalletsService.adjust`), **432/432 tests del backend pasan**.
+- **Alcance restante**: esta fue una primera pasada dirigida a los flujos de mayor
+  sensibilidad (rutas de sesión, dinero). El resto del frontend (66 páginas, 82 componentes, 75
+  composables) no se auditó exhaustivamente — queda como trabajo futuro si se prioriza.
