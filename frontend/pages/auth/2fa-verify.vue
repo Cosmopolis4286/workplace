@@ -136,7 +136,7 @@ function onBackupCodeInput() {
 }
 
 const handleVerify = async () => {
-  if (!code.value) return
+  if (!code.value || isLoading.value) return
 
   isLoading.value = true
 

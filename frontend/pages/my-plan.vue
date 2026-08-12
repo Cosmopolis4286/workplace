@@ -192,8 +192,9 @@
       <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
       <div class="space-y-4">
 
-        <!-- Uso del plan -->
-        <div v-if="myPlan && !loading" class="card p-5">
+        <!-- Uso del plan: oculto para cuentas sin Commerce (ej. FREELANCER),
+             donde estos contadores no aplican -->
+        <div v-if="myPlan && !loading && usageItems.length > 0" class="card p-5">
           <h3 class="text-sm font-semibold text-gray-700 mb-4">Uso del plan</h3>
           <div class="space-y-4">
             <div v-for="u in usageItems" :key="u.label">
@@ -269,8 +270,8 @@ import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS } from
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
 const {
-  plans, mySubscription, myPlan, loading,
-  fetchMySubscription, fetchPublicPlans,
+  plans, mySubscription, myPlan, loading, usage,
+  fetchMySubscription, fetchPublicPlans, fetchUsage,
   formatLimit, formatPrice, daysRemaining,
 } = usePlans()
 
@@ -297,12 +298,16 @@ const planLimits = computed(() => {
   ]
 })
 
-// ─── Barras de uso (simbólico, relativo al plan) ──────────────────────────────
+// ─── Barras de uso real (GET /plans/usage) ─────────────────────────────────────
+// usage.value.usage === null para cuentas sin Commerce (ej. FREELANCER):
+// productos, empleados, sucursales y pedidos son conceptos exclusivos de
+// comercio, así que la sección completa se oculta en vez de mostrar ceros falsos.
 const usageItems = computed(() => {
-  if (!myPlan.value) return []
+  if (!myPlan.value || !usage.value?.usage) return []
   const plan = myPlan.value
+  const u = usage.value.usage
 
-  function pct(limit: number | null, used = 0) {
+  function pct(limit: number | null, used: number) {
     if (!limit) return 0
     return Math.min(100, Math.round((used / limit) * 100))
   }
@@ -312,10 +317,10 @@ const usageItems = computed(() => {
   }
 
   const items = [
-    { label: 'Productos',   limit: plan.maxProducts,  used: 0 },
-    { label: 'Empleados',   limit: plan.maxEmployees, used: 0 },
-    { label: 'Sucursales',  limit: plan.maxBranches,  used: 0 },
-    { label: 'Pedidos/mes', limit: plan.maxOrders,    used: 0 },
+    { label: 'Productos',   limit: plan.maxProducts,  used: u.products },
+    { label: 'Empleados',   limit: plan.maxEmployees, used: u.employees },
+    { label: 'Sucursales',  limit: plan.maxBranches,  used: u.branches },
+    { label: 'Pedidos/mes', limit: plan.maxOrders,    used: u.ordersThisMonth },
   ]
 
   return items.map(i => ({
@@ -326,5 +331,5 @@ const usageItems = computed(() => {
   }))
 })
 
-onMounted(() => Promise.all([fetchMySubscription(), fetchPublicPlans()]))
+onMounted(() => Promise.all([fetchMySubscription(), fetchPublicPlans(), fetchUsage()]))
 </script>

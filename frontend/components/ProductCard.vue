@@ -8,12 +8,12 @@
         @error="handleImageError"
       >
       <div class="absolute top-2 right-2">
-        <span 
+        <span
           :class="[
             'inline-flex px-2 py-1 text-xs font-medium rounded-full',
-            product.status === 'disponible' ? 'bg-green-100 text-green-800' :
-            product.status === 'agotado' ? 'bg-red-100 text-red-800' :
-            product.status === 'bajo-stock' ? 'bg-yellow-100 text-yellow-800' :
+            product.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' :
+            product.status === 'OUT_OF_STOCK' ? 'bg-red-100 text-red-800' :
+            product.status === 'LOW_STOCK' ? 'bg-yellow-100 text-yellow-800' :
             'bg-gray-100 text-gray-800'
           ]"
         >
@@ -52,16 +52,16 @@
       <!-- Actions -->
       <div class="flex justify-between items-center pt-2">
         <div class="flex space-x-1">
-          <button 
+          <button
             @click="$emit('toggle-status', product.id)"
             :class="[
               'p-1.5 rounded-md text-xs font-medium transition-colors',
-              product.status === 'disponible' 
-                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+              product.status === 'AVAILABLE'
+                ? 'bg-red-100 text-red-700 hover:bg-red-200'
                 : 'bg-green-100 text-green-700 hover:bg-green-200'
             ]"
           >
-            {{ product.status === 'disponible' ? 'Desactivar' : 'Activar' }}
+            {{ product.status === 'AVAILABLE' ? 'Desactivar' : 'Activar' }}
           </button>
         </div>
         
@@ -110,10 +110,10 @@ defineEmits(['edit', 'delete', 'toggle-status'])
 
 const getStatusText = (status) => {
   const statusMap = {
-    'disponible': 'Disponible',
-    'agotado': 'Agotado',
-    'bajo-stock': 'Bajo Stock',
-    'no-disponible': 'No Disponible'
+    AVAILABLE: 'Disponible',
+    OUT_OF_STOCK: 'Agotado',
+    LOW_STOCK: 'Bajo Stock',
+    UNAVAILABLE: 'No Disponible'
   }
   return statusMap[status] || status
 }

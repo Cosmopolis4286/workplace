@@ -40,26 +40,36 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
 
 ## 🟠 Bugs funcionales (prioridad alta)
 
-- [ ] **`components/ProductCard.vue` / `pages/menu.vue`** — mismatch de valores de `status`.
-      `ProductCard.vue` compara contra `'disponible'`/`'agotado'`/`'bajo-stock'`/`'no-disponible'`
+- [x] **`components/ProductCard.vue` / `pages/menu.vue`** — mismatch de valores de `status`.
+      `ProductCard.vue` comparaba contra `'disponible'`/`'agotado'`/`'bajo-stock'`/`'no-disponible'`
       (español, minúsculas), pero `useMenu.ts` usa `ProductStatus = 'AVAILABLE' | 'OUT_OF_STOCK' |
       'LOW_STOCK' | 'UNAVAILABLE'`. El badge de estado y el botón "Activar/Desactivar" de cada
-      producto en `/menu` muestran siempre el estado por defecto — nunca el real. `inventory.vue` no
-      tiene este bug (define su propio `statusLabel`/`statusBadgeClass` correctos).
-- [ ] **`pages/my-plan.vue`** — "Uso del plan" muestra `used: 0` hardcodeado para
-      productos/empleados/sucursales/pedidos en vez de consumir `/plans/usage`, que ya existe en
-      `usePlans.ts` (`fetchUsage()`/`PlanUsage`) pero nunca se llama desde esta página. El usuario ve
-      siempre "0 / límite" sin importar su uso real.
-- [ ] **`composables/usePlans.ts` vs `pages/pricing.vue`** — inconsistencia de moneda. `usePlans.ts`
-      formatea precios en **MXN** (`es-MX`), `pricing.vue` define su propio `formatPrice` en **USD**.
-      La misma suscripción se muestra en dos monedas distintas según la página, ninguna es la moneda
-      local (VES/Bs) de un marketplace venezolano.
-- [ ] **`pages/sales.vue`** — si `createOrder` tiene éxito pero `initiateBnpl` falla, el modal se
-      cierra igual (`closeModals()` fuera del `if`) sin avisar que el pedido se creó pero el link de
-      financiamiento no se generó.
-- [ ] **`pages/auth/2fa-verify.vue`** — `onCodeInput` dispara `handleVerify()` sin guard de
-      reentrada (`handleVerify` no chequea `isLoading.value` al inicio). Pegar un código de 6 dígitos
-      y editar rápido puede disparar una segunda verificación en paralelo con el mismo OTP de un solo uso.
+      producto en `/menu` mostraban siempre el estado por defecto — nunca el real. Corregido:
+      `ProductCard.vue` ahora compara contra los valores reales del enum. Verificado que
+      `ProductCard.vue` solo lo consume `menu.vue` (no hay otros consumidores que dependieran de los
+      valores en español).
+- [x] **`pages/my-plan.vue`** — "Uso del plan" mostraba `used: 0` hardcodeado para
+      productos/empleados/sucursales/pedidos en vez de consumir `/plans/usage`, que ya existía en
+      `usePlans.ts` (`fetchUsage()`/`PlanUsage`) pero nunca se llamaba desde esta página. Corregido:
+      ahora llama `fetchUsage()` en `onMounted` y usa los conteos reales. El backend retorna
+      `usage: null` para cuentas sin `Commerce` (FREELANCER, donde productos/empleados/sucursales no
+      aplican conceptualmente) — la sección completa se oculta en ese caso en vez de mostrar ceros
+      falsos. Se corrigió también el tipo `PlanUsage.usage` en el composable para reflejar `| null`.
+- [x] **`composables/usePlans.ts` vs `pages/pricing.vue`** — inconsistencia de moneda. `usePlans.ts`
+      formateaba precios en **MXN**, `pricing.vue` ya usaba **USD** (moneda real de todo el sistema:
+      wallets, escrow, planes). Corregido: `usePlans.ts.formatPrice` ahora usa `currency: 'USD'`,
+      igual que `pricing.vue`. Nota: sigue habiendo 3 locales distintos en el proyecto (`es-MX`,
+      `es-CO`, `es-ES`) para formatear USD — no se tocó, es una mejora de consistencia visual
+      separada (ver sección de mejoras).
+- [x] **`pages/sales.vue`** — si `createOrder` tenía éxito pero `initiateBnpl` fallaba, el modal se
+      cerraba igual sin avisar que el pedido se creó pero el link de financiamiento no se generó (el
+      composable sí seteaba `error.value`, y `sales.vue` sí tiene un banner de error, pero el mensaje
+      genérico perdía sentido una vez cerrado el modal de "Nueva Venta"). Corregido: el mensaje ahora
+      deja explícito que el pedido se creó y solo falló el link BNPL.
+- [x] **`pages/auth/2fa-verify.vue`** — `onCodeInput` dispara `handleVerify()` sin guard de
+      reentrada. Pegar un código de 6 dígitos y editar rápido podía disparar una segunda verificación
+      en paralelo con el mismo OTP de un solo uso. Corregido: `handleVerify` ahora también retorna
+      temprano si `isLoading.value` ya es `true`.
 
 ---
 

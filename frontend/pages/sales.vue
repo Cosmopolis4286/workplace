@@ -646,7 +646,14 @@ async function handleSave(payload: CreateOrderPayload) {
     const created = await createOrder(payload)
     if (created && (payload.paymentMethod === 'CASHEA' || payload.paymentMethod === 'KRECE')) {
       const result = await initiateBnpl(created.id, payload.paymentMethod)
-      if (result) bnplResult.value = { checkoutUrl: result.checkoutUrl, expiresAt: result.expiresAt }
+      if (result) {
+        bnplResult.value = { checkoutUrl: result.checkoutUrl, expiresAt: result.expiresAt }
+      } else if (error.value) {
+        // El pedido SÍ se creó — dejar claro que solo falló el link de
+        // financiamiento, para que el banner de error tenga sentido una vez
+        // cerrado el modal (el usuario ya no ve el contexto de "Nueva Venta").
+        error.value = `El pedido se creó, pero no se pudo generar el link de ${payload.paymentMethod}: ${error.value}`
+      }
     }
   }
   closeModals()

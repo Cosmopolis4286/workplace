@@ -80,7 +80,8 @@ export interface PlanUsage {
     maxProducts: number; maxEmployees: number; maxBranches: number
     maxOrders: number; planName: string; enabledModules: string[]
   }
-  usage: { products: number; employees: number; branches: number; ordersThisMonth: number }
+  // null para cuentas sin Commerce (ej. FREELANCER) — ver GET /plans/usage en el backend.
+  usage: { products: number; employees: number; branches: number; ordersThisMonth: number } | null
 }
 
 // ─── Singleton state ──────────────────────────────────────────────────────────
@@ -262,7 +263,9 @@ export function usePlans() {
 
   function formatPrice(price: number) {
     if (price === 0) return 'Gratis'
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(price)
+    // USD nominal: todo el sistema monetario (wallets, escrow, planes) opera
+    // en USD, igual que pricing.vue — antes decía MXN incorrectamente.
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'USD' }).format(price)
   }
 
   function daysRemaining(endAt: string | null) {
