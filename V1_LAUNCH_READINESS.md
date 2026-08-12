@@ -428,6 +428,25 @@ hechos junto a cada fix de backend a lo largo de las rondas anteriores. Dos hall
   del middleware`, `fix(backend): exigir motivo obligatorio en ajuste manual de saldo`,
   `feat(frontend): confirmación y motivo obligatorio antes de ajustar saldo`
 - 5 tests unitarios nuevos (`WalletsService.adjust`), **432/432 tests del backend pasan**.
-- **Alcance restante**: esta fue una primera pasada dirigida a los flujos de mayor
-  sensibilidad (rutas de sesión, dinero). El resto del frontend (66 páginas, 82 componentes, 75
-  composables) no se auditó exhaustivamente — queda como trabajo futuro si se prioriza.
+
+### Segunda ronda de frontend — paneles admin de moderación/aprobación
+
+Revisión de `wallet-deposit-requests-admin`, `freelancer-applications-admin` y `reports-admin`
+(los tres paneles restantes que ejecutan acciones irreversibles sobre cuentas/contenido de
+terceros). Los primeros dos ya estaban bien diseñados — rechazo con motivo obligatorio y
+confirmación en dos pasos, aprobación de freelancer bloqueada visualmente si el KYC no está
+`APPROVED` — sin hallazgos.
+
+- **`reports-admin`: "Ocultar servicio" prometía una reactivación que no existía.** El botón sí
+  tenía `confirm()`, pero el texto decía "el proveedor deberá reactivarlo manualmente" — falso:
+  `moderateService(hide: true)` pone el `Service` en `INACTIVE`, y el `toggleStatus` que usa el
+  propio dueño desde `/my-services` solo alterna `ACTIVE↔PAUSED`, nunca sale de `INACTIVE`. No
+  existía ninguna vía en la UI (ni del proveedor ni de otro admin) para revertir la ocultación.
+  Corregido: se agregó el botón "Reactivar servicio" en el mismo panel (visible incluso si el
+  reporte ya se marcó resuelto/descartado, para no perder la vía de revertir una ocultación por
+  error), y se corrigió el texto de confirmación para reflejar el comportamiento real.
+- [x] Implementado — commit `fix(frontend): permitir reactivar un servicio oculto por
+  moderación`
+- **Alcance restante**: esta fue una segunda pasada dirigida a paneles de moderación/dinero. El
+  resto del frontend (66 páginas, 82 componentes, 75 composables) sigue sin auditarse
+  exhaustivamente — queda como trabajo futuro si se prioriza.
