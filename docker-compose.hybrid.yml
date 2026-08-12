@@ -99,7 +99,7 @@ services:
       - postgres_data:/var/lib/postgresql/data/pgdata
       - ./backend/prisma/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     ports:
-      - "5432:5432"
+      - "15432:5432"
     networks:
       - private_network
     healthcheck:
@@ -123,7 +123,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "16379:6379"
     networks:
       - private_network
     healthcheck:
@@ -137,8 +137,8 @@ services:
     image: mailhog/mailhog
     container_name: mailhog-hybrid
     ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI
+      - "11025:1025"  # SMTP
+      - "18025:8025"  # Web UI
     networks:
       - public_network
       - private_network
