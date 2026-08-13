@@ -134,15 +134,21 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       sin `try/catch` ni loading state.
 
 ### Otros
-- [ ] **`pages/onboarding.vue`** — claves de `localStorage` (`onboarding_step`, `onboarding_completed`,
-      etc.) sin namespace por usuario/sesión. En un dispositivo compartido, si el Usuario A completa
-      el onboarding y luego el Usuario B inicia sesión sin haber completado el suyo, el wizard se
-      salta para B porque `onboarding_completed` sigue en `'true'` de la sesión anterior. `logout()`
-      en `useAuth.ts` no limpia estas claves.
-- [ ] **`pages/p/[username].vue`** — múltiples operaciones (`handleFollow`, `handleToggleLike`,
-      `handleDeleteComment`, `confirmDeletePost`, `onCoverFileSelected`) sin `catch` ni feedback de
-      error visible; `confirmDeletePost` además cierra el modal *antes* de confirmar que el borrado
-      tuvo éxito.
+- [x] **`pages/onboarding.vue`** — claves de `localStorage` (`onboarding_step`, `onboarding_completed`,
+      etc.) sin namespace por usuario/sesión. En un dispositivo compartido, si el Usuario A completaba
+      el onboarding y luego el Usuario B iniciaba sesión sin haber completado el suyo, el wizard se
+      saltaba para B porque `onboarding_completed` seguía en `'true'` de la sesión anterior. Corregido:
+      las 5 claves se namespacean con el `userId` (`onboarding_<campo>_<userId>`), `middleware/auth.ts`
+      actualizado para usar la misma convención en su propio chequeo, y `useAuth.logout()` las limpia
+      al cerrar sesión.
+- [x] **`pages/p/[username].vue`** — múltiples operaciones (`handleFollow`, `handleUnfollow`,
+      `handleToggleLike`, `loadComments`, `handleSendComment`, `handleDeleteComment`, `confirmDeletePost`,
+      `onCoverFileSelected`) sin `catch` ni feedback de error visible; `confirmDeletePost` además cerraba
+      el modal *antes* de confirmar que el borrado tuvo éxito. Corregido: `alert.error()` en cada
+      `catch`, y `confirmDeletePost` ahora cierra el modal solo tras un `deletePost` exitoso. De paso:
+      `trackSvcEvent` ya no puede romper el flujo de abrir el modal de solicitud si `sessionStorage`
+      lanza `SecurityError` (Safari privado estricto), y `getAssetUrl` se extrae una sola vez en vez de
+      re-invocar `useAssetUrl()` en cada función auxiliar (`avatarSrc`/`mediaSrc`/`coverSrc`).
 - [ ] **`composables/auth/useDemoCredentials.ts`** — `console.log` con el nombre del contenedor
       Docker interno y el comando exacto de seed (`docker exec backend-hybrid ...`), sin gate de
       `process.dev` — se ejecuta en cualquier entorno donde el endpoint responda "Demo users not
