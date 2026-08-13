@@ -122,11 +122,13 @@ import { CheckCircleIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/vue/24/o
 import { useKyc, type IdentityVerification, type KycDocumentType } from '~/composables/kyc/useKyc'
 import KycImagePreview from '~/components/kyc/KycImagePreview.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts
 // (ADMIN_ONLY_ROUTES), que además espera la verificación real de sesión
 // antes de decidir — este chequeo inline corría antes de esa verificación.
 const { fetchPending, review } = useKyc()
+const { formatDate } = useDateFormat()
 
 const items = ref<IdentityVerification[]>([])
 const loading = ref(true)
@@ -185,10 +187,6 @@ function docTypeLabel(type: KycDocumentType) {
     PASSPORT: 'Pasaporte',
     DRIVERS_LICENSE: 'Licencia de conducir',
   })[type] ?? type
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 onMounted(load)

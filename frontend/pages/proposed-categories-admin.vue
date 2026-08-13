@@ -116,10 +116,12 @@ definePageMeta({ middleware: ['auth'] })
 import { ref, computed, onMounted } from 'vue'
 import { CheckCircleIcon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useProposedCategories, type ProposedCategory, type ProposedCategoryTarget } from '~/composables/admin/useProposedCategories'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
 const { fetchPending, review } = useProposedCategories()
+const { formatDate: fmtDate } = useDateFormat()
 
 const items = ref<ProposedCategory[]>([])
 const loading = ref(true)
@@ -176,7 +178,7 @@ function targetLabel(target: ProposedCategoryTarget) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
+  return fmtDate(iso)
 }
 
 onMounted(load)

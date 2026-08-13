@@ -573,7 +573,7 @@ const groupedAppointments = computed(() => {
     if (!map.has(dateKey)) {
       map.set(dateKey, {
         date: dateKey,
-        dateLabel: new Date(dateKey + 'T12:00:00').toLocaleDateString('es-MX', {
+        dateLabel: new Date(dateKey + 'T12:00:00').toLocaleDateString('es', {
           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
         }),
         items: [],
@@ -586,7 +586,7 @@ const groupedAppointments = computed(() => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatDateTime(iso: string) {

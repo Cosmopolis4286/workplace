@@ -64,7 +64,7 @@
             <CalendarIcon class="h-4 w-4 flex-shrink-0" :style="{ color: myPlan.color }" />
             <span class="text-gray-600">
               Vence el
-              <strong>{{ new Date(mySubscription.endAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) }}</strong>
+              <strong>{{ formatDateLong(mySubscription.endAt) }}</strong>
             </span>
             <span
               v-if="daysRemaining(mySubscription.endAt) !== null"
@@ -231,14 +231,14 @@
             </div>
             <div v-if="mySubscription.startAt" class="flex justify-between">
               <span class="text-gray-500">Inicio</span>
-              <span class="font-semibold text-gray-900">{{ new Date(mySubscription.startAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) }}</span>
+              <span class="font-semibold text-gray-900">{{ formatDate(mySubscription.startAt) }}</span>
             </div>
             <div v-if="mySubscription.endAt" class="flex justify-between">
               <span class="text-gray-500">Vence</span>
               <span
                 class="font-semibold"
                 :class="(daysRemaining(mySubscription.endAt) ?? 999) <= 7 ? 'text-red-600' : 'text-gray-900'"
-              >{{ new Date(mySubscription.endAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) }}</span>
+              >{{ formatDate(mySubscription.endAt) }}</span>
             </div>
           </div>
         </div>
@@ -266,6 +266,7 @@ import { CreditCardIcon, CalendarIcon, CheckIcon, EnvelopeIcon, ArrowTopRightOnS
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS } from '~/composables/commerce/usePlans'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -274,6 +275,7 @@ const {
   fetchMySubscription, fetchPublicPlans, fetchUsage,
   formatLimit, formatPrice, daysRemaining,
 } = usePlans()
+const { formatDateLong, formatDate } = useDateFormat()
 
 // ─── Stats header ─────────────────────────────────────────────────────────────
 const headerStats = computed(() => {

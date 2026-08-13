@@ -133,6 +133,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ClipboardDocumentListIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useApi } from '~/composables/core/useApi'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 import {
   type ServiceRequestStatus,
   SERVICE_REQUEST_STATUS_LABELS,
@@ -142,6 +143,7 @@ import {
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
 const { get } = useApi()
+const { formatDate: fmtDate } = useDateFormat()
 
 interface ServiceRequestRow {
   id: string
@@ -215,7 +217,7 @@ async function openDetail(id: string) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
+  return fmtDate(iso)
 }
 
 onMounted(reload)

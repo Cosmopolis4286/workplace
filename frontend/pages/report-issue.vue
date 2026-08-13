@@ -125,10 +125,12 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useReports, type Report } from '~/composables/dashboard/useReports'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ middleware: 'auth' })
 
 const { sending, error, fileReport, fetchMyReports } = useReports()
+const { formatDateTime } = useDateFormat()
 const reason = ref('')
 const description = ref('')
 const sent = ref(false)
@@ -151,13 +153,7 @@ const STATUS_CLASSES: Record<Report['status'], string> = {
 }
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTime(value)
 }
 
 async function loadHistory() {

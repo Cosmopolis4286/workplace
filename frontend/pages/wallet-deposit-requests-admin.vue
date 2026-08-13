@@ -90,10 +90,12 @@ definePageMeta({ middleware: ['auth'] })
 import { ref, computed, onMounted, defineComponent, h } from 'vue'
 import { CheckCircleIcon, BanknotesIcon } from '@heroicons/vue/24/outline'
 import { useWalletDepositRequests, type WalletDepositRequest } from '~/composables/wallets/useWalletDepositRequests'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
 const { fetchPending, review, fetchProofImageBlobUrl } = useWalletDepositRequests()
+const { formatDate: fmtDate } = useDateFormat()
 
 const items = ref<WalletDepositRequest[]>([])
 const loading = ref(true)
@@ -155,7 +157,7 @@ async function confirmReject(id: string) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
+  return fmtDate(iso)
 }
 
 onMounted(load)

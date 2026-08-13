@@ -436,6 +436,9 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import { useApi } from '~/composables/core/useApi'
+import { useDateFormat } from '~/composables/core/useDateFormat'
+
+const { formatDate: fmtDate } = useDateFormat()
 
 // ─── Toggle de origen ───────────────────────────────────────────────────────────
 const activeSource = ref<'food' | 'catalog'>('food')
@@ -674,7 +677,7 @@ function formatCurrency(v: number) {
 }
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+  return fmtDate(d)
 }
 
 function timeAgo(d: string) {

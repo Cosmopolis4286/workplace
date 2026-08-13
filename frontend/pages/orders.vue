@@ -654,6 +654,7 @@ import { usePlans } from '~/composables/commerce/usePlans'
 import PlanUsageBanner from '~/components/plans/PlanUsageBanner.vue'
 import { useReceipts } from '~/composables/receipts/useReceipts'
 import { useKyc } from '~/composables/kyc/useKyc'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -665,6 +666,7 @@ const {
 } = useMerchantOrders()
 
 const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
+const { formatDateTimeShort } = useDateFormat()
 const kycStatus = computed(() => myKycStatus.value?.kycStatus)
 
 const scheduledOrders = computed(() =>
@@ -813,7 +815,7 @@ async function updateMktStatus(id: string, status: MktOrderStatus) {
 
 function mktChangePage(page: number) { mktPage.value = page; loadMktOrders() }
 function formatMktPrice(p: number) { return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(p) }
-function formatMktDate(d: string) { return new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) }
+function formatMktDate(d: string) { return formatDateTimeShort(d) }
 
 onMounted(async () => {
   loadOrders({ page: 1, limit: 20 })

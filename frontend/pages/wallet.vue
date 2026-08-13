@@ -417,10 +417,12 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useWallets, type WalletTransactionType } from '~/composables/wallets/useWallets'
 import { useWalletDepositRequests } from '~/composables/wallets/useWalletDepositRequests'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
 const { user } = useAuth()
+const { formatDate: fmtDate, formatDateTime: fmtDateTime } = useDateFormat()
 const {
   wallet, transactions, transactionsMeta, limitsStatus,
   loading, loadingTx, error,
@@ -552,10 +554,10 @@ const headerStats = computed(() =>
 
 // ── Date helpers ──────────────────────────────────────────────────────────────────
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+  return fmtDate(date)
 }
 function formatDateTime(date: string) {
-  return new Date(date).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return fmtDateTime(date)
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────────

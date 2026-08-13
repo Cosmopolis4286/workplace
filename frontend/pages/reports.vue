@@ -452,7 +452,7 @@ function formatCurrency(value: number | undefined | null) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-MX', {
+  return new Date(iso).toLocaleDateString('es', {
     day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }

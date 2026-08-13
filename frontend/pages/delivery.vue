@@ -1,5 +1,14 @@
 <template>
   <div>
+    <!-- Pull-to-refresh indicator (mobile) -->
+    <div
+      v-if="isPulling || isRefreshing"
+      class="flex items-center justify-center overflow-hidden transition-all"
+      :style="{ height: `${isRefreshing ? 40 : pullDistance}px` }"
+    >
+      <ArrowPathIcon class="h-5 w-5 text-red-500" :class="{ 'animate-spin': isRefreshing }" />
+    </div>
+
     <PageHeader
       title="Gestión de Delivery"
       description="Control de entregas y repartidores"
@@ -165,7 +174,7 @@
         <div v-for="inv in pendingInvitations" :key="inv.id" class="flex items-center justify-between gap-3 text-sm">
           <div class="min-w-0">
             <p class="text-gray-900 truncate">{{ inv.email }}</p>
-            <p class="text-xs text-gray-400">Expira {{ new Date(inv.expiresAt).toLocaleDateString('es-VE') }}</p>
+            <p class="text-xs text-gray-400">Expira {{ new Date(inv.expiresAt).toLocaleDateString('es') }}</p>
           </div>
           <button class="text-xs text-red-500 hover:text-red-700 flex-shrink-0" @click="handleCancelInvitation(inv.id)">Cancelar</button>
         </div>
@@ -212,7 +221,7 @@
               Sin cuenta verificada — no puede recibir nuevas entregas
             </div>
             <div v-else-if="!driver.userId && driver.graceUntil" class="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
-              Invítalo a registrarse antes del {{ new Date(driver.graceUntil).toLocaleDateString('es-VE') }}
+              Invítalo a registrarse antes del {{ new Date(driver.graceUntil).toLocaleDateString('es') }}
             </div>
             <div class="flex items-center justify-between">
               <span class="text-xs text-gray-500">Estado</span>
@@ -495,6 +504,8 @@ async function refreshAll() {
     loadDrivers(),
   ])
 }
+
+const { isRefreshing, pullDistance, isPulling } = usePullToRefresh(refreshAll)
 
 async function changeStatus(id: string, status: DeliveryStatus) {
   await updateDeliveryStatus(id, status)

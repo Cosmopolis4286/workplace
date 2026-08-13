@@ -755,7 +755,7 @@
                       <span class="text-lg font-black text-blue-600">${{ formatPrice(srv.price) }}</span>
                       <span v-if="srv.priceUnit" class="text-xs text-gray-400 ml-1">/ {{ srv.priceUnit }}</span>
                       <div v-if="defaultRate && srv.price" class="text-xs text-gray-500 mt-0.5">
-                        {{ defaultRate.symbol }} {{ (srv.price * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                        {{ defaultRate.symbol }} {{ formatNumber(srv.price * defaultRate.rateToUsd, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                       </div>
                     </div>
                     <div v-if="srv.duration" class="flex items-center gap-1 text-xs text-gray-400">
@@ -1005,7 +1005,7 @@
                   <div class="text-right flex-shrink-0">
                     <span class="text-2xl font-black text-red-600">${{ formatPrice(selectedProduct.price) }}</span>
                     <div v-if="defaultRate && selectedProduct.price" class="text-xs text-gray-500">
-                      {{ defaultRate.symbol }} {{ (selectedProduct.price * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                      {{ defaultRate.symbol }} {{ formatNumber(selectedProduct.price * defaultRate.rateToUsd, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                     </div>
                   </div>
                 </div>
@@ -1073,7 +1073,7 @@
                     <span class="text-2xl font-black text-blue-600">${{ formatPrice(selectedService.price) }}</span>
                     <p v-if="selectedService.priceUnit" class="text-xs text-gray-400">/ {{ selectedService.priceUnit }}</p>
                     <div v-if="defaultRate && selectedService.price" class="text-xs text-gray-500">
-                      {{ defaultRate.symbol }} {{ (selectedService.price * defaultRate.rateToUsd).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                      {{ defaultRate.symbol }} {{ formatNumber(selectedService.price * defaultRate.rateToUsd, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                     </div>
                   </div>
                 </div>
@@ -1322,6 +1322,7 @@ import { useCart } from '~/composables/catalog/useCart'
 import { useSearchTabs } from '~/composables/search/useSearchTabs'
 import { useCatalogFilters } from '~/composables/catalog/useCatalogFilters'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 import PriceRangeFilter from '~/components/search/PriceRangeFilter.vue'
 import SortDropdown from '~/components/search/SortDropdown.vue'
 import ActiveFilterChips from '~/components/search/ActiveFilterChips.vue'
@@ -1332,6 +1333,7 @@ import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 definePageMeta({ layout: 'default' })
 
 const { getAssetUrl } = useAssetUrl()
+const { formatNumber } = useDateFormat()
 
 // ─── Carrito ──────────────────────────────────────────────────────────────────
 const { totalItems: cartTotalItems, totalPrice: cartTotalPrice, openCart } = useCart()

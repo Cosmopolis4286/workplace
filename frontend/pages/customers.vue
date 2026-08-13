@@ -472,7 +472,7 @@ const topClients = computed(() =>
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-VE', { year: 'numeric', month: 'short' })
+  return new Date(iso).toLocaleDateString('es', { year: 'numeric', month: 'short' })
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────

@@ -142,7 +142,7 @@
         <!-- Meta -->
         <div class="flex items-center gap-4 text-sm">
           <span class="font-bold text-gray-900">
-            ${{ service.price.toLocaleString('es') }}
+            ${{ formatNumber(service.price) }}
             <span v-if="service.priceUnit" class="font-normal text-gray-500 text-xs">/ {{ service.priceUnit }}</span>
           </span>
           <span v-if="service.duration" class="text-gray-500 flex items-center gap-1">
@@ -854,8 +854,12 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import TagsInput from '~/components/ui/TagsInput.vue'
 import { useMyServices, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service, type ServiceModality } from '~/composables/services/useMyServices'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { useFormValidation } from '~/composables/ui/useFormValidation'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ middleware: 'auth' })
+
+const { formatNumber, formatDateTimeShort } = useDateFormat()
 
 const {
   services,
@@ -878,6 +882,7 @@ const {
 } = useMyServices()
 
 const { confirm } = useConfirm()
+const { validate, required } = useFormValidation()
 
 const search = ref('')
 const filterStatus = ref('')
@@ -999,8 +1004,9 @@ function removeItemField(field: string) {
 }
 
 async function handleSubmit() {
-  if (!form.value.name.trim()) {
-    formError.value = 'El nombre del servicio es obligatorio'
+  const nameError = validate(form.value.name, [required('El nombre del servicio')])
+  if (nameError) {
+    formError.value = nameError
     return
   }
   if (!Number.isFinite(form.value.price) || form.value.price < 0) {
@@ -1111,7 +1117,7 @@ function closeMetrics() {
 }
 
 function formatMetricsDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return formatDateTimeShort(iso)
 }
 
 function openModalitiesModal() {

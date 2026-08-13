@@ -592,10 +592,12 @@ import { useApi } from '~/composables/core/useApi'
 import { useLandingCrudSection } from '~/composables/admin/useLandingCrudSection'
 import { useConfirm } from '~/composables/ui/useConfirm'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { confirm } = useConfirm()
+const { formatDateTime } = useDateFormat()
 
 interface ReportedReview {
   id: string
@@ -680,7 +682,7 @@ interface StepForm {
 }
 
 function formatTestimonialDate(dateStr: string) {
-  return new Date(dateStr).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return formatDateTime(dateStr)
 }
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)

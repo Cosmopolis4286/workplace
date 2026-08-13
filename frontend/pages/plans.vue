@@ -214,7 +214,7 @@
             </div>
             <!-- Vencimiento -->
             <div class="hidden md:block text-right flex-shrink-0 text-xs text-gray-500">
-              {{ sub.endAt ? new Date(sub.endAt).toLocaleDateString('es-MX') : '—' }}
+              {{ sub.endAt ? new Date(sub.endAt).toLocaleDateString('es') : '—' }}
             </div>
             <!-- Cancelar -->
             <button
@@ -291,7 +291,7 @@
             </div>
             <!-- Fecha de solicitud -->
             <div class="hidden md:block text-right flex-shrink-0 text-xs text-gray-500">
-              {{ new Date(sub.createdAt).toLocaleDateString('es-MX') }}
+              {{ new Date(sub.createdAt).toLocaleDateString('es') }}
             </div>
             <!-- Acciones -->
             <div class="flex gap-2 flex-shrink-0">
@@ -675,7 +675,7 @@ async function confirmDeletePlan(plan: Plan) {
   })
   if (!ok) return
   try { await deletePlan(plan.id); await fetchStats() }
-  catch (e: any) { alertDialog.error('Error', e?.data?.message ?? e.message) }
+  catch (e: any) { toast.error('Error', e?.data?.message ?? e.message) }
 }
 
 // ─── Assign modal ─────────────────────────────────────────────────────────────
@@ -711,7 +711,7 @@ async function handleCancelSub(id: string) {
   const ok = await confirm({ title: 'Cancelar suscripción', message: '¿Cancelar esta suscripción?', confirmText: 'Sí, cancelar', cancelText: 'No', variant: 'danger' })
   if (!ok) return
   try { await cancelSubscription(id); invalidateModules(); await fetchStats() }
-  catch (e: any) { alertDialog.error('Error', e?.data?.message ?? e.message) }
+  catch (e: any) { toast.error('Error', e?.data?.message ?? e.message) }
 }
 
 async function loadSubscriptions() {

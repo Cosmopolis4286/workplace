@@ -128,10 +128,12 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ImageDropInput from '~/components/ui/ImageDropInput.vue'
 import { useKyc, type KycDocumentType } from '~/composables/kyc/useKyc'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 useHead({ title: 'Verificación de Identidad — WorkPlace Manager' })
 
 const { myStatus, loading, fetchMyStatus, submitVerification } = useKyc()
+const { formatDate: fmtDate } = useDateFormat()
 
 const status = computed(() => myStatus.value?.kycStatus ?? 'NONE')
 
@@ -166,7 +168,7 @@ function docTypeLabel(type: KycDocumentType) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
+  return fmtDate(iso)
 }
 
 // ─── Formulario ───────────────────────────────────────────────────────────────

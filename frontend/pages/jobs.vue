@@ -368,6 +368,8 @@ import TagsInput from '~/components/ui/TagsInput.vue'
 import { useJobs, type JobWithApplicationCount, type CreateJobData } from '~/composables/jobs/useJobs'
 import { useKyc } from '~/composables/kyc/useKyc'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { useFormValidation } from '~/composables/ui/useFormValidation'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -389,6 +391,8 @@ const {
 const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
 const kycStatus = computed(() => myKycStatus.value?.kycStatus)
 const { confirm } = useConfirm()
+const { validate, required } = useFormValidation()
+const { formatNumber } = useDateFormat()
 
 const JOB_STATUS_LABELS: Record<JobWithApplicationCount['status'], string> = {
   ACTIVE: 'Activo',
@@ -457,7 +461,7 @@ const filteredJobs = computed(() => {
 })
 
 function formatSalary(job: JobWithApplicationCount) {
-  const fmt = (n: number) => n.toLocaleString('es')
+  const fmt = (n: number) => formatNumber(n)
   if (job.salaryMin && job.salaryMax) return `${fmt(job.salaryMin)} - ${fmt(job.salaryMax)} ${job.salaryCurrency}`
   if (job.salaryMin) return `Desde ${fmt(job.salaryMin)} ${job.salaryCurrency}`
   if (job.salaryMax) return `Hasta ${fmt(job.salaryMax)} ${job.salaryCurrency}`
@@ -492,12 +496,14 @@ function openEdit(job: JobWithApplicationCount) {
 }
 
 async function handleSubmit() {
-  if (!form.value.title.trim()) {
-    formError.value = 'El título es obligatorio'
+  const titleError = validate(form.value.title, [required('El título')])
+  if (titleError) {
+    formError.value = titleError
     return
   }
-  if (!form.value.description.trim()) {
-    formError.value = 'La descripción es obligatoria'
+  const descriptionError = validate(form.value.description, [required('La descripción')])
+  if (descriptionError) {
+    formError.value = descriptionError
     return
   }
   saving.value = true

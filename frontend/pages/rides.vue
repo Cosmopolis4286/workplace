@@ -786,7 +786,7 @@ function statusBadgeClass(status: string) {
 }
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return new Date(d).toLocaleDateString('es', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function timeAgo(d: string) {
