@@ -1,5 +1,5 @@
 /**
- * useFormValidation — composable reutilizable para validación de formularios auth.
+ * useFormValidation — composable reutilizable para validación de formularios.
  * Provee reglas comunes y un runner que acumula errores por campo.
  */
 
