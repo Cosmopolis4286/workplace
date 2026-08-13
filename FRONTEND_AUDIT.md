@@ -199,9 +199,12 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
 - [ ] `menu.vue` e `inventory.vue` duplican CRUD de categorías/productos contra dos composables
       paralelos (`useMenu` vs `useInventory`) sobre el mismo dominio de datos — el bug de status
       (arriba) es consecuencia directa de esta duplicación.
-- [ ] Falta `AbortController` en búsquedas con debounce (`expenses.vue`, `sales.vue`,
+- [x] Falta `AbortController` en búsquedas con debounce (`expenses.vue`, `sales.vue`,
       `analytics.vue`) — una respuesta lenta de un filtro antiguo puede sobrescribir resultados de
-      uno más reciente.
+      uno más reciente. Resuelto en la fuente: `loadExpenses` (`useExpenses.ts`) y `loadOrders`
+      (`useMerchantOrders.ts`) ahora abortan la request anterior antes de lanzar una nueva. Nota:
+      `analytics.vue` no tiene búsqueda con debounce en el código actual — el hallazgo ya no aplicaba
+      ahí.
 - [x] Timers no limpiados en `onUnmounted`: `usernameDebounce` y `successTimer` en `profile.vue`.
       Resuelto: agregado `onUnmounted` que limpia ambos timers.
 - [ ] Botones de cambio de estado por fila sin `disabled` durante el request en múltiples páginas
