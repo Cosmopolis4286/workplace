@@ -166,30 +166,6 @@
     </Teleport>
 
     <!-- Modal eliminar -->
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="showDeleteModal = false">
-          <div class="absolute inset-0 bg-black/40" @click="showDeleteModal = false" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 class="text-base font-semibold text-gray-900 mb-2">Eliminar ubicación</h3>
-            <p class="text-sm text-gray-500 mb-2">
-              ¿Eliminar <strong>{{ deletingNode?.name }}</strong>?
-            </p>
-            <p v-if="deletingNode?.type !== 'PARROQUIA'" class="text-xs text-red-500 mb-5">
-              Esto también eliminará todos sus hijos (ciudades/parroquias dentro).
-            </p>
-            <p v-else class="mb-5" />
-            <div class="flex gap-3">
-              <button class="btn-secondary flex-1" @click="showDeleteModal = false">Cancelar</button>
-              <button class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors" :disabled="saving" @click="deleteNode_">
-                {{ saving ? 'Eliminando...' : 'Eliminar' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
@@ -315,23 +291,23 @@ async function saveNode() {
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
-const showDeleteModal = ref(false)
-const deletingNode = ref<VeLocationNode | null>(null)
+const { confirm } = useConfirm()
 
-function confirmDelete(node: VeLocationNode) {
-  deletingNode.value = node
-  showDeleteModal.value = true
-}
-
-async function deleteNode_() {
-  if (!deletingNode.value) return
-  saving.value = true
-  const ok = await deleteNode(deletingNode.value.id)
-  saving.value = false
-  if (ok) {
-    showDeleteModal.value = false
-    await loadTree(filterState.value || undefined)
-  }
+async function confirmDelete(node: VeLocationNode) {
+  const message = node.type !== 'PARROQUIA'
+    ? `¿Eliminar ${node.name}? Esto también eliminará todos sus hijos (ciudades/parroquias dentro).`
+    : `¿Eliminar ${node.name}?`
+  const ok = await confirm({
+    title: 'Eliminar ubicación',
+    message,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      const ok = await deleteNode(node.id)
+      if (!ok) return 'No se pudo eliminar la ubicación'
+    },
+  })
+  if (ok) await loadTree(filterState.value || undefined)
 }
 
 onMounted(async () => {
