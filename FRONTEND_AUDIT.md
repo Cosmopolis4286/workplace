@@ -211,9 +211,11 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       (`orders.vue`, `appointments.vue`, `branches.vue`, `customers.vue`, `delivery.vue`,
       `employees.vue`) — permite doble-submit por doble-click, bajo impacto si el backend es
       idempotente pero no hay garantía visible desde el frontend.
-- [ ] `useBnplSettings.ts` — `error`/`successMsg` son singletons compartidos entre proveedores
+- [x] `useBnplSettings.ts` — `error`/`successMsg` son singletons compartidos entre proveedores
       (CASHEA/KRECE); si se editan casi simultáneamente, el mensaje puede mostrarse para el
-      proveedor equivocado.
+      proveedor equivocado. Resuelto: convertidos en mapas `errors`/`successMsgs` por proveedor
+      (`Record<BnplProvider, string | null>`), cada tarjeta muestra su propio mensaje; se agregó
+      `loadError` separado para el fallo de carga inicial.
 
 ---
 
