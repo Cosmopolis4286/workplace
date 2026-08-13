@@ -48,9 +48,9 @@
 
 <script setup lang="ts">
 import { ShoppingCartIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
-import OrderCard from '~/components/OrderCard.vue'
-import type { Order } from '~/composables/useMerchantOrders'
-import { useRelativeTime } from '~/composables/useRelativeTime'
+import OrderCard from '~/components/catalog/OrderCard.vue'
+import type { Order } from '~/composables/catalog/useMerchantOrders'
+import { useRelativeTime } from '~/composables/core/useRelativeTime'
 
 interface Props {
   orders: Order[]

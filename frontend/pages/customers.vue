@@ -390,7 +390,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { useCustomers, type Customer, type CustomerSegment } from '~/composables/useCustomers'
+import { useCustomers, type Customer, type CustomerSegment } from '~/composables/customers/useCustomers'
 
 definePageMeta({ middleware: 'auth' })
 

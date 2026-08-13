@@ -275,7 +275,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { User, UserPermission } from '~/composables/useUserPermissions'
+import type { User, UserPermission } from '~/composables/users/useUserPermissions'
 import { ROLE_LABELS } from '~/config/roles.config'
 
 interface Props {

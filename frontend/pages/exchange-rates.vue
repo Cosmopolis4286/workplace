@@ -439,8 +439,8 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry, type SyncStatusEntry } from '~/composables/useExchangeRates'
-import { usePermissions } from '~/composables/usePermissions'
+import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry, type SyncStatusEntry } from '~/composables/wallets/useExchangeRates'
+import { usePermissions } from '~/composables/users/usePermissions'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 

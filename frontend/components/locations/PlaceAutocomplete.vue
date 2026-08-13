@@ -134,7 +134,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { PlaceSuggestion } from '~/composables/useNominatim'
+import type { PlaceSuggestion } from '~/composables/location/useNominatim'
 
 const props = defineProps<{
   modelValue: PlaceSuggestion | null

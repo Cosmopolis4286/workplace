@@ -130,10 +130,10 @@ definePageMeta({ layout: 'auth' })
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { EnvelopeIcon, CheckIcon, ArrowPathIcon, ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
-import { useApi } from '~/composables/useApi'
-import { getApiErrorMessage } from '~/composables/useApiErrors'
-import { useToast } from '~/composables/useToast'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { useToast } from '~/composables/ui/useToast'
 
 const { t } = useI18n()
 useHead({ title: () => `${t('auth.verifyEmail.title')} — ${t('common.appName')}` })

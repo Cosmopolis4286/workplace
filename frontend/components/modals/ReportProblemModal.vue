@@ -50,7 +50,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useReports, type ReportEntityType } from '~/composables/useReports'
+import { useReports, type ReportEntityType } from '~/composables/dashboard/useReports'
 
 const props = defineProps<{
   modelValue: boolean

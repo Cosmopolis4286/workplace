@@ -243,7 +243,7 @@ import {
   useCash,
   CASH_STATUS_CLASSES,
   type CashMovementType,
-} from '~/composables/useCash'
+} from '~/composables/commerce/useCash'
 
 const {
   current, sessions, loading, loadingAction, error,

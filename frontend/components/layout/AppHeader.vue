@@ -225,7 +225,7 @@ import {
   WalletIcon,
   ArrowTopRightOnSquareIcon,
 } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
+import { useAuth } from '~/composables/auth/useAuth'
 
 defineProps({
   sidebarOpen: Boolean,

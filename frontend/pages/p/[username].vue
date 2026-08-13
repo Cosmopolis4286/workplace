@@ -1204,10 +1204,10 @@ import {
   SquaresPlusIcon,
   InformationCircleIcon,
 } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
-import { useProfiles, type ProfilePost, type PostComment, type ProfileReview } from '~/composables/useProfiles'
-import { useAuth } from '~/composables/useAuth'
-import { useConfirm } from '~/composables/useConfirm'
+import { useApi } from '~/composables/core/useApi'
+import { useProfiles, type ProfilePost, type PostComment, type ProfileReview } from '~/composables/users/useProfiles'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ layout: false })
 

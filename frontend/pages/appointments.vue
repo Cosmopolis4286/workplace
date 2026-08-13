@@ -432,9 +432,9 @@ import {
   STATUS_CLASSES,
   type AppointmentStatus,
   type Appointment,
-} from '~/composables/useAppointments'
-import { useToast } from '~/composables/useToast'
-import { useConfirm } from '~/composables/useConfirm'
+} from '~/composables/commerce/useAppointments'
+import { useToast } from '~/composables/ui/useToast'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 

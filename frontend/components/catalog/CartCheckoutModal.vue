@@ -174,9 +174,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { CartGroup } from '~/composables/useCart'
-import { useApi } from '~/composables/useApi'
-import { useAuth } from '~/composables/useAuth'
+import type { CartGroup } from '~/composables/catalog/useCart'
+import { useApi } from '~/composables/core/useApi'
+import { useAuth } from '~/composables/auth/useAuth'
 
 const props = defineProps<{
   modelValue: boolean

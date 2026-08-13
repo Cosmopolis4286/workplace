@@ -296,10 +296,10 @@ import { ref, computed, onMounted } from 'vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { ShieldCheckIcon, PlusIcon, TrashIcon, UserGroupIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
-import { useAuth } from '~/composables/useAuth'
-import { useConfirm } from '~/composables/useConfirm'
-import { useModuleCatalog } from '~/composables/useModuleCatalog'
+import { useApi } from '~/composables/core/useApi'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useConfirm } from '~/composables/ui/useConfirm'
+import { useModuleCatalog } from '~/composables/commerce/useModuleCatalog'
 
 definePageMeta({ middleware: 'auth' })
 

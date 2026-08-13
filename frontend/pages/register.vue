@@ -201,11 +201,11 @@ import {
   UserPlusIcon,
   CheckIcon,
 } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
-import { useFormValidation } from '~/composables/useFormValidation'
-import { useRecaptcha } from '~/composables/useRecaptcha'
-import { getApiErrorMessage } from '~/composables/useApiErrors'
-import { useToast } from '~/composables/useToast'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useFormValidation } from '~/composables/ui/useFormValidation'
+import { useRecaptcha } from '~/composables/auth/useRecaptcha'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { useToast } from '~/composables/ui/useToast'
 
 const { t } = useI18n()
 useHead({ title: () => `${t('auth.register.title')} — ${t('common.appName')}` })

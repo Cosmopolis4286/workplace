@@ -100,10 +100,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
-import { useAuth } from '~/composables/useAuth'
-import { useModuleCatalog } from '~/composables/useModuleCatalog'
-import { useConfirm } from '~/composables/useConfirm'
+import { useApi } from '~/composables/core/useApi'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useModuleCatalog } from '~/composables/commerce/useModuleCatalog'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 const { confirm } = useConfirm()
 const { labels: MODULE_LABELS, load: loadModuleCatalog } = useModuleCatalog()

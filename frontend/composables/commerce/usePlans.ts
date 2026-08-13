@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { useRuntimeConfig } from 'nuxt/app'
-import { useAuth } from '~/composables/useAuth'
+import { useAuth } from '~/composables/auth/useAuth'
 
 export interface Plan {
   id: string

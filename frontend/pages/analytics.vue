@@ -350,7 +350,7 @@ import DoughnutChart from '~/components/charts/DoughnutChart.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import AnalyticsConfigModal from '~/components/modals/AnalyticsConfigModal.vue'
-import type { AnalyticsPeriod, CompareWith } from '~/composables/useAnalytics'
+import type { AnalyticsPeriod, CompareWith } from '~/composables/dashboard/useAnalytics'
 
 // ─── Inline micro-components ─────────────────────────────────────────────────
 

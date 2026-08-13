@@ -527,10 +527,10 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { CreditCardIcon, PlusIcon, XMarkIcon, PencilIcon, TrashIcon, CheckIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan, type Subscription } from '~/composables/usePlans'
-import { useModuleCatalog } from '~/composables/useModuleCatalog'
-import { useAlert } from '~/composables/useAlert'
-import { useConfirm } from '~/composables/useConfirm'
+import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan, type Subscription } from '~/composables/commerce/usePlans'
+import { useModuleCatalog } from '~/composables/commerce/useModuleCatalog'
+import { useAlert } from '~/composables/ui/useAlert'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 

@@ -405,8 +405,8 @@ import {
   type OrderStatus,
   type CreateOrderPayload,
   type OrderFilters,
-} from '~/composables/useMerchantOrders'
-import { useMenu } from '~/composables/useMenu'
+} from '~/composables/catalog/useMerchantOrders'
+import { useMenu } from '~/composables/catalog/useMenu'
 
 // ── Composables ───────────────────────────────────────────────────────────────
 

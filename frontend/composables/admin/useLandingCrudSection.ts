@@ -1,5 +1,5 @@
 import { ref, reactive } from 'vue'
-import { useApi } from '~/composables/useApi'
+import { useApi } from '~/composables/core/useApi'
 
 // CRUD genérico para las secciones de contenido de /landing-admin que
 // comparten la misma forma (testimonials/features/steps: listar, crear,

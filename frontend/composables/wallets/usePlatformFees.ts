@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useApi } from '~/composables/useApi'
+import { useApi } from '~/composables/core/useApi'
 
 export type FeeTransactionType = 'ORDER' | 'SERVICE_REQUEST' | 'CORRIDA'
 export type FeePayer = 'CLIENT' | 'PROVIDER'

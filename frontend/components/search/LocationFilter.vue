@@ -64,7 +64,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useLocationData, type LocationOption } from '~/composables/useLocationData'
+import { useLocationData, type LocationOption } from '~/composables/location/useLocationData'
 
 type Accent = 'red' | 'blue' | 'emerald'
 

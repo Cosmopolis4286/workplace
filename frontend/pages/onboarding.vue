@@ -256,7 +256,7 @@ import {
   BoltIcon, CheckIcon, CheckCircleIcon,
   ExclamationCircleIcon, ArrowRightIcon, LockClosedIcon,
 } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
+import { useApi } from '~/composables/core/useApi'
 
 definePageMeta({ middleware: 'auth' })
 

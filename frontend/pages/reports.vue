@@ -353,9 +353,9 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { useApi } from '~/composables/useApi'
-import { useUserPreferences } from '~/composables/useUserPreferences'
-import { useAuth } from '~/composables/useAuth'
+import { useApi } from '~/composables/core/useApi'
+import { useUserPreferences } from '~/composables/users/useUserPreferences'
+import { useAuth } from '~/composables/auth/useAuth'
 
 definePageMeta({ middleware: 'auth' })
 

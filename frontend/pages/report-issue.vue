@@ -124,7 +124,7 @@ import {
   ClockIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useReports, type Report } from '~/composables/useReports'
+import { useReports, type Report } from '~/composables/dashboard/useReports'
 
 definePageMeta({ middleware: 'auth' })
 

@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import { XMarkIcon, ExclamationTriangleIcon, ExclamationCircleIcon, InformationCircleIcon } from '@heroicons/vue/24/outline'
-import { useDashboardAlerts } from '~/composables/useDashboardAlerts'
+import { useDashboardAlerts } from '~/composables/dashboard/useDashboardAlerts'
 
 const { activeAlerts, dismiss, hydrate } = useDashboardAlerts()
 

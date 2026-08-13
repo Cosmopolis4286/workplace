@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { CatalogProduct } from '~/composables/useCatalog'
+import type { CatalogProduct } from '~/composables/catalog/useCatalog'
 
 export interface CartItem {
   product: CatalogProduct

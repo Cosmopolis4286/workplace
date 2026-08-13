@@ -52,11 +52,11 @@ definePageMeta({ layout: 'auth' })
 
 import { ref } from 'vue'
 import { BuildingStorefrontIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
-import { useApi } from '~/composables/useApi'
-import { useFormValidation } from '~/composables/useFormValidation'
-import { getApiErrorMessage } from '~/composables/useApiErrors'
-import { useToast } from '~/composables/useToast'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useApi } from '~/composables/core/useApi'
+import { useFormValidation } from '~/composables/ui/useFormValidation'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { useToast } from '~/composables/ui/useToast'
 
 const { t } = useI18n()
 useHead({ title: () => `${t('auth.onboarding.title')} — ${t('common.appName')}` })

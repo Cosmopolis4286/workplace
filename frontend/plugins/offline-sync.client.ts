@@ -1,5 +1,5 @@
 import { useOfflineStore } from '~/stores/offline'
-import { useApi } from '~/composables/useApi'
+import { useApi } from '~/composables/core/useApi'
 
 export default defineNuxtPlugin(() => {
   const offlineStore = useOfflineStore()

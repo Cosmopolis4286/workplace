@@ -160,7 +160,7 @@ definePageMeta({ middleware: ['auth'] })
 
 import { ref, computed, onMounted } from 'vue'
 import { BanknotesIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
-import { useWallets, type Wallet, type EscrowReconciliation } from '~/composables/useWallets'
+import { useWallets, type Wallet, type EscrowReconciliation } from '~/composables/wallets/useWallets'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)

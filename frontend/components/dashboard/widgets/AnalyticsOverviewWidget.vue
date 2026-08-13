@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { useRelativeTime } from '~/composables/useRelativeTime'
+import { useRelativeTime } from '~/composables/core/useRelativeTime'
 
 interface KPIs {
   avgPrepTime: number

@@ -64,7 +64,7 @@ import {
   WrenchIcon,
 } from '@heroicons/vue/24/outline'
 import type { HeroConfig } from '~/config/dashboard.config'
-import { useExchangeRates } from '~/composables/useExchangeRates'
+import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 
 interface Props {
   config: HeroConfig

@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import type { Ref, ComputedRef } from 'vue'
-import type { CatalogCategory, CatalogCommerce, CatalogQuery } from '~/composables/useCatalog'
+import type { CatalogCategory, CatalogCommerce, CatalogQuery } from '~/composables/catalog/useCatalog'
 
 export interface FilterChip {
   id: string

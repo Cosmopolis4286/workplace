@@ -81,9 +81,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { TruckIcon } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
-import { useKyc } from '~/composables/useKyc'
-import { useDelivery, type DriverInvitationStatus } from '~/composables/useDelivery'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useKyc } from '~/composables/kyc/useKyc'
+import { useDelivery, type DriverInvitationStatus } from '~/composables/delivery/useDelivery'
 
 definePageMeta({ layout: false })
 

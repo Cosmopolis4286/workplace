@@ -237,8 +237,8 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import UserFormModal from '~/components/modals/UserFormModal.vue'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, type Role } from '~/config/roles.config'
-import { useUsers, emptyUserForm, type UserItem, type UserCategory, type UsersStats } from '~/composables/useUsers'
-import { useConfirm } from '~/composables/useConfirm'
+import { useUsers, emptyUserForm, type UserItem, type UserCategory, type UsersStats } from '~/composables/users/useUsers'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 

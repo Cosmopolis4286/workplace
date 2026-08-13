@@ -239,7 +239,7 @@
 <script setup lang="ts">
 import { h, ref, computed, watch, nextTick, onMounted, defineComponent, resolveComponent } from 'vue'
 import { useRoute } from 'vue-router'
-import { MAX_QUICK_ACCESS, type QuickAccessCandidate } from '~/composables/useQuickAccess'
+import { MAX_QUICK_ACCESS, type QuickAccessCandidate } from '~/composables/dashboard/useQuickAccess'
 
 const route = useRoute()
 const { user, logout } = useAuth()

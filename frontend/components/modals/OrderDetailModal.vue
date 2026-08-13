@@ -192,8 +192,8 @@
 import { ref, computed } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot } from '@headlessui/vue'
 import { XMarkIcon, PencilIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline'
-import { useUserPreferences } from '~/composables/useUserPreferences'
-import { useReceipts } from '~/composables/useReceipts'
+import { useUserPreferences } from '~/composables/users/useUserPreferences'
+import { useReceipts } from '~/composables/receipts/useReceipts'
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_CLASSES,
@@ -202,7 +202,7 @@ import {
   NEXT_STATUS,
   type Order,
   type OrderStatus,
-} from '~/composables/useMerchantOrders'
+} from '~/composables/catalog/useMerchantOrders'
 
 const { formatCurrency: _fmt } = useUserPreferences()
 

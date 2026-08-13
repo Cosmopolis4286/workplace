@@ -92,7 +92,7 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <ProductCard
+          <MenuProductCard
             v-for="product in category.visibleProducts"
             :key="product.id"
             :product="product"
@@ -164,18 +164,18 @@ import {
   DocumentTextIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
-import { useMenu } from '~/composables/useMenu'
-import type { Category, Product } from '~/composables/useMenu'
-import { usePlans } from '~/composables/usePlans'
-import { useUserPreferences } from '~/composables/useUserPreferences'
-import ProductCard from '~/components/ProductCard.vue'
+import { useMenu } from '~/composables/catalog/useMenu'
+import type { Category, Product } from '~/composables/catalog/useMenu'
+import { usePlans } from '~/composables/commerce/usePlans'
+import { useUserPreferences } from '~/composables/users/useUserPreferences'
+import MenuProductCard from '~/components/catalog/MenuProductCard.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
-import { useAlert } from '~/composables/useAlert'
-import { useConfirm } from '~/composables/useConfirm'
+import PlanUsageBanner from '~/components/plans/PlanUsageBanner.vue'
+import { useAlert } from '~/composables/ui/useAlert'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 const alertDialog = useAlert()
 const { confirm } = useConfirm()

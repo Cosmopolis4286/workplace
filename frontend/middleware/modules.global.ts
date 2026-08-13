@@ -5,9 +5,9 @@
  */
 
 import { navigateTo, defineNuxtRouteMiddleware } from "nuxt/app"
-import { useAuth } from "~/composables/useAuth"
-import { useModules } from "~/composables/useModules"
-import { useNavigation } from "~/composables/useNavigation"
+import { useAuth } from "~/composables/auth/useAuth"
+import { useModules } from "~/composables/commerce/useModules"
+import { useNavigation } from "~/composables/core/useNavigation"
 
 // El mapa ruta→módulo requerido ahora viene de GET /navigation (backend),
 // vía useNavigation().routeModules — misma fuente que middleware/auth.ts y

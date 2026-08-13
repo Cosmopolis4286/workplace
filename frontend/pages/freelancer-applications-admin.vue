@@ -97,7 +97,7 @@ definePageMeta({ middleware: ['auth'] })
 
 import { ref, computed, onMounted } from 'vue'
 import { CheckCircleIcon, BriefcaseIcon } from '@heroicons/vue/24/outline'
-import { useFreelancerApplication, type FreelancerApplication } from '~/composables/useFreelancerApplication'
+import { useFreelancerApplication, type FreelancerApplication } from '~/composables/jobs/useFreelancerApplication'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)

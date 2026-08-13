@@ -377,10 +377,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
-import { useAuth } from '~/composables/useAuth'
-import { useKyc } from '~/composables/useKyc'
-import { useExchangeRates } from '~/composables/useExchangeRates'
+import { useApi } from '~/composables/core/useApi'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useKyc } from '~/composables/kyc/useKyc'
+import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import {
   useServiceRequestItems,
   emptyServiceRequestItem,
@@ -389,7 +389,7 @@ import {
   MAX_PHOTOS_PER_ITEM,
   MAX_VIDEOS_PER_ITEM,
   type ServiceRequestItemForm,
-} from '~/composables/useServiceRequestItems'
+} from '~/composables/services/useServiceRequestItems'
 
 const props = defineProps<{
   modelValue: boolean

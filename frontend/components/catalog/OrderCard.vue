@@ -86,9 +86,9 @@ import {
   NEXT_STATUS,
   type Order,
   type OrderStatus,
-} from '~/composables/useMerchantOrders'
-import { useExchangeRates } from '~/composables/useExchangeRates'
-import { useUserPreferences } from '~/composables/useUserPreferences'
+} from '~/composables/catalog/useMerchantOrders'
+import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
+import { useUserPreferences } from '~/composables/users/useUserPreferences'
 
 const props = defineProps<{ order: Order }>()
 const { defaultRate } = useExchangeRates()

@@ -117,9 +117,9 @@ definePageMeta({ middleware: ['auth'] })
 
 import { ref, reactive, computed, onMounted } from 'vue'
 import { CheckCircleIcon, FlagIcon } from '@heroicons/vue/24/outline'
-import { useReports, type Report, type ReportStatus, type ReportEntityType } from '~/composables/useReports'
-import { useApi } from '~/composables/useApi'
-import { useConfirm } from '~/composables/useConfirm'
+import { useReports, type Report, type ReportStatus, type ReportEntityType } from '~/composables/dashboard/useReports'
+import { useApi } from '~/composables/core/useApi'
+import { useConfirm } from '~/composables/ui/useConfirm'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard vive en middleware/auth.ts vía permiso reviews:moderate (ver

@@ -732,12 +732,12 @@ import {
   ChatBubbleLeftRightIcon,
   PaperAirplaneIcon,
 } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
-import { useAuth } from '~/composables/useAuth'
-import { useExchangeRates } from '~/composables/useExchangeRates'
-import { useAssetUrl } from '~/composables/useAssetUrl'
-import { useServiceRequestMessages, type ServiceRequestMessage } from '~/composables/useServiceRequestMessages'
-import { useServiceRequestPriceProposals, type ServiceRequestPriceChangeProposal } from '~/composables/useServiceRequestPriceProposals'
+import { useApi } from '~/composables/core/useApi'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
+import { useAssetUrl } from '~/composables/core/useAssetUrl'
+import { useServiceRequestMessages, type ServiceRequestMessage } from '~/composables/services/useServiceRequestMessages'
+import { useServiceRequestPriceProposals, type ServiceRequestPriceChangeProposal } from '~/composables/services/useServiceRequestPriceProposals'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import {
   type ServiceRequestStatus,

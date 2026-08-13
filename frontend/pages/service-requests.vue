@@ -289,10 +289,10 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ServiceRequestDetailModal from '~/components/modals/ServiceRequestDetailModal.vue'
-import { useApi } from '~/composables/useApi'
-import { useExchangeRates } from '~/composables/useExchangeRates'
-import { useNotifications, type Notification } from '~/composables/useNotifications'
-import { useAssetUrl } from '~/composables/useAssetUrl'
+import { useApi } from '~/composables/core/useApi'
+import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
+import { useNotifications, type Notification } from '~/composables/notifications/useNotifications'
+import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import {
   type ServiceRequestStatus,
   SERVICE_REQUEST_STATUS_LABELS,

@@ -180,9 +180,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { CatalogProduct } from '~/composables/useCatalog'
-import { useExchangeRates } from '~/composables/useExchangeRates'
-import { useCart } from '~/composables/useCart'
+import type { CatalogProduct } from '~/composables/catalog/useCatalog'
+import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
+import { useCart } from '~/composables/catalog/useCart'
 
 const props = defineProps<{ product: CatalogProduct; isOwner?: boolean; isFavorite?: boolean }>()
 defineEmits<{ view: [product: CatalogProduct]; order: [product: CatalogProduct]; 'toggle-favorite': [productId: string] }>()

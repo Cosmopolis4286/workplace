@@ -265,7 +265,7 @@ import { computed, onMounted } from 'vue'
 import { CreditCardIcon, CalendarIcon, CheckIcon, EnvelopeIcon, ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS } from '~/composables/usePlans'
+import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS } from '~/composables/commerce/usePlans'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 

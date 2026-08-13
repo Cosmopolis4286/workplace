@@ -100,9 +100,9 @@ definePageMeta({ middleware: 'auth' })
 import { ref, computed, onMounted } from 'vue'
 import { Squares2X2Icon, ExclamationTriangleIcon, XMarkIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useSettings } from '~/composables/useSettings'
-import { useModules } from '~/composables/useModules'
-import { useModuleCatalog } from '~/composables/useModuleCatalog'
+import { useSettings } from '~/composables/commerce/useSettings'
+import { useModules } from '~/composables/commerce/useModules'
+import { useModuleCatalog } from '~/composables/commerce/useModuleCatalog'
 
 const { error, successMsg, saving, loadModuleSettings, saveModuleSettings } = useSettings()
 const { invalidate: invalidateModules, loadModules } = useModules()

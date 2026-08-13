@@ -643,17 +643,17 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { useApi } from '~/composables/useApi'
+import { useApi } from '~/composables/core/useApi'
 import {
   useMerchantOrders,
   ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES,
   ORDER_TYPE_LABELS, PAYMENT_METHOD_LABELS, NEXT_STATUS,
   type Order, type CreateOrderPayload, type OrderStatus, type OrderType, type PaymentMethod,
-} from '~/composables/useMerchantOrders'
-import { usePlans } from '~/composables/usePlans'
-import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
-import { useReceipts } from '~/composables/useReceipts'
-import { useKyc } from '~/composables/useKyc'
+} from '~/composables/catalog/useMerchantOrders'
+import { usePlans } from '~/composables/commerce/usePlans'
+import PlanUsageBanner from '~/components/plans/PlanUsageBanner.vue'
+import { useReceipts } from '~/composables/receipts/useReceipts'
+import { useKyc } from '~/composables/kyc/useKyc'
 
 definePageMeta({ middleware: 'auth' })
 

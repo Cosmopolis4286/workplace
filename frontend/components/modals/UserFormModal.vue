@@ -101,7 +101,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { XMarkIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline'
-import type { UserCategory, UserFormData } from '~/composables/useUsers'
+import type { UserCategory, UserFormData } from '~/composables/users/useUsers'
 import type { Role } from '~/config/roles.config'
 
 const props = defineProps<{

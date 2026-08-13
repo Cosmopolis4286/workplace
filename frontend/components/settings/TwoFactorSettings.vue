@@ -221,8 +221,8 @@ import {
   InformationCircleIcon,
   ExclamationCircleIcon,
 } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
-import { getApiErrorMessage } from '~/composables/useApiErrors'
+import { useAuth } from '~/composables/auth/useAuth'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 const { user, setupTwoFactor, enableTwoFactor, disableTwoFactor, updateLocalUser } = useAuth()
 

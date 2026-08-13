@@ -117,8 +117,8 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import { useGlobalSearch } from '~/composables/useGlobalSearch'
-import SearchSuggestionsDropdown from '~/components/SearchSuggestionsDropdown.vue'
+import { useGlobalSearch } from '~/composables/search/useGlobalSearch'
+import SearchSuggestionsDropdown from '~/components/search/SearchSuggestionsDropdown.vue'
 
 const { isDark } = useColorMode()
 const {

@@ -852,8 +852,8 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import TagsInput from '~/components/ui/TagsInput.vue'
-import { useMyServices, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service, type ServiceModality } from '~/composables/useMyServices'
-import { useConfirm } from '~/composables/useConfirm'
+import { useMyServices, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service, type ServiceModality } from '~/composables/services/useMyServices'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 

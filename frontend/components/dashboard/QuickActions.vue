@@ -64,7 +64,7 @@ import {
   MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline'
 import type { QuickActionConfig } from '~/config/dashboard.config'
-import { useDashboardQuickActions } from '~/composables/useDashboardQuickActions'
+import { useDashboardQuickActions } from '~/composables/dashboard/useDashboardQuickActions'
 
 interface Props {
   actions: QuickActionConfig[]

@@ -115,7 +115,7 @@ definePageMeta({ middleware: ['auth'] })
 
 import { ref, computed, onMounted } from 'vue'
 import { CheckCircleIcon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import { useProposedCategories, type ProposedCategory, type ProposedCategoryTarget } from '~/composables/useProposedCategories'
+import { useProposedCategories, type ProposedCategory, type ProposedCategoryTarget } from '~/composables/admin/useProposedCategories'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)

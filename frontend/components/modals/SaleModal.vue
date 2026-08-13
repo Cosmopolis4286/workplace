@@ -219,9 +219,9 @@ import {
   type CreateOrderPayload,
   type OrderType,
   type PaymentMethod,
-} from '~/composables/useMerchantOrders'
-import type { Product } from '~/composables/useMenu'
-import { useUserPreferences } from '~/composables/useUserPreferences'
+} from '~/composables/catalog/useMerchantOrders'
+import type { Product } from '~/composables/catalog/useMenu'
+import { useUserPreferences } from '~/composables/users/useUserPreferences'
 
 const { formatCurrency: _fmt } = useUserPreferences()
 

@@ -365,9 +365,9 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import TagsInput from '~/components/ui/TagsInput.vue'
-import { useJobs, type JobWithApplicationCount, type CreateJobData } from '~/composables/useJobs'
-import { useKyc } from '~/composables/useKyc'
-import { useConfirm } from '~/composables/useConfirm'
+import { useJobs, type JobWithApplicationCount, type CreateJobData } from '~/composables/jobs/useJobs'
+import { useKyc } from '~/composables/kyc/useKyc'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 

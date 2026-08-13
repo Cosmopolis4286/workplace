@@ -1,6 +1,6 @@
 import { navigateTo, defineNuxtRouteMiddleware } from "nuxt/app"
-import { useAuth } from "~/composables/useAuth"
-import { usePermissions } from "~/composables/usePermissions"
+import { useAuth } from "~/composables/auth/useAuth"
+import { usePermissions } from "~/composables/users/usePermissions"
 
 export default defineNuxtRouteMiddleware(async (to: any) => {
   if (process.server) return

@@ -119,7 +119,7 @@ definePageMeta({ middleware: ['auth'] })
 
 import { ref, computed, onMounted } from 'vue'
 import { CheckCircleIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import { useKyc, type IdentityVerification, type KycDocumentType } from '~/composables/useKyc'
+import { useKyc, type IdentityVerification, type KycDocumentType } from '~/composables/kyc/useKyc'
 import KycImagePreview from '~/components/kyc/KycImagePreview.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 

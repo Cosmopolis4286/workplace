@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { type WidgetLayoutItem } from '~/composables/useDashboardLayout'
+import { type WidgetLayoutItem } from '~/composables/dashboard/useDashboardLayout'
 
 const props = defineProps<{
   open: boolean

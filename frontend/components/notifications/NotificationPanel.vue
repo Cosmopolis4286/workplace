@@ -168,9 +168,9 @@ import {
 } from '@heroicons/vue/24/outline'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { useNotifications } from '~/composables/useNotifications'
-import { useAuth } from '~/composables/useAuth'
-import { useConfirm } from '~/composables/useConfirm'
+import { useNotifications } from '~/composables/notifications/useNotifications'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 const { confirm } = useConfirm()
 const {

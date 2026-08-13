@@ -140,8 +140,8 @@
 import { ref } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
-import type { ExpenseCategory } from '~/composables/useExpenses'
-import { useUserPreferences } from '~/composables/useUserPreferences'
+import type { ExpenseCategory } from '~/composables/commerce/useExpenses'
+import { useUserPreferences } from '~/composables/users/useUserPreferences'
 
 const { formatCurrency: _fmt } = useUserPreferences()
 

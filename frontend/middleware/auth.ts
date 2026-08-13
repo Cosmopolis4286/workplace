@@ -1,7 +1,7 @@
 import { navigateTo, defineNuxtRouteMiddleware } from 'nuxt/app'
-import { useAuth } from '~/composables/useAuth'
-import { usePermissions } from '~/composables/usePermissions'
-import { useNavigation } from '~/composables/useNavigation'
+import { useAuth } from '~/composables/auth/useAuth'
+import { usePermissions } from '~/composables/users/usePermissions'
+import { useNavigation } from '~/composables/core/useNavigation'
 import { isPublicRoute } from '~/utils/publicRoutes'
 
 type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'

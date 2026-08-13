@@ -132,7 +132,7 @@ definePageMeta({ middleware: ['auth'] })
 import { ref, computed, onMounted } from 'vue'
 import { ClipboardDocumentListIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useApi } from '~/composables/useApi'
+import { useApi } from '~/composables/core/useApi'
 import {
   type ServiceRequestStatus,
   SERVICE_REQUEST_STATUS_LABELS,

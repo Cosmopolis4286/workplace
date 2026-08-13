@@ -95,9 +95,9 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
 } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
-import { getApiErrorMessage } from '~/composables/useApiErrors'
-import { useToast } from '~/composables/useToast'
+import { useAuth } from '~/composables/auth/useAuth'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { useToast } from '~/composables/ui/useToast'
 
 const { t } = useI18n()
 useHead({ title: () => `${t('auth.twoFactor.title')} — ${t('common.appName')}` })

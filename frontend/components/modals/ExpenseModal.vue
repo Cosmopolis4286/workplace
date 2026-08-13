@@ -146,8 +146,8 @@
 import { ref, watch, computed } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { CameraIcon } from '@heroicons/vue/24/outline'
-import { useCamera } from '~/composables/useCamera'
-import { useExpenses, type Expense, type ExpenseCategory } from '~/composables/useExpenses'
+import { useCamera } from '~/composables/core/useCamera'
+import { useExpenses, type Expense, type ExpenseCategory } from '~/composables/commerce/useExpenses'
 
 const props = defineProps<{
   isOpen: boolean

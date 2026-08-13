@@ -548,7 +548,7 @@ import {
   type OrderType,
   type PaymentMethod,
   type CreateOrderPayload,
-} from '~/composables/useMerchantOrders'
+} from '~/composables/catalog/useMerchantOrders'
 
 const {
   orders,

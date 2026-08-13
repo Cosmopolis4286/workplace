@@ -411,7 +411,7 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
 import StockReportModal from '~/components/modals/StockReportModal.vue'
-import { useInventory } from '~/composables/useInventory'
+import { useInventory } from '~/composables/commerce/useInventory'
 
 const {
   products,

@@ -747,14 +747,14 @@ import {
 import Swal from 'sweetalert2'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import SearchableSelect from '~/components/ui/SearchableSelect.vue'
-import { useAuth, type Session } from '~/composables/useAuth'
-import { useCamera } from '~/composables/useCamera'
-import { useQuickAccess, MAX_QUICK_ACCESS } from '~/composables/useQuickAccess'
-import { useDashboardQuickActions, MAX_DASHBOARD_QUICK_ACTIONS } from '~/composables/useDashboardQuickActions'
-import { useKyc } from '~/composables/useKyc'
-import { useFreelancerApplication, type FreelancerApplication } from '~/composables/useFreelancerApplication'
-import { useVeLocations, type VeMunicipio, type VeCiudad } from '~/composables/useVeLocations'
-import { useLocationData } from '~/composables/useLocationData'
+import { useAuth, type Session } from '~/composables/auth/useAuth'
+import { useCamera } from '~/composables/core/useCamera'
+import { useQuickAccess, MAX_QUICK_ACCESS } from '~/composables/dashboard/useQuickAccess'
+import { useDashboardQuickActions, MAX_DASHBOARD_QUICK_ACTIONS } from '~/composables/dashboard/useDashboardQuickActions'
+import { useKyc } from '~/composables/kyc/useKyc'
+import { useFreelancerApplication, type FreelancerApplication } from '~/composables/jobs/useFreelancerApplication'
+import { useVeLocations, type VeMunicipio, type VeCiudad } from '~/composables/location/useVeLocations'
+import { useLocationData } from '~/composables/location/useLocationData'
 
 const auth = useAuth()
 const { checkUsername } = auth

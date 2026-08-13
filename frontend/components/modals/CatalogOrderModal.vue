@@ -197,9 +197,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
-import { useAuth } from '~/composables/useAuth'
-import { useKyc } from '~/composables/useKyc'
+import { useApi } from '~/composables/core/useApi'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useKyc } from '~/composables/kyc/useKyc'
 
 const props = defineProps<{
   modelValue: boolean

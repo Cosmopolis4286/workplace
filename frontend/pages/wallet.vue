@@ -415,8 +415,8 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { useWallets, type WalletTransactionType } from '~/composables/useWallets'
-import { useWalletDepositRequests } from '~/composables/useWalletDepositRequests'
+import { useWallets, type WalletTransactionType } from '~/composables/wallets/useWallets'
+import { useWalletDepositRequests } from '~/composables/wallets/useWalletDepositRequests'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 

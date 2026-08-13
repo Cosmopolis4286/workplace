@@ -34,9 +34,9 @@ definePageMeta({ layout: false })
 
 import { onMounted, ref } from 'vue'
 import { ExclamationCircleIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline'
-import { useAuth } from '~/composables/useAuth'
-import { useModules } from '~/composables/useModules'
-import { usePermissions } from '~/composables/usePermissions'
+import { useAuth } from '~/composables/auth/useAuth'
+import { useModules } from '~/composables/commerce/useModules'
+import { usePermissions } from '~/composables/users/usePermissions'
 
 const { fetchProfile } = useAuth()
 const error = ref('')

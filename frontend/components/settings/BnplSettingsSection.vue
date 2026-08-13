@@ -103,7 +103,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, watch } from 'vue'
 import { CreditCardIcon } from '@heroicons/vue/24/outline'
-import { useBnplSettings, type BnplProvider } from '~/composables/useBnplSettings'
+import { useBnplSettings, type BnplProvider } from '~/composables/wallets/useBnplSettings'
 
 const { providerSettings, saving, error, successMsg, loadBnplSettings, saveBnplSettings } = useBnplSettings()
 

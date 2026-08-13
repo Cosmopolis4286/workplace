@@ -142,8 +142,8 @@ import {
   ChevronRightIcon, ClockIcon, XMarkIcon, MapPinIcon, ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
-import { useAssetUrl } from '~/composables/useAssetUrl'
-import { useDefaultRate } from '~/composables/useDefaultRate'
+import { useAssetUrl } from '~/composables/core/useAssetUrl'
+import { useDefaultRate } from '~/composables/wallets/useDefaultRate'
 
 const props = defineProps({
   query: { type: String, default: '' },

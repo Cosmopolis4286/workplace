@@ -156,7 +156,7 @@
 import { ref, onMounted } from 'vue'
 import { ServerIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useApi } from '~/composables/useApi'
+import { useApi } from '~/composables/core/useApi'
 
 definePageMeta({ middleware: 'auth' })
 

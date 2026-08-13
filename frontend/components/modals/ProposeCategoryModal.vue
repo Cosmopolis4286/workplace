@@ -64,7 +64,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
-import { useProposedCategories, type ProposedCategoryTarget } from '~/composables/useProposedCategories'
+import { useProposedCategories, type ProposedCategoryTarget } from '~/composables/admin/useProposedCategories'
 
 const props = defineProps<{
   isOpen: boolean

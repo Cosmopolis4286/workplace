@@ -94,7 +94,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
-import { useDefaultRate } from '~/composables/useDefaultRate'
+import { useDefaultRate } from '~/composables/wallets/useDefaultRate'
 
 const props = defineProps({
   product: {

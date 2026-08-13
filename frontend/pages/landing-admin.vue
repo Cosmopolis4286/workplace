@@ -588,9 +588,9 @@
 
 <script setup lang="ts">
 import { PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon, HomeIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
-import { useLandingCrudSection } from '~/composables/useLandingCrudSection'
-import { useConfirm } from '~/composables/useConfirm'
+import { useApi } from '~/composables/core/useApi'
+import { useLandingCrudSection } from '~/composables/admin/useLandingCrudSection'
+import { useConfirm } from '~/composables/ui/useConfirm'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 definePageMeta({ middleware: ['auth'] })

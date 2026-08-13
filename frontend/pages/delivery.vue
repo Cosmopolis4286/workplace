@@ -450,9 +450,9 @@ import {
   DRIVER_STATUS_LABELS, DRIVER_STATUS_CLASSES, VEHICLE_LABELS,
   type Delivery, type Driver, type CreateDeliveryPayload, type CreateDriverPayload,
   type DeliveryStatus, type InviteDriverPayload,
-} from '~/composables/useDelivery'
-import { useKyc } from '~/composables/useKyc'
-import { useConfirm } from '~/composables/useConfirm'
+} from '~/composables/delivery/useDelivery'
+import { useKyc } from '~/composables/kyc/useKyc'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 

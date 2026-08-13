@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { PlanUsage } from '~/composables/usePlans'
+import type { PlanUsage } from '~/composables/commerce/usePlans'
 
 const props = defineProps<{
   usage: PlanUsage | null

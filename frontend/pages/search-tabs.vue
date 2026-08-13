@@ -358,7 +358,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { useSearchTabs, type SearchTab } from '~/composables/useSearchTabs'
+import { useSearchTabs, type SearchTab } from '~/composables/search/useSearchTabs'
 
 definePageMeta({ middleware: 'auth' })
 

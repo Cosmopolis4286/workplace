@@ -243,8 +243,8 @@ import {
   usePlatformFees,
   FEE_TYPE_LABELS, FEE_PAYER_LABELS,
   type FeeTransactionType, type FeePayer, type PlatformFeeRate, type PlatformFeeOverride, type UserSearchResult,
-} from '~/composables/usePlatformFees'
-import { useConfirm } from '~/composables/useConfirm'
+} from '~/composables/wallets/usePlatformFees'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 

@@ -205,9 +205,9 @@ import {
   useLocationsAdmin,
   type VeLocationNode,
   type VeLocationType,
-} from '~/composables/useLocationsAdmin'
-import { useVeLocations } from '~/composables/useVeLocations'
-import { useLocationData } from '~/composables/useLocationData'
+} from '~/composables/admin/useLocationsAdmin'
+import { useVeLocations } from '~/composables/location/useVeLocations'
+import { useLocationData } from '~/composables/location/useLocationData'
 
 definePageMeta({ middleware: 'auth' })
 

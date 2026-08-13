@@ -89,8 +89,8 @@
 
 <script setup lang="ts">
 import { ShoppingBagIcon, MagnifyingGlassIcon, ClockIcon } from '@heroicons/vue/24/outline'
-import { useRelativeTime } from '~/composables/useRelativeTime'
-import { useAssetUrl } from '~/composables/useAssetUrl'
+import { useRelativeTime } from '~/composables/core/useRelativeTime'
+import { useAssetUrl } from '~/composables/core/useAssetUrl'
 
 interface OrderItem {
   productName: string

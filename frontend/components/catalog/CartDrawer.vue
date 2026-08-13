@@ -242,7 +242,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useCart } from '~/composables/useCart'
+import { useCart } from '~/composables/catalog/useCart'
 
 const {
   items, isOpen, totalItems, totalPrice, groupedByCommerce,

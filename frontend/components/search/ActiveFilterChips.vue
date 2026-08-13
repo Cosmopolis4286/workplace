@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { FilterChip } from '~/composables/useCatalogFilters'
+import type { FilterChip } from '~/composables/catalog/useCatalogFilters'
 
 type Accent = 'red' | 'blue' | 'emerald'
 

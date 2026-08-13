@@ -347,7 +347,7 @@ import {
   EXPENSE_TYPE_CLASSES,
   EXPENSE_PAYMENT_METHOD_LABELS as PAYMENT_METHOD_LABELS,
   type Expense,
-} from '~/composables/useExpenses'
+} from '~/composables/commerce/useExpenses'
 
 const {
   expenses, categories, stats,

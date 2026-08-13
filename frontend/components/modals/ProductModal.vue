@@ -294,9 +294,9 @@
 import { ref, watch, computed, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { CameraIcon } from '@heroicons/vue/24/outline'
-import { useDefaultRate } from '~/composables/useDefaultRate'
-import { useCamera } from '~/composables/useCamera'
-import { useMenu } from '~/composables/useMenu'
+import { useDefaultRate } from '~/composables/wallets/useDefaultRate'
+import { useCamera } from '~/composables/core/useCamera'
+import { useMenu } from '~/composables/catalog/useMenu'
 import TagsInput from '~/components/ui/TagsInput.vue'
 
 const { defaultRate, convertLabel, rateLabel, load } = useDefaultRate()

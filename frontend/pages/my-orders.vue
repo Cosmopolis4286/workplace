@@ -435,7 +435,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
-import { useApi } from '~/composables/useApi'
+import { useApi } from '~/composables/core/useApi'
 
 // ─── Toggle de origen ───────────────────────────────────────────────────────────
 const activeSource = ref<'food' | 'catalog'>('food')

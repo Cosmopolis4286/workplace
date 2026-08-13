@@ -499,11 +499,11 @@ import {
   BoltIcon, CheckIcon, ExclamationCircleIcon,
   CreditCardIcon, ChevronDownIcon, EnvelopeIcon, ClockIcon,
 } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
+import { useApi } from '~/composables/core/useApi'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { usePlans } from '~/composables/usePlans'
-import { useKyc } from '~/composables/useKyc'
-import { useConfirm } from '~/composables/useConfirm'
+import { usePlans } from '~/composables/commerce/usePlans'
+import { useKyc } from '~/composables/kyc/useKyc'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 // Página híbrida: visitantes anónimos la ven como landing pública (layout
 // 'public'), usuarios con sesión la ven dentro del backoffice (layout

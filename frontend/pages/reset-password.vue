@@ -108,9 +108,9 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
 import { ref, computed } from 'vue'
-import { useApi } from '~/composables/useApi'
-import { getApiErrorMessage } from '~/composables/useApiErrors'
-import { useFormValidation } from '~/composables/useFormValidation'
+import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { useFormValidation } from '~/composables/ui/useFormValidation'
 import {
   LockClosedIcon,
   CheckCircleIcon,

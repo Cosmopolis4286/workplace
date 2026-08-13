@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { useKyc } from '~/composables/useKyc'
+import { useKyc } from '~/composables/kyc/useKyc'
 
 const props = defineProps<{
   verificationId: string

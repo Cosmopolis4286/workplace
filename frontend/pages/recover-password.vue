@@ -112,11 +112,11 @@ definePageMeta({ layout: 'auth' })
 
 import { ref, computed } from 'vue'
 import { EnvelopeIcon } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/useApi'
-import { getApiErrorMessage } from '~/composables/useApiErrors'
+import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { KeyIcon, PaperAirplaneIcon, CheckCircleIcon, InformationCircleIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline'
-import { useFormValidation } from '~/composables/useFormValidation'
-import { useToast } from '~/composables/useToast'
+import { useFormValidation } from '~/composables/ui/useFormValidation'
+import { useToast } from '~/composables/ui/useToast'
 
 const { t } = useI18n()
 useHead({ title: () => `${t('auth.recoverPassword.title')} — ${t('common.appName')}` })

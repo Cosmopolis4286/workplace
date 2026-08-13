@@ -182,7 +182,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, type Role } from '~/config/roles.config'
-import type { User } from '~/composables/useUserPermissions'
+import type { User } from '~/composables/users/useUserPermissions'
 import UserPermissionsModal from '~/components/permissions/UserPermissionsModal.vue'
 
 definePageMeta({ middleware: 'auth' })

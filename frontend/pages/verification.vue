@@ -127,7 +127,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ImageDropInput from '~/components/ui/ImageDropInput.vue'
-import { useKyc, type KycDocumentType } from '~/composables/useKyc'
+import { useKyc, type KycDocumentType } from '~/composables/kyc/useKyc'
 
 useHead({ title: 'Verificación de Identidad — WorkPlace Manager' })
 

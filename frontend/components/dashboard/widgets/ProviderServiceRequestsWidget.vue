@@ -102,16 +102,16 @@ import {
   WrenchIcon,
   ClockIcon,
 } from '@heroicons/vue/24/outline'
-import { useRelativeTime } from '~/composables/useRelativeTime'
-import { useAssetUrl } from '~/composables/useAssetUrl'
-import { useExchangeRates } from '~/composables/useExchangeRates'
+import { useRelativeTime } from '~/composables/core/useRelativeTime'
+import { useAssetUrl } from '~/composables/core/useAssetUrl'
+import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import {
   type ServiceRequestStatus,
   SERVICE_REQUEST_STATUS_LABELS,
   SERVICE_REQUEST_STATUS_CLASSES,
   SERVICE_REQUEST_STATUS_ICONS,
 } from '~/config/serviceRequestStatus.config'
-import type { ProviderServiceRequest } from '~/composables/useFreelancerDashboard'
+import type { ProviderServiceRequest } from '~/composables/dashboard/useFreelancerDashboard'
 
 const { getAssetUrl } = useAssetUrl()
 const { defaultRate, formatConversion, fetchRates } = useExchangeRates()

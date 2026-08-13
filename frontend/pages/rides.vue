@@ -619,9 +619,9 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import type { PlaceSuggestion } from '~/composables/useNominatim'
-import type { Ride } from '~/composables/useRides'
-import { useKyc } from '~/composables/useKyc'
+import type { PlaceSuggestion } from '~/composables/location/useNominatim'
+import type { Ride } from '~/composables/delivery/useRides'
+import { useKyc } from '~/composables/kyc/useKyc'
 
 definePageMeta({ middleware: 'auth' })
 
