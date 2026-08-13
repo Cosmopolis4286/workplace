@@ -53,6 +53,7 @@
           :label="item.label"
           :dark="dark"
           :collapsed="collapsed"
+          :unread-count="item.to === '/service-requests' ? unreadServiceRequestsCount : 0"
           @click="$emit('navigate')"
         >
           <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
@@ -72,6 +73,7 @@
             :label="item.label"
             :dark="dark"
             :collapsed="true"
+            :unread-count="item.to === '/service-requests' ? unreadServiceRequestsCount : 0"
             @click="$emit('navigate')"
           >
             <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
@@ -93,6 +95,7 @@
             :label="item.label"
             :dark="dark"
             :collapsed="false"
+            :unread-count="item.to === '/service-requests' ? unreadServiceRequestsCount : 0"
             @click="$emit('navigate')"
           >
             <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
@@ -117,6 +120,7 @@
           :label="item.label"
           :dark="dark"
           :collapsed="collapsed"
+          :unread-count="item.to === '/service-requests' ? unreadServiceRequestsCount : 0"
           @click="$emit('navigate')"
         >
           <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
@@ -140,6 +144,7 @@
           :label="item.label"
           :dark="dark"
           :collapsed="collapsed"
+          :unread-count="item.to === '/service-requests' ? unreadServiceRequestsCount : 0"
           @click="$emit('navigate')"
         >
           <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
@@ -163,6 +168,7 @@
           :label="item.label"
           :dark="dark"
           :collapsed="collapsed"
+          :unread-count="item.to === '/service-requests' ? unreadServiceRequestsCount : 0"
           @click="$emit('navigate')"
         >
           <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
@@ -250,12 +256,19 @@ const {
   topSection, adminSection, miCuentaSection, negocioSection, groupSections,
 } = useNavigation()
 const { savedIds: savedQuickAccessIds, availableFor: availableQuickAccess } = useQuickAccess()
+const { unreadCount: unreadServiceRequestsCount, refresh: refreshUnreadBadge } = useServiceRequestsUnreadBadge()
+const { notifications } = useNotifications()
 
 onMounted(() => {
   loadModules()
   loadNavigation()
   if (!permissionsInitialized.value) fetchPermissions()
+  refreshUnreadBadge()
 })
+
+// Reutiliza el WebSocket ya activo de useNotifications (mismo patrón que el
+// banner de /service-requests) en vez de un intervalo de polling nuevo.
+watch(notifications, () => { refreshUnreadBadge() })
 
 const role = computed(() => user.value?.role ?? 'NORMAL')
 
@@ -280,10 +293,11 @@ defineEmits(['navigate'])
 // ─── Inline NavLink component ─────────────────────────────────────────────────
 const NavLink = defineComponent({
   props: {
-    to:        { type: String,  required: true },
-    label:     { type: String,  required: true },
-    dark:      { type: Boolean, default: false },
-    collapsed: { type: Boolean, default: false },
+    to:          { type: String,  required: true },
+    label:       { type: String,  required: true },
+    dark:        { type: Boolean, default: false },
+    collapsed:   { type: Boolean, default: false },
+    unreadCount: { type: Number,  default: 0 },
   },
   emits: ['click'],
   setup(p, { slots, emit }) {
@@ -301,8 +315,18 @@ const NavLink = defineComponent({
         : (p.dark ? darkInactive : lightInactive)
 
       const wrapClass = p.collapsed
-        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all duration-150 ${stateClass}`
+        ? `relative flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all duration-150 ${stateClass}`
         : `flex items-center gap-3 w-full px-2.5 py-2 rounded-lg transition-all duration-150 ${stateClass}`
+
+      const badge = p.unreadCount > 0
+        ? (p.collapsed
+            ? h('span', {
+                class: 'absolute top-0.5 right-0.5 min-w-[8px] h-2 w-2 rounded-full bg-workplace-red',
+              })
+            : h('span', {
+                class: 'flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-workplace-red text-white text-[10px] font-bold flex items-center justify-center',
+              }, p.unreadCount > 99 ? '99+' : String(p.unreadCount)))
+        : null
 
       return h(resolveComponent('NuxtLink'), {
         to: p.to,
@@ -314,6 +338,7 @@ const NavLink = defineComponent({
         !p.collapsed
           ? h('span', { class: 'text-sm font-medium truncate flex-1' }, p.label)
           : null,
+        badge,
       ])
     }
   },

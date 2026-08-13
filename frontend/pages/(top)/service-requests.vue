@@ -168,10 +168,15 @@
 
               <!-- Badge estado + precio -->
               <div class="flex-shrink-0 text-right space-y-1.5">
-                <span class="inline-flex items-center gap-1 justify-center px-2.5 py-1 rounded-full text-xs font-semibold" :class="STATUS_CLASSES[req.status]">
-                  <component :is="STATUS_ICONS[req.status]" class="h-3 w-3" />
-                  {{ STATUS_LABELS[req.status] }}
-                </span>
+                <div class="flex items-center justify-end gap-1.5">
+                  <span v-if="req.unreadCount" class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-workplace-red text-white text-[10px] font-bold">
+                    {{ req.unreadCount > 99 ? '99+' : req.unreadCount }}
+                  </span>
+                  <span class="inline-flex items-center gap-1 justify-center px-2.5 py-1 rounded-full text-xs font-semibold" :class="STATUS_CLASSES[req.status]">
+                    <component :is="STATUS_ICONS[req.status]" class="h-3 w-3" />
+                    {{ STATUS_LABELS[req.status] }}
+                  </span>
+                </div>
                 <div v-if="req.price">
                   <p class="text-sm font-bold text-gray-900">
                     ${{ formatPrice(req.price) }}
@@ -267,7 +272,7 @@
       :show="!!selectedReq"
       :req="selectedReq"
       :is-provider="viewAs === 'provider'"
-      @close="selectedReq = null"
+      @close="onModalClose"
       @updated="onRequestUpdated"
     />
   </div>
@@ -294,6 +299,8 @@ import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useNotifications, type Notification } from '~/composables/notifications/useNotifications'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { useServiceRequestMessages } from '~/composables/services/useServiceRequestMessages'
+import { useServiceRequestsUnreadBadge } from '~/composables/services/useServiceRequestsUnreadBadge'
 import {
   type ServiceRequestStatus,
   SERVICE_REQUEST_STATUS_LABELS,
@@ -344,6 +351,7 @@ interface ServiceRequest {
   items?: ServiceRequestItem[]
   providerAvatar?: string | null
   clientAvatar?: string | null
+  unreadCount?: number
 }
 
 function contactAvatarUrl(req: ServiceRequest): string | null {
@@ -427,6 +435,23 @@ function onRequestUpdated(updated: ServiceRequest) {
   selectedReq.value = updated
 }
 
+const { fetchUnreadCountByRequest } = useServiceRequestMessages()
+const { refresh: refreshUnreadBadge } = useServiceRequestsUnreadBadge()
+
+// Fetch separado del listado principal (no toca services.service.ts / backend
+// de ServiceRequest) para mantener ese dominio desacoplado de mensajería —
+// mismo criterio ya usado para avatares en el backend (withAvatars en batch).
+async function refreshUnreadByRequest() {
+  try {
+    const counts = await fetchUnreadCountByRequest()
+    for (const r of requests.value) {
+      r.unreadCount = counts[r.id] ?? 0
+    }
+  } catch {
+    // non-blocking
+  }
+}
+
 async function fetchRequests() {
   loading.value = true
   error.value = null
@@ -442,6 +467,19 @@ async function fetchRequests() {
   } finally {
     loading.value = false
   }
+  refreshUnreadByRequest()
+}
+
+// El modal ya llama markRead() internamente al abrir el chat — reflejamos eso
+// localmente (decremento, sin refetch) en vez de esperar al próximo fetch, y
+// sincronizamos el badge global del sidebar.
+function onModalClose() {
+  if (selectedReq.value?.unreadCount) {
+    const idx = requests.value.findIndex(r => r.id === selectedReq.value!.id)
+    if (idx !== -1) requests.value[idx].unreadCount = 0
+  }
+  selectedReq.value = null
+  refreshUnreadBadge()
 }
 
 // Abre el modal de una solicitud específica enlazada por id (ej. desde el
