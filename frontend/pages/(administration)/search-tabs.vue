@@ -314,29 +314,6 @@
       </Transition>
     </Teleport>
 
-    <!-- ─── Modal Confirmar Eliminar ──────────────────────────────────────────── -->
-    <Teleport to="body">
-      <Transition name="modal-fade">
-        <div v-if="tabToDelete" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="tabToDelete = null">
-          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="tabToDelete = null" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div class="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <TrashIcon class="w-6 h-6 text-red-600" />
-            </div>
-            <h3 class="text-base font-black text-gray-900 text-center mb-2">Eliminar tab</h3>
-            <p class="text-sm text-gray-500 text-center mb-6">
-              ¿Eliminar el tab <strong>{{ tabToDelete.label }}</strong>? Esta acción no se puede deshacer.
-            </p>
-            <div class="flex gap-3">
-              <button class="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-bold rounded-xl hover:bg-gray-50 transition-colors" @click="tabToDelete = null">Cancelar</button>
-              <button class="flex-1 px-4 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-60" :disabled="saving" @click="deleteTab">
-                {{ saving ? 'Eliminando...' : 'Eliminar' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
 
     <!-- Toast -->
     <Teleport to="body">
@@ -359,6 +336,7 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useSearchTabs, type SearchTab } from '~/composables/search/useSearchTabs'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -375,7 +353,7 @@ const toast = ref<string | null>(null)
 
 const showModal = ref(false)
 const editingTab = ref<SearchTab | null>(null)
-const tabToDelete = ref<SearchTab | null>(null)
+const { confirm } = useConfirm()
 
 const searchQuery = ref('')
 const filterStatus = ref('')
@@ -533,23 +511,22 @@ async function moveTab(tab: SearchTab, direction: 'up' | 'down') {
   }
 }
 
-function confirmDelete(tab: SearchTab) {
-  tabToDelete.value = tab
-}
-
-async function deleteTab() {
-  if (!tabToDelete.value) return
-  saving.value = true
-  try {
-    await adminDelete(tabToDelete.value.id)
-    tabs.value = tabs.value.filter(t => t.id !== tabToDelete.value!.id)
-    tabToDelete.value = null
-    showToast('Tab eliminado')
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    saving.value = false
-  }
+async function confirmDelete(tab: SearchTab) {
+  const ok = await confirm({
+    title: 'Eliminar tab',
+    message: `¿Eliminar el tab ${tab.label}? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await adminDelete(tab.id)
+        tabs.value = tabs.value.filter(t => t.id !== tab.id)
+      } catch (e: any) {
+        return e.message
+      }
+    },
+  })
+  if (ok) showToast('Tab eliminado')
 }
 
 onMounted(loadTabs)
