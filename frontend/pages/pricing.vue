@@ -42,7 +42,7 @@
             </p>
             <p v-if="mySubscription.endAt" class="text-xs mt-0.5" :class="(daysRemaining(mySubscription.endAt) ?? 999) <= 7 ? 'text-red-600 font-semibold' : 'text-gray-400'">
               {{ mySubscription.status === 'TRIAL' ? 'Tu prueba termina' : 'Vence' }} el
-              {{ new Date(mySubscription.endAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) }}
+              {{ formatDateLong(mySubscription.endAt) }}
               <template v-if="daysRemaining(mySubscription.endAt) !== null">
                 ({{ daysRemaining(mySubscription.endAt) }} días restantes)
               </template>
@@ -504,6 +504,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import { usePlans } from '~/composables/commerce/usePlans'
 import { useKyc } from '~/composables/kyc/useKyc'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 // Página híbrida: visitantes anónimos la ven como landing pública (layout
 // 'public'), usuarios con sesión la ven dentro del backoffice (layout
@@ -512,6 +513,7 @@ import { useConfirm } from '~/composables/ui/useConfirm'
 definePageMeta({ layout: false })
 
 const { confirm } = useConfirm()
+const { formatDateLong, formatNumber } = useDateFormat()
 
 interface Plan {
   id: string
@@ -584,14 +586,9 @@ function currentPrice(plan: Plan): number {
   return plan.priceMonthly ?? plan.price ?? 0
 }
 
-function formatPrice(amount: number): string {
-  if (amount === 0) return 'Gratis'
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount)
-}
-
+const { formatPrice, formatLimit: formatLimitBase } = useMoneyFormat()
 function formatLimit(value: number | null | undefined): string {
-  if (value === null || value === undefined || value < 0) return '∞'
-  return value.toLocaleString('es-MX')
+  return formatLimitBase(value, '∞')
 }
 
 // ─── Tabla comparativa ────────────────────────────────────────────────────────

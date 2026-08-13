@@ -257,16 +257,7 @@ export function usePlans() {
   const activePlans = computed(() => plans.value.filter((p: Plan) => p.status === 'ACTIVE'))
   const inactivePlans = computed(() => plans.value.filter((p: Plan) => p.status === 'INACTIVE'))
 
-  function formatLimit(val: number) {
-    return val === -1 ? 'Ilimitado' : val === 0 ? 'No incluido' : String(val)
-  }
-
-  function formatPrice(price: number) {
-    if (price === 0) return 'Gratis'
-    // USD nominal: todo el sistema monetario (wallets, escrow, planes) opera
-    // en USD, igual que pricing.vue — antes decía MXN incorrectamente.
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'USD' }).format(price)
-  }
+  const { formatPrice, formatLimit } = useMoneyFormat()
 
   function daysRemaining(endAt: string | null) {
     if (!endAt) return null
