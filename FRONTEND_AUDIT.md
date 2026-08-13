@@ -149,10 +149,12 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       `trackSvcEvent` ya no puede romper el flujo de abrir el modal de solicitud si `sessionStorage`
       lanza `SecurityError` (Safari privado estricto), y `getAssetUrl` se extrae una sola vez en vez de
       re-invocar `useAssetUrl()` en cada función auxiliar (`avatarSrc`/`mediaSrc`/`coverSrc`).
-- [ ] **`composables/auth/useDemoCredentials.ts`** — `console.log` con el nombre del contenedor
-      Docker interno y el comando exacto de seed (`docker exec backend-hybrid ...`), sin gate de
-      `process.dev` — se ejecuta en cualquier entorno donde el endpoint responda "Demo users not
-      found", exponiendo detalles de infraestructura en la consola del navegador de cualquier usuario.
+- [x] **`composables/auth/useDemoCredentials.ts`** — `console.log` con el nombre del contenedor
+      Docker interno y el comando exacto de seed (`docker exec backend-hybrid ...`) se ejecutaba sin
+      gate de `process.dev` — en cualquier entorno donde el endpoint respondiera "Demo users not
+      found", exponía detalles de infraestructura en la consola del navegador de cualquier usuario.
+      Corregido: ambos `console.log` ahora están condicionados a `process.dev`, mismo criterio ya
+      usado en el `console.error` de la rama de error genérico del mismo archivo.
 
 ---
 

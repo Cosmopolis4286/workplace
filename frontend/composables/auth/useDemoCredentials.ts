@@ -93,9 +93,13 @@ export const useDemoCredentials = () => {
           needsSeed.value = true
           error.value = 'Usuarios demo no encontrados. Ejecuta: pnpm seed'
 
-          // 📝 Log informativo en consola (no error)
-          console.log('[DemoCredentials] ℹ️ Usuarios demo no disponibles. Seed requerido.')
-          console.log('[DemoCredentials] 💡 Ejecuta: docker exec backend-hybrid sh -c "cd /app/backend && npx prisma db seed"')
+          // 📝 Log informativo en consola (no error) — solo en desarrollo: el
+          // comando de seed expone el nombre del contenedor Docker interno,
+          // que no debe llegar a la consola de un navegador en producción.
+          if (process.dev) {
+            console.log('[DemoCredentials] ℹ️ Usuarios demo no disponibles. Seed requerido.')
+            console.log('[DemoCredentials] 💡 Ejecuta: docker exec backend-hybrid sh -c "cd /app/backend && npx prisma db seed"')
+          }
 
           // 🔔 Mostrar alerta informativa al usuario
           const { info } = useAlert()
