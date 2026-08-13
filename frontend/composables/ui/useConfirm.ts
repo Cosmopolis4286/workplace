@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
-export type ConfirmVariant = 'danger' | 'primary'
+export type ConfirmVariant = 'danger' | 'primary' | 'warning'
 
 /** Devuelve un string de error para dejar el modal abierto mostrándolo; cualquier otro valor (o lanzar) cierra el modal en éxito/con excepción. */
 export type ConfirmAction = () => Promise<string | void>

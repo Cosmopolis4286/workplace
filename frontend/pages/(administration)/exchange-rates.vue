@@ -295,66 +295,6 @@
       </Transition>
     </Teleport>
 
-    <!-- ── Modales de confirmación ─────────────────────────────────────────── -->
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="deletingRate" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="deletingRate = null">
-          <div class="absolute inset-0 bg-black/40" @click="deletingRate = null" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 class="text-base font-semibold text-gray-900 mb-2">Eliminar moneda</h3>
-            <p class="text-sm text-gray-500 mb-5">¿Eliminar <strong>{{ deletingRate.code }} — {{ deletingRate.name }}</strong>? Esta acción no se puede deshacer.</p>
-            <div class="flex gap-3">
-              <button class="btn-secondary flex-1" @click="deletingRate = null">Cancelar</button>
-              <button class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors" :disabled="saving" @click="confirmDelete">
-                {{ saving ? 'Eliminando...' : 'Eliminar' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="settingDefaultRate" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="settingDefaultRate = null">
-          <div class="absolute inset-0 bg-black/40" @click="settingDefaultRate = null" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 class="text-base font-semibold text-gray-900 mb-2">Establecer como predeterminada</h3>
-            <p class="text-sm text-gray-500 mb-5">¿Establecer <strong>{{ settingDefaultRate.code }} - {{ settingDefaultRate.name }}</strong> como la moneda predeterminada?</p>
-            <div class="flex gap-3">
-              <button class="btn-secondary flex-1" @click="settingDefaultRate = null">Cancelar</button>
-              <button class="flex-1 px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors" :disabled="saving" @click="confirmSetDefault">
-                {{ saving ? 'Estableciendo...' : 'Establecer' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="togglingRate" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="togglingRate = null">
-          <div class="absolute inset-0 bg-black/40" @click="togglingRate = null" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 class="text-base font-semibold text-gray-900 mb-2">{{ togglingRate.isActive ? 'Desactivar' : 'Activar' }} moneda</h3>
-            <p class="text-sm text-gray-500 mb-5">
-              ¿{{ togglingRate.isActive ? 'Desactivar' : 'Activar' }} <strong>{{ togglingRate.code }}</strong>?
-              {{ togglingRate.isActive ? 'Ya no estará disponible para conversiones.' : 'Estará disponible para conversiones.' }}
-            </p>
-            <div class="flex gap-3">
-              <button class="btn-secondary flex-1" @click="togglingRate = null">Cancelar</button>
-              <button class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors" :disabled="saving" @click="confirmToggle">
-                {{ saving ? '...' : (togglingRate.isActive ? 'Desactivar' : 'Activar') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
 
     <!-- ── Modal historial de auditoría ────────────────────────────────────── -->
     <Teleport to="body">
@@ -443,6 +383,7 @@ import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry, typ
 import { usePermissions } from '~/composables/users/usePermissions'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -553,13 +494,61 @@ async function handleManualSyncFromTable(rate: ExchangeRate) {
 }
 
 // ─── Acciones ─────────────────────────────────────────────────────────────────
-const deletingRate      = ref<ExchangeRate | null>(null)
-const settingDefaultRate = ref<ExchangeRate | null>(null)
-const togglingRate      = ref<ExchangeRate | null>(null)
+const { confirm } = useConfirm()
 
-function handleDelete(rate: ExchangeRate)     { deletingRate.value = rate }
-function handleSetDefault(rate: ExchangeRate) { settingDefaultRate.value = rate }
-function handleToggle(rate: ExchangeRate)     { togglingRate.value = rate }
+async function handleDelete(rate: ExchangeRate) {
+  const ok = await confirm({
+    title: 'Eliminar moneda',
+    message: `¿Eliminar ${rate.code} — ${rate.name}? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await deleteRate(rate.id)
+        await fetchStats()
+      } catch (e: any) {
+        return getApiErrorMessage(e, 'No se pudo eliminar la moneda')
+      }
+    },
+  })
+  if (ok) showToast('Moneda eliminada')
+}
+
+async function handleSetDefault(rate: ExchangeRate) {
+  const ok = await confirm({
+    title: 'Establecer como predeterminada',
+    message: `¿Establecer ${rate.code} - ${rate.name} como la moneda predeterminada?`,
+    confirmText: 'Establecer',
+    variant: 'warning',
+    onConfirm: async () => {
+      try {
+        await setDefault(rate.id)
+        await fetchStats()
+      } catch (e: any) {
+        return getApiErrorMessage(e, 'No se pudo establecer la moneda predeterminada')
+      }
+    },
+  })
+  if (ok) showToast(`${rate.code} establecida como predeterminada`)
+}
+
+async function handleToggle(rate: ExchangeRate) {
+  const willActivate = !rate.isActive
+  const ok = await confirm({
+    title: `${willActivate ? 'Activar' : 'Desactivar'} moneda`,
+    message: `¿${willActivate ? 'Activar' : 'Desactivar'} ${rate.code}? ${willActivate ? 'Estará disponible para conversiones.' : 'Ya no estará disponible para conversiones.'}`,
+    confirmText: willActivate ? 'Activar' : 'Desactivar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await toggleStatus(rate.id)
+      } catch (e: any) {
+        return getApiErrorMessage(e, 'No se pudo cambiar el estado de la moneda')
+      }
+    },
+  })
+  if (ok) showToast(`${rate.code} ${willActivate ? 'activada' : 'desactivada'}`)
+}
 
 // ─── Historial de auditoría ───────────────────────────────────────────────────
 const historyRate    = ref<ExchangeRate | null>(null)
@@ -590,27 +579,6 @@ function sourceBadgeClass(source: string) {
   if (source === 'MANUAL') return 'bg-blue-100 text-blue-700'
   if (source === 'CREATE') return 'bg-gray-100 text-gray-600'
   return 'bg-green-100 text-green-700'
-}
-
-async function confirmDelete() {
-  if (!deletingRate.value) return; saving.value = true
-  try { await deleteRate(deletingRate.value.id); await fetchStats(); showToast('Moneda eliminada'); deletingRate.value = null }
-  catch (e: any) { error.value = getApiErrorMessage(e, 'No se pudo eliminar la moneda') }
-  finally { saving.value = false }
-}
-
-async function confirmSetDefault() {
-  if (!settingDefaultRate.value) return; saving.value = true
-  try { await setDefault(settingDefaultRate.value.id); await fetchStats(); showToast(`${settingDefaultRate.value.code} establecida como predeterminada`); settingDefaultRate.value = null }
-  catch (e: any) { error.value = getApiErrorMessage(e, 'No se pudo establecer la moneda predeterminada') }
-  finally { saving.value = false }
-}
-
-async function confirmToggle() {
-  if (!togglingRate.value) return; saving.value = true
-  try { await toggleStatus(togglingRate.value.id); showToast(`${togglingRate.value.code} ${togglingRate.value.isActive ? 'desactivada' : 'activada'}`); togglingRate.value = null }
-  catch (e: any) { error.value = getApiErrorMessage(e, 'No se pudo cambiar el estado de la moneda') }
-  finally { saving.value = false }
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
