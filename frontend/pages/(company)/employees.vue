@@ -99,10 +99,11 @@
                 <!-- Acciones hover -->
                 <div class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    class="p-1.5 rounded-lg transition-colors"
+                    class="p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     :class="emp.isActive ? 'text-green-500 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'"
                     :title="emp.isActive ? 'Deshabilitar' : 'Habilitar'"
-                    @click="toggleStatus(emp.id)"
+                    :disabled="togglingStatusId === emp.id"
+                    @click="handleToggleStatus(emp.id)"
                   >
                     <CheckCircleIcon class="h-4 w-4" />
                   </button>
@@ -253,6 +254,17 @@ import { useDateFormat } from '~/composables/core/useDateFormat'
 definePageMeta({ middleware: 'auth' })
 
 const { employees, stats, loading, error, managerCount, loadEmpleados, fetchEmployee, createEmpleado, updateEmpleado, deleteEmpleado, toggleStatus } = useEmployees()
+
+const togglingStatusId = ref<string | null>(null)
+async function handleToggleStatus(id: string) {
+  if (togglingStatusId.value) return
+  togglingStatusId.value = id
+  try {
+    await toggleStatus(id)
+  } finally {
+    togglingStatusId.value = null
+  }
+}
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 const searchQuery  = ref('')

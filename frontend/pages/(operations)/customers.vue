@@ -128,8 +128,9 @@
 
               <!-- Estado -->
               <button
-                class="flex-shrink-0 badge transition-colors"
+                class="flex-shrink-0 badge transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 :class="client.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+                :disabled="togglingStatusId === client.id"
                 @click="handleToggleStatus(client)"
               >
                 {{ client.isActive ? 'Activo' : 'Inactivo' }}
@@ -531,7 +532,16 @@ async function handleDelete() {
 }
 
 // ─── Toggle status ────────────────────────────────────────────────────────────
-async function handleToggleStatus(client: Customer) { await toggleStatus(client.id) }
+const togglingStatusId = ref<string | null>(null)
+async function handleToggleStatus(client: Customer) {
+  if (togglingStatusId.value) return
+  togglingStatusId.value = client.id
+  try {
+    await toggleStatus(client.id)
+  } finally {
+    togglingStatusId.value = null
+  }
+}
 
 // ─── Telegram ─────────────────────────────────────────────────────────────────
 const telegramLinkLoading = ref<string | null>(null)

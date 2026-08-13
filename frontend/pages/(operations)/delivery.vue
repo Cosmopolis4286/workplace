@@ -127,16 +127,17 @@
             >
               <UserPlusIcon class="h-3.5 w-3.5" />Asignar
             </button>
-            <button v-if="delivery.status === 'ASSIGNED'"   class="flex-1 text-xs py-1.5 px-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-medium transition-colors" @click="changeStatus(delivery.id, 'PICKING_UP')">Recogiendo</button>
-            <button v-if="delivery.status === 'PICKING_UP'" class="flex-1 text-xs py-1.5 px-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-medium transition-colors" @click="changeStatus(delivery.id, 'IN_TRANSIT')">En camino</button>
-            <button v-if="delivery.status === 'IN_TRANSIT'"  class="flex-1 text-xs py-1.5 px-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-medium transition-colors" @click="changeStatus(delivery.id, 'DELIVERED')">Entregado</button>
+            <button v-if="delivery.status === 'ASSIGNED'"   class="flex-1 text-xs py-1.5 px-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :disabled="changingStatusId === delivery.id" @click="changeStatus(delivery.id, 'PICKING_UP')">Recogiendo</button>
+            <button v-if="delivery.status === 'PICKING_UP'" class="flex-1 text-xs py-1.5 px-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :disabled="changingStatusId === delivery.id" @click="changeStatus(delivery.id, 'IN_TRANSIT')">En camino</button>
+            <button v-if="delivery.status === 'IN_TRANSIT'"  class="flex-1 text-xs py-1.5 px-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :disabled="changingStatusId === delivery.id" @click="changeStatus(delivery.id, 'DELIVERED')">Entregado</button>
             <button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar" @click="openEditDelivery(delivery)">
               <PencilIcon class="h-3.5 w-3.5" />
             </button>
             <button
               v-if="!['DELIVERED','CANCELLED','FAILED'].includes(delivery.status)"
-              class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Cancelar"
+              :disabled="changingStatusId === delivery.id"
               @click="changeStatus(delivery.id, 'CANCELLED')"
             ><XCircleIcon class="h-3.5 w-3.5" /></button>
             <button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar" @click="confirmDeleteDelivery(delivery.id)">
@@ -507,8 +508,15 @@ async function refreshAll() {
 
 const { isRefreshing, pullDistance, isPulling } = usePullToRefresh(refreshAll)
 
+const changingStatusId = ref<string | null>(null)
 async function changeStatus(id: string, status: DeliveryStatus) {
-  await updateDeliveryStatus(id, status)
+  if (changingStatusId.value) return
+  changingStatusId.value = id
+  try {
+    await updateDeliveryStatus(id, status)
+  } finally {
+    changingStatusId.value = null
+  }
 }
 
 // ── Delivery Modal ────────────────────────────────────────────────────────────

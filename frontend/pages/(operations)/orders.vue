@@ -129,8 +129,9 @@
                 <button
                   v-for="ns in (NEXT_STATUS[order.status] ?? [])"
                   :key="ns"
-                  class="text-xs px-2 py-1 rounded-lg font-medium transition-colors"
+                  class="text-xs px-2 py-1 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   :class="ns === 'CANCELLED' ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'"
+                  :disabled="updatingOrderId === order.id"
                   @click="doUpdateStatus(order, ns)"
                 >→ {{ ORDER_STATUS_LABELS[ns] }}</button>
               </div>
@@ -183,8 +184,9 @@
                 <button
                   v-for="ns in (NEXT_STATUS[order.status] ?? [])"
                   :key="ns"
-                  class="text-xs px-2 py-1 rounded-lg font-medium transition-colors"
+                  class="text-xs px-2 py-1 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   :class="ns === 'CANCELLED' ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'"
+                  :disabled="updatingOrderId === order.id"
                   @click="doUpdateStatus(order, ns)"
                 >→ {{ ORDER_STATUS_LABELS[ns] }}</button>
               </div>
@@ -249,8 +251,9 @@
                 <button
                   v-for="ns in MKT_NEXT_STATUS[mo.status]"
                   :key="ns"
-                  class="text-xs px-2 py-1 rounded-lg font-medium transition-colors"
+                  class="text-xs px-2 py-1 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   :class="ns === 'CLOSED' ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-red-100 hover:bg-red-200 text-red-700'"
+                  :disabled="updatingMktOrderId === mo.id"
                   @click="updateMktStatus(mo.id, ns)"
                 >{{ MKT_STATUS_LABELS[ns] }}</button>
                 <a v-if="mo.buyerPhone" :href="`https://wa.me/${mo.buyerPhone.replace(/\D/g,'')}`" target="_blank"
@@ -585,8 +588,9 @@
                   <button
                     v-for="ns in NEXT_STATUS[selectedOrder.status]"
                     :key="ns"
-                    class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+                    class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     :class="ns === 'CANCELLED' ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'"
+                    :disabled="updatingOrderId === selectedOrder.id"
                     @click="doUpdateStatus(selectedOrder, ns); showDetailsModal = false"
                   >→ {{ ORDER_STATUS_LABELS[ns] }}</button>
                 </div>
@@ -735,7 +739,16 @@ async function doDelete() {
   await deleteOrder(selectedOrder.value.id)
   showCancelConfirm.value = false; selectedOrder.value = null
 }
-async function doUpdateStatus(order: Order, nextStatus: OrderStatus) { await updateStatus(order.id, nextStatus) }
+const updatingOrderId = ref<string | null>(null)
+async function doUpdateStatus(order: Order, nextStatus: OrderStatus) {
+  if (updatingOrderId.value) return
+  updatingOrderId.value = order.id
+  try {
+    await updateStatus(order.id, nextStatus)
+  } finally {
+    updatingOrderId.value = null
+  }
+}
 
 // New order form
 const defaultNewOrder = (): CreateOrderPayload & { orderType: OrderType; paymentMethod: PaymentMethod } => ({
@@ -804,13 +817,18 @@ async function loadMktOrders() {
 // El comercio tiene productos publicados en el marketplace
 const hasCatalogProducts = computed(() => (usage.value?.usage?.products ?? 0) > 0)
 
+const updatingMktOrderId = ref<string | null>(null)
 async function updateMktStatus(id: string, status: MktOrderStatus) {
+  if (updatingMktOrderId.value) return
+  updatingMktOrderId.value = id
   try {
     const { patch } = useApi()
     await patch(`/catalog/orders/${id}/status`, { status })
     const o = mktOrders.value.find(o => o.id === id)
     if (o) o.status = status
-  } catch { }
+  } catch { } finally {
+    updatingMktOrderId.value = null
+  }
 }
 
 function mktChangePage(page: number) { mktPage.value = page; loadMktOrders() }

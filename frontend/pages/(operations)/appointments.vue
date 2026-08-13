@@ -217,7 +217,8 @@
                   <div class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <select
                       :value="appt.status"
-                      class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-red-400"
+                      class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-red-400 disabled:opacity-50"
+                      :disabled="updatingApptId === appt.id"
                       @change="handleStatusChange(appt, ($event.target as HTMLSelectElement).value as AppointmentStatus)"
                     >
                       <option v-for="(label, key) in STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
@@ -663,10 +664,16 @@ async function handleSubmit() {
   }
 }
 
+const updatingApptId = ref<string | null>(null)
 async function handleStatusChange(appt: Appointment, newStatus: AppointmentStatus) {
-  if (appt.status === newStatus) return
-  const ok = await updateStatus(appt.id, newStatus)
-  if (ok) toast.success('Estado actualizado', `Reserva marcada como ${STATUS_LABELS[newStatus]}`)
+  if (appt.status === newStatus || updatingApptId.value) return
+  updatingApptId.value = appt.id
+  try {
+    const ok = await updateStatus(appt.id, newStatus)
+    if (ok) toast.success('Estado actualizado', `Reserva marcada como ${STATUS_LABELS[newStatus]}`)
+  } finally {
+    updatingApptId.value = null
+  }
 }
 
 async function handleDelete(appt: Appointment) {
