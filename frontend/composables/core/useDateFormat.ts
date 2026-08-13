@@ -34,7 +34,7 @@ export function useDateFormat() {
     return toDate(value).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' })
   }
 
-  /** "hace 5 min", "hace 2h", ... "5 ago" para fechas antiguas */
+  /** "hace 5 min", "hace 2h", "hace 3 semanas", "hace 2 meses", "hace 1 año" */
   function timeAgo(value: Date | string): string {
     const target = toDate(value)
     const diff = Math.floor((Date.now() - target.getTime()) / 1000)
@@ -42,12 +42,17 @@ export function useDateFormat() {
     if (diff < 10) return 'justo ahora'
     if (diff < 60) return `hace ${diff} segundo${diff !== 1 ? 's' : ''}`
     const mins = Math.floor(diff / 60)
-    if (mins < 60) return `hace ${mins} min`
+    if (mins < 60) return `hace ${mins} minuto${mins !== 1 ? 's' : ''}`
     const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `hace ${hrs}h`
+    if (hrs < 24) return `hace ${hrs} hora${hrs !== 1 ? 's' : ''}`
     const days = Math.floor(hrs / 24)
-    if (days < 7) return `hace ${days}d`
-    return toDate(value).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' })
+    if (days < 7) return `hace ${days} día${days !== 1 ? 's' : ''}`
+    const weeks = Math.floor(days / 7)
+    if (weeks < 4) return `hace ${weeks} semana${weeks !== 1 ? 's' : ''}`
+    const months = Math.floor(days / 30)
+    if (months < 12) return `hace ${months} mes${months !== 1 ? 'es' : ''}`
+    const years = Math.floor(days / 365)
+    return `hace ${years} año${years !== 1 ? 's' : ''}`
   }
 
   /** "1.234,56" */

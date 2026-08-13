@@ -293,6 +293,7 @@ import { useApi } from '~/composables/core/useApi'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useNotifications, type Notification } from '~/composables/notifications/useNotifications'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 import {
   type ServiceRequestStatus,
   SERVICE_REQUEST_STATUS_LABELS,
@@ -308,6 +309,7 @@ const { user } = useAuth()
 const { get, patch } = useApi()
 const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
 const { getAssetUrl } = useAssetUrl()
+const { formatDate: fmtDate, formatDateTime: fmtDateTime, timeAgo: fmtTimeAgo } = useDateFormat()
 
 const isNormal = computed(() => user.value?.role === 'NORMAL')
 
@@ -491,34 +493,19 @@ function switchView(v: 'provider' | 'client') {
 }
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+  return fmtDate(date)
 }
 
 function formatDateTime(date: string) {
-  return new Date(date).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return fmtDateTime(date)
 }
 
 function formatPrice(price: number) {
-  return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
+  return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 0 }).format(price)
 }
 
 function timeAgo(date: string) {
-  const diff = Date.now() - new Date(date).getTime()
-  const sec = Math.floor(diff / 1000)
-  if (sec < 10)    return 'hace un momento'
-  if (sec < 60)    return `hace ${sec} segundo${sec !== 1 ? 's' : ''}`
-  const min = Math.floor(sec / 60)
-  if (min < 60)    return `hace ${min} minuto${min !== 1 ? 's' : ''}`
-  const hrs = Math.floor(min / 60)
-  if (hrs < 24)    return `hace ${hrs} hora${hrs !== 1 ? 's' : ''}`
-  const days = Math.floor(hrs / 24)
-  if (days < 7)    return `hace ${days} día${days !== 1 ? 's' : ''}`
-  const weeks = Math.floor(days / 7)
-  if (weeks < 4)   return `hace ${weeks} semana${weeks !== 1 ? 's' : ''}`
-  const months = Math.floor(days / 30)
-  if (months < 12) return `hace ${months} mes${months !== 1 ? 'es' : ''}`
-  const years = Math.floor(days / 365)
-  return `hace ${years} año${years !== 1 ? 's' : ''}`
+  return fmtTimeAgo(date)
 }
 
 // ─── Refresco en vivo vía notificaciones WebSocket ──────────────────────────
