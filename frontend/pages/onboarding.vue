@@ -263,8 +263,14 @@ definePageMeta({ middleware: 'auth' })
 const { user, updateLocalUser } = useAuth()
 const { invalidate: invalidateModules } = useModules()
 
-const STORAGE_KEY    = 'onboarding_step'
-const COMPLETION_KEY = 'onboarding_completed'
+// Namespaced por userId: sin esto, en un dispositivo compartido el progreso
+// (o el "completado") de un usuario se filtraba a la sesión del siguiente
+// que iniciara sesión en el mismo navegador.
+function lsKey(name: string) {
+  return `onboarding_${name}_${user.value?.id ?? 'anon'}`
+}
+const STORAGE_KEY    = () => lsKey('step')
+const COMPLETION_KEY = () => lsKey('completed')
 
 const step  = ref(0)
 const steps = ['Tu negocio', 'Tu plan', '¡Listo!']
@@ -284,7 +290,7 @@ const saveError    = ref('')
 const selectedCategoryObj = computed(() => categories.value.find(c => c.id === selectedCategory.value) ?? null)
 const selectedPlanObj     = computed(() => plans.value.find(p => p.id === selectedPlan.value) ?? null)
 
-watch(selectedPlan, (val) => { if (val) localStorage.setItem('onboarding_plan', val) })
+watch(selectedPlan, (val) => { if (val) localStorage.setItem(lsKey('plan'), val) })
 
 // ─── Carga de datos ───────────────────────────────────────────────────────────
 async function loadCategories() {
@@ -337,9 +343,9 @@ async function next() {
       invalidateModules()
       await loadPlans()
       step.value = 1
-      localStorage.setItem(STORAGE_KEY, '1')
-      localStorage.setItem('onboarding_category', selectedCategory.value)
-      if (selectedSubcategory.value) localStorage.setItem('onboarding_subcategory', selectedSubcategory.value)
+      localStorage.setItem(STORAGE_KEY(), '1')
+      localStorage.setItem(lsKey('category'), selectedCategory.value)
+      if (selectedSubcategory.value) localStorage.setItem(lsKey('subcategory'), selectedSubcategory.value)
     } catch (e: any) { saveError.value = e?.data?.message ?? e.message }
     finally { saving.value = false }
 
@@ -352,8 +358,8 @@ async function next() {
         invalidateModules()
       }
       step.value = 2
-      localStorage.setItem(STORAGE_KEY, '2')
-      localStorage.removeItem('onboarding_plan')
+      localStorage.setItem(STORAGE_KEY(), '2')
+      localStorage.removeItem(lsKey('plan'))
     } catch (e: any) {
       saveError.value = e?.data?.message ?? e.message ?? 'Error al guardar el plan. Intenta de nuevo.'
     } finally { saving.value = false }
@@ -361,11 +367,11 @@ async function next() {
 }
 
 async function goToDashboard() {
-  localStorage.removeItem(STORAGE_KEY)
-  localStorage.removeItem('onboarding_category')
-  localStorage.removeItem('onboarding_subcategory')
-  localStorage.removeItem('onboarding_plan')
-  localStorage.setItem(COMPLETION_KEY, 'true')
+  localStorage.removeItem(STORAGE_KEY())
+  localStorage.removeItem(lsKey('category'))
+  localStorage.removeItem(lsKey('subcategory'))
+  localStorage.removeItem(lsKey('plan'))
+  localStorage.setItem(COMPLETION_KEY(), 'true')
   const { fetchProfile } = useAuth()
   await fetchProfile()
   invalidateModules()
@@ -373,27 +379,27 @@ async function goToDashboard() {
 }
 
 async function skipOnboarding() {
-  localStorage.removeItem(STORAGE_KEY)
-  localStorage.setItem(COMPLETION_KEY, 'true')
+  localStorage.removeItem(STORAGE_KEY())
+  localStorage.setItem(COMPLETION_KEY(), 'true')
   try { await navigateTo('/dashboard') }
   catch { window.location.href = '/dashboard' }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  const isCompleted = localStorage.getItem(COMPLETION_KEY) === 'true'
+  const isCompleted = localStorage.getItem(COMPLETION_KEY()) === 'true'
   if (isCompleted || user.value?.categoryId) {
-    localStorage.setItem(COMPLETION_KEY, 'true')
+    localStorage.setItem(COMPLETION_KEY(), 'true')
     await navigateTo('/dashboard')
     return
   }
 
-  const savedStep = parseInt(localStorage.getItem(STORAGE_KEY) ?? '', 10)
+  const savedStep = parseInt(localStorage.getItem(STORAGE_KEY()) ?? '', 10)
   if (!isNaN(savedStep) && savedStep >= 1) {
     step.value = savedStep
-    selectedCategory.value    = localStorage.getItem('onboarding_category') || user.value?.categoryId || ''
-    selectedSubcategory.value = localStorage.getItem('onboarding_subcategory') || ''
-    selectedPlan.value        = localStorage.getItem('onboarding_plan') || ''
+    selectedCategory.value    = localStorage.getItem(lsKey('category')) || user.value?.categoryId || ''
+    selectedSubcategory.value = localStorage.getItem(lsKey('subcategory')) || ''
+    selectedPlan.value        = localStorage.getItem(lsKey('plan')) || ''
     if (selectedCategory.value) await loadSubcategories(selectedCategory.value)
     await Promise.all([loadCategories(), loadPlans()])
     return

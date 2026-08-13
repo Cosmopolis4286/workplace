@@ -117,8 +117,11 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
   await loadNavigation()
 
   // ── 4b. Onboarding: COMMERCE/FREELANCER sin categoría ────────────────────
+  // Clave namespaced por userId (misma convención que pages/onboarding.vue)
+  // — sin esto, en un dispositivo compartido el "completado" de un usuario
+  // se filtraba a la sesión del siguiente que iniciara sesión ahí.
   const onboardingDone = process.client
-    ? localStorage.getItem('onboarding_completed') === 'true'
+    ? localStorage.getItem(`onboarding_completed_${user.value.id}`) === 'true'
     : false
 
   if (

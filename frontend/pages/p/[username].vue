@@ -1207,11 +1207,11 @@ import {
 import { useApi } from '~/composables/useApi'
 import { useProfiles, type ProfilePost, type PostComment, type ProfileReview } from '~/composables/useProfiles'
 import { useAuth } from '~/composables/useAuth'
-import { useAlert } from '~/composables/useAlert'
+import { useConfirm } from '~/composables/useConfirm'
 
 definePageMeta({ layout: false })
 
-const alert = useAlert()
+const { confirm } = useConfirm()
 const route = useRoute()
 const username = computed(() => route.params.username as string)
 
@@ -1226,6 +1226,7 @@ const {
 } = useProfiles()
 
 const { user: currentUser, isAuthenticated, uploadAvatar } = useAuth()
+const { getAssetUrl } = useAssetUrl()
 
 // ─── Cover image ──────────────────────────────────────────────────────────────
 const coverFileInput = ref<HTMLInputElement | null>(null)
@@ -1234,7 +1235,6 @@ const coverPreview = ref<string | null>(null)
 
 const coverSrc = computed(() => {
   if (coverPreview.value) return coverPreview.value
-  const { getAssetUrl } = useAssetUrl()
   return getAssetUrl(profile.value?.coverImage)
 })
 
@@ -1248,9 +1248,9 @@ async function onCoverFileSelected(event: Event) {
   try {
     await uploadCover(file)
     coverPreview.value = null
-  } catch (err) {
+  } catch (err: any) {
     coverPreview.value = null
-    console.error(err)
+    alert.error('No se pudo actualizar la portada', err?.data?.message ?? err?.message ?? '')
   } finally {
     uploadingCover.value = false
     if (coverFileInput.value) coverFileInput.value.value = ''
@@ -1266,11 +1266,9 @@ const apiUrl = config.public.apiUrl as string
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function avatarSrc(av: string) {
-  const { getAssetUrl } = useAssetUrl()
   return getAssetUrl(av) ?? ''
 }
 function mediaSrc(url: string) {
-  const { getAssetUrl } = useAssetUrl()
   return getAssetUrl(url) ?? ''
 }
 function formatDate(iso: string) {
@@ -1411,6 +1409,8 @@ async function handleToggleLike(post: ProfilePost) {
         selectedPost.value = { ...selectedPost.value, isLiked: true, likesCount: res.likesCount }
       }
     }
+  } catch (err: any) {
+    alert.error('No se pudo procesar el like', err?.data?.message ?? err?.message ?? '')
   } finally {
     likingPostId.value = null
   }
@@ -1420,6 +1420,8 @@ async function loadComments(postId: string) {
   loadingComments.value = true
   try {
     postComments.value = await fetchComments(postId)
+  } catch (err: any) {
+    alert.error('No se pudieron cargar los comentarios', err?.data?.message ?? err?.message ?? '')
   } finally {
     loadingComments.value = false
   }
@@ -1435,6 +1437,8 @@ async function handleSendComment() {
     if (selectedPost.value) {
       selectedPost.value = { ...selectedPost.value, commentsCount: selectedPost.value.commentsCount + 1 }
     }
+  } catch (err: any) {
+    alert.error('No se pudo enviar el comentario', err?.data?.message ?? err?.message ?? '')
   } finally {
     sendingComment.value = false
   }
@@ -1442,10 +1446,14 @@ async function handleSendComment() {
 
 async function handleDeleteComment(comment: PostComment) {
   if (!selectedPost.value) return
-  await deleteComment(selectedPost.value.id, comment.id)
-  postComments.value = postComments.value.filter(c => c.id !== comment.id)
-  if (selectedPost.value) {
-    selectedPost.value = { ...selectedPost.value, commentsCount: Math.max(0, selectedPost.value.commentsCount - 1) }
+  try {
+    await deleteComment(selectedPost.value.id, comment.id)
+    postComments.value = postComments.value.filter(c => c.id !== comment.id)
+    if (selectedPost.value) {
+      selectedPost.value = { ...selectedPost.value, commentsCount: Math.max(0, selectedPost.value.commentsCount - 1) }
+    }
+  } catch (err: any) {
+    alert.error('No se pudo eliminar el comentario', err?.data?.message ?? err?.message ?? '')
   }
 }
 
@@ -1547,12 +1555,19 @@ async function fetchProfileServices() {
 
 function trackSvcEvent(serviceId: string, type: 'VIEW' | 'PROFILE_VISIT' | 'REQUEST') {
   let sid = ''
-  if (typeof sessionStorage !== 'undefined') {
-    sid = sessionStorage.getItem('_svcSid') ?? ''
-    if (!sid) {
-      sid = Math.random().toString(36).slice(2) + Date.now().toString(36)
-      sessionStorage.setItem('_svcSid', sid)
+  try {
+    // sessionStorage puede lanzar SecurityError en storage restringido
+    // (ej. Safari en modo privado estricto) — el tracking no debe romper
+    // el flujo principal de abrir el modal de solicitud por esto.
+    if (typeof sessionStorage !== 'undefined') {
+      sid = sessionStorage.getItem('_svcSid') ?? ''
+      if (!sid) {
+        sid = Math.random().toString(36).slice(2) + Date.now().toString(36)
+        sessionStorage.setItem('_svcSid', sid)
+      }
     }
+  } catch {
+    // sin sessionStorage disponible: se trackea sin sessionId persistente
   }
   const { post } = useApi()
   post('/services/track', { serviceId, type, sessionId: sid }).catch(() => {})
@@ -1592,13 +1607,25 @@ async function onAvatarFileSelected(event: Event) {
 async function handleFollow() {
   if (!profile.value?.username) return
   followLoading.value = true
-  try { await follow(profile.value.username) } finally { followLoading.value = false }
+  try {
+    await follow(profile.value.username)
+  } catch (err: any) {
+    alert.error('No se pudo seguir al usuario', err?.data?.message ?? err?.message ?? '')
+  } finally {
+    followLoading.value = false
+  }
 }
 
 async function handleUnfollow() {
   if (!profile.value?.username) return
   followLoading.value = true
-  try { await unfollow(profile.value.username) } finally { followLoading.value = false }
+  try {
+    await unfollow(profile.value.username)
+  } catch (err: any) {
+    alert.error('No se pudo dejar de seguir al usuario', err?.data?.message ?? err?.message ?? '')
+  } finally {
+    followLoading.value = false
+  }
 }
 
 async function loadMorePosts() {
@@ -1618,10 +1645,14 @@ function openPost(post: ProfilePost) {
 }
 
 async function confirmDeletePost(id: string) {
-  const result = await alert.confirm('Eliminar publicación', 'Esta acción no se puede deshacer.', 'Sí, eliminar', 'Cancelar')
-  if (!result.isConfirmed) return
-  if (selectedPost.value?.id === id) selectedPost.value = null
-  await deletePost(id)
+  const ok = await confirm({ title: '¿Eliminar publicación?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', variant: 'danger' })
+  if (!ok) return
+  try {
+    await deletePost(id)
+    if (selectedPost.value?.id === id) selectedPost.value = null
+  } catch (err: any) {
+    alert.error('No se pudo eliminar la publicación', err?.data?.message ?? err?.message ?? '')
+  }
 }
 
 function startEditCaption() {
@@ -1719,8 +1750,8 @@ async function handleSubmitReview() {
 }
 
 async function handleDeleteReview(id: string) {
-  const result = await alert.confirm('Eliminar reseña', '¿Eliminar tu reseña?', 'Eliminar', 'Cancelar')
-  if (!result.isConfirmed) return
+  const ok = await confirm({ title: 'Eliminar reseña', message: '¿Eliminar tu reseña?', confirmText: 'Eliminar', variant: 'danger' })
+  if (!ok) return
   await deleteReview(username.value, id)
   if (profile.value?.username) await fetchProfile(profile.value.username)
 }
@@ -1748,8 +1779,8 @@ async function handleSubmitResponse() {
 }
 
 async function handleDeleteResponse(reviewId: string) {
-  const result = await alert.confirm('Eliminar respuesta', '¿Eliminar tu respuesta?', 'Eliminar', 'Cancelar')
-  if (!result.isConfirmed) return
+  const ok = await confirm({ title: 'Eliminar respuesta', message: '¿Eliminar tu respuesta?', confirmText: 'Eliminar', variant: 'danger' })
+  if (!ok) return
   await deleteReviewResponse(reviewId)
 }
 

@@ -276,6 +276,7 @@ export const useAuth = () => {
   }
 
   async function logout(): Promise<void> {
+    const loggedOutUserId = currentUser.value?.id
     try {
       if (accessToken.value || !isNative) {
         await $fetch(`${apiUrl}/auth/logout`, {
@@ -291,6 +292,13 @@ export const useAuth = () => {
       usePermissions().clearPermissions()
       useModules().invalidate()
       resetWallets()
+      // Progreso de onboarding namespaced por userId (ver pages/onboarding.vue) —
+      // se limpia al cerrar sesión para no acumular basura en localStorage.
+      if (process.client && loggedOutUserId) {
+        for (const suffix of ['step', 'completed', 'category', 'subcategory', 'plan']) {
+          localStorage.removeItem(`onboarding_${suffix}_${loggedOutUserId}`)
+        }
+      }
     }
   }
 
