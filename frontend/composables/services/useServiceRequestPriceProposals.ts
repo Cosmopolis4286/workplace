@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useApi } from '../core/useApi'
+import { getApiErrorMessage } from '../core/useApiErrors'
 
 export interface ServiceRequestProposalItem {
   id: string
@@ -50,7 +51,7 @@ export function useServiceRequestPriceProposals() {
         payload
       )
     } catch (e: any) {
-      error.value = e?.data?.message ?? e?.message ?? 'No se pudo enviar la propuesta'
+      error.value = getApiErrorMessage(e, 'No se pudo enviar la propuesta')
       throw e
     } finally {
       submitting.value = false
@@ -66,7 +67,7 @@ export function useServiceRequestPriceProposals() {
         {}
       )
     } catch (e: any) {
-      error.value = e?.data?.message ?? e?.message ?? 'No se pudo aprobar la propuesta'
+      error.value = getApiErrorMessage(e, 'No se pudo aprobar la propuesta')
       throw e
     } finally {
       submitting.value = false
@@ -82,7 +83,7 @@ export function useServiceRequestPriceProposals() {
         { reason }
       )
     } catch (e: any) {
-      error.value = e?.data?.message ?? e?.message ?? 'No se pudo rechazar la propuesta'
+      error.value = getApiErrorMessage(e, 'No se pudo rechazar la propuesta')
       throw e
     } finally {
       submitting.value = false

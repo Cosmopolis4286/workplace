@@ -589,6 +589,7 @@
 <script setup lang="ts">
 import { PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon, HomeIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useLandingCrudSection } from '~/composables/admin/useLandingCrudSection'
 import { useConfirm } from '~/composables/ui/useConfirm'
 import PageHeader from '~/components/ui/PageHeader.vue'
@@ -700,7 +701,7 @@ async function loadStats() {
     const { get } = useApi()
     editableStats.value = await get<AdminStat[]>('/landing/admin/stats')
   } catch (e: any) {
-    statsError.value = e?.data?.message ?? e?.message ?? 'Error al cargar las estadísticas'
+    statsError.value = getApiErrorMessage(e, 'Error al cargar las estadísticas')
   }
 }
 
@@ -715,7 +716,7 @@ async function saveStats() {
       ),
     )
   } catch (e: any) {
-    statsError.value = e?.data?.message ?? e?.message ?? 'Error al guardar las estadísticas'
+    statsError.value = getApiErrorMessage(e, 'Error al guardar las estadísticas')
   } finally {
     savingStats.value = false
   }
@@ -746,7 +747,7 @@ async function loadReportedReviews() {
     const { get } = useApi()
     reportedReviews.value = await get<ReportedReview[]>('/profiles/admin/reviews/reported')
   } catch (e: any) {
-    reportsError.value = e?.data?.message ?? e?.message ?? 'Error al cargar las reseñas reportadas'
+    reportsError.value = getApiErrorMessage(e, 'Error al cargar las reseñas reportadas')
   } finally {
     loadingReports.value = false
   }
@@ -759,7 +760,7 @@ async function moderate(reviewId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS_
     await patch(`/profiles/admin/reviews/${reviewId}/moderate`, { action })
     await loadReportedReviews()
   } catch (e: any) {
-    reportsError.value = e?.data?.message ?? e?.message ?? 'Error al moderar la reseña'
+    reportsError.value = getApiErrorMessage(e, 'Error al moderar la reseña')
   }
 }
 
@@ -796,7 +797,7 @@ async function loadUserReports() {
     const { get } = useApi()
     userReports.value = await get<UserReport[]>(`/reports/admin${query}`)
   } catch (e: any) {
-    reportsError.value = e?.data?.message ?? e?.message ?? 'Error al cargar los reportes de usuarios'
+    reportsError.value = getApiErrorMessage(e, 'Error al cargar los reportes de usuarios')
   } finally {
     loadingUserReports.value = false
   }
@@ -809,7 +810,7 @@ async function moderateUserReport(id: string, status: UserReport['status']) {
     await patch(`/reports/admin/${id}`, { status })
     await loadUserReports()
   } catch (e: any) {
-    reportsError.value = e?.data?.message ?? e?.message ?? 'Error al actualizar el reporte'
+    reportsError.value = getApiErrorMessage(e, 'Error al actualizar el reporte')
   }
 }
 
@@ -849,7 +850,7 @@ async function loadReviewCandidates() {
     const { get } = useApi()
     reviewCandidates.value = await get<ReviewCandidate[]>('/landing/admin/testimonials/review-candidates')
   } catch (e: any) {
-    testimonialsError.value = e?.data?.message ?? e?.message ?? 'Error al cargar reseñas candidatas'
+    testimonialsError.value = getApiErrorMessage(e, 'Error al cargar reseñas candidatas')
   } finally {
     loadingCandidates.value = false
   }
@@ -863,7 +864,7 @@ async function useAsTestimonial(reviewId: string) {
     testimonials.value.push(created)
     reviewCandidates.value = reviewCandidates.value.filter((c: ReviewCandidate) => c.id !== reviewId)
   } catch (e: any) {
-    testimonialsError.value = e?.data?.message ?? e?.message ?? 'Error al crear el testimonio'
+    testimonialsError.value = getApiErrorMessage(e, 'Error al crear el testimonio')
   } finally {
     creatingFromReview.value = null
   }

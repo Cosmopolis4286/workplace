@@ -1,5 +1,6 @@
 import { ref, computed, onMounted, readonly } from 'vue'
 import { useToast } from '../ui/useToast'
+import { getApiErrorMessage } from '../core/useApiErrors'
 
 /**
  * Tipos de credenciales demo disponibles
@@ -86,7 +87,7 @@ export const useDemoCredentials = () => {
         /**
          * ⚠️ Manejo de errores robusto
          */
-        const errorMessage = err?.data?.message || err?.message || ''
+        const errorMessage = getApiErrorMessage(err, '')
 
         // 🔍 Detectar si el error es porque faltan usuarios demo (seed no ejecutado)
         if (errorMessage.includes('Demo users not found') || errorMessage.includes('Run: pnpm seed')) {

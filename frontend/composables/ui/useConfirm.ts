@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 export type ConfirmVariant = 'danger' | 'primary'
 
@@ -78,7 +79,7 @@ async function settle(result: boolean) {
     }
     close(true)
   } catch (e: any) {
-    state.error = e?.data?.message ?? e?.message ?? 'Ocurrió un error inesperado'
+    state.error = getApiErrorMessage(e, 'Ocurrió un error inesperado')
     state.loading = false
   }
 }

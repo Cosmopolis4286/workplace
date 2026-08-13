@@ -1,5 +1,6 @@
 import { ref, reactive } from 'vue'
 import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 // CRUD genérico para las secciones de contenido de /landing-admin que
 // comparten la misma forma (testimonials/features/steps: listar, crear,
@@ -24,7 +25,7 @@ export function useLandingCrudSection<
       const { get } = useApi()
       items.value = await get<T[]>(endpoint)
     } catch (e: any) {
-      error.value = e?.data?.message ?? e?.message ?? 'Error al cargar'
+      error.value = getApiErrorMessage(e, 'Error al cargar')
     } finally {
       loading.value = false
     }
@@ -53,7 +54,7 @@ export function useLandingCrudSection<
       showModal.value = false
       return true
     } catch (e: any) {
-      error.value = e?.data?.message ?? e?.message ?? 'Error al guardar'
+      error.value = getApiErrorMessage(e, 'Error al guardar')
       return false
     } finally {
       saving.value = false
@@ -68,7 +69,7 @@ export function useLandingCrudSection<
       items.value = items.value.filter((i) => i.id !== id)
       return true
     } catch (e: any) {
-      error.value = e?.data?.message ?? e?.message ?? 'Error al eliminar'
+      error.value = getApiErrorMessage(e, 'Error al eliminar')
       return false
     }
   }
@@ -85,7 +86,7 @@ export function useLandingCrudSection<
       const { patch } = useApi()
       await patch(`${endpoint}/reorder`, { orderedIds: reordered.map((i) => i.id) })
     } catch (e: any) {
-      error.value = e?.data?.message ?? e?.message ?? 'Error al reordenar'
+      error.value = getApiErrorMessage(e, 'Error al reordenar')
     }
   }
 

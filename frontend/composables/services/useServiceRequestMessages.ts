@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useApi } from '../core/useApi'
+import { getApiErrorMessage } from '../core/useApiErrors'
 
 export interface ServiceRequestMessage {
   id: string
@@ -27,7 +28,7 @@ export function useServiceRequestMessages() {
     try {
       return await post<ServiceRequestMessage>(`/services/requests/${serviceRequestId}/messages`, { body })
     } catch (e: any) {
-      error.value = e?.data?.message ?? e?.message ?? 'No se pudo enviar el mensaje'
+      error.value = getApiErrorMessage(e, 'No se pudo enviar el mensaje')
       throw e
     } finally {
       sending.value = false
@@ -42,9 +43,5 @@ export function useServiceRequestMessages() {
     return get<{ count: number }>('/services/requests/messages/unread-count')
   }
 
-  async function fetchUnreadCountByRequest() {
-    return get<Record<string, number>>('/services/requests/messages/unread-count-by-request')
-  }
-
-  return { sending, error, fetchMessages, sendMessage, markRead, fetchUnreadCount, fetchUnreadCountByRequest }
+  return { sending, error, fetchMessages, sendMessage, markRead, fetchUnreadCount }
 }
