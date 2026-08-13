@@ -84,121 +84,89 @@
     </div>
 
     <!-- Tabla -->
-    <div class="card overflow-hidden">
-      <!-- Skeleton -->
-      <div v-if="loading" class="divide-y divide-gray-100">
-        <div v-for="i in 6" :key="i" class="p-4 flex items-center gap-4">
-          <div class="skeleton h-9 w-9 rounded-full flex-shrink-0" />
-          <div class="flex-1 space-y-2"><div class="skeleton h-4 w-40 rounded" /><div class="skeleton h-3 w-56 rounded" /></div>
-          <div class="skeleton h-6 w-20 rounded-full" />
-        </div>
+    <div v-if="loading" class="card overflow-hidden divide-y divide-gray-100">
+      <div v-for="i in 6" :key="i" class="p-4 flex items-center gap-4">
+        <div class="skeleton h-9 w-9 rounded-full flex-shrink-0" />
+        <div class="flex-1 space-y-2"><div class="skeleton h-4 w-40 rounded" /><div class="skeleton h-3 w-56 rounded" /></div>
+        <div class="skeleton h-6 w-20 rounded-full" />
       </div>
+    </div>
 
-      <!-- Vacío -->
-      <div v-else-if="users.length === 0" class="p-12 text-center">
+    <AppTable
+      v-else
+      :rows="users"
+      selectable
+      row-key="id"
+      :selected="selectedUsers"
+      :total="total"
+      :page-size="limit"
+      :current-page="page"
+      total-label="usuarios en total"
+      :slots-colspan="5"
+      @update:selected="selectedUsers = $event"
+      @page-change="page = $event; load()"
+    >
+      <template #headers>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Usuario</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Rol</th>
+        <th class="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoría</th>
+        <th class="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Comercio</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
+      </template>
+
+      <template #row="{ row: u }">
+        <td class="px-4 py-3" @click.stop="canManage(u) && openEdit(u)">
+          <div class="flex items-center gap-3 min-w-0" :class="canManage(u) ? 'cursor-pointer' : 'cursor-default'">
+            <div
+              class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+              :class="ROLE_AVATAR_COLORS[u.role]"
+            >{{ u.firstName[0] }}{{ u.lastName[0] }}</div>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-gray-900 truncate">{{ u.firstName }} {{ u.lastName }}</p>
+              <p class="text-xs text-gray-400 truncate">{{ u.email }}</p>
+            </div>
+          </div>
+        </td>
+
+        <td class="px-4 py-3">
+          <span class="badge" :class="ROLE_BADGE_CLASSES[u.role]">{{ ROLE_LABELS[u.role] }}</span>
+        </td>
+
+        <td class="hidden lg:table-cell px-4 py-3">
+          <template v-if="u.category">
+            <div class="flex items-center gap-1.5">
+              <span class="text-sm leading-none">{{ u.category.icon }}</span>
+              <span class="text-xs font-medium text-gray-700">{{ u.category.name }}</span>
+            </div>
+            <div v-if="u.subcategory" class="text-xs text-gray-400 mt-0.5">{{ u.subcategory.name }}</div>
+          </template>
+          <span v-else class="text-xs text-gray-400">—</span>
+        </td>
+
+        <td class="hidden lg:table-cell px-4 py-3 text-xs text-gray-500 truncate">
+          {{ u.commerce?.name ?? '—' }}
+        </td>
+
+        <td class="px-4 py-3" @click.stop>
+          <button
+            class="badge transition-colors"
+            :class="u.isActive
+              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+            :disabled="!canManage(u)"
+            @click="toggleStatus(u)"
+          >
+            <span class="w-1.5 h-1.5 rounded-full mr-1" :class="u.isActive ? 'bg-green-500' : 'bg-gray-400'" />
+            {{ u.isActive ? 'Activo' : 'Inactivo' }}
+          </button>
+        </td>
+      </template>
+
+      <template #empty>
         <UsersIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
         <p class="text-gray-500 font-medium">No se encontraron usuarios</p>
-      </div>
-
-      <!-- Filas -->
-      <template v-else>
-        <!-- Cabecera -->
-        <div class="px-4 py-3 bg-gray-50 border-b border-gray-100 grid grid-cols-12 gap-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          <div class="col-span-1 flex items-center">
-            <input
-              type="checkbox"
-              class="rounded border-gray-300"
-              :checked="selectedUsers.length === users.length && users.length > 0"
-              @change="selectedUsers = selectedUsers.length === users.length ? [] : [...users]"
-            />
-          </div>
-          <div class="col-span-4">Usuario</div>
-          <div class="col-span-2">Rol</div>
-          <div class="col-span-2 hidden lg:block">Categoría</div>
-          <div class="col-span-2 hidden lg:block">Comercio</div>
-          <div class="col-span-1">Estado</div>
-        </div>
-
-        <div class="divide-y divide-gray-100">
-          <div
-            v-for="u in users"
-            :key="u.id"
-            class="px-4 py-3 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors group"
-            :class="canManage(u) ? 'cursor-pointer' : 'cursor-default'"
-            @click="canManage(u) && openEdit(u)"
-          >
-            <!-- Checkbox -->
-            <div class="col-span-1" @click.stop>
-              <input
-                type="checkbox"
-                class="rounded border-gray-300"
-                :checked="selectedUsers.some(s => s.id === u.id)"
-                @change="toggleSelect(u)"
-              />
-            </div>
-
-            <!-- Usuario -->
-            <div class="col-span-4 flex items-center gap-3 min-w-0">
-              <div
-                class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                :class="ROLE_AVATAR_COLORS[u.role]"
-              >{{ u.firstName[0] }}{{ u.lastName[0] }}</div>
-              <div class="min-w-0">
-                <p class="text-sm font-semibold text-gray-900 truncate">{{ u.firstName }} {{ u.lastName }}</p>
-                <p class="text-xs text-gray-400 truncate">{{ u.email }}</p>
-              </div>
-            </div>
-
-            <!-- Rol -->
-            <div class="col-span-2">
-              <span class="badge" :class="ROLE_BADGE_CLASSES[u.role]">{{ ROLE_LABELS[u.role] }}</span>
-            </div>
-
-            <!-- Categoría -->
-            <div class="col-span-2 hidden lg:block">
-              <template v-if="u.category">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-sm leading-none">{{ u.category.icon }}</span>
-                  <span class="text-xs font-medium text-gray-700">{{ u.category.name }}</span>
-                </div>
-                <div v-if="u.subcategory" class="text-xs text-gray-400 mt-0.5">{{ u.subcategory.name }}</div>
-              </template>
-              <span v-else class="text-xs text-gray-400">—</span>
-            </div>
-
-            <!-- Comercio -->
-            <div class="col-span-2 hidden lg:block text-xs text-gray-500 truncate">
-              {{ u.commerce?.name ?? '—' }}
-            </div>
-
-            <!-- Estado -->
-            <div class="col-span-1" @click.stop>
-              <button
-                class="badge transition-colors"
-                :class="u.isActive
-                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
-                :disabled="!canManage(u)"
-                @click="toggleStatus(u)"
-              >
-                <span class="w-1.5 h-1.5 rounded-full mr-1" :class="u.isActive ? 'bg-green-500' : 'bg-gray-400'" />
-                {{ u.isActive ? 'Activo' : 'Inactivo' }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Paginación -->
-        <div v-if="total > limit" class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-          <p class="text-sm text-gray-500">{{ total }} usuarios en total</p>
-          <div class="flex gap-2">
-            <button class="btn-secondary text-sm px-3 py-1" :disabled="page <= 1" @click="page--; load()">Anterior</button>
-            <span class="text-sm text-gray-600 px-2 py-1">{{ page }} / {{ totalPages }}</span>
-            <button class="btn-secondary text-sm px-3 py-1" :disabled="page >= totalPages" @click="page++; load()">Siguiente</button>
-          </div>
-        </div>
       </template>
-    </div>
+    </AppTable>
 
     <UserFormModal
       v-model="showModal"
@@ -235,6 +203,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
+import AppTable from '~/components/ui/AppTable.vue'
 import UserFormModal from '~/components/modals/UserFormModal.vue'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, type Role } from '~/config/roles.config'
 import { useUsers, emptyUserForm, type UserItem, type UserCategory, type UsersStats } from '~/composables/users/useUsers'
@@ -284,8 +253,6 @@ const form = ref(emptyUserForm())
 const stats = ref<UsersStats>({ total: 0, commerce: 0, freelancer: 0, active: 0 })
 
 // ─── Computados ───────────────────────────────────────────────────────────────
-const totalPages = computed(() => Math.ceil(total.value / limit))
-
 const filterSubcategories = computed(() =>
   categoryFilter.value ? (categories.value.find(c => c.id === categoryFilter.value)?.subcategories ?? []) : []
 )
@@ -300,12 +267,6 @@ const headerStats = computed(() => [
 ])
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function toggleSelect(u: UserItem) {
-  const idx = selectedUsers.value.findIndex(s => s.id === u.id)
-  if (idx >= 0) selectedUsers.value.splice(idx, 1)
-  else selectedUsers.value.push(u)
-}
-
 function openEditSelected() {
   if (selectedUsers.value.length === 1) openEdit(selectedUsers.value[0])
 }
