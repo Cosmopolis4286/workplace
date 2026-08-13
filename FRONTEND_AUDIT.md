@@ -207,10 +207,13 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       ahí.
 - [x] Timers no limpiados en `onUnmounted`: `usernameDebounce` y `successTimer` en `profile.vue`.
       Resuelto: agregado `onUnmounted` que limpia ambos timers.
-- [ ] Botones de cambio de estado por fila sin `disabled` durante el request en múltiples páginas
+- [x] Botones de cambio de estado por fila sin `disabled` durante el request en múltiples páginas
       (`orders.vue`, `appointments.vue`, `branches.vue`, `customers.vue`, `delivery.vue`,
       `employees.vue`) — permite doble-submit por doble-click, bajo impacto si el backend es
-      idempotente pero no hay garantía visible desde el frontend.
+      idempotente pero no hay garantía visible desde el frontend. Resuelto: agregado guard de
+      reentrada (`ref` de id en curso) + `:disabled` en `orders.vue` (pedidos y marketplace),
+      `appointments.vue`, `customers.vue`, `delivery.vue`, `employees.vue`. `branches.vue` no tenía
+      este patrón (solo editar/eliminar vía modal) y no requirió cambios.
 - [x] `useBnplSettings.ts` — `error`/`successMsg` son singletons compartidos entre proveedores
       (CASHEA/KRECE); si se editan casi simultáneamente, el mensaje puede mostrarse para el
       proveedor equivocado. Resuelto: convertidos en mapas `errors`/`successMsgs` por proveedor
