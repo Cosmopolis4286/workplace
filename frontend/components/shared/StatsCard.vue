@@ -1,111 +1,77 @@
 <template>
-  <div class="card-premium p-6 group hover:glow-effect">
+  <div class="card p-6">
     <div class="flex items-center justify-between">
-      <div class="flex-shrink-0">
-        <div :class="['p-4 rounded-2xl shadow-lg transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300', iconBgClass]">
-          <component :is="icon" :class="['h-8 w-8 text-white', iconColorClass]" />
-        </div>
-      </div>
-      <div class="text-right">
-        <div class="text-3xl font-black text-gray-900 group-hover:scale-105 transition-transform duration-300">{{ formatValue }}</div>
-        <div class="text-xs text-gray-500 font-semibold uppercase tracking-wider">{{ title }}</div>
-      </div>
-    </div>
-    
-    <div class="mt-4 pt-4 border-t border-gray-100">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center text-sm">
-          <component 
-            :is="changeType === 'increase' ? ArrowUpIcon : ArrowDownIcon" 
-            :class="['h-4 w-4 mr-2 transform group-hover:scale-110 transition-transform duration-300', changeType === 'increase' ? 'text-green-600' : 'text-red-600']"
-          />
-          <span :class="['font-bold', changeType === 'increase' ? 'text-green-600' : 'text-red-600']">
-            {{ change }}
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-gray-500">{{ title }}</p>
+        <p class="text-3xl font-bold text-gray-900 truncate">{{ value }}</p>
+        <div v-if="change !== undefined" class="flex items-center mt-2">
+          <component :is="changeIcon" class="h-4 w-4 mr-1" :class="changeColor" />
+          <span class="text-sm" :class="changeColor">
+            {{ changeLabel }}
+            <span v-if="period" class="text-gray-400 ml-1">{{ period }}</span>
           </span>
         </div>
-        <span class="text-xs text-gray-400 font-medium">{{ period }}</span>
       </div>
-      
-      <!-- Progress bar -->
-      <div class="mt-3 w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-        <div 
-          :class="['h-2 rounded-full transition-all duration-1000 ease-out', progressBarColor]"
-          :style="{ width: `${progressPercentage}%` }"
-        ></div>
+      <div class="p-3 rounded-full flex-shrink-0" :class="iconBgClass">
+        <component :is="icon" class="h-8 w-8" :class="iconColorClass" />
       </div>
+    </div>
+
+    <div v-if="progress !== undefined" class="mt-4 w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+      <div class="h-full rounded-full transition-all duration-500" :class="progressBarClass" :style="{ width: `${Math.min(Math.max(progress, 0), 100)}%` }" />
     </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/vue/24/outline'
+import { ArrowUpIcon, ArrowDownIcon, MinusIcon } from '@heroicons/vue/24/outline'
 
-const props = defineProps({
-  title: String,
-  value: String,
-  icon: [Object, Function],
-  change: String,
-  changeType: String,
-  period: {
-    type: String,
-    default: 'desde ayer'
-  },
-  variant: {
-    type: String,
-    default: 'primary'
-  },
-  format: {
-    type: String,
-    default: 'number'
-  },
-  progress: {
-    type: Number,
-    default: 75
-  }
+const props = withDefaults(defineProps<{
+  title: string
+  value: string
+  icon: object | Function
+  /** Variación numérica (%) opcional — omitir oculta la fila de cambio. */
+  change?: number | null
+  /** Texto a mostrar junto al ícono de cambio; si no se pasa, se deriva de `change` (ej. "+12%"). */
+  changeLabel?: string
+  /** Texto pequeño tras el cambio, ej. "vs mes anterior". */
+  period?: string
+  /** Color de acento del ícono: primary(rojo) | secondary(naranja) | success(verde) | warning(amarillo) | info(azul) | purple */
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'purple'
+  /** Progreso 0-100 opcional — omitir oculta la barra. */
+  progress?: number
+}>(), {
+  variant: 'primary',
 })
 
-const formatValue = computed(() => {
-  if (props.format === 'currency') {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN'
-    }).format(parseFloat(props.value.replace(/[^0-9.-]+/g, '')))
-  }
-  return props.value
+const changeIcon = computed(() => {
+  if (props.change === null || props.change === undefined) return MinusIcon
+  return props.change >= 0 ? ArrowUpIcon : ArrowDownIcon
 })
 
-const progressPercentage = computed(() => {
-  return Math.min(Math.max(props.progress, 0), 100)
+const changeColor = computed(() => {
+  if (props.change === null || props.change === undefined) return 'text-gray-400'
+  return props.change >= 0 ? 'text-green-600' : 'text-red-600'
 })
 
-const iconBgClass = computed(() => {
-  const variants = {
-    primary: 'bg-gradient-to-br from-red-500 to-red-600',
-    secondary: 'bg-gradient-to-br from-orange-500 to-orange-600',
-    success: 'bg-gradient-to-br from-green-500 to-green-600',
-    warning: 'bg-gradient-to-br from-yellow-500 to-yellow-600'
-  }
-  return variants[props.variant] || variants.primary
+const changeLabelComputed = computed(() => {
+  if (props.changeLabel) return props.changeLabel
+  if (props.change === null || props.change === undefined) return '—'
+  return `${props.change >= 0 ? '+' : ''}${props.change}%`
 })
+const changeLabel = changeLabelComputed
 
-const iconColorClass = computed(() => {
-  const variants = {
-    primary: 'text-white',
-    secondary: 'text-white',
-    success: 'text-white',
-    warning: 'text-white'
-  }
-  return variants[props.variant] || variants.primary
-})
+const VARIANT_CLASSES: Record<string, { bg: string; icon: string; bar: string }> = {
+  primary:   { bg: 'bg-red-100',    icon: 'text-red-600',    bar: 'bg-red-500' },
+  secondary: { bg: 'bg-orange-100', icon: 'text-orange-600', bar: 'bg-orange-500' },
+  success:   { bg: 'bg-green-100',  icon: 'text-green-600',  bar: 'bg-green-500' },
+  warning:   { bg: 'bg-yellow-100', icon: 'text-yellow-600', bar: 'bg-yellow-500' },
+  info:      { bg: 'bg-blue-100',   icon: 'text-blue-600',   bar: 'bg-blue-500' },
+  purple:    { bg: 'bg-purple-100', icon: 'text-purple-600', bar: 'bg-purple-500' },
+}
 
-const progressBarColor = computed(() => {
-  const variants = {
-    primary: 'bg-gradient-to-r from-red-400 to-red-500',
-    secondary: 'bg-gradient-to-r from-orange-400 to-orange-500',
-    success: 'bg-gradient-to-r from-green-400 to-green-500',
-    warning: 'bg-gradient-to-r from-yellow-400 to-yellow-500'
-  }
-  return variants[props.variant] || variants.primary
-})
+const iconBgClass = computed(() => VARIANT_CLASSES[props.variant].bg)
+const iconColorClass = computed(() => VARIANT_CLASSES[props.variant].icon)
+const progressBarClass = computed(() => VARIANT_CLASSES[props.variant].bar)
 </script>

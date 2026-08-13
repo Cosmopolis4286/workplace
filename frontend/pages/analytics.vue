@@ -60,106 +60,35 @@
 
     <!-- KPI Cards -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <!-- Ingresos -->
-      <div class="card p-6">
-        <div class="flex items-center justify-between">
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-gray-500">Ingresos Totales</p>
-            <p class="text-3xl font-bold text-gray-900 truncate">
-              {{ overview ? formatCurrency(overview.kpis.totalRevenue) : '—' }}
-            </p>
-            <div class="flex items-center mt-2">
-              <component
-                :is="getChangeIcon(overview?.kpis.totalRevenueChange)"
-                class="h-4 w-4 mr-1"
-                :class="getChangeColor(overview?.kpis.totalRevenueChange)"
-              />
-              <span class="text-sm" :class="getChangeColor(overview?.kpis.totalRevenueChange)">
-                {{ formatChange(overview?.kpis.totalRevenueChange ?? null) }}
-                <span v-if="compareWith !== 'none'" class="text-gray-400 ml-1">vs anterior</span>
-              </span>
-            </div>
-          </div>
-          <div class="p-3 bg-green-100 rounded-full flex-shrink-0">
-            <CurrencyDollarIcon class="h-8 w-8 text-green-600" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Pedidos / Solicitudes -->
-      <div class="card p-6">
-        <div class="flex items-center justify-between">
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-gray-500">{{ isFreelancer ? 'Solicitudes' : 'Pedidos' }}</p>
-            <p class="text-3xl font-bold text-gray-900">
-              {{ overview ? formatNumber(overview.kpis.totalOrders) : '—' }}
-            </p>
-            <div class="flex items-center mt-2">
-              <component
-                :is="getChangeIcon(overview?.kpis.totalOrdersChange)"
-                class="h-4 w-4 mr-1"
-                :class="getChangeColor(overview?.kpis.totalOrdersChange)"
-              />
-              <span class="text-sm" :class="getChangeColor(overview?.kpis.totalOrdersChange)">
-                {{ formatChange(overview?.kpis.totalOrdersChange ?? null) }}
-              </span>
-            </div>
-          </div>
-          <div class="p-3 bg-blue-100 rounded-full flex-shrink-0">
-            <ShoppingCartIcon class="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Ticket Promedio -->
-      <div class="card p-6">
-        <div class="flex items-center justify-between">
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-gray-500">Ticket Promedio</p>
-            <p class="text-3xl font-bold text-gray-900 truncate">
-              {{ overview ? formatCurrency(overview.kpis.avgTicket) : '—' }}
-            </p>
-            <div class="flex items-center mt-2">
-              <component
-                :is="getChangeIcon(overview?.kpis.avgTicketChange)"
-                class="h-4 w-4 mr-1"
-                :class="getChangeColor(overview?.kpis.avgTicketChange)"
-              />
-              <span class="text-sm" :class="getChangeColor(overview?.kpis.avgTicketChange)">
-                {{ formatChange(overview?.kpis.avgTicketChange ?? null) }}
-              </span>
-            </div>
-          </div>
-          <div class="p-3 bg-yellow-100 rounded-full flex-shrink-0">
-            <ReceiptPercentIcon class="h-8 w-8 text-yellow-600" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Nuevos Clientes -->
-      <div class="card p-6">
-        <div class="flex items-center justify-between">
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-gray-500">Nuevos Clientes</p>
-            <p class="text-3xl font-bold text-gray-900">
-              {{ overview ? formatNumber(overview.kpis.newCustomers) : '—' }}
-            </p>
-            <div class="flex items-center mt-2">
-              <component
-                :is="getChangeIcon(overview?.kpis.newCustomersChange)"
-                class="h-4 w-4 mr-1"
-                :class="getChangeColor(overview?.kpis.newCustomersChange)"
-              />
-              <span class="text-sm" :class="getChangeColor(overview?.kpis.newCustomersChange)">
-                {{ formatChange(overview?.kpis.newCustomersChange ?? null) }}
-              </span>
-            </div>
-          </div>
-          <div class="p-3 bg-purple-100 rounded-full flex-shrink-0">
-            <UsersIcon class="h-8 w-8 text-purple-600" />
-          </div>
-        </div>
-      </div>
+      <StatsCard
+        title="Ingresos Totales"
+        :value="overview ? formatCurrency(overview.kpis.totalRevenue) : '—'"
+        :icon="CurrencyDollarIcon"
+        variant="success"
+        :change="overview?.kpis.totalRevenueChange ?? null"
+        :period="compareWith !== 'none' ? 'vs anterior' : undefined"
+      />
+      <StatsCard
+        :title="isFreelancer ? 'Solicitudes' : 'Pedidos'"
+        :value="overview ? formatNumber(overview.kpis.totalOrders) : '—'"
+        :icon="ShoppingCartIcon"
+        variant="info"
+        :change="overview?.kpis.totalOrdersChange ?? null"
+      />
+      <StatsCard
+        title="Ticket Promedio"
+        :value="overview ? formatCurrency(overview.kpis.avgTicket) : '—'"
+        :icon="ReceiptPercentIcon"
+        variant="warning"
+        :change="overview?.kpis.avgTicketChange ?? null"
+      />
+      <StatsCard
+        title="Nuevos Clientes"
+        :value="overview ? formatNumber(overview.kpis.newCustomers) : '—'"
+        :icon="UsersIcon"
+        variant="purple"
+        :change="overview?.kpis.newCustomersChange ?? null"
+      />
     </div>
 
     <!-- Charts Grid skeleton -->
@@ -335,9 +264,7 @@ definePageMeta({ middleware: 'auth' })
 
 import { ref, computed, onMounted } from 'vue'
 import {
-  ArrowUpIcon as AnalyticsArrowUpIcon,
   ArrowDownIcon as AnalyticsArrowDownIcon,
-  MinusIcon,
   CurrencyDollarIcon,
   ShoppingCartIcon,
   ReceiptPercentIcon,
@@ -349,6 +276,7 @@ import BarChart from '~/components/charts/BarChart.vue'
 import DoughnutChart from '~/components/charts/DoughnutChart.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
+import StatsCard from '~/components/shared/StatsCard.vue'
 import AnalyticsConfigModal from '~/components/modals/AnalyticsConfigModal.vue'
 import type { AnalyticsPeriod, CompareWith } from '~/composables/dashboard/useAnalytics'
 import { useDateFormat } from '~/composables/core/useDateFormat'
@@ -410,16 +338,6 @@ const breadcrumbItems = ref([
 ])
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getChangeIcon(change: number | null | undefined) {
-  if (change === null || change === undefined) return MinusIcon
-  return change >= 0 ? AnalyticsArrowUpIcon : AnalyticsArrowDownIcon
-}
-
-function getChangeColor(change: number | null | undefined): string {
-  if (change === null || change === undefined) return 'text-gray-400'
-  return change >= 0 ? 'text-green-600' : 'text-red-600'
-}
 
 function formatDateRange(from: string, to: string): string {
   return `${formatDate(from)} – ${formatDate(to)}`
