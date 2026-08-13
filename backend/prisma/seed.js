@@ -250,7 +250,7 @@ const ROLE_DEFAULTS = {
     'wallets:use',
     'categories_user:propose',
   ],
-  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view'],
+  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view', 'wallets:use'],
 }
 
 async function seedPermissions() {

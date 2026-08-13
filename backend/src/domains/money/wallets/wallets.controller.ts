@@ -12,10 +12,12 @@ import {
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { EmailVerifiedGuard } from '../../../common/guards/email-verified.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { WalletsService } from './wallets.service';
 import { CreateWalletDto } from './dto/create-wallet.dto';
@@ -26,7 +28,7 @@ import { PaymentDto } from './dto/payment.dto';
 import { AdjustDto } from './dto/adjust.dto';
 import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, RolesGuard, RateLimitGuard)
 @Controller('wallets')
 export class WalletsController {
   constructor(private readonly walletsService: WalletsService) {}
@@ -34,24 +36,28 @@ export class WalletsController {
   // ─── Own wallet ──────────────────────────────────────────────────────────────
 
   @Post('me')
+  @RequirePermission('wallets:use')
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:create:${(req as any).user?.id}` })
   createMine(@CurrentUser() user: any, @Body() dto: CreateWalletDto) {
     return this.walletsService.createForCurrentUser(user.id, dto);
   }
 
   @Get('me')
+  @RequirePermission('wallets:use')
   @RateLimit({ windowMs: 60_000, maxRequests: 60, keyGenerator: (req) => `wallet:get:${(req as any).user?.id}` })
   getMine(@CurrentUser() user: any) {
     return this.walletsService.getCurrentUserWallet(user.id);
   }
 
   @Get('me/transactions')
+  @RequirePermission('wallets:use')
   @RateLimit({ windowMs: 60_000, maxRequests: 30, keyGenerator: (req) => `wallet:txlist:${(req as any).user?.id}` })
   getMyTransactions(@CurrentUser() user: any, @Query() query: QueryWalletTransactionsDto) {
     return this.walletsService.listCurrentUserTransactions(user.id, query);
   }
 
   @Get('me/limits')
+  @RequirePermission('wallets:use')
   getMyLimits(@CurrentUser() user: any) {
     return this.walletsService.getMyLimits(user.id, user.role);
   }
@@ -59,6 +65,7 @@ export class WalletsController {
   // ─── PIN management ──────────────────────────────────────────────────────────
 
   @Post('me/pin')
+  @RequirePermission('wallets:use')
   @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:pin:set:${(req as any).user?.id}` })
   setPin(@CurrentUser() user: any, @Body() dto: SetPinDto) {
@@ -66,6 +73,7 @@ export class WalletsController {
   }
 
   @Patch('me/pin')
+  @RequirePermission('wallets:use')
   @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:pin:change:${(req as any).user?.id}` })
   changePin(@CurrentUser() user: any, @Body() dto: ChangePinDto) {
@@ -73,6 +81,7 @@ export class WalletsController {
   }
 
   @Delete('me/pin')
+  @RequirePermission('wallets:use')
   @UseGuards(EmailVerifiedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 3, keyGenerator: (req) => `wallet:pin:del:${(req as any).user?.id}` })
   removePin(@CurrentUser() user: any, @Body() dto: SetPinDto) {
@@ -88,6 +97,7 @@ export class WalletsController {
   // internamente llama a WalletsService.deposit() ya aprobado.
 
   @Post('me/withdraw')
+  @RequirePermission('wallets:use')
   @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:withdraw:${(req as any).user?.id}` })
   withdraw(@CurrentUser() user: any, @Body() dto: WithdrawDto) {
@@ -95,6 +105,7 @@ export class WalletsController {
   }
 
   @Post('me/transfer')
+  @RequirePermission('wallets:use')
   @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 5, keyGenerator: (req) => `wallet:transfer:${(req as any).user?.id}` })
   transfer(@CurrentUser() user: any, @Body() dto: TransferDto) {
@@ -102,6 +113,7 @@ export class WalletsController {
   }
 
   @Post('me/payment')
+  @RequirePermission('wallets:use')
   @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
   @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `wallet:payment:${(req as any).user?.id}` })
   payment(@CurrentUser() user: any, @Body() dto: PaymentDto) {
