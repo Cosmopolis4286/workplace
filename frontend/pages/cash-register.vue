@@ -116,6 +116,14 @@
       </div>
     </div>
 
+    <!-- Chart: esperado vs contado -->
+    <div v-if="closedSessions.length > 0" class="card mt-6 p-4 sm:p-6">
+      <h3 class="text-sm font-semibold text-gray-700 mb-4">Esperado vs. contado (últimos cierres)</h3>
+      <div class="h-64">
+        <BarChart :data="closingsChartData" />
+      </div>
+    </div>
+
     <!-- History -->
     <div class="card mt-6">
       <div class="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -239,6 +247,7 @@ import { ref, computed, onMounted } from 'vue'
 import { BanknotesIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot } from '@headlessui/vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import BarChart from '~/components/charts/BarChart.vue'
 import {
   useCash,
   CASH_STATUS_CLASSES,
@@ -261,6 +270,18 @@ const breadcrumbItems = [
 
 const loadingHistory = ref(false)
 const closedSessions = computed(() => sessions.value.filter(s => s.status === 'CLOSED'))
+
+// Últimos 8 cierres (orden cronológico) comparando lo esperado vs lo contado en caja.
+const closingsChartData = computed(() => {
+  const recent = [...closedSessions.value].slice(0, 8).reverse()
+  return {
+    labels: recent.map(s => formatDateTimeShort(s.closedAt!)),
+    datasets: [
+      { label: 'Esperado', data: recent.map(s => s.expectedAmount ?? 0), backgroundColor: '#93c5fd' },
+      { label: 'Contado', data: recent.map(s => s.countedAmount ?? 0), backgroundColor: '#4ade80' },
+    ],
+  }
+})
 
 // ── Open form ──────────────────────────────────────────────────────────────
 const openForm = ref<{ openingAmount: number | null; notes: string }>({ openingAmount: null, notes: '' })
