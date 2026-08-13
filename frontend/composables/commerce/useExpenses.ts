@@ -138,6 +138,11 @@ const error             = ref<string | null>(null)
 const totalCount        = ref(0)
 const currentPage       = ref(1)
 
+// Cancela la request de loadExpenses() en vuelo cuando llega una nueva (ej.
+// filtro con debounce disparado antes de que la respuesta anterior llegue),
+// para que una respuesta lenta no sobrescriba resultados más recientes.
+let loadExpensesController: AbortController | null = null
+
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export function useExpenses() {
@@ -194,6 +199,10 @@ export function useExpenses() {
 
   // ── Expenses ───────────────────────────────────────────────────────────────
   async function loadExpenses(filters: ExpenseFilters = {}) {
+    loadExpensesController?.abort()
+    const controller = new AbortController()
+    loadExpensesController = controller
+
     loading.value = true
     error.value   = null
     try {
@@ -202,14 +211,16 @@ export function useExpenses() {
         if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
       })
       const qs  = params.toString()
-      const res = await get<{ data: Expense[]; total: number; page: number }>(`/expenses${qs ? '?' + qs : ''}`)
+      const res = await get<{ data: Expense[]; total: number; page: number }>(`/expenses${qs ? '?' + qs : ''}`, { signal: controller.signal })
+      if (controller.signal.aborted) return
       expenses.value    = res.data
       totalCount.value  = res.total
       currentPage.value = res.page
     } catch (e: any) {
+      if (controller.signal.aborted) return
       error.value = e?.message
     } finally {
-      loading.value = false
+      if (!controller.signal.aborted) loading.value = false
     }
   }
 

@@ -183,6 +183,11 @@ const error          = ref<string | null>(null)
 const totalCount     = ref(0)
 const currentPage    = ref(1)
 
+// Cancela la request de loadOrders() en vuelo cuando llega una nueva (ej.
+// filtro con debounce disparado antes de que la respuesta anterior llegue),
+// para que una respuesta lenta no sobrescriba resultados más recientes.
+let loadOrdersController: AbortController | null = null
+
 export function useMerchantOrders() {
   const { get, post, put, patch, del } = useApi()
 
@@ -203,6 +208,10 @@ export function useMerchantOrders() {
 
   // ── Load orders ─────────────────────────────────────────────────────────────
   async function loadOrders(filters: OrderFilters = {}) {
+    loadOrdersController?.abort()
+    const controller = new AbortController()
+    loadOrdersController = controller
+
     loading.value = true
     error.value   = null
     try {
@@ -211,14 +220,16 @@ export function useMerchantOrders() {
         if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
       })
       const qs = params.toString()
-      const res = await get<{ data: Order[]; total: number; page: number }>(`/orders${qs ? '?' + qs : ''}`)
+      const res = await get<{ data: Order[]; total: number; page: number }>(`/orders${qs ? '?' + qs : ''}`, { signal: controller.signal })
+      if (controller.signal.aborted) return
       orders.value   = res.data
       totalCount.value = res.total
       currentPage.value = res.page
     } catch (e: any) {
+      if (controller.signal.aborted) return
       error.value = e?.message
     } finally {
-      loading.value = false
+      if (!controller.signal.aborted) loading.value = false
     }
   }
 
