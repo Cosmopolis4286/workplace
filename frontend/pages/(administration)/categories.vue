@@ -471,29 +471,6 @@
       </Transition>
     </Teleport>
 
-    <!-- Modal confirmar eliminación (compartido) -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="deleteModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" @click.self="deleteModal.show = false">
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
-            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-              </svg>
-            </div>
-            <h3 class="text-base font-bold text-gray-800 mb-1">¿Eliminar {{ deleteModal.label }}?</h3>
-            <p class="text-sm text-gray-500 mb-5">Se eliminará <strong>{{ deleteModal.name }}</strong>. Esta acción no se puede deshacer.</p>
-            <div v-if="deleteModal.error" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ deleteModal.error }}</div>
-            <div class="flex gap-3">
-              <button @click="deleteModal.show = false" class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
-              <button @click="doDelete" :disabled="deleteModal.saving" class="flex-1 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50">
-                {{ deleteModal.saving ? 'Eliminando...' : 'Eliminar' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
@@ -623,34 +600,44 @@ async function saveSub() {
   }
 }
 
-// Delete modal (shared)
-const deleteModal = reactive({
-  show: false, label: '', name: '', saving: false,
-  error: null as string | null,
-  handler: null as (() => Promise<void>) | null,
-})
+// Delete confirmation (shared)
+const { confirm } = useConfirm()
 
-function confirmDeleteCat(cat: UCat) {
-  deleteModal.label   = 'categoría'
-  deleteModal.name    = cat.name
-  deleteModal.error   = null
-  deleteModal.handler = async () => {
-    await del(`/users/categories/${cat.id}`)
-    if (uSelectedCat.value?.id === cat.id) uSelectedCat.value = null
-    await loadUsers()
-  }
-  deleteModal.show = true
+async function confirmDeleteCat(cat: UCat) {
+  const ok = await confirm({
+    title: '¿Eliminar categoría?',
+    message: `Se eliminará ${cat.name}. Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await del(`/users/categories/${cat.id}`)
+        if (uSelectedCat.value?.id === cat.id) uSelectedCat.value = null
+        await loadUsers()
+      } catch (e: any) {
+        return e?.message || 'Error al eliminar'
+      }
+    },
+  })
+  if (ok) showToast('Eliminado correctamente')
 }
 
-function confirmDeleteSub(sub: USub) {
-  deleteModal.label   = 'subcategoría'
-  deleteModal.name    = sub.name
-  deleteModal.error   = null
-  deleteModal.handler = async () => {
-    await del(`/users/subcategories/${sub.id}`)
-    await loadUsers()
-  }
-  deleteModal.show = true
+async function confirmDeleteSub(sub: USub) {
+  const ok = await confirm({
+    title: '¿Eliminar subcategoría?',
+    message: `Se eliminará ${sub.name}. Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await del(`/users/subcategories/${sub.id}`)
+        await loadUsers()
+      } catch (e: any) {
+        return e?.message || 'Error al eliminar'
+      }
+    },
+  })
+  if (ok) showToast('Eliminado correctamente')
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -728,15 +715,22 @@ async function gSaveCat() {
   }
 }
 
-function gConfirmDeleteCat(cat: GCat) {
-  deleteModal.label   = 'categoría global'
-  deleteModal.name    = cat.name
-  deleteModal.error   = null
-  deleteModal.handler = async () => {
-    await del(`/categories-global/${cat.id}`)
-    await loadGlobal()
-  }
-  deleteModal.show = true
+async function gConfirmDeleteCat(cat: GCat) {
+  const ok = await confirm({
+    title: '¿Eliminar categoría global?',
+    message: `Se eliminará ${cat.name}. Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await del(`/categories-global/${cat.id}`)
+        await loadGlobal()
+      } catch (e: any) {
+        return e?.message || 'Error al eliminar'
+      }
+    },
+  })
+  if (ok) showToast('Eliminado correctamente')
 }
 
 // Subcategory form
@@ -796,15 +790,22 @@ async function gSaveSub() {
   }
 }
 
-function gConfirmDeleteSub(sub: GSub) {
-  deleteModal.label   = 'subcategoría global'
-  deleteModal.name    = sub.name
-  deleteModal.error   = null
-  deleteModal.handler = async () => {
-    await del(`/categories-global/subcategories/${sub.id}`)
-    await loadGlobal()
-  }
-  deleteModal.show = true
+async function gConfirmDeleteSub(sub: GSub) {
+  const ok = await confirm({
+    title: '¿Eliminar subcategoría global?',
+    message: `Se eliminará ${sub.name}. Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await del(`/categories-global/subcategories/${sub.id}`)
+        await loadGlobal()
+      } catch (e: any) {
+        return e?.message || 'Error al eliminar'
+      }
+    },
+  })
+  if (ok) showToast('Eliminado correctamente')
 }
 
 // Export / Import
@@ -841,23 +842,6 @@ async function gImport() {
     await loadGlobal()
   } catch (e: any) {
     showToast(e?.message || 'Error al importar', 'error')
-  }
-}
-
-// ─── Delete modal shared handler ──────────────────────────────────────────────
-
-async function doDelete() {
-  if (!deleteModal.handler) return
-  deleteModal.saving = true
-  deleteModal.error  = null
-  try {
-    await deleteModal.handler()
-    showToast('Eliminado correctamente')
-    deleteModal.show = false
-  } catch (e: any) {
-    deleteModal.error = e?.message || 'Error al eliminar'
-  } finally {
-    deleteModal.saving = false
   }
 }
 
