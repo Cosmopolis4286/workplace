@@ -86,17 +86,21 @@
             Afiliarse en krece.app
           </a>
         </p>
+
+        <div v-if="errors[p.provider]" class="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {{ errors[p.provider] }}
+        </div>
+        <Transition name="fade">
+          <div v-if="successMsgs[p.provider]" class="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+            {{ successMsgs[p.provider] }}
+          </div>
+        </Transition>
       </div>
     </div>
 
-    <div v-if="error" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-      {{ error }}
+    <div v-if="loadError" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+      {{ loadError }}
     </div>
-    <Transition name="fade">
-      <div v-if="successMsg" class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-        {{ successMsg }}
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -105,7 +109,7 @@ import { onMounted, reactive, watch } from 'vue'
 import { CreditCardIcon } from '@heroicons/vue/24/outline'
 import { useBnplSettings, type BnplProvider } from '~/composables/wallets/useBnplSettings'
 
-const { providerSettings, saving, error, successMsg, loadBnplSettings, saveBnplSettings } = useBnplSettings()
+const { providerSettings, saving, errors, successMsgs, loadError, loadBnplSettings, saveBnplSettings } = useBnplSettings()
 
 const providers = providerSettings
 
