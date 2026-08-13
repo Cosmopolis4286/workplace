@@ -202,7 +202,8 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
 - [ ] Falta `AbortController` en búsquedas con debounce (`expenses.vue`, `sales.vue`,
       `analytics.vue`) — una respuesta lenta de un filtro antiguo puede sobrescribir resultados de
       uno más reciente.
-- [ ] Timers no limpiados en `onUnmounted`: `usernameDebounce` y `successTimer` en `profile.vue`.
+- [x] Timers no limpiados en `onUnmounted`: `usernameDebounce` y `successTimer` en `profile.vue`.
+      Resuelto: agregado `onUnmounted` que limpia ambos timers.
 - [ ] Botones de cambio de estado por fila sin `disabled` durante el request en múltiples páginas
       (`orders.vue`, `appointments.vue`, `branches.vue`, `customers.vue`, `delivery.vue`,
       `employees.vue`) — permite doble-submit por doble-click, bajo impacto si el backend es
