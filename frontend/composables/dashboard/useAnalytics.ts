@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
-import { useApi } from './useApi'
-import { useUserPreferences } from './useUserPreferences'
+import { useApi } from '../core/useApi'
+import { useUserPreferences } from '../users/useUserPreferences'
 
 export type AnalyticsPeriod = 'today' | '7d' | 'week' | '30d' | 'quarter' | '90d' | '1y' | 'custom'
 export type CompareWith = 'previous' | 'year' | 'none'

@@ -139,11 +139,7 @@ function commitOrSelectHighlighted() {
   }
 }
 
-let debounceTimer: ReturnType<typeof setTimeout>
-function onInput() {
-  clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(fetchSuggestions, 200)
-}
+const { debounced: onInput } = useDebounce(fetchSuggestions, 200)
 
 function onBlur() {
   // Delay para permitir que el @mousedown.prevent de la sugerencia se procese

@@ -1,5 +1,5 @@
 // Composable para gestión de permisos de usuarios
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 import type { Role } from '~/config/roles.config'
 
 export interface User {

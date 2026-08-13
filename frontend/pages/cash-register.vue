@@ -244,12 +244,15 @@ import {
   CASH_STATUS_CLASSES,
   type CashMovementType,
 } from '~/composables/commerce/useCash'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 const {
   current, sessions, loading, loadingAction, error,
   isOpen, formatCurrency,
   loadCurrent, openSession, closeSession, addMovement, loadSessions,
 } = useCash()
+
+const { formatDateTimeShort } = useDateFormat()
 
 const breadcrumbItems = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -325,9 +328,7 @@ async function handleClose() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function formatDateTime(dateStr: string) {
-  return new Date(dateStr).toLocaleString('es-MX', {
-    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-  })
+  return formatDateTimeShort(dateStr)
 }
 
 async function loadHistory() {

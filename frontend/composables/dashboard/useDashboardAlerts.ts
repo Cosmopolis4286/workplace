@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { useDashboard } from './useDashboard'
-import { useExpenses } from './useExpenses'
+import { useExpenses } from '../commerce/useExpenses'
 
 export interface DashboardAlert {
   id: string

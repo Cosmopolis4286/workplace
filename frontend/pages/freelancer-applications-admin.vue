@@ -99,9 +99,11 @@ import { ref, computed, onMounted } from 'vue'
 import { CheckCircleIcon, BriefcaseIcon } from '@heroicons/vue/24/outline'
 import { useFreelancerApplication, type FreelancerApplication } from '~/composables/jobs/useFreelancerApplication'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
 const { fetchPending, review } = useFreelancerApplication()
+const { formatDate } = useDateFormat()
 
 const items = ref<FreelancerApplication[]>([])
 const loading = ref(true)
@@ -146,10 +148,6 @@ async function confirmReject(id: string) {
   } finally {
     processingId.value = null
   }
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 onMounted(load)

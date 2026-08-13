@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue'
-import { useExchangeRates } from './useExchangeRates'
+import { useExchangeRates } from '../wallets/useExchangeRates'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

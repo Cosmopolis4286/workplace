@@ -1,5 +1,5 @@
 import { ref, computed, onMounted, readonly } from 'vue'
-import { useAlert } from '../useAlert'
+import { useAlert } from '../ui/useAlert'
 
 /**
  * Tipos de credenciales demo disponibles

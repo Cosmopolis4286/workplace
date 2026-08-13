@@ -1,8 +1,8 @@
 import { ref } from 'vue'
-import { useAuth } from './useAuth'
-import { useApi } from './useApi'
-import { type Order, type OrderStats, type OrderStatus, NEXT_STATUS } from './useMerchantOrders'
-import { useUserPreferences } from './useUserPreferences'
+import { useAuth } from '../auth/useAuth'
+import { useApi } from '../core/useApi'
+import { type Order, type OrderStats, type OrderStatus, NEXT_STATUS } from '../catalog/useMerchantOrders'
+import { useUserPreferences } from '../users/useUserPreferences'
 import { type DashboardPeriod } from './useDashboardPeriod'
 
 // ─── Types ────────────────────────────────────────────────────────────────────

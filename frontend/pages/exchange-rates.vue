@@ -84,10 +84,10 @@
                 <!-- Tasa -->
                 <div class="col-span-3">
                   <span class="font-mono font-semibold text-gray-900 text-sm">
-                    {{ rate.rateToUsd.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 6 }) }}
+                    {{ formatNumber(rate.rateToUsd, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) }}
                     <span class="text-gray-400 font-normal text-xs">{{ rate.code }}</span>
                   </span>
-                  <p class="text-[10px] text-gray-400 mt-0.5">${{ previewAmount }} → {{ rate.symbol }} {{ (previewAmount * rate.rateToUsd).toLocaleString('es-VE', { maximumFractionDigits: 2 }) }}</p>
+                  <p class="text-[10px] text-gray-400 mt-0.5">${{ previewAmount }} → {{ rate.symbol }} {{ formatNumber(previewAmount * rate.rateToUsd, { maximumFractionDigits: 2 }) }}</p>
                 </div>
 
                 <!-- Fuente -->
@@ -197,7 +197,7 @@
               <span class="text-gray-500">Predeterminada</span>
               <span class="font-bold text-red-600">{{ stats?.defaultCurrency ?? '—' }}</span>
             </div>
-            <div v-if="stats?.defaultRate" class="text-xs text-gray-400 text-right">1 USD = {{ stats.defaultRate.toLocaleString('es-VE', { maximumFractionDigits: 4 }) }}</div>
+            <div v-if="stats?.defaultRate" class="text-xs text-gray-400 text-right">1 USD = {{ formatNumber(stats.defaultRate, { maximumFractionDigits: 4 }) }}</div>
           </div>
         </div>
       </div>
@@ -238,7 +238,7 @@
                   <input v-model.number="form.rateToUsd" type="number" required min="0.000001" step="any" placeholder="36.50" class="input-field pl-16" />
                 </div>
                 <p v-if="form.rateToUsd && form.code" class="text-xs text-gray-400 mt-1">
-                  $100 USD = {{ form.symbol || form.code }} {{ (100 * form.rateToUsd).toLocaleString('es-VE', { maximumFractionDigits: 2 }) }}
+                  $100 USD = {{ form.symbol || form.code }} {{ formatNumber(100 * form.rateToUsd, { maximumFractionDigits: 2 }) }}
                 </p>
               </div>
               <div>
@@ -396,10 +396,10 @@
                   <div class="flex items-center justify-between gap-2">
                     <p class="text-sm font-semibold text-gray-900">
                       <template v-if="entry.previousRate !== null">
-                        {{ entry.previousRate.toLocaleString('es-VE', { maximumFractionDigits: 6 }) }}
+                        {{ formatNumber(entry.previousRate, { maximumFractionDigits: 6 }) }}
                         <span class="text-gray-400 mx-1">→</span>
                       </template>
-                      {{ entry.newRate.toLocaleString('es-VE', { maximumFractionDigits: 6 }) }}
+                      {{ formatNumber(entry.newRate, { maximumFractionDigits: 6 }) }}
                       <span class="text-gray-400 font-normal">{{ entry.code }}</span>
                     </p>
                     <span class="badge flex-shrink-0" :class="sourceBadgeClass(entry.source)">{{ sourceLabel(entry.source) }}</span>
@@ -441,6 +441,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry, type SyncStatusEntry } from '~/composables/wallets/useExchangeRates'
 import { usePermissions } from '~/composables/users/usePermissions'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -448,6 +449,7 @@ const { can } = usePermissions()
 const canManage = computed(() => can('exchange_rates:manage'))
 
 const { rates, stats, loading, error, activeRates, fetchRates, fetchStats, createRate, updateRate, setDefault, toggleStatus, deleteRate, manualSync, syncAll, getAllSyncStatuses, formatConversion, fetchHistory } = useExchangeRates()
+const { formatDate, formatDateTime, formatNumber } = useDateFormat()
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 const showInactive   = ref(true)
@@ -614,9 +616,6 @@ async function confirmToggle() {
 const toast = ref<string | null>(null)
 let toastTimer: ReturnType<typeof setTimeout>
 function showToast(msg: string) { toast.value = msg; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.value = null }, 3000) }
-
-function formatDate(iso: string) { return new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' }) }
-function formatDateTime(iso: string) { return new Date(iso).toLocaleString('es-VE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 
 onMounted(async () => { await Promise.all([fetchRates(true), fetchStats(), loadSyncStatuses()]) })
 </script>

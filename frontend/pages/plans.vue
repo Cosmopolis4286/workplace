@@ -529,12 +529,12 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan, type Subscription } from '~/composables/commerce/usePlans'
 import { useModuleCatalog } from '~/composables/commerce/useModuleCatalog'
-import { useAlert } from '~/composables/ui/useAlert'
+import { useToast } from '~/composables/ui/useToast'
 import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
-const alertDialog = useAlert()
+const toast = useToast()
 const { confirm } = useConfirm()
 const { invalidate: invalidateModules } = useModules()
 const { labels: MODULE_LABELS, load: loadModuleCatalog } = useModuleCatalog()

@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 export type ReportEntityType = 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'SERVICE' | 'ORDER' | 'GENERAL'
 export type ReportStatus = 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'DISMISSED'

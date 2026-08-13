@@ -310,7 +310,7 @@
             <div class="aspect-square bg-gray-100 relative overflow-hidden">
               <img
                 v-if="product.image"
-                :src="product.image.startsWith('http') ? product.image : `${apiUrl}${product.image}`"
+                :src="getAssetUrl(product.image)"
                 :alt="product.name"
                 class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
               >
@@ -375,7 +375,7 @@
             <div class="h-16 w-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
               <img
                 v-if="srv.image"
-                :src="srv.image.startsWith('http') ? srv.image : `${apiUrl}${srv.image}`"
+                :src="getAssetUrl(srv.image)"
                 :alt="srv.name"
                 class="h-full w-full object-cover"
               >
@@ -1259,9 +1259,6 @@ async function onCoverFileSelected(event: Event) {
 
 // Layout dinámico: sin sidebar cuando no está autenticado
 const layout = computed(() => isAuthenticated.value ? 'default' : 'public')
-
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

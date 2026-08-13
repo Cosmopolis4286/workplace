@@ -6,7 +6,7 @@
  *   const { defaultRate, convert, convertLabel } = useDefaultRate()
  */
 import { ref, computed } from 'vue'
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 interface ExchangeRate {
   id: string

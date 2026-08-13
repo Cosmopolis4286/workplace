@@ -1,4 +1,4 @@
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 interface PublicTestimonial {
   id: string

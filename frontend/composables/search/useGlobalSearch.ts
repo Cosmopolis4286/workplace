@@ -38,7 +38,6 @@ const highlightedIndex = ref(-1)
 const CACHE_MAX = 20
 const cache = new Map<string, SuggestCache>()
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let abortController: AbortController | null = null
 let lastRequestedTerm = ''
 
@@ -79,14 +78,46 @@ function removeRecentTerm(term: string) {
 
 if (process.client) loadRecentTerms()
 
+async function fetchSuggestions(trimmed: string) {
+  abortController?.abort()
+  abortController = new AbortController()
+  lastRequestedTerm = trimmed
+
+  try {
+    const { get } = useApi()
+    const result = await get<{ query: string; suggestions: SearchSuggestion[]; counts: SearchTabCount[] }>(
+      `/search/suggest?q=${encodeURIComponent(trimmed)}`,
+      { signal: abortController.signal },
+    )
+    // Ignora respuestas de búsquedas obsoletas que llegaron tarde
+    if (trimmed !== lastRequestedTerm) return
+
+    suggestions.value = result.suggestions
+    counts.value = result.counts ?? []
+    cache.set(trimmed.toLowerCase(), { suggestions: result.suggestions, counts: result.counts ?? [] })
+    if (cache.size > CACHE_MAX) {
+      const oldestKey = cache.keys().next().value
+      if (oldestKey !== undefined) cache.delete(oldestKey)
+    }
+  } catch (e: any) {
+    if (e?.name === 'AbortError') return
+    suggestions.value = []
+    counts.value = []
+  } finally {
+    if (trimmed === lastRequestedTerm) loading.value = false
+  }
+}
+
+const { debounced: debouncedFetchSuggestions, cancel: cancelSearchDebounce } = useDebounce(fetchSuggestions, 350)
+
 export function useGlobalSearch() {
   function search(q: string) {
     query.value = q
     highlightedIndex.value = -1
-    if (debounceTimer) clearTimeout(debounceTimer)
 
     const trimmed = q.trim()
     if (trimmed.length < 2) {
+      cancelSearchDebounce()
       abortController?.abort()
       suggestions.value = []
       counts.value = []
@@ -96,6 +127,7 @@ export function useGlobalSearch() {
 
     const cached = cache.get(trimmed.toLowerCase())
     if (cached) {
+      cancelSearchDebounce()
       suggestions.value = cached.suggestions
       counts.value = cached.counts
       loading.value = false
@@ -103,39 +135,11 @@ export function useGlobalSearch() {
     }
 
     loading.value = true
-    debounceTimer = setTimeout(async () => {
-      abortController?.abort()
-      abortController = new AbortController()
-      lastRequestedTerm = trimmed
-
-      try {
-        const { get } = useApi()
-        const result = await get<{ query: string; suggestions: SearchSuggestion[]; counts: SearchTabCount[] }>(
-          `/search/suggest?q=${encodeURIComponent(trimmed)}`,
-          { signal: abortController.signal },
-        )
-        // Ignora respuestas de búsquedas obsoletas que llegaron tarde
-        if (trimmed !== lastRequestedTerm) return
-
-        suggestions.value = result.suggestions
-        counts.value = result.counts ?? []
-        cache.set(trimmed.toLowerCase(), { suggestions: result.suggestions, counts: result.counts ?? [] })
-        if (cache.size > CACHE_MAX) {
-          const oldestKey = cache.keys().next().value
-          if (oldestKey !== undefined) cache.delete(oldestKey)
-        }
-      } catch (e: any) {
-        if (e?.name === 'AbortError') return
-        suggestions.value = []
-        counts.value = []
-      } finally {
-        if (trimmed === lastRequestedTerm) loading.value = false
-      }
-    }, 350)
+    debouncedFetchSuggestions(trimmed)
   }
 
   function clear() {
-    if (debounceTimer) clearTimeout(debounceTimer)
+    cancelSearchDebounce()
     abortController?.abort()
     query.value = ''
     suggestions.value = []

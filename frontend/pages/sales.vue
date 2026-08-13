@@ -491,11 +491,7 @@ const filters = ref<OrderFilters>({
 
 const totalPages = computed(() => Math.ceil(totalCount.value / 20))
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-function debouncedLoad() {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => applyFilters(), 350)
-}
+const { debounced: debouncedLoad } = useDebounce(() => applyFilters(), 350)
 
 function applyFilters() {
   loadOrders({ ...filters.value, page: 1 })

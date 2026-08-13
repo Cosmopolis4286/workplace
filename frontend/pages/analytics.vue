@@ -92,7 +92,7 @@
           <div class="min-w-0">
             <p class="text-sm font-medium text-gray-500">{{ isFreelancer ? 'Solicitudes' : 'Pedidos' }}</p>
             <p class="text-3xl font-bold text-gray-900">
-              {{ overview ? overview.kpis.totalOrders.toLocaleString('es-MX') : '—' }}
+              {{ overview ? formatNumber(overview.kpis.totalOrders) : '—' }}
             </p>
             <div class="flex items-center mt-2">
               <component
@@ -142,7 +142,7 @@
           <div class="min-w-0">
             <p class="text-sm font-medium text-gray-500">Nuevos Clientes</p>
             <p class="text-3xl font-bold text-gray-900">
-              {{ overview ? overview.kpis.newCustomers.toLocaleString('es-MX') : '—' }}
+              {{ overview ? formatNumber(overview.kpis.newCustomers) : '—' }}
             </p>
             <div class="flex items-center mt-2">
               <component
@@ -242,11 +242,11 @@
           />
           <MetricRow
             :label="isFreelancer ? 'Solicitudes en el Período' : 'Pedidos en el Período'"
-            :value="overview.performance.operational.totalInPeriod.toLocaleString('es-MX')"
+            :value="formatNumber(overview.performance.operational.totalInPeriod)"
           />
           <MetricRow
             :label="isFreelancer ? 'Solicitudes Canceladas' : 'Pedidos Cancelados'"
-            :value="overview.performance.operational.cancellations.toLocaleString('es-MX')"
+            :value="formatNumber(overview.performance.operational.cancellations)"
             :value-class="overview.performance.operational.cancellations > 0 ? 'text-red-600' : 'text-gray-900'"
           />
         </div>
@@ -276,7 +276,7 @@
           />
           <MetricRow
             label="Total de Clientes"
-            :value="overview.performance.growth.totalCustomers.toLocaleString('es-MX')"
+            :value="formatNumber(overview.performance.growth.totalCustomers)"
           />
         </div>
       </div>
@@ -302,7 +302,7 @@
           />
           <MetricRow
             :label="isFreelancer ? 'Total de Solicitudes Cerradas' : 'Total de Pedidos'"
-            :value="overview.performance.financial.totalOrders.toLocaleString('es-MX')"
+            :value="formatNumber(overview.performance.financial.totalOrders)"
           />
           <MetricRow
             :label="isFreelancer ? 'Ingreso por Solicitud' : 'Ingreso por Pedido'"
@@ -351,6 +351,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import AnalyticsConfigModal from '~/components/modals/AnalyticsConfigModal.vue'
 import type { AnalyticsPeriod, CompareWith } from '~/composables/dashboard/useAnalytics'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 // ─── Inline micro-components ─────────────────────────────────────────────────
 
@@ -401,6 +402,8 @@ const {
 const { user } = useAuth()
 const isFreelancer = computed(() => user.value?.role === 'FREELANCER')
 
+const { formatDate, formatNumber } = useDateFormat()
+
 const breadcrumbItems = ref([
   { label: 'Dashboard', to: '/' },
   { label: 'Analytics' },
@@ -419,8 +422,7 @@ function getChangeColor(change: number | null | undefined): string {
 }
 
 function formatDateRange(from: string, to: string): string {
-  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
-  return `${new Date(from).toLocaleDateString('es-MX', opts)} – ${new Date(to).toLocaleDateString('es-MX', opts)}`
+  return `${formatDate(from)} – ${formatDate(to)}`
 }
 
 function reload() {

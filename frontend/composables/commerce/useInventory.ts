@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
-import { useApi } from './useApi'
-import type { ProductStatus, Category, Product } from './useMenu'
+import { useApi } from '../core/useApi'
+import type { ProductStatus, Category, Product } from '../catalog/useMenu'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

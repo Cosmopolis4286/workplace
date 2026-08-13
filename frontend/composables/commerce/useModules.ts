@@ -12,7 +12,7 @@
  */
 
 import { ref, computed } from 'vue'
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 const effectiveModules = ref<string[]>([])
 const loaded = ref(false)

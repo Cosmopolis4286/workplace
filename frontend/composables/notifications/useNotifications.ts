@@ -1,5 +1,5 @@
 import type { Socket } from 'socket.io-client'
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 export interface VeMunicipio {
   id: string

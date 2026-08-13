@@ -1321,6 +1321,7 @@ import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useCart } from '~/composables/catalog/useCart'
 import { useSearchTabs } from '~/composables/search/useSearchTabs'
 import { useCatalogFilters } from '~/composables/catalog/useCatalogFilters'
+import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import PriceRangeFilter from '~/components/search/PriceRangeFilter.vue'
 import SortDropdown from '~/components/search/SortDropdown.vue'
 import ActiveFilterChips from '~/components/search/ActiveFilterChips.vue'
@@ -1330,8 +1331,7 @@ import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 
 definePageMeta({ layout: 'default' })
 
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
+const { getAssetUrl } = useAssetUrl()
 
 // ─── Carrito ──────────────────────────────────────────────────────────────────
 const { totalItems: cartTotalItems, totalPrice: cartTotalPrice, openCart } = useCart()
@@ -1720,13 +1720,11 @@ const jVisiblePages = computed(() => buildVisiblePages(jCurrentPage.value, jTota
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function avatarSrc(avatar: string) {
-  if (avatar.startsWith('http')) return avatar
-  return `${apiUrl}${avatar}`
+  return getAssetUrl(avatar) ?? ''
 }
 
 function imageSrc(image: string) {
-  if (image.startsWith('http')) return image
-  return `${apiUrl}${image}`
+  return getAssetUrl(image) ?? ''
 }
 
 function formatPrice(price: number): string {

@@ -261,11 +261,7 @@ function resetFilters() {
   load(1)
 }
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-function debouncedLoad() {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => load(1), 400)
-}
+const { debounced: debouncedLoad } = useDebounce(() => load(1), 400)
 
 onMounted(() => {
   load(1)

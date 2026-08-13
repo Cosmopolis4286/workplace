@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

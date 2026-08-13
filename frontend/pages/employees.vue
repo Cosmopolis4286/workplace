@@ -248,6 +248,7 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useEmployees, EMPLOYEE_ROLE_LABELS, EMPLOYEE_ROLE_CLASSES, EMPLOYEE_STATUS_LABELS, EMPLOYEE_STATUS_CLASSES, type Employee, type EmployeeRole, type EmployeeStatus } from '~/composables/users/useEmployees'
 import { usePlans } from '~/composables/commerce/usePlans'
 import PlanUsageBanner from '~/components/plans/PlanUsageBanner.vue'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -337,7 +338,7 @@ async function deleteEmployee() {
   if (ok) showDeleteModal.value = false
 }
 
-function formatDate(d: string) { return new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }) }
+const { formatDate } = useDateFormat()
 
 const { usage, fetchUsage } = usePlans()
 onMounted(() => { loadEmpleados(); fetchUsage() })

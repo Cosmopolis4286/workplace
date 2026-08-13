@@ -348,6 +348,7 @@ import {
   EXPENSE_PAYMENT_METHOD_LABELS as PAYMENT_METHOD_LABELS,
   type Expense,
 } from '~/composables/commerce/useExpenses'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 const {
   expenses, categories, stats,
@@ -391,11 +392,7 @@ const filters = ref({
 
 const totalPages = computed(() => Math.ceil(totalCount.value / 20))
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-function debouncedLoad() {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => applyFilters(), 350)
-}
+const { debounced: debouncedLoad } = useDebounce(() => applyFilters(), 350)
 
 function applyFilters() {
   loadExpenses({ ...filters.value, page: 1 })
@@ -488,11 +485,7 @@ async function handleDeleteCategory(id: string) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('es-MX', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  })
-}
+const { formatDate } = useDateFormat()
 
 function exportJSON() {
   const blob = new Blob([JSON.stringify(expenses.value, null, 2)], { type: 'application/json' })

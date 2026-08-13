@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
-import { useApi } from './useApi'
-import { useUserPreferences } from './useUserPreferences'
+import { useApi } from '../core/useApi'
+import { useUserPreferences } from '../users/useUserPreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

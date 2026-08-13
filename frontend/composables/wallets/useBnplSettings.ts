@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 export type BnplProvider = 'CASHEA' | 'KRECE'
 

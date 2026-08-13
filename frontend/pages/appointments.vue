@@ -435,6 +435,7 @@ import {
 } from '~/composables/commerce/useAppointments'
 import { useToast } from '~/composables/ui/useToast'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -452,6 +453,7 @@ const {
 
 const toast = useToast()
 const { confirm } = useConfirm()
+const { formatMonthYear, formatDateTimeShort } = useDateFormat()
 
 // ─── Vista ────────────────────────────────────────────────────────────────────
 const viewMode = ref<'calendar' | 'list'>('list')
@@ -502,7 +504,7 @@ const upcomingAppointments = computed(() => {
 const calendarDate = ref(new Date())
 
 const calendarTitle = computed(() =>
-  calendarDate.value.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+  formatMonthYear(calendarDate.value)
     .replace(/^\w/, c => c.toUpperCase())
 )
 
@@ -588,7 +590,7 @@ function formatTime(iso: string) {
 }
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return formatDateTimeShort(iso)
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────

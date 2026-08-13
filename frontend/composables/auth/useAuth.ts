@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { resetWallets } from './useWallets'
+import { resetWallets } from '../wallets/useWallets'
 
 interface Commerce {
   id: string

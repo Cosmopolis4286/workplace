@@ -1,6 +1,6 @@
 import { ref } from 'vue'
-import { useApi } from './useApi'
-import type { Order } from './useMerchantOrders'
+import { useApi } from '../core/useApi'
+import type { Order } from '../catalog/useMerchantOrders'
 
 export interface MyServiceRequest {
   id: string

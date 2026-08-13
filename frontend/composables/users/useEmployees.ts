@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 export type EmployeeRole = 'MANAGER' | 'SUPERVISOR' | 'COOK' | 'WAITER' | 'CASHIER' | 'DELIVERY_PERSON' | 'CLEANING' | 'SECURITY' | 'OTHER'
 export type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'ON_VACATION' | 'ON_LEAVE' | 'SUSPENDED'

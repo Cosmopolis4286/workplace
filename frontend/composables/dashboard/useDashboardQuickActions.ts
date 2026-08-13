@@ -8,7 +8,7 @@
  * Si el usuario no ha elegido nada, se usa el orden por defecto (primeras 6).
  */
 import { QUICK_ACTIONS, type QuickActionConfig } from '~/config/dashboard.config'
-import { useApi } from './useApi'
+import { useApi } from '../core/useApi'
 
 export const MAX_DASHBOARD_QUICK_ACTIONS = 6
 

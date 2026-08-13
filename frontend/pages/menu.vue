@@ -174,10 +174,10 @@ import CategoryModal from '~/components/modals/CategoryModal.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import PlanUsageBanner from '~/components/plans/PlanUsageBanner.vue'
-import { useAlert } from '~/composables/ui/useAlert'
+import { useToast } from '~/composables/ui/useToast'
 import { useConfirm } from '~/composables/ui/useConfirm'
 
-const alertDialog = useAlert()
+const toast = useToast()
 const { confirm } = useConfirm()
 const {
   categories,
@@ -299,7 +299,7 @@ const handleUpdateCategory = async (id: string, data: { name?: string; color?: s
 const confirmDeleteCategory = async (category: Category) => {
   const productCount = categoriesWithProducts.value.find((c) => c.id === category.id)?.products.length ?? 0
   if (productCount > 0) {
-    await alertDialog.warning('No se puede eliminar', `La categoría "${category.name}" tiene ${productCount} producto(s). Muévalos o elimínelos primero.`)
+    toast.warning('No se puede eliminar', `La categoría "${category.name}" tiene ${productCount} producto(s). Muévalos o elimínelos primero.`)
     return
   }
   const ok = await confirm({ title: 'Eliminar categoría', message: `¿Eliminar la categoría "${category.name}"?`, confirmText: 'Eliminar', variant: 'danger' })

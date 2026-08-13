@@ -30,7 +30,38 @@ function formatLabel(r: NominatimResult): string {
   return parts.slice(0, 4).join(', ')
 }
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
+async function fetchPlaces(
+  query: string,
+  onResults: (results: PlaceSuggestion[]) => void,
+  countrycodes: string,
+) {
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      format: 'json',
+      limit: '6',
+      addressdetails: '1',
+      countrycodes,
+    })
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?${params}`,
+      { headers: { 'Accept-Language': 'es' } }
+    )
+    if (!res.ok) return onResults([])
+    const data: NominatimResult[] = await res.json()
+    onResults(
+      data.map(r => ({
+        label: formatLabel(r),
+        lat: parseFloat(r.lat),
+        lng: parseFloat(r.lon),
+      }))
+    )
+  } catch {
+    onResults([])
+  }
+}
+
+const { debounced: debouncedFetchPlaces, cancel: cancelSearchPlaces } = useDebounce(fetchPlaces, 350)
 
 export function useNominatim() {
   /**
@@ -42,38 +73,12 @@ export function useNominatim() {
     onResults: (results: PlaceSuggestion[]) => void,
     countrycodes = 've,ar,co,mx,br,cl,pe,ec,bo,py,uy' // Latam por defecto
   ) {
-    if (debounceTimer) clearTimeout(debounceTimer)
     if (!query || query.length < 3) {
+      cancelSearchPlaces()
       onResults([])
       return
     }
-
-    debounceTimer = setTimeout(async () => {
-      try {
-        const params = new URLSearchParams({
-          q: query,
-          format: 'json',
-          limit: '6',
-          addressdetails: '1',
-          countrycodes,
-        })
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?${params}`,
-          { headers: { 'Accept-Language': 'es' } }
-        )
-        if (!res.ok) return onResults([])
-        const data: NominatimResult[] = await res.json()
-        onResults(
-          data.map(r => ({
-            label: formatLabel(r),
-            lat: parseFloat(r.lat),
-            lng: parseFloat(r.lon),
-          }))
-        )
-      } catch {
-        onResults([])
-      }
-    }, 350)
+    debouncedFetchPlaces(query, onResults, countrycodes)
   }
 
   /**
