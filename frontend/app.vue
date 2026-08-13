@@ -6,6 +6,7 @@
     </NuxtLayout>
     <PwaPrompt />
     <AppLockScreen />
+    <ConfirmModal />
     <Toaster
       position="top-right"
       rich-colors
