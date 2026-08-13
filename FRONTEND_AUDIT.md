@@ -134,8 +134,12 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       directamente, sin pasar por el composable. Verificado levantando el dev server y solicitando
       la ruta — compila y sirve 200 sin errores (no hay `vue-tsc` funcional en este entorno para un
       typecheck automatizado real, ver nota de tooling).
-- [ ] **`pages/service-categories-admin.vue`** — eliminar categoría/modalidad y toggle de modalidad
-      sin `try/catch` ni loading state.
+- [x] **`pages/service-categories-admin.vue`** — eliminar categoría/modalidad y toggle de modalidad
+      sin `try/catch` ni loading state; además el banner de error solo se mostraba dentro del
+      formulario de crear/editar, invisible si el error venía de eliminar/toggle (acciones que no
+      abren el formulario). Corregido: loading state por fila (`deletingCategoryId`/
+      `togglingModalityId`/`deletingModalityId`) y el banner de error movido fuera del formulario
+      para que se muestre siempre que haya un error activo.
 
 ### Otros
 - [x] **`pages/onboarding.vue`** — claves de `localStorage` (`onboarding_step`, `onboarding_completed`,

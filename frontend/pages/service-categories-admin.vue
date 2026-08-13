@@ -36,10 +36,16 @@
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             <button class="text-xs font-semibold text-gray-500 hover:text-workplace-red" @click="openCategoryForm(cat)">Editar</button>
-            <button class="text-xs font-semibold text-gray-400 hover:text-red-600" @click="confirmDeleteCategory(cat)">Eliminar</button>
+            <button
+              class="text-xs font-semibold text-gray-400 hover:text-red-600 disabled:opacity-50"
+              :disabled="deletingCategoryId === cat.id"
+              @click="confirmDeleteCategory(cat)"
+            >{{ deletingCategoryId === cat.id ? 'Eliminando…' : 'Eliminar' }}</button>
           </div>
         </div>
       </div>
+
+      <p v-if="categoryError" class="px-6 py-2 text-xs text-red-600 border-t border-gray-100">{{ categoryError }}</p>
 
       <!-- Form inline -->
       <div v-if="categoryForm" class="px-6 py-4 border-t border-gray-100 bg-gray-50/70 space-y-3">
@@ -48,7 +54,6 @@
           <input v-model="categoryForm.icon" type="text" placeholder="Emoji (ej. 🔧)" maxlength="4" class="input" />
           <input v-model="categoryForm.color" type="color" class="input h-11 p-1" />
         </div>
-        <p v-if="categoryError" class="text-xs text-red-600">{{ categoryError }}</p>
         <div class="flex justify-end gap-2">
           <button class="btn-secondary text-xs py-1.5 px-3" @click="categoryForm = null">Cancelar</button>
           <button class="btn-primary text-xs py-1.5 px-3" :disabled="savingCategory || !categoryForm.name.trim()" @click="submitCategory">
@@ -86,14 +91,24 @@
             <span v-if="!mod.isActive" class="badge bg-gray-100 text-gray-500">Inactiva</span>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            <button class="text-xs font-semibold text-gray-500 hover:text-workplace-red" @click="toggleModalityActive(mod)">
-              {{ mod.isActive ? 'Desactivar' : 'Activar' }}
+            <button
+              class="text-xs font-semibold text-gray-500 hover:text-workplace-red disabled:opacity-50"
+              :disabled="togglingModalityId === mod.id"
+              @click="toggleModalityActive(mod)"
+            >
+              {{ togglingModalityId === mod.id ? 'Guardando…' : mod.isActive ? 'Desactivar' : 'Activar' }}
             </button>
             <button class="text-xs font-semibold text-gray-500 hover:text-workplace-red" @click="openModalityForm(mod)">Editar</button>
-            <button class="text-xs font-semibold text-gray-400 hover:text-red-600" @click="confirmDeleteModality(mod)">Eliminar</button>
+            <button
+              class="text-xs font-semibold text-gray-400 hover:text-red-600 disabled:opacity-50"
+              :disabled="deletingModalityId === mod.id"
+              @click="confirmDeleteModality(mod)"
+            >{{ deletingModalityId === mod.id ? 'Eliminando…' : 'Eliminar' }}</button>
           </div>
         </div>
       </div>
+
+      <p v-if="modalityError" class="px-6 py-2 text-xs text-red-600 border-t border-gray-100">{{ modalityError }}</p>
 
       <!-- Form inline -->
       <div v-if="modalityForm" class="px-6 py-4 border-t border-gray-100 bg-gray-50/70 space-y-3">
@@ -102,7 +117,6 @@
           <input v-model="modalityForm.value" type="text" placeholder="Valor (ej. IN_PERSON)" maxlength="30" class="input font-mono text-sm" />
           <input v-model="modalityForm.emoji" type="text" placeholder="Emoji" maxlength="4" class="input" />
         </div>
-        <p v-if="modalityError" class="text-xs text-red-600">{{ modalityError }}</p>
         <div class="flex justify-end gap-2">
           <button class="btn-secondary text-xs py-1.5 px-3" @click="modalityForm = null">Cancelar</button>
           <button class="btn-primary text-xs py-1.5 px-3" :disabled="savingModality || !modalityForm.name.trim() || !modalityForm.value.trim()" @click="submitModality">
@@ -164,6 +178,8 @@ async function submitCategory() {
   }
 }
 
+const deletingCategoryId = ref<string | null>(null)
+
 async function confirmDeleteCategory(cat: MyServiceCategory) {
   const ok = await confirm({
     title: 'Eliminar categoría',
@@ -172,7 +188,15 @@ async function confirmDeleteCategory(cat: MyServiceCategory) {
     variant: 'danger',
   })
   if (!ok) return
-  await deleteCategory(cat.id)
+  deletingCategoryId.value = cat.id
+  categoryError.value = ''
+  try {
+    await deleteCategory(cat.id)
+  } catch (e: any) {
+    categoryError.value = e?.data?.message ?? e?.message ?? 'Error al eliminar la categoría'
+  } finally {
+    deletingCategoryId.value = null
+  }
 }
 
 // ─── Modalidades ────────────────────────────────────────────────────────────
@@ -203,14 +227,33 @@ async function submitModality() {
   }
 }
 
+const togglingModalityId = ref<string | null>(null)
+const deletingModalityId = ref<string | null>(null)
+
 async function toggleModalityActive(mod: ServiceModality) {
-  await updateModality(mod.id, { isActive: !mod.isActive })
+  togglingModalityId.value = mod.id
+  modalityError.value = ''
+  try {
+    await updateModality(mod.id, { isActive: !mod.isActive })
+  } catch (e: any) {
+    modalityError.value = e?.data?.message ?? e?.message ?? 'Error al actualizar la modalidad'
+  } finally {
+    togglingModalityId.value = null
+  }
 }
 
 async function confirmDeleteModality(mod: ServiceModality) {
   const ok = await confirm({ title: 'Eliminar modalidad', message: `¿Eliminar la modalidad "${mod.name}"?`, confirmText: 'Eliminar', variant: 'danger' })
   if (!ok) return
-  await deleteModality(mod.id)
+  deletingModalityId.value = mod.id
+  modalityError.value = ''
+  try {
+    await deleteModality(mod.id)
+  } catch (e: any) {
+    modalityError.value = e?.data?.message ?? e?.message ?? 'Error al eliminar la modalidad'
+  } finally {
+    deletingModalityId.value = null
+  }
 }
 
 onMounted(async () => {
