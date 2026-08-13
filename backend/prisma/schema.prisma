@@ -1706,6 +1706,7 @@ model ServiceRequestMessage {
   createdAt        DateTime       @default(now())
 
   @@index([serviceRequestId, createdAt])
+  @@index([serviceRequestId, readAt])
   @@index([senderId])
   @@map("service_request_messages")
 }
