@@ -185,13 +185,20 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
 - [x] **`formatPrice`** local en `service-requests.vue` usaba locale `es-CO` (Colombia) en vez de
       `es-VE` — corregido. `ServiceRequestDetailModal.vue` queda pendiente por el mismo motivo que
       el punto anterior.
-- [ ] Patrón `e?.data?.message` (forma de error tipo Axios/`$fetch` antiguo) repetido en ~18 archivos
+- [x] Patrón `e?.data?.message` (forma de error tipo Axios/`$fetch` antiguo) repetido en ~18 archivos
       — `ApiError` (definido en `useApi.ts`) no tiene propiedad `.data`, el mensaje ya viene en
-      `.message`. No rompe nada (cae al fallback `e.message`), pero es código muerto/confuso.
-- [ ] Modal de confirmación de borrado reutilizado como HTML casi idéntico en 6+ archivos
+      `.message`. No rompe nada (cae al fallback `e.message`), pero es código muerto/confuso. Resuelto:
+      los ~23 archivos identificados (más de los ~18 estimados) migrados a `getApiErrorMessage()`
+      (`composables/core/useApiErrors.ts`), que además traduce mensajes técnicos conocidos (rate-limit)
+      en vez de mostrarlos crudos.
+- [x] Modal de confirmación de borrado reutilizado como HTML casi idéntico en 6+ archivos
       (`exchange-rates.vue`, `locations.vue`, `search-tabs.vue`, `categories.vue` — este último ya
       tiene el patrón bien encapsulado localmente vía `deleteModal`, buen candidato a promover a
-      componente global `<ConfirmDeleteModal>`).
+      componente global `<ConfirmDeleteModal>`). Resuelto: los 4 archivos migrados al composable/
+      componente global `useConfirm()`/`<ConfirmModal>` ya existente en el proyecto. `exchange-rates.vue`
+      tenía 3 modales (eliminar/predeterminar/activar-toggle) — se agregó `variant: 'warning'`
+      (amarillo) a `useConfirm`/`ConfirmModal` para preservar el color original del botón "Establecer
+      predeterminada" (no destructivo ni primario).
 - [ ] Toast/notificación reimplementado de forma ligeramente distinta en `categories.vue`,
       `exchange-rates.vue`, `search-tabs.vue`, `commissions.vue` — `search-tabs.vue` específicamente
       no limpia el timer anterior (bug menor: un toast puede ocultarse antes de tiempo si se disparan
