@@ -123,8 +123,9 @@
           <div
             v-for="u in users"
             :key="u.id"
-            class="px-4 py-3 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors group cursor-pointer"
-            @click="openEdit(u)"
+            class="px-4 py-3 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors group"
+            :class="canManage(u) ? 'cursor-pointer' : 'cursor-default'"
+            @click="canManage(u) && openEdit(u)"
           >
             <!-- Checkbox -->
             <div class="col-span-1" @click.stop>
@@ -211,15 +212,6 @@
       @submit="save"
     />
 
-    <UserDeleteModal
-      :target="deleteTarget"
-      :bulk-targets="bulkDeleteTargets"
-      :saving="saving"
-      :partial-error="deletePartialError"
-      @cancel="deleteTarget = null; bulkDeleteTargets = []; deletePartialError = null"
-      @confirm="doDelete"
-    />
-
     <!-- Modal categorías -->
     <Teleport to="body">
       <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
@@ -244,17 +236,18 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import UserFormModal from '~/components/modals/UserFormModal.vue'
-import UserDeleteModal from '~/components/modals/UserDeleteModal.vue'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, type Role } from '~/config/roles.config'
 import { useUsers, emptyUserForm, type UserItem, type UserCategory, type UsersStats } from '~/composables/useUsers'
+import { useConfirm } from '~/composables/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 
 const { invalidate: invalidateModules } = useModules()
 const { listUsers, getStats, loadCategories: fetchCategories, createUser, updateUser, toggleUserStatus, deleteUser } = useUsers()
+const { confirm } = useConfirm()
 
 const { user } = useAuth()
-const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
+const { isSuperAdmin, canManage } = useRoleHierarchy()
 
 const availableRoles = computed<{ value: Role; label: string }[]>(() =>
   isSuperAdmin.value
@@ -265,12 +258,6 @@ const availableRoles = computed<{ value: Role; label: string }[]>(() =>
     : [{ value: 'COMMERCE', label: 'Comercio' }, { value: 'FREELANCER', label: 'Freelancer' }, { value: 'NORMAL', label: 'Normal' }]
 )
 const creatableRoles = availableRoles
-
-function canManage(u: UserItem): boolean {
-  if (u.id === user.value?.id) return false
-  if (isSuperAdmin.value) return true
-  return !['SUPERADMIN', 'ADMIN'].includes(u.role)
-}
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 const users             = ref<UserItem[]>([])
@@ -292,9 +279,6 @@ const showCategoryModal  = ref(false)
 const editing            = ref<UserItem | null>(null)
 const saving             = ref(false)
 const formError          = ref<string | null>(null)
-const deleteTarget       = ref<UserItem | null>(null)
-const bulkDeleteTargets  = ref<UserItem[]>([])
-const deletePartialError = ref<string | null>(null)
 
 const form = ref(emptyUserForm())
 const stats = ref<UsersStats>({ total: 0, commerce: 0, freelancer: 0, active: 0 })
@@ -327,12 +311,7 @@ function openEditSelected() {
 }
 
 function confirmDeleteSelected() {
-  if (selectedUsers.value.length === 1) {
-    confirmDelete(selectedUsers.value[0])
-  } else if (selectedUsers.value.length > 1) {
-    deleteTarget.value = selectedUsers.value[0]
-    bulkDeleteTargets.value = [...selectedUsers.value]
-  }
+  if (selectedUsers.value.length >= 1) confirmDelete(selectedUsers.value)
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -398,29 +377,36 @@ async function toggleStatus(u: UserItem) {
   catch (e: any) { error.value = e?.data?.message ?? e.message }
 }
 
-function confirmDelete(u: UserItem) { deleteTarget.value = u }
+async function confirmDelete(target: UserItem | UserItem[]) {
+  const targets = Array.isArray(target) ? target : [target]
+  const isBulk = targets.length > 1
 
-async function doDelete() {
-  if (!deleteTarget.value) return
-  saving.value = true; deletePartialError.value = null
-  const targets = bulkDeleteTargets.value.length > 0 ? bulkDeleteTargets.value : [deleteTarget.value]
-  const results = await Promise.allSettled(targets.map(u => deleteUser(u.id)))
-  const failed = results
-    .map((r, i) => ({ r, u: targets[i] }))
-    .filter(({ r }) => r.status === 'rejected')
+  await confirm({
+    title: isBulk ? `¿Eliminar ${targets.length} usuarios?` : '¿Eliminar usuario?',
+    message: isBulk
+      ? `Se eliminarán permanentemente ${targets.length} cuentas. Esta acción no se puede deshacer.`
+      : `Se eliminará permanentemente a ${targets[0].firstName} ${targets[0].lastName}. Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      const results = await Promise.allSettled(targets.map(u => deleteUser(u.id)))
+      const failed = results
+        .map((r, i) => ({ r, u: targets[i] }))
+        .filter(({ r }) => r.status === 'rejected')
 
-  if (failed.length > 0) {
-    const names = failed.map(({ u }) => `${u.firstName} ${u.lastName}`).join(', ')
-    deletePartialError.value = failed.length === targets.length
-      ? 'No se pudo eliminar ningún usuario.'
-      : `No se pudieron eliminar: ${names}`
-    error.value = deletePartialError.value
-  }
-  if (failed.length < targets.length) {
-    deleteTarget.value = null; bulkDeleteTargets.value = []; selectedUsers.value = []
-  }
-  saving.value = false
-  await load()
+      if (failed.length < targets.length) {
+        selectedUsers.value = []
+        await load()
+      }
+
+      if (failed.length > 0) {
+        const names = failed.map(({ u }) => `${u.firstName} ${u.lastName}`).join(', ')
+        return failed.length === targets.length
+          ? 'No se pudo eliminar ningún usuario.'
+          : `No se pudieron eliminar: ${names}`
+      }
+    },
+  })
 }
 
 onMounted(() => { load(); loadCategories() })

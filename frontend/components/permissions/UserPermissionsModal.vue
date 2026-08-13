@@ -24,6 +24,10 @@
           </button>
         </div>
 
+        <div v-if="!canManageThisUser" class="px-6 py-3 bg-amber-50 border-b border-amber-100 text-sm text-amber-800">
+          No tienes permiso para modificar los permisos de este usuario (rol {{ ROLE_LABELS[user.role] }}). Puedes revisar su configuración, pero las acciones de conceder/denegar están deshabilitadas.
+        </div>
+
         <!-- Content -->
         <div class="flex-1 overflow-hidden flex">
           <!-- Sidebar: Resumen -->
@@ -71,7 +75,7 @@
             <button
               v-if="hasCustomPermissions"
               @click="resetPermissions"
-              :disabled="resetting"
+              :disabled="resetting || !canManageThisUser"
               class="w-full px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
             >
               <svg v-if="resetting" class="w-4 h-4 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,8 +197,8 @@
                         <button
                           v-if="!perm.effectiveGranted"
                           @click="startAction(perm, 'grant')"
-                          :disabled="saving === perm.permissionId"
-                          class="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                          :disabled="saving === perm.permissionId || !canManageThisUser"
+                          class="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
                           title="Conceder"
                         >
                           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,8 +208,8 @@
                         <button
                           v-if="perm.effectiveGranted"
                           @click="startAction(perm, 'deny')"
-                          :disabled="saving === perm.permissionId"
-                          class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          :disabled="saving === perm.permissionId || !canManageThisUser"
+                          class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
                           title="Denegar"
                         >
                           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -215,8 +219,8 @@
                         <button
                           v-if="perm.userGranted !== null"
                           @click="removeUserPermission(perm.permissionId)"
-                          :disabled="saving === perm.permissionId"
-                          class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                          :disabled="saving === perm.permissionId || !canManageThisUser"
+                          class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
                           title="Eliminar personalización"
                         >
                           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -286,6 +290,11 @@ const emit = defineEmits<{
 }>()
 
 const { getUserPermissions, updateUserPermission, removeUserPermission: apiRemoveUserPermission, resetUserPermissions: apiResetUserPermissions } = useUserPermissions()
+const { canManage } = useRoleHierarchy()
+// El backend (PermissionsService.validateUserAccess) ya rechaza esto con
+// 403 — replicado aquí solo para no ofrecer una acción que sabemos que
+// será rechazada (ver FRONTEND_AUDIT.md).
+const canManageThisUser = computed(() => canManage(props.user))
 
 const loading = ref(false)
 const saving = ref<string | null>(null)
