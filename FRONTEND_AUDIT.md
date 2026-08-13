@@ -168,8 +168,12 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
 
 ## 🟢 Mejoras y duplicación de código
 
-- [ ] **`formatPrice`/`formatLimit`** duplicados con lógica divergente en `usePlans.ts` (MXN, `0` →
-      "No incluido") y `pricing.vue` (USD, no distingue `0`).
+- [x] **`formatPrice`/`formatLimit`** duplicados con lógica divergente en `usePlans.ts` (MXN, `0` →
+      "No incluido") y `pricing.vue` (USD, no distingue `0`). Resuelto: extraído
+      `composables/core/useMoneyFormat.ts` compartido (USD nominal, `0` → "Gratis"/"No incluido" según
+      contexto, `-1`/`null`/`undefined` → "Ilimitado"). `pricing.vue` usaba `'∞'` para límite sin tope
+      en vez de "Ilimitado" — se agregó el parámetro opcional `unlimitedLabel` a `formatLimit` para que
+      cada consumidor preserve su propio texto sin cambiar UX visible.
 - [x] **`timeAgo`** duplicado carácter por carácter en `service-requests.vue` y
       `ServiceRequestDetailModal.vue`. Resuelto para `service-requests.vue`: la otra sesión en
       paralelo ya había creado `composables/core/useDateFormat.ts` (compartido) mientras se trabajaba
