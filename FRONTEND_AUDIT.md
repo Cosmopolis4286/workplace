@@ -170,10 +170,17 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
 
 - [ ] **`formatPrice`/`formatLimit`** duplicados con lógica divergente en `usePlans.ts` (MXN, `0` →
       "No incluido") y `pricing.vue` (USD, no distingue `0`).
-- [ ] **`timeAgo`** duplicado carácter por carácter en `service-requests.vue` y
-      `ServiceRequestDetailModal.vue` — candidato a `~/utils/timeAgo.ts`.
-- [ ] **`formatPrice`** local en `service-requests.vue`/`ServiceRequestDetailModal.vue` usa locale
-      `es-CO` (Colombia) en vez de `es-VE`, pese a ser un marketplace venezolano.
+- [x] **`timeAgo`** duplicado carácter por carácter en `service-requests.vue` y
+      `ServiceRequestDetailModal.vue`. Resuelto para `service-requests.vue`: la otra sesión en
+      paralelo ya había creado `composables/core/useDateFormat.ts` (compartido) mientras se trabajaba
+      esta ronda — se enriqueció su `timeAgo` con la granularidad de semanas/meses/años que tenía la
+      versión local (para no cambiar el texto visible al usuario) y se migró el archivo.
+      **Pendiente**: `ServiceRequestDetailModal.vue` sigue con su propio `timeAgo` sin migrar — tiene
+      trabajo activo de la otra sesión (propuestas de cambio de precio), se evita tocarlo hasta que
+      se estabilice.
+- [x] **`formatPrice`** local en `service-requests.vue` usaba locale `es-CO` (Colombia) en vez de
+      `es-VE` — corregido. `ServiceRequestDetailModal.vue` queda pendiente por el mismo motivo que
+      el punto anterior.
 - [ ] Patrón `e?.data?.message` (forma de error tipo Axios/`$fetch` antiguo) repetido en ~18 archivos
       — `ApiError` (definido en `useApi.ts`) no tiene propiedad `.data`, el mensaje ya viene en
       `.message`. No rompe nada (cae al fallback `e.message`), pero es código muerto/confuso.
