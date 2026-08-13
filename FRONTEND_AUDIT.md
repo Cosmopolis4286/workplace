@@ -32,9 +32,13 @@ cliente (a diferencia de `users.vue`, que sí tiene `canManage()`).
 ADMIN no puede tocar permisos de otro ADMIN/SUPERADMIN, y un SUPERADMIN no puede tocar los de otro
 SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
 
-- [ ] Replicar `canManage()` (o extraerlo a un composable `useRoleHierarchy()` compartido con
-      `users.vue`) en `permissions/users.vue` y `UserPermissionsModal.vue`, para ocultar la opción en
-      vez de dejar que el usuario la intente y reciba un 403 confuso.
+- [x] Extraído a `composables/users/useRoleHierarchy.ts` (`canManage`/`isSuperAdmin`), compartido
+      entre `users.vue` (reemplaza su `canManage` local, y corrige de paso que la fila completa se
+      abría con `openEdit(u)` sin pasar por `canManage`) y `UserPermissionsModal.vue` (banner de aviso
+      + los 4 botones de acción — grant/deny/quitar personalización/resetear — deshabilitados cuando
+      `!canManageThisUser`). No se oculta el botón "Gestionar Permisos" en el listado: el modal se
+      puede seguir abriendo en modo solo-lectura para auditoría, solo las acciones de escritura quedan
+      bloqueadas.
 
 ---
 
