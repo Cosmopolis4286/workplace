@@ -244,13 +244,13 @@ import {
   FEE_TYPE_LABELS, FEE_PAYER_LABELS,
   type FeeTransactionType, type FeePayer, type PlatformFeeRate, type PlatformFeeOverride, type UserSearchResult,
 } from '~/composables/usePlatformFees'
-import { useAlert } from '~/composables/useAlert'
+import { useConfirm } from '~/composables/useConfirm'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
 const FEE_TYPES: FeeTransactionType[] = ['ORDER', 'SERVICE_REQUEST', 'CORRIDA']
 
-const alert = useAlert()
+const { confirm } = useConfirm()
 const { fetchRates, upsertRate, fetchOverrides, createOverride, deleteOverride, searchUsers } = usePlatformFees()
 
 const rates = ref<PlatformFeeRate[]>([])
@@ -369,12 +369,13 @@ async function handleCreateOverride() {
 
 async function handleDeleteOverride(ov: PlatformFeeOverride) {
   const target = ov.user ? `${ov.user.firstName} ${ov.user.lastName}` : ov.plan?.name ?? 'esta excepción'
-  const result = await alert.confirm(
-    'Eliminar excepción',
-    `¿Eliminar la excepción de comisión de ${target}? A partir de ahora se le cobrará la tasa global (${FEE_TYPE_LABELS[ov.type]}).`,
-    'Eliminar', 'Cancelar',
-  )
-  if (!result.isConfirmed) return
+  const ok = await confirm({
+    title: 'Eliminar excepción',
+    message: `¿Eliminar la excepción de comisión de ${target}? A partir de ahora se le cobrará la tasa global (${FEE_TYPE_LABELS[ov.type]}).`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+  })
+  if (!ok) return
   try {
     await deleteOverride(ov.id)
     overrides.value = overrides.value.filter(o => o.id !== ov.id)

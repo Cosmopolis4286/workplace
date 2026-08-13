@@ -530,10 +530,12 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type Plan, type Subscription } from '~/composables/usePlans'
 import { useModuleCatalog } from '~/composables/useModuleCatalog'
 import { useAlert } from '~/composables/useAlert'
+import { useConfirm } from '~/composables/useConfirm'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
 const alertDialog = useAlert()
+const { confirm } = useConfirm()
 const { invalidate: invalidateModules } = useModules()
 const { labels: MODULE_LABELS, load: loadModuleCatalog } = useModuleCatalog()
 
@@ -665,12 +667,13 @@ async function savePlan() {
 }
 
 async function confirmDeletePlan(plan: Plan) {
-  const result = await alertDialog.confirm(
-    'Eliminar plan',
-    `¿Eliminar el plan "${plan.name}"? Esta acción no se puede deshacer.`,
-    'Eliminar', 'Cancelar',
-  )
-  if (!result.isConfirmed) return
+  const ok = await confirm({
+    title: 'Eliminar plan',
+    message: `¿Eliminar el plan "${plan.name}"? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+  })
+  if (!ok) return
   try { await deletePlan(plan.id); await fetchStats() }
   catch (e: any) { alertDialog.error('Error', e?.data?.message ?? e.message) }
 }
@@ -705,8 +708,8 @@ async function saveAssign() {
 }
 
 async function handleCancelSub(id: string) {
-  const result = await alertDialog.confirm('Cancelar suscripción', '¿Cancelar esta suscripción?', 'Sí, cancelar', 'No')
-  if (!result.isConfirmed) return
+  const ok = await confirm({ title: 'Cancelar suscripción', message: '¿Cancelar esta suscripción?', confirmText: 'Sí, cancelar', cancelText: 'No', variant: 'danger' })
+  if (!ok) return
   try { await cancelSubscription(id); invalidateModules(); await fetchStats() }
   catch (e: any) { alertDialog.error('Error', e?.data?.message ?? e.message) }
 }
@@ -738,12 +741,12 @@ async function loadPendingRequests() {
 }
 
 async function handleApproveRequest(sub: Subscription) {
-  const result = await alertDialog.confirm(
-    'Aprobar solicitud',
-    `¿Aprobar la solicitud de ${sub.user?.firstName} ${sub.user?.lastName} para el plan "${sub.plan?.name}"?`,
-    'Aprobar', 'Cancelar',
-  )
-  if (!result.isConfirmed) return
+  const ok = await confirm({
+    title: 'Aprobar solicitud',
+    message: `¿Aprobar la solicitud de ${sub.user?.firstName} ${sub.user?.lastName} para el plan "${sub.plan?.name}"?`,
+    confirmText: 'Aprobar',
+  })
+  if (!ok) return
   processingRequest.value = sub.id
   requestActionError.value = null
   try {
@@ -758,12 +761,13 @@ async function handleApproveRequest(sub: Subscription) {
 }
 
 async function handleRejectRequest(sub: Subscription) {
-  const result = await alertDialog.confirm(
-    'Rechazar solicitud',
-    `¿Rechazar la solicitud de ${sub.user?.firstName} ${sub.user?.lastName} para el plan "${sub.plan?.name}"?`,
-    'Rechazar', 'Cancelar',
-  )
-  if (!result.isConfirmed) return
+  const ok = await confirm({
+    title: 'Rechazar solicitud',
+    message: `¿Rechazar la solicitud de ${sub.user?.firstName} ${sub.user?.lastName} para el plan "${sub.plan?.name}"?`,
+    confirmText: 'Rechazar',
+    variant: 'danger',
+  })
+  if (!ok) return
   processingRequest.value = sub.id
   requestActionError.value = null
   try {

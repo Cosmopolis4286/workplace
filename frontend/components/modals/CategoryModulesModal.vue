@@ -103,9 +103,9 @@ import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
 import { useModuleCatalog } from '~/composables/useModuleCatalog'
-import { useAlert } from '~/composables/useAlert'
+import { useConfirm } from '~/composables/useConfirm'
 
-const alert = useAlert()
+const { confirm } = useConfirm()
 const { labels: MODULE_LABELS, load: loadModuleCatalog } = useModuleCatalog()
 
 // Módulos de NEGOCIO seleccionables por categoría — subset del catálogo
@@ -167,8 +167,8 @@ async function saveEdit(cat: Cat) {
 }
 
 async function deleteCategory(cat: Cat) {
-  const result = await alert.confirm('Eliminar categoría', `¿Eliminar categoría "${cat.name}"?`, 'Eliminar', 'Cancelar')
-  if (!result.isConfirmed) return
+  const ok = await confirm({ title: 'Eliminar categoría', message: `¿Eliminar categoría "${cat.name}"?`, confirmText: 'Eliminar', variant: 'danger' })
+  if (!ok) return
   saving.value = true; error.value = null
   try {
     await del(`/users/categories/${cat.id}`)

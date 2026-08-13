@@ -298,7 +298,7 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { ShieldCheckIcon, PlusIcon, TrashIcon, UserGroupIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
-import { useAlert } from '~/composables/useAlert'
+import { useConfirm } from '~/composables/useConfirm'
 import { useModuleCatalog } from '~/composables/useModuleCatalog'
 
 definePageMeta({ middleware: 'auth' })
@@ -396,7 +396,7 @@ const headerStats = computed(() => [
 ])
 
 const { get, post, patch, del } = useApi()
-const alert = useAlert()
+const { confirm } = useConfirm()
 
 async function loadMatrix() {
   loading.value = true
@@ -559,12 +559,13 @@ async function saveNewPerm() {
 }
 
 async function confirmDelete(perm: PermissionRow) {
-  const result = await alert.confirm(
-    'Eliminar permiso',
-    `¿Eliminar el permiso "${perm.label}" (${perm.key})? Esta acción no se puede deshacer.`,
-    'Eliminar', 'Cancelar',
-  )
-  if (!result.isConfirmed) return
+  const ok = await confirm({
+    title: 'Eliminar permiso',
+    message: `¿Eliminar el permiso "${perm.label}" (${perm.key})? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+  })
+  if (!ok) return
   try {
     await del(`/permissions/${perm.id}`)
     await loadMatrix()

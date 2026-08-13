@@ -120,12 +120,12 @@ definePageMeta({ middleware: ['auth'] })
 import { ref, onMounted } from 'vue'
 import { TagIcon } from '@heroicons/vue/24/outline'
 import { useMyServices, type MyServiceCategory, type ServiceModality } from '~/composables/useMyServices'
-import { useAlert } from '~/composables/useAlert'
+import { useConfirm } from '~/composables/useConfirm'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES),
 // respaldado por @Roles(SUPERADMIN, ADMIN) en services.controller.ts.
-const alert = useAlert()
+const { confirm } = useConfirm()
 const {
   catalogCategories, modalities,
   fetchCatalogCategories, fetchAllModalities,
@@ -165,12 +165,13 @@ async function submitCategory() {
 }
 
 async function confirmDeleteCategory(cat: MyServiceCategory) {
-  const result = await alert.confirm(
-    'Eliminar categoría',
-    `¿Eliminar la categoría "${cat.name}"? Los servicios que la usan quedarán sin categoría.`,
-    'Eliminar', 'Cancelar',
-  )
-  if (!result.isConfirmed) return
+  const ok = await confirm({
+    title: 'Eliminar categoría',
+    message: `¿Eliminar la categoría "${cat.name}"? Los servicios que la usan quedarán sin categoría.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+  })
+  if (!ok) return
   await deleteCategory(cat.id)
 }
 
@@ -207,8 +208,8 @@ async function toggleModalityActive(mod: ServiceModality) {
 }
 
 async function confirmDeleteModality(mod: ServiceModality) {
-  const result = await alert.confirm('Eliminar modalidad', `¿Eliminar la modalidad "${mod.name}"?`, 'Eliminar', 'Cancelar')
-  if (!result.isConfirmed) return
+  const ok = await confirm({ title: 'Eliminar modalidad', message: `¿Eliminar la modalidad "${mod.name}"?`, confirmText: 'Eliminar', variant: 'danger' })
+  if (!ok) return
   await deleteModality(mod.id)
 }
 

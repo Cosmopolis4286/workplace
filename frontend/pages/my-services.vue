@@ -472,61 +472,6 @@
       </div>
     </Teleport>
 
-    <!-- Confirm toggle status modal -->
-    <Teleport to="body">
-      <div
-        v-if="toggleTarget"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @click.self="!saving && (toggleTarget = null)"
-      >
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-          <div class="flex items-center gap-3 mb-3">
-            <div
-              class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-              :class="toggleTarget.status === 'ACTIVE' ? 'bg-yellow-100' : 'bg-green-100'"
-            >
-              <PauseCircleIcon v-if="toggleTarget.status === 'ACTIVE'" class="h-5 w-5 text-yellow-600" />
-              <PlayCircleIcon v-else class="h-5 w-5 text-green-600" />
-            </div>
-            <h3 class="text-lg font-semibold text-gray-900">
-              {{ toggleTarget.status === 'ACTIVE' ? 'Pausar servicio' : 'Activar servicio' }}
-            </h3>
-          </div>
-          <p class="text-sm text-gray-600 mb-6">
-            ¿Estás seguro de que deseas
-            <strong>{{ toggleTarget.status === 'ACTIVE' ? 'pausar' : 'activar' }}</strong>
-            el servicio <strong>{{ toggleTarget.name }}</strong>?
-            <span v-if="toggleTarget.status === 'ACTIVE'" class="block mt-1 text-yellow-700">
-              El servicio dejará de ser visible para los clientes.
-            </span>
-            <span v-else class="block mt-1 text-green-700">
-              El servicio volverá a ser visible para los clientes.
-            </span>
-          </p>
-          <div v-if="actionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            {{ actionError }}
-          </div>
-          <div class="flex gap-3">
-            <button
-              @click="toggleTarget = null"
-              class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              @click="doToggleStatus"
-              :disabled="saving"
-              class="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
-              :class="toggleTarget.status === 'ACTIVE' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'"
-            >
-              {{ saving ? 'Guardando...' : (toggleTarget.status === 'ACTIVE' ? 'Pausar' : 'Activar') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
     <!-- Metrics modal -->
     <Teleport to="body">
       <Transition
@@ -786,33 +731,6 @@
       </Transition>
     </Teleport>
 
-    <!-- Confirm delete modal -->
-    <Teleport to="body">
-      <div
-        v-if="deleteTarget"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @click.self="!saving && (deleteTarget = null)"
-      >
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-2">Eliminar servicio</h3>
-          <p class="text-sm text-gray-600 mb-6">
-            ¿Estás seguro de eliminar <strong>{{ deleteTarget.name }}</strong>? Esta acción no se puede deshacer.
-          </p>
-          <div v-if="actionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            {{ actionError }}
-          </div>
-          <div class="flex gap-3">
-            <button @click="deleteTarget = null" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">
-              Cancelar
-            </button>
-            <button @click="doDelete" :disabled="saving" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60">
-              {{ saving ? 'Eliminando...' : 'Eliminar' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- Modalidades management modal -->
     <Teleport to="body">
@@ -906,34 +824,6 @@
         </div>
       </div>
     </Teleport>
-
-    <!-- Confirm delete modality modal -->
-    <Teleport to="body">
-      <div
-        v-if="deleteModalityTarget"
-        class="fixed inset-0 z-[60] flex items-center justify-center p-4"
-        @click.self="!deletingModality && (deleteModalityTarget = null)"
-      >
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-2">Eliminar modalidad</h3>
-          <p class="text-sm text-gray-600 mb-6">
-            ¿Estás seguro de eliminar <strong>{{ deleteModalityTarget.name }}</strong>? Los servicios que la tengan activada dejarán de mostrarla.
-          </p>
-          <div v-if="modalityError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            {{ modalityError }}
-          </div>
-          <div class="flex gap-3">
-            <button @click="deleteModalityTarget = null" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">
-              Cancelar
-            </button>
-            <button @click="doDeleteModality" :disabled="deletingModality" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60">
-              {{ deletingModality ? 'Eliminando...' : 'Eliminar' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -948,8 +838,6 @@ import {
   TrashIcon,
   ClockIcon,
   ChartBarIcon,
-  PauseCircleIcon,
-  PlayCircleIcon,
   EyeIcon,
   UserIcon,
   ArrowTrendingUpIcon,
@@ -965,6 +853,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import TagsInput from '~/components/ui/TagsInput.vue'
 import { useMyServices, SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service, type ServiceModality } from '~/composables/useMyServices'
+import { useConfirm } from '~/composables/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -988,13 +877,13 @@ const {
   deleteModality: deleteModalityFn,
 } = useMyServices()
 
+const { confirm } = useConfirm()
+
 const search = ref('')
 const filterStatus = ref('')
 const showModal = ref(false)
 const showModalitiesModal = ref(false)
 const editing = ref<Service | null>(null)
-const deleteTarget = ref<Service | null>(null)
-const toggleTarget = ref<Service | null>(null)
 const metricsTarget = ref<Service | null>(null)
 const metricsData = ref<{
   views: number
@@ -1012,12 +901,7 @@ const metricsLoading = ref(false)
 const metricsError = ref<string | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
-// Error de la acción en curso (toggle/delete/modalidad), mostrado dentro del
-// modal correspondiente en vez del banner superior, que queda fuera de vista.
-const actionError = ref<string | null>(null)
 const newModality = ref({ name: '', value: '', emoji: '' })
-const deleteModalityTarget = ref<ServiceModality | null>(null)
-const deletingModality = ref(false)
 const modalityError = ref<string | null>(null)
 
 const ALL_MODALITIES = [
@@ -1153,42 +1037,38 @@ async function handleSubmit() {
   }
 }
 
-function confirmDelete(service: Service) {
-  actionError.value = null
-  deleteTarget.value = service
+async function confirmDelete(service: Service) {
+  await confirm({
+    title: 'Eliminar servicio',
+    message: `¿Estás seguro de eliminar ${service.name}? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await deleteService(service.id)
+      } catch (e: any) {
+        return e?.message ?? 'Error al eliminar'
+      }
+    },
+  })
 }
 
-async function doDelete() {
-  if (!deleteTarget.value || saving.value) return
-  saving.value = true
-  actionError.value = null
-  try {
-    await deleteService(deleteTarget.value.id)
-    deleteTarget.value = null
-  } catch (e: any) {
-    actionError.value = e?.message ?? 'Error al eliminar'
-  } finally {
-    saving.value = false
-  }
-}
-
-function confirmToggleStatus(service: Service) {
-  actionError.value = null
-  toggleTarget.value = service
-}
-
-async function doToggleStatus() {
-  if (!toggleTarget.value || saving.value) return
-  saving.value = true
-  actionError.value = null
-  try {
-    await toggleServiceStatus(toggleTarget.value.id)
-    toggleTarget.value = null
-  } catch (e: any) {
-    actionError.value = e?.message ?? 'Error al cambiar estado'
-  } finally {
-    saving.value = false
-  }
+async function confirmToggleStatus(service: Service) {
+  const willPause = service.status === 'ACTIVE'
+  await confirm({
+    title: willPause ? 'Pausar servicio' : 'Activar servicio',
+    message: `¿Estás seguro de que deseas ${willPause ? 'pausar' : 'activar'} el servicio ${service.name}? ${
+      willPause ? 'El servicio dejará de ser visible para los clientes.' : 'El servicio volverá a ser visible para los clientes.'
+    }`,
+    confirmText: willPause ? 'Pausar' : 'Activar',
+    onConfirm: async () => {
+      try {
+        await toggleServiceStatus(service.id)
+      } catch (e: any) {
+        return e?.message ?? 'Error al cambiar estado'
+      }
+    },
+  })
 }
 
 // Descarta respuestas de métricas que llegan tarde para un servicio que ya no
@@ -1265,23 +1145,20 @@ async function toggleModalityActive(modality: ServiceModality) {
   }
 }
 
-function confirmDeleteModality(modality: ServiceModality) {
-  modalityError.value = null
-  deleteModalityTarget.value = modality
-}
-
-async function doDeleteModality() {
-  if (!deleteModalityTarget.value || deletingModality.value) return
-  deletingModality.value = true
-  modalityError.value = null
-  try {
-    await deleteModalityFn(deleteModalityTarget.value.id)
-    deleteModalityTarget.value = null
-  } catch (e: any) {
-    modalityError.value = e?.message ?? 'Error al eliminar modalidad'
-  } finally {
-    deletingModality.value = false
-  }
+async function confirmDeleteModality(modality: ServiceModality) {
+  await confirm({
+    title: 'Eliminar modalidad',
+    message: `¿Estás seguro de eliminar ${modality.name}? Los servicios que la tengan activada dejarán de mostrarla.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await deleteModalityFn(modality.id)
+      } catch (e: any) {
+        return e?.message ?? 'Error al eliminar modalidad'
+      }
+    },
+  })
 }
 
 onMounted(async () => {

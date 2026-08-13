@@ -347,88 +347,7 @@
       </div>
     </Teleport>
 
-    <!-- Confirm toggle status modal -->
-    <Teleport to="body">
-      <div
-        v-if="toggleTarget"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @click.self="!saving && (toggleTarget = null)"
-      >
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-          <div class="flex items-center gap-3 mb-3">
-            <div
-              class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-              :class="toggleTarget.status === 'ACTIVE' ? 'bg-yellow-100' : 'bg-green-100'"
-            >
-              <PauseCircleIcon v-if="toggleTarget.status === 'ACTIVE'" class="h-5 w-5 text-yellow-600" />
-              <PlayCircleIcon v-else class="h-5 w-5 text-green-600" />
-            </div>
-            <h3 class="text-lg font-semibold text-gray-900">
-              {{ toggleTarget.status === 'ACTIVE' ? 'Pausar empleo' : 'Activar empleo' }}
-            </h3>
-          </div>
-          <p class="text-sm text-gray-600 mb-6">
-            ¿Estás seguro de que deseas
-            <strong>{{ toggleTarget.status === 'ACTIVE' ? 'pausar' : 'activar' }}</strong>
-            el empleo <strong>{{ toggleTarget.title }}</strong>?
-            <span v-if="toggleTarget.status === 'ACTIVE'" class="block mt-1 text-yellow-700">
-              El empleo dejará de ser visible para los candidatos.
-            </span>
-            <span v-else class="block mt-1 text-green-700">
-              El empleo volverá a ser visible para los candidatos.
-            </span>
-          </p>
-          <div v-if="actionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            {{ actionError }}
-          </div>
-          <div class="flex gap-3">
-            <button
-              @click="toggleTarget = null"
-              class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              @click="doToggleStatus"
-              :disabled="saving"
-              class="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
-              :class="toggleTarget.status === 'ACTIVE' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'"
-            >
-              {{ saving ? 'Guardando...' : (toggleTarget.status === 'ACTIVE' ? 'Pausar' : 'Activar') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
-    <!-- Confirm delete modal -->
-    <Teleport to="body">
-      <div
-        v-if="deleteTarget"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @click.self="!saving && (deleteTarget = null)"
-      >
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-2">Eliminar empleo</h3>
-          <p class="text-sm text-gray-600 mb-6">
-            ¿Estás seguro de eliminar <strong>{{ deleteTarget.title }}</strong>? Esta acción no se puede deshacer.
-          </p>
-          <div v-if="actionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            {{ actionError }}
-          </div>
-          <div class="flex gap-3">
-            <button @click="deleteTarget = null" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">
-              Cancelar
-            </button>
-            <button @click="doDelete" :disabled="saving" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60">
-              {{ saving ? 'Eliminando...' : 'Eliminar' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -442,14 +361,13 @@ import {
   PencilIcon,
   TrashIcon,
   UserGroupIcon,
-  PauseCircleIcon,
-  PlayCircleIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import TagsInput from '~/components/ui/TagsInput.vue'
 import { useJobs, type JobWithApplicationCount, type CreateJobData } from '~/composables/useJobs'
 import { useKyc } from '~/composables/useKyc'
+import { useConfirm } from '~/composables/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -470,6 +388,7 @@ const {
 
 const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
 const kycStatus = computed(() => myKycStatus.value?.kycStatus)
+const { confirm } = useConfirm()
 
 const JOB_STATUS_LABELS: Record<JobWithApplicationCount['status'], string> = {
   ACTIVE: 'Activo',
@@ -500,11 +419,8 @@ const search = ref('')
 const filterStatus = ref('')
 const showModal = ref(false)
 const editing = ref<JobWithApplicationCount | null>(null)
-const deleteTarget = ref<JobWithApplicationCount | null>(null)
-const toggleTarget = ref<JobWithApplicationCount | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
-const actionError = ref<string | null>(null)
 
 const emptyForm = () => ({
   title: '',
@@ -613,42 +529,38 @@ async function handleSubmit() {
   }
 }
 
-function confirmDelete(job: JobWithApplicationCount) {
-  actionError.value = null
-  deleteTarget.value = job
+async function confirmDelete(job: JobWithApplicationCount) {
+  await confirm({
+    title: 'Eliminar empleo',
+    message: `¿Estás seguro de eliminar ${job.title}? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await deleteJob(job.id)
+      } catch (e: any) {
+        return e?.message ?? 'Error al eliminar'
+      }
+    },
+  })
 }
 
-async function doDelete() {
-  if (!deleteTarget.value || saving.value) return
-  saving.value = true
-  actionError.value = null
-  try {
-    await deleteJob(deleteTarget.value.id)
-    deleteTarget.value = null
-  } catch (e: any) {
-    actionError.value = e?.message ?? 'Error al eliminar'
-  } finally {
-    saving.value = false
-  }
-}
-
-function confirmToggleStatus(job: JobWithApplicationCount) {
-  actionError.value = null
-  toggleTarget.value = job
-}
-
-async function doToggleStatus() {
-  if (!toggleTarget.value || saving.value) return
-  saving.value = true
-  actionError.value = null
-  try {
-    await toggleJobStatus(toggleTarget.value)
-    toggleTarget.value = null
-  } catch (e: any) {
-    actionError.value = e?.message ?? 'Error al cambiar estado'
-  } finally {
-    saving.value = false
-  }
+async function confirmToggleStatus(job: JobWithApplicationCount) {
+  const willPause = job.status === 'ACTIVE'
+  await confirm({
+    title: willPause ? 'Pausar empleo' : 'Activar empleo',
+    message: `¿Estás seguro de que deseas ${willPause ? 'pausar' : 'activar'} el empleo ${job.title}? ${
+      willPause ? 'El empleo dejará de ser visible para los candidatos.' : 'El empleo volverá a ser visible para los candidatos.'
+    }`,
+    confirmText: willPause ? 'Pausar' : 'Activar',
+    onConfirm: async () => {
+      try {
+        await toggleJobStatus(job)
+      } catch (e: any) {
+        return e?.message ?? 'Error al cambiar estado'
+      }
+    },
+  })
 }
 
 onMounted(async () => {

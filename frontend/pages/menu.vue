@@ -175,8 +175,10 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import PlanUsageBanner from '~/components/PlanUsageBanner.vue'
 import { useAlert } from '~/composables/useAlert'
+import { useConfirm } from '~/composables/useConfirm'
 
 const alertDialog = useAlert()
+const { confirm } = useConfirm()
 const {
   categories,
   products,
@@ -300,8 +302,8 @@ const confirmDeleteCategory = async (category: Category) => {
     await alertDialog.warning('No se puede eliminar', `La categoría "${category.name}" tiene ${productCount} producto(s). Muévalos o elimínelos primero.`)
     return
   }
-  const result = await alertDialog.confirm('Eliminar categoría', `¿Eliminar la categoría "${category.name}"?`, 'Eliminar', 'Cancelar')
-  if (result.isConfirmed) {
+  const ok = await confirm({ title: 'Eliminar categoría', message: `¿Eliminar la categoría "${category.name}"?`, confirmText: 'Eliminar', variant: 'danger' })
+  if (ok) {
     await deleteCategory(category.id)
   }
 }
@@ -333,8 +335,8 @@ const handleSaveProduct = async (productData: Partial<Product>) => {
 }
 
 const confirmDeleteProduct = async (productId: string) => {
-  const result = await alertDialog.confirm('Eliminar producto', '¿Estás seguro de que quieres eliminar este producto?', 'Eliminar', 'Cancelar')
-  if (result.isConfirmed) {
+  const ok = await confirm({ title: 'Eliminar producto', message: '¿Estás seguro de que quieres eliminar este producto?', confirmText: 'Eliminar', variant: 'danger' })
+  if (ok) {
     await deleteProduct(productId)
   }
 }

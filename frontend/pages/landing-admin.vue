@@ -590,12 +590,12 @@
 import { PencilIcon, TrashIcon, ChevronUpIcon, ChevronDownIcon, HomeIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/useApi'
 import { useLandingCrudSection } from '~/composables/useLandingCrudSection'
-import { useAlert } from '~/composables/useAlert'
+import { useConfirm } from '~/composables/useConfirm'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 definePageMeta({ middleware: ['auth'] })
 
-const alert = useAlert()
+const { confirm } = useConfirm()
 
 interface ReportedReview {
   id: string
@@ -831,8 +831,8 @@ async function saveTestimonial() {
   await saveTestimonialRaw()
 }
 async function deleteTestimonial(id: string) {
-  const result = await alert.confirm('Eliminar testimonio', '¿Eliminar este testimonio?', 'Eliminar', 'Cancelar')
-  if (!result.isConfirmed) return
+  const ok = await confirm({ title: 'Eliminar testimonio', message: '¿Eliminar este testimonio?', confirmText: 'Eliminar', variant: 'danger' })
+  if (!ok) return
   await removeTestimonial(id)
 }
 
@@ -885,8 +885,8 @@ async function saveFeature() {
   await saveFeatureRaw(editingFeatureId.value ? {} : { sortOrder: features.value.length })
 }
 async function deleteFeature(id: string) {
-  const result = await alert.confirm('Eliminar función', '¿Eliminar esta función?', 'Eliminar', 'Cancelar')
-  if (!result.isConfirmed) return
+  const ok = await confirm({ title: 'Eliminar función', message: '¿Eliminar esta función?', confirmText: 'Eliminar', variant: 'danger' })
+  if (!ok) return
   await removeFeature(id)
 }
 
@@ -905,8 +905,8 @@ async function saveStep() {
   await saveStepRaw(editingStepId.value ? {} : { sortOrder: steps.value.length })
 }
 async function deleteStep(id: string) {
-  const result = await alert.confirm('Eliminar paso', '¿Eliminar este paso?', 'Eliminar', 'Cancelar')
-  if (!result.isConfirmed) return
+  const ok = await confirm({ title: 'Eliminar paso', message: '¿Eliminar este paso?', confirmText: 'Eliminar', variant: 'danger' })
+  if (!ok) return
   await removeStep(id)
 }
 

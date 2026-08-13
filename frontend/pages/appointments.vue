@@ -433,7 +433,8 @@ import {
   type AppointmentStatus,
   type Appointment,
 } from '~/composables/useAppointments'
-import { useAlert } from '~/composables/useAlert'
+import { useToast } from '~/composables/useToast'
+import { useConfirm } from '~/composables/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -449,7 +450,8 @@ const {
   updateStatus,
 } = useAppointments()
 
-const alert = useAlert()
+const toast = useToast()
+const { confirm } = useConfirm()
 
 // ─── Vista ────────────────────────────────────────────────────────────────────
 const viewMode = ref<'calendar' | 'list'>('list')
@@ -651,7 +653,7 @@ async function handleSubmit() {
       ? await updateAgendamiento(editingId.value, payload)
       : await createAgendamiento(payload)
     if (ok) {
-      alert.success('Éxito', editingId.value ? 'Reserva actualizada correctamente' : 'Reserva creada correctamente')
+      toast.success(editingId.value ? 'Reserva actualizada correctamente' : 'Reserva creada correctamente')
       closeModal()
     }
   } finally {
@@ -662,18 +664,19 @@ async function handleSubmit() {
 async function handleStatusChange(appt: Appointment, newStatus: AppointmentStatus) {
   if (appt.status === newStatus) return
   const ok = await updateStatus(appt.id, newStatus)
-  if (ok) alert.success('Estado actualizado', `Reserva marcada como ${STATUS_LABELS[newStatus]}`)
+  if (ok) toast.success('Estado actualizado', `Reserva marcada como ${STATUS_LABELS[newStatus]}`)
 }
 
 async function handleDelete(appt: Appointment) {
-  const result = await alert.confirm(
-    'Eliminar Reserva',
-    `¿Estás seguro de eliminar la reserva de ${appt.customerName}? Esta acción no se puede deshacer.`,
-    'Eliminar', 'Cancelar',
-  )
-  if (result.isConfirmed) {
-    const ok = await deleteAgendamiento(appt.id)
-    if (ok) alert.success('Eliminada', 'La reserva fue eliminada correctamente')
+  const ok = await confirm({
+    title: 'Eliminar Reserva',
+    message: `¿Estás seguro de eliminar la reserva de ${appt.customerName}? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+  })
+  if (ok) {
+    const deleted = await deleteAgendamiento(appt.id)
+    if (deleted) toast.success('Reserva eliminada')
   }
 }
 

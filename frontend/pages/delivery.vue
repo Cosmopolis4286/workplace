@@ -452,11 +452,11 @@ import {
   type DeliveryStatus, type InviteDriverPayload,
 } from '~/composables/useDelivery'
 import { useKyc } from '~/composables/useKyc'
-import { useAlert } from '~/composables/useAlert'
+import { useConfirm } from '~/composables/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 
-const alert = useAlert()
+const { confirm } = useConfirm()
 const {
   deliveries, drivers, stats, loading, loadingDrivers, error, totalCount,
   invitations,
@@ -528,8 +528,8 @@ async function saveDelivery() {
   } finally { savingDelivery.value = false }
 }
 async function confirmDeleteDelivery(id: string) {
-  const res = await alert.confirm('Eliminar entrega', '¿Eliminar esta entrega?', 'Eliminar', 'Cancelar')
-  if (res.isConfirmed) await deleteDelivery(id)
+  const ok = await confirm({ title: 'Eliminar entrega', message: '¿Eliminar esta entrega?', confirmText: 'Eliminar', variant: 'danger' })
+  if (ok) await deleteDelivery(id)
 }
 
 // ── Assign Modal ──────────────────────────────────────────────────────────────
@@ -566,8 +566,8 @@ async function saveDriver() {
   } finally { savingDriver.value = false }
 }
 async function confirmDeleteDriver(id: string) {
-  const res = await alert.confirm('Desactivar repartidor', '¿Desactivar este repartidor?', 'Desactivar', 'Cancelar')
-  if (res.isConfirmed) await deleteDriver(id)
+  const ok = await confirm({ title: 'Desactivar repartidor', message: '¿Desactivar este repartidor?', confirmText: 'Desactivar', variant: 'danger' })
+  if (ok) await deleteDriver(id)
 }
 
 // ── Invite Modal ──────────────────────────────────────────────────────────────
@@ -598,8 +598,8 @@ async function sendInvite() {
   } finally { sendingInvite.value = false }
 }
 async function handleCancelInvitation(id: string) {
-  const res = await alert.confirm('Cancelar invitación', '¿Cancelar esta invitación?', 'Sí, cancelar', 'No')
-  if (res.isConfirmed) await cancelInvitation(id)
+  const ok = await confirm({ title: 'Cancelar invitación', message: '¿Cancelar esta invitación?', confirmText: 'Sí, cancelar', cancelText: 'No', variant: 'danger' })
+  if (ok) await cancelInvitation(id)
 }
 
 onMounted(async () => {
