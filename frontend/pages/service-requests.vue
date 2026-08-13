@@ -79,8 +79,8 @@
           </button>
         </div>
 
-        <!-- Card con la lista -->
-        <div class="card divide-y divide-gray-100">
+        <!-- Card con la lista — swipe horizontal cambia entre Recibidas/Enviadas en mobile -->
+        <div ref="listRef" class="card divide-y divide-gray-100" @swipe="handleListSwipe">
 
           <!-- Skeleton -->
           <template v-if="loading">
@@ -490,6 +490,16 @@ function switchView(v: 'provider' | 'client') {
   activeFilter.value = 'ALL'
   selectedReq.value = null
   fetchRequests()
+}
+
+// Swipe horizontal sobre la lista alterna entre Recibidas/Enviadas (solo para proveedores).
+const listRef = ref<HTMLElement | null>(null)
+useTouchGestures(listRef)
+function handleListSwipe(e: Event) {
+  if (isNormal.value) return
+  const direction = (e as CustomEvent).detail?.direction
+  if (direction === 'left') switchView('client')
+  else if (direction === 'right') switchView('provider')
 }
 
 function formatDate(date: string) {
