@@ -100,6 +100,18 @@ export function useMyServices() {
     }
   }
 
+  // Endpoint admin-only: a diferencia de fetchCatalogCategories (público, filtra a
+  // categorías con servicios activos), este trae TODAS las categorías — necesario
+  // para que el panel de gestión pueda ver/editar categorías recién creadas sin
+  // servicios activos todavía. Devuelve un array plano, no { data: [...] }.
+  async function fetchAdminCategories() {
+    try {
+      catalogCategories.value = await get<MyServiceCategory[]>('/services/categories')
+    } catch {
+      // non-blocking
+    }
+  }
+
   async function createService(data: Partial<Service>) {
     const res = await post<Service>('/services', data)
     services.value.unshift(res)
@@ -196,6 +208,7 @@ export function useMyServices() {
     fetchStats,
     fetchServices,
     fetchCatalogCategories,
+    fetchAdminCategories,
     fetchModalities,
     fetchAllModalities,
     createService,

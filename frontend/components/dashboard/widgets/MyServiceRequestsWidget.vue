@@ -29,7 +29,7 @@
       <p class="text-sm font-medium text-gray-700">No has solicitado servicios</p>
       <p class="text-xs text-gray-400 mt-1">Tus solicitudes a proveedores aparecerán aquí</p>
       <NuxtLink
-        to="/my-services"
+        to="/search?tab=servicios"
         class="inline-flex items-center gap-1 mt-3 text-xs font-semibold text-purple-600 hover:text-purple-700"
       >
         <WrenchIcon class="w-3.5 h-3.5" />

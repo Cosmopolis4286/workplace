@@ -289,7 +289,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     id: 'browseServices',
     name: 'Servicios',
     icon: 'WrenchIcon',
-    route: '/my-services',
+    route: '/search?tab=servicios',
     roles: ['NORMAL'],
     color: 'orange',
     description: 'Explorar servicios',

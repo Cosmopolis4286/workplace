@@ -81,6 +81,10 @@ export class ServicesController {
     return this.servicesService.getCatalogServices(dto);
   }
 
+  // Reservado para deep-linking directo a un servicio (ej. compartir un link
+  // fuera de la app). search.vue hoy reutiliza los datos ya cargados de la
+  // lista del catálogo y no llama este endpoint — no está roto, no tiene
+  // consumidor todavía.
   @Get('catalog/:id')
   @UseGuards(OptionalJwtAuthGuard)
   getCatalogById(@Param('id') id: string) {
