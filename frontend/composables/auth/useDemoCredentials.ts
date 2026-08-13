@@ -1,5 +1,5 @@
 import { ref, computed, onMounted, readonly } from 'vue'
-import { useAlert } from '../ui/useAlert'
+import { useToast } from '../ui/useToast'
 
 /**
  * Tipos de credenciales demo disponibles
@@ -102,7 +102,7 @@ export const useDemoCredentials = () => {
           }
 
           // 🔔 Mostrar alerta informativa al usuario
-          const { info } = useAlert()
+          const { info } = useToast()
           info(
             'Demo no disponible',
             'Los usuarios de demostración no están configurados. Ejecuta el seed para usarlos.'
