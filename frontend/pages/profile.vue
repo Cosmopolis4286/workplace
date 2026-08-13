@@ -726,7 +726,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import {
   UserCircleIcon,
   LockClosedIcon,
@@ -744,9 +744,9 @@ import {
   CogIcon,
   BriefcaseIcon,
 } from '@heroicons/vue/24/outline'
-import Swal from 'sweetalert2'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import SearchableSelect from '~/components/ui/SearchableSelect.vue'
+import { useConfirm } from '~/composables/ui/useConfirm'
 import { useAuth, type Session } from '~/composables/auth/useAuth'
 import { useCamera } from '~/composables/core/useCamera'
 import { useQuickAccess, MAX_QUICK_ACCESS } from '~/composables/dashboard/useQuickAccess'
@@ -755,10 +755,13 @@ import { useKyc } from '~/composables/kyc/useKyc'
 import { useFreelancerApplication, type FreelancerApplication } from '~/composables/jobs/useFreelancerApplication'
 import { useVeLocations, type VeMunicipio, type VeCiudad } from '~/composables/location/useVeLocations'
 import { useLocationData } from '~/composables/location/useLocationData'
+import { useDateFormat } from '~/composables/core/useDateFormat'
 
 const auth = useAuth()
 const { checkUsername } = auth
+const { confirm } = useConfirm()
 const { takePhoto } = useCamera()
+const { formatDateTime } = useDateFormat()
 const { can } = usePermissions()
 
 // ─── Estado de verificación de identidad (KYC) ────────────────────────────────
@@ -1247,18 +1250,13 @@ async function saveProfile() {
   const usernameChanging = profileForm.value.username !== (auth.user.value?.username ?? '')
 
   if (usernameChanging && profileForm.value.username) {
-    const result = await Swal.fire({
+    const ok = await confirm({
       title: '¿Confirmas el cambio?',
-      html: `Estás a punto de establecer <strong>@${profileForm.value.username}</strong> como tu nombre de usuario.<br><br>Podrás volver a cambiarlo en <strong>30 días</strong>.`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, cambiar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#e53e3e',
-      cancelButtonColor: '#718096',
-      reverseButtons: true,
+      message: `Estás a punto de establecer @${profileForm.value.username} como tu nombre de usuario. Podrás volver a cambiarlo en 30 días.`,
+      confirmText: 'Sí, cambiar',
+      variant: 'danger',
     })
-    if (!result.isConfirmed) return
+    if (!ok) return
   }
 
   savingProfile.value = true
@@ -1336,27 +1334,17 @@ function deviceLabel(userAgent?: string | null): string {
 }
 
 function formatSessionDate(value: string): string {
-  return new Date(value).toLocaleString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTime(value)
 }
 
 async function revokeSession(session: Session) {
-  const result = await Swal.fire({
+  const ok = await confirm({
     title: '¿Cerrar esta sesión?',
-    text: 'El dispositivo deberá iniciar sesión nuevamente.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, cerrar sesión',
-    cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#e53e3e',
-    cancelButtonColor: '#718096',
+    message: 'El dispositivo deberá iniciar sesión nuevamente.',
+    confirmText: 'Sí, cerrar sesión',
+    variant: 'danger',
   })
-  if (!result.isConfirmed) return
+  if (!ok) return
 
   revokingSessionId.value = session.id
   try {
@@ -1391,6 +1379,11 @@ onMounted(async () => {
 
 // Sync form if user changes after fetch
 watch(() => auth.user.value, syncFormFromUser)
+
+onUnmounted(() => {
+  if (usernameDebounce) clearTimeout(usernameDebounce)
+  if (successTimer) clearTimeout(successTimer)
+})
 </script>
 
 <style scoped>
