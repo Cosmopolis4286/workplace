@@ -78,4 +78,21 @@ export class ServiceRequestMessagesService {
     });
     return { count };
   }
+
+  // Mismo filtro que getUnreadCount pero agrupado por conversación — usado
+  // para el badge por fila en el listado de solicitudes.
+  async getUnreadCountByRequest(userId: string): Promise<Record<string, number>> {
+    const rows = await this.prisma.serviceRequestMessage.groupBy({
+      by: ['serviceRequestId'],
+      where: {
+        readAt: null,
+        senderId: { not: userId },
+        serviceRequest: { OR: [{ providerId: userId }, { requesterId: userId }] },
+      },
+      _count: { _all: true },
+    });
+    const result: Record<string, number> = {};
+    for (const row of rows) result[row.serviceRequestId] = row._count._all;
+    return result;
+  }
 }

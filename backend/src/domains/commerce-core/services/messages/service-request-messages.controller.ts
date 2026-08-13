@@ -15,6 +15,13 @@ export class ServiceRequestMessagesController {
     return this.messagesService.getUnreadCount(user.id);
   }
 
+  // Debe declararse antes de ':id/messages' — igual que 'messages/unread-count'
+  // arriba, para que Nest no la matchee como ':id/messages' con id="messages".
+  @Get('messages/unread-count-by-request')
+  getUnreadCountByRequest(@CurrentUser() user: any) {
+    return this.messagesService.getUnreadCountByRequest(user.id);
+  }
+
   @Get(':id/messages')
   list(@Param('id') id: string, @CurrentUser() user: any) {
     return this.messagesService.list(id, user.id);

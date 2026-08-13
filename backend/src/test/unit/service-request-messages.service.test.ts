@@ -34,6 +34,7 @@ describe('ServiceRequestMessagesService', () => {
         create: jest.fn(),
         updateMany: jest.fn(),
         count: jest.fn(),
+        groupBy: jest.fn(),
       },
     }
     mockNotificationsService = {
@@ -150,6 +151,36 @@ describe('ServiceRequestMessagesService', () => {
           serviceRequest: { OR: [{ providerId: PROVIDER_ID }, { requesterId: PROVIDER_ID }] },
         },
       })
+    })
+  })
+
+  describe('getUnreadCountByRequest', () => {
+    it('mapea el resultado de groupBy a un Record<serviceRequestId, count>', async () => {
+      mockPrismaService.serviceRequestMessage.groupBy.mockResolvedValue([
+        { serviceRequestId: 'req-1', _count: { _all: 2 } },
+        { serviceRequestId: 'req-2', _count: { _all: 5 } },
+      ])
+
+      const result = await service.getUnreadCountByRequest(PROVIDER_ID)
+
+      expect(result).toEqual({ 'req-1': 2, 'req-2': 5 })
+      expect(mockPrismaService.serviceRequestMessage.groupBy).toHaveBeenCalledWith({
+        by: ['serviceRequestId'],
+        where: {
+          readAt: null,
+          senderId: { not: PROVIDER_ID },
+          serviceRequest: { OR: [{ providerId: PROVIDER_ID }, { requesterId: PROVIDER_ID }] },
+        },
+        _count: { _all: true },
+      })
+    })
+
+    it('devuelve un objeto vacío si no hay mensajes no leídos', async () => {
+      mockPrismaService.serviceRequestMessage.groupBy.mockResolvedValue([])
+
+      const result = await service.getUnreadCountByRequest(PROVIDER_ID)
+
+      expect(result).toEqual({})
     })
   })
 })
