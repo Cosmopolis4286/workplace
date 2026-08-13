@@ -418,6 +418,7 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useWallets, type WalletTransactionType } from '~/composables/wallets/useWallets'
 import { useWalletDepositRequests } from '~/composables/wallets/useWalletDepositRequests'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -608,7 +609,7 @@ async function handleDepositRequest() {
     })
     closeModal()
     showToast('success', 'Solicitud enviada. Un admin verificará tu comprobante y acreditará el saldo.')
-  } catch (e: any) { modalError.value = e?.data?.message ?? e?.message ?? 'Error al enviar la solicitud' }
+  } catch (e: any) { modalError.value = getApiErrorMessage(e, 'Error al enviar la solicitud') }
 }
 
 async function handleWithdraw() {

@@ -733,6 +733,7 @@ import {
   PaperAirplaneIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
@@ -1081,7 +1082,7 @@ async function saveNotes() {
     emit('updated', { ...props.req, providerNotes: notesInput.value, ...updated })
     editingNotes.value = false
   } catch (e: any) {
-    actionError.value = e?.data?.message ?? e?.message ?? 'Error al guardar observaciones'
+    actionError.value = getApiErrorMessage(e, 'Error al guardar observaciones')
   } finally {
     savingNotes.value = false
   }
@@ -1099,7 +1100,7 @@ async function doStatusChange(status: string) {
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}`, { status })
     emit('updated', { ...props.req, status: status as ServiceRequest['status'], statusUpdatedAt: new Date().toISOString(), ...updated })
   } catch (e: any) {
-    actionError.value = e?.data?.message ?? e?.message ?? 'Error al actualizar el estado'
+    actionError.value = getApiErrorMessage(e, 'Error al actualizar el estado')
   } finally {
     updating.value = false
   }
@@ -1118,7 +1119,7 @@ async function confirmCompletion() {
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/confirm-completion`, {})
     emit('updated', { ...props.req, ...updated, status: 'CLOSED' })
   } catch (e: any) {
-    actionError.value = e?.data?.message ?? e?.message ?? 'Error al confirmar la finalización'
+    actionError.value = getApiErrorMessage(e, 'Error al confirmar la finalización')
   } finally {
     confirming.value = false
   }
@@ -1138,7 +1139,7 @@ async function cancelRequest() {
     emit('updated', { ...props.req, ...updated, status: 'CANCELLED' })
     confirmingCancel.value = false
   } catch (e: any) {
-    actionError.value = e?.data?.message ?? e?.message ?? 'Error al cancelar la solicitud'
+    actionError.value = getApiErrorMessage(e, 'Error al cancelar la solicitud')
     confirmingCancel.value = false
   } finally {
     cancelling.value = false
@@ -1223,7 +1224,7 @@ async function submitProposeIncrease() {
     proposingIncrease.value = false
     await loadProposals()
   } catch (e: any) {
-    actionError.value = e?.data?.message ?? e?.message ?? 'Error al enviar la propuesta'
+    actionError.value = getApiErrorMessage(e, 'Error al enviar la propuesta')
   } finally {
     proposalSubmitting.value = false
   }
@@ -1247,7 +1248,7 @@ async function doApproveProposal() {
       escrowAmount: (props.req.escrowAmount ?? 0) + pendingProposal.value.deltaAmount,
     })
   } catch (e: any) {
-    actionError.value = e?.data?.message ?? e?.message ?? 'Error al aprobar la propuesta'
+    actionError.value = getApiErrorMessage(e, 'Error al aprobar la propuesta')
   } finally {
     proposalSubmitting.value = false
   }
@@ -1263,7 +1264,7 @@ async function doRejectProposal() {
     rejectReasonInput.value = ''
     await loadProposals()
   } catch (e: any) {
-    actionError.value = e?.data?.message ?? e?.message ?? 'Error al rechazar la propuesta'
+    actionError.value = getApiErrorMessage(e, 'Error al rechazar la propuesta')
   } finally {
     proposalSubmitting.value = false
   }

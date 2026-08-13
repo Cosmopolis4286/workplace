@@ -442,6 +442,7 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry, type SyncStatusEntry } from '~/composables/wallets/useExchangeRates'
 import { usePermissions } from '~/composables/users/usePermissions'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -501,7 +502,7 @@ async function handleSubmit() {
     if (editingRate.value) { await updateRate(editingRate.value.id, form.value); showToast('Moneda actualizada') }
     else { await createRate(form.value); showToast('Moneda creada') }
     await fetchStats(); closeModal()
-  } catch (e: any) { formError.value = e?.data?.message ?? e.message }
+  } catch (e: any) { formError.value = getApiErrorMessage(e, 'No se pudo guardar la moneda') }
   finally { saving.value = false }
 }
 
@@ -525,7 +526,7 @@ async function handleSyncAll() {
     showToast(`Sincronización completa: ${successCount}/${results.length} monedas actualizadas`)
     await Promise.all([fetchRates(showInactive.value), loadSyncStatuses()])
   } catch (e: any) {
-    showToast(e?.data?.message ?? 'Error al sincronizar todas las monedas')
+    showToast(getApiErrorMessage(e, 'Error al sincronizar todas las monedas'))
   } finally {
     syncingAll.value = false
   }
@@ -537,7 +538,7 @@ async function handleManualSync() {
     const res = await manualSync('VES')
     if (res.success) { showToast(`Sincronizado: 1 USD = ${res.rate} VES`); await Promise.all([fetchRates(true), loadSyncStatuses()]); editingRate.value = rates.value.find((r: ExchangeRate) => r.code === 'VES') ?? null }
     else formError.value = res.message || 'Error al sincronizar'
-  } catch (e: any) { formError.value = e?.data?.message ?? e.message }
+  } catch (e: any) { formError.value = getApiErrorMessage(e, 'Error al sincronizar') }
   finally { syncing.value = false }
 }
 
@@ -547,7 +548,7 @@ async function handleManualSyncFromTable(rate: ExchangeRate) {
     const res = await manualSync(rate.code)
     showToast(res.success ? `Sincronizado: 1 USD = ${res.rate} ${rate.code}` : res.message || 'Error')
     if (res.success) await Promise.all([fetchRates(true), loadSyncStatuses()])
-  } catch (e: any) { showToast(e?.data?.message ?? 'Error al sincronizar') }
+  } catch (e: any) { showToast(getApiErrorMessage(e, 'Error al sincronizar')) }
   finally { syncingCode.value = null }
 }
 
@@ -572,7 +573,7 @@ async function openHistory(rate: ExchangeRate) {
   try {
     history.value = await fetchHistory(rate.id)
   } catch (e: any) {
-    showToast(e?.data?.message ?? 'No se pudo cargar el historial')
+    showToast(getApiErrorMessage(e, 'No se pudo cargar el historial'))
   } finally {
     loadingHistory.value = false
   }
@@ -594,21 +595,21 @@ function sourceBadgeClass(source: string) {
 async function confirmDelete() {
   if (!deletingRate.value) return; saving.value = true
   try { await deleteRate(deletingRate.value.id); await fetchStats(); showToast('Moneda eliminada'); deletingRate.value = null }
-  catch (e: any) { error.value = e?.data?.message ?? e.message }
+  catch (e: any) { error.value = getApiErrorMessage(e, 'No se pudo eliminar la moneda') }
   finally { saving.value = false }
 }
 
 async function confirmSetDefault() {
   if (!settingDefaultRate.value) return; saving.value = true
   try { await setDefault(settingDefaultRate.value.id); await fetchStats(); showToast(`${settingDefaultRate.value.code} establecida como predeterminada`); settingDefaultRate.value = null }
-  catch (e: any) { error.value = e?.data?.message ?? e.message }
+  catch (e: any) { error.value = getApiErrorMessage(e, 'No se pudo establecer la moneda predeterminada') }
   finally { saving.value = false }
 }
 
 async function confirmToggle() {
   if (!togglingRate.value) return; saving.value = true
   try { await toggleStatus(togglingRate.value.id); showToast(`${togglingRate.value.code} ${togglingRate.value.isActive ? 'desactivada' : 'activada'}`); togglingRate.value = null }
-  catch (e: any) { error.value = e?.data?.message ?? e.message }
+  catch (e: any) { error.value = getApiErrorMessage(e, 'No se pudo cambiar el estado de la moneda') }
   finally { saving.value = false }
 }
 

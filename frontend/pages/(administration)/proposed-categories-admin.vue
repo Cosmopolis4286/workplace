@@ -117,6 +117,7 @@ import { ref, computed, onMounted } from 'vue'
 import { CheckCircleIcon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useProposedCategories, type ProposedCategory, type ProposedCategoryTarget } from '~/composables/admin/useProposedCategories'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
@@ -153,7 +154,7 @@ async function confirmApprove(id: string) {
     items.value = items.value.filter(i => i.id !== id)
     approvingId.value = null
   } catch (e: any) {
-    loadError.value = e?.data?.message ?? e?.message ?? 'Error al aprobar la categoría propuesta'
+    loadError.value = getApiErrorMessage(e, 'Error al aprobar la categoría propuesta')
   } finally {
     processingId.value = null
   }
@@ -167,7 +168,7 @@ async function confirmReject(id: string) {
     items.value = items.value.filter(i => i.id !== id)
     rejectingId.value = null
   } catch (e: any) {
-    loadError.value = e?.data?.message ?? e?.message ?? 'Error al rechazar la categoría propuesta'
+    loadError.value = getApiErrorMessage(e, 'Error al rechazar la categoría propuesta')
   } finally {
     processingId.value = null
   }

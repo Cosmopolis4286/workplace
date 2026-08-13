@@ -135,6 +135,7 @@ import { ref, onMounted } from 'vue'
 import { TagIcon } from '@heroicons/vue/24/outline'
 import { useMyServices, type MyServiceCategory, type ServiceModality } from '~/composables/services/useMyServices'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES),
@@ -172,7 +173,7 @@ async function submitCategory() {
     else await createCategory(payload)
     categoryForm.value = null
   } catch (e: any) {
-    categoryError.value = e?.data?.message ?? e?.message ?? 'Error al guardar la categoría'
+    categoryError.value = getApiErrorMessage(e, 'Error al guardar la categoría')
   } finally {
     savingCategory.value = false
   }
@@ -193,7 +194,7 @@ async function confirmDeleteCategory(cat: MyServiceCategory) {
   try {
     await deleteCategory(cat.id)
   } catch (e: any) {
-    categoryError.value = e?.data?.message ?? e?.message ?? 'Error al eliminar la categoría'
+    categoryError.value = getApiErrorMessage(e, 'Error al eliminar la categoría')
   } finally {
     deletingCategoryId.value = null
   }
@@ -221,7 +222,7 @@ async function submitModality() {
     else await createModality(payload)
     modalityForm.value = null
   } catch (e: any) {
-    modalityError.value = e?.data?.message ?? e?.message ?? 'Error al guardar la modalidad'
+    modalityError.value = getApiErrorMessage(e, 'Error al guardar la modalidad')
   } finally {
     savingModality.value = false
   }
@@ -236,7 +237,7 @@ async function toggleModalityActive(mod: ServiceModality) {
   try {
     await updateModality(mod.id, { isActive: !mod.isActive })
   } catch (e: any) {
-    modalityError.value = e?.data?.message ?? e?.message ?? 'Error al actualizar la modalidad'
+    modalityError.value = getApiErrorMessage(e, 'Error al actualizar la modalidad')
   } finally {
     togglingModalityId.value = null
   }
@@ -250,7 +251,7 @@ async function confirmDeleteModality(mod: ServiceModality) {
   try {
     await deleteModality(mod.id)
   } catch (e: any) {
-    modalityError.value = e?.data?.message ?? e?.message ?? 'Error al eliminar la modalidad'
+    modalityError.value = getApiErrorMessage(e, 'Error al eliminar la modalidad')
   } finally {
     deletingModalityId.value = null
   }

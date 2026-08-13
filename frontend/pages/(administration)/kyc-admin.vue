@@ -123,6 +123,7 @@ import { useKyc, type IdentityVerification, type KycDocumentType } from '~/compo
 import KycImagePreview from '~/components/kyc/KycImagePreview.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts
 // (ADMIN_ONLY_ROUTES), que además espera la verificación real de sesión
@@ -160,7 +161,7 @@ async function confirmApprove(id: string) {
     items.value = items.value.filter(i => i.id !== id)
     approvingId.value = null
   } catch (e: any) {
-    loadError.value = e?.data?.message ?? e?.message ?? 'Error al aprobar la verificación'
+    loadError.value = getApiErrorMessage(e, 'Error al aprobar la verificación')
   } finally {
     processingId.value = null
   }
@@ -174,7 +175,7 @@ async function confirmReject(id: string) {
     items.value = items.value.filter(i => i.id !== id)
     rejectingId.value = null
   } catch (e: any) {
-    loadError.value = e?.data?.message ?? e?.message ?? 'Error al rechazar la verificación'
+    loadError.value = getApiErrorMessage(e, 'Error al rechazar la verificación')
   } finally {
     processingId.value = null
   }

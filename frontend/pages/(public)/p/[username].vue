@@ -1205,6 +1205,7 @@ import {
   InformationCircleIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useProfiles, type ProfilePost, type PostComment, type ProfileReview } from '~/composables/users/useProfiles'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useConfirm } from '~/composables/ui/useConfirm'
@@ -1250,7 +1251,7 @@ async function onCoverFileSelected(event: Event) {
     coverPreview.value = null
   } catch (err: any) {
     coverPreview.value = null
-    alert.error('No se pudo actualizar la portada', err?.data?.message ?? err?.message ?? '')
+    alert.error('No se pudo actualizar la portada', getApiErrorMessage(err, 'No se pudo actualizar la portada'))
   } finally {
     uploadingCover.value = false
     if (coverFileInput.value) coverFileInput.value.value = ''
@@ -1407,7 +1408,7 @@ async function handleToggleLike(post: ProfilePost) {
       }
     }
   } catch (err: any) {
-    alert.error('No se pudo procesar el like', err?.data?.message ?? err?.message ?? '')
+    alert.error('No se pudo procesar el like', getApiErrorMessage(err, 'No se pudo procesar el like'))
   } finally {
     likingPostId.value = null
   }
@@ -1418,7 +1419,7 @@ async function loadComments(postId: string) {
   try {
     postComments.value = await fetchComments(postId)
   } catch (err: any) {
-    alert.error('No se pudieron cargar los comentarios', err?.data?.message ?? err?.message ?? '')
+    alert.error('No se pudieron cargar los comentarios', getApiErrorMessage(err, 'No se pudieron cargar los comentarios'))
   } finally {
     loadingComments.value = false
   }
@@ -1435,7 +1436,7 @@ async function handleSendComment() {
       selectedPost.value = { ...selectedPost.value, commentsCount: selectedPost.value.commentsCount + 1 }
     }
   } catch (err: any) {
-    alert.error('No se pudo enviar el comentario', err?.data?.message ?? err?.message ?? '')
+    alert.error('No se pudo enviar el comentario', getApiErrorMessage(err, 'No se pudo enviar el comentario'))
   } finally {
     sendingComment.value = false
   }
@@ -1450,7 +1451,7 @@ async function handleDeleteComment(comment: PostComment) {
       selectedPost.value = { ...selectedPost.value, commentsCount: Math.max(0, selectedPost.value.commentsCount - 1) }
     }
   } catch (err: any) {
-    alert.error('No se pudo eliminar el comentario', err?.data?.message ?? err?.message ?? '')
+    alert.error('No se pudo eliminar el comentario', getApiErrorMessage(err, 'No se pudo eliminar el comentario'))
   }
 }
 
@@ -1607,7 +1608,7 @@ async function handleFollow() {
   try {
     await follow(profile.value.username)
   } catch (err: any) {
-    alert.error('No se pudo seguir al usuario', err?.data?.message ?? err?.message ?? '')
+    alert.error('No se pudo seguir al usuario', getApiErrorMessage(err, 'No se pudo seguir al usuario'))
   } finally {
     followLoading.value = false
   }
@@ -1619,7 +1620,7 @@ async function handleUnfollow() {
   try {
     await unfollow(profile.value.username)
   } catch (err: any) {
-    alert.error('No se pudo dejar de seguir al usuario', err?.data?.message ?? err?.message ?? '')
+    alert.error('No se pudo dejar de seguir al usuario', getApiErrorMessage(err, 'No se pudo dejar de seguir al usuario'))
   } finally {
     followLoading.value = false
   }
@@ -1648,7 +1649,7 @@ async function confirmDeletePost(id: string) {
     await deletePost(id)
     if (selectedPost.value?.id === id) selectedPost.value = null
   } catch (err: any) {
-    alert.error('No se pudo eliminar la publicación', err?.data?.message ?? err?.message ?? '')
+    alert.error('No se pudo eliminar la publicación', getApiErrorMessage(err, 'No se pudo eliminar la publicación'))
   }
 }
 
@@ -1716,7 +1717,7 @@ async function handleCreatePost() {
     newPostFiles.value = []
     newPostPreviews.value = []
   } catch (e: any) {
-    postError.value = e?.data?.message ?? 'Error al publicar'
+    postError.value = getApiErrorMessage(e, 'Error al publicar')
   } finally {
     creatingPost.value = false
   }
@@ -1740,7 +1741,7 @@ async function handleSubmitReview() {
     // Recargar stats del perfil (rating promedio y conteo) sin reemplazar la lista de reseñas
     if (profile.value?.username) fetchProfile(profile.value.username)
   } catch (e: any) {
-    reviewError.value = e?.data?.message ?? 'No se pudo enviar la reseña'
+    reviewError.value = getApiErrorMessage(e, 'No se pudo enviar la reseña')
   } finally {
     savingReview.value = false
   }

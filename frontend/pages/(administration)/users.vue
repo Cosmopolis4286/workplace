@@ -208,6 +208,7 @@ import UserFormModal from '~/components/modals/UserFormModal.vue'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, type Role } from '~/config/roles.config'
 import { useUsers, emptyUserForm, type UserItem, type UserCategory, type UsersStats } from '~/composables/users/useUsers'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -329,13 +330,13 @@ async function save() {
     }
     showModal.value = false; selectedUsers.value = []
     invalidateModules(); await load()
-  } catch (e: any) { formError.value = e?.data?.message ?? e.message }
+  } catch (e: any) { formError.value = getApiErrorMessage(e, 'No se pudo guardar el usuario') }
   finally { saving.value = false }
 }
 
 async function toggleStatus(u: UserItem) {
   try { await toggleUserStatus(u.id); u.isActive = !u.isActive }
-  catch (e: any) { error.value = e?.data?.message ?? e.message }
+  catch (e: any) { error.value = getApiErrorMessage(e, 'No se pudo cambiar el estado del usuario') }
 }
 
 async function confirmDelete(target: UserItem | UserItem[]) {

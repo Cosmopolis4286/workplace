@@ -257,6 +257,7 @@ import {
   ExclamationCircleIcon, ArrowRightIcon, LockClosedIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -346,7 +347,7 @@ async function next() {
       localStorage.setItem(STORAGE_KEY(), '1')
       localStorage.setItem(lsKey('category'), selectedCategory.value)
       if (selectedSubcategory.value) localStorage.setItem(lsKey('subcategory'), selectedSubcategory.value)
-    } catch (e: any) { saveError.value = e?.data?.message ?? e.message }
+    } catch (e: any) { saveError.value = getApiErrorMessage(e, 'Error al guardar. Intenta de nuevo.') }
     finally { saving.value = false }
 
   } else if (step.value === 1) {
@@ -361,7 +362,7 @@ async function next() {
       localStorage.setItem(STORAGE_KEY(), '2')
       localStorage.removeItem(lsKey('plan'))
     } catch (e: any) {
-      saveError.value = e?.data?.message ?? e.message ?? 'Error al guardar el plan. Intenta de nuevo.'
+      saveError.value = getApiErrorMessage(e, 'Error al guardar el plan. Intenta de nuevo.')
     } finally { saving.value = false }
   }
 }

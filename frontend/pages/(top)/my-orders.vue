@@ -436,6 +436,7 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 
 const { formatDate: fmtDate } = useDateFormat()
@@ -700,7 +701,7 @@ async function fetchOrders() {
     orders.value = res.data
     total.value  = res.total
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Error al cargar pedidos'
+    error.value = getApiErrorMessage(e, 'Error al cargar pedidos')
   } finally {
     loading.value = false
   }
@@ -716,7 +717,7 @@ async function loadMore() {
     total.value  = res.total
     page.value   = nextPage
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Error al cargar más pedidos'
+    error.value = getApiErrorMessage(e, 'Error al cargar más pedidos')
   } finally {
     loadingMore.value = false
   }

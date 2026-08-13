@@ -756,6 +756,7 @@ import { useFreelancerApplication, type FreelancerApplication } from '~/composab
 import { useVeLocations, type VeMunicipio, type VeCiudad } from '~/composables/location/useVeLocations'
 import { useLocationData } from '~/composables/location/useLocationData'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 const auth = useAuth()
 const { checkUsername } = auth
@@ -816,7 +817,7 @@ async function submitFreelancerApplication() {
     })
     latestFreelancerApplication.value = created
   } catch (e: any) {
-    freelancerAppError.value = e?.data?.message ?? e?.message ?? 'Error al enviar la solicitud'
+    freelancerAppError.value = getApiErrorMessage(e, 'Error al enviar la solicitud')
   } finally {
     submittingFreelancerApp.value = false
   }
@@ -1210,9 +1211,7 @@ function showSuccess(msg: string) {
 
 function showError(err: unknown) {
   successMsg.value = ''
-  const e = err as { data?: { message?: unknown }; message?: string }
-  const detail = e?.data?.message ?? e?.message ?? 'Ocurrió un error inesperado'
-  errorMsg.value = Array.isArray(detail) ? detail.join('. ') : String(detail)
+  errorMsg.value = getApiErrorMessage(err, 'Ocurrió un error inesperado')
   if (successTimer) clearTimeout(successTimer)
   successTimer = setTimeout(() => { errorMsg.value = '' }, 6000)
 }

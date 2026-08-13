@@ -176,6 +176,7 @@
 import { ref, computed, watch } from 'vue'
 import type { CartGroup } from '~/composables/catalog/useCart'
 import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useAuth } from '~/composables/auth/useAuth'
 
 const props = defineProps<{
@@ -268,7 +269,7 @@ async function submit() {
     emit('update:modelValue', false)
     emit('success')
   } catch (e: any) {
-    errorMsg.value = e?.data?.message ?? 'No se pudo enviar el pedido. Intenta de nuevo.'
+    errorMsg.value = getApiErrorMessage(e, 'No se pudo enviar el pedido. Intenta de nuevo.')
   } finally {
     sending.value = false
   }

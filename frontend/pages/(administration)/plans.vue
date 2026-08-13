@@ -531,6 +531,7 @@ import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS, type 
 import { useModuleCatalog } from '~/composables/commerce/useModuleCatalog'
 import { useToast } from '~/composables/ui/useToast'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -662,7 +663,7 @@ async function savePlan() {
     else await createPlan(planForm.value)
     showPlanModal.value = false
     await fetchStats()
-  } catch (e: any) { formError.value = e?.data?.message ?? e.message }
+  } catch (e: any) { formError.value = getApiErrorMessage(e, 'No se pudo guardar el plan') }
   finally { saving.value = false }
 }
 
@@ -675,7 +676,7 @@ async function confirmDeletePlan(plan: Plan) {
   })
   if (!ok) return
   try { await deletePlan(plan.id); await fetchStats() }
-  catch (e: any) { toast.error('Error', e?.data?.message ?? e.message) }
+  catch (e: any) { toast.error('Error', getApiErrorMessage(e, 'No se pudo eliminar el plan')) }
 }
 
 // ─── Assign modal ─────────────────────────────────────────────────────────────
@@ -703,7 +704,7 @@ async function saveAssign() {
     showAssignModal.value = false
     invalidateModules(); await fetchStats()
     if (activeTab.value === 'subscriptions') await loadSubscriptions()
-  } catch (e: any) { assignError.value = e?.data?.message ?? e.message }
+  } catch (e: any) { assignError.value = getApiErrorMessage(e, 'No se pudo asignar la suscripción') }
   finally { assigning.value = false }
 }
 
@@ -711,7 +712,7 @@ async function handleCancelSub(id: string) {
   const ok = await confirm({ title: 'Cancelar suscripción', message: '¿Cancelar esta suscripción?', confirmText: 'Sí, cancelar', cancelText: 'No', variant: 'danger' })
   if (!ok) return
   try { await cancelSubscription(id); invalidateModules(); await fetchStats() }
-  catch (e: any) { toast.error('Error', e?.data?.message ?? e.message) }
+  catch (e: any) { toast.error('Error', getApiErrorMessage(e, 'No se pudo cancelar la suscripción')) }
 }
 
 async function loadSubscriptions() {
@@ -734,7 +735,7 @@ async function loadPendingRequests() {
     const data = await get<{ subscriptions: Subscription[] }>('/plans/subscriptions?status=PENDING&limit=100')
     pendingRequests.value = data.subscriptions
   } catch (e: any) {
-    requestActionError.value = e?.data?.message ?? e.message
+    requestActionError.value = getApiErrorMessage(e, 'No se pudieron cargar las solicitudes')
   } finally {
     loadingRequests.value = false
   }
@@ -754,7 +755,7 @@ async function handleApproveRequest(sub: Subscription) {
     pendingRequests.value = pendingRequests.value.filter(s => s.id !== sub.id)
     invalidateModules(); await fetchStats()
   } catch (e: any) {
-    requestActionError.value = e?.data?.message ?? e.message
+    requestActionError.value = getApiErrorMessage(e, 'No se pudo aprobar la solicitud')
   } finally {
     processingRequest.value = null
   }
@@ -775,7 +776,7 @@ async function handleRejectRequest(sub: Subscription) {
     pendingRequests.value = pendingRequests.value.filter(s => s.id !== sub.id)
     await fetchStats()
   } catch (e: any) {
-    requestActionError.value = e?.data?.message ?? e.message
+    requestActionError.value = getApiErrorMessage(e, 'No se pudo rechazar la solicitud')
   } finally {
     processingRequest.value = null
   }

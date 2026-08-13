@@ -354,6 +354,7 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useUserPreferences } from '~/composables/users/useUserPreferences'
 import { useAuth } from '~/composables/auth/useAuth'
 
@@ -501,7 +502,7 @@ async function loadOrderStats() {
     orderStats.value = await get(isFreelancer.value ? '/services/requests/stats' : '/orders/stats')
   }
   catch (e: any) {
-    if (!isForbidden(e)) globalError.value = e?.data?.message ?? e.message
+    if (!isForbidden(e)) globalError.value = getApiErrorMessage(e, 'Error al cargar las estadísticas')
   }
   finally { loadingOrders.value = false }
 }
@@ -510,7 +511,7 @@ async function loadExpenseStats() {
   loadingExpenses.value = true
   try { expenseStats.value = await get('/expenses/stats') }
   catch (e: any) {
-    if (!isForbidden(e)) globalError.value = e?.data?.message ?? e.message
+    if (!isForbidden(e)) globalError.value = getApiErrorMessage(e, 'Error al cargar los gastos')
   }
   finally { loadingExpenses.value = false }
 }

@@ -161,6 +161,7 @@ definePageMeta({ middleware: ['auth'] })
 import { ref, computed, onMounted } from 'vue'
 import { BanknotesIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { useWallets, type Wallet, type EscrowReconciliation } from '~/composables/wallets/useWallets'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
@@ -219,7 +220,7 @@ async function doFreeze() {
   try {
     const updated = await freezeUserWallet(selected.value.userId)
     applyUpdate(updated)
-  } catch (e: any) { actionError.value = e?.data?.message ?? e?.message ?? 'Error al congelar' }
+  } catch (e: any) { actionError.value = getApiErrorMessage(e, 'Error al congelar') }
   finally { actionLoading.value = false }
 }
 
@@ -229,7 +230,7 @@ async function doUnfreeze() {
   try {
     const updated = await unfreezeUserWallet(selected.value.userId)
     applyUpdate(updated)
-  } catch (e: any) { actionError.value = e?.data?.message ?? e?.message ?? 'Error al descongelar' }
+  } catch (e: any) { actionError.value = getApiErrorMessage(e, 'Error al descongelar') }
   finally { actionLoading.value = false }
 }
 
@@ -242,7 +243,7 @@ async function doAdjust() {
     adjustAmount.value = undefined
     adjustDescription.value = ''
     confirmingAdjust.value = false
-  } catch (e: any) { actionError.value = e?.data?.message ?? e?.message ?? 'Error al ajustar el saldo' }
+  } catch (e: any) { actionError.value = getApiErrorMessage(e, 'Error al ajustar el saldo') }
   finally { actionLoading.value = false }
 }
 

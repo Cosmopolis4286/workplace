@@ -500,6 +500,7 @@ import {
   CreditCardIcon, ChevronDownIcon, EnvelopeIcon, ClockIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { usePlans } from '~/composables/commerce/usePlans'
 import { useKyc } from '~/composables/kyc/useKyc'
@@ -618,7 +619,7 @@ async function loadPlans() {
     const data = await get('/plans/public')
     plans.value = Array.isArray(data) ? data : (data as any)?.data ?? []
   } catch (e: any) {
-    error.value = e?.data?.message ?? e?.message ?? 'Error cargando planes'
+    error.value = getApiErrorMessage(e, 'Error cargando planes')
   } finally { loading.value = false; loadingPlans.value = false }
 }
 
@@ -664,7 +665,7 @@ async function changePlan(plan: Plan) {
     })
     await fetchMySubscription()
   } catch (e: any) {
-    changePlanError.value = e?.data?.message ?? e?.message ?? 'Error al cambiar de plan. Intenta de nuevo.'
+    changePlanError.value = getApiErrorMessage(e, 'Error al cambiar de plan. Intenta de nuevo.')
   } finally {
     changingPlan.value = null
   }
@@ -699,7 +700,7 @@ async function confirmUpgrade() {
 
     upgradeStep.value = 3
   } catch (e: any) {
-    upgradeError.value = e?.data?.message ?? e?.message ?? 'Error al procesar el upgrade. Intenta de nuevo.'
+    upgradeError.value = getApiErrorMessage(e, 'Error al procesar el upgrade. Intenta de nuevo.')
   } finally { upgrading.value = false }
 }
 

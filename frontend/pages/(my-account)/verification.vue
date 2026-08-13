@@ -129,6 +129,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import ImageDropInput from '~/components/ui/ImageDropInput.vue'
 import { useKyc, type KycDocumentType } from '~/composables/kyc/useKyc'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 useHead({ title: 'Verificación de Identidad — WorkPlace Manager' })
 
@@ -211,7 +212,7 @@ async function handleSubmit() {
     backImage.value = null
     selfieImage.value = null
   } catch (e: any) {
-    formError.value = e?.data?.message ?? e?.message ?? 'No se pudo enviar la solicitud.'
+    formError.value = getApiErrorMessage(e, 'No se pudo enviar la solicitud.')
   } finally {
     submitting.value = false
   }
