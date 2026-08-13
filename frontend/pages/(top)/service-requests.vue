@@ -527,7 +527,7 @@ watch(notifications, (list: Notification[]) => {
   if (list.length <= lastSeenNotificationCount) return
   const isRelevant = list
     .slice(0, list.length - lastSeenNotificationCount)
-    .some((n) => n.link === '/service-requests')
+    .some((n) => n.link === '/service-requests' || n.link?.startsWith('/service-requests?'))
   lastSeenNotificationCount = list.length
   if (isRelevant) hasLiveUpdate.value = true
 })

@@ -142,7 +142,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 const { confirm } = useConfirm()
 const {
   catalogCategories, modalities,
-  fetchCatalogCategories, fetchAllModalities,
+  fetchAdminCategories, fetchAllModalities,
   createCategory, updateCategory, deleteCategory,
   createModality, updateModality, deleteModality,
 } = useMyServices()
@@ -258,7 +258,7 @@ async function confirmDeleteModality(mod: ServiceModality) {
 
 onMounted(async () => {
   try {
-    await fetchCatalogCategories()
+    await fetchAdminCategories()
   } finally {
     loadingCategories.value = false
   }
