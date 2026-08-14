@@ -220,15 +220,6 @@
     </Teleport>
 
     <!-- Toast -->
-    <Teleport to="body">
-      <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="toast" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm">
-          <CheckCircleIcon class="h-4 w-4 text-green-400 flex-shrink-0" />
-          {{ toast }}
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
@@ -236,7 +227,7 @@
 import { ref, computed, onMounted } from 'vue'
 import {
   BanknotesIcon, XMarkIcon, PencilIcon, CheckIcon, PlusIcon, TrashIcon,
-  UsersIcon, CheckCircleIcon,
+  UsersIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import {
@@ -386,13 +377,8 @@ async function handleDeleteOverride(ov: PlatformFeeOverride) {
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
-const toast = ref<string | null>(null)
-let toastTimer: ReturnType<typeof setTimeout>
-function showToast(msg: string) {
-  toast.value = msg
-  clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => { toast.value = null }, 3000)
-}
+const toastApi = useToast()
+function showToast(msg: string) { toastApi.success(msg) }
 
 onMounted(async () => {
   loading.value = true
