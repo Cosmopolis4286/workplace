@@ -411,7 +411,7 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
 import StockReportModal from '~/components/modals/StockReportModal.vue'
-import { useInventory } from '~/composables/commerce/useInventory'
+import { useMenu } from '~/composables/catalog/useMenu'
 
 const {
   products,
@@ -420,16 +420,16 @@ const {
   error,
   lowStockProducts,
   outOfStockProducts,
-  addProduct,
+  createProduct,
   updateProduct,
   deleteProduct,
-  addCategory,
+  createCategory,
   updateCategory,
   deleteCategory,
   updateStock,
   toggleProductStatus,
   init,
-} = useInventory()
+} = useMenu()
 
 // ─── Local state ────────────────────────────────────────────────────────────
 
@@ -537,7 +537,7 @@ async function saveProduct(productData) {
     const result = await updateProduct(selectedProduct.value.id, productData)
     if (result) showToast('Producto actualizado')
   } else {
-    const result = await addProduct(productData)
+    const result = await createProduct(productData)
     if (result) showToast('Producto creado')
   }
   closeProductModal()
@@ -576,7 +576,7 @@ function closeCategoryModal() {
 }
 
 async function handleAddCategory(category) {
-  const result = await addCategory(category)
+  const result = await createCategory(category)
   if (result) showToast('Categoría creada')
 }
 
