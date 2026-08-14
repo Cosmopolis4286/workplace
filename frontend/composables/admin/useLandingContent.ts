@@ -1,6 +1,6 @@
 import { useApi } from '../core/useApi'
 
-interface PublicTestimonial {
+export interface PublicTestimonial {
   id: string
   quote: string
   name: string
@@ -10,14 +10,14 @@ interface PublicTestimonial {
   createdAt?: string
 }
 
-interface PublicStat {
+export interface PublicStat {
   key?: string
   value: string
   label: string
   rawValue?: number
 }
 
-interface PublicFeature {
+export interface PublicFeature {
   id: string
   title: string
   description: string
@@ -25,7 +25,7 @@ interface PublicFeature {
   bg: string
 }
 
-interface PublicStep {
+export interface PublicStep {
   id: string
   title: string
   desc: string
