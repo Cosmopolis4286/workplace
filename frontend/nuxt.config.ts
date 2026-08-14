@@ -17,6 +17,10 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  imports: {
+    dirs: ['composables/**'],
+  },
+
   modules: [
     '@nuxtjs/tailwindcss',
     '@vueuse/nuxt',
