@@ -199,10 +199,13 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       tenía 3 modales (eliminar/predeterminar/activar-toggle) — se agregó `variant: 'warning'`
       (amarillo) a `useConfirm`/`ConfirmModal` para preservar el color original del botón "Establecer
       predeterminada" (no destructivo ni primario).
-- [ ] Toast/notificación reimplementado de forma ligeramente distinta en `categories.vue`,
+- [x] Toast/notificación reimplementado de forma ligeramente distinta en `categories.vue`,
       `exchange-rates.vue`, `search-tabs.vue`, `commissions.vue` — `search-tabs.vue` específicamente
       no limpia el timer anterior (bug menor: un toast puede ocultarse antes de tiempo si se disparan
-      dos seguidos).
+      dos seguidos). Resuelto: los 4 archivos migrados al composable global `useToast()` (wrapper de
+      `vue-sonner`, ya usado en 9 archivos y montado vía `<Toaster />` en `app.vue`). En
+      `exchange-rates.vue` además se corrigieron 3 sitios que mostraban errores de sincronización con
+      el estilo visual de éxito (siempre verde) — ahora usan `.error()` correctamente.
 - [ ] `menu.vue` e `inventory.vue` duplican CRUD de categorías/productos contra dos composables
       paralelos (`useMenu` vs `useInventory`) sobre el mismo dominio de datos — el bug de status
       (arriba) es consecuencia directa de esta duplicación.
