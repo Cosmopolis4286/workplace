@@ -351,8 +351,6 @@ import {
   EnvelopeIcon,
   UserIcon,
   ChatBubbleLeftIcon,
-  ClockIcon,
-  EyeIcon,
   PhoneArrowUpRightIcon,
   CheckCircleIcon,
   InformationCircleIcon,
