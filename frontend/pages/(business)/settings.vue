@@ -96,7 +96,7 @@
 
         <OperationsSettingsCard
           v-if="isComidaCategory"
-          :settings="settings as CommerceSettings | null"
+          :settings="commerceSettings"
           :saving="saving === 'operations'"
           @save="saveOperationSettings"
         />
@@ -183,6 +183,10 @@ const {
   saveOperationSettings: saveOperationSettingsApi,
   saveNotificationSettings: saveNotificationSettingsApi,
 } = useSettings()
+
+// OperationsSettingsCard solo se muestra cuando isComidaCategory, y esa categoría
+// implica rol COMMERCE (no FREELANCER) — settings siempre es CommerceSettings ahí.
+const commerceSettings = computed(() => settings.value as CommerceSettings | null)
 
 async function saveCommerceInfo(form: Record<string, unknown>) { await saveCommerceInfoApi(form) }
 async function savePaymentSettings(form: Record<string, unknown>) { await savePaymentSettingsApi(form) }
