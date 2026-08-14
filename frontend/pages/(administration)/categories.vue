@@ -1,16 +1,5 @@
 <template>
   <div>
-    <!-- Toast -->
-    <Teleport to="body">
-      <Transition name="toast">
-        <div v-if="toast" class="fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium"
-          :class="toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'">
-          <span>{{ toast.type === 'success' ? '✓' : '✕' }}</span>
-          {{ toast.msg }}
-        </div>
-      </Transition>
-    </Teleport>
-
     <PageHeader
       title="Categorías"
       description="Gestiona las categorías de usuarios y del marketplace"
@@ -486,12 +475,9 @@ const { can } = usePermissions()
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-const toast = ref<{ msg: string; type: 'success' | 'error' } | null>(null)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
+const toast = useToast()
 function showToast(msg: string, type: 'success' | 'error' = 'success') {
-  if (toastTimer) clearTimeout(toastTimer)
-  toast.value = { msg, type }
-  toastTimer = setTimeout(() => { toast.value = null }, 3000)
+  type === 'error' ? toast.error(msg) : toast.success(msg)
 }
 
 // ─── Tab ──────────────────────────────────────────────────────────────────────

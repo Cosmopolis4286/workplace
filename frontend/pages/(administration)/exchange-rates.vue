@@ -358,15 +358,6 @@
     </Teleport>
 
     <!-- Toast -->
-    <Teleport to="body">
-      <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 translate-y-4" enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="toast" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-lg text-sm">
-          <CheckCircleIcon class="h-4 w-4 text-green-400 flex-shrink-0" />
-          {{ toast }}
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
@@ -467,7 +458,7 @@ async function handleSyncAll() {
     showToast(`Sincronización completa: ${successCount}/${results.length} monedas actualizadas`)
     await Promise.all([fetchRates(showInactive.value), loadSyncStatuses()])
   } catch (e: any) {
-    showToast(getApiErrorMessage(e, 'Error al sincronizar todas las monedas'))
+    showToastError(getApiErrorMessage(e, 'Error al sincronizar todas las monedas'))
   } finally {
     syncingAll.value = false
   }
@@ -487,9 +478,13 @@ async function handleManualSyncFromTable(rate: ExchangeRate) {
   if (syncingCode.value) return; syncingCode.value = rate.code
   try {
     const res = await manualSync(rate.code)
-    showToast(res.success ? `Sincronizado: 1 USD = ${res.rate} ${rate.code}` : res.message || 'Error')
-    if (res.success) await Promise.all([fetchRates(true), loadSyncStatuses()])
-  } catch (e: any) { showToast(getApiErrorMessage(e, 'Error al sincronizar')) }
+    if (res.success) {
+      showToast(`Sincronizado: 1 USD = ${res.rate} ${rate.code}`)
+      await Promise.all([fetchRates(true), loadSyncStatuses()])
+    } else {
+      showToastError(res.message || 'Error')
+    }
+  } catch (e: any) { showToastError(getApiErrorMessage(e, 'Error al sincronizar')) }
   finally { syncingCode.value = null }
 }
 
@@ -562,7 +557,7 @@ async function openHistory(rate: ExchangeRate) {
   try {
     history.value = await fetchHistory(rate.id)
   } catch (e: any) {
-    showToast(getApiErrorMessage(e, 'No se pudo cargar el historial'))
+    showToastError(getApiErrorMessage(e, 'No se pudo cargar el historial'))
   } finally {
     loadingHistory.value = false
   }
@@ -582,9 +577,9 @@ function sourceBadgeClass(source: string) {
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
-const toast = ref<string | null>(null)
-let toastTimer: ReturnType<typeof setTimeout>
-function showToast(msg: string) { toast.value = msg; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.value = null }, 3000) }
+const toastApi = useToast()
+function showToast(msg: string) { toastApi.success(msg) }
+function showToastError(msg: string) { toastApi.error(msg) }
 
 onMounted(async () => { await Promise.all([fetchRates(true), fetchStats(), loadSyncStatuses()]) })
 </script>

@@ -315,15 +315,6 @@
     </Teleport>
 
 
-    <!-- Toast -->
-    <Teleport to="body">
-      <Transition name="toast">
-        <div v-if="toast" class="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl">
-          <CheckCircleIcon class="w-4 h-4 text-green-400" />
-          {{ toast }}
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
@@ -331,7 +322,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import {
   MagnifyingGlassIcon, PlusIcon, XMarkIcon, PencilIcon, TrashIcon,
-  ChevronUpIcon, ChevronDownIcon, EyeIcon, EyeSlashIcon, CheckCircleIcon,
+  ChevronUpIcon, ChevronDownIcon, EyeIcon, EyeSlashIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
@@ -349,7 +340,6 @@ const tabs = ref<SearchTab[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
-const toast = ref<string | null>(null)
 
 const showModal = ref(false)
 const editingTab = ref<SearchTab | null>(null)
@@ -400,10 +390,8 @@ function isLast(tab: SearchTab) {
   return sortedTabs.value[sortedTabs.value.length - 1]?.id === tab.id
 }
 
-function showToast(msg: string) {
-  toast.value = msg
-  setTimeout(() => { toast.value = null }, 3000)
-}
+const toastApi = useToast()
+function showToast(msg: string) { toastApi.success(msg) }
 
 // ─── Data loading ───────────────────────────────────────────────────────────
 
