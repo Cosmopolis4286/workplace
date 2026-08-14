@@ -121,7 +121,7 @@ function trapFocus(e: KeyboardEvent) {
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') { emit('close'); return }
+  if (e.key === 'Escape') { e.stopPropagation(); emit('close'); return }
   if (e.key === 'Tab') trapFocus(e)
 }
 
