@@ -206,9 +206,18 @@ SUPERADMIN. **No es una vulnerabilidad explotable de punta a punta.**
       `vue-sonner`, ya usado en 9 archivos y montado vía `<Toaster />` en `app.vue`). En
       `exchange-rates.vue` además se corrigieron 3 sitios que mostraban errores de sincronización con
       el estilo visual de éxito (siempre verde) — ahora usan `.error()` correctamente.
-- [ ] `menu.vue` e `inventory.vue` duplican CRUD de categorías/productos contra dos composables
+- [x] `menu.vue` e `inventory.vue` duplican CRUD de categorías/productos contra dos composables
       paralelos (`useMenu` vs `useInventory`) sobre el mismo dominio de datos — el bug de status
-      (arriba) es consecuencia directa de esta duplicación.
+      (arriba) es consecuencia directa de esta duplicación. Resuelto: ambos pegaban a los mismos
+      endpoints (`/menu/categories`, `/menu/products`, etc.) con el mismo tipo `Product`/`Category`
+      pero mantenían dos `ref` de state (singletons) separados — inconsistencia real de datos entre
+      páginas, no solo cosmética. Se fusionó todo en `useMenu.ts` (agregado `outOfStockProducts`,
+      `totalValue`, `updateStock`, alias `init`), `inventory.vue` migrado a consumirlo, y se eliminó
+      `useInventory.ts` (quedó sin más consumidores). Nota: `lowStockProducts` usaba dos criterios
+      distintos (`status === 'LOW_STOCK'` en useMenu vs `stock <= minStock` en useInventory) — se
+      verificó en el backend (`menu.service.ts`) que `status` ya se recalcula automáticamente desde
+      `stock`/`minStock` en cada cambio, así que el criterio de `useMenu` es la fuente de verdad
+      correcta y se mantuvo.
 - [x] Falta `AbortController` en búsquedas con debounce (`expenses.vue`, `sales.vue`,
       `analytics.vue`) — una respuesta lenta de un filtro antiguo puede sobrescribir resultados de
       uno más reciente. Resuelto en la fuente: `loadExpenses` (`useExpenses.ts`) y `loadOrders`
