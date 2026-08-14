@@ -58,6 +58,8 @@ export const useMenu = () => {
   const totalProducts = computed(() => products.value.length)
   const availableProducts = computed(() => products.value.filter((p) => p.status === 'AVAILABLE').length)
   const lowStockProducts = computed(() => products.value.filter((p) => p.status === 'LOW_STOCK'))
+  const outOfStockProducts = computed(() => products.value.filter((p) => p.stock === 0))
+  const totalValue = computed(() => products.value.reduce((sum, p) => sum + p.price * p.stock, 0))
 
   // ─── Load all ──────────────────────────────────────────────────────────────
 
@@ -151,6 +153,18 @@ export const useMenu = () => {
     }
   }
 
+  async function updateStock(id: string, quantity: number, type: 'set' | 'add' | 'subtract' = 'set'): Promise<Product | null> {
+    try {
+      const product = await patch<Product>(`/menu/products/${id}/stock`, { quantity, type })
+      const idx = products.value.findIndex((p) => p.id === id)
+      if (idx !== -1) products.value[idx] = product
+      return product
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al actualizar el stock'
+      return null
+    }
+  }
+
   async function toggleProductStatus(id: string): Promise<Product | null> {
     try {
       const product = await patch<Product>(`/menu/products/${id}/toggle-status`, {})
@@ -188,14 +202,18 @@ export const useMenu = () => {
     totalProducts,
     availableProducts,
     lowStockProducts,
+    outOfStockProducts,
+    totalValue,
     // actions
     loadMenu,
+    init: loadMenu,
     createCategory,
     updateCategory,
     deleteCategory,
     createProduct,
     updateProduct,
     deleteProduct,
+    updateStock,
     toggleProductStatus,
     uploadProductImage,
   }
