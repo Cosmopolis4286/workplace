@@ -205,6 +205,11 @@ const headerStats = computed(() => [
 const activeStatusFilter = ref<OrderStatus | undefined>(undefined)
 const searchQuery = ref('')
 
+function setStatusFilter(val: OrderStatus | undefined) {
+  activeStatusFilter.value = val
+  applyFilters()
+}
+
 function applyFilters() {
   loadOrders({ status: activeStatusFilter.value, search: searchQuery.value || undefined, page: 1 })
 }
