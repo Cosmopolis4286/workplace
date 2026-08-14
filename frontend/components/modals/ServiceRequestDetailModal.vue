@@ -141,94 +141,12 @@
                 </div>
               </div>
 
-              <!-- Ítems solicitados -->
-              <div v-if="req.items?.length">
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Ítems solicitados ({{ req.items.length }})</p>
-                <div class="space-y-2.5">
-                  <div v-for="(item, idx) in req.items" :key="item.id" class="border border-gray-100 bg-white rounded-xl p-3.5 shadow-sm">
-                    <p class="text-[11px] font-semibold text-gray-400 mb-2">Ítem {{ idx + 1 }}</p>
-                    <div v-if="Object.keys(item.fields ?? {}).length" class="grid grid-cols-2 gap-2.5 mb-2.5">
-                      <div v-for="[key, value] in Object.entries(item.fields ?? {})" :key="key">
-                        <p class="text-[10px] text-gray-400 uppercase tracking-wide">{{ key }}</p>
-                        <p class="text-sm text-gray-900 font-medium">{{ value || '—' }}</p>
-                      </div>
-                    </div>
-                    <p v-if="item.notes" class="text-sm text-gray-600 italic mb-2.5 leading-relaxed">"{{ item.notes }}"</p>
-                    <div v-if="itemMedia(item).length" class="grid grid-cols-6 gap-1.5">
-                      <button
-                        v-for="(media, mi) in itemMedia(item)"
-                        :key="mi"
-                        type="button"
-                        class="group aspect-square rounded-lg overflow-hidden bg-gray-100 ring-1 ring-gray-200 relative"
-                        @click="openLightbox(item, mi)"
-                      >
-                        <img v-if="media.type === 'photo' && mediaUrl(media.path)" :src="mediaUrl(media.path)" loading="lazy" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
-                        <video v-else-if="media.type === 'video' && mediaUrl(media.path)" :src="mediaUrl(media.path)" class="w-full h-full object-cover" />
-                        <div v-else-if="mediaLoadFailed[media.path]" class="w-full h-full flex items-center justify-center text-gray-300">
-                          <XCircleIcon class="h-4 w-4" />
-                        </div>
-                        <div v-else class="w-full h-full animate-pulse bg-gray-200" />
-                        <div v-if="media.type === 'video' && mediaUrl(media.path)" class="absolute inset-0 flex items-center justify-center bg-black/20">
-                          <PlayCircleIcon class="h-6 w-6 text-white" />
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Lightbox / carrusel de media del ítem (visualización inline, sin pestaña externa) -->
-              <Teleport to="body">
-                <div v-if="lightbox" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4" @click.self="closeLightbox">
-                  <button class="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors" @click="closeLightbox">
-                    <XMarkIcon class="h-6 w-6" />
-                  </button>
-
-                  <button
-                    v-if="lightboxMedia.length > 1"
-                    class="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-                    @click.stop="lightboxPrev"
-                  >
-                    <ChevronLeftIcon class="h-6 w-6" />
-                  </button>
-                  <button
-                    v-if="lightboxMedia.length > 1"
-                    class="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-                    @click.stop="lightboxNext"
-                  >
-                    <ChevronRightIcon class="h-6 w-6" />
-                  </button>
-
-                  <div class="max-w-3xl max-h-[85vh] w-full flex flex-col items-center gap-3" @click.stop>
-                    <img
-                      v-if="currentLightboxMedia?.type === 'photo' && mediaUrl(currentLightboxMedia.path)"
-                      :src="mediaUrl(currentLightboxMedia.path)"
-                      class="max-w-full max-h-[75vh] object-contain rounded-lg"
-                    />
-                    <video
-                      v-else-if="currentLightboxMedia?.type === 'video' && mediaUrl(currentLightboxMedia.path)"
-                      :src="mediaUrl(currentLightboxMedia.path)"
-                      controls
-                      autoplay
-                      class="max-w-full max-h-[75vh] object-contain rounded-lg"
-                    />
-                    <div v-else class="w-64 h-64 flex items-center justify-center text-white/50">
-                      <XCircleIcon class="h-8 w-8" />
-                    </div>
-
-                    <div v-if="lightboxMedia.length > 1" class="flex items-center gap-1.5">
-                      <button
-                        v-for="(media, mi) in lightboxMedia"
-                        :key="mi"
-                        type="button"
-                        class="h-1.5 rounded-full transition-all"
-                        :class="mi === lightboxIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/60'"
-                        @click.stop="lightboxIndex = mi"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </Teleport>
+              <ServiceRequestItemsList
+                :items="req.items"
+                :media-url="mediaUrl"
+                :media-load-failed="mediaLoadFailed"
+                @open-lightbox="openLightbox"
+              />
 
               <!-- Datos de contacto (solo proveedor) -->
               <div v-if="isProvider" class="border border-gray-100 rounded-xl p-4">
@@ -249,340 +167,48 @@
                 </div>
               </div>
 
-              <!-- Timeline de estado -->
-              <div>
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Estado del proceso</p>
-                <div class="flex items-start">
-                  <template v-for="(step, i) in TIMELINE" :key="step.status">
-                    <div class="flex flex-col items-center flex-1 min-w-0">
-                      <div
-                        class="h-7 w-7 rounded-full flex items-center justify-center border-2 transition-all"
-                        :class="timelineClass(step.status)"
-                      >
-                        <component :is="step.icon" class="h-3.5 w-3.5" />
-                      </div>
-                      <span
-                        class="text-xs mt-1 text-center leading-tight"
-                        :class="isReached(step.status) ? 'text-gray-900 font-medium' : 'text-gray-400'"
-                      >
-                        {{ step.label }}
-                      </span>
-                      <span
-                        v-if="stepTimestamp(step.status)"
-                        class="text-[10px] text-center leading-tight mt-0.5 px-1"
-                        :class="req.status === step.status ? 'text-red-500 font-medium' : 'text-gray-400'"
-                        :title="formatDateTime(stepTimestamp(step.status)!)"
-                      >
-                        {{ timeAgo(stepTimestamp(step.status)!) }}
-                      </span>
-                      <span v-else class="text-[10px] text-center leading-tight mt-0.5 px-1 text-gray-300">—</span>
-                    </div>
-                    <div
-                      v-if="i < TIMELINE.length - 1"
-                      class="h-0.5 flex-1 mt-3.5 transition-colors"
-                      :class="isReached(TIMELINE[i+1].status) ? 'bg-red-400' : 'bg-gray-200'"
-                    />
-                  </template>
-                </div>
-              </div>
+              <ServiceRequestTimeline
+                :status="req.status"
+                :created-at="req.createdAt"
+                :status-updated-at="req.statusUpdatedAt"
+                :format-date-time="formatDateTime"
+                :time-ago="timeAgo"
+              />
 
-              <!-- Observaciones del proveedor -->
-              <div class="border border-gray-100 rounded-xl overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50/70 border-b border-gray-100">
-                  <div class="flex items-center gap-2">
-                    <DocumentTextIcon class="h-3.5 w-3.5 text-gray-400" />
-                    <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                      Observaciones{{ isProvider ? '' : ' del proveedor' }}
-                    </p>
-                  </div>
-                  <button
-                    v-if="isProvider && !editingNotes"
-                    class="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
-                    @click="startEditNotes"
-                  >
-                    <PencilIcon class="h-3.5 w-3.5" />
-                    {{ req.providerNotes || req.price ? 'Editar' : 'Agregar' }}
-                  </button>
-                </div>
-
-                <div class="p-4">
-                  <template v-if="!editingNotes">
-                    <p v-if="req.providerNotes" class="text-sm text-gray-700 whitespace-pre-wrap">{{ req.providerNotes }}</p>
-                    <p v-else class="text-sm text-gray-400 italic">
-                      {{ isProvider
-                        ? 'Sin observaciones. Agrega notas sobre el acuerdo, fecha confirmada, detalles del trabajo, etc.'
-                        : 'El proveedor aún no ha dejado observaciones.' }}
-                    </p>
-                  </template>
-
-                  <template v-else>
-                    <div class="flex flex-wrap gap-1.5 mb-2">
-                      <button
-                        v-for="tpl in QUICK_REPLY_TEMPLATES"
-                        :key="tpl"
-                        type="button"
-                        class="text-[11px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
-                        @click="applyQuickReply(tpl)"
-                      >
-                        {{ tpl }}
-                      </button>
-                    </div>
-                    <textarea
-                      v-model="notesInput"
-                      rows="4"
-                      placeholder="Ej: Acordamos el lunes 15 a las 10am. Llevar herramientas propias..."
-                      class="w-full text-sm border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                    />
-                    <div class="grid grid-cols-2 gap-2 mt-3">
-                      <div>
-                        <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Precio acordado</label>
-                        <div class="relative">
-                          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                          <input
-                            v-model.number="priceInput"
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            class="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
-                        <button
-                          v-if="req.suggestedPrice != null && !priceInput"
-                          type="button"
-                          class="mt-1 flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium"
-                          @click="useSuggestedPrice"
-                        >
-                          <SparklesIcon class="h-3 w-3" />
-                          Sugerido: ${{ formatPrice(req.suggestedPrice) }} (prom. {{ req.suggestedPriceBasedOn }} trato{{ req.suggestedPriceBasedOn === 1 ? '' : 's' }})
-                        </button>
-                      </div>
-                      <div>
-                        <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Unidad (opcional)</label>
-                        <input
-                          v-model="priceUnitInput"
-                          type="text"
-                          placeholder="Ej: hora, proyecto"
-                          class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                        />
-                      </div>
-                    </div>
-                    <div class="flex justify-end gap-2 mt-3">
-                      <button class="btn-secondary text-xs py-1.5 px-3" @click="cancelEditNotes">Cancelar</button>
-                      <button class="btn-primary text-xs py-1.5 px-3" :disabled="savingNotes" @click="saveNotes">
-                        {{ savingNotes ? 'Guardando...' : 'Guardar' }}
-                      </button>
-                    </div>
-                  </template>
-                </div>
-              </div>
+              <ServiceRequestNotesEditor
+                :request-id="req.id"
+                :is-provider="isProvider"
+                :provider-notes="req.providerNotes"
+                :price="req.price"
+                :price-unit="req.priceUnit"
+                :suggested-price="req.suggestedPrice"
+                :suggested-price-based-on="req.suggestedPriceBasedOn"
+                :format-price="formatPrice"
+                @updated="onNotesUpdated"
+                @error="actionError = $event"
+              />
 
               <!-- Ítems adicionales y aumento de precio: sección separada de "Observaciones" a
                    propósito — una nota informal no mueve dinero, una propuesta sí, y requiere
                    aprobación explícita del cliente antes de tocar el escrow. -->
-              <div v-if="req.status === 'CONTACTED' || pendingProposal || resolvedProposals.length" class="border border-gray-100 rounded-xl overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50/70 border-b border-gray-100">
-                  <div class="flex items-center gap-2">
-                    <SparklesIcon class="h-3.5 w-3.5 text-gray-400" />
-                    <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                      Ítems adicionales / Aumento de precio
-                    </p>
-                  </div>
-                  <button
-                    v-if="isProvider && req.status === 'CONTACTED' && !pendingProposal && !proposingIncrease"
-                    class="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
-                    @click="startProposeIncrease"
-                  >
-                    <PencilIcon class="h-3.5 w-3.5" />
-                    Proponer aumento
-                  </button>
-                </div>
+              <ServiceRequestPriceProposal
+                ref="priceProposalRef"
+                :request-id="req.id"
+                :is-provider="isProvider"
+                :status="req.status"
+                :price="req.price"
+                :format-price="formatPrice"
+                @approved="onProposalApproved"
+                @error="actionError = $event"
+              />
 
-                <div class="p-4 space-y-3">
-                  <!-- Proveedor: formulario para proponer -->
-                  <template v-if="isProvider && proposingIncrease">
-                    <div class="space-y-2.5">
-                      <div v-for="(item, idx) in proposalItemsInput" :key="idx" class="border border-gray-100 rounded-lg p-3 space-y-2">
-                        <div class="flex items-center justify-between">
-                          <p class="text-[11px] font-semibold text-gray-400">Ítem {{ idx + 1 }}</p>
-                          <button v-if="proposalItemsInput.length > 1" type="button" class="text-gray-300 hover:text-red-500" @click="removeProposalItem(idx)">
-                            <XMarkIcon class="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        <input
-                          v-model="item.description"
-                          type="text"
-                          placeholder="Ej: Repuesto / SKU / descripción"
-                          class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                        />
-                        <textarea
-                          v-model="item.notes"
-                          rows="2"
-                          placeholder="Notas del ítem (opcional)"
-                          class="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                        />
-                      </div>
-                      <button type="button" class="text-xs text-red-600 hover:text-red-700 font-medium" @click="addProposalItem">
-                        + Agregar otro ítem
-                      </button>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-2">
-                      <div>
-                        <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Nuevo precio total</label>
-                        <div class="relative">
-                          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                          <input
-                            v-model.number="proposedPriceInput"
-                            type="number"
-                            min="0"
-                            :placeholder="String(req.price ?? 0)"
-                            class="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
-                      </div>
-                      <div class="flex items-end">
-                        <p v-if="proposalDelta > 0" class="text-xs text-amber-700 font-semibold pb-2">
-                          Aumento: +${{ formatPrice(proposalDelta) }}
-                        </p>
-                      </div>
-                    </div>
-                    <textarea
-                      v-model="proposalNoteInput"
-                      rows="2"
-                      placeholder="Explica al cliente por qué es necesario este aumento (opcional)"
-                      class="w-full text-sm border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                    />
-                    <div class="flex justify-end gap-2">
-                      <button class="btn-secondary text-xs py-1.5 px-3" @click="cancelProposeIncrease">Cancelar</button>
-                      <button
-                        class="btn-primary text-xs py-1.5 px-3"
-                        :disabled="proposalSubmitting || proposalDelta <= 0"
-                        @click="submitProposeIncrease"
-                      >
-                        {{ proposalSubmitting ? 'Enviando…' : 'Enviar propuesta' }}
-                      </button>
-                    </div>
-                  </template>
-
-                  <!-- Propuesta pendiente: vista del cliente (aprobar/rechazar) -->
-                  <template v-else-if="!isProvider && pendingProposal">
-                    <div class="bg-amber-50 border border-amber-100 rounded-xl p-3.5 space-y-2">
-                      <div class="flex items-center justify-between text-sm">
-                        <span class="text-amber-800 font-bold">${{ formatPrice(pendingProposal.previousPrice) }} → ${{ formatPrice(pendingProposal.proposedPrice) }}</span>
-                        <span class="text-amber-700 font-semibold">+${{ formatPrice(pendingProposal.deltaAmount) }}</span>
-                      </div>
-                      <p v-if="pendingProposal.note" class="text-xs text-gray-600 italic">"{{ pendingProposal.note }}"</p>
-                      <ul class="text-xs text-gray-600 space-y-0.5">
-                        <li v-for="item in pendingProposal.items" :key="item.id">
-                          • {{ Object.values(item.fields ?? {}).join(' ') || item.notes || 'Ítem adicional' }}
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div v-if="confirmingProposalAction" class="space-y-2">
-                      <p class="text-xs text-gray-700 font-medium">
-                        {{ confirmingProposalAction === 'approve' ? '¿Aprobar este aumento? Se retendrá el monto adicional de tu billetera.' : '¿Rechazar esta propuesta?' }}
-                      </p>
-                      <textarea
-                        v-if="confirmingProposalAction === 'reject'"
-                        v-model="rejectReasonInput"
-                        rows="2"
-                        placeholder="Motivo (opcional)"
-                        class="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                      />
-                      <div class="flex justify-end gap-2">
-                        <button class="btn-secondary text-xs py-1.5 px-3" :disabled="proposalSubmitting" @click="confirmingProposalAction = null">No</button>
-                        <button
-                          class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-                          :class="confirmingProposalAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'"
-                          :disabled="proposalSubmitting"
-                          @click="confirmingProposalAction === 'approve' ? doApproveProposal() : doRejectProposal()"
-                        >
-                          {{ proposalSubmitting ? 'Procesando…' : (confirmingProposalAction === 'approve' ? 'Sí, aprobar' : 'Sí, rechazar') }}
-                        </button>
-                      </div>
-                    </div>
-                    <div v-else class="flex justify-end gap-2">
-                      <button class="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50" @click="confirmingProposalAction = 'reject'">Rechazar</button>
-                      <button class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-600 text-white hover:bg-green-700" @click="confirmingProposalAction = 'approve'">Aprobar</button>
-                    </div>
-                  </template>
-
-                  <template v-else-if="isProvider && pendingProposal">
-                    <p class="text-xs text-gray-500 italic">Propuesta enviada, esperando respuesta del cliente.</p>
-                  </template>
-
-                  <p v-else-if="req.status === 'CONTACTED'" class="text-xs text-gray-400 italic">
-                    {{ isProvider ? 'Sin propuestas de aumento. Si surge trabajo adicional, puedes proponerlo aquí.' : 'El proveedor no ha propuesto ningún aumento.' }}
-                  </p>
-
-                  <!-- Historial de propuestas resueltas -->
-                  <div v-if="resolvedProposals.length" class="pt-2 border-t border-gray-100 space-y-1.5">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Historial</p>
-                    <div v-for="p in resolvedProposals" :key="p.id" class="flex items-center justify-between text-xs">
-                      <span class="text-gray-500">${{ formatPrice(p.previousPrice) }} → ${{ formatPrice(p.proposedPrice) }}</span>
-                      <span
-                        class="font-semibold"
-                        :class="{
-                          'text-green-600': p.status === 'APPROVED',
-                          'text-amber-600': p.status === 'APPROVED_PENDING_FUNDS',
-                          'text-red-500': p.status === 'REJECTED' || p.status === 'INVALIDATED',
-                        }"
-                      >
-                        {{ PROPOSAL_STATUS_LABELS[p.status] }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Chat de la solicitud -->
-              <div class="border border-gray-100 rounded-xl overflow-hidden flex flex-col">
-                <div class="flex items-center gap-2 px-4 py-2.5 bg-gray-50/70 border-b border-gray-100">
-                  <ChatBubbleLeftRightIcon class="h-3.5 w-3.5 text-gray-400" />
-                  <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Mensajes</p>
-                </div>
-
-                <div ref="messagesScrollEl" class="max-h-64 overflow-y-auto p-4 space-y-2.5 bg-white">
-                  <p v-if="loadingMessages" class="text-xs text-gray-400 text-center py-2">Cargando mensajes…</p>
-                  <p v-else-if="!messages.length" class="text-xs text-gray-400 italic text-center py-2">
-                    Aún no hay mensajes. Escribe para coordinar con {{ isProvider ? req.clientName : req.providerName }}.
-                  </p>
-                  <div
-                    v-for="msg in messages"
-                    :key="msg.id"
-                    class="flex"
-                    :class="msg.senderId === currentUserId ? 'justify-end' : 'justify-start'"
-                  >
-                    <div
-                      class="max-w-[75%] rounded-2xl px-3.5 py-2"
-                      :class="msg.senderId === currentUserId ? 'bg-red-500 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'"
-                    >
-                      <p class="text-sm whitespace-pre-wrap break-words">{{ msg.body }}</p>
-                      <p class="text-[10px] mt-0.5 text-right" :class="msg.senderId === currentUserId ? 'text-white/70' : 'text-gray-400'">
-                        {{ timeAgo(msg.createdAt) }}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <form class="flex items-center gap-2 border-t border-gray-100 p-3" @submit.prevent="handleSendMessage">
-                  <input
-                    v-model="messageInput"
-                    type="text"
-                    placeholder="Escribe un mensaje…"
-                    maxlength="2000"
-                    class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                  <button
-                    type="submit"
-                    class="p-2 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 flex-shrink-0"
-                    :disabled="sendingMessage || !messageInput.trim()"
-                  >
-                    <PaperAirplaneIcon class="h-4 w-4" />
-                  </button>
-                </form>
-              </div>
+              <ServiceRequestChat
+                :request-id="req.id"
+                :active="show"
+                :current-user-id="currentUserId"
+                :contact-name="isProvider ? req.clientName : req.providerName"
+                :time-ago="timeAgo"
+              />
 
             </div>
           </div>
@@ -702,11 +328,22 @@
     </Transition>
   </Teleport>
 
+  <MediaLightbox
+    :show="lightbox"
+    :media="lightboxMedia"
+    :index="lightboxIndex"
+    :media-url="mediaUrl"
+    @close="closeLightbox"
+    @prev="lightboxPrev"
+    @next="lightboxNext"
+    @select="lightboxIndex = $event"
+  />
+
   <ReportProblemModal v-model="showReportModal" entity-type="SERVICE_REQUEST" :entity-id="req.id" />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import {
   XMarkIcon,
   MapPinIcon,
@@ -714,32 +351,29 @@ import {
   EnvelopeIcon,
   UserIcon,
   ChatBubbleLeftIcon,
-  DocumentTextIcon,
-  PencilIcon,
   ClockIcon,
   EyeIcon,
   PhoneArrowUpRightIcon,
   CheckCircleIcon,
   InformationCircleIcon,
   XCircleIcon,
-  SparklesIcon,
-  PlayCircleIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   ShieldCheckIcon,
   ExclamationTriangleIcon,
   ArrowUturnLeftIcon,
-  ChatBubbleLeftRightIcon,
-  PaperAirplaneIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
-import { useServiceRequestMessages, type ServiceRequestMessage } from '~/composables/services/useServiceRequestMessages'
-import { useServiceRequestPriceProposals, type ServiceRequestPriceChangeProposal } from '~/composables/services/useServiceRequestPriceProposals'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
+import MediaLightbox, { type MediaEntry } from '~/components/modals/service-request/MediaLightbox.vue'
+import ServiceRequestTimeline from '~/components/modals/service-request/ServiceRequestTimeline.vue'
+import ServiceRequestChat from '~/components/modals/service-request/ServiceRequestChat.vue'
+import ServiceRequestNotesEditor from '~/components/modals/service-request/ServiceRequestNotesEditor.vue'
+import ServiceRequestPriceProposal from '~/components/modals/service-request/ServiceRequestPriceProposal.vue'
+import ServiceRequestItemsList from '~/components/modals/service-request/ServiceRequestItemsList.vue'
+import type { ServiceRequestPriceChangeProposal } from '~/composables/services/useServiceRequestPriceProposals'
 import {
   type ServiceRequestStatus,
   SERVICE_REQUEST_STATUS_LABELS,
@@ -848,92 +482,22 @@ watch(() => props.req.id, () => { loadRequestMedia(); actionError.value = null }
 watch(() => props.show, (visible) => { if (!visible) actionError.value = null })
 onBeforeUnmount(revokeMediaBlobUrls)
 
-// Chat: sin WebSocket en vivo — se carga al abrir y se refresca por polling
-// mientras el modal está visible (versión mínima, ver V1_LAUNCH_READINESS.md).
-const { fetchMessages, sendMessage, markRead } = useServiceRequestMessages()
-const messages = ref<ServiceRequestMessage[]>([])
-const loadingMessages = ref(false)
-const sendingMessage = ref(false)
-const messageInput = ref('')
-const messagesScrollEl = ref<HTMLElement | null>(null)
-let messagesPollTimer: ReturnType<typeof setInterval> | null = null
-
-function scrollMessagesToBottom() {
-  nextTick(() => {
-    if (messagesScrollEl.value) messagesScrollEl.value.scrollTop = messagesScrollEl.value.scrollHeight
-  })
-}
-
-async function loadMessages(showSpinner: boolean) {
-  if (showSpinner) loadingMessages.value = true
-  try {
-    messages.value = await fetchMessages(props.req.id)
-  } catch {
-    // silencioso: no interrumpir el resto del modal por un fallo de polling
-  } finally {
-    if (showSpinner) loadingMessages.value = false
-  }
-}
-
-async function openChat() {
-  await loadMessages(true)
-  scrollMessagesToBottom()
-  try {
-    await markRead(props.req.id)
-  } catch {
-    // no crítico
-  }
-}
-
-function stopMessagesPolling() {
-  if (messagesPollTimer) { clearInterval(messagesPollTimer); messagesPollTimer = null }
-}
-
-function startMessagesPolling() {
-  stopMessagesPolling()
-  messagesPollTimer = setInterval(() => loadMessages(false), 10000)
-}
-
-async function handleSendMessage() {
-  const body = messageInput.value.trim()
-  if (!body || sendingMessage.value) return
-  sendingMessage.value = true
-  try {
-    const created = await sendMessage(props.req.id, body)
-    messages.value.push(created)
-    messageInput.value = ''
-    scrollMessagesToBottom()
-  } catch {
-    // el error queda expuesto vía `error` del composable si se necesita mostrar
-  } finally {
-    sendingMessage.value = false
-  }
-}
-
-watch(() => props.req.id, () => { messages.value = []; proposals.value = [] })
+// Propuestas de precio: se cargan al abrir el modal (la sección misma consulta bajo demanda)
+const priceProposalRef = ref<InstanceType<typeof ServiceRequestPriceProposal> | null>(null)
 watch(() => props.show, (visible) => {
-  if (visible) { openChat(); startMessagesPolling(); loadProposals() }
-  else stopMessagesPolling()
+  if (visible) priceProposalRef.value?.loadProposals()
 }, { immediate: true })
-onBeforeUnmount(stopMessagesPolling)
 
 // Lightbox/carrusel: visualización inline de fotos+videos de un ítem, sin abrir pestaña externa
-interface MediaEntry { type: 'photo' | 'video'; path: string }
-
-function itemMedia(item: ServiceRequestItem): MediaEntry[] {
-  return [
-    ...(item.photos ?? []).map((path): MediaEntry => ({ type: 'photo', path })),
-    ...(item.videos ?? []).map((path): MediaEntry => ({ type: 'video', path })),
-  ]
-}
-
 const lightbox = ref(false)
 const lightboxMedia = ref<MediaEntry[]>([])
 const lightboxIndex = ref(0)
-const currentLightboxMedia = computed(() => lightboxMedia.value[lightboxIndex.value] ?? null)
 
 function openLightbox(item: ServiceRequestItem, index: number) {
-  lightboxMedia.value = itemMedia(item)
+  lightboxMedia.value = [
+    ...(item.photos ?? []).map((path): MediaEntry => ({ type: 'photo', path })),
+    ...(item.videos ?? []).map((path): MediaEntry => ({ type: 'video', path })),
+  ]
   lightboxIndex.value = index
   lightbox.value = true
 }
@@ -951,12 +515,6 @@ const STATUS_LABELS = SERVICE_REQUEST_STATUS_LABELS
 const STATUS_CLASSES = SERVICE_REQUEST_STATUS_CLASSES
 const STATUS_ICONS = SERVICE_REQUEST_STATUS_ICONS
 
-const QUICK_REPLY_TEMPLATES = [
-  'Te contacto en breve',
-  'No disponible esta fecha, ¿flexibilidad?',
-  'Confirmado, llevo todo lo necesario',
-  'Necesito más información del trabajo',
-]
 const MODALITY_LABELS: Record<string, string> = {
   IN_PERSON: '📍 Presencial', REMOTE: '💻 Remoto', ANY: '🤝 Cualquiera',
 }
@@ -1011,36 +569,9 @@ function goToWallet() {
 
 if (!defaultRate.value) fetchRates(false, true)
 
-const TIMELINE = [
-  { status: 'PENDING',  label: 'Pendiente',  icon: ClockIcon },
-  { status: 'SEEN',      label: 'Visto',       icon: EyeIcon },
-  { status: 'CONTACTED', label: 'Contactado',  icon: PhoneArrowUpRightIcon },
-  { status: 'CLOSED',    label: 'Cerrado',     icon: CheckCircleIcon },
-]
-const STATUS_ORDER = ['PENDING', 'SEEN', 'CONTACTED', 'CLOSED']
-
 const contactInitial = computed(() =>
   (props.isProvider ? props.req.clientName : props.req.providerName)[0]?.toUpperCase() ?? '?'
 )
-
-function isReached(status: string) {
-  return STATUS_ORDER.indexOf(status) <= STATUS_ORDER.indexOf(props.req.status)
-}
-
-function timelineClass(status: string) {
-  if (props.req.status === status) return 'border-red-500 bg-red-500 text-white'
-  if (isReached(status)) return 'border-red-300 bg-red-100 text-red-600'
-  return 'border-gray-200 bg-white text-gray-300'
-}
-
-// Timestamp a mostrar bajo cada paso del timeline.
-// PENDING siempre usa la fecha de creación; el paso actual usa statusUpdatedAt
-// (no se conserva un historial por paso intermedio).
-function stepTimestamp(status: string): string | null {
-  if (status === 'PENDING') return props.req.createdAt
-  if (props.req.status === status) return props.req.statusUpdatedAt ?? null
-  return null
-}
 
 const nextActions = computed(() => {
   if (!props.isProvider) return []
@@ -1053,39 +584,16 @@ const nextActions = computed(() => {
   return []
 })
 
-// Observaciones + precio acordado
-const editingNotes = ref(false)
-const notesInput = ref('')
-const priceInput = ref<number | null>(null)
-const priceUnitInput = ref('')
-const savingNotes = ref(false)
-
-function startEditNotes() {
-  notesInput.value = props.req.providerNotes ?? ''
-  priceInput.value = props.req.price ?? null
-  priceUnitInput.value = props.req.priceUnit ?? ''
-  editingNotes.value = true
-}
-function cancelEditNotes() {
-  editingNotes.value = false
+function onNotesUpdated(providerNotes: string, backendResponse: Record<string, unknown>) {
+  emit('updated', { ...props.req, providerNotes, ...backendResponse })
 }
 
-async function saveNotes() {
-  savingNotes.value = true
-  clearError()
-  try {
-    const { patch } = useApi()
-    const body: Record<string, unknown> = { providerNotes: notesInput.value }
-    if (priceInput.value !== null && !Number.isNaN(priceInput.value)) body.price = priceInput.value
-    if (priceUnitInput.value.trim()) body.priceUnit = priceUnitInput.value.trim()
-    const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}`, body)
-    emit('updated', { ...props.req, providerNotes: notesInput.value, ...updated })
-    editingNotes.value = false
-  } catch (e: any) {
-    actionError.value = getApiErrorMessage(e, 'Error al guardar observaciones')
-  } finally {
-    savingNotes.value = false
-  }
+function onProposalApproved(proposal: ServiceRequestPriceChangeProposal) {
+  emit('updated', {
+    ...props.req,
+    price: proposal.proposedPrice,
+    escrowAmount: (props.req.escrowAmount ?? 0) + proposal.deltaAmount,
+  })
 }
 
 // Cambio de estado
@@ -1143,130 +651,6 @@ async function cancelRequest() {
     confirmingCancel.value = false
   } finally {
     cancelling.value = false
-  }
-}
-
-// Plantillas de respuesta rápida (proveedor): rellenan el textarea de observaciones
-function applyQuickReply(template: string) {
-  notesInput.value = template
-}
-
-// Precio sugerido: solo lo usa el proveedor cuando aún no fijó un precio
-function useSuggestedPrice() {
-  if (props.req.suggestedPrice != null) priceInput.value = props.req.suggestedPrice
-}
-
-// ─── Propuestas de aumento de precio ────────────────────────────────────────
-// Sección separada de "Observaciones": una propuesta mueve dinero del escrow
-// y requiere aprobación explícita del cliente, nunca se autoaplica.
-const PROPOSAL_STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Pendiente',
-  APPROVED: 'Aprobado',
-  APPROVED_PENDING_FUNDS: 'Aprobado (sin fondos)',
-  REJECTED: 'Rechazado',
-  INVALIDATED: 'Invalidado',
-}
-
-const proposals = ref<ServiceRequestPriceChangeProposal[]>([])
-const pendingProposal = computed(() => proposals.value.find(p => p.status === 'PENDING') ?? null)
-const resolvedProposals = computed(() => proposals.value.filter(p => p.status !== 'PENDING'))
-
-const { fetchProposals, propose, approve, reject } = useServiceRequestPriceProposals()
-
-async function loadProposals() {
-  try {
-    proposals.value = await fetchProposals(props.req.id)
-  } catch {
-    proposals.value = []
-  }
-}
-
-// Proponer (proveedor)
-const proposingIncrease = ref(false)
-const proposalItemsInput = ref<{ description: string; notes: string }[]>([{ description: '', notes: '' }])
-const proposedPriceInput = ref<number | null>(null)
-const proposalNoteInput = ref('')
-const proposalSubmitting = ref(false)
-
-const proposalDelta = computed(() => {
-  if (proposedPriceInput.value == null) return 0
-  return proposedPriceInput.value - (props.req.price ?? 0)
-})
-
-function startProposeIncrease() {
-  proposalItemsInput.value = [{ description: '', notes: '' }]
-  proposedPriceInput.value = null
-  proposalNoteInput.value = ''
-  proposingIncrease.value = true
-}
-function cancelProposeIncrease() {
-  proposingIncrease.value = false
-}
-function addProposalItem() {
-  proposalItemsInput.value.push({ description: '', notes: '' })
-}
-function removeProposalItem(idx: number) {
-  proposalItemsInput.value.splice(idx, 1)
-}
-
-async function submitProposeIncrease() {
-  proposalSubmitting.value = true
-  clearError()
-  try {
-    const items = proposalItemsInput.value
-      .filter(i => i.description.trim() || i.notes.trim())
-      .map(i => ({ fields: i.description.trim() ? { descripción: i.description.trim() } : {}, notes: i.notes.trim() || undefined }))
-    await propose(props.req.id, {
-      proposedPrice: proposedPriceInput.value!,
-      note: proposalNoteInput.value.trim() || undefined,
-      items: items.length ? items : [{ fields: {}, notes: undefined }],
-    })
-    proposingIncrease.value = false
-    await loadProposals()
-  } catch (e: any) {
-    actionError.value = getApiErrorMessage(e, 'Error al enviar la propuesta')
-  } finally {
-    proposalSubmitting.value = false
-  }
-}
-
-// Aprobar/rechazar (cliente)
-const confirmingProposalAction = ref<'approve' | 'reject' | null>(null)
-const rejectReasonInput = ref('')
-
-async function doApproveProposal() {
-  if (!pendingProposal.value) return
-  proposalSubmitting.value = true
-  clearError()
-  try {
-    await approve(props.req.id, pendingProposal.value.id)
-    confirmingProposalAction.value = null
-    await loadProposals()
-    emit('updated', {
-      ...props.req,
-      price: pendingProposal.value.proposedPrice,
-      escrowAmount: (props.req.escrowAmount ?? 0) + pendingProposal.value.deltaAmount,
-    })
-  } catch (e: any) {
-    actionError.value = getApiErrorMessage(e, 'Error al aprobar la propuesta')
-  } finally {
-    proposalSubmitting.value = false
-  }
-}
-
-async function doRejectProposal() {
-  if (!pendingProposal.value) return
-  proposalSubmitting.value = true
-  clearError()
-  try {
-    await reject(props.req.id, pendingProposal.value.id, rejectReasonInput.value.trim() || undefined)
-    confirmingProposalAction.value = null
-    rejectReasonInput.value = ''
-    await loadProposals()
-  } catch (e: any) {
-    actionError.value = getApiErrorMessage(e, 'Error al rechazar la propuesta')
-  } finally {
-    proposalSubmitting.value = false
   }
 }
 
