@@ -35,6 +35,7 @@ const props = defineProps<{
 }>()
 
 const { resolveIcon } = useLandingIcons()
+const { t } = useI18n()
 
 const resolvedFeatures = computed(() =>
   props.features.map(f => ({
