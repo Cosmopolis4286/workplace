@@ -2,7 +2,7 @@
 import { useApi } from '../core/useApi'
 import type { Role } from '~/config/roles.config'
 
-export interface User {
+export interface PermissionsUser {
   id: string
   email: string
   firstName: string
@@ -30,7 +30,7 @@ export interface UserPermission {
 }
 
 export interface UserPermissionsResponse {
-  user: User
+  user: PermissionsUser
   permissions: UserPermission[]
   allPermissions: UserPermission[]
 }
@@ -54,7 +54,7 @@ export const useUserPermissions = () => {
     if (params.page) query.set('page', params.page.toString())
     if (params.limit) query.set('limit', params.limit.toString())
 
-    return get<{ users: User[]; pagination: { page: number; limit: number; total: number; pages: number } }>(
+    return get<{ users: PermissionsUser[]; pagination: { page: number; limit: number; total: number; pages: number } }>(
       `/permissions/users?${query.toString()}`
     )
   }

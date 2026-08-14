@@ -182,7 +182,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, type Role } from '~/config/roles.config'
-import type { User } from '~/composables/users/useUserPermissions'
+import type { PermissionsUser } from '~/composables/users/useUserPermissions'
 import UserPermissionsModal from '~/components/permissions/UserPermissionsModal.vue'
 
 definePageMeta({ middleware: 'auth' })
@@ -191,11 +191,11 @@ const route = useRoute()
 const router = useRouter()
 const { listUsers, getUserPermissions, loading, error } = useUserPermissions()
 
-const users = ref<User[]>([])
+const users = ref<PermissionsUser[]>([])
 const search = ref('')
 const filterRole = ref<Role | ''>('')
 const pagination = ref({ page: 1, limit: 20, total: 0, pages: 1 })
-const selectedUser = ref<User | null>(null)
+const selectedUser = ref<PermissionsUser | null>(null)
 const showModal = ref(false)
 
 let searchTimeout: ReturnType<typeof setTimeout>
@@ -228,7 +228,7 @@ function changePage(newPage: number) {
   loadUsers()
 }
 
-function openUserPermissions(user: User) {
+function openUserPermissions(user: PermissionsUser) {
   selectedUser.value = user
   showModal.value = true
 }
