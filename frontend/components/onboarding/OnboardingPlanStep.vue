@@ -60,3 +60,9 @@ defineEmits<{
   'update:selectedPlan': [id: string]
 }>()
 </script>
+
+<style scoped>
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 99px; }
+</style>
