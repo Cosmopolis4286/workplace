@@ -70,4 +70,8 @@ export class RegisterDto {
 
   @Equals(true, { message: 'Debes aceptar los Términos y Condiciones y la Política de Privacidad' })
   acceptTerms: boolean;
+
+  @IsOptional()
+  @IsString()
+  recaptchaToken?: string;
 }

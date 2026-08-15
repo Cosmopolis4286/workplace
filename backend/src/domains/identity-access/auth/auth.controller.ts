@@ -84,8 +84,8 @@ export class AuthController {
     maxRequests: 3, // Máximo 3 registros por hora
     keyGenerator: (req) => `register:${req.ip}` // Por IP
   })
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Request() req: any, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.register(dto, req.securityContext);
     setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
     return result;
   }

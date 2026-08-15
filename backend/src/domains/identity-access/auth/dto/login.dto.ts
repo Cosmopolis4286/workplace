@@ -11,4 +11,8 @@ export class LoginDto {
   @IsOptional()
   @IsBoolean()
   rememberMe?: boolean;
+
+  @IsOptional()
+  @IsString()
+  recaptchaToken?: string;
 }

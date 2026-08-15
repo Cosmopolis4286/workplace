@@ -26,6 +26,7 @@ import { VerifyLoginTwoFactorDto } from './dto/verify-login-two-factor.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { TwoFactorService } from './two-factor.service';
+import { RecaptchaService } from '../../../common/recaptcha/recaptcha.service';
 import { encryptSecret, decryptSecret } from '../../../common/utils/crypto.util';
 
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -47,10 +48,16 @@ export class AuthService {
     private mail: MailService,
     private audit: AuditService,
     private i18n: I18nService,
-    private twoFactor: TwoFactorService
+    private twoFactor: TwoFactorService,
+    private recaptcha: RecaptchaService
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, securityContext?: any) {
+    const recaptchaOk = await this.recaptcha.verify(dto.recaptchaToken, 'register', securityContext?.ipAddress);
+    if (!recaptchaOk) {
+      throw new ForbiddenException(this.i18n.t('auth.recaptcha.failed'));
+    }
+
     const user = await this.usersService.create({ ...dto, acceptTerms: dto.acceptTerms });
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
@@ -66,6 +73,11 @@ export class AuthService {
   async login(dto: LoginDto, securityContext?: any) {
     const ip = securityContext?.ipAddress;
     const userAgent = securityContext?.userAgent;
+
+    const recaptchaOk = await this.recaptcha.verify(dto.recaptchaToken, 'login', ip);
+    if (!recaptchaOk) {
+      throw new ForbiddenException(this.i18n.t('auth.recaptcha.failed'));
+    }
 
     const attempts = await this.redis.getLoginAttempts(dto.email);
     if (attempts >= MAX_LOGIN_ATTEMPTS) {
