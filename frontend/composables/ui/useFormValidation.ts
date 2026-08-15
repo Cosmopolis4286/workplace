@@ -24,11 +24,14 @@ export function useFormValidation() {
   const maxLength = (max: number): ValidationRule =>
     (v) => (v.length <= max ? true : t('validation.maxLength', { max }))
 
+  // La regla dura de validación y la barra visual de fortaleza (passwordScore
+  // más abajo) solían tener criterios independientes — una contraseña podía
+  // puntuar "fuerte" en la barra y aun así fallar esta regla, o viceversa.
+  // passwordStrength ahora se deriva del mismo passwordScore (umbral score
+  // >= 3 de 5: longitud >=8 + al menos 2 de {minúscula, mayúscula, dígito,
+  // símbolo}) para que ambos cuenten siempre la misma historia.
   const passwordStrength = (): ValidationRule =>
-    (v) =>
-      /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(v)
-        ? true
-        : t('validation.passwordStrength')
+    (v) => (passwordScore(v) >= 3 ? true : t('validation.passwordStrength'))
 
   const matches = (other: () => string, label?: string): ValidationRule =>
     (v) => (v === other()
