@@ -30,60 +30,15 @@
 
         <!-- Content -->
         <div class="flex-1 overflow-hidden flex">
-          <!-- Sidebar: Resumen -->
-          <div class="w-64 bg-gray-50 border-r border-gray-200 p-4 space-y-4">
-            <div class="bg-white rounded-lg p-3 border border-gray-200">
-              <div class="text-xs text-gray-500 uppercase font-semibold">Estado Actual</div>
-              <div class="mt-2 space-y-1 text-sm">
-                <div class="flex justify-between">
-                  <span class="text-gray-600">Permisos del rol:</span>
-                  <span class="font-medium text-blue-600">{{ rolePermissionsCount }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-600">Personalizados:</span>
-                  <span class="font-medium text-amber-600">{{ userPermissionsCount }}</span>
-                </div>
-                <div class="flex justify-between border-t pt-1 mt-1">
-                  <span class="text-gray-800 font-medium">Total efectivos:</span>
-                  <span class="font-bold text-green-600">{{ effectivePermissionsCount }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-white rounded-lg p-3 border border-gray-200">
-              <div class="text-xs text-gray-500 uppercase font-semibold mb-2">Leyenda</div>
-              <div class="space-y-2 text-xs">
-                <div class="flex items-center gap-2">
-                  <span class="w-3 h-3 rounded bg-blue-500"></span>
-                  <span class="text-gray-600">Del rol</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="w-3 h-3 rounded bg-green-500"></span>
-                  <span class="text-gray-600">Concedido al usuario</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="w-3 h-3 rounded bg-red-500"></span>
-                  <span class="text-gray-600">Denegado al usuario</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="w-3 h-3 rounded bg-gray-300"></span>
-                  <span class="text-gray-600">No disponible</span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              v-if="hasCustomPermissions"
-              @click="resetPermissions"
-              :disabled="resetting || !canManageThisUser"
-              class="w-full px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
-            >
-              <svg v-if="resetting" class="w-4 h-4 inline mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-              </svg>
-              {{ resetting ? 'Reseteando...' : 'Resetear permisos' }}
-            </button>
-          </div>
+          <UserPermissionsSidebar
+            :role-permissions-count="rolePermissionsCount"
+            :user-permissions-count="userPermissionsCount"
+            :effective-permissions-count="effectivePermissionsCount"
+            :has-custom-permissions="hasCustomPermissions"
+            :resetting="resetting"
+            :can-manage-this-user="canManageThisUser"
+            @reset="resetPermissions"
+          />
 
           <!-- Main: Lista de permisos -->
           <div class="flex-1 overflow-hidden flex flex-col">
@@ -102,8 +57,8 @@
                   @click="activeFilter = filter.value"
                   :class="[
                     'px-2 py-1 text-xs rounded-full transition-colors',
-                    activeFilter === filter.value 
-                      ? 'bg-indigo-100 text-indigo-700 font-medium' 
+                    activeFilter === filter.value
+                      ? 'bg-indigo-100 text-indigo-700 font-medium'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   ]"
                 >
@@ -123,114 +78,24 @@
               </div>
 
               <div v-else class="space-y-2">
-                <div
+                <UserPermissionCard
                   v-for="perm in filteredPermissions"
                   :key="perm.permissionId"
-                  class="border rounded-lg p-3 transition-colors"
-                  :class="getPermissionCardClass(perm)"
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="font-medium text-gray-800">{{ perm.label }}</span>
-                        <span
-                          v-if="perm.isSystem"
-                          class="px-1.5 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded"
-                        >Sistema</span>
-                      </div>
-                      <div class="text-xs text-gray-500 font-mono mt-0.5">{{ perm.key }}</div>
-                      <div class="text-xs text-gray-400 mt-1">
-                        {{ perm.module }} • {{ perm.action }}
-                      </div>
-                      
-                      <!-- Mostrar expiración y razón si existen -->
-                      <div v-if="perm.expiresAt || perm.reason" class="mt-2 text-xs space-y-1">
-                        <div v-if="perm.expiresAt" class="text-amber-600">
-                          ⏰ Expira: {{ formatDate(perm.expiresAt) }}
-                        </div>
-                        <div v-if="perm.reason" class="text-gray-500 italic">
-                          "{{ perm.reason }}"
-                        </div>
-                      </div>
-
-                      <!-- Mini-formulario inline: razón + expiración antes de confirmar -->
-                      <div v-if="activeAction?.permissionId === perm.permissionId" class="mt-3 space-y-2 border-t border-gray-100 pt-2">
-                        <textarea
-                          v-model="actionReason"
-                          rows="2"
-                          placeholder="Razón (opcional)"
-                          class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                        />
-                        <input
-                          v-model="actionExpiresAt"
-                          type="datetime-local"
-                          class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                        />
-                        <div class="flex gap-2 justify-end">
-                          <button
-                            type="button"
-                            @click="activeAction = null"
-                            class="px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded"
-                          >Cancelar</button>
-                          <button
-                            type="button"
-                            @click="confirmAction"
-                            :disabled="saving === perm.permissionId"
-                            class="px-2.5 py-1 text-xs text-white rounded font-medium disabled:opacity-60"
-                            :class="activeAction.type === 'grant' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'"
-                          >{{ activeAction.type === 'grant' ? 'Confirmar concesión' : 'Confirmar denegación' }}</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="flex flex-col items-end gap-1">
-                      <!-- Badge de origen -->
-                      <span
-                        class="px-2 py-0.5 text-[10px] rounded-full font-medium"
-                        :class="getSourceBadgeClass(perm)"
-                      >
-                        {{ perm.source === 'role' ? 'Rol' : perm.source === 'user' ? 'Usuario' : 'No' }}
-                      </span>
-
-                      <!-- Botones de acción -->
-                      <div class="flex gap-1 mt-2">
-                        <button
-                          v-if="!perm.effectiveGranted"
-                          @click="startAction(perm, 'grant')"
-                          :disabled="saving === perm.permissionId || !canManageThisUser"
-                          class="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                          title="Conceder"
-                        >
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                          </svg>
-                        </button>
-                        <button
-                          v-if="perm.effectiveGranted"
-                          @click="startAction(perm, 'deny')"
-                          :disabled="saving === perm.permissionId || !canManageThisUser"
-                          class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                          title="Denegar"
-                        >
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                          </svg>
-                        </button>
-                        <button
-                          v-if="perm.userGranted !== null"
-                          @click="removeUserPermission(perm.permissionId)"
-                          :disabled="saving === perm.permissionId || !canManageThisUser"
-                          class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                          title="Eliminar personalización"
-                        >
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  :perm="perm"
+                  :saving="saving === perm.permissionId"
+                  :can-manage-this-user="canManageThisUser"
+                  :action-active="activeAction?.permissionId === perm.permissionId"
+                  :action-type="activeAction?.permissionId === perm.permissionId ? activeAction.type : undefined"
+                  :action-reason="actionReason"
+                  :action-expires-at="actionExpiresAt"
+                  :format-date="formatDate"
+                  @start-action="(type) => startAction(perm, type)"
+                  @cancel-action="activeAction = null"
+                  @confirm-action="confirmAction"
+                  @remove="removeUserPermission(perm.permissionId)"
+                  @update:action-reason="actionReason = $event"
+                  @update:action-expires-at="actionExpiresAt = $event"
+                />
               </div>
             </div>
           </div>
@@ -249,34 +114,21 @@
     </div>
   </Teleport>
 
-  <!-- Confirmación de reset -->
-  <Teleport to="body">
-    <div v-if="showResetConfirm" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h3 class="text-base font-semibold text-gray-900 mb-2">¿Resetear permisos?</h3>
-        <p class="text-sm text-gray-500 mb-6">
-          Se eliminarán todos los permisos personalizados de este usuario. Volverá a usar solo los permisos de su rol.
-        </p>
-        <div class="flex gap-3">
-          <button
-            @click="showResetConfirm = false"
-            class="flex-1 px-4 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
-          >Cancelar</button>
-          <button
-            @click="confirmResetPermissions"
-            :disabled="resetting"
-            class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors"
-          >{{ resetting ? 'Reseteando...' : 'Resetear' }}</button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
+  <ResetPermissionsConfirmModal
+    :show="showResetConfirm"
+    :resetting="resetting"
+    @close="showResetConfirm = false"
+    @confirm="confirmResetPermissions"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { PermissionsUser, UserPermission } from '~/composables/users/useUserPermissions'
 import { ROLE_LABELS } from '~/config/roles.config'
+import UserPermissionsSidebar from '~/components/permissions/UserPermissionsSidebar.vue'
+import UserPermissionCard from '~/components/permissions/UserPermissionCard.vue'
+import ResetPermissionsConfirmModal from '~/components/permissions/ResetPermissionsConfirmModal.vue'
 
 interface Props {
   user: PermissionsUser
@@ -320,15 +172,15 @@ const hasCustomPermissions = computed(() =>
   permissions.value.some(p => p.userGranted !== null)
 )
 
-const rolePermissionsCount = computed(() => 
+const rolePermissionsCount = computed(() =>
   permissions.value.filter(p => p.roleGranted && p.userGranted === null).length
 )
 
-const userPermissionsCount = computed(() => 
+const userPermissionsCount = computed(() =>
   permissions.value.filter(p => p.userGranted !== null).length
 )
 
-const effectivePermissionsCount = computed(() => 
+const effectivePermissionsCount = computed(() =>
   permissions.value.filter(p => p.effectiveGranted).length
 )
 
@@ -338,7 +190,7 @@ const filteredPermissions = computed(() => {
   // Filtrar por búsqueda
   if (search.value) {
     const q = search.value.toLowerCase()
-    result = result.filter(p => 
+    result = result.filter(p =>
       p.label.toLowerCase().includes(q) ||
       p.key.toLowerCase().includes(q) ||
       p.module.toLowerCase().includes(q)
@@ -363,21 +215,6 @@ const filteredPermissions = computed(() => {
 
   return result
 })
-
-function getPermissionCardClass(perm: UserPermission) {
-  if (perm.userGranted === true) return 'border-green-200 bg-green-50/50'
-  if (perm.userGranted === false) return 'border-red-200 bg-red-50/50'
-  if (perm.roleGranted) return 'border-blue-200 bg-blue-50/30'
-  return 'border-gray-200 bg-white'
-}
-
-function getSourceBadgeClass(perm: UserPermission) {
-  if (perm.source === 'user') {
-    return perm.effectiveGranted ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-  }
-  if (perm.source === 'role') return 'bg-blue-100 text-blue-700'
-  return 'bg-gray-100 text-gray-500'
-}
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString('es-ES', {
