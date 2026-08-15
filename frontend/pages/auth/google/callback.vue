@@ -62,7 +62,7 @@ onMounted(async () => {
     // New Google users need to complete commerce name in onboarding
     const commerceName = (profile as any).commerce?.name as string | undefined
     const needsOnboarding = !commerceName || commerceName.startsWith('__pending__')
-    await navigateTo(needsOnboarding ? '/auth/onboarding' : '/dashboard')
+    await navigateTo(needsOnboarding ? '/auth/onboarding-quick' : '/dashboard')
   } catch {
     error.value = 'Error inesperado al completar el inicio de sesión.'
   }

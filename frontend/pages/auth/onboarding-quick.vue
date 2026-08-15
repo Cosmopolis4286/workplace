@@ -2,6 +2,7 @@
   <AuthLayout
     :title="t('auth.onboarding.title')"
     :description="t('auth.onboarding.description')"
+    panel-variant="login"
   >
     <form @submit.prevent="handleSubmit" class="space-y-5" novalidate>
       <div class="flex flex-col items-center text-center gap-3 pb-2">
