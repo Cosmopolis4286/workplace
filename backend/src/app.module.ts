@@ -14,6 +14,7 @@ import { AuthModule } from './domains/identity-access/auth/auth.module';
 import { UsersModule } from './domains/identity-access/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { RecaptchaModule } from './common/recaptcha/recaptcha.module';
 import { AccountTypeModule } from './common/account-type/account-type.module';
 import { MenuModule } from './domains/commerce-core/menu/menu.module';
 import { CustomersModule } from './domains/operations/customers/customers.module';
@@ -81,6 +82,7 @@ import { NavigationModule } from './domains/platform/navigation/navigation.modul
     }),
     PrismaModule,
     RedisModule,
+    RecaptchaModule,
     AccountTypeModule,
     UsersModule,
     AuthModule,
