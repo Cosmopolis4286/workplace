@@ -173,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useDemoCredentials, type DemoCredential } from '~/composables/auth/useDemoCredentials'
 
 interface Props {
@@ -191,15 +191,14 @@ const emit = defineEmits<{
 
 const { credentials, isLoading, error, isAvailable, refresh, loadCredentials } = useDemoCredentials()
 
-const config = useRuntimeConfig()
 const isOpen = ref(false)
 
-// 🔥 Solo mostrar si USE_DEMO=true o entorno de desarrollo
-const isDemoEnabled = computed(() => {
-  const env = config.public.environment || config.public.APP_ENV
-  const useDemo = config.public.useDemoCredentials === true
-  return useDemo || env === 'development' || process.dev
-})
+// El backend (GET /auth/demo-credentials, ver auth.controller.ts) es la
+// única fuente de verdad sobre si demo está habilitado — rechaza con 403
+// en producción sin importar USE_DEMO. Mostrar el botón solo cuando el
+// fetch ya trajo credenciales reales evita duplicar esa decisión en el
+// cliente con una condición más laxa (ver useDemoCredentials.ts).
+const isDemoEnabled = isAvailable
 
 const showPasswordFor = ref<string | null>(null)
 const fillingEmail = ref<string | null>(null)

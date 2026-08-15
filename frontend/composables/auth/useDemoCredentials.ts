@@ -134,21 +134,19 @@ export const useDemoCredentials = () => {
   }
 
   /**
-   * 🧠 Auto-load solo si USE_DEMO=true o entorno de desarrollo
-   * El valor de useDemoCredentials viene del .env del servidor (runtime)
+   * El backend (GET /auth/demo-credentials) es la única fuente de verdad:
+   * rechaza con 403 si APP_ENV=production, sin importar USE_DEMO (ver
+   * auth.controller.ts). Antes este composable Y el componente que lo usa
+   * repetían su propia condición cliente (useDemoCredentials/environment/
+   * process.dev) para decidir si siquiera intentar el fetch — bastaba con
+   * que UNA variable de entorno quedara mal seteada en el deploy (p.ej. un
+   * .env de staging copiado a prod) para que ese chequeo cliente, más laxo
+   * que el del backend, mostrara el modal igual. Siempre intentar el fetch
+   * y dejar que el 403 del backend sea quien decida evita esa segunda
+   * fuente de verdad.
    */
   onMounted(() => {
-    const isDemoEnabled =
-      config.public?.useDemoCredentials === true ||
-      config.public?.environment === 'development' ||
-      process.dev
-
-    if (isDemoEnabled) {
-      loadCredentials()
-    } else {
-      // Log informativo para debugging
-      console.log('[DemoCredentials] Demo no habilitado. USE_DEMO=false en .env del servidor')
-    }
+    loadCredentials()
   })
 
   return {
