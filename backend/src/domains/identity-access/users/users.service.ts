@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -22,6 +23,11 @@ import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 
 export const CURRENT_TERMS_VERSION = '2.0';
 
+// Días de espera obligatorios entre dos cambios de username — compartida
+// entre updateProfile() y checkUsernameAvailability() para que ambos
+// apliquen siempre la misma política sin poder divergir.
+export const USERNAME_COOLDOWN_DAYS = 30;
+
 // findById se llama en JwtStrategy.validate() en CADA request autenticado —
 // cachear evita una query a Postgres por request. TTL corto porque además de
 // la invalidación explícita en cada write (ver userFindByIdCacheKey en
@@ -32,6 +38,8 @@ export const FIND_BY_ID_CACHE_TTL = 120;
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
@@ -535,7 +543,6 @@ export class UsersService {
       }
     }
 
-    const USERNAME_COOLDOWN_DAYS = 30;
     let usernameChanged = false;
 
     if (dto.username !== undefined) {
@@ -570,29 +577,45 @@ export class UsersService {
       }
     }
 
-    const user = await this.prisma.user.update({
-      where: { id },
-      data: {
-        ...(dto.firstName && { firstName: dto.firstName }),
-        ...(dto.lastName && { lastName: dto.lastName }),
-        ...(dto.email && { email: dto.email }),
-        ...(dto.phone !== undefined && { phone: dto.phone || null }),
-        ...(dto.username !== undefined && { username: dto.username || null }),
-        ...(usernameChanged && { usernameUpdatedAt: new Date() }),
-        ...((dto as any).categoryId !== undefined && { categoryId: (dto as any).categoryId || null }),
-        ...(dto.country !== undefined && { country: dto.country || null }),
-        ...(dto.state !== undefined && { state: dto.state || null }),
-        ...(dto.city !== undefined && { city: dto.city || null }),
-        ...(dto.municipality !== undefined && { municipality: dto.municipality || null }),
-        ...(dto.parish !== undefined && { parish: dto.parish || null }),
-      },
-      include: { commerce: true, profileSettings: true },
-    });
+    let user;
+    try {
+      user = await this.prisma.user.update({
+        where: { id },
+        data: {
+          ...(dto.firstName && { firstName: dto.firstName }),
+          ...(dto.lastName && { lastName: dto.lastName }),
+          ...(dto.email && { email: dto.email }),
+          ...(dto.phone !== undefined && { phone: dto.phone || null }),
+          ...(dto.username !== undefined && { username: dto.username || null }),
+          ...(usernameChanged && { usernameUpdatedAt: new Date() }),
+          ...((dto as any).categoryId !== undefined && { categoryId: (dto as any).categoryId || null }),
+          ...(dto.country !== undefined && { country: dto.country || null }),
+          ...(dto.state !== undefined && { state: dto.state || null }),
+          ...(dto.city !== undefined && { city: dto.city || null }),
+          ...(dto.municipality !== undefined && { municipality: dto.municipality || null }),
+          ...(dto.parish !== undefined && { parish: dto.parish || null }),
+        },
+        include: { commerce: true, profileSettings: true },
+      });
+    } catch (err) {
+      // Cierra la misma ventana de carrera que create() ya documenta: dos
+      // requests cambiando a el mismo email/username en paralelo pueden
+      // ambas pasar el pre-check de arriba; el constraint @unique es la
+      // garantía real.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = (err.meta?.target as string[] | undefined)?.join(',') ?? '';
+        if (target.includes('email')) throw new ConflictException(this.i18n.t('users.email_in_use'));
+        if (target.includes('username')) throw new ConflictException(this.i18n.t('users.username_taken'));
+      }
+      throw err;
+    }
 
     if (previousEmail) {
       this.mail
         .sendSecurityAlert(previousEmail, user.firstName, 'email_changed')
-        .catch(() => {});
+        .catch((err) => {
+          this.logger.warn(`Failed to send email-changed security alert: ${err.message}`);
+        });
     }
 
     const { password, twoFactorSecret, ...result } = user;
@@ -616,7 +639,6 @@ export class UsersService {
 
     const available = !existing || existing.id === currentUserId;
 
-    const USERNAME_COOLDOWN_DAYS = 30;
     let canChange = true;
     let daysLeft = 0;
     let nextChangeAt: string | null = null;
@@ -668,9 +690,19 @@ export class UsersService {
       data: { password: hashedPassword },
     });
 
+    // Revocar todas las sesiones existentes: si un atacante tenía un refresh
+    // token robado, cambiar la contraseña debe cerrarle el acceso (igual que
+    // ya hace resetPassword() vía email en AuthService).
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
     this.mail
       .sendSecurityAlert(user.email, user.firstName, 'password_changed')
-      .catch(() => {});
+      .catch((err) => {
+        this.logger.warn(`Failed to send password-changed security alert: ${err.message}`);
+      });
 
     return { message: this.i18n.t('users.password_updated') };
   }
