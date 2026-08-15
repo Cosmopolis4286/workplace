@@ -333,6 +333,9 @@ enum CustomerSegment {
 
 model RefreshToken {
   id        String   @id @default(uuid())
+  /// SHA-256 hex del refresh token JWT — nunca el token crudo (ver
+  /// common/utils/crypto.util.ts#hashToken). Un dump de esta tabla no debe
+  /// permitir reconstruir sesiones válidas.
   token     String   @unique
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -344,6 +347,10 @@ model RefreshToken {
   replacedByTokenId String? // Si fue reemplazado por refresh
   deviceInfo        String? // Info del dispositivo (opcional)
   ipAddress         String? // IP de creación (opcional)
+  /// jti del par access/refresh token, guardado en claro porque ya NO es
+  /// posible decodificarlo desde `token` (que ahora es un hash) — se usa
+  /// para blacklistear el access token asociado en logout/revokeSession.
+  jti               String?
 
   @@index([userId])
   @@index([token])
@@ -2016,6 +2023,8 @@ model PlatformFeeOverride {
 
 model PasswordResetToken {
   id        String    @id @default(uuid())
+  /// SHA-256 hex del token — nunca el valor crudo enviado por email (ver
+  /// common/utils/crypto.util.ts#hashToken).
   token     String    @unique
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2029,6 +2038,8 @@ model PasswordResetToken {
 
 model EmailVerificationToken {
   id        String    @id @default(uuid())
+  /// SHA-256 hex del token — nunca el valor crudo enviado por email (ver
+  /// common/utils/crypto.util.ts#hashToken).
   token     String    @unique
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
