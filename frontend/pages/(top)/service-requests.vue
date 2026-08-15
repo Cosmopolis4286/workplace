@@ -53,217 +53,33 @@
     </Transition>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <ServiceRequestsList
+        :filtered="filtered"
+        :filters="filters"
+        :active-filter="activeFilter"
+        :count-by-status="countByStatus"
+        :loading="loading"
+        :total="total"
+        :view-as="viewAs"
+        :is-normal="isNormal"
+        :contact-avatar-url="contactAvatarUrl"
+        :default-rate="defaultRate"
+        :format-conversion="formatConversion"
+        :format-date="formatDate"
+        :format-date-time="formatDateTime"
+        :format-price="formatPrice"
+        :time-ago="timeAgo"
+        @update:active-filter="activeFilter = $event"
+        @open-detail="openDetail"
+        @switch-view="switchView"
+      />
 
-      <!-- Lista principal -->
-      <div class="lg:col-span-2 space-y-4">
-
-        <!-- Filtros de estado -->
-        <div class="card p-1 flex gap-1 overflow-x-auto scrollbar-none">
-          <button
-            v-for="f in filters"
-            :key="f.value"
-            class="flex-shrink-0 flex-1 text-sm py-2 px-3 rounded-lg font-medium transition-colors whitespace-nowrap"
-            :class="activeFilter === f.value
-              ? 'bg-red-600 text-white shadow-sm'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
-            @click="activeFilter = f.value"
-          >
-            {{ f.label }}
-            <span
-              v-if="f.value !== 'ALL' && countByStatus(f.value) > 0"
-              class="ml-1.5 text-xs px-1.5 py-0.5 rounded-full"
-              :class="activeFilter === f.value ? 'bg-red-500/30 text-red-100' : 'bg-gray-100 text-gray-500'"
-            >
-              {{ countByStatus(f.value) }}
-            </span>
-          </button>
-        </div>
-
-        <!-- Card con la lista — swipe horizontal cambia entre Recibidas/Enviadas en mobile -->
-        <div ref="listRef" class="card divide-y divide-gray-100" @swipe="handleListSwipe">
-
-          <!-- Skeleton -->
-          <template v-if="loading">
-            <div v-for="n in 4" :key="n" class="p-4 flex items-center gap-4">
-              <div class="skeleton h-10 w-10 rounded-full flex-shrink-0" />
-              <div class="flex-1 space-y-2">
-                <div class="skeleton h-4 w-40 rounded" />
-                <div class="skeleton h-3 w-56 rounded" />
-              </div>
-              <div class="skeleton h-6 w-20 rounded" />
-            </div>
-          </template>
-
-          <!-- Empty state -->
-          <div v-else-if="filtered.length === 0" class="p-12 text-center">
-            <ClipboardDocumentListIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p class="text-gray-500 font-medium">
-              {{ viewAs === 'provider' ? 'No hay solicitudes recibidas' : 'No has enviado solicitudes' }}
-            </p>
-            <p class="text-sm text-gray-400 mt-1">
-              {{ viewAs === 'provider'
-                ? 'Cuando alguien contacte tus servicios, aparecerá aquí.'
-                : 'Explora el catálogo y solicita servicios de otros proveedores.' }}
-            </p>
-          </div>
-
-          <!-- Filas -->
-          <template v-else>
-            <div
-              v-for="req in filtered"
-              :key="req.id"
-              class="p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors group cursor-pointer"
-              @click="openDetail(req)"
-            >
-              <!-- Avatar -->
-              <img
-                v-if="contactAvatarUrl(req)"
-                :src="contactAvatarUrl(req)!"
-                class="h-10 w-10 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-100"
-              />
-              <div
-                v-else
-                class="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
-                :class="viewAs === 'provider' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'"
-              >
-                {{ (viewAs === 'provider' ? req.clientName : req.providerName)?.[0]?.toUpperCase() ?? '?' }}
-              </div>
-
-              <!-- Info -->
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <p class="font-semibold text-gray-900 text-sm">
-                    {{ viewAs === 'provider' ? req.clientName : req.providerName }}
-                  </p>
-                  <span class="text-gray-300">·</span>
-                  <p class="text-sm text-red-600 font-medium truncate">{{ req.serviceName }}</p>
-                </div>
-                <p class="text-xs text-gray-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                  <span>{{ MODALITY_LABELS[req.modality] ?? req.modality }}</span>
-                  <span class="flex items-center gap-1">
-                    <CalendarIcon class="h-3 w-3" />
-                    {{ formatDate(req.preferredDate) }}
-                  </span>
-                  <span v-if="req.address" class="flex items-center gap-1">
-                    <MapPinIcon class="h-3 w-3" />
-                    {{ req.address }}{{ req.city ? `, ${req.city}` : '' }}
-                  </span>
-                  <span v-if="viewAs === 'provider' && req.clientPhone" class="flex items-center gap-1">
-                    <PhoneIcon class="h-3 w-3" />
-                    {{ req.clientPhone }}
-                  </span>
-                </p>
-                <p v-if="req.description" class="text-xs text-gray-500 mt-1.5 line-clamp-1 italic">"{{ req.description }}"</p>
-                <!-- Indicador de nota del proveedor -->
-                <div v-if="req.providerNotes" class="flex items-center gap-1 mt-1.5">
-                  <DocumentTextIcon class="h-3 w-3 text-gray-400 flex-shrink-0" />
-                  <span class="text-xs text-gray-400 line-clamp-1 italic">{{ req.providerNotes }}</span>
-                </div>
-                <!-- Tiempo relativo de la solicitud -->
-                <p class="text-[11px] text-gray-300 mt-1.5 flex items-center gap-1" :title="formatDateTime(req.createdAt)">
-                  <ClockIcon class="h-3 w-3" />
-                  {{ timeAgo(req.createdAt) }}
-                </p>
-              </div>
-
-              <!-- Badge estado + precio -->
-              <div class="flex-shrink-0 text-right space-y-1.5">
-                <div class="flex items-center justify-end gap-1.5">
-                  <span v-if="req.unreadCount" class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-workplace-red text-white text-[10px] font-bold">
-                    {{ req.unreadCount > 99 ? '99+' : req.unreadCount }}
-                  </span>
-                  <span class="inline-flex items-center gap-1 justify-center px-2.5 py-1 rounded-full text-xs font-semibold" :class="STATUS_CLASSES[req.status]">
-                    <component :is="STATUS_ICONS[req.status]" class="h-3 w-3" />
-                    {{ STATUS_LABELS[req.status] }}
-                  </span>
-                </div>
-                <div v-if="req.price">
-                  <p class="text-sm font-bold text-gray-900">
-                    ${{ formatPrice(req.price) }}
-                    <span v-if="req.priceUnit" class="text-xs font-normal text-gray-400">/ {{ req.priceUnit }}</span>
-                  </p>
-                  <p v-if="defaultRate" class="text-xs font-medium text-gray-400">
-                    {{ formatConversion(req.price, defaultRate) }}{{ req.priceUnit ? ` / ${req.priceUnit}` : '' }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- Flecha de detalle -->
-              <div class="flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <ChevronRightIcon class="h-4 w-4 text-gray-400" />
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <!-- Total -->
-        <p v-if="!loading && filtered.length > 0" class="text-xs text-gray-400 text-right px-1">
-          {{ total }} solicitud{{ total !== 1 ? 'es' : '' }} en total · Haz clic para ver detalles
-        </p>
-      </div>
-
-      <!-- Sidebar -->
-      <div class="space-y-4">
-
-        <!-- Resumen por estado -->
-        <div class="card p-5">
-          <h3 class="text-sm font-semibold text-gray-700 mb-4">Resumen</h3>
-          <div class="space-y-3">
-            <div v-for="s in statusSummary" :key="s.status" class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full flex-shrink-0" :class="s.dot" />
-                <span class="text-sm text-gray-600">{{ s.label }}</span>
-              </div>
-              <span class="text-sm font-bold text-gray-900">{{ s.count }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Pendientes sin atender — solo para proveedores -->
-        <div v-if="!isNormal && viewAs === 'provider' && countByStatus('PENDING') > 0" class="card p-5 border-l-4 border-l-yellow-400">
-          <div class="flex items-center gap-2 mb-1">
-            <ClockIcon class="h-4 w-4 text-yellow-500" />
-            <p class="text-sm font-semibold text-gray-700">Pendientes sin atender</p>
-          </div>
-          <p class="text-2xl font-black text-yellow-600">{{ countByStatus('PENDING') }}</p>
-          <p class="text-xs text-gray-400 mt-1">Responde pronto para mejorar tu conversión</p>
-        </div>
-
-        <!-- Info vista cliente -->
-        <div v-if="viewAs === 'client'" class="card p-5 border-l-4 border-l-blue-400">
-          <div class="flex items-center gap-2 mb-1">
-            <InformationCircleIcon class="h-4 w-4 text-blue-500" />
-            <p class="text-sm font-semibold text-gray-700">Solicitudes enviadas</p>
-          </div>
-          <p class="text-xs text-gray-500 mt-1">
-            El proveedor se pondrá en contacto contigo para coordinar los detalles del servicio.
-          </p>
-        </div>
-
-        <!-- Tip proveedor -->
-        <div v-if="viewAs === 'provider'" class="card p-5 bg-gradient-to-br from-red-50 to-orange-50 border border-red-100">
-          <p class="text-xs font-semibold text-red-700 mb-2">Flujo recomendado</p>
-          <ol class="space-y-1.5">
-            <li class="flex items-start gap-2 text-xs text-gray-600">
-              <span class="font-bold text-red-500 flex-shrink-0">1.</span>
-              Haz clic en la solicitud para ver los datos del cliente
-            </li>
-            <li class="flex items-start gap-2 text-xs text-gray-600">
-              <span class="font-bold text-red-500 flex-shrink-0">2.</span>
-              Contacta al cliente y marca como "Contactado"
-            </li>
-            <li class="flex items-start gap-2 text-xs text-gray-600">
-              <span class="font-bold text-red-500 flex-shrink-0">3.</span>
-              Agrega observaciones del acuerdo (fecha, precio, detalles)
-            </li>
-            <li class="flex items-start gap-2 text-xs text-gray-600">
-              <span class="font-bold text-red-500 flex-shrink-0">4.</span>
-              Cierra el trato cuando se complete el servicio
-            </li>
-          </ol>
-        </div>
-
-      </div>
+      <ServiceRequestsSidebar
+        :status-summary="statusSummary"
+        :is-normal="isNormal"
+        :view-as="viewAs"
+        :pending-count="countByStatus('PENDING')"
+      />
     </div>
 
     <!-- Modal de detalle -->
@@ -281,18 +97,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  ClipboardDocumentListIcon,
-  XMarkIcon,
-  ClockIcon,
-  InformationCircleIcon,
-  ChevronRightIcon,
-  DocumentTextIcon,
-  CalendarIcon,
-  MapPinIcon,
-  PhoneIcon,
-} from '@heroicons/vue/24/outline'
+import { ClipboardDocumentListIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import ServiceRequestsList, { type ServiceRequest } from '~/components/service-requests/ServiceRequestsList.vue'
+import ServiceRequestsSidebar from '~/components/service-requests/ServiceRequestsSidebar.vue'
 import ServiceRequestDetailModal from '~/components/modals/ServiceRequestDetailModal.vue'
 import { useApi } from '~/composables/core/useApi'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
@@ -301,12 +109,6 @@ import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 import { useServiceRequestMessages } from '~/composables/services/useServiceRequestMessages'
 import { useServiceRequestsUnreadBadge } from '~/composables/services/useServiceRequestsUnreadBadge'
-import {
-  type ServiceRequestStatus,
-  SERVICE_REQUEST_STATUS_LABELS,
-  SERVICE_REQUEST_STATUS_CLASSES,
-  SERVICE_REQUEST_STATUS_ICONS,
-} from '~/config/serviceRequestStatus.config'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -320,52 +122,8 @@ const { formatDate: fmtDate, formatDateTime: fmtDateTime, timeAgo: fmtTimeAgo } 
 
 const isNormal = computed(() => user.value?.role === 'NORMAL')
 
-interface ServiceRequestItem {
-  id: string
-  fields: Record<string, string>
-  notes?: string
-  photos: string[]
-  videos: string[]
-}
-
-interface ServiceRequest {
-  id: string
-  serviceName: string
-  providerId?: string
-  providerName: string
-  requesterId?: string | null
-  modality: string
-  preferredDate: string
-  address?: string
-  city?: string
-  clientName: string
-  clientPhone: string
-  clientEmail?: string
-  description?: string
-  price?: number
-  priceUnit?: string
-  providerNotes?: string
-  status: ServiceRequestStatus
-  createdAt: string
-  statusUpdatedAt?: string
-  items?: ServiceRequestItem[]
-  providerAvatar?: string | null
-  clientAvatar?: string | null
-  unreadCount?: number
-}
-
 function contactAvatarUrl(req: ServiceRequest): string | null {
   return getAssetUrl(viewAs.value === 'provider' ? req.clientAvatar : req.providerAvatar)
-}
-
-const STATUS_LABELS = SERVICE_REQUEST_STATUS_LABELS
-const STATUS_CLASSES = SERVICE_REQUEST_STATUS_CLASSES
-const STATUS_ICONS = SERVICE_REQUEST_STATUS_ICONS
-
-const MODALITY_LABELS: Record<string, string> = {
-  IN_PERSON: '📍 Presencial',
-  REMOTE:    '💻 Remoto',
-  ANY:       '🤝 Cualquiera',
 }
 
 const filters = [
@@ -530,16 +288,6 @@ function switchView(v: 'provider' | 'client') {
   fetchRequests()
 }
 
-// Swipe horizontal sobre la lista alterna entre Recibidas/Enviadas (solo para proveedores).
-const listRef = ref<HTMLElement | null>(null)
-useTouchGestures(listRef)
-function handleListSwipe(e: Event) {
-  if (isNormal.value) return
-  const direction = (e as CustomEvent).detail?.direction
-  if (direction === 'left') switchView('client')
-  else if (direction === 'right') switchView('provider')
-}
-
 function formatDate(date: string) {
   return fmtDate(date)
 }
@@ -582,8 +330,3 @@ onMounted(async () => {
   await openFromQuery()
 })
 </script>
-
-<style scoped>
-.scrollbar-none::-webkit-scrollbar { display: none; }
-.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
-</style>
