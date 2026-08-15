@@ -117,15 +117,14 @@ async function bootstrap() {
 
   // 🔥 Graceful shutdown setup
   const server = app.getHttpServer();
-  
-  // Handle SIGTERM (Docker stop)
-  process.on('SIGTERM', async () => {
-    console.log('🔄 SIGTERM received - starting graceful shutdown...');
-    
+
+  const gracefulShutdown = (signal: string) => {
+    console.log(`🔄 ${signal} received - starting graceful shutdown...`);
+
     // Stop accepting new connections
     server.close(async () => {
       console.log('✅ HTTP server closed');
-      
+
       // Close database connections
       const prismaService = app.get(PrismaService);
       await prismaService.$disconnect();
@@ -148,33 +147,10 @@ async function bootstrap() {
       console.error('❌ Forced shutdown after timeout');
       process.exit(1);
     }, 30000);
-  });
+  };
 
-  // Handle SIGINT (Ctrl+C)
-  process.on('SIGINT', async () => {
-    console.log('🔄 SIGINT received - starting graceful shutdown...');
-    server.close(async () => {
-      console.log('✅ HTTP server closed');
-
-      const prismaService = app.get(PrismaService);
-      await prismaService.$disconnect();
-      console.log('✅ Database connections closed');
-
-      await Promise.all([pubClient.quit(), subClient.quit()]);
-      await redisService.disconnect();
-      console.log('✅ Redis connections closed');
-
-      await app.close();
-      console.log('✅ NestJS app closed');
-      
-      process.exit(0);
-    });
-    
-    setTimeout(() => {
-      console.error('❌ Forced shutdown after timeout');
-      process.exit(1);
-    }, 30000);
-  });
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM')); // Docker stop
+  process.on('SIGINT', () => gracefulShutdown('SIGINT')); // Ctrl+C
 
   const port = process.env.PORT || 3001;
   await app.listen(port, '0.0.0.0');
