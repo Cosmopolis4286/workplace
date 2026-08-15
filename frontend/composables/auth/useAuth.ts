@@ -58,12 +58,14 @@ interface RegisterCredentials {
   sex: 'MALE' | 'FEMALE' | 'OTHER'
   password: string
   acceptTerms: boolean
+  recaptchaToken?: string
 }
 
 interface LoginCredentials {
   email: string
   password: string
   rememberMe?: boolean
+  recaptchaToken?: string
 }
 
 interface UpdateProfilePayload {
@@ -215,6 +217,7 @@ export const useAuth = () => {
         sex: credentials.sex,
         password: credentials.password,
         acceptTerms: credentials.acceptTerms,
+        recaptchaToken: credentials.recaptchaToken,
       },
     })
     setSession(data)
@@ -231,6 +234,7 @@ export const useAuth = () => {
         email: credentials.email,
         password: credentials.password,
         rememberMe: credentials.rememberMe,
+        recaptchaToken: credentials.recaptchaToken,
       },
     })
     if ('requiresTwoFactor' in data) return data
