@@ -107,10 +107,11 @@ describe('AuthController', () => {
 
       mockAuthService.register.mockResolvedValue(tokens)
 
-      const result = await controller.register(registerDto, mockResponse)
+      const mockRequest = { securityContext: null }
+      const result = await controller.register(registerDto, mockRequest, mockResponse)
 
       expect(result).toEqual(tokens)
-      expect(mockAuthService.register).toHaveBeenCalledWith(registerDto)
+      expect(mockAuthService.register).toHaveBeenCalledWith(registerDto, null)
     })
   })
 

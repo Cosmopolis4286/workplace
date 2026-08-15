@@ -10,6 +10,7 @@ import { RedisService } from '../../redis/redis.service'
 import { MailService } from '../../domains/engagement/mail/mail.service'
 import { AuditService } from '../../domains/identity-access/audit/audit.service'
 import { TwoFactorService } from '../../domains/identity-access/auth/two-factor.service'
+import { RecaptchaService } from '../../common/recaptcha/recaptcha.service'
 
 describe('AuthService', () => {
   let service: AuthService
@@ -64,6 +65,11 @@ describe('AuthService', () => {
   const mockTwoFactorService = {
     generateSecret: jest.fn(),
     verifyToken: jest.fn(),
+  }
+
+  const mockRecaptchaService = {
+    isEnabled: false,
+    verify: jest.fn().mockResolvedValue(true),
   }
 
   const mockConfigService = {
@@ -127,6 +133,10 @@ describe('AuthService', () => {
         {
           provide: TwoFactorService,
           useValue: mockTwoFactorService,
+        },
+        {
+          provide: RecaptchaService,
+          useValue: mockRecaptchaService,
         },
       ],
     }).compile()
