@@ -2,6 +2,7 @@
   <AuthLayout
     :title="t('auth.resetPassword.title')"
     :description="t('auth.resetPassword.description')"
+    panel-variant="reset-password"
   >
     <template #header-action>
       <NuxtLink

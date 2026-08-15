@@ -2,6 +2,7 @@
   <AuthLayout
     :title="t('auth.register.title')"
     :description="t('auth.register.description')"
+    panel-variant="register"
   >
     <template #header-action>
       <p class="text-sm text-gray-500">

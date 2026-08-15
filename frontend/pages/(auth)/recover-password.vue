@@ -2,6 +2,7 @@
   <AuthLayout
     :title="t('auth.recoverPassword.title')"
     :description="t('auth.recoverPassword.description')"
+    panel-variant="recover-password"
   >
     <template #header-action>
       <NuxtLink
@@ -81,9 +82,10 @@
         <div class="flex flex-col sm:flex-row gap-3 w-full">
           <AuthButton
             variant="outline"
-            :text="t('auth.recoverPassword.resend')"
+            :text="cooldownSeconds > 0 ? t('auth.recoverPassword.resendCooldown', { seconds: cooldownSeconds }) : t('auth.recoverPassword.resend')"
             :icon="ArrowPathIcon"
             :loading="isResending"
+            :disabled="cooldownSeconds > 0"
             @click="resendEmail"
           />
           <AuthButton
@@ -113,7 +115,7 @@ definePageMeta({ layout: 'auth' })
 import { ref, computed } from 'vue'
 import { EnvelopeIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
-import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { getApiErrorMessage, getRateLimitSeconds } from '~/composables/core/useApiErrors'
 import { KeyIcon, PaperAirplaneIcon, CheckCircleIcon, InformationCircleIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline'
 import { useFormValidation } from '~/composables/ui/useFormValidation'
 import { useToast } from '~/composables/ui/useToast'
@@ -131,6 +133,25 @@ const isLoading = ref(false)
 const isResending = ref(false)
 const emailSent = ref(false)
 
+// Cooldown visible tras enviar/reenviar — el backend limita a 5/hora por IP
+// (ver auth.controller.ts, forgot-password); sin esto el usuario podía
+// hacer clic varias veces sin feedback antes de toparse con el 429.
+const cooldownSeconds = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+function startCooldown(seconds: number) {
+  cooldownSeconds.value = seconds
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  cooldownTimer = setInterval(() => {
+    cooldownSeconds.value--
+    if (cooldownSeconds.value <= 0) {
+      clearInterval(cooldownTimer!)
+      cooldownTimer = null
+    }
+  }, 1000)
+}
+onUnmounted(() => { if (cooldownTimer) clearInterval(cooldownTimer) })
+
 watch(() => form.email, () => {
   if (touched.value) errors.email = validate(form.email, [required(t('validation.fields.email')), emailRule()])
 })
@@ -145,21 +166,34 @@ const handleRecoverPassword = async () => {
     const { post } = useApi()
     await post('/auth/forgot-password', { email: form.email })
     emailSent.value = true
+    startCooldown(45)
   } catch (err: unknown) {
-    toast.error(getApiErrorMessage(err, t('auth.recoverPassword.sendError')))
+    const seconds = getRateLimitSeconds(err)
+    if (seconds !== null) {
+      startCooldown(seconds)
+    } else {
+      toast.error(getApiErrorMessage(err, t('auth.recoverPassword.sendError')))
+    }
   } finally {
     isLoading.value = false
   }
 }
 
 const resendEmail = async () => {
+  if (cooldownSeconds.value > 0) return
   isResending.value = true
   try {
     const { post } = useApi()
     await post('/auth/forgot-password', { email: form.email })
     toast.success(t('auth.recoverPassword.resendSuccess'))
+    startCooldown(45)
   } catch (err: unknown) {
-    toast.error(getApiErrorMessage(err, t('auth.recoverPassword.resendError')))
+    const seconds = getRateLimitSeconds(err)
+    if (seconds !== null) {
+      startCooldown(seconds)
+    } else {
+      toast.error(getApiErrorMessage(err, t('auth.recoverPassword.resendError')))
+    }
   } finally {
     isResending.value = false
   }

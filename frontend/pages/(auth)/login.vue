@@ -2,6 +2,7 @@
   <AuthLayout
     :title="t('auth.login.title')"
     :description="t('auth.login.description')"
+    panel-variant="login"
   >
     <!-- Header action: link to register -->
     <template #header-action>

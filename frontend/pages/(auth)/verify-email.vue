@@ -2,6 +2,7 @@
   <AuthLayout
     :title="t('auth.verifyEmail.title')"
     :description="t('auth.verifyEmail.description')"
+    panel-variant="verify-email"
   >
     <div class="flex flex-col items-center text-center gap-5 py-2">
       <!-- Verifying state -->

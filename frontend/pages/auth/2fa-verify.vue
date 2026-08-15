@@ -2,6 +2,7 @@
   <AuthLayout
     :title="t('auth.twoFactor.title')"
     :description="t('auth.twoFactor.description')"
+    panel-variant="two-factor"
   >
     <template #header-action>
       <NuxtLink
@@ -96,7 +97,7 @@ import {
   ArrowRightIcon,
 } from '@heroicons/vue/24/outline'
 import { useAuth } from '~/composables/auth/useAuth'
-import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { getApiErrorMessage, getApiErrorCode } from '~/composables/core/useApiErrors'
 import { useToast } from '~/composables/ui/useToast'
 
 const { t } = useI18n()
@@ -144,14 +145,9 @@ const handleVerify = async () => {
     await verifyTwoFactor(sessionId, code.value)
     await navigateTo('/dashboard')
   } catch (err: unknown) {
-    const status = (err as { status?: number; statusCode?: number })?.status
-      ?? (err as { status?: number; statusCode?: number })?.statusCode
-    if (status === 401) {
-      const message = getApiErrorMessage(err, '')
-      if (message.toLowerCase().includes('expir')) {
-        sessionExpired.value = true
-        return
-      }
+    if (getApiErrorCode(err) === 'TWO_FA_SESSION_EXPIRED') {
+      sessionExpired.value = true
+      return
     }
     toast.error(getApiErrorMessage(err, t('auth.twoFactor.invalidCode')))
   } finally {
