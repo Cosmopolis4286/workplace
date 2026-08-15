@@ -222,7 +222,16 @@ import { StarIcon } from '@heroicons/vue/24/solid'
 
 const { t } = useI18n({ useScope: 'global' })
 
-const route = useRoute()
+// Contexto explícito en vez de inferido de route.name: antes, si un archivo
+// de página se renombraba, el panel caía en silencio al fallback "login"
+// sin ningún error — ahora cada página que usa AuthLayout debe declarar su
+// variante a propósito.
+type AuthPanelVariant = 'login' | 'register' | 'verify-email' | 'recover-password' | 'reset-password' | 'two-factor'
+
+const props = withDefaults(defineProps<{ variant?: AuthPanelVariant }>(), {
+  variant: 'login',
+})
+
 const { user } = useAuth()
 const role = computed(() => user.value?.role ?? null)
 
@@ -332,9 +341,9 @@ interface PanelContext {
 }
 
 const panelCtx = computed<PanelContext>(() => {
-  const name = route.name as string | undefined
+  const variant = props.variant
 
-  if (name === 'register') {
+  if (variant === 'register') {
     return {
       headline: t('auth.layout.registerHeadline'),
       subline: t('auth.layout.registerSubline'),
@@ -351,7 +360,7 @@ const panelCtx = computed<PanelContext>(() => {
     }
   }
 
-  if (name === 'verify-email') {
+  if (variant === 'verify-email') {
     return {
       headline: t('auth.layout.verifyEmailHeadline'),
       subline: t('auth.layout.verifyEmailSubline'),
@@ -367,7 +376,7 @@ const panelCtx = computed<PanelContext>(() => {
     }
   }
 
-  if (name === 'recover-password') {
+  if (variant === 'recover-password') {
     return {
       headline: t('auth.layout.recoverPasswordHeadline'),
       subline: t('auth.layout.recoverPasswordSubline'),
@@ -376,7 +385,7 @@ const panelCtx = computed<PanelContext>(() => {
     }
   }
 
-  if (name === 'reset-password') {
+  if (variant === 'reset-password') {
     return {
       headline: t('auth.layout.resetPasswordHeadline'),
       subline: t('auth.layout.resetPasswordSubline'),
@@ -385,7 +394,7 @@ const panelCtx = computed<PanelContext>(() => {
     }
   }
 
-  if (name === 'auth-2fa-verify') {
+  if (variant === 'two-factor') {
     return {
       headline: t('auth.layout.twoFactorHeadline'),
       subline: t('auth.layout.twoFactorSubline'),

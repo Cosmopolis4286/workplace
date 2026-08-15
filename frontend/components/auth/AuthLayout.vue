@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen flex">
-    <AuthMarketingPanel />
+    <AuthMarketingPanel :variant="panelVariant" />
 
     <!-- Right Panel: Form -->
     <div class="flex-1 flex flex-col min-h-screen bg-gray-50">
@@ -60,7 +60,13 @@ import AuthMarketingPanel from '~/components/auth/AuthMarketingPanel.vue'
 
 defineProps({
   title: { type: String, required: true },
-  description: { type: String, default: '' }
+  description: { type: String, default: '' },
+  // Qué copy/pasos mostrar en el panel lateral — cada página que usa este
+  // layout debe declararlo a propósito (ver AuthMarketingPanel.vue).
+  panelVariant: {
+    type: String as () => 'login' | 'register' | 'verify-email' | 'recover-password' | 'reset-password' | 'two-factor',
+    default: 'login',
+  },
 })
 
 const { t } = useI18n({ useScope: 'global' })
