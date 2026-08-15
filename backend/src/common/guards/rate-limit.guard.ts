@@ -45,30 +45,38 @@ export class RateLimitGuard implements CanActivate {
     context: ExecutionContext
   ): Promise<boolean> {
     try {
-      const current = await this.redis.get(key);
-      const requests = current ? parseInt(current) : 0;
+      // Atómico: INCR no puede sufrir la carrera de un GET+SETEX separado,
+      // donde dos requests concurrentes leen el mismo contador antes de que
+      // ninguna escriba y ambas pasan el límite (ver RedisService.incrWithExpire).
+      const newCount = await this.redis.incrWithExpire(key, Math.ceil(options.windowMs / 1000));
 
       // Si ya excedió el límite
-      if (requests >= options.maxRequests) {
+      if (newCount > options.maxRequests) {
         this.logger.warn(`Rate limit exceeded for key: ${key}`, {
-          requests,
+          requests: newCount,
           maxRequests: options.maxRequests,
           ip: request.ip,
           userAgent: request.headers['user-agent']
         });
 
-        const lang = I18nContext.current(context)?.lang;
-        throw new ForbiddenException(
-          this.i18n.t('common.rate_limit.exceeded', {
-            lang,
-            args: { wait: this.formatWaitTime(options.windowMs, lang) },
-          })
-        );
-      }
+        // TTL real de la key en Redis — más preciso que options.windowMs
+        // fijo, porque refleja cuánto falta realmente para que expire el
+        // contador (windowMs es la duración total de la ventana, no lo que
+        // queda de ella en este momento).
+        const retryAfterSeconds = Math.max(1, await this.redis.ttl(key));
+        const response = context.switchToHttp().getResponse();
+        response?.setHeader?.('Retry-After', String(retryAfterSeconds));
 
-      // Incrementar contador
-      const newCount = requests + 1;
-      await this.redis.setex(key, Math.ceil(options.windowMs / 1000), newCount.toString());
+        const lang = I18nContext.current(context)?.lang;
+        throw new ForbiddenException({
+          message: this.i18n.t('common.rate_limit.exceeded', {
+            lang,
+            args: { wait: this.formatWaitTime(retryAfterSeconds * 1000, lang) },
+          }),
+          errorCode: 'RATE_LIMITED',
+          retryAfterSeconds,
+        });
+      }
 
       // Logging para monitoreo
       if (newCount > Math.floor(options.maxRequests * 0.8)) {

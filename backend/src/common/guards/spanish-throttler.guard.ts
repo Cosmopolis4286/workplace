@@ -1,4 +1,4 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import { Injectable, ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   ThrottlerGuard,
@@ -21,12 +21,7 @@ export class SpanishThrottlerGuard extends ThrottlerGuard {
     super(options, storageService, reflector);
   }
 
-  protected async getErrorMessage(
-    context: ExecutionContext,
-    throttlerLimitDetail: ThrottlerLimitDetail
-  ): Promise<string> {
-    const lang = I18nContext.current(context)?.lang;
-    const seconds = Math.ceil(throttlerLimitDetail.timeToExpire);
+  private buildMessage(seconds: number, lang?: string): string {
     const wait =
       seconds < 60
         ? this.i18n.t('common.rate_limit.wait_seconds', { lang, args: { count: seconds } })
@@ -36,5 +31,37 @@ export class SpanishThrottlerGuard extends ThrottlerGuard {
           });
 
     return this.i18n.t('common.rate_limit.exceeded', { lang, args: { wait } });
+  }
+
+  protected async getErrorMessage(
+    context: ExecutionContext,
+    throttlerLimitDetail: ThrottlerLimitDetail
+  ): Promise<string> {
+    const lang = I18nContext.current(context)?.lang;
+    return this.buildMessage(Math.ceil(throttlerLimitDetail.timeToExpire), lang);
+  }
+
+  // Sobreescribe el throw por defecto (que solo acepta un string como
+  // ThrottlerException) para poder exponer retryAfterSeconds/errorCode
+  // estructurados en el body — el frontend no debe tener que parsear el
+  // mensaje en prosa para saber cuánto esperar (ver useApiErrors.ts).
+  protected async throwThrottlingException(
+    context: ExecutionContext,
+    throttlerLimitDetail: ThrottlerLimitDetail
+  ): Promise<void> {
+    const lang = I18nContext.current(context)?.lang;
+    const retryAfterSeconds = Math.max(1, Math.ceil(throttlerLimitDetail.timeToExpire));
+
+    const response = context.switchToHttp().getResponse();
+    response?.setHeader?.('Retry-After', String(retryAfterSeconds));
+
+    throw new HttpException(
+      {
+        message: this.buildMessage(retryAfterSeconds, lang),
+        errorCode: 'RATE_LIMITED',
+        retryAfterSeconds,
+      },
+      HttpStatus.TOO_MANY_REQUESTS
+    );
   }
 }

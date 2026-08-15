@@ -130,6 +130,19 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return parseFloat(String(result));
   }
 
+  // Atomic INCR + EXPIRE (solo en el primer hit) — usado por RateLimitGuard.
+  // GET+SETEX por separado deja una ventana donde dos requests concurrentes
+  // leen el mismo contador antes de que ninguna escriba, permitiendo pasar
+  // el límite en +1 por cada carrera ganada; INCR es atómico en Redis y
+  // resuelve eso sin necesitar un script Lua.
+  async incrWithExpire(key: string, ttlSeconds: number): Promise<number> {
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, ttlSeconds);
+    }
+    return count;
+  }
+
   // Atomic INCRBYFLOAT + EXPIRE in one Lua script — eliminates the window
   // between the two commands where a crash or key expiry leaves the counter
   // without a TTL (which would permanently block users at their daily limit).
