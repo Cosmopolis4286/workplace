@@ -63,6 +63,7 @@ interface RegisterCredentials {
 interface LoginCredentials {
   email: string
   password: string
+  rememberMe?: boolean
 }
 
 interface UpdateProfilePayload {
@@ -229,6 +230,7 @@ export const useAuth = () => {
       body: {
         email: credentials.email,
         password: credentials.password,
+        rememberMe: credentials.rememberMe,
       },
     })
     if ('requiresTwoFactor' in data) return data
