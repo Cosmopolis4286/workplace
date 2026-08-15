@@ -60,132 +60,31 @@
               </div>
             </div>
 
-            <!-- Items -->
-            <div class="px-6 py-4">
-              <div class="flex items-center justify-between mb-3">
-                <h4 class="text-sm font-semibold text-gray-700">Productos</h4>
-                <button type="button" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1" @click="addItem">
-                  <PlusIcon class="h-4 w-4" />
-                  Agregar
-                </button>
-              </div>
+            <SaleModalItemsSection
+              :items="form.items"
+              :products="products"
+              :filtered-products="filteredProducts"
+              :product-search="productSearch"
+              :show-product-dropdown="showProductDropdown"
+              :format-currency="formatCurrency"
+              @add-item="addItem"
+              @remove-item="removeItem"
+              @update-subtotal="updateItemSubtotal"
+              @select-product="selectProduct"
+              @update:product-search="productSearch = $event"
+              @update:show-product-dropdown="showProductDropdown = $event"
+              @hide-dropdown-delayed="hideDropdownDelayed"
+            />
 
-              <!-- Product selector (quick add from catalog) -->
-              <div v-if="products.length > 0" class="mb-3">
-                <div class="relative">
-                  <input
-                    v-model="productSearch"
-                    type="text"
-                    class="input-field pr-8"
-                    placeholder="Buscar producto del catálogo..."
-                    @focus="showProductDropdown = true"
-                    @blur="hideDropdownDelayed"
-                  />
-                  <MagnifyingGlassIcon class="h-4 w-4 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
-                </div>
-                <div
-                  v-if="showProductDropdown && filteredProducts.length > 0"
-                  class="mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-10 relative"
-                >
-                  <button
-                    v-for="p in filteredProducts"
-                    :key="p.id"
-                    type="button"
-                    class="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm flex items-center justify-between"
-                    @mousedown.prevent="selectProduct(p)"
-                  >
-                    <span>{{ p.name }}</span>
-                    <span class="text-gray-500 text-xs">{{ formatCurrency(p.price) }}</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Items list -->
-              <div v-if="form.items.length === 0" class="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
-                Sin productos. Agrega items al pedido.
-              </div>
-              <div v-else class="space-y-2">
-                <div v-for="(item, idx) in form.items" :key="idx" class="flex items-start gap-2 p-2 bg-gray-50 rounded-lg">
-                  <div class="flex-1 grid grid-cols-6 gap-2 items-center">
-                    <div class="col-span-3">
-                      <input
-                        v-model="item.productName"
-                        type="text"
-                        class="input-field text-sm py-1.5"
-                        placeholder="Nombre del producto"
-                        required
-                      />
-                    </div>
-                    <div class="col-span-1">
-                      <input
-                        v-model.number="item.quantity"
-                        type="number"
-                        min="1"
-                        class="input-field text-sm py-1.5 text-center"
-                        required
-                        @input="updateItemSubtotal(idx)"
-                      />
-                    </div>
-                    <div class="col-span-2">
-                      <div class="relative">
-                        <span class="absolute left-2.5 top-1.5 text-gray-400 text-sm">$</span>
-                        <input
-                          v-model.number="item.unitPrice"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          class="input-field text-sm py-1.5 pl-6"
-                          required
-                          @input="updateItemSubtotal(idx)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <button type="button" class="p-1.5 text-gray-400 hover:text-red-500 mt-0.5" @click="removeItem(idx)">
-                    <XMarkIcon class="h-4 w-4" />
-                  </button>
-                </div>
-
-                <!-- Column labels -->
-                <div class="grid grid-cols-6 gap-2 px-2 text-xs text-gray-400">
-                  <span class="col-span-3">Producto</span>
-                  <span class="col-span-1 text-center">Cant.</span>
-                  <span class="col-span-2">Precio Unit.</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Totals -->
-            <div class="px-6 py-4 bg-gray-50">
-              <div class="grid grid-cols-2 gap-4 mb-3">
-                <div>
-                  <label class="label-field">Descuento ($)</label>
-                  <input v-model.number="form.discount" type="number" min="0" step="0.01" class="input-field" />
-                </div>
-                <div>
-                  <label class="label-field">Costo Envío ($)</label>
-                  <input v-model.number="form.deliveryFee" type="number" min="0" step="0.01" class="input-field" />
-                </div>
-              </div>
-              <div class="space-y-1.5 text-sm border-t border-gray-200 pt-3">
-                <div class="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
-                  <span>{{ formatCurrency(computedSubtotal) }}</span>
-                </div>
-                <div v-if="form.discount > 0" class="flex justify-between text-green-600">
-                  <span>Descuento</span>
-                  <span>-{{ formatCurrency(form.discount) }}</span>
-                </div>
-                <div v-if="form.deliveryFee > 0" class="flex justify-between text-gray-600">
-                  <span>Envío</span>
-                  <span>+{{ formatCurrency(form.deliveryFee) }}</span>
-                </div>
-                <div class="flex justify-between font-bold text-gray-900 text-base pt-1 border-t border-gray-200">
-                  <span>Total</span>
-                  <span>{{ formatCurrency(computedTotal) }}</span>
-                </div>
-              </div>
-            </div>
+            <SaleModalTotals
+              :discount="form.discount"
+              :delivery-fee="form.deliveryFee"
+              :subtotal="computedSubtotal"
+              :total="computedTotal"
+              :format-currency="formatCurrency"
+              @update:discount="form.discount = $event"
+              @update:delivery-fee="form.deliveryFee = $event"
+            />
 
             <!-- Notes -->
             <div class="px-6 py-4">
@@ -211,7 +110,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot } from '@headlessui/vue'
-import { XMarkIcon, PlusIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
 import {
   ORDER_TYPE_LABELS,
   PAYMENT_METHOD_LABELS,
@@ -222,6 +121,8 @@ import {
 } from '~/composables/catalog/useMerchantOrders'
 import type { Product } from '~/composables/catalog/useMenu'
 import { useUserPreferences } from '~/composables/users/useUserPreferences'
+import SaleModalItemsSection, { type SaleModalFormItem } from '~/components/modals/sale-modal/SaleModalItemsSection.vue'
+import SaleModalTotals from '~/components/modals/sale-modal/SaleModalTotals.vue'
 
 const { formatCurrency: _fmt } = useUserPreferences()
 
@@ -242,15 +143,6 @@ const emit = defineEmits<{
 
 // ── Form state ───────────────────────────────────────────────────────────────
 
-interface FormItem {
-  productId?: string
-  productName: string
-  quantity: number
-  unitPrice: number
-  subtotal: number
-  notes?: string
-}
-
 const defaultForm = () => ({
   customerName:    '',
   customerPhone:   '',
@@ -261,7 +153,7 @@ const defaultForm = () => ({
   discount:        0,
   deliveryFee:     0,
   scheduledAt:     '',
-  items:           [] as FormItem[],
+  items:           [] as SaleModalFormItem[],
 })
 
 const form = ref(defaultForm())
