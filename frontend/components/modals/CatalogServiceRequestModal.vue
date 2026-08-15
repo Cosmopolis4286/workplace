@@ -26,43 +26,11 @@
               <div class="w-10 h-1 rounded-full bg-gray-200" />
             </div>
 
-            <!-- Header -->
-            <div class="px-5 pt-4 pb-3 border-b border-gray-100">
-              <div class="flex items-start justify-between gap-3">
-                <div class="flex items-center gap-3">
-                  <div class="w-12 h-12 rounded-xl overflow-hidden bg-blue-50 flex-shrink-0">
-                    <img v-if="service?.image" :src="imageSrc(service.image)" :alt="service.name" class="w-full h-full object-cover" />
-                    <div v-else class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                      <svg class="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                          d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                      </svg>
-                    </div>
-                  </div>
-                  <div>
-                    <h2 class="text-base font-black text-gray-900 leading-tight">{{ service?.name }}</h2>
-                    <p class="text-xs text-gray-400 mt-0.5">{{ service?.user?.firstName }} {{ service?.user?.lastName }}</p>
-                    <div class="flex items-center gap-1 mt-1">
-                      <div class="flex items-center gap-0.5">
-                        <template v-for="n in 5" :key="n">
-                          <svg class="w-3 h-3" :class="n <= Math.round(service?.user?.rating ?? 0) ? 'text-amber-400' : 'text-gray-200'" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                          </svg>
-                        </template>
-                      </div>
-                      <span v-if="service?.user?.rating" class="text-[11px] font-semibold text-gray-600">{{ service.user.rating.toFixed(1) }}</span>
-                      <span v-else class="text-[11px] text-gray-400">Sin reseñas</span>
-                      <span v-if="(service?.user?.reviewsCount ?? 0) > 0" class="text-[10px] text-gray-400">({{ service!.user.reviewsCount }})</span>
-                    </div>
-                  </div>
-                </div>
-                <button class="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors flex-shrink-0" @click="$emit('update:modelValue', false)">
-                  <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
+            <ServiceRequestModalHeader
+              :service="service"
+              :image-src="imageSrc"
+              @close="$emit('update:modelValue', false)"
+            />
 
             <!-- Formulario -->
             <form class="px-5 py-4 space-y-4" @submit.prevent="submit">
@@ -233,75 +201,20 @@
                 </div>
 
                 <div class="space-y-3">
-                  <div
+                  <ServiceRequestItemEditor
                     v-for="(item, idx) in items" :key="idx"
-                    class="border-2 border-gray-100 rounded-xl p-3 space-y-2.5"
-                  >
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs font-bold text-gray-600">Ítem {{ idx + 1 }}</span>
-                      <button type="button" class="text-[11px] text-red-500 hover:text-red-700 font-semibold" @click="removeItem(idx)">
-                        Quitar
-                      </button>
-                    </div>
-
-                    <div v-if="itemFieldNames.length" class="grid grid-cols-2 gap-2">
-                      <input
-                        v-for="fieldName in itemFieldNames" :key="fieldName"
-                        v-model="item.fields[fieldName]"
-                        type="text"
-                        :placeholder="fieldName"
-                        class="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                      />
-                    </div>
-
-                    <textarea
-                      v-model="item.notes"
-                      placeholder="Notas de este ítem (opcional)"
-                      maxlength="300"
-                      rows="2"
-                      class="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
-                    />
-
-                    <!-- Fotos -->
-                    <div>
-                      <div class="flex items-center justify-between mb-1.5">
-                        <span class="text-[11px] font-semibold text-gray-500">Fotos ({{ item.photoFiles.length }}/{{ MAX_PHOTOS_PER_ITEM }})</span>
-                        <label class="text-[11px] text-blue-600 font-semibold cursor-pointer hover:text-blue-700">
-                          + Agregar
-                          <input type="file" accept="image/*" multiple class="hidden" @change="onPhotosSelected(idx, $event)" />
-                        </label>
-                      </div>
-                      <div v-if="item.photoFiles.length" class="grid grid-cols-6 gap-1.5">
-                        <div v-for="(file, fi) in item.photoFiles" :key="fi" class="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                          <img :src="previewUrl(file)" class="w-full h-full object-cover" />
-                          <button type="button" class="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center" @click="removePhoto(idx, fi)">
-                            <XMarkIcon class="w-2.5 h-2.5 text-white" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Videos -->
-                    <div>
-                      <div class="flex items-center justify-between mb-1.5">
-                        <span class="text-[11px] font-semibold text-gray-500">Videos ({{ item.videoFiles.length }}/{{ MAX_VIDEOS_PER_ITEM }}, máx 2 min)</span>
-                        <label class="text-[11px] text-blue-600 font-semibold cursor-pointer hover:text-blue-700">
-                          + Agregar
-                          <input type="file" accept="video/*" multiple class="hidden" @change="onVideosSelected(idx, $event)" />
-                        </label>
-                      </div>
-                      <div v-if="item.videoFiles.length" class="grid grid-cols-3 gap-1.5">
-                        <div v-for="(file, fi) in item.videoFiles" :key="fi" class="relative rounded-lg overflow-hidden bg-gray-100">
-                          <video :src="previewUrl(file)" class="w-full h-16 object-cover" />
-                          <button type="button" class="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center" @click="removeVideo(idx, fi)">
-                            <XMarkIcon class="w-2.5 h-2.5 text-white" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p v-if="itemErrors[idx]" class="text-[11px] text-red-500">{{ itemErrors[idx] }}</p>
-                  </div>
+                    :item="item"
+                    :index="idx"
+                    :field-names="itemFieldNames"
+                    :error="itemErrors[idx]"
+                    @remove="removeItem(idx)"
+                    @update:field="(fieldName, value) => item.fields[fieldName] = value"
+                    @update:notes="item.notes = $event"
+                    @photos-selected="onPhotosSelected(idx, $event)"
+                    @videos-selected="onVideosSelected(idx, $event)"
+                    @remove-photo="removePhoto(idx, $event)"
+                    @remove-video="removeVideo(idx, $event)"
+                  />
                 </div>
 
                 <button
@@ -313,35 +226,13 @@
                 </button>
               </div>
 
-              <!-- Precio -->
-              <div class="bg-blue-50 rounded-2xl px-4 py-3.5 space-y-2.5">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-bold text-blue-700">Precio base del servicio</span>
-                  <div class="text-right">
-                    <div>
-                      <span class="text-lg font-black text-blue-600">${{ formatPrice(service?.price ?? 0) }}</span>
-                      <span v-if="service?.priceUnit" class="text-xs text-blue-400 ml-1">/ {{ service.priceUnit }}</span>
-                    </div>
-                    <div v-if="convertedPrice && defaultRate" class="text-[11px] text-blue-400 mt-0.5">
-                      {{ defaultRate.symbol }} {{ convertedPrice.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                      <span v-if="service?.priceUnit"> / {{ service.priceUnit }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="h-px bg-blue-100" />
-
-                <div class="flex items-start gap-2">
-                  <svg class="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                  <p class="text-[11px] text-blue-600 leading-snug">
-                    Este es el precio publicado por el proveedor para <strong>{{ modalityOptions.find(o => o.value === form.modality)?.label?.toLowerCase() ?? 'este servicio' }}</strong>.
-                    El monto final se confirma con el proveedor según el alcance real del trabajo
-                    <span v-if="items.length">y los {{ items.length }} ítem{{ items.length === 1 ? '' : 's' }} solicitados</span>.
-                  </p>
-                </div>
-              </div>
+              <ServiceRequestPriceInfo
+                :service="service"
+                :converted-price="convertedPrice"
+                :default-rate="defaultRate"
+                :modality-label="(modalityOptions.find(o => o.value === form.modality)?.label ?? 'este servicio').toLowerCase()"
+                :items-count="items.length"
+              />
 
               <!-- KYC banner -->
               <p v-if="kycStatus && kycStatus !== 'APPROVED'" class="text-xs text-amber-700 font-medium bg-amber-50 px-3 py-2 rounded-xl">
@@ -376,11 +267,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useKyc } from '~/composables/kyc/useKyc'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
+import ServiceRequestModalHeader from '~/components/modals/catalog-service-request/ServiceRequestModalHeader.vue'
+import ServiceRequestItemEditor from '~/components/modals/catalog-service-request/ServiceRequestItemEditor.vue'
+import ServiceRequestPriceInfo from '~/components/modals/catalog-service-request/ServiceRequestPriceInfo.vue'
 import {
   useServiceRequestItems,
   emptyServiceRequestItem,
@@ -472,10 +365,6 @@ function addItem() {
 function removeItem(idx: number) {
   items.value.splice(idx, 1)
   delete itemErrors.value[idx]
-}
-
-function previewUrl(file: File) {
-  return URL.createObjectURL(file)
 }
 
 async function onPhotosSelected(idx: number, e: Event) {
@@ -582,10 +471,6 @@ watch(() => user.value, (u) => {
 function imageSrc(image: string) {
   if (image.startsWith('http')) return image
   return `${apiUrl}${image}`
-}
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
 }
 
 function validateAll(): boolean {
