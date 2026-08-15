@@ -132,6 +132,7 @@
       "infoNotice": "The email may take a few minutes. If you don't see it, check your {spam} folder.",
       "spam": "spam",
       "resend": "Resend email",
+      "resendCooldown": "Resend in {seconds}s",
       "useAnotherEmail": "Use another email",
       "rememberedPassword": "Remembered your password?",
       "login": "Sign in",

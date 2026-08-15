@@ -132,6 +132,7 @@
       "infoNotice": "El correo puede tardar unos minutos. Si no lo ves, revisa tu carpeta de {spam}.",
       "spam": "spam",
       "resend": "Reenviar correo",
+      "resendCooldown": "Reenviar en {seconds}s",
       "useAnotherEmail": "Usar otro correo",
       "rememberedPassword": "¿Recordaste tu contraseña?",
       "login": "Inicia sesión",
