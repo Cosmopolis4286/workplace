@@ -29,6 +29,10 @@ import { TwoFactorService } from './two-factor.service';
 import { encryptSecret, decryptSecret } from '../../../common/utils/crypto.util';
 
 const MAX_LOGIN_ATTEMPTS = 5;
+// Duración del refresh token cuando el usuario NO marca "mantener sesión
+// iniciada" — más corta que JWT_REFRESH_EXPIRES_IN (7d por defecto) pero
+// suficiente para no perder la sesión en medio de una jornada de trabajo.
+const SHORT_REFRESH_EXPIRES_IN = '1d';
 
 @Injectable()
 export class AuthService {
@@ -141,8 +145,11 @@ export class AuthService {
     }
 
     const { password, ...safeUser } = user;
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext);
+    const refreshExpiresIn = dto.rememberMe
+      ? this.config.get('JWT_REFRESH_EXPIRES_IN', '7d')
+      : SHORT_REFRESH_EXPIRES_IN;
+    const tokens = await this.generateTokens(user.id, user.email, user.role, refreshExpiresIn);
+    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext, undefined, refreshExpiresIn);
 
     // Crear sesión activa
     if (securityContext) {
@@ -741,7 +748,7 @@ export class AuthService {
 
   // --- Helpers ---
 
-  private async generateTokens(userId: string, email: string, role: Role) {
+  private async generateTokens(userId: string, email: string, role: Role, refreshExpiresIn?: string) {
     const jti = uuidv4();
 
     const accessToken = this.jwtService.sign(
@@ -756,7 +763,7 @@ export class AuthService {
       { sub: userId, jti }, // Incluir JTI también en refresh token
       {
         secret: this.config.get('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+        expiresIn: refreshExpiresIn ?? this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
       }
     );
 
@@ -772,8 +779,8 @@ export class AuthService {
     }
   }
 
-  private async saveRefreshToken(userId: string, token: string, securityContext?: any, replacedByTokenId?: string) {
-    const expiresIn = this.config.get('JWT_REFRESH_EXPIRES_IN', '7d');
+  private async saveRefreshToken(userId: string, token: string, securityContext?: any, replacedByTokenId?: string, refreshExpiresIn?: string) {
+    const expiresIn = refreshExpiresIn ?? this.config.get('JWT_REFRESH_EXPIRES_IN', '7d');
     const ms = this.parseDuration(expiresIn);
     const expiresAt = new Date(Date.now() + ms);
 

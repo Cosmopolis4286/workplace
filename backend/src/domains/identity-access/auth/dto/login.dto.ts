@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsBoolean } from 'class-validator';
 
 export class LoginDto {
   @IsEmail({}, { message: 'Correo electrónico inválido' })
@@ -7,4 +7,8 @@ export class LoginDto {
   @IsString()
   @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
   password: string;
+
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }

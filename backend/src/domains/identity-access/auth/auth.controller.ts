@@ -101,7 +101,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Request() req: any, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.login(dto, req.securityContext);
     if ('requiresTwoFactor' in result) return result;
-    setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
+    setAuthCookies(res, result.accessToken, result.refreshToken, this.config, dto.rememberMe ?? true);
     return result;
   }
 
