@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, ForbiddenException, Logger } from '@
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { isIP } from 'net';
 import { UsersService } from '../../users/users.service';
 import { RedisService } from '../../../../redis/redis.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
@@ -174,18 +175,18 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
           securityContext.userAgent
         );
         
-        // Si la similitud es muy baja, podría ser un dispositivo diferente
+        // Si la similitud es muy baja, podría ser un dispositivo diferente.
+        // Decisión consciente: solo se registra (queda visible en
+        // GET /auth/security-events vía logSecurityEvent, que ya hace su
+        // propio logger.warn) y NO se fuerza re-autenticación — el
+        // algoritmo de similitud de tokens es heurístico y genera falsos
+        // positivos frecuentes con actualizaciones normales de navegador/OS
+        // en el mismo dispositivo; bloquear en ese caso degradaría la UX
+        // más de lo que aporta en seguridad real.
         if (similarity < 0.3) {
           await this.logSecurityEvent(userId, 'SUSPICIOUS_USER_AGENT', {
             expected: recentToken.deviceInfo,
             actual: securityContext.userAgent,
-            similarity,
-            ip: securityContext.ipAddress
-          });
-          
-          // Para producción, podrías requerir re-autenticación
-          // Por ahora, solo registrar como advertencia
-          this.logger.warn(`Low User-Agent similarity for user ${userId}`, {
             similarity,
             ip: securityContext.ipAddress
           });
@@ -237,15 +238,36 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   
   private isSignificantIpChange(oldIp: string, newIp: string): boolean {
     try {
-      const oldParts = oldIp.split('.').map(Number);
-      const newParts = newIp.split('.').map(Number);
-      
-      if (oldParts.length !== 4 || newParts.length !== 4) return true;
-      
-      // Comparar primeros 3 octetos (subred /24)
-      return oldParts[0] !== newParts[0] || 
-             oldParts[1] !== newParts[1] || 
-             oldParts[2] !== newParts[2];
+      const oldVersion = isIP(oldIp);
+      const newVersion = isIP(newIp);
+
+      // Formato irreconocible o cambio de familia (v4↔v6, p.ej. detrás de
+      // un proxy que alterna) — tratar como cambio significativo.
+      if (!oldVersion || !newVersion || oldVersion !== newVersion) return true;
+
+      if (oldVersion === 4) {
+        const oldParts = oldIp.split('.').map(Number);
+        const newParts = newIp.split('.').map(Number);
+        // Comparar primeros 3 octetos (subred /24)
+        return oldParts[0] !== newParts[0] ||
+               oldParts[1] !== newParts[1] ||
+               oldParts[2] !== newParts[2];
+      }
+
+      // IPv6: comparar los primeros 4 grupos hextet (prefijo /64), el
+      // equivalente de "misma subred" que un ISP asigna a un solo cliente
+      // — igual de laxo que la comparación /24 usada para IPv4.
+      const expandHextets = (ip: string): string[] => {
+        const [head, tail] = ip.split('::');
+        const headParts = head ? head.split(':') : [];
+        if (tail === undefined) return headParts;
+        const tailParts = tail ? tail.split(':') : [];
+        const missing = 8 - headParts.length - tailParts.length;
+        return [...headParts, ...Array(missing).fill('0'), ...tailParts];
+      };
+      const oldHextets = expandHextets(oldIp).slice(0, 4);
+      const newHextets = expandHextets(newIp).slice(0, 4);
+      return oldHextets.join(':') !== newHextets.join(':');
     } catch {
       return true; // Si hay error, considerar cambio significativo
     }

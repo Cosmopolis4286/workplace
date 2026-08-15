@@ -277,6 +277,15 @@ export class AuthController {
   @Post('send-verification')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  // Por IP, no por usuario: los guards globales (RateLimitGuard es
+  // APP_GUARD) corren antes que JwtAuthGuard a nivel de método, así que
+  // req.user todavía no está poblado en este punto del pipeline.
+  @RateLimit({
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 5,
+    keyGenerator: (req: any) => `send-verify:${req.ip}`,
+  })
   async sendVerification(@CurrentUser() user: any) {
     return this.authService.sendVerificationEmail(user.id);
   }
@@ -295,6 +304,7 @@ export class AuthController {
 
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async verifyEmail(@Body('token') token: string) {
     return this.authService.verifyEmail(token);
   }

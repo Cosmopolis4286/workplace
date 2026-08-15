@@ -27,7 +27,7 @@ import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { TwoFactorService } from './two-factor.service';
 import { RecaptchaService } from '../../../common/recaptcha/recaptcha.service';
-import { encryptSecret, decryptSecret } from '../../../common/utils/crypto.util';
+import { encryptSecret, decryptSecret, hashToken } from '../../../common/utils/crypto.util';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 // Duración del refresh token cuando el usuario NO marca "mantener sesión
@@ -60,8 +60,8 @@ export class AuthService {
 
     const user = await this.usersService.create({ ...dto, acceptTerms: dto.acceptTerms });
     const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
-    
+    await this.saveRefreshToken(user.id, tokens.refreshToken, undefined, undefined, undefined, tokens.jti);
+
     // Send verification email automatically
     await this.sendVerificationEmail(user.id).catch((err) => {
       this.logger.warn(`Failed to send verification email: ${err.message}`);
@@ -161,7 +161,7 @@ export class AuthService {
       ? this.config.get('JWT_REFRESH_EXPIRES_IN', '7d')
       : SHORT_REFRESH_EXPIRES_IN;
     const tokens = await this.generateTokens(user.id, user.email, user.role, refreshExpiresIn);
-    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext, undefined, refreshExpiresIn);
+    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext, undefined, refreshExpiresIn, tokens.jti);
 
     // Crear sesión activa
     if (securityContext) {
@@ -188,7 +188,13 @@ export class AuthService {
   async verifyLoginTwoFactor(dto: VerifyLoginTwoFactorDto) {
     const pendingRaw = await this.redis.get(`2fa-pending:${dto.sessionId}`);
     if (!pendingRaw) {
-      throw new UnauthorizedException(this.i18n.t('auth.2fa.session_expired'));
+      // errorCode machine-readable además de `message` (que sí se traduce
+      // y puede cambiar de copy/idioma) — el frontend debe decidir la
+      // pantalla de "sesión expirada" por código, no parseando el string.
+      throw new UnauthorizedException({
+        message: this.i18n.t('auth.2fa.session_expired'),
+        errorCode: 'TWO_FA_SESSION_EXPIRED',
+      });
     }
 
     const { userId, securityContext } = JSON.parse(pendingRaw);
@@ -222,7 +228,7 @@ export class AuthService {
     const fullUser = await this.usersService.findByEmail(user.email);
     const { password, ...safeUser } = fullUser as typeof fullUser & { password: string };
     const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext);
+    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext, undefined, undefined, tokens.jti);
 
     if (securityContext) {
       await this.createUserSession(user.id, securityContext);
@@ -370,7 +376,7 @@ export class AuthService {
 
   async refreshTokens(userId: string, oldRefreshToken: string, securityContext?: any) {
     const stored = await this.prisma.refreshToken.findUnique({
-      where: { token: oldRefreshToken },
+      where: { token: hashToken(oldRefreshToken) },
     });
 
     if (!stored || stored.userId !== userId || stored.expiresAt < new Date() || stored.revokedAt) {
@@ -404,8 +410,8 @@ export class AuthService {
 
     const user = await this.usersService.findById(userId);
     const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext, stored.id);
-    
+    await this.saveRefreshToken(user.id, tokens.refreshToken, securityContext, stored.id, undefined, tokens.jti);
+
     // Actualizar sesión
     if (securityContext) {
       await this.updateUserSession(userId, securityContext);
@@ -443,7 +449,7 @@ export class AuthService {
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
+    await this.saveRefreshToken(user.id, tokens.refreshToken, undefined, undefined, undefined, tokens.jti);
 
     const { password, ...safeUser } = user as typeof user & { password?: string };
 
@@ -454,29 +460,26 @@ export class AuthService {
   }
 
   async logout(userId: string, refreshToken?: string, securityContext?: any) {
-    // 1. Obtener JTI de los tokens activos para blacklist
+    // 1. Obtener JTI de los tokens activos para blacklist (columna jti
+    // dedicada — el campo `token` es un hash desde el que ya no se puede
+    // decodificar el JWT, ver RefreshToken en schema.prisma).
     const activeTokens = await this.prisma.refreshToken.findMany({
       where: { userId, revokedAt: null },
-      select: { token: true }
+      select: { jti: true }
     });
-    
-    // 2. Blacklist los JTI de los tokens JWT activos (si se pueden extraer)
+
+    // 2. Blacklist los JTI de los tokens JWT activos
     for (const token of activeTokens) {
-      try {
-        const decoded = this.decodeJWT(token.token);
-        if (decoded?.jti) {
-          // Blacklist por 15 minutos (tiempo de vida del access token)
-          await this.redis.blacklistToken(decoded.jti, 900);
-        }
-      } catch (error) {
-        // Ignorar errores al decodificar
+      if (token.jti) {
+        // Blacklist por 15 minutos (tiempo de vida del access token)
+        await this.redis.blacklistToken(token.jti, 900);
       }
     }
-    
+
     // 3. Revocar el refresh token específico si se proporciona
     if (refreshToken) {
       await this.prisma.refreshToken.updateMany({
-        where: { token: refreshToken, userId },
+        where: { token: hashToken(refreshToken), userId },
         data: { revokedAt: new Date() },
       });
     }
@@ -518,9 +521,10 @@ export class AuthService {
       },
     });
 
+    const currentHash = currentRefreshToken ? hashToken(currentRefreshToken) : undefined;
     return sessions.map(({ token, ...session }) => ({
       ...session,
-      isCurrent: !!currentRefreshToken && token === currentRefreshToken,
+      isCurrent: !!currentHash && token === currentHash,
     }));
   }
 
@@ -533,13 +537,8 @@ export class AuthService {
       throw new NotFoundException(this.i18n.t('auth.session.not_found'));
     }
 
-    try {
-      const decoded = this.decodeJWT(session.token);
-      if (decoded?.jti) {
-        await this.redis.blacklistToken(decoded.jti, 900);
-      }
-    } catch {
-      // Ignorar errores al decodificar
+    if (session.jti) {
+      await this.redis.blacklistToken(session.jti, 900);
     }
 
     await this.prisma.refreshToken.update({
@@ -553,14 +552,11 @@ export class AuthService {
   async revokeAllSessions(userId: string) {
     const tokens = await this.prisma.refreshToken.findMany({
       where: { userId, revokedAt: null },
-      select: { id: true, token: true },
+      select: { id: true, jti: true },
     })
 
     for (const t of tokens) {
-      try {
-        const decoded = this.decodeJWT(t.token)
-        if (decoded?.jti) await this.redis.blacklistToken(decoded.jti, 900)
-      } catch { /* skip */ }
+      if (t.jti) await this.redis.blacklistToken(t.jti, 900)
     }
 
     await this.prisma.refreshToken.updateMany({
@@ -661,16 +657,17 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await this.prisma.passwordResetToken.create({
-      data: { token, userId: user.id, expiresAt },
+      data: { token: hashToken(token), userId: user.id, expiresAt },
     });
 
+    // El email lleva el token crudo — solo el hash se persiste en DB.
     await this.mail.sendPasswordReset(user.email, token, user.firstName);
     return { message: this.i18n.t('auth.password_reset.sent') };
   }
 
   async resetPassword(token: string, newPassword: string) {
     const record = await this.prisma.passwordResetToken.findUnique({
-      where: { token },
+      where: { token: hashToken(token) },
     });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
@@ -694,7 +691,9 @@ export class AuthService {
 
     this.mail
       .sendSecurityAlert(updatedUser.email, updatedUser.firstName, 'password_reset')
-      .catch(() => {});
+      .catch((err) => {
+        this.logger.warn(`Failed to send password-reset security alert: ${err.message}`);
+      });
 
     return { message: this.i18n.t('auth.password_reset.success') };
   }
@@ -717,9 +716,10 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     await this.prisma.emailVerificationToken.create({
-      data: { token, userId, expiresAt },
+      data: { token: hashToken(token), userId, expiresAt },
     });
 
+    // El email lleva el token crudo — solo el hash se persiste en DB.
     await this.mail.sendEmailVerification(user.email, token, user.firstName);
     return { message: this.i18n.t('auth.email_verification.sent') };
   }
@@ -736,7 +736,7 @@ export class AuthService {
 
   async verifyEmail(token: string) {
     const record = await this.prisma.emailVerificationToken.findUnique({
-      where: { token },
+      where: { token: hashToken(token) },
     });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {
@@ -779,9 +779,9 @@ export class AuthService {
       }
     );
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, jti };
   }
-  
+
   private decodeJWT(token: string): any {
     try {
       const payload = token.split('.')[1];
@@ -791,19 +791,20 @@ export class AuthService {
     }
   }
 
-  private async saveRefreshToken(userId: string, token: string, securityContext?: any, replacedByTokenId?: string, refreshExpiresIn?: string) {
+  private async saveRefreshToken(userId: string, token: string, securityContext?: any, replacedByTokenId?: string, refreshExpiresIn?: string, jti?: string) {
     const expiresIn = refreshExpiresIn ?? this.config.get('JWT_REFRESH_EXPIRES_IN', '7d');
     const ms = this.parseDuration(expiresIn);
     const expiresAt = new Date(Date.now() + ms);
 
     await this.prisma.refreshToken.create({
-      data: { 
-        token, 
-        userId, 
+      data: {
+        token: hashToken(token),
+        userId,
         expiresAt,
         ipAddress: securityContext?.ipAddress,
         deviceInfo: securityContext?.userAgent,
-        replacedByTokenId
+        replacedByTokenId,
+        jti: jti ?? this.decodeJWT(token)?.jti,
       },
     });
   }
