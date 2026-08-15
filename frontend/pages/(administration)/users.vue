@@ -184,7 +184,7 @@
     <Teleport to="body">
       <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
         leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <ModalsCategoryModulesModal
+        <CategoryModulesModal
           v-if="showCategoryModal"
           @close="showCategoryModal = false"
           @updated="loadCategories"

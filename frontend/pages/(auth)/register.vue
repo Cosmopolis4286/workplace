@@ -172,7 +172,7 @@
         <span class="px-3 text-xs text-gray-400 font-medium">{{ t('auth.register.orRegisterWith') }}</span>
         <div class="flex-1 border-t border-gray-200"></div>
       </div>
-      <AuthGoogleAuthButton :label="t('auth.register.registerWithGoogle')" />
+      <GoogleAuthButton :label="t('auth.register.registerWithGoogle')" />
 
       <!-- reCAPTCHA notice -->
       <i18n-t v-if="recaptchaEnabled" keypath="auth.register.recaptchaNotice" tag="p" class="text-center text-[11px] text-gray-400 leading-relaxed">

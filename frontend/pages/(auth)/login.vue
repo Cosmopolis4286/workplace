@@ -100,7 +100,7 @@
       </div>
 
       <!-- Google OAuth -->
-      <AuthGoogleAuthButton />
+      <GoogleAuthButton />
 
       <!-- reCAPTCHA notice -->
       <i18n-t v-if="recaptchaEnabled" keypath="auth.login.recaptchaNotice" tag="p" class="text-center text-[11px] text-gray-400 leading-relaxed">
@@ -124,7 +124,7 @@
   </AuthLayout>
 
   <!-- Dev: demo credentials -->
-  <AuthDemoCredentials
+  <DemoCredentials
     :auto-login="true"
     @auto-login="autoLoginDemo"
     @fill-credentials="fillDemoCredentials"

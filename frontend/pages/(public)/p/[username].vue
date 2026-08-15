@@ -1044,14 +1044,14 @@
     </Teleport>
 
     <!-- ── Modal: Order (catálogo) ──────────────────────────────────────── -->
-    <ModalsCatalogOrderModal
+    <CatalogOrderModal
       v-model="showOrderModal"
       :product="orderTarget"
       @success="onOrderSuccess"
     />
 
     <!-- ── Modal: Solicitud de servicio ──────────────────────────────────── -->
-    <ModalsCatalogServiceRequestModal
+    <CatalogServiceRequestModal
       v-model="showServiceReqModal"
       :service="serviceReqTarget"
       @success="onServiceReqSuccess"

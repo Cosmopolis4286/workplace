@@ -229,13 +229,13 @@
       <JobDetailModal :job="selectedJob" @close="selectedJob = null" />
 
       <!-- Modal pedido individual -->
-      <ModalsCatalogOrderModal v-model="showOrderModal" :product="orderProduct" @success="onOrderSuccess" />
+      <CatalogOrderModal v-model="showOrderModal" :product="orderProduct" @success="onOrderSuccess" />
 
       <!-- Modal solicitud de servicio -->
-      <ModalsCatalogServiceRequestModal v-model="showServiceRequestModal" :service="serviceRequestTarget" @success="onServiceRequestSuccess" />
+      <CatalogServiceRequestModal v-model="showServiceRequestModal" :service="serviceRequestTarget" @success="onServiceRequestSuccess" />
 
       <!-- Modal proponer categoría -->
-      <ModalsProposeCategoryModal :is-open="proposeModalOpen" :target="proposeCategoryTarget" @close="proposeModalOpen = false" @success="onProposeCategorySuccess" />
+      <ProposeCategoryModal :is-open="proposeModalOpen" :target="proposeCategoryTarget" @close="proposeModalOpen = false" @success="onProposeCategorySuccess" />
 
       <!-- Carrito drawer (solo en tab productos) -->
       <CartDrawer v-if="activeTab === 'productos'" />
