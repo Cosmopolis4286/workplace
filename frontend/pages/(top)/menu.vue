@@ -152,9 +152,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 
-// Middleware to ensure only users with category "Comida" can access this page
+// El middleware global auth.ts (bloque 4c) ya restringe /menu a usuarios con
+// categoría "Comida" y permiso menu:view — menu-category.ts cubría el mismo
+// caso de forma menos completa (sin chequear el permiso) y se eliminó para
+// no mantener dos guards independientes con la misma responsabilidad.
 definePageMeta({
-  middleware: ['auth', 'menu-category']
+  middleware: ['auth']
 })
 import {
   PlusIcon,
