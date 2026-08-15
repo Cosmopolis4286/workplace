@@ -23,248 +23,49 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- ── Columna principal ────────────────────────────────────────────── -->
       <div class="lg:col-span-2 space-y-4">
+        <CustomersFiltersBar
+          :search-query="searchQuery"
+          :selected-segment="selectedSegment"
+          :selected-status="selectedStatus"
+          @update:search-query="searchQuery = $event"
+          @update:selected-segment="selectedSegment = $event"
+          @update:selected-status="selectedStatus = $event"
+          @clear="clearFilters"
+        />
 
-        <!-- Filtros -->
-        <div class="card p-4">
-          <div class="flex flex-col sm:flex-row gap-3">
-            <div class="relative flex-1">
-              <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                v-model="searchQuery"
-                type="text"
-                placeholder="Buscar por nombre, email o teléfono..."
-                class="input-field pl-9"
-                @input="currentPage = 1"
-              />
-            </div>
-            <select v-model="selectedSegment" class="input-field w-auto" @change="currentPage = 1">
-              <option value="">Todos los segmentos</option>
-              <option value="VIP">VIP</option>
-              <option value="PREMIUM">Premium</option>
-              <option value="REGULAR">Regular</option>
-              <option value="NEW">Nuevo</option>
-            </select>
-            <select v-model="selectedStatus" class="input-field w-auto" @change="currentPage = 1">
-              <option value="">Todos los estados</option>
-              <option value="active">Activos</option>
-              <option value="inactive">Inactivos</option>
-            </select>
-            <button
-              v-if="searchQuery || selectedSegment || selectedStatus"
-              class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap"
-              @click="clearFilters"
-            >Limpiar</button>
-          </div>
-        </div>
-
-        <!-- Tabla -->
-        <div class="card overflow-hidden">
-          <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-            <p class="text-sm font-medium text-gray-700">
-              {{ filteredClients.length }} cliente{{ filteredClients.length !== 1 ? 's' : '' }}
-              <span v-if="searchQuery || selectedSegment || selectedStatus" class="text-gray-400 font-normal"> — filtrados</span>
-            </p>
-          </div>
-
-          <!-- Skeleton -->
-          <template v-if="loading">
-            <div v-for="i in 5" :key="i" class="px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0">
-              <div class="skeleton h-10 w-10 rounded-full flex-shrink-0" />
-              <div class="flex-1 space-y-2">
-                <div class="skeleton h-4 w-36 rounded" />
-                <div class="skeleton h-3 w-48 rounded" />
-              </div>
-              <div class="skeleton h-6 w-16 rounded-full" />
-            </div>
-          </template>
-
-          <!-- Empty -->
-          <div v-else-if="filteredClients.length === 0" class="p-12 text-center">
-            <UsersIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p class="text-gray-500 font-medium">No hay clientes</p>
-            <p class="text-sm text-gray-400 mt-1">
-              {{ searchQuery || selectedSegment || selectedStatus ? 'Sin resultados para los filtros aplicados' : 'Agrega tu primer cliente' }}
-            </p>
-            <button v-if="!searchQuery && !selectedSegment && !selectedStatus" class="btn-primary mt-4" @click="openModal()">
-              <PlusIcon class="h-4 w-4 inline mr-1.5" />Nuevo Cliente
-            </button>
-          </div>
-
-          <!-- Filas -->
-          <template v-else>
-            <div
-              v-for="client in paginatedClients"
-              :key="client.id"
-              class="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors group border-b border-gray-100 last:border-0"
-            >
-              <!-- Avatar -->
-              <div class="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 font-bold text-sm text-red-700">
-                {{ client.name.charAt(0).toUpperCase() }}
-              </div>
-
-              <!-- Info -->
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <p class="text-sm font-semibold text-gray-900 truncate">{{ client.name }}</p>
-                  <span class="badge" :class="SEGMENT_CLASSES[client.segment]">
-                    {{ SEGMENT_LABELS[client.segment] }}
-                  </span>
-                </div>
-                <p class="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3">
-                  <span v-if="client.email">{{ client.email }}</span>
-                  <span v-if="client.phone">{{ client.phone }}</span>
-                  <span>Desde {{ formatDate(client.createdAt) }}</span>
-                </p>
-              </div>
-
-              <!-- Pedidos + gasto -->
-              <div class="hidden sm:flex flex-col items-end text-right flex-shrink-0">
-                <p class="text-sm font-bold text-gray-900">${{ client.totalSpent.toFixed(2) }}</p>
-                <p class="text-xs text-gray-400">{{ client.totalOrders }} pedido{{ client.totalOrders !== 1 ? 's' : '' }}</p>
-              </div>
-
-              <!-- Estado -->
-              <button
-                class="flex-shrink-0 badge transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                :class="client.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
-                :disabled="togglingStatusId === client.id"
-                @click="handleToggleStatus(client)"
-              >
-                {{ client.isActive ? 'Activo' : 'Inactivo' }}
-              </button>
-
-              <!-- Acciones hover -->
-              <div class="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="Editar"
-                  @click="openModal(client)"
-                >
-                  <PencilIcon class="h-4 w-4" />
-                </button>
-                <button
-                  class="p-1.5 rounded-lg transition-colors"
-                  :class="client.telegramChatId ? 'text-green-500 hover:text-green-700 hover:bg-green-50' : 'text-sky-500 hover:text-sky-700 hover:bg-sky-50'"
-                  :title="client.telegramChatId ? 'Telegram vinculado — copiar nuevo link' : 'Enviar link de Telegram'"
-                  :disabled="telegramLinkLoading === client.id"
-                  @click="sendTelegramLink(client)"
-                >
-                  <PaperAirplaneIcon class="h-4 w-4" />
-                </button>
-                <button
-                  class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Eliminar"
-                  @click="confirmDelete(client)"
-                >
-                  <TrashIcon class="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </template>
-
-          <!-- Paginación -->
-          <div v-if="!loading && totalPages > 1" class="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
-            <p class="text-sm text-gray-500">
-              {{ (currentPage - 1) * itemsPerPage + 1 }}–{{ Math.min(currentPage * itemsPerPage, filteredClients.length) }}
-              de {{ filteredClients.length }}
-            </p>
-            <div class="flex gap-2">
-              <button
-                class="btn-secondary text-sm px-3 py-1"
-                :disabled="currentPage === 1"
-                @click="currentPage--"
-              >Anterior</button>
-              <span class="text-sm text-gray-600 px-2 py-1">{{ currentPage }} / {{ totalPages }}</span>
-              <button
-                class="btn-secondary text-sm px-3 py-1"
-                :disabled="currentPage >= totalPages"
-                @click="currentPage++"
-              >Siguiente</button>
-            </div>
-          </div>
-        </div>
+        <CustomersTable
+          :clients="paginatedClients"
+          :filtered-count="filteredClients.length"
+          :is-filtered="!!(searchQuery || selectedSegment || selectedStatus)"
+          :loading="loading"
+          :segment-labels="SEGMENT_LABELS"
+          :segment-classes="SEGMENT_CLASSES"
+          :format-date="formatDate"
+          :toggling-status-id="togglingStatusId"
+          :telegram-link-loading="telegramLinkLoading"
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          :items-per-page="itemsPerPage"
+          @create="openModal()"
+          @edit="openModal"
+          @delete="confirmDelete"
+          @toggle-status="handleToggleStatus"
+          @send-telegram-link="sendTelegramLink"
+          @update:current-page="currentPage = $event"
+        />
       </div>
 
-      <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
-      <div class="space-y-4">
-
-        <!-- Distribución por segmento -->
-        <div class="card p-5">
-          <h3 class="text-sm font-semibold text-gray-700 mb-4">Por segmento</h3>
-          <div class="space-y-3">
-            <div v-for="s in segmentSummary" :key="s.key" class="flex items-center gap-3">
-              <span class="text-base flex-shrink-0">{{ s.emoji }}</span>
-              <div class="flex-1 min-w-0">
-                <div class="flex justify-between text-xs mb-1">
-                  <span class="text-gray-600">{{ s.label }}</span>
-                  <span class="font-bold text-gray-900">{{ s.count }}</span>
-                </div>
-                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    class="h-full rounded-full transition-all duration-700"
-                    :class="s.bar"
-                    :style="{ width: stats.totalClients ? `${Math.round((s.count / stats.totalClients) * 100)}%` : '0%' }"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top clientes por gasto -->
-        <div class="card p-5">
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Top clientes</h3>
-          <div v-if="loading" class="space-y-3">
-            <div v-for="n in 3" :key="n" class="skeleton h-10 w-full rounded-lg" />
-          </div>
-          <div v-else class="space-y-2.5">
-            <div
-              v-for="(client, i) in topClients"
-              :key="client.id"
-              class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-lg p-1 -mx-1 transition-colors"
-              @click="openModal(client)"
-            >
-              <span
-                class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
-                :class="i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-gray-100 text-gray-600' : 'bg-orange-50 text-orange-600'"
-              >{{ i + 1 }}</span>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold text-gray-900 truncate">{{ client.name }}</p>
-                <p class="text-[10px] text-gray-400">{{ client.totalOrders }} pedidos</p>
-              </div>
-              <span class="text-xs font-bold text-gray-900 flex-shrink-0">${{ client.totalSpent.toFixed(0) }}</span>
-            </div>
-            <p v-if="topClients.length === 0" class="text-xs text-gray-400 text-center py-2">Sin datos</p>
-          </div>
-        </div>
-
-        <!-- Resumen rápido -->
-        <div class="card p-5 border-l-4 border-l-red-400">
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Resumen</h3>
-          <div class="space-y-2.5">
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-500">Activos</span>
-              <span class="font-bold text-green-600">{{ stats.activeClients }}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-500">Inactivos</span>
-              <span class="font-bold text-gray-400">{{ stats.totalClients - stats.activeClients }}</span>
-            </div>
-            <div class="h-px bg-gray-100" />
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-500">Gasto promedio</span>
-              <span class="font-bold text-gray-900">${{ stats.avgSpent.toFixed(2) }}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-500">Clientes VIP</span>
-              <span class="font-bold text-purple-600">{{ vipClients }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CustomersSidebar
+        :segment-summary="segmentSummary"
+        :total-clients="stats.totalClients"
+        :loading="loading"
+        :top-clients="topClients"
+        :active-clients="stats.activeClients"
+        :avg-spent="stats.avgSpent"
+        :vip-clients="vipClients"
+        @select-client="openModal"
+      />
     </div>
 
     <!-- Toast Telegram -->
@@ -287,110 +88,35 @@
       </Transition>
     </Teleport>
 
-    <!-- Modal crear / editar -->
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @mousedown.self="closeModal">
-          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeModal" />
-          <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100"
-            leave-active-class="ease-in duration-150" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
-            <div v-if="showModal" class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
-              <div class="flex items-center justify-between mb-5">
-                <h2 class="text-lg font-semibold text-gray-900">
-                  {{ editingClient ? 'Editar Cliente' : 'Nuevo Cliente' }}
-                </h2>
-                <button class="p-1 text-gray-400 hover:text-gray-600 rounded-lg" @click="closeModal">
-                  <XMarkIcon class="h-5 w-5" />
-                </button>
-              </div>
+    <CustomerFormModal
+      :show="showModal"
+      :editing="!!editingClient"
+      :saving="saving"
+      :form-error="formError"
+      :form="form"
+      @close="closeModal"
+      @submit="handleSubmit"
+    />
 
-              <form @submit.prevent="handleSubmit" class="space-y-4">
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
-                  <input v-model="form.name" type="text" required maxlength="100" placeholder="Nombre completo" class="input-field" />
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Correo electrónico</label>
-                  <input v-model="form.email" type="email" maxlength="100" placeholder="correo@ejemplo.com" class="input-field" />
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Teléfono</label>
-                  <input v-model="form.phone" type="text" maxlength="30" placeholder="+58 412-1234567" class="input-field" />
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Dirección</label>
-                  <input v-model="form.address" type="text" maxlength="200" placeholder="Dirección del cliente" class="input-field" />
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Segmento</label>
-                  <select v-model="form.segment" class="input-field">
-                    <option value="NEW">Nuevo</option>
-                    <option value="REGULAR">Regular</option>
-                    <option value="PREMIUM">Premium</option>
-                    <option value="VIP">VIP</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Notas</label>
-                  <textarea v-model="form.notes" maxlength="500" rows="3" placeholder="Preferencias, observaciones..." class="input-field resize-none" />
-                </div>
-
-                <div v-if="formError" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                  {{ formError }}
-                </div>
-
-                <div class="flex gap-3 pt-2">
-                  <button type="button" class="btn-secondary flex-1" @click="closeModal">Cancelar</button>
-                  <button type="submit" class="btn-primary flex-1" :disabled="saving">
-                    {{ saving ? 'Guardando...' : (editingClient ? 'Actualizar' : 'Crear Cliente') }}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </Transition>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- Modal eliminar -->
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="clientToDelete" class="fixed inset-0 z-50 flex items-center justify-center p-4" @mousedown.self="clientToDelete = null">
-          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="clientToDelete = null" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Eliminar cliente</h3>
-            <p class="text-sm text-gray-600 mb-6">
-              ¿Estás seguro de eliminar a <strong>{{ clientToDelete.name }}</strong>? Esta acción no se puede deshacer.
-            </p>
-            <div class="flex gap-3">
-              <button class="btn-secondary flex-1" @click="clientToDelete = null">Cancelar</button>
-              <button class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors"
-                :disabled="deleting" @click="handleDelete">
-                {{ deleting ? 'Eliminando...' : 'Eliminar' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <DeleteCustomerModal
+      :client="clientToDelete"
+      :deleting="deleting"
+      @close="clientToDelete = null"
+      @confirm="handleDelete"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import {
-  UsersIcon,
-  PlusIcon,
-  XMarkIcon,
-  MagnifyingGlassIcon,
-  PencilIcon,
-  TrashIcon,
-  PaperAirplaneIcon,
-} from '@heroicons/vue/24/outline'
+import { UsersIcon, PlusIcon, XMarkIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
+import CustomersFiltersBar from '~/components/customers/CustomersFiltersBar.vue'
+import CustomersTable from '~/components/customers/CustomersTable.vue'
+import CustomersSidebar from '~/components/customers/CustomersSidebar.vue'
+import CustomerFormModal, { type CustomerFormData } from '~/components/customers/CustomerFormModal.vue'
+import DeleteCustomerModal from '~/components/customers/DeleteCustomerModal.vue'
 import { useCustomers, type Customer, type CustomerSegment } from '~/composables/customers/useCustomers'
 
 definePageMeta({ middleware: 'auth' })
@@ -482,8 +208,8 @@ const editingClient = ref<Customer | null>(null)
 const saving        = ref(false)
 const formError     = ref<string | null>(null)
 
-const defaultForm = () => ({ name: '', email: '', phone: '', address: '', notes: '', segment: 'NEW' as CustomerSegment })
-const form = ref(defaultForm())
+const defaultForm = (): CustomerFormData => ({ name: '', email: '', phone: '', address: '', notes: '', segment: 'NEW' })
+const form = ref<CustomerFormData>(defaultForm())
 
 function openModal(client?: Customer) {
   editingClient.value = client ?? null
