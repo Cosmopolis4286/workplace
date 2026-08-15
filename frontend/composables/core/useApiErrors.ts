@@ -5,7 +5,7 @@
  */
 
 interface ApiErrorLike {
-  data?: { message?: string | string[] }
+  data?: { message?: string | string[]; errorCode?: string; retryAfterSeconds?: number }
   message?: string
 }
 
@@ -55,16 +55,25 @@ export function getApiErrorMessage(err: unknown, fallback: string): string {
 }
 
 /**
- * Extrae los segundos de espera de un error de rate-limit, leyendo el mensaje
- * crudo del backend (siempre en inglés) en lugar del mensaje ya traducido.
+ * Código de error machine-readable expuesto por el backend (ver
+ * AllExceptionsFilter, que propaga cualquier campo extra del body de la
+ * excepción). Preferir esto sobre inspeccionar `message`, que se traduce y
+ * puede cambiar de copy/idioma sin previo aviso.
+ */
+export function getApiErrorCode(err: unknown): string | null {
+  const e = err as ApiErrorLike
+  return e?.data?.errorCode ?? null
+}
+
+/**
+ * Extrae los segundos de espera de un error de rate-limit. Lee el campo
+ * estructurado `retryAfterSeconds` que exponen SpanishThrottlerGuard y
+ * RateLimitGuard — antes se parseaba con regex el mensaje crudo en inglés
+ * ("Too many requests... Try again in N seconds"), lo que se rompía en
+ * silencio si el backend cambiaba el formato o el idioma del mensaje.
  * Devuelve null si el error no es un rate-limit con tiempo de espera.
  */
 export function getRateLimitSeconds(err: unknown): number | null {
   const e = err as ApiErrorLike
-  const raw = e?.data?.message ?? e?.message
-  if (!raw) return null
-
-  const msg = Array.isArray(raw) ? raw.join('. ') : raw
-  const match = msg.match(/too many requests.*try again in (\d+)\s*seconds?/i)
-  return match ? parseInt(match[1], 10) : null
+  return typeof e?.data?.retryAfterSeconds === 'number' ? e.data.retryAfterSeconds : null
 }
