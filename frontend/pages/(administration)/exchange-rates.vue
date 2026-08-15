@@ -21,355 +21,78 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- ── Lista principal ────────────────────────────────────────────── -->
-      <div class="lg:col-span-2 space-y-4">
-
-        <!-- Filtros -->
-        <div class="card p-4 flex flex-col sm:flex-row gap-3 items-center">
-          <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none flex-shrink-0">
-            <input v-model="showInactive" type="checkbox" class="rounded border-gray-300 text-red-600" @change="fetchRates(showInactive)" />
-            Mostrar inactivas
-          </label>
-          <div class="relative flex-1">
-            <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input v-model="search" type="text" placeholder="Buscar moneda..." class="input-field pl-9" />
-          </div>
-        </div>
-
-        <!-- Tabla -->
-        <div class="card overflow-hidden">
-          <!-- Skeleton -->
-          <template v-if="loading">
-            <div v-for="i in 4" :key="i" class="p-4 flex items-center gap-4 border-b border-gray-100">
-              <div class="skeleton h-10 w-10 rounded-full flex-shrink-0" />
-              <div class="flex-1 space-y-2"><div class="skeleton h-4 w-32 rounded" /><div class="skeleton h-3 w-48 rounded" /></div>
-              <div class="skeleton h-6 w-20 rounded-full" />
-            </div>
-          </template>
-
-          <!-- Vacío -->
-          <div v-else-if="filtered.length === 0" class="p-12 text-center">
-            <CurrencyDollarIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p class="text-gray-500 font-medium">No se encontraron monedas</p>
-          </div>
-
-          <!-- Filas -->
-          <template v-else>
-            <!-- Cabecera -->
-            <div class="px-5 py-3 bg-gray-50 border-b border-gray-100 grid grid-cols-12 gap-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              <div class="col-span-4">Moneda</div>
-              <div class="col-span-3">Tasa (1 USD =)</div>
-              <div class="col-span-2 hidden sm:block">Fuente</div>
-              <div class="col-span-2">Estado</div>
-              <div class="col-span-1"></div>
-            </div>
-
-            <div class="divide-y divide-gray-100">
-              <div v-for="rate in filtered" :key="rate.id" class="px-5 py-3.5 grid grid-cols-12 gap-3 items-center hover:bg-gray-50 transition-colors group">
-                <!-- Moneda -->
-                <div class="col-span-4 flex items-center gap-3">
-                  <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm flex-shrink-0">
-                    {{ rate.symbol }}
-                  </div>
-                  <div>
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-semibold text-gray-900 text-sm">{{ rate.code }}</span>
-                      <span v-if="rate.isDefault" class="badge bg-red-100 text-red-700 text-[10px]">Predeterminada</span>
-                    </div>
-                    <p class="text-xs text-gray-400">{{ rate.name }}</p>
-                  </div>
-                </div>
-
-                <!-- Tasa -->
-                <div class="col-span-3">
-                  <span class="font-mono font-semibold text-gray-900 text-sm">
-                    {{ formatNumber(rate.rateToUsd, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) }}
-                    <span class="text-gray-400 font-normal text-xs">{{ rate.code }}</span>
-                  </span>
-                  <p class="text-[10px] text-gray-400 mt-0.5">${{ previewAmount }} → {{ rate.symbol }} {{ formatNumber(previewAmount * rate.rateToUsd, { maximumFractionDigits: 2 }) }}</p>
-                </div>
-
-                <!-- Fuente -->
-                <div class="col-span-2 hidden sm:flex items-center gap-1">
-                  <span v-if="rate.source" class="badge bg-gray-100 text-gray-600">{{ rate.source }}</span>
-                  <span v-else class="text-xs text-gray-400">—</span>
-                  <span v-if="rate.code === 'VES' && rate.autoSync" class="badge bg-green-100 text-green-700 flex items-center gap-0.5">
-                    <ArrowPathIcon class="h-2.5 w-2.5" />BCV
-                  </span>
-                  <span v-if="rate.autoSync && rate.syncError" class="badge bg-red-100 text-red-700 flex items-center gap-0.5" :title="rate.syncError">
-                    <ExclamationTriangleIcon class="h-2.5 w-2.5" />Error
-                  </span>
-                </div>
-
-                <!-- Estado -->
-                <div class="col-span-2">
-                  <span class="badge" :class="rate.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
-                    {{ rate.isActive ? 'Activa' : 'Inactiva' }}
-                  </span>
-                </div>
-
-                <!-- Acciones hover -->
-                <div class="col-span-1 flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button v-if="canManage && !rate.isDefault && rate.isActive" class="p-1.5 rounded-lg hover:bg-yellow-50 text-gray-400 hover:text-yellow-600 transition-colors" title="Predeterminar" @click="handleSetDefault(rate)">
-                    <StarIcon class="h-3.5 w-3.5" />
-                  </button>
-                  <button v-if="canManage && !rate.isDefault" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors" :title="rate.isActive ? 'Desactivar' : 'Activar'" @click="handleToggle(rate)">
-                    <component :is="rate.isActive ? NoSymbolIcon : CheckCircleIcon" class="h-3.5 w-3.5" />
-                  </button>
-                  <button v-if="canManage && rate.code === 'VES' && rate.autoSync" class="p-1.5 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors" title="Sincronizar BCV" :disabled="syncingCode === rate.code" @click="handleManualSyncFromTable(rate)">
-                    <ArrowPathIcon class="h-3.5 w-3.5" :class="{ 'animate-spin': syncingCode === rate.code }" />
-                  </button>
-                  <button class="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors" title="Historial de cambios" @click="openHistory(rate)">
-                    <ClockIcon class="h-3.5 w-3.5" />
-                  </button>
-                  <button v-if="canManage" class="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors" title="Editar" @click="openModal(rate)">
-                    <PencilIcon class="h-3.5 w-3.5" />
-                  </button>
-                  <button v-if="canManage && !rate.isDefault" class="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors" title="Eliminar" @click="handleDelete(rate)">
-                    <TrashIcon class="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
+      <div class="lg:col-span-2">
+        <ExchangeRatesTable
+          :rates="filtered"
+          :loading="loading"
+          :show-inactive="showInactive"
+          :search="search"
+          :preview-amount="previewAmount"
+          :can-manage="canManage"
+          :syncing-code="syncingCode"
+          :format-number="formatNumber"
+          @update:show-inactive="onToggleShowInactive"
+          @update:search="search = $event"
+          @set-default="handleSetDefault"
+          @toggle="handleToggle"
+          @sync="handleManualSyncFromTable"
+          @open-history="openHistory"
+          @edit="openModal"
+          @delete="handleDelete"
+        />
       </div>
 
-      <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
-      <div class="space-y-4">
-
-        <!-- Vista previa de conversión -->
-        <div class="card p-5">
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Vista previa</h3>
-          <div class="flex items-center gap-2 mb-4">
-            <span class="text-gray-500 text-sm">$</span>
-            <input v-model.number="previewAmount" type="number" min="0" step="1" placeholder="100" class="input-field w-24 text-center" />
-            <span class="text-gray-500 text-sm">USD</span>
-          </div>
-          <div v-if="activeRates.length > 0" class="space-y-2">
-            <div v-for="rate in activeRates" :key="rate.id" class="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-gray-700">{{ rate.code }}</span>
-                <StarIcon v-if="rate.isDefault" class="h-3 w-3 text-red-400" />
-              </div>
-              <span class="font-mono font-semibold text-gray-900 text-sm">
-                {{ rate.symbol }} {{ formatConversion(previewAmount || 0, rate).replace(rate.symbol + ' ', '') }}
-              </span>
-            </div>
-          </div>
-          <p v-else class="text-xs text-gray-400">No hay monedas activas.</p>
-        </div>
-
-        <!-- Estado de sincronización -->
-        <div v-if="syncStatuses.length > 0" class="card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-semibold text-gray-700">Sincronización auto</h3>
-            <button v-if="canManage" class="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1 disabled:opacity-50" :disabled="syncingAll" @click="handleSyncAll">
-              <ArrowPathIcon class="h-3 w-3" :class="{ 'animate-spin': syncingAll }" />
-              {{ syncingAll ? 'Sincronizando...' : 'Sincronizar todas' }}
-            </button>
-          </div>
-          <div class="space-y-2">
-            <div v-for="s in syncStatuses" :key="s.currencyCode" class="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-gray-700">{{ s.currencyCode }}</span>
-                <span v-if="s.syncError" class="badge bg-red-100 text-red-700 flex items-center gap-0.5" :title="s.syncError">
-                  <ExclamationTriangleIcon class="h-2.5 w-2.5" />Error
-                </span>
-                <span v-else-if="s.isStale" class="badge bg-yellow-100 text-yellow-700">Atrasada</span>
-                <span v-else class="badge bg-green-100 text-green-700">Al día</span>
-              </div>
-              <span class="text-[10px] text-gray-400">{{ s.lastSyncAt ? formatDateTime(s.lastSyncAt) : 'Nunca' }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Resumen -->
-        <div class="card p-5 border-l-4 border-l-red-400">
-          <h3 class="text-sm font-semibold text-gray-700 mb-3">Resumen</h3>
-          <div class="space-y-2.5">
-            <div class="flex justify-between text-sm"><span class="text-gray-500">Total monedas</span><span class="font-bold text-gray-900">{{ stats?.total ?? '—' }}</span></div>
-            <div class="flex justify-between text-sm"><span class="text-gray-500">Activas</span><span class="font-bold text-green-600">{{ stats?.active ?? '—' }}</span></div>
-            <div class="flex justify-between text-sm"><span class="text-gray-500">Inactivas</span><span class="font-bold text-gray-400">{{ stats?.inactive ?? '—' }}</span></div>
-            <div class="h-px bg-gray-100" />
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-500">Predeterminada</span>
-              <span class="font-bold text-red-600">{{ stats?.defaultCurrency ?? '—' }}</span>
-            </div>
-            <div v-if="stats?.defaultRate" class="text-xs text-gray-400 text-right">1 USD = {{ formatNumber(stats.defaultRate, { maximumFractionDigits: 4 }) }}</div>
-          </div>
-        </div>
-      </div>
+      <ExchangeRatesSidebar
+        :preview-amount="previewAmount"
+        :active-rates="activeRates"
+        :format-conversion="formatConversion"
+        :sync-statuses="syncStatuses"
+        :can-manage="canManage"
+        :syncing-all="syncingAll"
+        :format-date-time="formatDateTime"
+        :stats="stats"
+        :format-number="formatNumber"
+        @update:preview-amount="previewAmount = $event"
+        @sync-all="handleSyncAll"
+      />
     </div>
 
-    <!-- ── Modal crear/editar ──────────────────────────────────────────────── -->
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="closeModal">
-          <div class="absolute inset-0 bg-black/40" @click="closeModal" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div class="sticky top-0 bg-white flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 class="text-base font-bold text-gray-900">{{ editingRate ? 'Editar Moneda' : 'Nueva Moneda' }}</h2>
-              <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" @click="closeModal"><XMarkIcon class="h-5 w-5" /></button>
-            </div>
-            <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
-              <div v-if="formError" class="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs">{{ formError }}</div>
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Código <span class="text-red-500">*</span></label>
-                  <input v-model="form.code" type="text" required maxlength="10" placeholder="VES" class="input-field uppercase" />
-                  <p class="text-xs text-gray-400 mt-1">ISO (ej. VES, COP, EUR)</p>
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Símbolo <span class="text-red-500">*</span></label>
-                  <input v-model="form.symbol" type="text" required maxlength="20" placeholder="Bs." class="input-field" />
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
-                <input v-model="form.name" type="text" required maxlength="100" placeholder="Bolívar Venezolano" class="input-field" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Tasa (1 USD = X moneda) <span class="text-red-500">*</span></label>
-                <div class="relative">
-                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">1 USD =</span>
-                  <input v-model.number="form.rateToUsd" type="number" required min="0.000001" step="any" placeholder="36.50" class="input-field pl-16" />
-                </div>
-                <p v-if="form.rateToUsd && form.code" class="text-xs text-gray-400 mt-1">
-                  $100 USD = {{ form.symbol || form.code }} {{ formatNumber(100 * form.rateToUsd, { maximumFractionDigits: 2 }) }}
-                </p>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Fuente / Referencia</label>
-                <input v-model="form.source" type="text" maxlength="100" placeholder="BCV, Paralelo, Manual..." class="input-field" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Notas</label>
-                <textarea v-model="form.notes" rows="2" maxlength="500" class="input-field resize-none" />
-              </div>
-              <div class="flex flex-wrap gap-5">
-                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input v-model="form.isActive" type="checkbox" class="rounded border-gray-300 text-red-600" />Activa
-                </label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input v-model="form.isDefault" type="checkbox" class="rounded border-gray-300 text-red-600" />Predeterminada
-                </label>
-                <label v-if="form.code.toUpperCase() === 'VES'" class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer" title="Sincronizar con BCV diariamente a las 5 PM">
-                  <input v-model="form.autoSync" type="checkbox" class="rounded border-gray-300 text-green-600" />
-                  <span class="flex items-center gap-1"><ArrowPathIcon class="h-4 w-4 text-green-600" />Auto-sync BCV</span>
-                </label>
-              </div>
-              <!-- Panel BCV en edición -->
-              <div v-if="editingRate?.code === 'VES'" class="bg-green-50 border border-green-100 rounded-xl p-3">
-                <div class="flex items-center justify-between gap-3">
-                  <div>
-                    <p class="text-sm font-medium text-green-800">Sincronización BCV</p>
-                    <p class="text-xs text-green-600 mt-0.5">
-                      {{ editingRate.autoSync ? '✅ Auto-sync activado' : '⚠️ Auto-sync desactivado' }}
-                      <span v-if="editingRate.lastSyncAt"> · {{ formatDateTime(editingRate.lastSyncAt) }}</span>
-                    </p>
-                  </div>
-                  <button v-if="editingRate.autoSync" type="button" class="btn-secondary text-xs" :disabled="syncing" @click="handleManualSync">
-                    {{ syncing ? 'Sincronizando...' : 'Sincronizar ahora' }}
-                  </button>
-                </div>
-                <div v-if="editingRate.syncError" class="mt-2 pt-2 border-t border-green-100 flex items-start gap-1.5">
-                  <ExclamationTriangleIcon class="h-3.5 w-3.5 text-red-500 flex-shrink-0 mt-0.5" />
-                  <p class="text-xs text-red-600">
-                    {{ editingRate.syncError }}
-                    <span v-if="editingRate.syncAttempts" class="text-red-400">({{ editingRate.syncAttempts }} intento{{ editingRate.syncAttempts === 1 ? '' : 's' }} fallido{{ editingRate.syncAttempts === 1 ? '' : 's' }})</span>
-                  </p>
-                </div>
-              </div>
-              <div class="flex gap-3 pt-2">
-                <button type="button" class="btn-secondary flex-1" @click="closeModal">Cancelar</button>
-                <button type="submit" :disabled="saving" class="btn-primary flex-1">
-                  {{ saving ? 'Guardando...' : (editingRate ? 'Actualizar' : 'Crear') }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <ExchangeRateFormModal
+      :show="showModal"
+      :editing-rate="editingRate"
+      :saving="saving"
+      :syncing="syncing"
+      :form-error="formError"
+      :form="form"
+      :format-number="formatNumber"
+      :format-date-time="formatDateTime"
+      @close="closeModal"
+      @submit="handleSubmit"
+      @manual-sync="handleManualSync"
+    />
 
-
-    <!-- ── Modal historial de auditoría ────────────────────────────────────── -->
-    <Teleport to="body">
-      <Transition enter-active-class="ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
-        leave-active-class="ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-        <div v-if="historyRate" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="historyRate = null">
-          <div class="absolute inset-0 bg-black/40" @click="historyRate = null" />
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
-            <div class="sticky top-0 bg-white flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <div>
-                <h2 class="text-base font-bold text-gray-900 flex items-center gap-2">
-                  <ClockIcon class="h-4.5 w-4.5 text-indigo-500" />
-                  Historial — {{ historyRate.code }}
-                </h2>
-                <p class="text-xs text-gray-400 mt-0.5">{{ historyRate.name }}</p>
-              </div>
-              <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" @click="historyRate = null"><XMarkIcon class="h-5 w-5" /></button>
-            </div>
-
-            <div class="p-6">
-              <!-- Loading -->
-              <div v-if="loadingHistory" class="space-y-3">
-                <div v-for="i in 4" :key="i" class="skeleton h-14 rounded-xl" />
-              </div>
-
-              <!-- Vacío -->
-              <div v-else-if="history.length === 0" class="text-center py-10">
-                <ClockIcon class="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                <p class="text-sm text-gray-500">Sin cambios registrados todavía.</p>
-              </div>
-
-              <!-- Timeline -->
-              <ol v-else class="relative border-l-2 border-gray-100 ml-2 space-y-5">
-                <li v-for="entry in history" :key="entry.id" class="ml-4">
-                  <span
-                    class="absolute -left-[7px] w-3 h-3 rounded-full ring-2 ring-white"
-                    :class="entry.newRate > (entry.previousRate ?? 0) ? 'bg-green-500' : entry.newRate < (entry.previousRate ?? Infinity) ? 'bg-red-500' : 'bg-gray-300'"
-                  />
-                  <div class="flex items-center justify-between gap-2">
-                    <p class="text-sm font-semibold text-gray-900">
-                      <template v-if="entry.previousRate !== null">
-                        {{ formatNumber(entry.previousRate, { maximumFractionDigits: 6 }) }}
-                        <span class="text-gray-400 mx-1">→</span>
-                      </template>
-                      {{ formatNumber(entry.newRate, { maximumFractionDigits: 6 }) }}
-                      <span class="text-gray-400 font-normal">{{ entry.code }}</span>
-                    </p>
-                    <span class="badge flex-shrink-0" :class="sourceBadgeClass(entry.source)">{{ sourceLabel(entry.source) }}</span>
-                  </div>
-                  <p class="text-xs text-gray-400 mt-0.5">
-                    {{ formatDateTime(entry.createdAt) }}
-                    <span v-if="entry.changedBy"> · por usuario {{ entry.changedBy.slice(0, 8) }}…</span>
-                    <span v-else> · automático</span>
-                  </p>
-                </li>
-              </ol>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- Toast -->
+    <ExchangeRateHistoryModal
+      :rate="historyRate"
+      :history="history"
+      :loading="loadingHistory"
+      :format-number="formatNumber"
+      :format-date-time="formatDateTime"
+      :source-label="sourceLabel"
+      :source-badge-class="sourceBadgeClass"
+      @close="historyRate = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import {
-  CurrencyDollarIcon, PlusIcon, XMarkIcon, MagnifyingGlassIcon,
-  PencilIcon, TrashIcon, ArrowPathIcon, StarIcon,
-  NoSymbolIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon,
-} from '@heroicons/vue/24/outline'
+import { CurrencyDollarIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
+import ExchangeRatesTable from '~/components/admin/exchange-rates/ExchangeRatesTable.vue'
+import ExchangeRatesSidebar from '~/components/admin/exchange-rates/ExchangeRatesSidebar.vue'
+import ExchangeRateFormModal from '~/components/admin/exchange-rates/ExchangeRateFormModal.vue'
+import ExchangeRateHistoryModal from '~/components/admin/exchange-rates/ExchangeRateHistoryModal.vue'
 import { useExchangeRates, type ExchangeRate, type ExchangeRateHistoryEntry, type SyncStatusEntry } from '~/composables/wallets/useExchangeRates'
 import { usePermissions } from '~/composables/users/usePermissions'
 import { useDateFormat } from '~/composables/core/useDateFormat'
@@ -382,12 +105,17 @@ const { can } = usePermissions()
 const canManage = computed(() => can('exchange_rates:manage'))
 
 const { rates, stats, loading, error, activeRates, fetchRates, fetchStats, createRate, updateRate, setDefault, toggleStatus, deleteRate, manualSync, syncAll, getAllSyncStatuses, formatConversion, fetchHistory } = useExchangeRates()
-const { formatDate, formatDateTime, formatNumber } = useDateFormat()
+const { formatDateTime, formatNumber } = useDateFormat()
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 const showInactive   = ref(true)
 const search         = ref('')
 const previewAmount  = ref(100)
+
+function onToggleShowInactive(value: boolean) {
+  showInactive.value = value
+  fetchRates(value)
+}
 
 const filtered = computed(() => {
   let list = showInactive.value ? rates.value : rates.value.filter((r: ExchangeRate) => r.isActive)
