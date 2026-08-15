@@ -21,10 +21,6 @@ export default defineNuxtConfig({
     dirs: ['composables/**'],
   },
 
-  components: [
-    { path: '~/components', pathPrefix: false },
-  ],
-
   modules: [
     '@nuxtjs/tailwindcss',
     '@vueuse/nuxt',
