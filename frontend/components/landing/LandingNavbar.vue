@@ -2,7 +2,7 @@
   <nav class="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
       <!-- Logo -->
-      <AppLogo />
+      <LayoutAppLogo />
 
       <!-- Desktop nav -->
       <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
@@ -14,7 +14,7 @@
 
       <!-- CTA + Hamburger -->
       <div class="flex items-center gap-2">
-        <LanguageSwitcher />
+        <SharedLanguageSwitcher />
         <NuxtLink
           to="/download"
           :aria-label="t('landing.nav.downloadApp')"

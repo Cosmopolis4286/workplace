@@ -4,7 +4,7 @@
       <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
         <!-- Brand -->
         <div class="space-y-3">
-          <AppLogo size="sm" />
+          <LayoutAppLogo size="sm" />
           <p class="text-sm text-gray-400 max-w-xs">
             {{ t('landing.footer.tagline') }}
           </p>

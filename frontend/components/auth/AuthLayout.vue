@@ -215,14 +215,14 @@
       <div class="flex items-center justify-between px-6 sm:px-10 py-5 border-b border-gray-100 bg-white">
         <!-- Mobile logo -->
         <div class="lg:hidden">
-          <AppLogo size="sm" />
+          <LayoutAppLogo size="sm" />
         </div>
         <div class="hidden lg:block"></div>
 
         <div class="flex items-center gap-4">
           <!-- Nav links slot -->
           <slot name="header-action" />
-          <LanguageSwitcher />
+          <SharedLanguageSwitcher />
         </div>
       </div>
 
