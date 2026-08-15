@@ -162,11 +162,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ShoppingBagIcon, CurrencyDollarIcon, CalendarIcon, InformationCircleIcon } from '@heroicons/vue/24/outline'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import { useApi } from '~/composables/core/useApi'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+
+const props = defineProps<{
+  active: boolean
+}>()
 
 interface CatalogOrder {
   id: string
@@ -267,5 +271,7 @@ async function confirmCompletion() {
   }
 }
 
-onMounted(fetchOrders)
+watch(() => props.active, (active) => {
+  if (active && orders.value.length === 0) fetchOrders()
+}, { immediate: true })
 </script>
