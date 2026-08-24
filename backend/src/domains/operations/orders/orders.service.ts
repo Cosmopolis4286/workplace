@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { TelegramService } from '../../engagement/telegram/telegram.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -29,6 +30,7 @@ const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService,
     private readonly notifications: NotificationsService,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly telegram: TelegramService,
@@ -39,11 +41,7 @@ export class OrdersService {
   // Helpers
   // ──────────────────────────────────────────────────────────────────────────
   async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    return commerce?.id ?? userId;
+    return this.commerceResolver.resolve(userId);
   }
 
   // ──────────────────────────────────────────────────────────────────────────

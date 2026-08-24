@@ -8,8 +8,7 @@ import {
 import { I18nService } from 'nestjs-i18n';
 import { ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { RedisService } from '../../../redis/redis.service';
-import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -23,7 +22,7 @@ import { normalizeTags } from '../../../common/utils/tags.util';
 export class MenuService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
+    private readonly commerceResolver: CommerceResolverService,
     private readonly notifications: NotificationsService,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly i18n: I18nService,
@@ -36,24 +35,7 @@ export class MenuService {
   // vive en AccountTypeGuard (@RequireAccountType('COMMERCE') en
   // MenuController) — este método ya no necesita conocer Role.
   private async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (commerce) return commerce.id;
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { firstName: true, lastName: true },
-    });
-    const created = await this.prisma.commerce.create({
-      data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
-      select: { id: true },
-    });
-    // findById cachea `commerce` (Commerce) — sin esto un findById previo a
-    // la creación del commerce (commerce: null) queda stale hasta el TTL.
-    await this.redis.del(userFindByIdCacheKey(userId));
-    return created.id;
+    return this.commerceResolver.resolveOrCreate(userId);
   }
 
   private async assertCategoryOwnership(

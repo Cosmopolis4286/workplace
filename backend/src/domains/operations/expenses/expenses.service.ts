@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { QueryExpensesDto } from './dto/query-expenses.dto';
@@ -16,17 +17,14 @@ import { ExpenseStatus } from '@prisma/client';
 export class ExpensesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService,
     private readonly i18n: I18nService
   ) {}
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    return commerce?.id ?? userId;
+    return this.commerceResolver.resolve(userId);
   }
 
   // ── Stats ──────────────────────────────────────────────────────────────────

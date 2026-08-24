@@ -9,6 +9,7 @@ import { RequirePermission } from '../../../common/decorators/require-permission
 import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
 @RequireAccountType('COMMERCE')
@@ -16,15 +17,12 @@ import { PrismaService } from '../../../prisma/prisma.service';
 export class ReceiptsController {
   constructor(
     private readonly receiptsService: ReceiptsService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   private async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    return commerce?.id ?? userId;
+    return this.commerceResolver.resolve(userId);
   }
 
   @Post()

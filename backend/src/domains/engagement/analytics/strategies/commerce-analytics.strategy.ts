@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../../common/commerce-resolver/commerce-resolver.service';
 import { QueryAnalyticsDto } from '../dto/query-analytics.dto';
 import { CustomerSegment } from '@prisma/client';
 import { AnalyticsAccountStrategy, AnalyticsDashboardTrends } from './analytics-overview.strategy.interface';
@@ -13,16 +14,13 @@ import {
 
 @Injectable()
 export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService,
+  ) {}
 
   private async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    // Si no tiene commerce, usar el userId como commerceId
-    return commerce?.id ?? userId;
+    return this.commerceResolver.resolve(userId);
   }
 
   async getOverview(userId: string, dto: QueryAnalyticsDto) {

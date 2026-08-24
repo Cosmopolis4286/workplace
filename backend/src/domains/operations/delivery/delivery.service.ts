@@ -7,6 +7,7 @@ import {
 import { I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { TelegramService } from '../../engagement/telegram/telegram.service';
 import { MailService } from '../../engagement/mail/mail.service';
@@ -37,6 +38,7 @@ function endOfDay(d: Date) {
 export class DeliveryService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService,
     private readonly notifications: NotificationsService,
     private readonly telegram: TelegramService,
     private readonly mail: MailService,
@@ -46,13 +48,7 @@ export class DeliveryService {
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   private async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    // Si no tiene commerce, usar el userId como commerceId
-    return commerce?.id ?? userId;
+    return this.commerceResolver.resolve(userId);
   }
 
   private async assertDriverOwnership(driverId: string, commerceId: string) {

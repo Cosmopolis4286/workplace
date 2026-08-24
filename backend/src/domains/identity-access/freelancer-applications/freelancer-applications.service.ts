@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { KycStatus, ProposalStatus, Role } from '@prisma/client';
+import { KycStatus, ProfessionalSubtype, ProfileStatus, ProfileType, ProposalStatus, Role } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
@@ -45,7 +45,7 @@ export class FreelancerApplicationsService {
       }
     }
 
-    return this.prisma.freelancerApplication.create({
+    const created = await this.prisma.freelancerApplication.create({
       data: {
         userId,
         categoryId: dto.categoryId,
@@ -53,6 +53,43 @@ export class FreelancerApplicationsService {
         message: dto.message,
       },
     });
+
+    // Dual-write a UserProfile (ver WORKPLACE_VISION.md — modelo de perfiles
+    // múltiples). No es la fuente de verdad todavía (sigue siendo
+    // FreelancerApplication, que es lo que lee el frontend); es un espejo
+    // para que AccountTypeResolver y /profile-activations vean este perfil.
+    // No @@unique en UserProfile(userId, type): si por lo que sea ya hay uno,
+    // actualizamos en vez de duplicar.
+    const existingProfile = await this.prisma.userProfile.findFirst({
+      where: { userId, type: ProfileType.PROFESSIONAL, status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] } },
+    });
+    if (existingProfile) {
+      await this.prisma.userProfile.update({
+        where: { id: existingProfile.id },
+        data: {
+          subtype: ProfessionalSubtype.FREELANCER,
+          categoryId: dto.categoryId,
+          subcategoryId: dto.subcategoryId,
+          status: ProfileStatus.PENDING,
+          rejectionReason: null,
+          reviewedBy: null,
+          reviewedAt: null,
+        },
+      });
+    } else {
+      await this.prisma.userProfile.create({
+        data: {
+          userId,
+          type: ProfileType.PROFESSIONAL,
+          subtype: ProfessionalSubtype.FREELANCER,
+          categoryId: dto.categoryId,
+          subcategoryId: dto.subcategoryId,
+          status: ProfileStatus.PENDING,
+        },
+      });
+    }
+
+    return created;
   }
 
   // ─── Admin ────────────────────────────────────────────────────────────────────
@@ -91,6 +128,13 @@ export class FreelancerApplicationsService {
       );
     }
 
+    // Espejo en UserProfile (ver create() más arriba): busca el PENDING que
+    // esta misma solicitud creó/actualizó para mantenerlo sincronizado.
+    const linkedProfile = await this.prisma.userProfile.findFirst({
+      where: { userId: application.userId, type: ProfileType.PROFESSIONAL, status: ProfileStatus.PENDING },
+    });
+    const profileStatus = dto.status === ProposalStatus.APPROVED ? ProfileStatus.ACTIVE : ProfileStatus.REJECTED;
+
     const [updated] = await this.prisma.$transaction([
       this.prisma.freelancerApplication.update({
         where: { id },
@@ -109,6 +153,19 @@ export class FreelancerApplicationsService {
                 role: Role.FREELANCER,
                 categoryId: application.categoryId,
                 subcategoryId: application.subcategoryId,
+              },
+            }),
+          ]
+        : []),
+      ...(linkedProfile
+        ? [
+            this.prisma.userProfile.update({
+              where: { id: linkedProfile.id },
+              data: {
+                status: profileStatus,
+                rejectionReason: dto.status === ProposalStatus.REJECTED ? dto.rejectionReason : null,
+                reviewedBy: reviewerId,
+                reviewedAt: new Date(),
               },
             }),
           ]

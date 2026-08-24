@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { BnplProvider, BnplTransactionStatus, NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { TelegramService } from '../../engagement/telegram/telegram.service';
 import { encryptSecret, decryptSecret } from '../../../common/utils/crypto.util';
@@ -23,6 +24,7 @@ export class BnplService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
     private readonly telegram: TelegramService,
@@ -35,11 +37,7 @@ export class BnplService {
   // Helpers
   // ──────────────────────────────────────────────────────────────────────────
   async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    return commerce?.id ?? userId;
+    return this.commerceResolver.resolve(userId);
   }
 
   private encryptField(value?: string): string | undefined {

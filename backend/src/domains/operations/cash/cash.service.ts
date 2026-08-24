@@ -6,6 +6,7 @@ import {
 import { I18nService } from 'nestjs-i18n';
 import { Prisma, CashMovementType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { OpenSessionDto } from './dto/open-session.dto';
 import { CloseSessionDto } from './dto/close-session.dto';
 import { CreateMovementDto } from './dto/create-movement.dto';
@@ -15,17 +16,14 @@ import { QuerySessionsDto } from './dto/query-sessions.dto';
 export class CashService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService,
     private readonly i18n: I18nService
   ) {}
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    return commerce?.id ?? userId;
+    return this.commerceResolver.resolve(userId);
   }
 
   // ── Sesión activa ──────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { QueryAppointmentsDto } from './dto/query-appointments.dto';
@@ -32,19 +33,14 @@ const TABLE_BLOCKING_STATUSES: AppointmentStatus[] = [
 export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService,
     private readonly i18n: I18nService
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    // Si no tiene commerce, usar el userId como commerceId
-    return commerce?.id ?? userId;
+    return this.commerceResolver.resolve(userId);
   }
 
   private async assertOwnership(appointmentId: string, commerceId: string) {

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeeRole } from '@prisma/client';
@@ -16,6 +17,7 @@ import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-lim
 export class EmployeesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly i18n: I18nService
   ) {}
@@ -23,13 +25,7 @@ export class EmployeesService {
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private async getCommerceId(userId: string): Promise<string> {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    // Si no tiene commerce, usar el userId como commerceId
-    return commerce?.id ?? userId;
+    return this.commerceResolver.resolve(userId);
   }
 
   private async assertOwnership(employeeId: string, commerceId: string) {
