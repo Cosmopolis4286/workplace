@@ -16,6 +16,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { RecaptchaModule } from './common/recaptcha/recaptcha.module';
 import { AccountTypeModule } from './common/account-type/account-type.module';
+import { CommerceResolverModule } from './common/commerce-resolver/commerce-resolver.module';
 import { MenuModule } from './domains/commerce-core/menu/menu.module';
 import { CustomersModule } from './domains/operations/customers/customers.module';
 import { SettingsModule } from './domains/platform/settings/settings.module';
@@ -35,6 +36,7 @@ import { SystemModulesModule } from './domains/platform/system-modules/system-mo
 import { ProfilesModule } from './domains/identity-access/profiles/profiles.module';
 import { KycModule } from './domains/identity-access/kyc/kyc.module';
 import { FreelancerApplicationsModule } from './domains/identity-access/freelancer-applications/freelancer-applications.module';
+import { ProfileActivationsModule } from './domains/identity-access/profile-activations/profile-activations.module';
 import { AuditModule } from './domains/identity-access/audit/audit.module';
 import { ServicesModule } from './domains/commerce-core/services/services.module';
 import { ServiceRequestMessagesModule } from './domains/commerce-core/services/messages/service-request-messages.module';
@@ -84,6 +86,7 @@ import { NavigationModule } from './domains/platform/navigation/navigation.modul
     RedisModule,
     RecaptchaModule,
     AccountTypeModule,
+    CommerceResolverModule,
     UsersModule,
     AuthModule,
     MenuModule,
@@ -107,6 +110,7 @@ import { NavigationModule } from './domains/platform/navigation/navigation.modul
     ProfilesModule,
     KycModule,
     FreelancerApplicationsModule,
+    ProfileActivationsModule,
     AuditModule,
     ServicesModule,
     ServiceRequestMessagesModule,
