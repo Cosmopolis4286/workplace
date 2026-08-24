@@ -44,7 +44,7 @@ const KNOWN_PROTECTED_ROUTES: string[] = [
 const ADMIN_ONLY_ROUTES: string[] = [
   '/kyc-admin', '/landing-admin', '/proposed-categories-admin', '/service-requests-admin',
   '/freelancer-applications-admin', '/wallet-deposit-requests-admin', '/reports-admin',
-  '/wallets-admin', '/service-categories-admin',
+  '/wallets-admin', '/service-categories-admin', '/profile-activations-admin',
 ]
 
 // Rutas que no necesitan permiso específico pero sí autenticación
