@@ -95,6 +95,8 @@ model User {
   ridesAsDriver           Ride[]                   @relation("RideDriver")
   reportsFiled            Report[]
   driverProfile           Driver?
+  profiles                UserProfile[]
+  reviewedProfiles        UserProfile[]            @relation("UserProfileReviewer")
 
   // Jobs / Empleos
   jobsPosted      Job[]            @relation("UserJobs")
@@ -135,6 +137,7 @@ model UserCategory {
   subcategories          UserSubcategory[]
   users                  User[]
   freelancerApplications FreelancerApplication[]
+  profileActivations     UserProfile[]
 
   @@map("user_categories")
 }
@@ -146,6 +149,7 @@ model UserSubcategory {
   category               UserCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   users                  User[]
   freelancerApplications FreelancerApplication[]
+  profileActivations     UserProfile[]
 
   @@unique([name, categoryId])
   @@index([categoryId])
@@ -181,6 +185,14 @@ model Commerce {
 
   userId            String                 @unique
   user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Vínculo al perfil BUSINESS del dueño (ver UserProfile). Nullable y
+  // desacoplado de `userId` a propósito: `userId` sigue siendo la FK real que
+  // usan ~15 servicios vía `commerce.findUnique({ where: { userId } })` — no
+  // se toca para no romper esos call sites. `profileId` es aditivo, para que
+  // el modelo de "perfiles múltiples" (ver WORKPLACE_VISION.md) pueda
+  // construirse encima sin migrar esa FK todavía.
+  profileId         String?                @unique
+  profile           UserProfile?           @relation(fields: [profileId], references: [id], onDelete: SetNull)
   categories        Category[]
   products          Product[]
   customers         Customer[]
@@ -207,6 +219,77 @@ model Commerce {
 
   @@index([avgRating])
   @@map("commerces")
+}
+
+// ─── User Profiles (perfiles múltiples) ────────────────────────────────────
+//
+// Ver WORKPLACE_VISION.md, sección "Estado actual vs. visión". Un User puede
+// tener varias filas activas acá simultáneamente (CUSTOMER + PROFESSIONAL,
+// PROFESSIONAL + BUSINESS, etc.) — a diferencia de `accountType` en User, que
+// es un enum excluyente y queda intacto por compatibilidad hacia atrás.
+//
+// Este modelo NO reemplaza `Commerce.userId` ni `FreelancerApplication`
+// todavía: es aditivo. `Commerce.profileId` (nullable) es el único punto de
+// unión hoy, para no tener que migrar los ~15 call sites que resuelven
+// commerce vía `where: { userId }`. BUSINESS y PROFESSIONAL requieren
+// aprobación (mismo flujo que ya usaba FreelancerApplication); CUSTOMER y
+// JOB_SEEKER se activan sin revisión.
+model UserProfile {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type    ProfileType
+  subtype ProfessionalSubtype?
+  status  ProfileStatus        @default(ACTIVE)
+
+  // Solo aplica a PROFESSIONAL/BUSINESS (mismo dato que FreelancerApplication
+  // pedía). Al aprobar, se copia a User.categoryId/subcategoryId — ver
+  // ProfileActivationsService.review().
+  categoryId    String?
+  subcategoryId String?
+  category      UserCategory?    @relation(fields: [categoryId], references: [id])
+  subcategory   UserSubcategory? @relation(fields: [subcategoryId], references: [id])
+
+  rejectionReason String?
+  reviewedBy      String?
+  reviewer        User?     @relation("UserProfileReviewer", fields: [reviewedBy], references: [id])
+  reviewedAt      DateTime?
+
+  commerce Commerce?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // No hay @@unique([userId, type]): un usuario puede tener un REJECTED
+  // histórico y luego una fila PENDING/ACTIVE nueva del mismo tipo. La regla
+  // "no más de un PENDING/ACTIVE simultáneo por tipo" se aplica en el
+  // service (mismo patrón que FreelancerApplication.create), no en el schema.
+  @@index([userId])
+  @@index([status])
+  @@index([type, status])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@map("user_profiles")
+}
+
+enum ProfileType {
+  CUSTOMER
+  PROFESSIONAL
+  JOB_SEEKER
+  BUSINESS
+}
+
+enum ProfessionalSubtype {
+  FREELANCER
+  SERVICE_PROVIDER
+}
+
+enum ProfileStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  SUSPENDED
 }
 
 model CommerceSettings {
