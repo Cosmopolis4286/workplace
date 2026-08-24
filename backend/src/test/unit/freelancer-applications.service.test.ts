@@ -40,6 +40,11 @@ describe('FreelancerApplicationsService', () => {
         findUnique: jest.fn(),
         update: jest.fn().mockImplementation(({ data }: any) => Promise.resolve({ ...pendingApplication(), ...data })),
       },
+      userProfile: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'profile-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'profile-1' }),
+      },
       $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     }
 

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { CashService } from '../../domains/operations/cash/cash.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { ConflictException, NotFoundException } from '@nestjs/common'
 import { I18nService } from 'nestjs-i18n'
 
@@ -45,6 +46,7 @@ describe('CashService', () => {
       providers: [
         CashService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: CommerceResolverService, useValue: { resolve: jest.fn(), resolveOrCreate: jest.fn() } },
         { provide: I18nService, useValue: mockI18nService },
       ],
     }).compile()

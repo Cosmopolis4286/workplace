@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { BranchesService } from '../../domains/commerce-core/branches/branches.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { CreateBranchDto } from '../../domains/commerce-core/branches/dto/create-branch.dto'
 import { UpdateBranchDto } from '../../domains/commerce-core/branches/dto/update-branch.dto'
@@ -36,6 +37,14 @@ describe('BranchesService', () => {
     t: jest.fn((key: string) => key),
   }
 
+  const mockCommerceResolverService = {
+    resolve: jest.fn(async (userId: string) => {
+      const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
+      return commerce?.id ?? userId
+    }),
+    resolveOrCreate: jest.fn(),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -43,6 +52,10 @@ describe('BranchesService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: CommerceResolverService,
+          useValue: mockCommerceResolverService,
         },
         {
           provide: PLAN_LIMITS_FACADE,

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { OrdersService } from '../../domains/operations/orders/orders.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { TelegramService } from '../../domains/engagement/telegram/telegram.service'
@@ -74,6 +75,10 @@ describe('OrdersService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: CommerceResolverService,
+          useValue: { resolve: jest.fn(), resolveOrCreate: jest.fn() },
         },
         {
           provide: NotificationsService,

@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { BnplService } from '../../domains/money/bnpl/bnpl.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { TelegramService } from '../../domains/engagement/telegram/telegram.service'
 import { SimulatedAdapter } from '../../domains/money/bnpl/adapters/simulated.adapter'
@@ -23,6 +24,7 @@ describe('BnplService', () => {
       providers: [
         BnplService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: CommerceResolverService, useValue: { resolve: jest.fn(), resolveOrCreate: jest.fn() } },
         { provide: ConfigService, useValue: { get: jest.fn() } },
         { provide: NotificationsService, useValue: { create: jest.fn().mockResolvedValue(undefined) } },
         { provide: TelegramService, useValue: { notifyCustomer: jest.fn().mockResolvedValue(undefined) } },

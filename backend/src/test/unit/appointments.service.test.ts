@@ -4,6 +4,7 @@ import { I18nService } from 'nestjs-i18n'
 import { AppointmentStatus } from '@prisma/client'
 import { AppointmentsService } from '../../domains/operations/appointments/appointments.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 
 describe('AppointmentsService', () => {
   let service: AppointmentsService
@@ -45,6 +46,16 @@ describe('AppointmentsService', () => {
       providers: [
         AppointmentsService,
         { provide: PrismaService, useValue: mockPrismaService },
+        {
+          provide: CommerceResolverService,
+          useValue: {
+            resolve: jest.fn(async (userId: string) => {
+              const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
+              return commerce?.id ?? userId
+            }),
+            resolveOrCreate: jest.fn(),
+          },
+        },
         { provide: I18nService, useValue: mockI18nService },
       ],
     }).compile()

@@ -3,6 +3,7 @@ import { AnalyticsService } from '../../domains/engagement/analytics/analytics.s
 import { CommerceAnalyticsStrategy } from '../../domains/engagement/analytics/strategies/commerce-analytics.strategy'
 import { FreelancerAnalyticsStrategy } from '../../domains/engagement/analytics/strategies/freelancer-analytics.strategy'
 import { PrismaService } from '../../prisma/prisma.service'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { AnalyticsPeriod } from '../../domains/engagement/analytics/dto/query-analytics.dto'
 
 describe('AnalyticsService', () => {
@@ -75,6 +76,16 @@ describe('AnalyticsService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: CommerceResolverService,
+          useValue: {
+            resolve: jest.fn(async (userId: string) => {
+              const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
+              return commerce?.id ?? userId
+            }),
+            resolveOrCreate: jest.fn(),
+          },
         },
       ],
     }).compile()

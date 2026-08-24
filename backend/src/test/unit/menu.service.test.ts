@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { MenuService } from '../../domains/commerce-core/menu/menu.service'
 import { PrismaService } from '../../prisma/prisma.service'
-import { RedisService } from '../../redis/redis.service'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { CategoryHelper } from '../../common/helpers/category.helper'
@@ -44,8 +44,15 @@ describe('MenuService', () => {
     assertProductLimit: jest.fn(),
   }
 
-  const mockRedisService = {
-    del: jest.fn().mockResolvedValue(undefined),
+  const mockCommerceResolverService = {
+    resolve: jest.fn(async (userId: string) => {
+      const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
+      return commerce?.id ?? userId
+    }),
+    resolveOrCreate: jest.fn(async (userId: string) => {
+      const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
+      return commerce?.id ?? 'commerce-123'
+    }),
   }
 
   const mockNotificationsService = {
@@ -72,8 +79,8 @@ describe('MenuService', () => {
           useValue: mockPrismaService,
         },
         {
-          provide: RedisService,
-          useValue: mockRedisService,
+          provide: CommerceResolverService,
+          useValue: mockCommerceResolverService,
         },
         {
           provide: PLAN_LIMITS_FACADE,

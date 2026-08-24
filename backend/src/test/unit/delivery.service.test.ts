@@ -3,6 +3,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { I18nService } from 'nestjs-i18n';
 import { DeliveryService } from '../../domains/operations/delivery/delivery.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { TelegramService } from '../../domains/engagement/telegram/telegram.service';
 import { MailService } from '../../domains/engagement/mail/mail.service';
@@ -103,6 +104,16 @@ describe('DeliveryService — driver invitations & assignability', () => {
       providers: [
         DeliveryService,
         { provide: PrismaService, useValue: mockPrismaService },
+        {
+          provide: CommerceResolverService,
+          useValue: {
+            resolve: jest.fn(async (userId: string) => {
+              const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
+              return commerce?.id ?? userId
+            }),
+            resolveOrCreate: jest.fn(),
+          },
+        },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: TelegramService, useValue: {} },
         { provide: MailService, useValue: mockMailService },
