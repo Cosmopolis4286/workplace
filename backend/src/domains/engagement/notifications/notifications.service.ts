@@ -552,6 +552,32 @@ export class NotificationsService {
     });
   }
 
+  async notifyProfileActivationReviewed(
+    userId: string,
+    profileTypeLabel: string,
+    status: 'ACTIVE' | 'REJECTED',
+    rejectionReason?: string
+  ) {
+    if (status === 'ACTIVE') {
+      return this.createForUser(userId, {
+        type: NotificationType.SYSTEM,
+        title: `🎉 ¡Nuevo perfil activado: ${profileTypeLabel}!`,
+        message: `Tu solicitud para activar el perfil de ${profileTypeLabel} fue aprobada.`,
+        link: '/profile',
+        metadata: { status },
+      });
+    }
+    return this.createForUser(userId, {
+      type: NotificationType.SYSTEM,
+      title: `❌ Solicitud de perfil ${profileTypeLabel} rechazada`,
+      message: rejectionReason
+        ? `Tu solicitud para activar el perfil de ${profileTypeLabel} fue rechazada: ${rejectionReason}`
+        : `Tu solicitud para activar el perfil de ${profileTypeLabel} fue rechazada.`,
+      link: '/profile',
+      metadata: { status, rejectionReason },
+    });
+  }
+
   async notifyNewReview(
     targetUserId: string,
     authorName: string,
