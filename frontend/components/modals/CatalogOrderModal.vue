@@ -40,7 +40,10 @@
                     </div>
                   </div>
                   <div>
-                    <h2 class="text-base font-black text-gray-900 leading-tight">{{ product?.name }}</h2>
+                    <div class="flex items-center gap-1.5">
+                      <h2 class="text-base font-black text-gray-900 leading-tight">{{ product?.name }}</h2>
+                      <span v-if="product?.isBundle" class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">📦 Pack</span>
+                    </div>
                     <p class="text-xs text-gray-400 mt-0.5">{{ product?.commerce?.name }}</p>
                   </div>
                 </div>
@@ -279,11 +282,8 @@ async function submit() {
   try {
     const { post } = useApi()
     await post('/catalog/orders', {
-      productId: props.product.id,
-      productName: props.product.name,
       commerceId: props.product.commerce.id,
-      commerceName: props.product.commerce.name,
-      quantity: form.value.quantity,
+      items: [{ productId: props.product.id, quantity: form.value.quantity }],
       deliveryType: form.value.deliveryType,
       address: form.value.address || undefined,
       city: form.value.city || undefined,
@@ -291,7 +291,6 @@ async function submit() {
       buyerPhone: form.value.buyerPhone,
       buyerEmail: form.value.buyerEmail || undefined,
       notes: form.value.notes || undefined,
-      totalEstimate: totalEstimate.value,
     })
     emit('update:modelValue', false)
     emit('success')

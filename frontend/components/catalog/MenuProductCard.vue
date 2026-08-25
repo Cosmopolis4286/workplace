@@ -7,6 +7,11 @@
         class="w-full h-full object-cover"
         @error="handleImageError"
       >
+      <div class="absolute top-2 left-2" v-if="product.isBundle">
+        <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold rounded-full bg-purple-100 text-purple-700">
+          📦 Pack
+        </span>
+      </div>
       <div class="absolute top-2 right-2">
         <span
           :class="[
@@ -35,14 +40,19 @@
           </div>
         </div>
         <div class="text-right">
-          <div class="text-xs text-gray-500">Stock: {{ product.stock }}</div>
-          <div class="text-xs text-gray-400">Costo: ${{ product.cost }}</div>
+          <template v-if="product.isBundle">
+            <div class="text-xs text-gray-500">{{ product.bundleItems?.length ?? 0 }} productos</div>
+          </template>
+          <template v-else>
+            <div class="text-xs text-gray-500">Stock: {{ product.stock }}</div>
+            <div class="text-xs text-gray-400">Costo: ${{ product.cost }}</div>
+          </template>
         </div>
       </div>
 
-      <!-- Stock indicator -->
-      <div class="w-full bg-gray-200 rounded-full h-1.5">
-        <div 
+      <!-- Stock indicator: el stock de un pack vive en sus componentes -->
+      <div v-if="!product.isBundle" class="w-full bg-gray-200 rounded-full h-1.5">
+        <div
           class="h-1.5 rounded-full transition-all duration-300"
           :class="getStockColor()"
           :style="{ width: `${getStockPercentage()}%` }"

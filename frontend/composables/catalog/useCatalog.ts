@@ -23,6 +23,7 @@ export interface CatalogProduct {
   unit?: string
   status: string
   tags?: string[]
+  isBundle?: boolean
   category: { id: string; name: string; color: string }
   commerce: { id: string; name: string; type: string | null; country?: string | null; state?: string | null; city?: string | null; user?: { username: string | null; rating: number | null; reviewsCount: number } }
 }
@@ -30,6 +31,7 @@ export interface CatalogProduct {
 export interface CatalogProductDetail extends CatalogProduct {
   ingredients: string[]
   allergens: string[]
+  bundleItems?: { quantity: number; componentProduct: { id: string; name: string; price: number; image: string | null } }[]
   commerce: { id: string; name: string; type: string | null; address?: string; phone?: string; user?: { username: string | null; rating: number | null; reviewsCount: number } }
 }
 

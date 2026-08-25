@@ -42,7 +42,7 @@
             <p class="text-sm font-semibold text-gray-900 truncate">{{ mo.buyerName }}</p>
             <span class="badge" :class="MKT_STATUS_CLASSES[mo.status]">{{ MKT_STATUS_LABELS[mo.status] }}</span>
           </div>
-          <p class="text-xs text-gray-500 truncate">{{ mo.productName }} × {{ mo.quantity }}</p>
+          <p class="text-xs text-gray-500 truncate">{{ itemsSummary(mo) }}</p>
           <p class="text-xs text-gray-400">{{ mo.buyerPhone }}<span v-if="mo.buyerEmail"> · {{ mo.buyerEmail }}</span></p>
           <p v-if="mo.address" class="text-xs text-gray-400 mt-0.5">📍 {{ mo.address }}{{ mo.city ? `, ${mo.city}` : '' }}</p>
         </div>
@@ -86,7 +86,15 @@ import { useDateFormat } from '~/composables/core/useDateFormat'
 
 type MktOrderStatus = 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED'
 type MktDeliveryType = 'HOME_DELIVERY' | 'PICKUP' | 'DIGITAL'
-interface MktOrder { id: string; productId: string; productName: string; quantity: number; deliveryType: MktDeliveryType; address?: string; city?: string; buyerName: string; buyerPhone: string; buyerEmail?: string; notes?: string; totalEstimate?: number; status: MktOrderStatus; createdAt: string }
+interface MktOrderItem { productId: string; productName: string; unitPrice: number; quantity: number; isBundle: boolean }
+interface MktOrder { id: string; items: MktOrderItem[]; deliveryType: MktDeliveryType; address?: string; city?: string; buyerName: string; buyerPhone: string; buyerEmail?: string; notes?: string; totalEstimate?: number; status: MktOrderStatus; createdAt: string }
+
+function itemsSummary(order: MktOrder): string {
+  if (!order.items?.length) return ''
+  if (order.items.length === 1) return `${order.items[0].productName} × ${order.items[0].quantity}`
+  const totalQty = order.items.reduce((sum, i) => sum + i.quantity, 0)
+  return `${totalQty} productos (${order.items.length} tipos)`
+}
 
 const MKT_STATUS_LABELS: Record<MktOrderStatus, string>  = { PENDING: 'Pendiente', SEEN: 'Visto', CONTACTED: 'Contactado', CLOSED: 'Cerrado' }
 const MKT_STATUS_CLASSES: Record<MktOrderStatus, string>  = { PENDING: 'bg-orange-100 text-orange-700', SEEN: 'bg-blue-100 text-blue-700', CONTACTED: 'bg-green-100 text-green-700', CLOSED: 'bg-gray-100 text-gray-500' }

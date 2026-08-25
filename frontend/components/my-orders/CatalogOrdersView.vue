@@ -57,7 +57,7 @@
               <div class="flex items-start justify-between gap-2 mb-1">
                 <div class="min-w-0">
                   <p class="text-sm font-semibold text-gray-900 truncate">{{ order.commerceName }}</p>
-                  <p class="text-xs text-red-600 font-medium truncate">{{ order.quantity }}× {{ order.productName }}</p>
+                  <p class="text-xs text-red-600 font-medium truncate">{{ itemsSummary(order) }}</p>
                 </div>
                 <span class="badge flex-shrink-0" :class="STATUS_CLASSES[order.status]">
                   {{ STATUS_LABELS[order.status] }}
@@ -104,15 +104,21 @@
         <div class="p-6 border-b border-gray-100 flex items-start justify-between">
           <div>
             <h3 class="font-black text-gray-900">{{ selectedOrder.commerceName }}</h3>
-            <p class="text-sm text-gray-500 mt-0.5">{{ selectedOrder.quantity }}× {{ selectedOrder.productName }}</p>
           </div>
           <span class="badge flex-shrink-0" :class="STATUS_CLASSES[selectedOrder.status]">
             {{ STATUS_LABELS[selectedOrder.status] }}
           </span>
         </div>
         <div class="p-6 space-y-3">
-          <div v-if="selectedOrder.totalEstimate" class="flex justify-between text-sm">
-            <span class="text-gray-500">Total estimado</span>
+          <div v-for="item in selectedOrder.items" :key="item.productId" class="flex justify-between text-sm">
+            <span class="text-gray-600">
+              {{ item.quantity }}× {{ item.productName }}
+              <span v-if="item.isBundle" class="text-[10px] font-bold text-purple-600">📦</span>
+            </span>
+            <span class="text-gray-900">{{ formatCurrency(item.unitPrice * item.quantity) }}</span>
+          </div>
+          <div v-if="selectedOrder.totalEstimate" class="flex justify-between text-sm pt-2 border-t border-gray-100">
+            <span class="text-gray-500 font-semibold">Total estimado</span>
             <span class="font-bold text-gray-900">{{ formatCurrency(selectedOrder.totalEstimate) }}</span>
           </div>
           <div v-if="selectedOrder.address" class="flex justify-between text-sm">
@@ -172,11 +178,18 @@ const props = defineProps<{
   active: boolean
 }>()
 
+interface CatalogOrderItem {
+  productId: string
+  productName: string
+  unitPrice: number
+  quantity: number
+  isBundle: boolean
+}
+
 interface CatalogOrder {
   id: string
-  productName: string
   commerceName: string
-  quantity: number
+  items: CatalogOrderItem[]
   totalEstimate?: number
   address?: string
   city?: string
@@ -219,6 +232,13 @@ const filteredOrders = computed(() =>
 
 function countByStatus(status: string) {
   return orders.value.filter((o) => o.status === status).length
+}
+
+function itemsSummary(order: CatalogOrder): string {
+  if (!order.items?.length) return ''
+  if (order.items.length === 1) return `${order.items[0].quantity}× ${order.items[0].productName}`
+  const totalQty = order.items.reduce((sum, i) => sum + i.quantity, 0)
+  return `${totalQty} productos (${order.items.length} tipos)`
 }
 
 function statusAvatarClass(status: CatalogOrder['status']) {

@@ -248,12 +248,9 @@ async function submit() {
       props.groups.map(group =>
         post('/catalog/orders', {
           commerceId: group.commerceId,
-          commerceName: group.commerceName,
           items: group.items.map(i => ({
             productId: i.product.id,
-            productName: i.product.name,
             quantity: i.quantity,
-            unitPrice: i.product.price,
           })),
           deliveryType: form.value.deliveryType,
           address: form.value.address || undefined,
@@ -262,7 +259,6 @@ async function submit() {
           buyerPhone: form.value.buyerPhone,
           buyerEmail: form.value.buyerEmail || undefined,
           notes: form.value.notes || undefined,
-          totalEstimate: group.subtotal,
         })
       )
     )

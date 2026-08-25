@@ -34,6 +34,17 @@ export interface Product {
   categoryId: string
   category: { id: string; name: string; color: string }
   commerceId: string
+  isBundle?: boolean
+  bundleItems?: { quantity: number; componentProduct: { id: string; name: string; price: number; image: string | null } }[]
+}
+
+export interface CreateBundlePayload {
+  name: string
+  description?: string
+  price: number
+  image?: string
+  categoryId: string
+  items: { productId: string; quantity: number }[]
 }
 
 // Estado global compartido
@@ -130,6 +141,17 @@ export const useMenu = () => {
     }
   }
 
+  async function createBundle(data: CreateBundlePayload): Promise<Product | null> {
+    try {
+      const bundle = await post<Product>('/menu/bundles', data)
+      products.value.push(bundle)
+      return bundle
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al crear el pack'
+      return null
+    }
+  }
+
   async function updateProduct(id: string, data: Partial<Product>): Promise<Product | null> {
     try {
       const product = await put<Product>(`/menu/products/${id}`, data)
@@ -211,6 +233,7 @@ export const useMenu = () => {
     updateCategory,
     deleteCategory,
     createProduct,
+    createBundle,
     updateProduct,
     deleteProduct,
     updateStock,
