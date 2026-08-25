@@ -1366,6 +1366,86 @@ export class ServicesService {
     });
   }
 
+  // ─── Opportunity Engine ──────────────────────────────────────────────────
+  // Demanda de servicios por categoría: cuántas solicitudes recibió el
+  // mercado en los últimos 30 días y a qué precio promedio, para que alguien
+  // decida convertirse en proveedor de esa categoría. ServiceRequest no
+  // denormaliza categoryId, así que se resuelve vía Service.categoryId antes
+  // de agrupar en memoria (no hay categoryId a nivel de ServiceRequest para
+  // un groupBy directo).
+  async getOpportunities(city?: string) {
+    const since = new Date(Date.now() - 30 * 86400_000);
+
+    const [requests, unmetSearches] = await Promise.all([
+      this.prisma.serviceRequest.findMany({
+        where: {
+          createdAt: { gte: since },
+          ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}),
+        },
+        select: {
+          price: true,
+          service: { select: { category: { select: { id: true, name: true, color: true } } } },
+        },
+      }),
+      this.prisma.unmetSearch.findMany({
+        where: {
+          createdAt: { gte: since },
+          ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}),
+        },
+        select: { query: true },
+      }),
+    ]);
+
+    const byCategory = new Map<
+      string,
+      { name: string; color: string; count: number; priceSum: number; priceCount: number }
+    >();
+
+    for (const r of requests) {
+      const category = r.service.category;
+      if (!category) continue;
+      const cur = byCategory.get(category.id) ?? {
+        name: category.name,
+        color: category.color,
+        count: 0,
+        priceSum: 0,
+        priceCount: 0,
+      };
+      cur.count += 1;
+      if (r.price != null) {
+        cur.priceSum += r.price;
+        cur.priceCount += 1;
+      }
+      byCategory.set(category.id, cur);
+    }
+
+    const opportunities = Array.from(byCategory.entries())
+      .map(([categoryId, v]) => ({
+        categoryId,
+        categoryName: v.name,
+        categoryColor: v.color,
+        requestCount: v.count,
+        avgPrice: v.priceCount > 0 ? Math.round((v.priceSum / v.priceCount) * 100) / 100 : null,
+      }))
+      .sort((a, b) => b.requestCount - a.requestCount);
+
+    // Demanda insatisfecha: no se mapea a una ServiceCategory real (el
+    // matching texto→categoría no existe todavía) — se muestra tal cual como
+    // señal cruda de qué está buscando la gente sin encontrarlo.
+    const byQuery = new Map<string, number>();
+    for (const s of unmetSearches) {
+      const normalized = s.query.trim().toLowerCase();
+      if (!normalized) continue;
+      byQuery.set(normalized, (byQuery.get(normalized) ?? 0) + 1);
+    }
+    const unmetQueries = Array.from(byQuery.entries())
+      .map(([query, count]) => ({ query, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return { data: opportunities, unmetQueries, city: city ?? null, periodDays: 30 };
+  }
+
   async getServiceMetrics(id: string, userId: string) {
     await this.assertOwner(id, userId);
 

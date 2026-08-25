@@ -134,11 +134,13 @@ const PERMISSIONS = [
   { key: 'services:edit',            module: 'services',      action: 'edit',           label: 'Editar Servicios' },
   { key: 'services:delete',          module: 'services',      action: 'delete',         label: 'Eliminar Servicios' },
   { key: 'service_requests:view',    module: 'service_requests', action: 'view',        label: 'Ver Solicitudes de Servicio' },
+  { key: 'opportunities:view',       module: 'opportunities', action: 'view',           label: 'Ver Oportunidades' },
   { key: 'jobs:view',                module: 'jobs',           action: 'view',           label: 'Ver Empleos' },
   { key: 'jobs:create',              module: 'jobs',           action: 'create',         label: 'Crear Empleos' },
   { key: 'jobs:edit',                module: 'jobs',           action: 'edit',           label: 'Editar Empleos' },
   { key: 'jobs:delete',              module: 'jobs',           action: 'delete',         label: 'Eliminar Empleos' },
   { key: 'catalog:view',             module: 'catalog',       action: 'view',           label: 'Ver Catálogo (marketplace)' },
+  { key: 'catalog:manage_orders',    module: 'catalog',       action: 'manage_orders',  label: 'Cambiar estado de pedidos de Catálogo' },
   // 🌍 Categorías y Subcategorías Globales (solo superadmin/admin)
   { key: 'categories_global:view',   module: 'categories_global', action: 'view_categories',   label: 'Ver Categorías Globales', isSystem: true },
   { key: 'categories_global:create', module: 'categories_global', action: 'create_categories', label: 'Crear Categorías Globales', isSystem: true },
@@ -192,10 +194,12 @@ const COMMERCE_KEYS = [
   'notifications:view',
   'services:view', 'services:create', 'services:edit', 'services:delete',
   'service_requests:view',
+  'opportunities:view',
   'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete',
   'search:view',
   'corridas:view', 'corridas:create', 'corridas:manage',
   'wallets:use',
+  'catalog:view', 'catalog:manage_orders',
 ]
 
 const ADMIN_KEYS = COMMERCE_KEYS.filter(
@@ -236,6 +240,7 @@ const ROLE_DEFAULTS = {
     'notifications:view',
     'services:view', 'services:create', 'services:edit', 'services:delete',
     'service_requests:view',
+    'opportunities:view',
     'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete',
     // 'sales:view' no aplica: la "venta" de un freelancer es aceptar una
     // ServiceRequest ya iniciada por el cliente, no crear una Order eligiendo
@@ -250,7 +255,7 @@ const ROLE_DEFAULTS = {
     'wallets:use',
     'categories_user:propose',
   ],
-  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view', 'wallets:use'],
+  NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'opportunities:view', 'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view', 'wallets:use'],
 }
 
 async function seedPermissions() {

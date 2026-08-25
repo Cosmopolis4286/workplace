@@ -208,6 +208,12 @@ export class ServicesController {
 
   // ─── Tracking & Metrics ───────────────────────────────────────────────────
 
+  @Get('opportunities')
+  @UseGuards(OptionalJwtAuthGuard)
+  getOpportunities(@Query('city') city?: string) {
+    return this.servicesService.getOpportunities(city);
+  }
+
   @Post('track')
   @HttpCode(204)
   @UseGuards(OptionalJwtAuthGuard)
