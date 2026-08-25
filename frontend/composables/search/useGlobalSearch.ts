@@ -24,14 +24,20 @@ export interface SearchTabCount {
   total: number
 }
 
+export type NeedCategory = 'comida' | 'hogar' | 'ocio'
+
 interface SuggestCache {
   suggestions: SearchSuggestion[]
   counts: SearchTabCount[]
+  detectedBudget: number | null
+  needCategory: NeedCategory | null
 }
 
 const query = ref('')
 const suggestions = ref<SearchSuggestion[]>([])
 const counts = ref<SearchTabCount[]>([])
+const detectedBudget = ref<number | null>(null)
+const needCategory = ref<NeedCategory | null>(null)
 const loading = ref(false)
 const highlightedIndex = ref(-1)
 
@@ -85,7 +91,13 @@ async function fetchSuggestions(trimmed: string) {
 
   try {
     const { get } = useApi()
-    const result = await get<{ query: string; suggestions: SearchSuggestion[]; counts: SearchTabCount[] }>(
+    const result = await get<{
+      query: string
+      suggestions: SearchSuggestion[]
+      counts: SearchTabCount[]
+      detectedBudget: number | null
+      needCategory: NeedCategory | null
+    }>(
       `/search/suggest?q=${encodeURIComponent(trimmed)}`,
       { signal: abortController.signal },
     )
@@ -94,7 +106,14 @@ async function fetchSuggestions(trimmed: string) {
 
     suggestions.value = result.suggestions
     counts.value = result.counts ?? []
-    cache.set(trimmed.toLowerCase(), { suggestions: result.suggestions, counts: result.counts ?? [] })
+    detectedBudget.value = result.detectedBudget ?? null
+    needCategory.value = result.needCategory ?? null
+    cache.set(trimmed.toLowerCase(), {
+      suggestions: result.suggestions,
+      counts: result.counts ?? [],
+      detectedBudget: result.detectedBudget ?? null,
+      needCategory: result.needCategory ?? null,
+    })
     if (cache.size > CACHE_MAX) {
       const oldestKey = cache.keys().next().value
       if (oldestKey !== undefined) cache.delete(oldestKey)
@@ -103,6 +122,8 @@ async function fetchSuggestions(trimmed: string) {
     if (e?.name === 'AbortError') return
     suggestions.value = []
     counts.value = []
+    detectedBudget.value = null
+    needCategory.value = null
   } finally {
     if (trimmed === lastRequestedTerm) loading.value = false
   }
@@ -121,6 +142,8 @@ export function useGlobalSearch() {
       abortController?.abort()
       suggestions.value = []
       counts.value = []
+      detectedBudget.value = null
+      needCategory.value = null
       loading.value = false
       return
     }
@@ -130,6 +153,8 @@ export function useGlobalSearch() {
       cancelSearchDebounce()
       suggestions.value = cached.suggestions
       counts.value = cached.counts
+      detectedBudget.value = cached.detectedBudget
+      needCategory.value = cached.needCategory
       loading.value = false
       return
     }
@@ -144,6 +169,8 @@ export function useGlobalSearch() {
     query.value = ''
     suggestions.value = []
     counts.value = []
+    detectedBudget.value = null
+    needCategory.value = null
     loading.value = false
     highlightedIndex.value = -1
   }
@@ -182,6 +209,8 @@ export function useGlobalSearch() {
     query,
     suggestions,
     counts,
+    detectedBudget,
+    needCategory,
     loading,
     highlightedIndex,
     recentTerms,

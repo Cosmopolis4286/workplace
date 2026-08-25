@@ -33,6 +33,8 @@
         :query="inputValue"
         :suggestions="suggestions"
         :counts="counts"
+        :detected-budget="detectedBudget"
+        :need-category="needCategory"
         :recent-terms="recentTerms"
         :loading="loading"
         :highlighted-index="highlightedIndex"
@@ -122,7 +124,7 @@ import SearchSuggestionsDropdown from '~/components/search/SearchSuggestionsDrop
 
 const { isDark } = useColorMode()
 const {
-  query, suggestions, counts, recentTerms, loading, highlightedIndex,
+  query, suggestions, counts, detectedBudget, needCategory, recentTerms, loading, highlightedIndex,
   search, clear, moveHighlight, getHighlighted, goToSuggestion, goToTabWithQuery,
   applyRecentTerm, removeRecentTerm,
 } = useGlobalSearch()

@@ -54,6 +54,14 @@
 
     <!-- Resultados agrupados por tab -->
     <template v-else>
+      <div
+        v-if="needHint"
+        class="mx-3 mt-2 mb-1 px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5"
+        :class="isDark ? 'bg-white/5 text-gray-300' : 'bg-red-50 text-gray-600'"
+      >
+        <SparklesIcon class="h-3.5 w-3.5 flex-shrink-0" :class="isDark ? 'text-red-400' : 'text-workplace-red'" />
+        {{ needHint }}
+      </div>
       <div v-for="group in groupedSuggestions" :key="group.tab" class="py-1.5">
         <p class="px-4 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-wide flex items-center justify-between" :class="isDark ? 'text-gray-500' : 'text-gray-400'">
           <span>{{ TAB_LABELS[group.tab] }}</span>
@@ -140,6 +148,7 @@ import { computed } from 'vue'
 import {
   ShoppingBagIcon, WrenchScrewdriverIcon, BriefcaseIcon, MagnifyingGlassIcon,
   ChevronRightIcon, ClockIcon, XMarkIcon, MapPinIcon, ExclamationTriangleIcon,
+  SparklesIcon,
 } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
@@ -153,6 +162,8 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   staticPosition: { type: Boolean, default: false },
   highlightedIndex: { type: Number, default: -1 },
+  detectedBudget: { type: Number, default: null },
+  needCategory: { type: String, default: null },
 })
 defineEmits(['select', 'see-all', 'hover', 'recent-select', 'recent-remove'])
 
@@ -163,6 +174,17 @@ loadDefaultRate()
 
 const TAB_LABELS = { productos: 'Productos', servicios: 'Servicios', empleos: 'Empleos' }
 const TAB_ICONS = { productos: ShoppingBagIcon, servicios: WrenchScrewdriverIcon, empleos: BriefcaseIcon }
+const NEED_LABELS = { comida: 'comida', hogar: 'servicios para el hogar', ocio: 'entretenimiento' }
+
+const needHint = computed(() => {
+  const category = props.needCategory ? NEED_LABELS[props.needCategory] : null
+  if (category && props.detectedBudget) {
+    return `Buscando ${category} con hasta $${formatPrice(props.detectedBudget)}`
+  }
+  if (category) return `Mostrando opciones de ${category}`
+  if (props.detectedBudget) return `Mostrando opciones hasta $${formatPrice(props.detectedBudget)}`
+  return null
+})
 
 const groupedSuggestions = computed(() => {
   const order = ['productos', 'servicios', 'empleos']
