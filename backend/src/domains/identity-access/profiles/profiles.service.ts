@@ -10,6 +10,7 @@ import { NotificationsService } from '../../engagement/notifications/notificatio
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { Role } from '@prisma/client';
+import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -17,12 +18,7 @@ import { QueryPostsDto } from './dto/query-profile.dto';
 import { RespondReviewDto } from './dto/respond-review.dto';
 import { ReportReviewDto } from './dto/report-review.dto';
 
-const SOCIAL_ROLES: Role[] = [
-  Role.COMMERCE,
-  Role.FREELANCER,
-  Role.SUPERADMIN,
-  Role.ADMIN,
-];
+const ADMIN_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
 
 const AVG_RESPONSE_CACHE_TTL = 60 * 60; // 1h: cambia poco, no necesita estar siempre fresco
 const avgResponseCacheKey = (providerId: string) => `profile:avg-response:${providerId}`;
@@ -33,7 +29,19 @@ export class ProfilesService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private redis: RedisService,
+    private accountTypeResolver: AccountTypeResolver,
   ) {}
+
+  // ADMIN/SUPERADMIN tienen perfil social por su nivel de acceso puro (Role).
+  // COMMERCE/FREELANCER ya no se leen desde Role directo — Role es hoy un
+  // espejo derivado de UserProfile (ver RoleResolverService), así que la
+  // fuente de verdad real es AccountTypeResolver, que consulta UserProfile
+  // ACTIVE primero y solo cae a Role como fallback legacy.
+  private async hasSocialProfile(user: { id: string; role: Role }): Promise<boolean> {
+    if (ADMIN_ROLES.includes(user.role)) return true;
+    const accountType = await this.accountTypeResolver.resolve(user.id);
+    return accountType !== null;
+  }
 
   // ─── Public profile ───────────────────────────────────────────────────────
 
@@ -60,7 +68,7 @@ export class ProfilesService {
       },
     });
 
-    if (!user || !SOCIAL_ROLES.includes(user.role)) {
+    if (!user || !(await this.hasSocialProfile(user))) {
       throw new NotFoundException('Perfil no encontrado');
     }
 
@@ -212,9 +220,9 @@ export class ProfilesService {
 
   async createPost(userId: string, dto: CreatePostDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !SOCIAL_ROLES.includes(user.role)) {
+    if (!user || !(await this.hasSocialProfile(user))) {
       throw new ForbiddenException(
-        'Solo COMMERCE y FREELANCER pueden publicar'
+        'Solo comercios y profesionales pueden publicar'
       );
     }
     if (!dto.media || dto.media.length === 0) {
@@ -274,7 +282,7 @@ export class ProfilesService {
     const target = await this.prisma.user.findUnique({
       where: { id: followingId },
     });
-    if (!target || !SOCIAL_ROLES.includes(target.role)) {
+    if (!target || !(await this.hasSocialProfile(target))) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
@@ -392,7 +400,7 @@ export class ProfilesService {
     const target = await this.prisma.user.findUnique({
       where: { id: dto.targetId },
     });
-    if (!target || !SOCIAL_ROLES.includes(target.role)) {
+    if (!target || !(await this.hasSocialProfile(target))) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
@@ -853,7 +861,7 @@ export class ProfilesService {
 
   private async findSocialUser(username: string) {
     const user = await this.prisma.user.findUnique({ where: { username } });
-    if (!user || !SOCIAL_ROLES.includes(user.role)) {
+    if (!user || !(await this.hasSocialProfile(user))) {
       throw new NotFoundException('Perfil no encontrado');
     }
     return user;
