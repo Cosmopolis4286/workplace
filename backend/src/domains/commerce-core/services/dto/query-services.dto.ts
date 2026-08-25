@@ -25,6 +25,10 @@ export class QueryServicesDto {
   userId?: string;
 
   @IsOptional()
+  @IsNumberString()
+  priceMax?: string;
+
+  @IsOptional()
   @IsEnum(ServiceStatus)
   status?: ServiceStatus;
 

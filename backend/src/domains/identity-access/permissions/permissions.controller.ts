@@ -121,8 +121,8 @@ export class PermissionsController {
   @Get('profile-matrix')
   @UseGuards(RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  getProfileMatrix() {
-    return this.permissionsService.getMatrixForAllProfiles();
+  getProfileMatrix(@CurrentUser() user: { role: Role }) {
+    return this.permissionsService.getMatrixForAllProfiles(user.role);
   }
 
   /** Togglea un permiso para un tipo de perfil (+ subtipo si aplica) */

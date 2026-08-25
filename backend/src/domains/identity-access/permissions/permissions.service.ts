@@ -271,13 +271,18 @@ export class PermissionsService implements PermissionsFacade {
     { profileType: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.SERVICE_PROVIDER },
   ];
 
-  async getMatrixForAllProfiles() {
+  async getMatrixForAllProfiles(adminRole?: Role) {
     const permissions = await this.prisma.permission.findMany({
       include: { profilePermissions: true },
       orderBy: [{ module: 'asc' }, { action: 'asc' }],
     });
 
-    return permissions.map((p) => ({
+    // Mismo criterio que getMatrixForAllRoles: ADMIN no ve permisos de sistema.
+    const filteredPerms = adminRole === Role.ADMIN
+      ? permissions.filter((p) => !p.isSystem)
+      : permissions;
+
+    return filteredPerms.map((p) => ({
       id: p.id,
       key: p.key,
       module: p.module,

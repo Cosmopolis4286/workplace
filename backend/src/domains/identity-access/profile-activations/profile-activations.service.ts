@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { KycStatus, ProfessionalSubtype, ProfileStatus, ProfileType, Role } from '@prisma/client';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { KycStatus, ProfileStatus, ProfileType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
 import { CreateProfileActivationDto } from './dto/create-profile-activation.dto';
 import { ReviewProfileActivationDto } from './dto/review-profile-activation.dto';
 
@@ -25,6 +26,7 @@ export class ProfileActivationsService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
+    private readonly roleResolver: RoleResolverService,
   ) {}
 
   async getMine(userId: string) {
@@ -112,18 +114,8 @@ export class ProfileActivationsService {
       );
     }
 
-    // Espejo de FreelancerApplicationsService.review(): sin esto, aprobar un
-    // perfil PROFESSIONAL/FREELANCER por este camino deja al usuario con
-    // UserProfile ACTIVE pero sin el rol real, y el resto de la app (guards,
-    // middleware del frontend) sigue leyendo User.role — sería un callejón
-    // sin salida silencioso.
-    const grantsFreelancerRole =
-      dto.status === ProfileStatus.ACTIVE &&
-      profile.type === ProfileType.PROFESSIONAL &&
-      profile.subtype === ProfessionalSubtype.FREELANCER;
-
-    const [updated] = await this.prisma.$transaction([
-      this.prisma.userProfile.update({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.userProfile.update({
         where: { id },
         data: {
           status: dto.status,
@@ -131,27 +123,31 @@ export class ProfileActivationsService {
           reviewedBy: reviewerId,
           reviewedAt: new Date(),
         },
-      }),
+      });
+
       // Mantiene User.categoryId/subcategoryId sincronizados, igual que
       // FreelancerApplication.review() — varios módulos existentes todavía
       // leen la categoría desde User, no desde UserProfile.
-      ...(dto.status === ProfileStatus.ACTIVE && profile.categoryId
-        ? [
-            this.prisma.user.update({
-              where: { id: profile.userId },
-              data: { categoryId: profile.categoryId, subcategoryId: profile.subcategoryId },
-            }),
-          ]
-        : []),
-      ...(grantsFreelancerRole
-        ? [
-            this.prisma.user.update({
-              where: { id: profile.userId },
-              data: { role: Role.FREELANCER },
-            }),
-          ]
-        : []),
-    ]);
+      if (dto.status === ProfileStatus.ACTIVE && profile.categoryId) {
+        await tx.user.update({
+          where: { id: profile.userId },
+          data: { categoryId: profile.categoryId, subcategoryId: profile.subcategoryId },
+        });
+      }
+
+      // RoleResolverService recalcula User.role a partir de TODOS los
+      // UserProfile ACTIVE (no solo este) — reemplaza el chequeo ad-hoc que
+      // solo cubría PROFESSIONAL/FREELANCER; ahora también cubre BUSINESS y
+      // PROFESSIONAL/SERVICE_PROVIDER. Sin esto, aprobar un perfil de
+      // negocio deja al usuario con UserProfile ACTIVE pero sin el rol
+      // real, y el resto de la app (guards, middleware del frontend) sigue
+      // leyendo User.role — sería un callejón sin salida silencioso.
+      if (profile.type === ProfileType.BUSINESS || profile.type === ProfileType.PROFESSIONAL) {
+        await this.roleResolver.syncRoleForUser(profile.userId, tx);
+      }
+
+      return result;
+    });
 
     if (dto.status === ProfileStatus.ACTIVE) {
       await this.redis.del(userFindByIdCacheKey(profile.userId));

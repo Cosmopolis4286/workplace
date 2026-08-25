@@ -15,10 +15,15 @@ export class NavigationService {
   async buildNavigationForUser(user: { id: string; role: Role }): Promise<NavigationResponse> {
     const { role } = user;
     const isSuperAdmin = role === Role.SUPERADMIN;
-    // accountType se deriva de role (mismo valor hoy) sin query extra —
-    // navigation es un endpoint de alta frecuencia, no amerita ir a la DB
-    // solo para leer lo que el JWT ya trae. Ver AccountTypeResolver para el
-    // mismo criterio de fallback usado donde sí hace falta la fuente de verdad.
+    // accountType se deriva de role sin query extra — navigation es un
+    // endpoint de alta frecuencia, no amerita ir a la DB solo para leer lo
+    // que el JWT ya trae. Esto es seguro porque RoleResolverService.
+    // syncRoleForUser mantiene User.role sincronizado con los UserProfile
+    // ACTIVE del usuario en el momento de la aprobación (ver
+    // ProfileActivationsService.review() / FreelancerApplicationsService.
+    // review()) — role YA es la fuente de verdad correcta acá, no un atajo
+    // que se desincroniza. Ver AccountTypeResolver para el caso donde sí
+    // hace falta ir a UserProfile directo (no solo el valor escalar).
     const accountType = role === Role.COMMERCE || role === Role.FREELANCER ? role : null;
 
     const [rolePermKeys, overrides, limits] = await Promise.all([

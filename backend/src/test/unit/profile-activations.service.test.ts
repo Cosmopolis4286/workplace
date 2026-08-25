@@ -5,6 +5,7 @@ import { ProfileActivationsService } from '../../domains/identity-access/profile
 import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
+import { RoleResolverService } from '../../common/account-type/role-resolver.service'
 
 describe('ProfileActivationsService', () => {
   let service: ProfileActivationsService
@@ -31,18 +32,20 @@ describe('ProfileActivationsService', () => {
 
   beforeEach(async () => {
     mockPrismaService = {
-      user: { update: jest.fn() },
+      user: { update: jest.fn(), findUnique: jest.fn().mockResolvedValue({ role: Role.NORMAL }) },
       userCategory: { findUnique: jest.fn() },
       userSubcategory: { findUnique: jest.fn() },
       userProfile: {
         findFirst: jest.fn(),
-        findMany: jest.fn(),
-        count: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(1),
         create: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn().mockImplementation(({ data }: any) => Promise.resolve({ ...pendingProfile(), ...data })),
       },
-      $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
+      // Transacción interactiva: el callback recibe el mismo mock como `tx`
+      // (suficiente para estos tests — no hay aislamiento real de Prisma).
+      $transaction: jest.fn((fn: any) => fn(mockPrismaService)),
     }
 
     const mockRedisService = { del: jest.fn() }
@@ -51,6 +54,7 @@ describe('ProfileActivationsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProfileActivationsService,
+        RoleResolverService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisService, useValue: mockRedisService },
         { provide: NotificationsService, useValue: mockNotificationsService },
@@ -112,6 +116,11 @@ describe('ProfileActivationsService', () => {
 
     it('al activar un perfil PROFESSIONAL/FREELANCER con KYC aprobado, otorga el rol FREELANCER real', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(pendingProfile())
+      // syncRoleForUser relee los ACTIVE profiles dentro de la transacción —
+      // simula que el update de arriba ya dejó este perfil como ACTIVE.
+      mockPrismaService.userProfile.findMany.mockResolvedValue([
+        { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+      ])
 
       await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.ACTIVE } as any)
 
@@ -121,30 +130,42 @@ describe('ProfileActivationsService', () => {
       })
     })
 
-    it('NO otorga rol FREELANCER si el perfil es PROFESSIONAL/SERVICE_PROVIDER (no freelancer)', async () => {
+    it('otorga rol FREELANCER también para un perfil PROFESSIONAL/SERVICE_PROVIDER', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
         pendingProfile({ subtype: ProfessionalSubtype.SERVICE_PROVIDER }),
       )
+      mockPrismaService.userProfile.findMany.mockResolvedValue([
+        { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.SERVICE_PROVIDER },
+      ])
 
       await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.ACTIVE } as any)
 
-      expect(mockPrismaService.user.update).not.toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ role: Role.FREELANCER }) }),
-      )
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { role: Role.FREELANCER },
+      })
     })
 
-    it('NO otorga rol FREELANCER para un perfil BUSINESS', async () => {
+    it('otorga rol COMMERCE para un perfil BUSINESS activado', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
         pendingProfile({ type: ProfileType.BUSINESS, subtype: null, categoryId: null }),
       )
+      mockPrismaService.userProfile.findMany.mockResolvedValue([
+        { type: ProfileType.BUSINESS, subtype: null },
+      ])
 
       await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.ACTIVE } as any)
 
-      expect(mockPrismaService.user.update).not.toHaveBeenCalled()
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { role: Role.COMMERCE },
+      })
     })
 
-    it('NO otorga rol FREELANCER al rechazar una solicitud PROFESSIONAL/FREELANCER', async () => {
+    it('NO otorga ningún rol al rechazar una solicitud PROFESSIONAL/FREELANCER', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(pendingProfile())
+      mockPrismaService.userProfile.findMany.mockResolvedValue([]) // nada quedó ACTIVE
+      mockPrismaService.userProfile.count.mockResolvedValue(0) // nunca tuvo perfiles de negocio
 
       await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.REJECTED, rejectionReason: 'No aplica' } as any)
 

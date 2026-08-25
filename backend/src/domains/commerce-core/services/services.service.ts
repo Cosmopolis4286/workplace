@@ -177,6 +177,7 @@ export class ServicesService {
     }
     if (dto.categoryId) where.categoryId = dto.categoryId;
     if (dto.userId) where.userId = dto.userId;
+    if (dto.priceMax) where.price = { lte: parseFloat(dto.priceMax) };
 
     let orderBy: Prisma.ServiceOrderByWithRelationInput = { createdAt: 'desc' };
     if (dto.sort === ServiceSortBy.PRICE_ASC) orderBy = { price: 'asc' };
