@@ -4,7 +4,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, ProfileType, ProfessionalSubtype, ProfileStatus } from '@prisma/client';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -21,6 +21,12 @@ const userPermissionsCacheKey = (userId: string) => `permissions:user:${userId}`
 const userOverridesCacheKey = (userId: string) => `permissions:overrides:user:${userId}`;
 const userVersionKey = (userId: string) => `permissions:version:user:${userId}`;
 const roleVersionKey = (role: Role) => `permissions:version:${role}`;
+const profileCacheKey = (type: ProfileType, subtype: ProfessionalSubtype | null) =>
+  `permissions:profile:${type}:${subtype ?? 'none'}`;
+// Clave legible usada en la respuesta de la matriz admin (frontend), distinta
+// de profileCacheKey (interna, Redis) para no acoplar el shape HTTP al cache.
+const profileMatrixKey = (type: ProfileType, subtype: ProfessionalSubtype | null) =>
+  subtype ? `${type}_${subtype}` : type;
 
 @Injectable()
 export class PermissionsService implements PermissionsFacade {
@@ -51,6 +57,41 @@ export class PermissionsService implements PermissionsFacade {
     return keys.includes(permissionKey);
   }
 
+  // ── Permisos por UserProfile (perfiles múltiples) ──────────────────────────
+
+  async getProfilePermissions(type: ProfileType, subtype: ProfessionalSubtype | null): Promise<string[]> {
+    const cached = await this.redis.get(profileCacheKey(type, subtype));
+    if (cached) return JSON.parse(cached) as string[];
+
+    const records = await this.prisma.profilePermission.findMany({
+      where: { profileType: type, subtype, granted: true },
+      include: { permission: true },
+    });
+    const keys = records.map((r) => r.permission.key);
+
+    await this.redis.setex(profileCacheKey(type, subtype), CACHE_TTL, JSON.stringify(keys));
+    return keys;
+  }
+
+  /**
+   * Permisos otorgados por el CONJUNTO de UserProfile ACTIVE de un usuario
+   * (unión — si tiene 2 perfiles activos, obtiene los permisos de ambos).
+   * No incluye SUPERADMIN/ADMIN/NORMAL: esos no son perfiles de negocio y
+   * siguen resolviéndose por RolePermission (ver hasEffectivePermission).
+   */
+  async getActiveProfilePermissions(userId: string): Promise<string[]> {
+    const profiles = await this.prisma.userProfile.findMany({
+      where: { userId, status: ProfileStatus.ACTIVE },
+      select: { type: true, subtype: true },
+    });
+    if (profiles.length === 0) return [];
+
+    const keysPerProfile = await Promise.all(
+      profiles.map((p) => this.getProfilePermissions(p.type, p.subtype)),
+    );
+    return Array.from(new Set(keysPerProfile.flat()));
+  }
+
   // ── Mapa de overrides individuales del usuario (para el guard) ────────────
 
   async getUserOverrides(userId: string): Promise<Record<string, boolean>> {
@@ -76,13 +117,19 @@ export class PermissionsService implements PermissionsFacade {
 
   /**
    * Fuente de verdad para CUALQUIER chequeo de autorización real (usado por
-   * PermissionsGuard en cada request). Combina permiso de ROL + override
-   * individual del usuario (si existe, el override manda; si no, cae al rol).
+   * PermissionsGuard en cada request). Orden: override individual del
+   * usuario (si existe, manda) → si no, UNIÓN de permisos de ROL +
+   * permisos de todos sus UserProfile ACTIVE (perfiles múltiples — un
+   * usuario con 2 perfiles activos obtiene la unión de ambos).
    */
   async hasEffectivePermission(userId: string, role: Role, permissionKey: string): Promise<boolean> {
     const overrides = await this.getUserOverrides(userId);
     if (permissionKey in overrides) return overrides[permissionKey];
-    return this.hasPermission(role, permissionKey);
+
+    if (await this.hasPermission(role, permissionKey)) return true;
+
+    const profileKeys = await this.getActiveProfilePermissions(userId);
+    return profileKeys.includes(permissionKey);
   }
 
   // ── Frontend endpoint: permissions for the logged-in user ─────────────────
@@ -106,9 +153,14 @@ export class PermissionsService implements PermissionsFacade {
     let subcategory: string | null = null;
 
     if (userId) {
-      const userKeys = await this.getUserSpecificPermissions(userId);
-      // Combinar: rol + individuales concedidos - individuales denegados
-      const combined = new Set(roleKeys);
+      const [userKeys, profileKeys] = await Promise.all([
+        this.getUserSpecificPermissions(userId),
+        this.getActiveProfilePermissions(userId),
+      ]);
+      // Combinar: rol + permisos de perfiles activos + individuales
+      // concedidos - individuales denegados (el override de usuario manda
+      // sobre ambas fuentes, igual que en hasEffectivePermission).
+      const combined = new Set([...roleKeys, ...profileKeys]);
       for (const up of userKeys) {
         if (up.granted) combined.add(up.permissionKey);
         else combined.delete(up.permissionKey);
@@ -209,6 +261,97 @@ export class PermissionsService implements PermissionsFacade {
     }));
   }
 
+  // ── Admin panel: full matrix por UserProfile ───────────────────────────────
+
+  // Las 6 combinaciones válidas de perfil de negocio (CUSTOMER/JOB_SEEKER no
+  // llevan permisos propios — equivalen a NORMAL, sin acceso de negocio).
+  static readonly PROFILE_MATRIX_KEYS: Array<{ profileType: ProfileType; subtype: ProfessionalSubtype | null }> = [
+    { profileType: ProfileType.BUSINESS, subtype: null },
+    { profileType: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+    { profileType: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.SERVICE_PROVIDER },
+  ];
+
+  async getMatrixForAllProfiles() {
+    const permissions = await this.prisma.permission.findMany({
+      include: { profilePermissions: true },
+      orderBy: [{ module: 'asc' }, { action: 'asc' }],
+    });
+
+    return permissions.map((p) => ({
+      id: p.id,
+      key: p.key,
+      module: p.module,
+      action: p.action,
+      label: p.label,
+      description: p.description,
+      isSystem: p.isSystem,
+      profiles: Object.fromEntries(
+        p.profilePermissions.map((pp) => [profileMatrixKey(pp.profileType, pp.subtype), pp.granted]),
+      ),
+    }));
+  }
+
+  async toggleProfilePermission(
+    profileType: ProfileType,
+    subtype: ProfessionalSubtype | null,
+    permissionId: string,
+    granted: boolean,
+    updatedBy: string,
+  ) {
+    const perm = await this.prisma.permission.findUniqueOrThrow({ where: { id: permissionId } });
+    if (perm.isSystem) {
+      throw new ForbiddenException('No se puede modificar un permiso de sistema');
+    }
+
+    const existing = await this.prisma.profilePermission.findFirst({
+      where: { profileType, subtype: subtype ?? null, permissionId },
+      select: { id: true },
+    });
+    if (existing) {
+      await this.prisma.profilePermission.update({ where: { id: existing.id }, data: { granted, updatedBy } });
+    } else {
+      await this.prisma.profilePermission.create({
+        data: { profileType, subtype: subtype ?? null, permissionId, granted, updatedBy },
+      });
+    }
+
+    await this.redis.del(profileCacheKey(profileType, subtype));
+    return { success: true };
+  }
+
+  async bulkUpdateProfilePermissions(
+    updates: Array<{ profileType: ProfileType; subtype?: ProfessionalSubtype; permissionId: string; granted: boolean }>,
+    updatedBy: string,
+  ) {
+    const ids = [...new Set(updates.map((u) => u.permissionId))];
+    const systemPerms = await this.prisma.permission.findMany({ where: { id: { in: ids }, isSystem: true } });
+    if (systemPerms.length > 0) {
+      throw new ForbiddenException('No se pueden modificar permisos de sistema');
+    }
+
+    for (const u of updates) {
+      const subtype = u.subtype ?? null;
+      const existing = await this.prisma.profilePermission.findFirst({
+        where: { profileType: u.profileType, subtype, permissionId: u.permissionId },
+        select: { id: true },
+      });
+      if (existing) {
+        await this.prisma.profilePermission.update({ where: { id: existing.id }, data: { granted: u.granted, updatedBy } });
+      } else {
+        await this.prisma.profilePermission.create({
+          data: { profileType: u.profileType, subtype, permissionId: u.permissionId, granted: u.granted, updatedBy },
+        });
+      }
+    }
+
+    const uniqueKeys = new Map(updates.map((u) => [`${u.profileType}:${u.subtype ?? 'none'}`, { profileType: u.profileType, subtype: u.subtype ?? null }]));
+    await Promise.all(
+      Array.from(uniqueKeys.values()).map((k) => this.redis.del(profileCacheKey(k.profileType, k.subtype))),
+    );
+
+    return { success: true, updated: updates.length };
+  }
+
   async getAllPermissions() {
     return this.prisma.permission.findMany({
       orderBy: [{ module: 'asc' }, { action: 'asc' }],
@@ -291,6 +434,20 @@ export class PermissionsService implements PermissionsFacade {
       skipDuplicates: true,
     });
 
+    // Igual patrón para profile_permissions: filas base en false, ajustables
+    // luego desde la matriz por perfil (no hay un dto.grantedProfiles todavía
+    // — se activan manualmente, igual que un rol nuevo empieza sin permisos).
+    await this.prisma.profilePermission.createMany({
+      data: PermissionsService.PROFILE_MATRIX_KEYS.map(({ profileType, subtype }) => ({
+        profileType,
+        subtype,
+        permissionId: permission.id,
+        granted: false,
+        updatedBy: createdBy,
+      })),
+      skipDuplicates: true,
+    });
+
     return permission;
   }
 
@@ -307,12 +464,15 @@ export class PermissionsService implements PermissionsFacade {
     await this.prisma.rolePermission.deleteMany({
       where: { permissionId: id },
     });
+    // profile_permissions se borra en cascada (onDelete: Cascade en el schema)
+    // al eliminar el Permission más abajo — no hace falta deleteMany explícito.
     await this.prisma.permission.delete({ where: { id } });
 
-    // Invalidate all role caches
-    await Promise.all(
-      Object.values(Role).map((r) => this.redis.del(cacheKey(r)))
-    );
+    // Invalidate all role + profile caches
+    await Promise.all([
+      ...Object.values(Role).map((r) => this.redis.del(cacheKey(r))),
+      ...PermissionsService.PROFILE_MATRIX_KEYS.map((k) => this.redis.del(profileCacheKey(k.profileType, k.subtype))),
+    ]);
     return { success: true };
   }
 

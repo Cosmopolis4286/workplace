@@ -18,6 +18,8 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PermissionsService } from './permissions.service';
 import { UpdateRolePermissionDto } from './dto/update-role-permission.dto';
 import { BulkUpdateRolePermissionsDto } from './dto/bulk-update-role-permissions.dto';
+import { UpdateProfilePermissionDto } from './dto/update-profile-permission.dto';
+import { BulkUpdateProfilePermissionsDto } from './dto/bulk-update-profile-permissions.dto';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
 import { assignableRolesFor } from '../../../common/utils/role-hierarchy.util';
@@ -111,6 +113,44 @@ export class PermissionsController {
       }
     }
     return this.permissionsService.bulkUpdate(dto.updates, user.id);
+  }
+
+  // ─── PROFILE PERMISSIONS (perfiles múltiples — UserProfile) ────────────────
+
+  /** Matriz completa por UserProfile para el panel de administración */
+  @Get('profile-matrix')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  getProfileMatrix() {
+    return this.permissionsService.getMatrixForAllProfiles();
+  }
+
+  /** Togglea un permiso para un tipo de perfil (+ subtipo si aplica) */
+  @Patch('profile-toggle')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  toggleProfile(
+    @Body() dto: UpdateProfilePermissionDto,
+    @CurrentUser() user: { id: string }
+  ) {
+    return this.permissionsService.toggleProfilePermission(
+      dto.profileType,
+      dto.subtype ?? null,
+      dto.permissionId,
+      dto.granted,
+      user.id
+    );
+  }
+
+  /** Guarda múltiples cambios de la matriz por perfil a la vez */
+  @Patch('profile-bulk')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  bulkUpdateProfile(
+    @Body() dto: BulkUpdateProfilePermissionsDto,
+    @CurrentUser() user: { id: string }
+  ) {
+    return this.permissionsService.bulkUpdateProfilePermissions(dto.updates, user.id);
   }
 
   // ─── USER PERMISSIONS (Permisos individuales por usuario) ─────────────────
