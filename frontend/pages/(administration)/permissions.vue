@@ -71,9 +71,45 @@
         :module-labels="MODULE_LABELS"
         :plans-for-module="plansForModule"
         :local-matrix="localMatrix"
+        disabled-column-key="SUPERADMIN"
         @toggle="toggleLocal"
         @delete="confirmDelete"
       />
+
+      <!-- Matriz por Perfil (UserProfile — perfiles múltiples) -->
+      <div class="mt-8">
+        <PageHeader
+          title="Matriz de Permisos por Perfil"
+          description="Permisos otorgados por cada UserProfile activo (perfiles múltiples). Un usuario con varios perfiles activos obtiene la unión de sus permisos, sumada a los de su rol RBAC."
+          :icon="ShieldCheckIcon"
+        >
+          <template #actions>
+            <HeaderActionButton
+              variant="primary"
+              :icon="savingProfile ? ArrowPathIcon : undefined"
+              :loading="savingProfile"
+              :disabled="savingProfile || pendingProfileChanges.length === 0"
+              @click="saveAllProfile"
+            >
+              {{ savingProfile ? 'Guardando...' : `Guardar cambios${pendingProfileChanges.length > 0 ? ` (${pendingProfileChanges.length})` : ''}` }}
+            </HeaderActionButton>
+          </template>
+        </PageHeader>
+
+        <PermissionMatrixTable
+          :loading="loadingProfileMatrix"
+          :permissions="profilePermissions"
+          :grouped-permissions="groupedProfilePermissions"
+          :roles="PROFILE_KEYS"
+          :role-labels="PROFILE_LABELS"
+          :role-badge-classes="PROFILE_BADGE_CLASSES"
+          :module-labels="MODULE_LABELS"
+          :plans-for-module="{}"
+          :local-matrix="localProfileMatrix"
+          @toggle="toggleProfileLocal"
+          @delete="() => {}"
+        />
+      </div>
 
       <!-- Footer info -->
       <div class="mt-4 text-xs text-gray-400 flex items-center gap-4">
@@ -136,6 +172,32 @@ const ROLE_BADGE_CLASSES: Record<Role, string> = {
   NORMAL: 'bg-gray-100 text-gray-700',
 }
 
+// ── Matriz por Perfil (UserProfile) ────────────────────────────────────────
+// Claves compuestas iguales a profileMatrixKey() en el backend
+// (permissions.service.ts) — profileType solo, o `${profileType}_${subtype}`.
+const PROFILE_KEYS = ['BUSINESS', 'PROFESSIONAL_FREELANCER', 'PROFESSIONAL_SERVICE_PROVIDER']
+
+const PROFILE_LABELS: Record<string, string> = {
+  BUSINESS: 'Negocio',
+  PROFESSIONAL_FREELANCER: 'Profesional · Freelancer',
+  PROFESSIONAL_SERVICE_PROVIDER: 'Profesional · Prestador de servicio',
+}
+
+const PROFILE_BADGE_CLASSES: Record<string, string> = {
+  BUSINESS: 'bg-green-100 text-green-800',
+  PROFESSIONAL_FREELANCER: 'bg-yellow-100 text-yellow-800',
+  PROFESSIONAL_SERVICE_PROVIDER: 'bg-amber-100 text-amber-800',
+}
+
+// Mapa explícito en vez de parsear el string compuesto — solo hay 3 claves
+// válidas (PROFILE_KEYS), igual que PermissionsService.PROFILE_MATRIX_KEYS
+// en el backend.
+const PROFILE_KEY_TO_PARTS: Record<string, { profileType: string; subtype?: string }> = {
+  BUSINESS: { profileType: 'BUSINESS' },
+  PROFESSIONAL_FREELANCER: { profileType: 'PROFESSIONAL', subtype: 'FREELANCER' },
+  PROFESSIONAL_SERVICE_PROVIDER: { profileType: 'PROFESSIONAL', subtype: 'SERVICE_PROVIDER' },
+}
+
 const { labels: MODULE_LABELS, catalog: moduleCatalog, load: loadModuleCatalog } = useModuleCatalog()
 
 // All modules available for permission grouping
@@ -154,6 +216,24 @@ interface PermissionRow {
 
 interface PendingChange {
   role: Role
+  permissionId: string
+  granted: boolean
+}
+
+interface ProfilePermissionRow {
+  id: string
+  key: string
+  module: string
+  action: string
+  label: string
+  description?: string
+  isSystem: boolean
+  profiles: Partial<Record<string, boolean>>
+}
+
+interface PendingProfileChange {
+  profileType: string
+  subtype?: string
   permissionId: string
   granted: boolean
 }
@@ -180,6 +260,12 @@ const reloadingPerms = ref(false)
 const error = ref<string | null>(null)
 const successMsg = ref<string | null>(null)
 
+const profilePermissions = ref<ProfilePermissionRow[]>([])
+const localProfileMatrix = ref<Record<string, Record<string, boolean>>>({})
+const pendingProfileChanges = ref<PendingProfileChange[]>([])
+const loadingProfileMatrix = ref(false)
+const savingProfile = ref(false)
+
 // Plans that include a given module
 const plansForModule = computed(() => {
   const map: Record<string, PlanInfo[]> = {}
@@ -195,6 +281,15 @@ const plansForModule = computed(() => {
 const groupedPermissions = computed(() => {
   const groups: Record<string, PermissionRow[]> = {}
   for (const p of permissions.value) {
+    if (!groups[p.module]) groups[p.module] = []
+    groups[p.module].push(p)
+  }
+  return groups
+})
+
+const groupedProfilePermissions = computed(() => {
+  const groups: Record<string, ProfilePermissionRow[]> = {}
+  for (const p of profilePermissions.value) {
     if (!groups[p.module]) groups[p.module] = []
     groups[p.module].push(p)
   }
@@ -263,6 +358,61 @@ async function saveAll() {
     error.value = (e as Error).message
   } finally {
     saving.value = false
+  }
+}
+
+async function loadProfileMatrix() {
+  loadingProfileMatrix.value = true
+  try {
+    const data = await get('/permissions/profile-matrix')
+    profilePermissions.value = data
+
+    const matrix: Record<string, Record<string, boolean>> = {}
+    for (const p of data) {
+      matrix[p.id] = {}
+      for (const key of PROFILE_KEYS) {
+        matrix[p.id][key] = p.profiles[key] ?? false
+      }
+    }
+    localProfileMatrix.value = matrix
+    pendingProfileChanges.value = []
+  } catch (e: unknown) {
+    error.value = (e as Error).message
+  } finally {
+    loadingProfileMatrix.value = false
+  }
+}
+
+function toggleProfileLocal(permissionId: string, profileKey: string, granted: boolean) {
+  if (!localProfileMatrix.value[permissionId]) return
+  localProfileMatrix.value[permissionId][profileKey] = granted
+
+  const { profileType, subtype } = PROFILE_KEY_TO_PARTS[profileKey]
+  const existing = pendingProfileChanges.value.findIndex(
+    c => c.permissionId === permissionId && c.profileType === profileType && c.subtype === subtype
+  )
+  if (existing >= 0) {
+    pendingProfileChanges.value[existing].granted = granted
+  } else {
+    pendingProfileChanges.value.push({ profileType, subtype, permissionId, granted })
+  }
+}
+
+async function saveAllProfile() {
+  if (pendingProfileChanges.value.length === 0) return
+  savingProfile.value = true
+  error.value = null
+  successMsg.value = null
+  try {
+    const count = pendingProfileChanges.value.length
+    await patch('/permissions/profile-bulk', { updates: pendingProfileChanges.value })
+    pendingProfileChanges.value = []
+    successMsg.value = `${count} permiso(s) de perfil actualizados correctamente. Los cambios se aplican en los próximos 5 minutos (cache Redis).`
+    setTimeout(() => { successMsg.value = null }, 6000)
+  } catch (e: unknown) {
+    error.value = (e as Error).message
+  } finally {
+    savingProfile.value = false
   }
 }
 
@@ -389,5 +539,5 @@ async function confirmDelete(perm: PermissionRow) {
   }
 }
 
-onMounted(() => { loadMatrix(); loadPlans(); loadSystemModules(); loadModuleCatalog() })
+onMounted(() => { loadMatrix(); loadProfileMatrix(); loadPlans(); loadSystemModules(); loadModuleCatalog() })
 </script>

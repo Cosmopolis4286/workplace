@@ -85,11 +85,11 @@
                   <input
                     type="checkbox"
                     :checked="localMatrix[perm.id]?.[r] ?? false"
-                    :disabled="perm.isSystem || r === 'SUPERADMIN'"
+                    :disabled="perm.isSystem || r === disabledColumnKey"
                     @change="$emit('toggle', perm.id, r, ($event.target as HTMLInputElement).checked)"
                     class="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 focus:ring-2
                            disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
-                    :title="perm.isSystem ? 'Permiso de sistema — no editable' : r === 'SUPERADMIN' ? 'SUPERADMIN siempre tiene todos los permisos' : ''"
+                    :title="perm.isSystem ? 'Permiso de sistema — no editable' : r === disabledColumnKey ? 'Este rol siempre tiene todos los permisos' : ''"
                   />
                 </td>
                 <!-- Delete action -->
@@ -124,7 +124,12 @@
 </template>
 
 <script setup lang="ts">
-type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
+// `Role` es genérico a propósito (string, no el enum literal): este mismo
+// componente se reutiliza tanto para la matriz por Role de RBAC
+// (SUPERADMIN/ADMIN/COMMERCE/FREELANCER/NORMAL) como para la matriz por
+// UserProfile (BUSINESS/PROFESSIONAL_FREELANCER/PROFESSIONAL_SERVICE_PROVIDER)
+// — ver permissions.vue.
+type Role = string
 
 interface PermissionRow {
   id: string
@@ -149,6 +154,7 @@ defineProps<{
   moduleLabels: Record<string, string>
   plansForModule: Record<string, PlanInfo[]>
   localMatrix: Record<string, Record<Role, boolean>>
+  disabledColumnKey?: Role
 }>()
 
 defineEmits<{
