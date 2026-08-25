@@ -1921,6 +1921,20 @@ model ServiceEvent {
   @@map("service_events")
 }
 
+// Búsquedas de /search/suggest que no encontraron resultados en ningún tab —
+// demanda insatisfecha para el Opportunity Engine (ver ServicesService.
+// getOpportunities, que combina esto con ServiceRequest ya confirmadas).
+model UnmetSearch {
+  id        String   @id @default(uuid())
+  query     String
+  city      String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([city])
+  @@map("unmet_searches")
+}
+
 model SystemLog {
   id        String   @id @default(uuid())
   level     LogLevel @default(INFO)
