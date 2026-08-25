@@ -32,7 +32,40 @@ export interface SearchLocationHint {
   state?: string | null;
 }
 
+export type NeedCategory = 'comida' | 'hogar' | 'ocio';
+
 const SUGGESTIONS_PER_TAB = 5;
+
+// Extrae un presupuesto en texto libre: "$50", "50 dolares", "tengo 50",
+// "con 50", "hasta 50 bs". No pretende ser NLP — cubre las formas más
+// comunes en las que alguien escribe cuánto tiene para gastar.
+const BUDGET_PATTERN =
+  /(?:\$\s*(\d+(?:[.,]\d+)?))|(?:(?:tengo|con|hasta)\s+(\d+(?:[.,]\d+)?))|(?:(\d+(?:[.,]\d+)?)\s*(?:usd|dolares|dólares|bs|bolivares|bolívares))/i;
+
+export function detectBudget(query: string): number | null {
+  const match = query.match(BUDGET_PATTERN);
+  if (!match) return null;
+  const raw = match[1] ?? match[2] ?? match[3];
+  const value = parseFloat(raw.replace(',', '.'));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+// Mapeo simple keyword→categoría de necesidad. Basta con una coincidencia
+// para clasificar la query — no es exhaustivo, es una primera capa sobre el
+// agregador de búsqueda existente, sin IA.
+const NEED_KEYWORDS: Record<NeedCategory, string[]> = {
+  comida: ['comida', 'comer', 'hambre', 'almuerzo', 'cena', 'desayuno', 'restaurante'],
+  hogar: ['casa', 'hogar', 'limpieza', 'limpiar', 'reparar', 'reparación', 'plomero', 'electricista'],
+  ocio: ['fiesta', 'cumpleaños', 'entretenimiento', 'diversión', 'salida', 'cine'],
+};
+
+export function detectNeedCategory(query: string): NeedCategory | null {
+  const lower = query.toLowerCase();
+  for (const [category, keywords] of Object.entries(NEED_KEYWORDS) as [NeedCategory, string[]][]) {
+    if (keywords.some((kw) => lower.includes(kw))) return category;
+  }
+  return null;
+}
 
 @Injectable()
 export class SearchService {
@@ -45,15 +78,34 @@ export class SearchService {
   async suggest(
     q?: string,
     location?: SearchLocationHint,
-  ): Promise<{ query: string; suggestions: SearchSuggestion[]; counts: SearchTabCount[] }> {
+  ): Promise<{
+    query: string;
+    suggestions: SearchSuggestion[];
+    counts: SearchTabCount[];
+    detectedBudget: number | null;
+    needCategory: NeedCategory | null;
+  }> {
     const query = (q ?? '').trim();
     if (query.length < 2) {
-      return { query, suggestions: [], counts: [] };
+      return { query, suggestions: [], counts: [], detectedBudget: null, needCategory: null };
     }
 
+    const detectedBudget = detectBudget(query);
+    const needCategory = detectNeedCategory(query);
+
     const [products, services, jobs] = await Promise.allSettled([
-      this.catalogService.getProducts({ search: query, page: 1, limit: SUGGESTIONS_PER_TAB }),
-      this.servicesService.getCatalogServices({ search: query, page: '1', limit: String(SUGGESTIONS_PER_TAB) }),
+      this.catalogService.getProducts({
+        search: query,
+        page: 1,
+        limit: SUGGESTIONS_PER_TAB,
+        ...(detectedBudget ? { priceMax: detectedBudget } : {}),
+      }),
+      this.servicesService.getCatalogServices({
+        search: query,
+        page: '1',
+        limit: String(SUGGESTIONS_PER_TAB),
+        ...(detectedBudget ? { priceMax: String(detectedBudget) } : {}),
+      }),
       this.jobsService.getCatalogJobs({ search: query, page: 1, limit: SUGGESTIONS_PER_TAB }),
     ]);
 
@@ -93,7 +145,7 @@ export class SearchService {
             title: s.name,
             subtitle: s.category?.name,
             providerName: s.user ? `${s.user.firstName} ${s.user.lastName}`.trim() : null,
-            image: s.image,
+            image: s.images?.[0] ?? null,
             price: s.price,
             priceUnit: s.priceUnit,
             rating: s.user?.rating ?? null,
@@ -122,6 +174,6 @@ export class SearchService {
       { tab: 'empleos', total: jobs.status === 'fulfilled' ? jobs.value.total : 0 },
     ];
 
-    return { query, suggestions, counts };
+    return { query, suggestions, counts, detectedBudget, needCategory };
   }
 }
