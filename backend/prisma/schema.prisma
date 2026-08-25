@@ -506,16 +506,16 @@ model Subcategory {
 }
 
 model Product {
-  id              String        @id @default(uuid())
+  id              String              @id @default(uuid())
   name            String
   description     String?
   price           Float
-  cost            Float         @default(0)
-  stock           Int           @default(0)
-  minStock        Int           @default(5)
-  maxStock        Int           @default(100)
-  unit            String        @default("unidad")
-  status          ProductStatus @default(AVAILABLE)
+  cost            Float               @default(0)
+  stock           Int                 @default(0)
+  minStock        Int                 @default(5)
+  maxStock        Int                 @default(100)
+  unit            String              @default("unidad")
+  status          ProductStatus       @default(AVAILABLE)
   image           String?
   preparationTime Int?
   calories        Int?
@@ -523,26 +523,26 @@ model Product {
   allergens       String[]
   tags            String[]
   brand           String?
-  forSale         Boolean       @default(true)
-  bnplEligible    Boolean       @default(true)
+  forSale         Boolean             @default(true)
+  bnplEligible    Boolean             @default(true)
   // Cache desnormalizado de la suma de CatalogOrder.quantity para este
   // producto. Incrementado en CatalogService.createOrder — permite ORDER BY
   // nativo en Postgres para "más vendidos" en vez de un groupBy + sort en memoria.
-  salesCount      Int           @default(0)
+  salesCount      Int                 @default(0)
   // Pack de varios productos del mismo comercio vendido como una sola unidad
   // (ver ProductBundleItem). stock/cost en un bundle no se usan — el stock
   // real vive en los componentes y se descuenta de ahí al vender el pack.
-  isBundle        Boolean       @default(false)
+  isBundle        Boolean             @default(false)
   bundleItems     ProductBundleItem[] @relation("BundleComponents")
   partOfBundles   ProductBundleItem[] @relation("ComponentOf")
   categoryId      String
-  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category        Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   subcategoryId   String?
-  subcategory     Subcategory?  @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+  subcategory     Subcategory?        @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
   commerceId      String
-  commerce        Commerce      @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  commerce        Commerce            @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@index([status, forSale, salesCount])
   @@index([commerceId])
@@ -585,11 +585,17 @@ model ProductStockSnapshot {
   @@map("product_stock_snapshots")
 }
 
+// COMMERCE/FREELANCER se fusionaron en PROFESIONAL (2026-08-25): Role es
+// solo nivel de acceso RBAC, no identidad de negocio. La distinción real
+// "tiene Commerce vs es freelancer/service provider" vive en UserProfile.
+// type (BUSINESS vs PROFESSIONAL/subtype) — ver RoleResolverService y
+// ProfilePermission. RolePermission.PROFESIONAL solo lleva la intersección
+// de permisos común a ambos; lo específico de cada uno lo aporta
+// ProfilePermission según el UserProfile activo real.
 enum Role {
   SUPERADMIN
   ADMIN
-  COMMERCE
-  FREELANCER
+  PROFESIONAL
   NORMAL
 }
 
