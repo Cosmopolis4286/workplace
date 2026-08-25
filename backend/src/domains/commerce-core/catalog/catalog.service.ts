@@ -306,6 +306,7 @@ export class CatalogService {
     unit: true,
     status: true,
     tags: true,
+    isBundle: true,
     category: {
       select: { id: true, name: true, color: true },
     },
@@ -404,6 +405,13 @@ export class CatalogService {
         status: true,
         ingredients: true,
         allergens: true,
+        isBundle: true,
+        bundleItems: {
+          select: {
+            quantity: true,
+            componentProduct: { select: { id: true, name: true, price: true, image: true } },
+          },
+        },
         category: { select: { id: true, name: true, color: true } },
         commerce: {
           select: {
@@ -428,46 +436,123 @@ export class CatalogService {
   }
 
   async createOrder(dto: CreateCatalogOrderDto, requesterId: string) {
-    // productName/commerceName/totalEstimate se derivan del producto real,
-    // nunca del body: el cliente no debe poder falsificar a qué comercio
-    // llega el pedido ni el monto que ve el comercio en la notificación.
-    const product = await this.prisma.product.findUnique({
-      where: { id: dto.productId },
+    // productName/commerceName/unitPrice se derivan siempre del producto
+    // real, nunca del body: el cliente no debe poder falsificar a qué
+    // comercio llega el pedido ni el monto que ve el comercio en la
+    // notificación.
+    const productIds = dto.items.map((i) => i.productId);
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds } },
       select: {
-        name: true, price: true, status: true, forSale: true,
-        commerceId: true, commerce: { select: { name: true } },
+        id: true, name: true, price: true, status: true, forSale: true,
+        isBundle: true, commerceId: true, commerce: { select: { name: true } },
+        bundleItems: { select: { componentProductId: true, quantity: true } },
       },
     });
-    if (!product || !product.forSale || product.status !== ProductStatus.AVAILABLE) {
-      throw new NotFoundException('Producto no disponible');
-    }
-    if (product.commerceId !== dto.commerceId) {
-      throw new BadRequestException('El producto no pertenece a este comercio');
+    const byId = new Map(products.map((p) => [p.id, p]));
+
+    for (const item of dto.items) {
+      const product = byId.get(item.productId);
+      if (!product || !product.forSale || product.status !== ProductStatus.AVAILABLE) {
+        throw new NotFoundException('Producto no disponible');
+      }
+      if (product.commerceId !== dto.commerceId) {
+        throw new BadRequestException('El producto no pertenece a este comercio');
+      }
     }
 
-    const order = await this.prisma.catalogOrder.create({
-      data: {
-        ...dto,
-        productName: product.name,
-        commerceName: product.commerce.name,
-        totalEstimate: Math.round(product.price * dto.quantity * 100) / 100,
-        requesterId,
-      },
+    // Resuelve cada item a las líneas de stock que realmente hay que
+    // descontar: un producto normal descuenta de sí mismo; un pack
+    // (isBundle) descuenta de sus componentes, multiplicando por la
+    // cantidad pedida del pack.
+    const stockDeductions = new Map<string, number>();
+    for (const item of dto.items) {
+      const product = byId.get(item.productId)!;
+      if (product.isBundle) {
+        for (const component of product.bundleItems) {
+          const needed = component.quantity * item.quantity;
+          stockDeductions.set(
+            component.componentProductId,
+            (stockDeductions.get(component.componentProductId) ?? 0) + needed
+          );
+        }
+      } else {
+        stockDeductions.set(item.productId, (stockDeductions.get(item.productId) ?? 0) + item.quantity);
+      }
+    }
+
+    const commerceName = products[0].commerce.name;
+    const totalEstimate = Math.round(
+      dto.items.reduce((sum, item) => sum + byId.get(item.productId)!.price * item.quantity, 0) * 100
+    ) / 100;
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      // Descuenta stock de todos los componentes de forma atómica. Un
+      // updateMany condicionado a stock >= needed es la forma de hacer un
+      // "decrement con guard" en Postgres sin SELECT ... FOR UPDATE
+      // explícito: si count queda en 0, alguien más se adelantó o no
+      // alcanza — se aborta la transacción completa (rollback de todo lo
+      // ya descontado en este mismo loop).
+      for (const [componentId, needed] of stockDeductions) {
+        const result = await tx.product.updateMany({
+          where: { id: componentId, stock: { gte: needed } },
+          data: { stock: { decrement: needed } },
+        });
+        if (result.count === 0) {
+          throw new BadRequestException('Stock insuficiente para completar el pedido');
+        }
+      }
+
+      const created = await tx.catalogOrder.create({
+        data: {
+          commerceId: dto.commerceId,
+          commerceName,
+          deliveryType: dto.deliveryType,
+          address: dto.address,
+          city: dto.city,
+          buyerName: dto.buyerName,
+          buyerPhone: dto.buyerPhone,
+          buyerEmail: dto.buyerEmail,
+          notes: dto.notes,
+          totalEstimate,
+          requesterId,
+          items: {
+            create: dto.items.map((item) => {
+              const product = byId.get(item.productId)!;
+              return {
+                productId: item.productId,
+                productName: product.name,
+                unitPrice: product.price,
+                quantity: item.quantity,
+                isBundle: product.isBundle,
+              };
+            }),
+          },
+        },
+        include: { items: true },
+      });
+
+      // Cache desnormalizado para "más vendidos" (ver getProductsSortedByBestSeller).
+      for (const item of dto.items) {
+        await tx.product.updateMany({
+          where: { id: item.productId },
+          data: { salesCount: { increment: item.quantity } },
+        });
+      }
+
+      return created;
     });
-    // Cache desnormalizado para "más vendidos" (ver getProductsSortedByBestSeller).
-    // updateMany en vez de update: productId no tiene FK hacia Product, así
-    // que el producto pudo haber sido borrado sin romper el pedido histórico.
-    await this.prisma.product.updateMany({
-      where: { id: dto.productId },
-      data: { salesCount: { increment: dto.quantity } },
-    });
+
     // Notificar al comercio (fire-and-forget)
+    const summary = order.items.length === 1
+      ? order.items[0].productName
+      : `${order.items.length} productos`;
     this.notifications
       .notifyNewCatalogOrder(
         order.commerceId,
         order.buyerName,
-        order.productName,
-        order.quantity,
+        summary,
+        order.items.reduce((sum, i) => sum + i.quantity, 0),
         order.totalEstimate ?? undefined
       )
       .catch(() => {});

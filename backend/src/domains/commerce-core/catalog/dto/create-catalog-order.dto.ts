@@ -7,27 +7,34 @@ import {
   IsEnum,
   IsEmail,
   MaxLength,
-  IsNumber,
+  IsArray,
+  ArrayMinSize,
+  ArrayMaxSize,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { CatalogDeliveryType } from '@prisma/client';
 
-export class CreateCatalogOrderDto {
+export class CreateCatalogOrderItemDto {
   @IsString()
   productId: string;
-
-  @IsString()
-  productName: string;
-
-  @IsString()
-  commerceId: string;
-
-  @IsString()
-  commerceName: string;
 
   @IsInt()
   @Min(1)
   @Max(99)
   quantity: number;
+}
+
+export class CreateCatalogOrderDto {
+  @IsString()
+  commerceId: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => CreateCatalogOrderItemDto)
+  items: CreateCatalogOrderItemDto[];
 
   @IsEnum(CatalogDeliveryType)
   deliveryType: CatalogDeliveryType;
@@ -58,8 +65,4 @@ export class CreateCatalogOrderDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
-
-  @IsOptional()
-  @IsNumber()
-  totalEstimate?: number;
 }
