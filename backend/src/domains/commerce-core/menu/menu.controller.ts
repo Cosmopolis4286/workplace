@@ -28,6 +28,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
+import { CreateBundleDto } from './dto/create-bundle.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 
@@ -95,6 +96,15 @@ export class MenuController {
     @Body() dto: CreateProductDto
   ) {
     return this.menuService.createProduct(user.id, dto);
+  }
+
+  @Post('bundles')
+  @RequirePermission('menu:create')
+  createBundle(
+    @CurrentUser() user: { id: string },
+    @Body() dto: CreateBundleDto
+  ) {
+    return this.menuService.createBundle(user.id, dto);
   }
 
   @Put('products/:id')

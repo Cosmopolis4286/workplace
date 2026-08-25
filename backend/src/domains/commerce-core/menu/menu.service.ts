@@ -14,6 +14,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { CreateBundleDto } from './dto/create-bundle.dto';
 import { UpdateStockDto, StockUpdateType } from './dto/update-stock.dto';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { normalizeTags } from '../../../common/utils/tags.util';
@@ -177,6 +178,57 @@ export class MenuService {
     const commerceId = await this.getCommerceId(userId);
     await this.assertProductOwnership(productId, commerceId);
     await this.prisma.product.delete({ where: { id: productId } });
+  }
+
+  // ─── Bundles (packs) ────────────────────────────────────────────────────────
+
+  async createBundle(userId: string, dto: CreateBundleDto) {
+    const commerceId = await this.getCommerceId(userId);
+    await this.planLimits.assertProductLimit(userId, commerceId);
+    await this.assertCategoryOwnership(dto.categoryId, commerceId);
+
+    const componentIds = dto.items.map((i) => i.productId);
+    if (new Set(componentIds).size !== componentIds.length) {
+      throw new ConflictException('No puedes repetir el mismo producto como componente del pack');
+    }
+
+    const components = await this.prisma.product.findMany({
+      where: { id: { in: componentIds } },
+      select: { id: true, commerceId: true, isBundle: true },
+    });
+    if (components.length !== componentIds.length) {
+      throw new NotFoundException('Alguno de los productos seleccionados no existe');
+    }
+    for (const c of components) {
+      if (c.commerceId !== commerceId) {
+        throw new ForbiddenException('Todos los componentes deben ser productos de tu propio comercio');
+      }
+      // Sin bundles anidados: mantiene el descuento de stock en un solo
+      // nivel (ver CatalogService.createOrder, que resuelve isBundle una vez).
+      if (c.isBundle) {
+        throw new ConflictException('Un pack no puede tener otro pack como componente');
+      }
+    }
+
+    return this.prisma.product.create({
+      data: {
+        name: dto.name,
+        description: dto.description,
+        price: dto.price,
+        image: dto.image,
+        categoryId: dto.categoryId,
+        commerceId,
+        isBundle: true,
+        forSale: true,
+        bundleItems: {
+          create: dto.items.map((i) => ({ componentProductId: i.productId, quantity: i.quantity })),
+        },
+      },
+      include: {
+        category: { select: { id: true, name: true, color: true } },
+        bundleItems: { include: { componentProduct: { select: { id: true, name: true, price: true, image: true } } } },
+      },
+    });
   }
 
   async updateProductImage(userId: string, productId: string, image: string) {
