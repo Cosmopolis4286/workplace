@@ -4,9 +4,8 @@ import { Role } from '@prisma/client';
 export const ROLE_HIERARCHY: Record<Role, number> = {
   [Role.SUPERADMIN]: 0,
   [Role.ADMIN]: 1,
-  [Role.COMMERCE]: 2,
-  [Role.FREELANCER]: 3,
-  [Role.NORMAL]: 4,
+  [Role.PROFESIONAL]: 2,
+  [Role.NORMAL]: 3,
 };
 
 /**
@@ -35,5 +34,5 @@ export const canManageUserWithRole = canAssignRole;
 export function assignableRolesFor(callerRole: Role): Role[] | undefined {
   return callerRole === Role.SUPERADMIN
     ? undefined
-    : [Role.COMMERCE, Role.FREELANCER, Role.NORMAL];
+    : [Role.PROFESIONAL, Role.NORMAL];
 }

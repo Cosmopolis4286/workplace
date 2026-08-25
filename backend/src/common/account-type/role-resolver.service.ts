@@ -16,13 +16,13 @@ type PrismaClientOrTx = PrismaService | Prisma.TransactionClient;
  * devolver esos dos valores ni sobrescribir el role de un admin — ver
  * syncRoleForUser(), que se salta usuarios ADMIN/SUPERADMIN.
  *
- * Prioridad cuando hay varios perfiles ACTIVE simultáneos (un usuario con
- * BUSINESS + PROFESSIONAL activos a la vez): BUSINESS > PROFESSIONAL >
- * JOB_SEEKER/CUSTOMER. Esto decide únicamente el valor ESCALAR de
- * User.role (que guards como RolesGuard todavía necesitan) — los PERMISOS
- * reales ya no dependen de esta prioridad: PermissionsService.
- * hasEffectivePermission une los permisos de TODOS los perfiles activos,
- * no solo el que gana acá (ver [[profile-permissions]]).
+ * Role.COMMERCE/FREELANCER se fusionaron en Role.PROFESIONAL (2026-08-25):
+ * cualquier UserProfile de negocio activo (BUSINESS o PROFESSIONAL) alcanza
+ * para otorgar PROFESIONAL — Role ya no distingue cuál. La distinción fina
+ * "es comercio o es freelancer/service provider" sigue viva en
+ * UserProfile.type/subtype y en los permisos: PermissionsService.
+ * hasEffectivePermission une los permisos de TODOS los perfiles activos
+ * reales, no de un Role colapsado (ver [[profile-permissions]]).
  */
 @Injectable()
 export class RoleResolverService {
@@ -30,9 +30,10 @@ export class RoleResolverService {
 
   /** Calcula el Role que le correspondería a un usuario dado un conjunto de perfiles ACTIVE. */
   resolveFromProfiles(profiles: Array<{ type: ProfileType; subtype: ProfessionalSubtype | null }>): Role | null {
-    if (profiles.some((p) => p.type === ProfileType.BUSINESS)) return Role.COMMERCE;
-    if (profiles.some((p) => p.type === ProfileType.PROFESSIONAL)) return Role.FREELANCER;
-    return null;
+    const hasBusinessProfile = profiles.some(
+      (p) => p.type === ProfileType.BUSINESS || p.type === ProfileType.PROFESSIONAL,
+    );
+    return hasBusinessProfile ? Role.PROFESIONAL : null;
   }
 
   /**
