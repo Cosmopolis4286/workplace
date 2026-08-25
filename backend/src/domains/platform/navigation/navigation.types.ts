@@ -4,7 +4,8 @@ export type NavIconKey =
   | 'dashboard' | 'menu' | 'inventory' | 'services' | 'requests' | 'rides'
   | 'wallet' | 'sales' | 'analytics' | 'reports' | 'ventas_group' | 'ops_group'
   | 'empresa_group' | 'orders' | 'appointments' | 'customers' | 'profile'
-  | 'home' | 'delivery' | 'employees' | 'jobs' | 'branches' | 'modules' | 'cash';
+  | 'home' | 'delivery' | 'employees' | 'jobs' | 'branches' | 'modules' | 'cash'
+  | 'opportunities';
 
 export type BusinessAccountType = 'COMMERCE' | 'FREELANCER';
 
