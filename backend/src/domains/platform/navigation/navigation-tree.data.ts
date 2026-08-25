@@ -39,11 +39,17 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         condition: { permission: 'jobs:view', requiresModule: true } },
       { id: 'service-requests', to: '/service-requests', label: 'Solicitudes', icon: 'requests', order: 5,
         condition: { permission: 'service_requests:view', requiresModule: true } },
-      { id: 'rides', to: '/rides', label: 'Corridas y Fletes', icon: 'rides', order: 6,
+      // Sin requiresModule a propósito: el punto de esta página es invitar a
+      // alguien que TODAVÍA no tiene el módulo de servicios activo a
+      // convertirse en proveedor — condicionarla al módulo la escondería
+      // justo de quien más le sirve.
+      { id: 'opportunities', to: '/opportunities', label: 'Oportunidades', icon: 'opportunities', order: 6,
+        condition: { permission: 'opportunities:view' } },
+      { id: 'rides', to: '/rides', label: 'Corridas y Fletes', icon: 'rides', order: 7,
         condition: { permission: 'corridas:view', requiresModule: true } },
-      { id: 'wallet', to: '/wallet', label: 'Billetera', icon: 'wallet', order: 7,
+      { id: 'wallet', to: '/wallet', label: 'Billetera', icon: 'wallet', order: 8,
         condition: { permission: 'wallets:use', requiresModule: true } },
-      { id: 'my-orders', to: '/my-orders', label: 'Mis Pedidos', icon: 'orders', order: 8,
+      { id: 'my-orders', to: '/my-orders', label: 'Mis Pedidos', icon: 'orders', order: 9,
         condition: { permission: null, rolesOnly: [Role.NORMAL] } },
     ],
   },
