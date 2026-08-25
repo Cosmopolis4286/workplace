@@ -21,22 +21,22 @@ describe('RoleResolverService', () => {
   })
 
   describe('resolveFromProfiles', () => {
-    it('returns COMMERCE when a BUSINESS profile is present', () => {
+    it('returns PROFESIONAL when a BUSINESS profile is present', () => {
       const result = service.resolveFromProfiles([{ type: ProfileType.BUSINESS, subtype: null }])
-      expect(result).toBe(Role.COMMERCE)
+      expect(result).toBe(Role.PROFESIONAL)
     })
 
-    it('returns FREELANCER when a PROFESSIONAL profile is present (either subtype)', () => {
-      expect(service.resolveFromProfiles([{ type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER }])).toBe(Role.FREELANCER)
-      expect(service.resolveFromProfiles([{ type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.SERVICE_PROVIDER }])).toBe(Role.FREELANCER)
+    it('returns PROFESIONAL when a PROFESSIONAL profile is present (either subtype)', () => {
+      expect(service.resolveFromProfiles([{ type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER }])).toBe(Role.PROFESIONAL)
+      expect(service.resolveFromProfiles([{ type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.SERVICE_PROVIDER }])).toBe(Role.PROFESIONAL)
     })
 
-    it('BUSINESS wins over PROFESSIONAL when both are active simultaneously', () => {
+    it('returns PROFESIONAL when both BUSINESS and PROFESSIONAL are active simultaneously (Role no distingue cuál)', () => {
       const result = service.resolveFromProfiles([
         { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
         { type: ProfileType.BUSINESS, subtype: null },
       ])
-      expect(result).toBe(Role.COMMERCE)
+      expect(result).toBe(Role.PROFESIONAL)
     })
 
     it('returns null when there are no business profiles', () => {
@@ -73,19 +73,19 @@ describe('RoleResolverService', () => {
       expect(mockPrisma.user.update).not.toHaveBeenCalled()
     })
 
-    it('promotes NORMAL to COMMERCE when a BUSINESS profile is active', async () => {
+    it('promotes NORMAL to PROFESIONAL when a BUSINESS profile is active', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ role: Role.NORMAL })
       mockPrisma.userProfile.findMany.mockResolvedValue([{ type: ProfileType.BUSINESS, subtype: null }])
       mockPrisma.userProfile.count.mockResolvedValue(1)
 
       const result = await service.syncRoleForUser('user-1')
 
-      expect(result).toBe(Role.COMMERCE)
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: Role.COMMERCE } })
+      expect(result).toBe(Role.PROFESIONAL)
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: Role.PROFESIONAL } })
     })
 
     it('demotes to NORMAL when a previously-active business profile is no longer active', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ role: Role.FREELANCER })
+      mockPrisma.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL })
       mockPrisma.userProfile.findMany.mockResolvedValue([]) // ya no hay ACTIVE
       mockPrisma.userProfile.count.mockResolvedValue(1) // pero sí tuvo un UserProfile alguna vez (rejected/suspended)
 
@@ -95,25 +95,25 @@ describe('RoleResolverService', () => {
       expect(mockPrisma.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: Role.NORMAL } })
     })
 
-    it('does NOT demote a legacy COMMERCE/FREELANCER user who never went through UserProfile', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ role: Role.COMMERCE })
+    it('does NOT demote a legacy PROFESIONAL user who never went through UserProfile', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL })
       mockPrisma.userProfile.findMany.mockResolvedValue([])
       mockPrisma.userProfile.count.mockResolvedValue(0) // nunca tuvo ningún UserProfile de negocio
 
       const result = await service.syncRoleForUser('legacy-user')
 
-      expect(result).toBe(Role.COMMERCE)
+      expect(result).toBe(Role.PROFESIONAL)
       expect(mockPrisma.user.update).not.toHaveBeenCalled()
     })
 
     it('is a no-op when the resolved role already matches the current role', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ role: Role.COMMERCE })
+      mockPrisma.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL })
       mockPrisma.userProfile.findMany.mockResolvedValue([{ type: ProfileType.BUSINESS, subtype: null }])
       mockPrisma.userProfile.count.mockResolvedValue(1)
 
       const result = await service.syncRoleForUser('user-1')
 
-      expect(result).toBe(Role.COMMERCE)
+      expect(result).toBe(Role.PROFESIONAL)
       expect(mockPrisma.user.update).not.toHaveBeenCalled()
     })
 
@@ -141,8 +141,8 @@ describe('RoleResolverService', () => {
 
       const result = await service.syncRoleForUser('user-1', txMock as any)
 
-      expect(result).toBe(Role.COMMERCE)
-      expect(txMock.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: Role.COMMERCE } })
+      expect(result).toBe(Role.PROFESIONAL)
+      expect(txMock.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: Role.PROFESIONAL } })
       // No debe tocar el PrismaService por defecto cuando se pasa un tx explícito.
       expect(mockPrisma.user.findUnique).not.toHaveBeenCalled()
     })

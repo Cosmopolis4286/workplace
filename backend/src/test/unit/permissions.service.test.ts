@@ -60,7 +60,7 @@ describe('PermissionsService', () => {
       ])
       mockPrisma.userPermission.findMany.mockResolvedValue([])
 
-      const result = await service.hasEffectivePermission('user-1', Role.COMMERCE, 'orders:view')
+      const result = await service.hasEffectivePermission('user-1', Role.PROFESIONAL, 'orders:view')
 
       expect(result).toBe(true)
     })
@@ -73,7 +73,7 @@ describe('PermissionsService', () => {
         { granted: false, expiresAt: null, permission: { key: 'orders:view' } },
       ])
 
-      const result = await service.hasEffectivePermission('user-1', Role.COMMERCE, 'orders:view')
+      const result = await service.hasEffectivePermission('user-1', Role.PROFESIONAL, 'orders:view')
 
       expect(result).toBe(false)
     })
@@ -84,7 +84,7 @@ describe('PermissionsService', () => {
         { granted: true, expiresAt: null, permission: { key: 'orders:view' } },
       ])
 
-      const result = await service.hasEffectivePermission('user-1', Role.COMMERCE, 'orders:view')
+      const result = await service.hasEffectivePermission('user-1', Role.PROFESIONAL, 'orders:view')
 
       expect(result).toBe(true)
     })
@@ -97,7 +97,7 @@ describe('PermissionsService', () => {
         { granted: false, expiresAt: new Date('2020-01-01'), permission: { key: 'orders:view' } },
       ])
 
-      const result = await service.hasEffectivePermission('user-1', Role.COMMERCE, 'orders:view')
+      const result = await service.hasEffectivePermission('user-1', Role.PROFESIONAL, 'orders:view')
 
       expect(result).toBe(true)
     })
@@ -206,14 +206,14 @@ describe('PermissionsService', () => {
           module: 'reports',
           action: 'export',
           label: 'Exportar reportes',
-          grantedRoles: [Role.COMMERCE, Role.FREELANCER],
+          grantedRoles: [Role.PROFESIONAL],
         } as any,
         'admin-1'
       )
 
       const data = mockPrisma.rolePermission.createMany.mock.calls[0][0].data
       const grantedRoles = data.filter((d: any) => d.granted).map((d: any) => d.role)
-      expect(grantedRoles.sort()).toEqual([Role.COMMERCE, Role.FREELANCER].sort())
+      expect(grantedRoles).toEqual([Role.PROFESIONAL])
       expect(data.find((d: any) => d.role === Role.NORMAL).granted).toBe(false)
     })
 

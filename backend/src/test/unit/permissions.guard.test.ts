@@ -36,7 +36,7 @@ describe('PermissionsGuard', () => {
   it('allows the request when no @RequirePermission metadata is set', async () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined)
 
-    const result = await guard.canActivate(makeContext({ id: 'u1', role: Role.COMMERCE }))
+    const result = await guard.canActivate(makeContext({ id: 'u1', role: Role.PROFESIONAL }))
 
     expect(result).toBe(true)
     expect(permissionsService.hasEffectivePermission).not.toHaveBeenCalled()
@@ -55,17 +55,17 @@ describe('PermissionsGuard', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('orders:view')
     permissionsService.hasEffectivePermission.mockResolvedValue(true)
 
-    const result = await guard.canActivate(makeContext({ id: 'u1', role: Role.COMMERCE }))
+    const result = await guard.canActivate(makeContext({ id: 'u1', role: Role.PROFESIONAL }))
 
     expect(result).toBe(true)
-    expect(permissionsService.hasEffectivePermission).toHaveBeenCalledWith('u1', Role.COMMERCE, 'orders:view')
+    expect(permissionsService.hasEffectivePermission).toHaveBeenCalledWith('u1', Role.PROFESIONAL, 'orders:view')
   })
 
   it('throws ForbiddenException when the effective permission is denied', async () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('orders:view')
     permissionsService.hasEffectivePermission.mockResolvedValue(false)
 
-    await expect(guard.canActivate(makeContext({ id: 'u1', role: Role.COMMERCE }))).rejects.toThrow(
+    await expect(guard.canActivate(makeContext({ id: 'u1', role: Role.PROFESIONAL }))).rejects.toThrow(
       ForbiddenException
     )
   })

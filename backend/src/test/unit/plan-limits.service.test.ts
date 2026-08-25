@@ -73,7 +73,7 @@ describe('PlanLimitsService', () => {
 
   describe('getPlanLimits — COMMERCE with subscription', () => {
     it('uses the active plan limits when a subscription exists', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: null })
       mockPrismaService.subscription.findFirst.mockResolvedValue({
         plan: {
           name: 'Pro',
@@ -94,7 +94,7 @@ describe('PlanLimitsService', () => {
     })
 
     it('falls back to free-tier limits when there is no active subscription', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: null })
       mockPrismaService.subscription.findFirst.mockResolvedValue(null)
 
       const limits = await service.getPlanLimits(userId)
@@ -104,7 +104,7 @@ describe('PlanLimitsService', () => {
     })
 
     it('intersects plan modules with category allowed modules', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: 'cat-1' })
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: 'cat-1' })
       mockPrismaService.subscription.findFirst.mockResolvedValue({
         plan: {
           name: 'Pro',
@@ -139,7 +139,7 @@ describe('PlanLimitsService', () => {
     })
 
     it('throws ForbiddenException once the product count reaches the plan limit', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: null })
       mockPrismaService.subscription.findFirst.mockResolvedValue(null) // free tier: maxProducts 10
       mockPrismaService.product.count.mockResolvedValue(10)
 
@@ -147,7 +147,7 @@ describe('PlanLimitsService', () => {
     })
 
     it('allows creating a product when under the limit', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: null })
       mockPrismaService.subscription.findFirst.mockResolvedValue(null)
       mockPrismaService.product.count.mockResolvedValue(9)
 
@@ -157,7 +157,7 @@ describe('PlanLimitsService', () => {
 
   describe('assertEmployeeLimit', () => {
     it('throws when the plan does not include employee management (limit 0)', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: null })
       mockPrismaService.subscription.findFirst.mockResolvedValue({
         plan: {
           name: 'Starter',
@@ -177,7 +177,7 @@ describe('PlanLimitsService', () => {
 
   describe('assertOrderLimit', () => {
     it('only counts orders created since the start of the current month', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: null })
       mockPrismaService.subscription.findFirst.mockResolvedValue(null) // free tier: maxOrders 30
       mockPrismaService.order.count.mockResolvedValue(29)
 
@@ -189,7 +189,7 @@ describe('PlanLimitsService', () => {
     })
 
     it('throws ForbiddenException once the monthly order limit is reached', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.COMMERCE, categoryId: null })
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: null })
       mockPrismaService.subscription.findFirst.mockResolvedValue(null)
       mockPrismaService.order.count.mockResolvedValue(30)
 
