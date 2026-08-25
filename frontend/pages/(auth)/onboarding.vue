@@ -49,9 +49,13 @@
             :subcategories="subcategories"
             :selected-category="selectedCategory"
             :selected-subcategory="selectedSubcategory"
+            :other-category-text="otherCategoryText"
+            :other-subcategory-text="otherSubcategoryText"
             :error="catError"
             @select-category="selectCategory"
             @update:selected-subcategory="selectedSubcategory = $event"
+            @update:other-category-text="otherCategoryText = $event"
+            @update:other-subcategory-text="otherSubcategoryText = $event"
           />
 
           <OnboardingPlanStep
@@ -123,6 +127,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { BoltIcon, ExclamationCircleIcon, ArrowRightIcon, LockClosedIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { useProposedCategories } from '~/composables/admin/useProposedCategories'
 import OnboardingStepIndicator from '~/components/onboarding/OnboardingStepIndicator.vue'
 import OnboardingBusinessStep from '~/components/onboarding/OnboardingBusinessStep.vue'
 import OnboardingSectorStep from '~/components/onboarding/OnboardingSectorStep.vue'
@@ -151,11 +156,15 @@ const businessName  = ref('')
 const uploadingLogo = ref(false)
 const businessError = ref('')
 
+const OTHER = '__OTHER__'
+
 const categories      = ref<{ id: string; name: string; icon?: string }[]>([])
 const subcategories   = ref<{ id: string; name: string }[]>([])
 const plans           = ref<{ id: string; name: string; description?: string; price: number; color: string; isPopular: boolean; features?: string[] }[]>([])
 const selectedCategory    = ref('')
 const selectedSubcategory = ref('')
+const otherCategoryText    = ref('')
+const otherSubcategoryText = ref('')
 const selectedPlan        = ref('')
 const loadingCats  = ref(false)
 const loadingPlans = ref(false)
@@ -190,7 +199,7 @@ async function loadPlans() {
   try {
     const { get } = useApi()
     const role = user.value?.role ?? 'COMMERCE'
-    const catParam = selectedCategory.value ? `&categoryId=${selectedCategory.value}` : ''
+    const catParam = selectedCategory.value && selectedCategory.value !== OTHER ? `&categoryId=${selectedCategory.value}` : ''
     plans.value = await get(`/plans/public?role=${role}${catParam}`)
   } catch { } finally { loadingPlans.value = false }
 }
@@ -198,7 +207,13 @@ async function loadPlans() {
 async function selectCategory(categoryId: string) {
   selectedCategory.value = categoryId
   selectedSubcategory.value = ''
-  await loadSubcategories(categoryId)
+  otherSubcategoryText.value = ''
+  if (categoryId !== OTHER) {
+    otherCategoryText.value = ''
+    await loadSubcategories(categoryId)
+  } else {
+    subcategories.value = []
+  }
 }
 
 // ─── Logo del negocio (avatar del usuario, reutilizado como logo) ─────────────
@@ -233,16 +248,44 @@ async function next() {
 
   } else if (step.value === 1) {
     if (!selectedCategory.value) { catError.value = 'Selecciona una categoría para continuar'; return }
+    if (selectedCategory.value === OTHER && !otherCategoryText.value.trim()) {
+      catError.value = 'Cuéntanos a qué se dedica tu negocio'
+      return
+    }
+    if (selectedSubcategory.value === OTHER && !otherSubcategoryText.value.trim()) {
+      catError.value = 'Escribe el nombre de la subcategoría'
+      return
+    }
     catError.value = ''
     saving.value = true
     try {
-      const { patch } = useApi()
-      const payload: any = { categoryId: selectedCategory.value }
-      if (selectedSubcategory.value) payload.subcategoryId = selectedSubcategory.value
-      await patch(`/users/${user.value!.id}`, payload)
-      const { fetchProfile } = useAuth()
-      await fetchProfile()
-      invalidateModules()
+      const { propose } = useProposedCategories()
+
+      if (selectedCategory.value === OTHER) {
+        // Sin categoría real que asignar todavía — se propone una nueva y
+        // queda pendiente de revisión admin. Avanza igual: no tiene sentido
+        // bloquear el resto del onboarding esperando esa aprobación.
+        await propose({ name: otherCategoryText.value.trim(), target: 'USER_CATEGORY' })
+      } else {
+        const { patch } = useApi()
+        const payload: any = { categoryId: selectedCategory.value }
+        if (selectedSubcategory.value && selectedSubcategory.value !== OTHER) {
+          payload.subcategoryId = selectedSubcategory.value
+        }
+        await patch(`/users/${user.value!.id}`, payload)
+        const { fetchProfile } = useAuth()
+        await fetchProfile()
+        invalidateModules()
+
+        if (selectedSubcategory.value === OTHER) {
+          await propose({
+            name: otherSubcategoryText.value.trim(),
+            target: 'USER_CATEGORY',
+            parentCategoryId: selectedCategory.value,
+          })
+        }
+      }
+
       await loadPlans()
       step.value = 2
       localStorage.setItem(STORAGE_KEY(), '2')
@@ -311,7 +354,9 @@ onMounted(async () => {
     selectedCategory.value    = localStorage.getItem(lsKey('category')) || user.value?.categoryId || ''
     selectedSubcategory.value = localStorage.getItem(lsKey('subcategory')) || ''
     selectedPlan.value        = localStorage.getItem(lsKey('plan')) || ''
-    if (selectedCategory.value) await loadSubcategories(selectedCategory.value)
+    if (selectedCategory.value && selectedCategory.value !== OTHER) {
+      await loadSubcategories(selectedCategory.value)
+    }
     await Promise.all([loadCategories(), loadPlans()])
     return
   }
