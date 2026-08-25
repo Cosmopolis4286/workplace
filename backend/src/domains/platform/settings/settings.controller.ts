@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Query, UseGuards } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
@@ -13,6 +13,7 @@ import {
   UpdateNotificationSettingsDto,
   UpdateModuleSettingsDto,
 } from './dto/update-settings.dto';
+import { UpdateCommerceSlugDto } from './dto/update-commerce-slug.dto';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
@@ -42,6 +43,29 @@ export class SettingsController {
     @Body() dto: UpdatePaymentSettingsDto
   ) {
     return this.settingsService.updatePaymentSettings(user.id, dto);
+  }
+
+  @Get('commerce/check-slug')
+  @RequirePermission('settings:view')
+  @RequireAccountType('COMMERCE')
+  checkCommerceSlug(
+    @CurrentUser() user: { id: string },
+    @Query('slug') slug: string
+  ) {
+    if (!slug || slug.length < 3) {
+      return { available: false, canChange: true, daysLeft: 0, nextChangeAt: null };
+    }
+    return this.settingsService.checkCommerceSlugAvailability(user.id, slug);
+  }
+
+  @Patch('commerce/slug')
+  @RequirePermission('settings:edit')
+  @RequireAccountType('COMMERCE')
+  updateCommerceSlug(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateCommerceSlugDto
+  ) {
+    return this.settingsService.updateCommerceSlug(user.id, dto.slug);
   }
 
   @Patch('operations')

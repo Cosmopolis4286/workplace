@@ -62,6 +62,16 @@ export class SettingsService {
     return updated;
   }
 
+  // ─── Store slug (/loja/:slug) — solo COMMERCE ───────────────────────────────
+
+  async checkCommerceSlugAvailability(userId: string, slug: string) {
+    return this.commerceStrategy.checkSlugAvailability(slug.toLowerCase(), userId);
+  }
+
+  async updateCommerceSlug(userId: string, slug: string) {
+    return this.commerceStrategy.updateSlug(userId, slug.toLowerCase());
+  }
+
   // ─── Payment settings ───────────────────────────────────────────────────────
 
   private async assertValidCurrency(currency?: string): Promise<string | undefined> {

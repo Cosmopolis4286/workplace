@@ -14,6 +14,15 @@ export interface CommerceInfo {
   city?: string
   municipality?: string
   parish?: string
+  slug?: string | null
+  slugUpdatedAt?: string | null
+}
+
+export interface SlugAvailability {
+  available: boolean
+  canChange: boolean
+  daysLeft: number
+  nextChangeAt: string | null
 }
 
 export interface CommerceSettings {
@@ -97,6 +106,33 @@ export const useSettings = () => {
       return true
     } catch (err: any) {
       error.value = err?.message ?? 'Error al guardar la información'
+      return false
+    } finally {
+      saving.value = null
+    }
+  }
+
+  // ─── Store slug (/loja/:slug) ───────────────────────────────────────────────
+
+  async function checkSlugAvailability(slug: string): Promise<SlugAvailability | null> {
+    try {
+      return await get<SlugAvailability>(`/settings/commerce/check-slug?slug=${encodeURIComponent(slug)}`)
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al verificar disponibilidad'
+      return null
+    }
+  }
+
+  async function saveCommerceSlug(slug: string): Promise<boolean> {
+    saving.value = 'slug'
+    error.value = null
+    try {
+      const updated = await patch<CommerceInfo>('/settings/commerce/slug', { slug })
+      commerce.value = updated
+      showSuccess('URL de tu tienda guardada')
+      return true
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar la URL de la tienda'
       return false
     } finally {
       saving.value = null
@@ -194,6 +230,8 @@ export const useSettings = () => {
     // actions
     loadSettings,
     saveCommerceInfo,
+    checkSlugAvailability,
+    saveCommerceSlug,
     savePaymentSettings,
     saveOperationSettings,
     saveNotificationSettings,

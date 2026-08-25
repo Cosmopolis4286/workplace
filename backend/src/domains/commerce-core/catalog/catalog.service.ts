@@ -112,6 +112,46 @@ export class CatalogService {
     };
   }
 
+  async getStoreBySlug(slug: string) {
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        address: true,
+        phone: true,
+        email: true,
+        schedule: true,
+        slug: true,
+        avgRating: true,
+        reviewsCount: true,
+        country: true,
+        state: true,
+        city: true,
+        settings: {
+          select: {
+            avgPrepTime: true,
+            avgDeliveryTime: true,
+            deliveryFee: true,
+            freeDeliveryMinimum: true,
+          },
+        },
+        user: { select: { avatar: true, coverImage: true } },
+        _count: {
+          select: {
+            products: { where: { status: ProductStatus.AVAILABLE, forSale: true } },
+          },
+        },
+      },
+    });
+
+    if (!commerce) throw new NotFoundException('Tienda no encontrada');
+
+    const { _count, ...rest } = commerce;
+    return { data: { ...rest, productCount: _count.products } };
+  }
+
   async getProducts(dto: QueryCatalogDto) {
     const {
       search,

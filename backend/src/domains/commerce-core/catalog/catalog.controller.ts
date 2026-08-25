@@ -37,6 +37,12 @@ export class CatalogController {
     return this.catalogService.getCommerces();
   }
 
+  @Get('store/:slug')
+  @UseGuards(OptionalJwtAuthGuard)
+  getStoreBySlug(@Param('slug') slug: string) {
+    return this.catalogService.getStoreBySlug(slug);
+  }
+
   @Get('tags')
   @UseGuards(OptionalJwtAuthGuard)
   getTags(@Query('q') q?: string) {

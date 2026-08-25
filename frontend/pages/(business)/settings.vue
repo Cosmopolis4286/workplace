@@ -80,6 +80,14 @@
           @save="saveCommerceInfo"
         />
 
+        <StoreSlugCard
+          v-if="!isFreelancer"
+          :commerce="commerce"
+          :saving="saving === 'slug'"
+          :check-slug-availability="checkSlugAvailability"
+          @save="saveCommerceSlug"
+        />
+
         <BusinessNotificationsCard
           :settings="settings"
           :is-freelancer="isFreelancer"
@@ -139,6 +147,7 @@ import UserPrivacyCard from '~/components/settings/UserPrivacyCard.vue'
 import LocalDataCard from '~/components/settings/LocalDataCard.vue'
 import AboutCard from '~/components/settings/AboutCard.vue'
 import CommerceInfoCard from '~/components/settings/CommerceInfoCard.vue'
+import StoreSlugCard from '~/components/settings/StoreSlugCard.vue'
 import BusinessNotificationsCard from '~/components/settings/BusinessNotificationsCard.vue'
 import PaymentSettingsCard from '~/components/settings/PaymentSettingsCard.vue'
 import OperationsSettingsCard from '~/components/settings/OperationsSettingsCard.vue'
@@ -179,6 +188,8 @@ const {
   successMsg,
   loadSettings,
   saveCommerceInfo: saveCommerceInfoApi,
+  checkSlugAvailability,
+  saveCommerceSlug: saveCommerceSlugApi,
   savePaymentSettings: savePaymentSettingsApi,
   saveOperationSettings: saveOperationSettingsApi,
   saveNotificationSettings: saveNotificationSettingsApi,
@@ -189,6 +200,7 @@ const {
 const commerceSettings = computed(() => settings.value as CommerceSettings | null)
 
 async function saveCommerceInfo(form: Record<string, unknown>) { await saveCommerceInfoApi(form) }
+async function saveCommerceSlug(slug: string) { await saveCommerceSlugApi(slug) }
 async function savePaymentSettings(form: Record<string, unknown>) { await savePaymentSettingsApi(form) }
 async function saveOperationSettings(form: Record<string, unknown>) { await saveOperationSettingsApi(form) }
 async function saveNotificationSettings(form: Record<string, boolean>) { await saveNotificationSettingsApi(form) }
