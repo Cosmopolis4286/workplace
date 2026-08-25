@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { useDashboard } from './useDashboard'
 import { useExpenses } from '../commerce/useExpenses'
+import { useKyc } from '../kyc/useKyc'
 
 export interface DashboardAlert {
   id: string
@@ -28,9 +29,11 @@ const dismissed = ref<Set<string>>(new Set())
 export function useDashboardAlerts() {
   const { kpis } = useDashboard()
   const { overdueExpenses, expenses } = useExpenses()
+  const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
 
   function hydrate() {
     if (process.client) dismissed.value = readDismissed()
+    fetchMyKycStatus()
   }
 
   function dismiss(id: string) {
@@ -42,6 +45,27 @@ export function useDashboardAlerts() {
 
   const activeAlerts = computed<DashboardAlert[]>(() => {
     const alerts: DashboardAlert[] = []
+
+    // Alerta de verificación de identidad (KYC) pendiente — publicar
+    // (empleos, pedidos, servicios, etc.) está bloqueado por KycApprovedGuard
+    // hasta que esté APPROVED. Mejor avisarlo acá que dejar que el usuario lo
+    // descubra recién al intentar publicar.
+    const kycStatus = myKycStatus.value?.kycStatus
+    if (kycStatus && kycStatus !== 'APPROVED') {
+      const rejected = kycStatus === 'REJECTED'
+      alerts.push({
+        id: 'kyc-status',
+        type: rejected ? 'danger' : 'warning',
+        title: rejected ? 'Verificación de identidad rechazada' : 'Verifica tu identidad',
+        message: rejected
+          ? 'Tu verificación fue rechazada. Corrígela para poder publicar.'
+          : kycStatus === 'PENDING'
+            ? 'Tu verificación está en revisión. Te avisaremos cuando esté lista.'
+            : 'Necesitas verificar tu identidad antes de poder publicar.',
+        actionLabel: kycStatus === 'PENDING' ? undefined : 'Verificar ahora',
+        actionRoute: kycStatus === 'PENDING' ? undefined : '/verification',
+      })
+    }
 
     // Alerta de bajo stock
     if (kpis.value.lowStockProducts > 0) {
