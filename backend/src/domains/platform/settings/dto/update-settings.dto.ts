@@ -139,3 +139,10 @@ export class UpdateModuleSettingsDto {
   @IsString({ each: true })
   disabledModules: string[];
 }
+
+// Nombre público del negocio (COMMERCE) o del profesional (FREELANCER) —
+// mismo endpoint para ambos, ver SettingsService.updateBusinessName.
+export class UpdateBusinessNameDto {
+  @IsString()
+  name: string;
+}

@@ -13,6 +13,7 @@ import {
   UpdateOperationSettingsDto,
   UpdateNotificationSettingsDto,
   UpdateModuleSettingsDto,
+  UpdateBusinessNameDto,
 } from './dto/update-settings.dto';
 
 /**
@@ -60,6 +61,18 @@ export class SettingsService {
     });
     await this.redis.del(userFindByIdCacheKey(userId));
     return updated;
+  }
+
+  // ─── Nombre de negocio/profesional (usado en el onboarding, ambos tipos) ────
+  // COMMERCE → Commerce.name (visible en catálogo/perfil público).
+  // FREELANCER → FreelancerSettings.professionalName (no tiene Commerce).
+
+  async updateBusinessName(userId: string, dto: UpdateBusinessNameDto) {
+    const accountType = await this.accountTypeResolver.resolve(userId);
+    if (accountType === 'FREELANCER') {
+      return this.freelancerStrategy.updateProfessionalName(userId, dto.name);
+    }
+    return this.updateCommerceInfo(userId, { name: dto.name });
   }
 
   // ─── Store slug (/loja/:slug) — solo COMMERCE ───────────────────────────────

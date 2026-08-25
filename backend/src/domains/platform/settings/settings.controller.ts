@@ -12,6 +12,7 @@ import {
   UpdateOperationSettingsDto,
   UpdateNotificationSettingsDto,
   UpdateModuleSettingsDto,
+  UpdateBusinessNameDto,
 } from './dto/update-settings.dto';
 import { UpdateCommerceSlugDto } from './dto/update-commerce-slug.dto';
 
@@ -34,6 +35,19 @@ export class SettingsController {
     @Body() dto: UpdateCommerceInfoDto
   ) {
     return this.settingsService.updateCommerceInfo(user.id, dto);
+  }
+
+  // Sin @RequireAccountType: a diferencia de 'commerce' (solo COMMERCE), este
+  // endpoint lo usa el onboarding para ambos tipos de cuenta — el nombre se
+  // guarda en Commerce.name o FreelancerSettings.professionalName según
+  // corresponda (ver SettingsService.updateBusinessName).
+  @Patch('business-name')
+  @RequirePermission('settings:edit')
+  updateBusinessName(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateBusinessNameDto
+  ) {
+    return this.settingsService.updateBusinessName(user.id, dto);
   }
 
   @Patch('payment')

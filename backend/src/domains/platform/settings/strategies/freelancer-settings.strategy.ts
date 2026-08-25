@@ -24,6 +24,14 @@ export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
     return { commerce: null, settings };
   }
 
+  async updateProfessionalName(userId: string, name: string) {
+    await this.getOrCreateFreelancerSettings(userId);
+    return this.prisma.freelancerSettings.update({
+      where: { userId },
+      data: { professionalName: name },
+    });
+  }
+
   async updatePaymentSettings(userId: string, dto: UpdatePaymentSettingsDto) {
     // tax/suggestedTip/paymentMethods no existen en FreelancerSettings —
     // se ignoran silenciosamente si un freelancer los envía por error.
