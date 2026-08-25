@@ -337,6 +337,11 @@ model FreelancerSettings {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Nombre público con el que se identifica profesionalmente (ej. "Juan Pérez
+  // Diseño"), distinto de User.firstName/lastName. Nullable: si no lo define,
+  // el resto de la app sigue usando firstName+lastName como hoy.
+  professionalName String?
+
   // Payment
   currency String @default("USD")
 
@@ -524,6 +529,12 @@ model Product {
   // producto. Incrementado en CatalogService.createOrder — permite ORDER BY
   // nativo en Postgres para "más vendidos" en vez de un groupBy + sort en memoria.
   salesCount      Int           @default(0)
+  // Pack de varios productos del mismo comercio vendido como una sola unidad
+  // (ver ProductBundleItem). stock/cost en un bundle no se usan — el stock
+  // real vive en los componentes y se descuenta de ahí al vender el pack.
+  isBundle        Boolean       @default(false)
+  bundleItems     ProductBundleItem[] @relation("BundleComponents")
+  partOfBundles   ProductBundleItem[] @relation("ComponentOf")
   categoryId      String
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   subcategoryId   String?
@@ -538,6 +549,24 @@ model Product {
   @@index([categoryId])
   @@index([subcategoryId])
   @@map("products")
+}
+
+// Componentes de un Product con isBundle=true. bundleProductId es el pack,
+// componentProductId es cada producto real que lo integra — el stock del
+// pack se resuelve siempre vía sus componentes (ver CatalogService.createOrder).
+model ProductBundleItem {
+  id                 String  @id @default(uuid())
+  bundleProductId    String
+  bundleProduct      Product @relation("BundleComponents", fields: [bundleProductId], references: [id], onDelete: Cascade)
+  componentProductId String
+  // Restrict: no se puede borrar un producto mientras siga siendo componente
+  // de un pack activo — evita packs con referencias colgantes.
+  componentProduct   Product @relation("ComponentOf", fields: [componentProductId], references: [id], onDelete: Restrict)
+  quantity           Int     @default(1)
+
+  @@unique([bundleProductId, componentProductId])
+  @@index([componentProductId])
+  @@map("product_bundle_items")
 }
 
 // Snapshot diario del conteo de productos en LOW_STOCK por comercio.
@@ -1619,11 +1648,8 @@ enum CatalogOrderStatus {
 
 model CatalogOrder {
   id            String              @id @default(uuid())
-  productId     String
-  productName   String
   commerceId    String
   commerceName  String
-  quantity      Int                 @default(1)
   deliveryType  CatalogDeliveryType @default(HOME_DELIVERY)
   address       String?
   city          String?
@@ -1635,6 +1661,7 @@ model CatalogOrder {
   status        CatalogOrderStatus  @default(PENDING)
   requesterId   String?
   requester     User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  items         CatalogOrderItem[]
   createdAt     DateTime            @default(now())
 
   @@index([commerceId])
@@ -1642,6 +1669,24 @@ model CatalogOrder {
   @@index([createdAt(sort: Desc)])
   @@index([requesterId])
   @@map("catalog_orders")
+}
+
+// Línea de pedido: uno o más productos (o un único pack) por CatalogOrder.
+// Sin FK a Product (igual que el productId histórico de CatalogOrder): un
+// producto borrado no debe romper el historial de pedidos ya realizados.
+model CatalogOrderItem {
+  id          String       @id @default(uuid())
+  orderId     String
+  order       CatalogOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  productName String
+  unitPrice   Float
+  quantity    Int          @default(1)
+  isBundle    Boolean      @default(false)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("catalog_order_items")
 }
 
 // ─── Services (marketplace) ───────────────────────────────────────────────────
