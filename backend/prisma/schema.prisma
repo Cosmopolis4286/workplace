@@ -1490,8 +1490,9 @@ model Permission {
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  rolePermissions RolePermission[]
-  userPermissions UserPermission[]
+  rolePermissions    RolePermission[]
+  userPermissions    UserPermission[]
+  profilePermissions ProfilePermission[]
 
   @@unique([module, action])
   @@map("permissions")
@@ -1509,6 +1510,29 @@ model RolePermission {
   @@unique([role, permissionId])
   @@index([permissionId])
   @@map("role_permissions")
+}
+
+// Permisos por UserProfile (perfiles múltiples — ver UserProfile más arriba).
+// Independiente de RolePermission: SUPERADMIN/ADMIN/NORMAL siguen usando
+// RolePermission (no son "perfiles de negocio"). Un usuario con varios
+// UserProfile ACTIVE obtiene la UNIÓN de los permisos de cada uno
+// (ver PermissionsService.hasEffectivePermission). `subtype` es NULL para
+// CUSTOMER/JOB_SEEKER/BUSINESS (no aplica) y obligatorio en la práctica para
+// PROFESSIONAL (FREELANCER vs SERVICE_PROVIDER pueden diferir a futuro,
+// aunque el bootstrap inicial les da los mismos valores).
+model ProfilePermission {
+  id           String               @id @default(uuid())
+  profileType  ProfileType
+  subtype      ProfessionalSubtype?
+  permissionId String
+  permission   Permission           @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  granted      Boolean              @default(true)
+  updatedAt    DateTime             @updatedAt
+  updatedBy    String?
+
+  @@unique([profileType, subtype, permissionId])
+  @@index([permissionId])
+  @@map("profile_permissions")
 }
 
 // Permisos individuales por usuario (sobrescriben los del rol)
@@ -1667,7 +1691,7 @@ model Service {
   price           Float
   priceUnit       String?
   duration        Int? // minutos estimados
-  image           String?
+  images          String[]         @default([]) // [0] = principal, [1..2] = secundarias
   status          ServiceStatus    @default(ACTIVE)
   // El proveedor decide, por servicio, si la plataforma retiene el pago en
   // garantía (escrow) hasta completar el trabajo. Cambiarlo solo afecta
@@ -1725,44 +1749,44 @@ enum EscrowStatus {
 }
 
 model ServiceRequest {
-  id                String                        @id @default(uuid())
-  serviceId         String
-  service           Service                       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  serviceName       String
-  providerId        String
-  providerName      String
-  modality          ServiceRequestModality        @default(ANY)
-  preferredDate     DateTime
-  address           String?
-  city              String?
-  clientName        String
-  clientPhone       String
-  clientEmail       String?
-  description       String?
-  price             Float?
-  priceUnit         String?
-  platformFeeRate   Float?
-  platformFeeAmount Float?
-  platformFeePayer  FeePayer?
+  id                   String                              @id @default(uuid())
+  serviceId            String
+  service              Service                             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceName          String
+  providerId           String
+  providerName         String
+  modality             ServiceRequestModality              @default(ANY)
+  preferredDate        DateTime
+  address              String?
+  city                 String?
+  clientName           String
+  clientPhone          String
+  clientEmail          String?
+  description          String?
+  price                Float?
+  priceUnit            String?
+  platformFeeRate      Float?
+  platformFeeAmount    Float?
+  platformFeePayer     FeePayer?
   // Escrow opcional (Service.hasEscrow) — retención del monto total en la
   // wallet de plataforma entre la fijación de precio y la finalización.
-  escrowStatus      EscrowStatus                  @default(NONE)
-  escrowAmount      Float?
-  escrowHeldAt      DateTime?
-  status            ServiceRequestStatus          @default(PENDING)
-  providerNotes     String?
-  statusUpdatedAt   DateTime?
+  escrowStatus         EscrowStatus                        @default(NONE)
+  escrowAmount         Float?
+  escrowHeldAt         DateTime?
+  status               ServiceRequestStatus                @default(PENDING)
+  providerNotes        String?
+  statusUpdatedAt      DateTime?
   // Marca cuándo se envió el recordatorio automático por falta de respuesta del
   // proveedor (cron); evita reenviarlo en cada corrida del scheduler.
-  reminderSentAt    DateTime?
-  requesterId       String?
-  requester         User?                         @relation(fields: [requesterId], references: [id], onDelete: SetNull)
-  items             ServiceRequestItem[]
-  statusHistory     ServiceRequestStatusHistory[]
-  messages          ServiceRequestMessage[]
+  reminderSentAt       DateTime?
+  requesterId          String?
+  requester            User?                               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  items                ServiceRequestItem[]
+  statusHistory        ServiceRequestStatusHistory[]
+  messages             ServiceRequestMessage[]
   priceChangeProposals ServiceRequestPriceChangeProposal[]
-  createdAt         DateTime                      @default(now())
-  updatedAt         DateTime                      @updatedAt
+  createdAt            DateTime                            @default(now())
+  updatedAt            DateTime                            @updatedAt
 
   @@index([serviceId])
   @@index([providerId])
@@ -1828,10 +1852,10 @@ enum ServiceRequestProposalStatus {
 // explícita del cliente antes de tocar el escrow — nunca se autoaplica.
 // Ver ServicesService.approvePriceChangeProposal.
 model ServiceRequestPriceChangeProposal {
-  id               String                        @id @default(uuid())
+  id               String                       @id @default(uuid())
   serviceRequestId String
-  serviceRequest   ServiceRequest                @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
-  status           ServiceRequestProposalStatus  @default(PENDING)
+  serviceRequest   ServiceRequest               @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  status           ServiceRequestProposalStatus @default(PENDING)
   previousPrice    Float
   proposedPrice    Float
   deltaAmount      Float
@@ -1845,8 +1869,8 @@ model ServiceRequestPriceChangeProposal {
   // el libro de movimientos de la wallet no confunda ambos holds.
   escrowReference  String?
   items            ServiceRequestProposalItem[]
-  createdAt        DateTime                      @default(now())
-  updatedAt        DateTime                      @updatedAt
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
 
   @@index([serviceRequestId])
   @@index([status])
@@ -1855,15 +1879,15 @@ model ServiceRequestPriceChangeProposal {
 }
 
 model ServiceRequestProposalItem {
-  id         String                              @id @default(uuid())
+  id         String                            @id @default(uuid())
   proposalId String
-  proposal   ServiceRequestPriceChangeProposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  fields     Json                                 @default("{}")
+  proposal   ServiceRequestPriceChangeProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  fields     Json                              @default("{}")
   notes      String?
-  photos     String[]                             @default([])
-  videos     String[]                             @default([])
-  sortOrder  Int                                  @default(0)
-  createdAt  DateTime                             @default(now())
+  photos     String[]                          @default([])
+  videos     String[]                          @default([])
+  sortOrder  Int                               @default(0)
+  createdAt  DateTime                          @default(now())
 
   @@index([proposalId])
   @@map("service_request_proposal_items")
