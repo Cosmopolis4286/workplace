@@ -41,6 +41,9 @@
           </div>
           <div class="flex items-center gap-2">
             <span class="badge bg-gray-100 text-gray-600">{{ targetLabel(item.target) }}</span>
+            <span v-if="item.parentCategoryName" class="badge bg-blue-100 text-blue-700">
+              Subcategoría de "{{ item.parentCategoryName }}"
+            </span>
             <span class="badge bg-amber-100 text-amber-700">Enviado {{ formatDate(item.createdAt) }}</span>
           </div>
         </div>
@@ -175,7 +178,7 @@ async function confirmReject(id: string) {
 }
 
 function targetLabel(target: ProposedCategoryTarget) {
-  return ({ PRODUCTO: 'Producto', SERVICIO: 'Servicio', EMPLEO: 'Empleo' })[target] ?? target
+  return ({ PRODUCT: 'Producto', SERVICE: 'Servicio', JOB: 'Empleo', USER_CATEGORY: 'Rubro de negocio' })[target] ?? target
 }
 
 function formatDate(iso: string) {

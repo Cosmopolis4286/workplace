@@ -1,4 +1,4 @@
-export type ProposedCategoryTarget = 'PRODUCTO' | 'SERVICIO' | 'EMPLEO'
+export type ProposedCategoryTarget = 'PRODUCT' | 'SERVICE' | 'JOB' | 'USER_CATEGORY'
 export type ProposalStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface ProposedCategory {
@@ -8,6 +8,8 @@ export interface ProposedCategory {
   color: string | null
   icon: string | null
   target: ProposedCategoryTarget
+  parentCategoryId: string | null
+  parentCategoryName?: string | null
   proposedBy: string
   status: ProposalStatus
   rejectionReason: string | null
@@ -29,6 +31,7 @@ export function useProposedCategories() {
     color?: string
     icon?: string
     target: ProposedCategoryTarget
+    parentCategoryId?: string
   }): Promise<ProposedCategory> {
     const { post } = useApi()
     const result = await post<ProposedCategory>('/proposed-categories', payload)
