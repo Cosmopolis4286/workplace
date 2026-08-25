@@ -12,12 +12,13 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFiles,
+  UploadedFile,
   BadRequestException,
   NotFoundException,
   HttpCode,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join, basename } from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -25,6 +26,7 @@ import { Role, ServiceEventType } from '@prisma/client';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { ImportServiceImageDto } from './dto/import-service-image.dto';
 import { QueryServicesDto } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
@@ -128,6 +130,62 @@ export class ServicesController {
   @RequirePermission('services:edit')
   toggle(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.toggleStatus(id, user.id);
+  }
+
+  // slot: 0 = principal, 1-2 = secundarias. Un archivo a la vez porque cada
+  // slot se sube/reemplaza de forma independiente desde el formulario.
+  @Post(':id/images')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('services:edit')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadPath = join(process.cwd(), 'uploads', 'services');
+          if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true });
+          cb(null, uploadPath);
+        },
+        filename: (_req, file, cb) => {
+          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, unique + extname(file.originalname));
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/)) {
+          return cb(new BadRequestException('Solo se permiten imágenes (jpeg, png, webp, gif)'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    })
+  )
+  uploadServiceImage(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body('slot') slot: string,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    if (!file) throw new BadRequestException('No se recibió ningún archivo');
+    const slotIndex = Number(slot);
+    if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 2) {
+      throw new BadRequestException('slot inválido');
+    }
+    return this.servicesService.setServiceImageFromUpload(id, user.id, slotIndex, file);
+  }
+
+  // Alternativa a subir un archivo: el backend descarga la URL de forma
+  // segura (bloquea IPs privadas, valida contenido real) y la guarda como
+  // archivo propio — así el resultado nunca depende del hotlinking del sitio
+  // de origen ni expone el navegador del usuario a una URL arbitraria.
+  @Post(':id/images/from-url')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('services:edit')
+  importServiceImageFromUrl(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: ImportServiceImageDto
+  ) {
+    return this.servicesService.importServiceImageFromUrl(id, user.id, dto.slot, dto.url);
   }
 
   @Delete(':id')

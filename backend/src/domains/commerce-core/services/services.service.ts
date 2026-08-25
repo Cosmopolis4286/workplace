@@ -18,6 +18,10 @@ import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-f
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { WalletsService, InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util';
+import { fetchImageFromUrlSafely } from '../../../common/utils/safe-url-image-fetch.util';
+import { writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 const SERVICE_SELECT = {
   id: true,
@@ -26,7 +30,7 @@ const SERVICE_SELECT = {
   price: true,
   priceUnit: true,
   duration: true,
-  image: true,
+  images: true,
   status: true,
   hasEscrow: true,
   tags: true,
@@ -316,6 +320,48 @@ export class ServicesService {
       data: { status: next },
       select: SERVICE_SELECT,
     });
+  }
+
+  // ─── Imágenes ───────────────────────────────────────────────────────────────
+  // slot 0 = principal, 1-2 = secundarias. `images` es un array de largo fijo
+  // 3 rellenado con '' en los huecos para que un slot se pueda reemplazar sin
+  // afectar a los demás.
+
+  private async setServiceImageSlot(id: string, slot: number, relativePath: string) {
+    const s = await this.prisma.service.findUnique({ where: { id }, select: { images: true } });
+    const current = [...(s?.images ?? [])];
+    while (current.length < 3) current.push('');
+    current[slot] = relativePath;
+    // Recorta huecos finales vacíos para no persistir slots vacíos de más.
+    while (current.length > 0 && current[current.length - 1] === '') current.pop();
+    return this.prisma.service.update({
+      where: { id },
+      data: { images: current },
+      select: SERVICE_SELECT,
+    });
+  }
+
+  async setServiceImageFromUpload(
+    id: string,
+    userId: string,
+    slot: number,
+    file: Express.Multer.File
+  ) {
+    await this.assertOwner(id, userId);
+    return this.setServiceImageSlot(id, slot, `/uploads/services/${file.filename}`);
+  }
+
+  async importServiceImageFromUrl(id: string, userId: string, slot: number, url: string) {
+    await this.assertOwner(id, userId);
+    const { buffer, extension } = await fetchImageFromUrlSafely(url);
+
+    const uploadPath = join(process.cwd(), 'uploads', 'services');
+    if (!existsSync(uploadPath)) await mkdir(uploadPath, { recursive: true });
+
+    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
+    await writeFile(join(uploadPath, filename), buffer);
+
+    return this.setServiceImageSlot(id, slot, `/uploads/services/${filename}`);
   }
 
   // ─── Moderación (admin) ─────────────────────────────────────────────────────

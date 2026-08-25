@@ -37,8 +37,10 @@ export class CreateServiceDto {
   duration?: number;
 
   @IsOptional()
-  @IsString()
-  image?: string;
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsString({ each: true })
+  images?: string[];
 
   @IsOptional()
   @IsEnum(ServiceStatus)
