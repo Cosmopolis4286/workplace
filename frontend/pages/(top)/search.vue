@@ -832,7 +832,7 @@ function openService(srv: CatalogService) {
     type: 'servicio',
     id: srv.id,
     name: srv.name,
-    image: srv.image,
+    image: srv.images?.[0] ?? null,
     subtitle: `${srv.user.firstName} ${srv.user.lastName}`,
     price: srv.price,
   })

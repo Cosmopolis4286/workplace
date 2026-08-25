@@ -374,8 +374,8 @@
           >
             <div class="h-16 w-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
               <img
-                v-if="srv.image"
-                :src="getAssetUrl(srv.image)"
+                v-if="srv.images?.[0]"
+                :src="getAssetUrl(srv.images[0])"
                 :alt="srv.name"
                 class="h-full w-full object-cover"
               >

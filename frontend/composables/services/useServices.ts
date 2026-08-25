@@ -28,7 +28,7 @@ export interface CatalogService {
   price: number
   priceUnit: string | null
   duration: number | null
-  image: string | null
+  images: string[]
   status: string
   tags: string[]
   modalities: string[]

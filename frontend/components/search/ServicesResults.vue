@@ -77,7 +77,7 @@
       >
         <!-- Imagen -->
         <div class="relative aspect-video bg-blue-50 overflow-hidden">
-          <img v-if="srv.image" :src="imageSrc(srv.image)" :alt="srv.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img v-if="srv.images?.[0]" :src="imageSrc(srv.images[0])" :alt="srv.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           <div v-else class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
             <svg class="w-12 h-12 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"

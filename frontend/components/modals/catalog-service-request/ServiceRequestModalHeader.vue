@@ -3,7 +3,7 @@
     <div class="flex items-start justify-between gap-3">
       <div class="flex items-center gap-3">
         <div class="w-12 h-12 rounded-xl overflow-hidden bg-blue-50 flex-shrink-0">
-          <img v-if="service?.image" :src="imageSrc(service.image)" :alt="service.name" class="w-full h-full object-cover" />
+          <img v-if="service?.images?.[0]" :src="imageSrc(service.images[0])" :alt="service.name" class="w-full h-full object-cover" />
           <div v-else class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
             <svg class="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"

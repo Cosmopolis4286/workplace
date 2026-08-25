@@ -6,7 +6,7 @@
       <Transition enter-active-class="duration-300 ease-out" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0">
         <div v-if="service" class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
           <div class="relative aspect-video bg-blue-50 rounded-t-3xl overflow-hidden">
-            <img v-if="service.image" :src="imageSrc(service.image)" :alt="service.name" class="w-full h-full object-cover" />
+            <img v-if="service.images?.[0]" :src="imageSrc(service.images[0])" :alt="service.name" class="w-full h-full object-cover" />
             <div v-else class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
               <svg class="w-16 h-16 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"

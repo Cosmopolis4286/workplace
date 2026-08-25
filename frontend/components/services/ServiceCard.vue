@@ -1,9 +1,9 @@
 <template>
   <div class="card p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
     <!-- Image -->
-    <div v-if="service.image" class="-mx-5 -mt-5 mb-1 h-40 bg-gray-100 rounded-t-2xl overflow-hidden">
+    <div v-if="mainImage" class="-mx-5 -mt-5 mb-1 h-40 bg-gray-100 rounded-t-2xl overflow-hidden">
       <img
-        :src="service.image"
+        :src="mainImage"
         :alt="service.name"
         class="w-full h-full object-cover"
         @error="($event.target as HTMLImageElement).closest('div')!.classList.add('hidden')"
@@ -109,13 +109,18 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { ClockIcon, ChartBarIcon, PencilIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { SERVICE_STATUS_LABELS, SERVICE_STATUS_CLASSES, type Service } from '~/composables/services/useMyServices'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { useAssetUrl } from '~/composables/core/useAssetUrl'
 
-defineProps<{
+const props = defineProps<{
   service: Service
 }>()
+
+const { getAssetUrl } = useAssetUrl()
+const mainImage = computed(() => getAssetUrl(props.service.images?.[0]))
 
 defineEmits<{
   'toggle-status': [service: Service]

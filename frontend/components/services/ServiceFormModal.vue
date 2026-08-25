@@ -215,23 +215,24 @@
               </p>
             </div>
 
-            <!-- Image URL -->
+            <!-- Imágenes -->
             <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">URL de imagen</label>
-              <input
-                v-model="form.image"
-                type="text"
-                placeholder="https://ejemplo.com/imagen.jpg"
-                class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
-              />
-              <div v-if="form.image" class="mt-2 rounded-xl overflow-hidden border border-gray-200 h-32 bg-gray-50 flex items-center justify-center">
-                <img
-                  :src="form.image"
-                  alt="Preview"
-                  class="h-full w-full object-cover"
-                  @error="($event.target as HTMLImageElement).parentElement!.innerHTML = '<span class=\'text-xs text-gray-400\'>No se puede cargar la imagen</span>'"
+              <label class="block text-xs font-medium text-gray-700 mb-2">Imágenes</label>
+              <div v-if="!editing" class="text-xs text-gray-400 mb-2">
+                Podrás agregar imágenes después de crear el servicio.
+              </div>
+              <div v-else class="grid grid-cols-3 gap-2">
+                <ServiceImageSlot
+                  v-for="slot in [0, 1, 2]"
+                  :key="slot"
+                  :label="slot === 0 ? 'Principal' : `Secundaria ${slot}`"
+                  :image="form.images[slot]"
+                  :busy="uploadingSlot === slot"
+                  @upload="(file) => handleImageUpload(slot, file)"
+                  @import-url="(url) => handleImageUrl(slot, url)"
                 />
               </div>
+              <p v-if="imageError" class="mt-1.5 text-xs text-red-600">{{ imageError }}</p>
             </div>
 
             <!-- Buttons -->
@@ -263,7 +264,9 @@
 import { ref, computed, watch } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import TagsInput from '~/components/ui/TagsInput.vue'
+import ServiceImageSlot from './ServiceImageSlot.vue'
 import { useFormValidation } from '~/composables/ui/useFormValidation'
+import { useMyServices } from '~/composables/services/useMyServices'
 import type { Service, MyServiceCategory } from '~/composables/services/useMyServices'
 
 const props = defineProps<{
@@ -279,6 +282,7 @@ const emit = defineEmits<{
 }>()
 
 const { validate, required } = useFormValidation()
+const { uploadServiceImage, importServiceImageFromUrl } = useMyServices()
 
 const ALL_MODALITIES = [
   { value: 'IN_PERSON', label: 'Presencial', emoji: '📍' },
@@ -292,7 +296,7 @@ const emptyForm = () => ({
   price: 0,
   priceUnit: '',
   duration: undefined as number | undefined,
-  image: '',
+  images: [] as string[],
   status: 'ACTIVE' as Service['status'],
   tags: [] as string[],
   modalities: [] as string[],
@@ -304,6 +308,8 @@ const emptyForm = () => ({
 const form = ref(emptyForm())
 const itemFieldInput = ref('')
 const formError = ref<string | null>(null)
+const imageError = ref<string | null>(null)
+const uploadingSlot = ref<number | null>(null)
 
 const isFormValid = computed(() =>
   form.value.name.trim().length > 0 && Number.isFinite(form.value.price) && form.value.price >= 0
@@ -320,7 +326,7 @@ watch(() => props.show, (visible) => {
       price: service.price,
       priceUnit: service.priceUnit ?? '',
       duration: service.duration,
-      image: service.image ?? '',
+      images: [...(service.images ?? [])],
       status: service.status,
       tags: [...service.tags],
       modalities: [...(service.modalities ?? [])],
@@ -360,7 +366,6 @@ function handleSubmit() {
     price: form.value.price,
     priceUnit: form.value.priceUnit || undefined,
     duration: form.value.duration || undefined,
-    image: form.value.image || undefined,
     status: form.value.status,
     tags: form.value.tags,
     modalities: form.value.modalities,
@@ -368,6 +373,34 @@ function handleSubmit() {
     categoryId: form.value.categoryId || undefined,
     hasEscrow: form.value.hasEscrow,
   })
+}
+
+async function handleImageUpload(slot: number, file: File) {
+  if (!props.editing?.id) return
+  imageError.value = null
+  uploadingSlot.value = slot
+  try {
+    const updated = await uploadServiceImage(props.editing.id, slot, file)
+    form.value.images = [...(updated.images ?? [])]
+  } catch (err: any) {
+    imageError.value = err?.message ?? 'Error al subir la imagen'
+  } finally {
+    uploadingSlot.value = null
+  }
+}
+
+async function handleImageUrl(slot: number, url: string) {
+  if (!props.editing?.id) return
+  imageError.value = null
+  uploadingSlot.value = slot
+  try {
+    const updated = await importServiceImageFromUrl(props.editing.id, slot, url)
+    form.value.images = [...(updated.images ?? [])]
+  } catch (err: any) {
+    imageError.value = err?.message ?? 'No se pudo importar la imagen desde esa URL'
+  } finally {
+    uploadingSlot.value = null
+  }
 }
 
 defineExpose({ setError: (msg: string) => { formError.value = msg } })

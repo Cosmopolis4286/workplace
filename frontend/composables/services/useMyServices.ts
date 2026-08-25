@@ -24,7 +24,7 @@ export interface Service {
   price: number
   priceUnit?: string
   duration?: number
-  image?: string
+  images: string[]
   status: 'ACTIVE' | 'INACTIVE' | 'PAUSED'
   hasEscrow?: boolean
   tags: string[]
@@ -129,6 +129,23 @@ export function useMyServices() {
     return res
   }
 
+  async function uploadServiceImage(id: string, slot: number, file: File) {
+    const formData = new FormData()
+    formData.append('image', file)
+    formData.append('slot', String(slot))
+    const res = await post<Service>(`/services/${id}/images`, formData)
+    const idx = services.value.findIndex(s => s.id === id)
+    if (idx !== -1) services.value[idx] = res
+    return res
+  }
+
+  async function importServiceImageFromUrl(id: string, slot: number, url: string) {
+    const res = await post<Service>(`/services/${id}/images/from-url`, { url, slot })
+    const idx = services.value.findIndex(s => s.id === id)
+    if (idx !== -1) services.value[idx] = res
+    return res
+  }
+
   async function toggleStatus(id: string) {
     const res = await patch<Service>(`/services/${id}/toggle`, {})
     const idx = services.value.findIndex(s => s.id === id)
@@ -213,6 +230,8 @@ export function useMyServices() {
     fetchAllModalities,
     createService,
     updateService,
+    uploadServiceImage,
+    importServiceImageFromUrl,
     toggleStatus,
     deleteService,
     createCategory,
