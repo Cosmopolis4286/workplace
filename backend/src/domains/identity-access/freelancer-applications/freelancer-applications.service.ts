@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { KycStatus, ProfessionalSubtype, ProfileStatus, ProfileType, ProposalStatus, Role } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
 import { CreateFreelancerApplicationDto } from './dto/create-freelancer-application.dto';
 import { ReviewFreelancerApplicationDto } from './dto/review-freelancer-application.dto';
 
@@ -13,6 +14,7 @@ export class FreelancerApplicationsService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
+    private readonly roleResolver: RoleResolverService,
   ) {}
 
   async getMine(userId: string) {
@@ -135,8 +137,8 @@ export class FreelancerApplicationsService {
     });
     const profileStatus = dto.status === ProposalStatus.APPROVED ? ProfileStatus.ACTIVE : ProfileStatus.REJECTED;
 
-    const [updated] = await this.prisma.$transaction([
-      this.prisma.freelancerApplication.update({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.freelancerApplication.update({
         where: { id },
         data: {
           status: dto.status,
@@ -144,33 +146,54 @@ export class FreelancerApplicationsService {
           reviewedBy: reviewerId,
           reviewedAt: new Date(),
         },
-      }),
-      ...(dto.status === ProposalStatus.APPROVED
-        ? [
-            this.prisma.user.update({
-              where: { id: application.userId },
-              data: {
-                role: Role.FREELANCER,
-                categoryId: application.categoryId,
-                subcategoryId: application.subcategoryId,
-              },
-            }),
-          ]
-        : []),
-      ...(linkedProfile
-        ? [
-            this.prisma.userProfile.update({
-              where: { id: linkedProfile.id },
-              data: {
-                status: profileStatus,
-                rejectionReason: dto.status === ProposalStatus.REJECTED ? dto.rejectionReason : null,
-                reviewedBy: reviewerId,
-                reviewedAt: new Date(),
-              },
-            }),
-          ]
-        : []),
-    ]);
+      });
+
+      if (dto.status === ProposalStatus.APPROVED) {
+        await tx.user.update({
+          where: { id: application.userId },
+          data: { categoryId: application.categoryId, subcategoryId: application.subcategoryId },
+        });
+      }
+
+      if (linkedProfile) {
+        await tx.userProfile.update({
+          where: { id: linkedProfile.id },
+          data: {
+            status: profileStatus,
+            rejectionReason: dto.status === ProposalStatus.REJECTED ? dto.rejectionReason : null,
+            reviewedBy: reviewerId,
+            reviewedAt: new Date(),
+          },
+        });
+      } else if (dto.status === ProposalStatus.APPROVED) {
+        // Self-healing: si por lo que sea el dual-write de create() no dejó
+        // un UserProfile PENDING (dato legacy, o creado antes de que
+        // existiera ese dual-write), crear uno ACTIVE ahora — sin esto,
+        // RoleResolverService no vería ningún perfil de este usuario y no
+        // otorgaría el rol (ver comentario en syncRoleForUser).
+        await tx.userProfile.create({
+          data: {
+            userId: application.userId,
+            type: ProfileType.PROFESSIONAL,
+            subtype: ProfessionalSubtype.FREELANCER,
+            categoryId: application.categoryId,
+            subcategoryId: application.subcategoryId,
+            status: ProfileStatus.ACTIVE,
+            reviewedBy: reviewerId,
+            reviewedAt: new Date(),
+          },
+        });
+      }
+
+      // RoleResolverService recalcula User.role a partir de los UserProfile
+      // ACTIVE del usuario (reemplaza el `role: Role.FREELANCER` directo de
+      // antes) — consistente con el mismo camino que usa
+      // ProfileActivationsService.review(), y respeta si el usuario además
+      // tiene un perfil BUSINESS activo (BUSINESS gana sobre PROFESSIONAL).
+      await this.roleResolver.syncRoleForUser(application.userId, tx);
+
+      return result;
+    });
 
     if (dto.status === ProposalStatus.APPROVED) {
       await this.redis.del(userFindByIdCacheKey(application.userId));

@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
-import { Role } from '@prisma/client'
+import { ProfessionalSubtype, ProfileType, Role } from '@prisma/client'
 import { FreelancerApplicationsService } from '../../domains/identity-access/freelancer-applications/freelancer-applications.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
+import { RoleResolverService } from '../../common/account-type/role-resolver.service'
 
 describe('FreelancerApplicationsService', () => {
   let service: FreelancerApplicationsService
@@ -29,7 +30,7 @@ describe('FreelancerApplicationsService', () => {
 
   beforeEach(async () => {
     mockPrismaService = {
-      user: { findUnique: jest.fn(), update: jest.fn() },
+      user: { findUnique: jest.fn().mockResolvedValue({ role: Role.NORMAL }), update: jest.fn() },
       userCategory: { findUnique: jest.fn() },
       userSubcategory: { findUnique: jest.fn() },
       freelancerApplication: {
@@ -42,10 +43,13 @@ describe('FreelancerApplicationsService', () => {
       },
       userProfile: {
         findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(1),
         create: jest.fn().mockResolvedValue({ id: 'profile-1' }),
         update: jest.fn().mockResolvedValue({ id: 'profile-1' }),
       },
-      $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
+      // Transacción interactiva: el callback recibe el mismo mock como `tx`.
+      $transaction: jest.fn((fn: any) => fn(mockPrismaService)),
     }
 
     const mockRedisService = { del: jest.fn() }
@@ -54,6 +58,7 @@ describe('FreelancerApplicationsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FreelancerApplicationsService,
+        RoleResolverService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisService, useValue: mockRedisService },
         { provide: NotificationsService, useValue: mockNotificationsService },
@@ -118,15 +123,46 @@ describe('FreelancerApplicationsService', () => {
       ).resolves.toBeDefined()
     })
 
-    it('al aprobar con KYC aprobado, cambia el rol a FREELANCER y copia categoría/subcategoría', async () => {
+    it('al aprobar con KYC aprobado, copia categoría/subcategoría y otorga el rol FREELANCER vía RoleResolverService', async () => {
       mockPrismaService.freelancerApplication.findUnique.mockResolvedValue(pendingApplication())
+      // Sin linkedProfile (dual-write no dejó nada PENDING): el servicio
+      // debe crear un UserProfile ACTIVE self-healing antes de sincronizar role.
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(null)
+      // syncRoleForUser relee tras el create() self-healing de arriba.
+      mockPrismaService.userProfile.findMany.mockResolvedValue([
+        { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+      ])
 
       await service.review(APPLICATION_ID, ADMIN_ID, { status: 'APPROVED' } as any)
 
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { role: Role.FREELANCER, categoryId: CATEGORY_ID, subcategoryId: null },
+        data: { categoryId: CATEGORY_ID, subcategoryId: null },
       })
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { role: Role.FREELANCER },
+      })
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ userId: USER_ID, type: ProfileType.PROFESSIONAL, status: 'ACTIVE' }),
+        }),
+      )
+    })
+
+    it('si ya existe un UserProfile PENDING vinculado, lo actualiza en vez de crear uno nuevo', async () => {
+      mockPrismaService.freelancerApplication.findUnique.mockResolvedValue(pendingApplication())
+      mockPrismaService.userProfile.findFirst.mockResolvedValue({ id: 'profile-1' })
+      mockPrismaService.userProfile.findMany.mockResolvedValue([
+        { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+      ])
+
+      await service.review(APPLICATION_ID, ADMIN_ID, { status: 'APPROVED' } as any)
+
+      expect(mockPrismaService.userProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'profile-1' }, data: expect.objectContaining({ status: 'ACTIVE' }) }),
+      )
+      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled()
     })
 
     it('rechaza revisar una solicitud que ya no está PENDING', async () => {
