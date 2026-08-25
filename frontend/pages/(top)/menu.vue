@@ -11,6 +11,9 @@
         <HeaderActionButton :icon="PlusIcon" @click="showCategoryModal = true">
           Nueva Categoría
         </HeaderActionButton>
+        <HeaderActionButton :icon="CubeIcon" @click="showBundleModal = true">
+          Nuevo Pack
+        </HeaderActionButton>
         <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreateProduct">
           Nuevo Producto
         </HeaderActionButton>
@@ -146,6 +149,16 @@
       @close="closeProductModal"
       @save="handleSaveProduct"
     />
+
+    <!-- Bundle Modal -->
+    <BundleModal
+      :is-open="showBundleModal"
+      :categories="categories"
+      :products="products"
+      :saving="savingBundle"
+      @close="showBundleModal = false"
+      @save="handleSaveBundle"
+    />
   </div>
 </template>
 
@@ -169,11 +182,12 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import { useMenu } from '~/composables/catalog/useMenu'
-import type { Category, Product } from '~/composables/catalog/useMenu'
+import type { Category, Product, CreateBundlePayload } from '~/composables/catalog/useMenu'
 import { usePlans } from '~/composables/commerce/usePlans'
 import { useUserPreferences } from '~/composables/users/useUserPreferences'
 import MenuProductCard from '~/components/catalog/MenuProductCard.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
+import BundleModal from '~/components/modals/BundleModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
@@ -197,6 +211,7 @@ const {
   updateCategory,
   deleteCategory,
   createProduct,
+  createBundle,
   updateProduct,
   deleteProduct,
   toggleProductStatus,
@@ -205,10 +220,12 @@ const {
 // ─── Modals state ────────────────────────────────────────────────────────────
 
 const showProductModal = ref(false)
+const showBundleModal = ref(false)
 const showCategoryModal = ref(false)
 const selectedProduct = ref<Product | null>(null)
 const selectedCategory = ref<Category | null>(null)
 const savingCategory = ref(false)
+const savingBundle = ref(false)
 
 // ─── Ordenamiento y paginación ───────────────────────────────────────────────
 
@@ -336,6 +353,16 @@ const handleSaveProduct = async (productData: Partial<Product>) => {
     await createProduct(productData)
   }
   closeProductModal()
+}
+
+const handleSaveBundle = async (payload: CreateBundlePayload) => {
+  savingBundle.value = true
+  const created = await createBundle(payload)
+  savingBundle.value = false
+  if (created) {
+    showBundleModal.value = false
+    toast.success('Pack creado', `"${created.name}" ya está disponible en tu catálogo`)
+  }
 }
 
 const confirmDeleteProduct = async (productId: string) => {
