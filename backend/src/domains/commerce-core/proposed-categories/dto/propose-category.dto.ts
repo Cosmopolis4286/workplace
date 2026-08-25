@@ -20,7 +20,14 @@ export class ProposeCategoryDto {
   icon?: string;
 
   @IsEnum(ProposedCategoryTarget, {
-    message: 'target debe ser PRODUCTO, SERVICIO o EMPLEO',
+    message: 'target debe ser PRODUCT, SERVICE, JOB o USER_CATEGORY',
   })
   target: ProposedCategoryTarget;
+
+  // Solo aplica cuando target=USER_CATEGORY: id de la UserCategory bajo la
+  // que se propone esta subcategoría. Sin esto, es una propuesta de
+  // categoría raíz nueva.
+  @IsOptional()
+  @IsString()
+  parentCategoryId?: string;
 }

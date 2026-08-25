@@ -1033,6 +1033,7 @@ enum ProposedCategoryTarget {
   PRODUCT
   SERVICE
   JOB
+  USER_CATEGORY
 }
 
 enum ProposalStatus {
@@ -1048,6 +1049,12 @@ model ProposedCategory {
   color       String?
   icon        String?
   target      ProposedCategoryTarget
+
+  // Solo aplica a USER_CATEGORY: si viene con valor, es una propuesta de
+  // SUBcategoría bajo esta UserCategory ya existente (el usuario eligió una
+  // categoría real pero no encontró su subcategoría). Null = propuesta de
+  // categoría raíz nueva.
+  parentCategoryId String?
 
   proposedBy String
   proposer   User   @relation("ProposedCategoryProposer", fields: [proposedBy], references: [id], onDelete: Cascade)

@@ -27,7 +27,7 @@ export class ProposedCategoriesService {
       throw new ConflictException('Ya tienes una propuesta pendiente con ese nombre');
     }
 
-    const existingReal = await this.nameExistsInRealTable(dto.target, dto.name);
+    const existingReal = await this.nameExistsInRealTable(dto.target, dto.name, dto.parentCategoryId);
     if (existingReal) {
       throw new ConflictException('Ya existe una categoría con ese nombre');
     }
@@ -39,6 +39,7 @@ export class ProposedCategoriesService {
         color: dto.color,
         icon: dto.icon,
         target: dto.target,
+        parentCategoryId: dto.target === ProposedCategoryTarget.USER_CATEGORY ? dto.parentCategoryId : undefined,
         proposedBy: userId,
       },
     });
@@ -53,7 +54,7 @@ export class ProposedCategoriesService {
 
   async findAllPending(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.proposedCategory.findMany({
         where: { status: ProposalStatus.PENDING },
         orderBy: { createdAt: 'asc' },
@@ -65,6 +66,23 @@ export class ProposedCategoriesService {
       }),
       this.prisma.proposedCategory.count({ where: { status: ProposalStatus.PENDING } }),
     ]);
+
+    // parentCategoryId no es una FK de Prisma (apunta a tablas distintas
+    // según target, así que no puede resolverse con `include`) — se
+    // completa con una consulta aparte solo para las propuestas que lo usan.
+    const parentIds = [...new Set(rows.filter((r) => r.parentCategoryId).map((r) => r.parentCategoryId!))];
+    const parents = parentIds.length
+      ? await this.prisma.userCategory.findMany({
+          where: { id: { in: parentIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const parentNameById = new Map(parents.map((p) => [p.id, p.name]));
+
+    const data = rows.map((r) => ({
+      ...r,
+      parentCategoryName: r.parentCategoryId ? (parentNameById.get(r.parentCategoryId) ?? null) : null,
+    }));
     return { data, total, page, limit };
   }
 
@@ -82,6 +100,7 @@ export class ProposedCategoriesService {
         color: proposal.color,
         icon: proposal.icon,
         description: proposal.description,
+        parentCategoryId: proposal.parentCategoryId,
       });
     }
 
@@ -114,7 +133,11 @@ export class ProposedCategoriesService {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  private async nameExistsInRealTable(target: ProposedCategoryTarget, name: string): Promise<boolean> {
+  private async nameExistsInRealTable(
+    target: ProposedCategoryTarget,
+    name: string,
+    parentCategoryId?: string,
+  ): Promise<boolean> {
     if (target === ProposedCategoryTarget.PRODUCT) {
       const found = await this.prisma.category.findFirst({
         where: { name: { equals: name, mode: 'insensitive' }, isGlobal: true },
@@ -127,7 +150,20 @@ export class ProposedCategoriesService {
       });
       return !!found;
     }
-    const found = await this.prisma.jobCategory.findFirst({
+    if (target === ProposedCategoryTarget.JOB) {
+      const found = await this.prisma.jobCategory.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' } },
+      });
+      return !!found;
+    }
+    // USER_CATEGORY
+    if (parentCategoryId) {
+      const found = await this.prisma.userSubcategory.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' }, categoryId: parentCategoryId },
+      });
+      return !!found;
+    }
+    const found = await this.prisma.userCategory.findFirst({
       where: { name: { equals: name, mode: 'insensitive' } },
     });
     return !!found;
@@ -135,7 +171,13 @@ export class ProposedCategoriesService {
 
   private async createRealCategory(
     target: ProposedCategoryTarget,
-    data: { name: string; color: string | null; icon: string | null; description: string | null },
+    data: {
+      name: string;
+      color: string | null;
+      icon: string | null;
+      description: string | null;
+      parentCategoryId?: string | null;
+    },
   ): Promise<string> {
     if (target === ProposedCategoryTarget.PRODUCT) {
       const created = await this.prisma.category.create({
@@ -159,13 +201,26 @@ export class ProposedCategoriesService {
       });
       return created.id;
     }
-    const created = await this.prisma.jobCategory.create({
-      data: {
-        name: data.name,
-        color: data.color ?? undefined,
-        icon: data.icon,
-        description: data.description,
-      },
+    if (target === ProposedCategoryTarget.JOB) {
+      const created = await this.prisma.jobCategory.create({
+        data: {
+          name: data.name,
+          color: data.color ?? undefined,
+          icon: data.icon,
+          description: data.description,
+        },
+      });
+      return created.id;
+    }
+    // USER_CATEGORY
+    if (data.parentCategoryId) {
+      const created = await this.prisma.userSubcategory.create({
+        data: { name: data.name, categoryId: data.parentCategoryId },
+      });
+      return created.id;
+    }
+    const created = await this.prisma.userCategory.create({
+      data: { name: data.name, icon: data.icon },
     });
     return created.id;
   }
