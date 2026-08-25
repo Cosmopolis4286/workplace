@@ -3,6 +3,7 @@ import { QueryAnalyticsDto } from './dto/query-analytics.dto';
 import { CommerceAnalyticsStrategy } from './strategies/commerce-analytics.strategy';
 import { FreelancerAnalyticsStrategy } from './strategies/freelancer-analytics.strategy';
 import { AnalyticsAccountStrategy, AnalyticsOverview } from './strategies/analytics-overview.strategy.interface';
+import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 
 /**
  * Orquestador delgado: delega a CommerceAnalyticsStrategy o
@@ -12,26 +13,31 @@ import { AnalyticsAccountStrategy, AnalyticsOverview } from './strategies/analyt
  * getDashboardTrends/getFreelancerDashboardTrends) que podían divergir
  * silenciosamente en la forma de la respuesta.
  *
- * `role`/`accountType` se recibe como parámetro (derivado del JWT en el
- * controller) en vez de resolverse internamente vía AccountTypeResolver,
- * para no agregar una query extra a la DB en cada request de analytics.
+ * El tipo de cuenta se resuelve vía AccountTypeResolver (UserProfile ACTIVE,
+ * con fallback a Role) en vez de leer el `role` crudo del JWT — Role es hoy
+ * un espejo derivado de UserProfile (ver RoleResolverService), y un JWT de
+ * hasta 15min puede quedar desactualizado tras un cambio de perfil reciente.
+ * La query extra por request es el trade-off aceptado a cambio de no
+ * depender de ese espejo potencialmente obsoleto.
  */
 @Injectable()
 export class AnalyticsService {
   constructor(
     private readonly commerceStrategy: CommerceAnalyticsStrategy,
-    private readonly freelancerStrategy: FreelancerAnalyticsStrategy
+    private readonly freelancerStrategy: FreelancerAnalyticsStrategy,
+    private readonly accountTypeResolver: AccountTypeResolver,
   ) {}
 
-  private resolveStrategy(role: string): AnalyticsAccountStrategy {
-    return role === 'FREELANCER' ? this.freelancerStrategy : this.commerceStrategy;
+  private async resolveStrategy(userId: string): Promise<AnalyticsAccountStrategy> {
+    const accountType = await this.accountTypeResolver.resolve(userId);
+    return accountType === 'FREELANCER' ? this.freelancerStrategy : this.commerceStrategy;
   }
 
-  async getOverview(userId: string, role: string, dto: QueryAnalyticsDto): Promise<AnalyticsOverview> {
-    return this.resolveStrategy(role).getOverview(userId, dto);
+  async getOverview(userId: string, dto: QueryAnalyticsDto): Promise<AnalyticsOverview> {
+    return (await this.resolveStrategy(userId)).getOverview(userId, dto);
   }
 
-  async getDashboardTrends(userId: string, role: string) {
-    return this.resolveStrategy(role).getDashboardTrends(userId);
+  async getDashboardTrends(userId: string) {
+    return (await this.resolveStrategy(userId)).getDashboardTrends(userId);
   }
 }

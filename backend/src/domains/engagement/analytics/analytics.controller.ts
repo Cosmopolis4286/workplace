@@ -14,10 +14,10 @@ export class AnalyticsController {
   @Get('overview')
   @RequirePermission('analytics:view')
   getOverview(
-    @CurrentUser() user: { id: string; role: string },
+    @CurrentUser() user: { id: string },
     @Query() query: QueryAnalyticsDto
   ) {
-    return this.analyticsService.getOverview(user.id, user.role, query);
+    return this.analyticsService.getOverview(user.id, query);
   }
 
   // Sparklines de 7 días para los widgets KPI del dashboard: pedidos/
@@ -26,7 +26,7 @@ export class AnalyticsController {
   // para freelancers — no en el proxy de citas que usa /overview).
   @Get('dashboard-trends')
   @RequirePermission('analytics:view')
-  getDashboardTrends(@CurrentUser() user: { id: string; role: string }) {
-    return this.analyticsService.getDashboardTrends(user.id, user.role);
+  getDashboardTrends(@CurrentUser() user: { id: string }) {
+    return this.analyticsService.getDashboardTrends(user.id);
   }
 }
