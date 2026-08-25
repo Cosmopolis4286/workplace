@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { KycStatus, ProfileStatus, ProfileType } from '@prisma/client';
+import { KycStatus, ProfessionalSubtype, ProfileStatus, ProfileType, Role } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
@@ -112,6 +112,16 @@ export class ProfileActivationsService {
       );
     }
 
+    // Espejo de FreelancerApplicationsService.review(): sin esto, aprobar un
+    // perfil PROFESSIONAL/FREELANCER por este camino deja al usuario con
+    // UserProfile ACTIVE pero sin el rol real, y el resto de la app (guards,
+    // middleware del frontend) sigue leyendo User.role — sería un callejón
+    // sin salida silencioso.
+    const grantsFreelancerRole =
+      dto.status === ProfileStatus.ACTIVE &&
+      profile.type === ProfileType.PROFESSIONAL &&
+      profile.subtype === ProfessionalSubtype.FREELANCER;
+
     const [updated] = await this.prisma.$transaction([
       this.prisma.userProfile.update({
         where: { id },
@@ -130,6 +140,14 @@ export class ProfileActivationsService {
             this.prisma.user.update({
               where: { id: profile.userId },
               data: { categoryId: profile.categoryId, subcategoryId: profile.subcategoryId },
+            }),
+          ]
+        : []),
+      ...(grantsFreelancerRole
+        ? [
+            this.prisma.user.update({
+              where: { id: profile.userId },
+              data: { role: Role.FREELANCER },
             }),
           ]
         : []),
