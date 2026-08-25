@@ -250,11 +250,21 @@ export class BnplService {
   // ──────────────────────────────────────────────────────────────────────────
   // Webhook (confirmación del proveedor)
   // ──────────────────────────────────────────────────────────────────────────
+
+  // Secreto compartido por proveedor, enviado en el header `x-bnpl-webhook-secret`
+  // (mismo patrón que TelegramService.verifyWebhookSecret). Cashea/Krece no
+  // firman HMAC del payload todavía (no hay specs reales del proveedor), así
+  // que esto es la mitigación real disponible hoy: sin secreto configurado,
+  // fail-closed — no se acepta ningún webhook, en vez de aceptar todo por
+  // defecto solo porque el operador no lo configuró.
+  verifyWebhookSecret(provider: BnplProvider, receivedSecret: string | undefined): boolean {
+    const key = provider === 'CASHEA' ? 'BNPL_CASHEA_WEBHOOK_SECRET' : 'BNPL_KRECE_WEBHOOK_SECRET';
+    const expected = this.config.get<string>(key);
+    if (!expected) return false;
+    return receivedSecret === expected;
+  }
+
   async handleWebhook(provider: BnplProvider, payload: BnplWebhookDto) {
-    // TODO: validar firma/origen real del proveedor cuando entreguen el
-    // mecanismo (HMAC de header, secreto compartido, etc). Por ahora se
-    // registra el payload crudo para depuración y se confía en
-    // externalReference para localizar la transacción.
     this.logger.log(`Webhook ${provider} recibido: ${JSON.stringify(payload)}`);
 
     const transaction = await this.prisma.bnplTransaction.findFirst({
@@ -323,6 +333,12 @@ export class BnplService {
       where: { externalReference },
     });
     if (!transaction) throw new NotFoundException('Transacción no encontrada');
+    // Evita reabrir/re-resolver una transacción ya cerrada — sin esto,
+    // conocer un externalReference viejo (aunque sea un UUID impredecible)
+    // permitiría revertir una aprobación/rechazo ya procesado.
+    if (transaction.status !== 'PENDING') {
+      throw new BadRequestException('Esta transacción ya fue resuelta');
+    }
 
     return this.handleWebhook(transaction.provider, { externalReference, status });
   }
