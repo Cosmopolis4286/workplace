@@ -43,7 +43,7 @@ const KNOWN_PROTECTED_ROUTES: string[] = [
 // inventar un permiso que no existe)
 const ADMIN_ONLY_ROUTES: string[] = [
   '/kyc-admin', '/landing-admin', '/proposed-categories-admin', '/service-requests-admin',
-  '/freelancer-applications-admin', '/wallet-deposit-requests-admin', '/reports-admin',
+  '/wallet-deposit-requests-admin', '/reports-admin',
   '/wallets-admin', '/service-categories-admin', '/profile-activations-admin',
 ]
 

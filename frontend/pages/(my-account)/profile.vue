@@ -75,9 +75,6 @@
 
         <ProfileActivationsCard />
 
-        <!-- Convertirme en freelancer — solo NORMAL -->
-        <ProfileFreelancerCard v-if="auth.user.value?.role === 'NORMAL'" />
-
         <ProfileSessionsCard @success="showSuccess" @error="showError" />
 
         <ProfileQuickAccessCard />
@@ -106,7 +103,6 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import ProfileAvatarCard from '~/components/profile/ProfileAvatarCard.vue'
 import ProfilePersonalInfoCard from '~/components/profile/ProfilePersonalInfoCard.vue'
 import ProfilePasswordCard from '~/components/profile/ProfilePasswordCard.vue'
-import ProfileFreelancerCard from '~/components/profile/ProfileFreelancerCard.vue'
 import ProfileActivationsCard from '~/components/profile/ProfileActivationsCard.vue'
 import ProfileSessionsCard from '~/components/profile/ProfileSessionsCard.vue'
 import ProfileQuickAccessCard from '~/components/profile/ProfileQuickAccessCard.vue'
