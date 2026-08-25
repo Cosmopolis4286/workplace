@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CatalogService } from '../catalog/catalog.service';
 import { ServicesService } from '../services/services.service';
 import { JobsService } from '../../platform/jobs/jobs.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 export interface SearchSuggestion {
   id: string;
@@ -69,10 +70,13 @@ export function detectNeedCategory(query: string): NeedCategory | null {
 
 @Injectable()
 export class SearchService {
+  private readonly logger = new Logger(SearchService.name);
+
   constructor(
     private readonly catalogService: CatalogService,
     private readonly servicesService: ServicesService,
     private readonly jobsService: JobsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async suggest(
@@ -174,6 +178,19 @@ export class SearchService {
       { tab: 'empleos', total: jobs.status === 'fulfilled' ? jobs.value.total : 0 },
     ];
 
+    if (counts.every((c) => c.total === 0)) {
+      this.recordUnmetSearch(query, location?.city ?? null);
+    }
+
     return { query, suggestions, counts, detectedBudget, needCategory };
+  }
+
+  // Fire-and-forget: una búsqueda sin resultado es señal de demanda para el
+  // Opportunity Engine (ver ServicesService.getOpportunities), pero nunca
+  // debe bloquear ni romper la respuesta de /search/suggest.
+  private recordUnmetSearch(query: string, city: string | null) {
+    this.prisma.unmetSearch
+      .create({ data: { query, city } })
+      .catch((err) => this.logger.warn(`Failed to record unmet search: ${err.message}`));
   }
 }
