@@ -8,10 +8,10 @@
           <BoltIcon class="w-7 h-7 text-white" />
         </div>
         <h1 class="text-2xl font-black text-gray-900">
-          {{ step === 2 ? '¡Todo listo!' : '¡Bienvenido!' }}
+          {{ step === LAST_STEP ? '¡Todo listo!' : '¡Bienvenido!' }}
         </h1>
         <p class="text-gray-500 mt-1.5 text-sm max-w-xs mx-auto leading-relaxed">
-          {{ step === 2
+          {{ step === LAST_STEP
             ? 'Tu cuenta está configurada. Ahora puedes empezar a usar tu panel.'
             : 'Cuéntanos un poco sobre tu negocio para personalizar tu experiencia.' }}
         </p>
@@ -31,8 +31,19 @@
       >
         <div :key="step" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
-          <OnboardingSectorStep
+          <OnboardingBusinessStep
             v-if="step === 0"
+            :business-name="businessName"
+            :logo-url="user?.avatar"
+            :uploading-logo="uploadingLogo"
+            :error="businessError"
+            :is-freelancer="user?.role === 'FREELANCER'"
+            @update:business-name="businessName = $event"
+            @upload-logo="handleLogoUpload"
+          />
+
+          <OnboardingSectorStep
+            v-if="step === 1"
             :loading="loadingCats"
             :categories="categories"
             :subcategories="subcategories"
@@ -44,7 +55,7 @@
           />
 
           <OnboardingPlanStep
-            v-if="step === 1"
+            v-if="step === 2"
             :loading="loadingPlans"
             :plans="plans"
             :selected-plan="selectedPlan"
@@ -52,7 +63,7 @@
           />
 
           <OnboardingDoneStep
-            v-if="step === 2"
+            v-if="step === LAST_STEP"
             :category-obj="selectedCategoryObj"
             :plan-obj="selectedPlanObj"
           />
@@ -64,29 +75,29 @@
 
           <!-- Acciones -->
           <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/60 flex gap-3">
-            <!-- Omitir (solo step 0) -->
+            <!-- Omitir (solo pasos opcionales: negocio y plan) -->
             <button
-              v-if="step === 0"
+              v-if="step === 0 || step === 2"
               type="button"
               class="text-sm font-medium text-gray-400 hover:text-gray-600 transition-colors px-2"
-              @click="skipOnboarding"
+              @click="skipStep"
             >Omitir</button>
 
             <!-- Continuar / Finalizar -->
             <button
-              v-if="step < 2"
+              v-if="step < LAST_STEP"
               type="button"
               :disabled="saving"
               class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
               @click="next"
             >
               <span v-if="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              {{ saving ? 'Guardando...' : step === 1 ? 'Finalizar' : 'Continuar →' }}
+              {{ saving ? 'Guardando...' : step === 2 ? 'Finalizar' : 'Continuar →' }}
             </button>
 
             <!-- Ir al panel -->
             <button
-              v-if="step === 2"
+              v-if="step === LAST_STEP"
               type="button"
               class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
               @click="goToDashboard"
@@ -113,13 +124,14 @@ import { BoltIcon, ExclamationCircleIcon, ArrowRightIcon, LockClosedIcon } from 
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import OnboardingStepIndicator from '~/components/onboarding/OnboardingStepIndicator.vue'
+import OnboardingBusinessStep from '~/components/onboarding/OnboardingBusinessStep.vue'
 import OnboardingSectorStep from '~/components/onboarding/OnboardingSectorStep.vue'
 import OnboardingPlanStep from '~/components/onboarding/OnboardingPlanStep.vue'
 import OnboardingDoneStep from '~/components/onboarding/OnboardingDoneStep.vue'
 
 definePageMeta({ middleware: 'auth' })
 
-const { user, updateLocalUser } = useAuth()
+const { user, uploadAvatar } = useAuth()
 const { invalidate: invalidateModules } = useModules()
 
 // Namespaced por userId: sin esto, en un dispositivo compartido el progreso
@@ -131,12 +143,17 @@ function lsKey(name: string) {
 const STORAGE_KEY    = () => lsKey('step')
 const COMPLETION_KEY = () => lsKey('completed')
 
+const steps = ['Tu negocio', 'Tu sector', 'Tu plan', '¡Listo!']
+const LAST_STEP = steps.length - 1
 const step  = ref(0)
-const steps = ['Tu negocio', 'Tu plan', '¡Listo!']
+
+const businessName  = ref('')
+const uploadingLogo = ref(false)
+const businessError = ref('')
 
 const categories      = ref<{ id: string; name: string; icon?: string }[]>([])
 const subcategories   = ref<{ id: string; name: string }[]>([])
-const plans           = ref<{ id: string; name: string; description?: string; price: number; color: string; isPopular: boolean }[]>([])
+const plans           = ref<{ id: string; name: string; description?: string; price: number; color: string; isPopular: boolean; features?: string[] }[]>([])
 const selectedCategory    = ref('')
 const selectedSubcategory = ref('')
 const selectedPlan        = ref('')
@@ -184,11 +201,37 @@ async function selectCategory(categoryId: string) {
   await loadSubcategories(categoryId)
 }
 
+// ─── Logo del negocio (avatar del usuario, reutilizado como logo) ─────────────
+async function handleLogoUpload(file: File) {
+  businessError.value = ''
+  uploadingLogo.value = true
+  try {
+    await uploadAvatar(file)
+  } catch (e: any) {
+    businessError.value = getApiErrorMessage(e, 'No se pudo subir el logo. Intenta de nuevo.')
+  } finally {
+    uploadingLogo.value = false
+  }
+}
+
 // ─── Navegación ───────────────────────────────────────────────────────────────
 async function next() {
   saveError.value = ''
 
   if (step.value === 0) {
+    saving.value = true
+    try {
+      if (businessName.value.trim()) {
+        const { patch } = useApi()
+        await patch('/settings/business-name', { name: businessName.value.trim() })
+      }
+      step.value = 1
+      localStorage.setItem(STORAGE_KEY(), '1')
+      if (businessName.value.trim()) localStorage.setItem(lsKey('business'), businessName.value.trim())
+    } catch (e: any) { businessError.value = getApiErrorMessage(e, 'Error al guardar. Intenta de nuevo.') }
+    finally { saving.value = false }
+
+  } else if (step.value === 1) {
     if (!selectedCategory.value) { catError.value = 'Selecciona una categoría para continuar'; return }
     catError.value = ''
     saving.value = true
@@ -201,14 +244,14 @@ async function next() {
       await fetchProfile()
       invalidateModules()
       await loadPlans()
-      step.value = 1
-      localStorage.setItem(STORAGE_KEY(), '1')
+      step.value = 2
+      localStorage.setItem(STORAGE_KEY(), '2')
       localStorage.setItem(lsKey('category'), selectedCategory.value)
       if (selectedSubcategory.value) localStorage.setItem(lsKey('subcategory'), selectedSubcategory.value)
     } catch (e: any) { saveError.value = getApiErrorMessage(e, 'Error al guardar. Intenta de nuevo.') }
     finally { saving.value = false }
 
-  } else if (step.value === 1) {
+  } else if (step.value === 2) {
     saving.value = true
     try {
       if (selectedPlan.value) {
@@ -216,8 +259,8 @@ async function next() {
         await post('/plans/self-subscribe', { planId: selectedPlan.value, interval: 'MONTHLY' })
         invalidateModules()
       }
-      step.value = 2
-      localStorage.setItem(STORAGE_KEY(), '2')
+      step.value = 3
+      localStorage.setItem(STORAGE_KEY(), '3')
       localStorage.removeItem(lsKey('plan'))
     } catch (e: any) {
       saveError.value = getApiErrorMessage(e, 'Error al guardar el plan. Intenta de nuevo.')
@@ -225,8 +268,23 @@ async function next() {
   }
 }
 
+// Omitir: solo aplica a los pasos opcionales (negocio y plan) — la
+// categoría (step 1) sigue siendo obligatoria, sin ella los módulos
+// (menu/services) no tienen cómo activarse y el usuario queda con un
+// dashboard vacío sin saber por qué.
+function skipStep() {
+  if (step.value === 0) {
+    step.value = 1
+    localStorage.setItem(STORAGE_KEY(), '1')
+  } else if (step.value === 2) {
+    step.value = 3
+    localStorage.setItem(STORAGE_KEY(), '3')
+  }
+}
+
 async function goToDashboard() {
   localStorage.removeItem(STORAGE_KEY())
+  localStorage.removeItem(lsKey('business'))
   localStorage.removeItem(lsKey('category'))
   localStorage.removeItem(lsKey('subcategory'))
   localStorage.removeItem(lsKey('plan'))
@@ -235,13 +293,6 @@ async function goToDashboard() {
   await fetchProfile()
   invalidateModules()
   await navigateTo('/dashboard')
-}
-
-async function skipOnboarding() {
-  localStorage.removeItem(STORAGE_KEY())
-  localStorage.setItem(COMPLETION_KEY(), 'true')
-  try { await navigateTo('/dashboard') }
-  catch { window.location.href = '/dashboard' }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -256,6 +307,7 @@ onMounted(async () => {
   const savedStep = parseInt(localStorage.getItem(STORAGE_KEY()) ?? '', 10)
   if (!isNaN(savedStep) && savedStep >= 1) {
     step.value = savedStep
+    businessName.value        = localStorage.getItem(lsKey('business')) || ''
     selectedCategory.value    = localStorage.getItem(lsKey('category')) || user.value?.categoryId || ''
     selectedSubcategory.value = localStorage.getItem(lsKey('subcategory')) || ''
     selectedPlan.value        = localStorage.getItem(lsKey('plan')) || ''

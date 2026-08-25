@@ -23,7 +23,17 @@
             <span class="font-bold text-sm text-gray-900">{{ plan.name }}</span>
             <span v-if="plan.isPopular" class="badge bg-red-100 text-red-700">Popular</span>
           </div>
-          <p class="text-xs text-gray-500 truncate mt-0.5">{{ plan.description }}</p>
+          <p v-if="plan.description" class="text-xs text-gray-500 truncate mt-0.5">{{ plan.description }}</p>
+          <ul v-if="plan.features?.length" class="mt-1.5 space-y-0.5">
+            <li
+              v-for="feature in plan.features.slice(0, 3)"
+              :key="feature"
+              class="flex items-center gap-1.5 text-xs text-gray-600"
+            >
+              <CheckIcon class="h-3 w-3 text-green-500 flex-shrink-0" />
+              <span class="truncate">{{ feature }}</span>
+            </li>
+          </ul>
         </div>
         <div class="flex-shrink-0 text-right">
           <span class="font-black text-sm text-gray-900">
@@ -48,11 +58,11 @@
 </template>
 
 <script setup lang="ts">
-import { CheckCircleIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, CheckIcon } from '@heroicons/vue/24/outline'
 
 defineProps<{
   loading: boolean
-  plans: { id: string; name: string; description?: string; price: number; color: string; isPopular: boolean }[]
+  plans: { id: string; name: string; description?: string; price: number; color: string; isPopular: boolean; features?: string[] }[]
   selectedPlan: string
 }>()
 
