@@ -44,7 +44,7 @@ export class PlansController {
   @Get('public')
   @UseGuards(OptionalJwtAuthGuard)
   getPublicPlans(@CurrentUser() user: any, @Query('categoryId') categoryId?: string) {
-    return this.plansService.getPublicPlans(user?.role, categoryId ?? user?.categoryId);
+    return this.plansService.getPublicPlans(user?.id, user?.role, categoryId ?? user?.categoryId);
   }
 
   // ─── Authenticated user endpoints ────────────────────────────────────────
