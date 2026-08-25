@@ -12,6 +12,7 @@ import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
 import { SubscriptionStatus, KycStatus, BillingInterval, ProfileType, ProfessionalSubtype, ProfileStatus } from '@prisma/client';
 import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
+import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 
 @Injectable()
 export class PlansService {
@@ -19,6 +20,7 @@ export class PlansService {
     private prisma: PrismaService,
     private redis: RedisService,
     private readonly roleResolver: RoleResolverService,
+    private readonly accountTypeResolver: AccountTypeResolver,
   ) {}
 
   // ─── Plans CRUD ──────────────────────────────────────────────────────────────
@@ -281,16 +283,23 @@ export class PlansService {
     return { subscription, pendingSubscription };
   }
 
-  async getPublicPlans(role?: string, categoryId?: string) {
+  async getPublicPlans(userId?: string, categoryId?: string) {
     const where: any = { status: 'ACTIVE' };
 
-    if (role === 'FREELANCER') where.forFreelancer = true;
-    else if (role === 'COMMERCE') where.forCommerce = true;
-    else if (role === 'NORMAL') {
-      // NORMAL users see upgrade plans (freelancer, commerce or normal-targeted)
+    // Qué planes ve el usuario depende de su tipo de cuenta de negocio REAL
+    // (UserProfile ACTIVE vía AccountTypeResolver), no del Role crudo del
+    // JWT — Role.COMMERCE/FREELANCER es hoy un espejo derivado, no la
+    // fuente de verdad (ver RoleResolverService).
+    const accountType = userId ? await this.accountTypeResolver.resolve(userId) : null;
+
+    if (accountType === 'FREELANCER') where.forFreelancer = true;
+    else if (accountType === 'COMMERCE') where.forCommerce = true;
+    else if (userId) {
+      // Usuario autenticado sin cuenta de negocio activa (NORMAL): ve
+      // planes de upgrade (freelancer, commerce o dirigidos a normal).
       where.OR = [{ forFreelancer: true }, { forCommerce: true }, { forNormal: true }];
     }
-    // No role (public/unauthenticated): show all active plans
+    // Sin userId (público/no autenticado): mostrar todos los planes activos
 
     const plans = await this.prisma.plan.findMany({
       where,
