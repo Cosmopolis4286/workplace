@@ -107,7 +107,9 @@ export class LandingService {
         return count > 1000 ? `${Math.floor(count / 1000)}k+` : `${count}+`
       }
       case 'freelancers': {
-        const count = await this.prisma.user.count({ where: { role: 'FREELANCER' } })
+        // role='FREELANCER' ya no existe (colapsado en PROFESIONAL) — la
+        // distinción vive en UserProfile.
+        const count = await this.prisma.userProfile.count({ where: { type: 'PROFESSIONAL', status: 'ACTIVE' } })
         return `${count}+`
       }
       case 'services': {
