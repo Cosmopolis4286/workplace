@@ -73,6 +73,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { BriefcaseIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
@@ -282,7 +283,17 @@ async function confirmToggleStatus(job: JobWithApplicationCount) {
   })
 }
 
+const route = useRoute()
+const router = useRouter()
+
 onMounted(async () => {
   await Promise.all([fetchMyJobs(), loadCategories(), fetchMyJobsStats(), fetchMyKycStatus()])
+
+  const editId = typeof route.query.edit === 'string' ? route.query.edit : null
+  if (editId) {
+    const target = myJobs.value.find(j => j.id === editId)
+    if (target) openEdit(target)
+    router.replace({ query: { ...route.query, edit: undefined } })
+  }
 })
 </script>

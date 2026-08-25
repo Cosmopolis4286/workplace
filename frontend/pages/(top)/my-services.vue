@@ -143,6 +143,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   BriefcaseIcon,
   PlusIcon,
@@ -351,7 +352,22 @@ async function confirmDeleteModality(modality: ServiceModality) {
   })
 }
 
+const route = useRoute()
+const router = useRouter()
+
 onMounted(async () => {
   await Promise.all([fetchServices(), fetchCatalogCategories(), fetchStats()])
+
+  const editId = typeof route.query.edit === 'string' ? route.query.edit : null
+  const metricsId = typeof route.query.metrics === 'string' ? route.query.metrics : null
+  if (editId) {
+    const target = services.value.find(s => s.id === editId)
+    if (target) openEdit(target)
+    router.replace({ query: { ...route.query, edit: undefined } })
+  } else if (metricsId) {
+    const target = services.value.find(s => s.id === metricsId)
+    if (target) openMetrics(target)
+    router.replace({ query: { ...route.query, metrics: undefined } })
+  }
 })
 </script>

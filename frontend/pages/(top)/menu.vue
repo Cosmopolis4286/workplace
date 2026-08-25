@@ -151,6 +151,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 // El middleware global auth.ts (bloque 4c) ya restringe /menu a usuarios con
 // categoría "Comida" y permiso menu:view — menu-category.ts cubría el mismo
@@ -352,8 +353,17 @@ const handleToggleStatus = async (productId: string) => {
 
 const { usage, fetchUsage } = usePlans()
 
-onMounted(() => {
-  loadMenu()
-  fetchUsage()
+const route = useRoute()
+const router = useRouter()
+
+onMounted(async () => {
+  await Promise.all([loadMenu(), fetchUsage()])
+
+  const editId = typeof route.query.edit === 'string' ? route.query.edit : null
+  if (editId) {
+    const target = products.value.find(p => p.id === editId)
+    if (target) openEditProduct(target)
+    router.replace({ query: { ...route.query, edit: undefined } })
+  }
 })
 </script>

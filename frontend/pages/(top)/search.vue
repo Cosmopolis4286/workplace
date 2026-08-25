@@ -135,6 +135,9 @@
           @order-product="openOrderModal"
           @toggle-favorite="toggleFavorite"
           @change-page="pChangePage"
+          @toggle-product-status="onToggleProductStatus"
+          @edit-product="onEditProduct"
+          @delete-product="onDeleteProduct"
         />
         <ServicesResults
           v-else-if="activeTab === 'servicios'"
@@ -163,6 +166,10 @@
           @retry="sLoadServices"
           @view-service="openService"
           @change-page="sChangePage"
+          @toggle-service-status="onToggleServiceStatus"
+          @view-service-metrics="onViewServiceMetrics"
+          @edit-service="onEditService"
+          @delete-service="onDeleteService"
         />
         <JobsResults
           v-else-if="activeTab === 'empleos'"
@@ -182,6 +189,7 @@
           :recently-viewed-items="recentlyViewedForTab"
           :jobs="jJobs"
           :search-input="searchInput"
+          :is-own-job="isOwnJob"
           @apply-sort="jApplySort"
           @reset-filters="jResetFilters"
           @tag-click="tag => onTagClick('empleos', tag)"
@@ -189,6 +197,9 @@
           @retry="jLoadJobs"
           @view-job="openJob"
           @change-page="jChangePage"
+          @toggle-job-status="onToggleJobStatus"
+          @edit-job="onEditJob"
+          @delete-job="onDeleteJob"
         />
 
       </div>
@@ -323,6 +334,9 @@ import { useCatalogFilters } from '~/composables/catalog/useCatalogFilters'
 import { useRecentSearches } from '~/composables/search/useRecentSearches'
 import { useRecentlyViewed, type RecentlyViewedItem } from '~/composables/search/useRecentlyViewed'
 import { useAnimatedCounter } from '~/composables/search/useAnimatedCounter'
+import { useMyServices } from '~/composables/services/useMyServices'
+import { useMenu } from '~/composables/catalog/useMenu'
+import { useConfirm } from '~/composables/ui/useConfirm'
 import SearchHero from '~/components/search/SearchHero.vue'
 import CategoryTabsBar from '~/components/search/CategoryTabsBar.vue'
 import ProductsSidebar from '~/components/search/ProductsSidebar.vue'
@@ -385,6 +399,12 @@ const { user } = useAuth()
 
 // Obtener tasa de cambio para conversión
 const { defaultRate, fetchRates } = useExchangeRates()
+
+// ─── Gestión de publicaciones propias (pausar/eliminar inline, editar redirige) ─
+const { toggleStatus: toggleServiceStatus, deleteService } = useMyServices()
+const { toggleProductStatus, deleteProduct } = useMenu()
+const { updateJob: updateJobStatus, deleteJob } = useJobs()
+const { confirm } = useConfirm()
 
 // ─── Search Tabs (dynamic from API) ──────────────────────────────────────────
 const { tabs: searchTabs, loadTabs: loadSearchTabs } = useSearchTabs()
@@ -687,6 +707,109 @@ function isOwnService(srv: CatalogService): boolean {
   const u = user.value
   if (!u) return false
   return u.id === srv.user.id
+}
+
+function isOwnJob(job: Job): boolean {
+  const u = user.value
+  if (!u) return false
+  return u.id === job.employer.id
+}
+
+// ─── Acciones de dueño (pausar/eliminar inline, editar redirige a la página de gestión) ─
+async function onToggleProductStatus(productId: string) {
+  await toggleProductStatus(productId)
+}
+async function onEditProduct(productId: string) {
+  await router.push({ path: '/menu', query: { edit: productId } })
+}
+async function onDeleteProduct(productId: string) {
+  await confirm({
+    title: 'Eliminar producto',
+    message: '¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.',
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await deleteProduct(productId)
+        pLoadProducts()
+      } catch (e: any) {
+        return e?.message ?? 'Error al eliminar'
+      }
+    },
+  })
+}
+
+async function onToggleServiceStatus(srv: CatalogService) {
+  await confirm({
+    title: srv.status === 'ACTIVE' ? 'Pausar servicio' : 'Activar servicio',
+    message: `¿Estás seguro de que deseas ${srv.status === 'ACTIVE' ? 'pausar' : 'activar'} el servicio ${srv.name}?`,
+    confirmText: srv.status === 'ACTIVE' ? 'Pausar' : 'Activar',
+    onConfirm: async () => {
+      try {
+        await toggleServiceStatus(srv.id)
+        sLoadServices()
+      } catch (e: any) {
+        return e?.message ?? 'Error al cambiar estado'
+      }
+    },
+  })
+}
+async function onEditService(srv: CatalogService) {
+  await router.push({ path: '/my-services', query: { edit: srv.id } })
+}
+async function onViewServiceMetrics(srv: CatalogService) {
+  await router.push({ path: '/my-services', query: { metrics: srv.id } })
+}
+async function onDeleteService(srv: CatalogService) {
+  await confirm({
+    title: 'Eliminar servicio',
+    message: `¿Estás seguro de eliminar ${srv.name}? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await deleteService(srv.id)
+        sLoadServices()
+      } catch (e: any) {
+        return e?.message ?? 'Error al eliminar'
+      }
+    },
+  })
+}
+
+async function onToggleJobStatus(job: Job) {
+  await confirm({
+    title: job.status === 'ACTIVE' ? 'Pausar empleo' : 'Activar empleo',
+    message: `¿Estás seguro de que deseas ${job.status === 'ACTIVE' ? 'pausar' : 'activar'} el empleo ${job.title}?`,
+    confirmText: job.status === 'ACTIVE' ? 'Pausar' : 'Activar',
+    onConfirm: async () => {
+      try {
+        await updateJobStatus(job.id, { status: job.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' })
+        jLoadJobs()
+      } catch (e: any) {
+        return e?.message ?? 'Error al cambiar estado'
+      }
+    },
+  })
+}
+async function onEditJob(job: Job) {
+  await router.push({ path: '/jobs', query: { edit: job.id } })
+}
+async function onDeleteJob(job: Job) {
+  await confirm({
+    title: 'Eliminar empleo',
+    message: `¿Estás seguro de eliminar ${job.title}? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+    onConfirm: async () => {
+      try {
+        await deleteJob(job.id)
+        jLoadJobs()
+      } catch (e: any) {
+        return e?.message ?? 'Error al eliminar'
+      }
+    },
+  })
 }
 
 function openProduct(product: CatalogProduct) {
