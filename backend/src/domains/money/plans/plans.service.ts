@@ -283,23 +283,25 @@ export class PlansService {
     return { subscription, pendingSubscription };
   }
 
-  async getPublicPlans(userId?: string, categoryId?: string) {
+  async getPublicPlans(userId?: string, role?: string, categoryId?: string) {
     const where: any = { status: 'ACTIVE' };
 
     // Qué planes ve el usuario depende de su tipo de cuenta de negocio REAL
     // (UserProfile ACTIVE vía AccountTypeResolver), no del Role crudo del
     // JWT — Role.COMMERCE/FREELANCER es hoy un espejo derivado, no la
-    // fuente de verdad (ver RoleResolverService).
+    // fuente de verdad (ver RoleResolverService). `role` solo se usa para
+    // distinguir NORMAL (ve planes de upgrade) de ADMIN/SUPERADMIN/público
+    // (ven todos los planes activos) cuando no hay cuenta de negocio activa.
     const accountType = userId ? await this.accountTypeResolver.resolve(userId) : null;
 
     if (accountType === 'FREELANCER') where.forFreelancer = true;
     else if (accountType === 'COMMERCE') where.forCommerce = true;
-    else if (userId) {
-      // Usuario autenticado sin cuenta de negocio activa (NORMAL): ve
-      // planes de upgrade (freelancer, commerce o dirigidos a normal).
+    else if (role === 'NORMAL') {
+      // NORMAL sin cuenta de negocio activa: ve planes de upgrade
+      // (freelancer, commerce o dirigidos a normal).
       where.OR = [{ forFreelancer: true }, { forCommerce: true }, { forNormal: true }];
     }
-    // Sin userId (público/no autenticado): mostrar todos los planes activos
+    // Sin role NORMAL (público/no autenticado/admin): mostrar todos los planes activos
 
     const plans = await this.prisma.plan.findMany({
       where,
