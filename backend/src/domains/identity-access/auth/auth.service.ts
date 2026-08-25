@@ -17,7 +17,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { MailService } from '../../engagement/mail/mail.service';
 import { AuditService } from '../audit/audit.service';
-import { AuditAction, Role } from '@prisma/client';
+import { AuditAction, ProfileType, Role } from '@prisma/client';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -440,7 +440,8 @@ export class AuthService {
         firstName: googleUser.firstName,
         lastName: googleUser.lastName,
         commerceName,
-        role: Role.COMMERCE,
+        role: Role.PROFESIONAL,
+        businessProfileType: ProfileType.BUSINESS,
       });
     }
 

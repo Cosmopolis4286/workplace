@@ -67,6 +67,12 @@ export class UsersService {
     sex?: Sex;
     commerceName?: string;
     role?: Role;
+    // Role.PROFESIONAL ya no distingue "tiene Commerce" de "es freelancer/
+    // service provider" — el caller debe indicarlo explícitamente. Si se
+    // omite pero viene commerceName, se infiere BUSINESS (comportamiento
+    // histórico); si no, PROFESSIONAL/FREELANCER por defecto.
+    businessProfileType?: ProfileType;
+    professionalSubtype?: ProfessionalSubtype;
     categoryId?: string;
     subcategoryId?: string;
     acceptTerms?: boolean;
@@ -81,15 +87,13 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
     const role = data.role ?? Role.NORMAL;
-    const createCommerce =
-      role === Role.COMMERCE || role === Role.ADMIN || role === Role.FREELANCER;
+    const createCommerce = role === Role.PROFESIONAL || role === Role.ADMIN;
     // UserProfile es la fuente de verdad del tipo de negocio (ver
     // RoleResolverService) — ADMIN queda fuera a propósito, no es un perfil
     // de negocio aunque también reciba un Commerce por conveniencia arriba.
     const businessProfileType =
-      role === Role.COMMERCE ? ProfileType.BUSINESS
-      : role === Role.FREELANCER ? ProfileType.PROFESSIONAL
-      : null;
+      role !== Role.PROFESIONAL ? null
+      : data.businessProfileType ?? (data.commerceName ? ProfileType.BUSINESS : ProfileType.PROFESSIONAL);
 
     const now = new Date();
     let user;
@@ -130,7 +134,9 @@ export class UsersService {
             data: {
               userId: created.id,
               type: businessProfileType,
-              subtype: businessProfileType === ProfileType.PROFESSIONAL ? ProfessionalSubtype.FREELANCER : null,
+              subtype: businessProfileType === ProfileType.PROFESSIONAL
+                ? (data.professionalSubtype ?? ProfessionalSubtype.FREELANCER)
+                : null,
               categoryId: data.categoryId,
               subcategoryId: data.subcategoryId,
               status: ProfileStatus.ACTIVE,
@@ -164,6 +170,8 @@ export class UsersService {
       lastName: dto.lastName,
       phone: dto.phone,
       role: dto.role,
+      businessProfileType: dto.businessProfileType,
+      professionalSubtype: dto.professionalSubtype,
       commerceName: dto.commerceName,
       categoryId: dto.categoryId,
       subcategoryId: dto.subcategoryId,
@@ -261,11 +269,16 @@ export class UsersService {
     search?: string;
   }) {
     const where = this.buildUsersWhere(options);
-    const withRole = (role: Role) => ({ AND: [where, { role }] });
+    // "commerce"/"freelancer" ya no son valores de Role (colapsados en
+    // PROFESIONAL) — el desglose fino ahora se cuenta vía UserProfile
+    // ACTIVE, que es donde vive esa distinción real.
+    const withActiveProfile = (type: 'BUSINESS' | 'PROFESSIONAL') => ({
+      AND: [where, { profiles: { some: { type, status: 'ACTIVE' as const } } }],
+    });
     const [total, commerce, freelancer, active] = await Promise.all([
       this.prisma.user.count({ where }),
-      this.prisma.user.count({ where: withRole(Role.COMMERCE) }),
-      this.prisma.user.count({ where: withRole(Role.FREELANCER) }),
+      this.prisma.user.count({ where: withActiveProfile('BUSINESS') }),
+      this.prisma.user.count({ where: withActiveProfile('PROFESSIONAL') }),
       this.prisma.user.count({ where: { AND: [where, { isActive: true }] } }),
     ]);
     return { total, commerce, freelancer, active };
@@ -761,10 +774,16 @@ export class UsersService {
     let hasBusinessSetup = false;
     let hasServicesSetup = false;
 
+    // Role.COMMERCE/FREELANCER se fusionaron en Role.PROFESIONAL — la
+    // distinción "tiene Commerce (negocio) vs es freelancer" ya no vive en
+    // role, se infiere de si tiene un Commerce real (ya incluido arriba).
+    const isBusiness = !!user.commerce;
+    const isFreelancerProfile = user.role === 'PROFESIONAL' && !user.commerce;
+
     const profileContext = { hasBasicInfo, hasCategory, category };
-    if (user.role === 'COMMERCE') {
+    if (isBusiness) {
       hasBusinessSetup = (await this.commerceProfileCompletion.check(user, profileContext)).isSetupComplete;
-    } else if (user.role === 'FREELANCER') {
+    } else if (isFreelancerProfile) {
       hasServicesSetup = (await this.freelancerProfileCompletion.check(user, profileContext)).isSetupComplete;
     }
 
@@ -775,9 +794,9 @@ export class UsersService {
       user.role === 'NORMAL' ? true : hasSubcategory, // NORMAL no requiere subcategoría
     ];
 
-    if (user.role === 'COMMERCE') {
+    if (isBusiness) {
       requiredFields.push(hasBusinessSetup);
-    } else if (user.role === 'FREELANCER') {
+    } else if (isFreelancerProfile) {
       requiredFields.push(hasServicesSetup);
     }
 

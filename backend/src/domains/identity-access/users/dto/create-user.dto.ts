@@ -7,14 +7,13 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
-import { Role } from '@prisma/client';
+import { ProfessionalSubtype, ProfileType, Role } from '@prisma/client';
 
 // Definir los valores válidos del enum
 const VALID_ROLES = [
   'SUPERADMIN',
   'ADMIN',
-  'COMMERCE',
-  'FREELANCER',
+  'PROFESIONAL',
   'NORMAL',
 ] as const;
 
@@ -42,10 +41,21 @@ export class CreateUserDto {
   phone?: string;
 
   @IsEnum(VALID_ROLES, {
-    message:
-      'El rol debe ser uno de: SUPERADMIN, ADMIN, COMMERCE, FREELANCER, NORMAL',
+    message: 'El rol debe ser uno de: SUPERADMIN, ADMIN, PROFESIONAL, NORMAL',
   })
   role: Role;
+
+  // Role ya no distingue "tiene Commerce" de "es freelancer/service
+  // provider" (ambos son PROFESIONAL) — cuando role=PROFESIONAL, este
+  // campo indica qué UserProfile crear. Requerido en la práctica para ese
+  // caso (validado en el service, no acá, porque depende de otro campo).
+  @IsEnum(ProfileType)
+  @IsOptional()
+  businessProfileType?: ProfileType;
+
+  @IsEnum(ProfessionalSubtype)
+  @IsOptional()
+  professionalSubtype?: ProfessionalSubtype;
 
   @IsString()
   @IsOptional()
