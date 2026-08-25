@@ -3,11 +3,13 @@ import { Role } from '@prisma/client'
 import { NavigationService } from '../../domains/platform/navigation/navigation.service'
 import { PERMISSIONS_FACADE } from '../../domains/identity-access/permissions/permissions.facade'
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
+import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
 
 describe('NavigationService', () => {
   let service: NavigationService
   let permissionsService: { getRolePermissions: jest.Mock; getUserOverrides: jest.Mock }
   let planLimitsService: { getPlanLimits: jest.Mock }
+  let currentRole: Role
 
   beforeEach(async () => {
     permissionsService = {
@@ -20,12 +22,21 @@ describe('NavigationService', () => {
         categoryName: null,
       }),
     }
+    // Sin UserProfile real en estos tests (no hay DB): el mock replica el
+    // fallback de AccountTypeResolver a Role, que es lo único que estos
+    // fixtures ejercitan.
+    const accountTypeResolver = {
+      resolve: jest.fn().mockImplementation(async () =>
+        currentRole === Role.COMMERCE || currentRole === Role.FREELANCER ? currentRole : null
+      ),
+    }
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NavigationService,
         { provide: PERMISSIONS_FACADE, useValue: permissionsService },
         { provide: PLAN_LIMITS_FACADE, useValue: planLimitsService },
+        { provide: AccountTypeResolver, useValue: accountTypeResolver },
       ],
     }).compile()
 
@@ -39,6 +50,7 @@ describe('NavigationService', () => {
   it('excludes sections with no visible items for a restricted role', async () => {
     // NORMAL sin permisos de rol ni overrides: la mayoría de secciones
     // (empresa, ventas, operaciones) deberían quedar vacías y no aparecer.
+    currentRole = Role.NORMAL
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.NORMAL })
 
     const sectionIds = result.sections.map((s) => s.id)
@@ -55,6 +67,7 @@ describe('NavigationService', () => {
       categoryName: 'Servicios', // distinta de "Comida"
     })
 
+    currentRole = Role.COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.COMMERCE })
 
     const topSection = result.sections.find((s) => s.id === 'top')
@@ -68,6 +81,7 @@ describe('NavigationService', () => {
       categoryName: 'Comida',
     })
 
+    currentRole = Role.COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.COMMERCE })
 
     const topSection = result.sections.find((s) => s.id === 'top')
@@ -81,6 +95,7 @@ describe('NavigationService', () => {
       categoryName: null,
     })
 
+    currentRole = Role.NORMAL
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.NORMAL })
 
     const topSection = result.sections.find((s) => s.id === 'top')
@@ -96,6 +111,7 @@ describe('NavigationService', () => {
       categoryName: null,
     })
 
+    currentRole = Role.FREELANCER
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.FREELANCER })
 
     const operationsSection = result.sections.find((s) => s.id === 'operations')
@@ -115,6 +131,7 @@ describe('NavigationService', () => {
       categoryName: null,
     })
 
+    currentRole = Role.COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.COMMERCE })
 
     const operationsSection = result.sections.find((s) => s.id === 'operations')
@@ -129,6 +146,7 @@ describe('NavigationService', () => {
     permissionsService.getRolePermissions.mockResolvedValue([])
     permissionsService.getUserOverrides.mockResolvedValue({ 'users:view': true })
 
+    currentRole = Role.ADMIN
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.ADMIN })
 
     const adminSection = result.sections.find((s) => s.id === 'administration')
@@ -136,6 +154,7 @@ describe('NavigationService', () => {
   })
 
   it('SUPERADMIN sees every permission-gated item regardless of role permissions', async () => {
+    currentRole = Role.SUPERADMIN
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.SUPERADMIN })
 
     const adminSection = result.sections.find((s) => s.id === 'administration')

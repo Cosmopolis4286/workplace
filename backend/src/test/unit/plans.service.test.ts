@@ -3,6 +3,7 @@ import { PlansService } from '../../domains/money/plans/plans.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
 import { RoleResolverService } from '../../common/account-type/role-resolver.service'
+import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
 import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common'
 
 describe('PlansService', () => {
@@ -61,6 +62,7 @@ describe('PlansService', () => {
       providers: [
         PlansService,
         RoleResolverService,
+        AccountTypeResolver,
         {
           provide: PrismaService,
           useValue: mockPrismaService,

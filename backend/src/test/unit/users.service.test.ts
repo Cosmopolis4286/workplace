@@ -12,7 +12,7 @@ describe('UsersService', () => {
   let service: UsersService
   let prismaService: PrismaService
 
-  const mockPrismaService = {
+  const mockPrismaService: any = {
     user: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -21,6 +21,11 @@ describe('UsersService', () => {
       delete: jest.fn(),
       count: jest.fn(),
     },
+    userProfile: {
+      create: jest.fn(),
+    },
+    // Transacción interactiva: el callback recibe el mismo mock como `tx`.
+    $transaction: jest.fn((fn: any) => fn(mockPrismaService)),
   }
 
   const redisStore = new Map<string, string>()
@@ -151,6 +156,11 @@ describe('UsersService', () => {
   })
 
   describe('create', () => {
+    beforeEach(() => {
+      mockPrismaService.user.findUnique.mockReset().mockResolvedValue(null)
+      mockPrismaService.userProfile.create.mockReset()
+    })
+
     it('should create new user', async () => {
       const createUserDto = {
         email: 'newuser@example.com',
@@ -183,6 +193,74 @@ describe('UsersService', () => {
         }),
         include: expect.any(Object),
       })
+      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled()
+    })
+
+    it('creates a BUSINESS UserProfile when role is COMMERCE', async () => {
+      const createUserDto = {
+        email: 'commerce@example.com',
+        password: 'password123',
+        firstName: 'Comercio',
+        lastName: 'Uno',
+        role: Role.COMMERCE,
+        commerceName: 'Mi Negocio',
+        categoryId: 'cat-1',
+      }
+
+      mockPrismaService.user.create.mockResolvedValue({ id: 'user-1', role: 'COMMERCE' })
+
+      await service.create(createUserDto)
+
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'user-1',
+          type: 'BUSINESS',
+          subtype: null,
+          categoryId: 'cat-1',
+          status: 'ACTIVE',
+        }),
+      })
+    })
+
+    it('creates a PROFESSIONAL/FREELANCER UserProfile when role is FREELANCER', async () => {
+      const createUserDto = {
+        email: 'freelancer@example.com',
+        password: 'password123',
+        firstName: 'Free',
+        lastName: 'Lancer',
+        role: Role.FREELANCER,
+        categoryId: 'cat-2',
+      }
+
+      mockPrismaService.user.create.mockResolvedValue({ id: 'user-2', role: 'FREELANCER' })
+
+      await service.create(createUserDto)
+
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'user-2',
+          type: 'PROFESSIONAL',
+          subtype: 'FREELANCER',
+          categoryId: 'cat-2',
+          status: 'ACTIVE',
+        }),
+      })
+    })
+
+    it('does NOT create a UserProfile when role is ADMIN (even though it also gets a Commerce)', async () => {
+      const createUserDto = {
+        email: 'admin@example.com',
+        password: 'password123',
+        firstName: 'Admin',
+        lastName: 'User',
+        role: Role.ADMIN,
+      }
+
+      mockPrismaService.user.create.mockResolvedValue({ id: 'admin-1', role: 'ADMIN' })
+
+      await service.create(createUserDto)
+
+      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled()
     })
   })
 

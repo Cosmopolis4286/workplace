@@ -9,6 +9,7 @@ import { CreateCategoryDto } from '../../domains/commerce-core/menu/dto/create-c
 import { UpdateCategoryDto } from '../../domains/commerce-core/menu/dto/update-category.dto'
 import { CreateProductDto } from '../../domains/commerce-core/menu/dto/create-product.dto'
 import { UpdateProductDto } from '../../domains/commerce-core/menu/dto/update-product.dto'
+import { CreateBundleDto } from '../../domains/commerce-core/menu/dto/create-bundle.dto'
 import { UpdateStockDto, StockUpdateType } from '../../domains/commerce-core/menu/dto/update-stock.dto'
 import { I18nService } from 'nestjs-i18n'
 
@@ -71,6 +72,8 @@ describe('MenuService', () => {
   }
 
   beforeEach(async () => {
+    jest.clearAllMocks()
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MenuService,
@@ -252,6 +255,90 @@ describe('MenuService', () => {
         const result = await service.updateStock(userId, productId, updateStockDto)
 
         expect(result).toEqual(updatedProduct)
+      })
+    })
+
+    describe('createBundle', () => {
+      const userId = 'user-123'
+      const bundleDto: CreateBundleDto = {
+        name: 'Combo Familiar',
+        price: 40,
+        categoryId: 'cat-123',
+        items: [
+          { productId: 'prod-1', quantity: 2 },
+          { productId: 'prod-2', quantity: 1 },
+        ],
+      }
+
+      it('creates a bundle when all components belong to the same commerce', async () => {
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-123', commerceId: 'commerce-123' })
+        mockPrismaService.product.findMany.mockResolvedValue([
+          { id: 'prod-1', commerceId: 'commerce-123', isBundle: false },
+          { id: 'prod-2', commerceId: 'commerce-123', isBundle: false },
+        ])
+        const created = { id: 'bundle-1', isBundle: true, ...bundleDto }
+        mockPrismaService.product.create.mockResolvedValue(created)
+
+        const result = await service.createBundle(userId, bundleDto)
+
+        expect(result).toEqual(created)
+        expect(mockPrismaService.product.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              isBundle: true,
+              bundleItems: { create: [
+                { componentProductId: 'prod-1', quantity: 2 },
+                { componentProductId: 'prod-2', quantity: 1 },
+              ] },
+            }),
+          })
+        )
+      })
+
+      it('rejects a component that belongs to another commerce', async () => {
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-123', commerceId: 'commerce-123' })
+        mockPrismaService.product.findMany.mockResolvedValue([
+          { id: 'prod-1', commerceId: 'commerce-123', isBundle: false },
+          { id: 'prod-2', commerceId: 'otro-comercio', isBundle: false },
+        ])
+
+        await expect(service.createBundle(userId, bundleDto)).rejects.toBeInstanceOf(Error)
+        expect(mockPrismaService.product.create).not.toHaveBeenCalled()
+      })
+
+      it('rejects a component that is itself a bundle (no nested bundles)', async () => {
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-123', commerceId: 'commerce-123' })
+        mockPrismaService.product.findMany.mockResolvedValue([
+          { id: 'prod-1', commerceId: 'commerce-123', isBundle: false },
+          { id: 'prod-2', commerceId: 'commerce-123', isBundle: true },
+        ])
+
+        await expect(service.createBundle(userId, bundleDto)).rejects.toBeInstanceOf(Error)
+        expect(mockPrismaService.product.create).not.toHaveBeenCalled()
+      })
+
+      it('rejects duplicate product ids in the items list', async () => {
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-123', commerceId: 'commerce-123' })
+
+        const dupDto = { ...bundleDto, items: [{ productId: 'prod-1', quantity: 1 }, { productId: 'prod-1', quantity: 2 }] }
+
+        await expect(service.createBundle(userId, dupDto)).rejects.toBeInstanceOf(Error)
+        expect(mockPrismaService.product.findMany).not.toHaveBeenCalled()
+      })
+
+      it('rejects if a component product does not exist', async () => {
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-123', commerceId: 'commerce-123' })
+        mockPrismaService.product.findMany.mockResolvedValue([
+          { id: 'prod-1', commerceId: 'commerce-123', isBundle: false },
+        ])
+
+        await expect(service.createBundle(userId, bundleDto)).rejects.toBeInstanceOf(Error)
+        expect(mockPrismaService.product.create).not.toHaveBeenCalled()
       })
     })
   })

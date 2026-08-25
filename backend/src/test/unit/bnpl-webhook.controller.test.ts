@@ -1,14 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { I18nService } from 'nestjs-i18n'
 import { BnplWebhookController } from '../../domains/money/bnpl/bnpl-webhook.controller'
 import { BnplService } from '../../domains/money/bnpl/bnpl.service'
-import { RateLimitGuard } from '../../common/guards/rate-limit.guard'
+import { RedisService } from '../../redis/redis.service'
 
 describe('BnplWebhookController', () => {
   let controller: BnplWebhookController
   const mockBnplService = { simulateResolve: jest.fn(), handleWebhook: jest.fn(), verifyWebhookSecret: jest.fn() }
   const mockConfigService = { get: jest.fn() }
+  // RateLimitGuard (referenciado en @UseGuards de simulateResolve) necesita
+  // estas dos dependencias reales para instanciarse, aunque los tests llamen
+  // los métodos del controller directamente y el guard nunca se ejecute de
+  // verdad — mismo patrón que auth.service.test.ts.
+  const mockRedisService = { incrWithExpire: jest.fn() }
+  const mockI18nService = { t: jest.fn((key: string) => key) }
 
   beforeEach(async () => {
     jest.clearAllMocks()
@@ -17,16 +24,10 @@ describe('BnplWebhookController', () => {
       providers: [
         { provide: BnplService, useValue: mockBnplService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: RedisService, useValue: mockRedisService },
+        { provide: I18nService, useValue: mockI18nService },
       ],
-    })
-      // Los tests llaman los métodos del controller directamente (no vía
-      // HTTP), así que RateLimitGuard nunca se ejecuta de verdad — pero
-      // Nest igual necesita poder instanciarlo como provider referenciado
-      // en @UseGuards. Se reemplaza por un mock trivial en vez de proveer
-      // sus dependencias reales (RedisService, I18nService).
-      .overrideProvider(RateLimitGuard)
-      .useValue({ canActivate: () => true })
-      .compile()
+    }).compile()
 
     controller = module.get<BnplWebhookController>(BnplWebhookController)
   })

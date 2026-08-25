@@ -12,39 +12,41 @@ describe('CatalogService', () => {
 
   const REQUESTER_ID = 'requester-1'
   const PRODUCT_ID = 'product-1'
+  const BUNDLE_ID = 'bundle-1'
+  const COMPONENT_ID = 'component-1'
   const COMMERCE_ID = 'commerce-1'
 
   function baseProduct(overrides: Partial<any> = {}) {
     return {
+      id: PRODUCT_ID,
       name: 'Torta de chocolate',
       price: 25,
       status: ProductStatus.AVAILABLE,
       forSale: true,
+      isBundle: false,
       commerceId: COMMERCE_ID,
       commerce: { name: 'Pastelería Ana' },
+      bundleItems: [],
       ...overrides,
     }
   }
 
   function baseDto(overrides: Partial<any> = {}) {
     return {
-      productId: PRODUCT_ID,
-      productName: 'nombre falso inyectado',
       commerceId: COMMERCE_ID,
-      commerceName: 'comercio falso inyectado',
-      quantity: 2,
+      items: [{ productId: PRODUCT_ID, quantity: 2 }],
       deliveryType: 'HOME_DELIVERY',
       buyerName: 'Cliente Uno',
       buyerPhone: '+58111',
-      totalEstimate: 0.01,
       ...overrides,
     }
   }
 
   beforeEach(async () => {
     mockPrismaService = {
-      product: { findUnique: jest.fn(), updateMany: jest.fn() },
+      product: { findMany: jest.fn(), updateMany: jest.fn() },
       catalogOrder: { create: jest.fn() },
+      $transaction: jest.fn((callback: (tx: any) => unknown) => callback(mockPrismaService)),
     }
     mockNotificationsService = {
       notifyNewCatalogOrder: jest.fn().mockResolvedValue(undefined),
@@ -63,45 +65,88 @@ describe('CatalogService', () => {
 
   describe('createOrder', () => {
     it('lanza NotFoundException si el producto no existe', async () => {
-      mockPrismaService.product.findUnique.mockResolvedValue(null)
+      mockPrismaService.product.findMany.mockResolvedValue([])
 
       await expect(service.createOrder(baseDto() as any, REQUESTER_ID)).rejects.toBeInstanceOf(NotFoundException)
       expect(mockPrismaService.catalogOrder.create).not.toHaveBeenCalled()
     })
 
     it('lanza NotFoundException si el producto no está disponible (forSale=false)', async () => {
-      mockPrismaService.product.findUnique.mockResolvedValue(baseProduct({ forSale: false }))
+      mockPrismaService.product.findMany.mockResolvedValue([baseProduct({ forSale: false })])
 
       await expect(service.createOrder(baseDto() as any, REQUESTER_ID)).rejects.toBeInstanceOf(NotFoundException)
     })
 
     it('lanza NotFoundException si el producto no está AVAILABLE', async () => {
-      mockPrismaService.product.findUnique.mockResolvedValue(baseProduct({ status: ProductStatus.OUT_OF_STOCK }))
+      mockPrismaService.product.findMany.mockResolvedValue([baseProduct({ status: ProductStatus.OUT_OF_STOCK })])
 
       await expect(service.createOrder(baseDto() as any, REQUESTER_ID)).rejects.toBeInstanceOf(NotFoundException)
     })
 
     it('rechaza si el commerceId del body no coincide con el dueño real del producto', async () => {
-      mockPrismaService.product.findUnique.mockResolvedValue(baseProduct({ commerceId: 'otro-comercio' }))
+      mockPrismaService.product.findMany.mockResolvedValue([baseProduct({ commerceId: 'otro-comercio' })])
 
       await expect(service.createOrder(baseDto() as any, REQUESTER_ID)).rejects.toBeInstanceOf(BadRequestException)
       expect(mockPrismaService.catalogOrder.create).not.toHaveBeenCalled()
     })
 
-    it('ignora productName/commerceName/totalEstimate del body y los deriva del producto real', async () => {
-      mockPrismaService.product.findUnique.mockResolvedValue(baseProduct())
-      mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) => Promise.resolve({ id: 'order-1', ...data }))
+    it('deriva productName/commerceName/unitPrice/totalEstimate del producto real, no del body', async () => {
+      mockPrismaService.product.findMany.mockResolvedValue([baseProduct()])
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
+      mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'order-1', ...data, items: data.items.create })
+      )
 
       const result = await service.createOrder(baseDto() as any, REQUESTER_ID)
 
-      expect(result.data.productName).toBe('Torta de chocolate')
       expect(result.data.commerceName).toBe('Pastelería Ana')
-      expect(result.data.totalEstimate).toBe(50) // price 25 * quantity 2, no el 0.01 del body
+      expect(result.data.totalEstimate).toBe(50) // price 25 * quantity 2
+      expect(result.data.items[0]).toMatchObject({
+        productId: PRODUCT_ID, productName: 'Torta de chocolate', unitPrice: 25, quantity: 2, isBundle: false,
+      })
+    })
+
+    it('descuenta stock del producto y rechaza si no alcanza (stock insuficiente)', async () => {
+      mockPrismaService.product.findMany.mockResolvedValue([baseProduct()])
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 0 })
+
+      await expect(service.createOrder(baseDto() as any, REQUESTER_ID)).rejects.toBeInstanceOf(BadRequestException)
+      expect(mockPrismaService.catalogOrder.create).not.toHaveBeenCalled()
+    })
+
+    it('un pack (isBundle) descuenta stock de sus componentes, no de sí mismo', async () => {
+      const bundle = baseProduct({
+        id: BUNDLE_ID,
+        name: 'Combo Familiar',
+        price: 40,
+        isBundle: true,
+        bundleItems: [{ componentProductId: COMPONENT_ID, quantity: 2 }],
+      })
+      mockPrismaService.product.findMany.mockResolvedValue([bundle])
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
+      mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'order-1', ...data, items: data.items.create })
+      )
+
+      await service.createOrder(baseDto({ items: [{ productId: BUNDLE_ID, quantity: 3 }] }) as any, REQUESTER_ID)
+
+      // 3 packs x 2 unidades del componente por pack = 6 a descontar del componente
+      expect(mockPrismaService.product.updateMany).toHaveBeenCalledWith({
+        where: { id: COMPONENT_ID, stock: { gte: 6 } },
+        data: { stock: { decrement: 6 } },
+      })
+      // El pack en sí nunca se descuenta como stock propio
+      expect(mockPrismaService.product.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: BUNDLE_ID, stock: expect.anything() }) })
+      )
     })
 
     it('incrementa salesCount y notifica al comercio con los datos reales', async () => {
-      mockPrismaService.product.findUnique.mockResolvedValue(baseProduct())
-      mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) => Promise.resolve({ id: 'order-1', ...data }))
+      mockPrismaService.product.findMany.mockResolvedValue([baseProduct()])
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
+      mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'order-1', ...data, items: data.items.create })
+      )
 
       await service.createOrder(baseDto() as any, REQUESTER_ID)
 
