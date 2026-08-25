@@ -16,6 +16,8 @@ import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
 import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CatalogOrderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -93,8 +95,9 @@ export class CatalogController {
   }
 
   @Patch('orders/:id/status')
-  @UseGuards(JwtAuthGuard, AccountTypeGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
   @RequireAccountType('COMMERCE')
+  @RequirePermission('catalog:manage_orders')
   async updateOrderStatus(
     @Param('id') id: string,
     @Body('status') status: CatalogOrderStatus,
