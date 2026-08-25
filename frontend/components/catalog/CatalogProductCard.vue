@@ -166,14 +166,16 @@
               Añadir
             </button>
           </template>
-
-          <span
-            v-if="isOwner"
-            class="text-[11px] font-semibold text-gray-400 bg-gray-100 rounded-xl px-2.5 py-1.5"
-            title="Este es tu producto"
-          >Tu producto</span>
         </div>
       </div>
+
+      <OwnerActionsBar
+        v-if="isOwner"
+        :is-active="product.status === 'AVAILABLE'"
+        @toggle-status="$emit('toggle-status', product.id)"
+        @edit="$emit('edit', product.id)"
+        @delete="$emit('delete', product.id)"
+      />
     </div>
   </div>
 </template>
@@ -183,9 +185,17 @@ import { ref, computed } from 'vue'
 import type { CatalogProduct } from '~/composables/catalog/useCatalog'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useCart } from '~/composables/catalog/useCart'
+import OwnerActionsBar from '~/components/search/OwnerActionsBar.vue'
 
 const props = defineProps<{ product: CatalogProduct; isOwner?: boolean; isFavorite?: boolean }>()
-defineEmits<{ view: [product: CatalogProduct]; order: [product: CatalogProduct]; 'toggle-favorite': [productId: string] }>()
+defineEmits<{
+  view: [product: CatalogProduct]
+  order: [product: CatalogProduct]
+  'toggle-favorite': [productId: string]
+  'toggle-status': [productId: string]
+  edit: [productId: string]
+  delete: [productId: string]
+}>()
 
 const { addItem, increment, decrement, getQuantity } = useCart()
 const addedFlash = ref(false)

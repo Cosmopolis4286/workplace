@@ -125,6 +125,15 @@
               {{ job._count.applications }} aplicaciones
             </div>
           </div>
+
+          <OwnerActionsBar
+            v-if="isOwnJob(job)"
+            :is-active="job.status === 'ACTIVE'"
+            :can-toggle="job.status !== 'CLOSED'"
+            @toggle-status="$emit('toggle-job-status', job)"
+            @edit="$emit('edit-job', job)"
+            @delete="$emit('delete-job', job)"
+          />
         </div>
       </div>
     </div>
@@ -138,6 +147,7 @@ import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import TagChips from '~/components/search/TagChips.vue'
 import RecentlyViewedStrip from '~/components/search/RecentlyViewedStrip.vue'
 import SearchPagination from '~/components/search/SearchPagination.vue'
+import OwnerActionsBar from '~/components/search/OwnerActionsBar.vue'
 import type { Job, JobCategory, JobSortBy } from '~/composables/jobs/useJobs'
 import type { RecentlyViewedItem } from '~/composables/search/useRecentlyViewed'
 
@@ -158,6 +168,7 @@ defineProps<{
   recentlyViewedItems: RecentlyViewedItem[]
   jobs: Job[]
   searchInput: string
+  isOwnJob: (job: Job) => boolean
 }>()
 
 defineEmits<{
@@ -168,6 +179,9 @@ defineEmits<{
   retry: []
   'view-job': [job: Job]
   'change-page': [page: number]
+  'toggle-job-status': [job: Job]
+  'edit-job': [job: Job]
+  'delete-job': [job: Job]
 }>()
 
 const { getAssetUrl } = useAssetUrl()

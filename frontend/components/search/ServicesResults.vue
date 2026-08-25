@@ -148,6 +148,16 @@
               {{ srv.duration }} min
             </div>
           </div>
+
+          <OwnerActionsBar
+            v-if="isOwnService(srv)"
+            :is-active="srv.status === 'ACTIVE'"
+            show-metrics
+            @toggle-status="$emit('toggle-service-status', srv)"
+            @metrics="$emit('view-service-metrics', srv)"
+            @edit="$emit('edit-service', srv)"
+            @delete="$emit('delete-service', srv)"
+          />
         </div>
       </div>
     </div>
@@ -162,6 +172,7 @@ import { useDateFormat } from '~/composables/core/useDateFormat'
 import TagChips from '~/components/search/TagChips.vue'
 import RecentlyViewedStrip from '~/components/search/RecentlyViewedStrip.vue'
 import SearchPagination from '~/components/search/SearchPagination.vue'
+import OwnerActionsBar from '~/components/search/OwnerActionsBar.vue'
 import type { CatalogService, ServiceCategory, ServiceProvider, ServiceSortBy } from '~/composables/services/useServices'
 import type { RecentlyViewedItem } from '~/composables/search/useRecentlyViewed'
 import type { ExchangeRate } from '~/composables/wallets/useExchangeRates'
@@ -195,6 +206,10 @@ defineEmits<{
   retry: []
   'view-service': [srv: CatalogService]
   'change-page': [page: number]
+  'toggle-service-status': [srv: CatalogService]
+  'view-service-metrics': [srv: CatalogService]
+  'edit-service': [srv: CatalogService]
+  'delete-service': [srv: CatalogService]
 }>()
 
 const { getAssetUrl } = useAssetUrl()

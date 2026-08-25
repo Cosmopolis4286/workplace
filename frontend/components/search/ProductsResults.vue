@@ -78,6 +78,7 @@
         v-for="product in visibleProducts" :key="product.id" :product="product"
         :isOwner="isOwnProduct(product)" :isFavorite="isFavorite(product.id)"
         @view="$emit('view-product', product)" @order="$emit('order-product', product)" @toggle-favorite="$emit('toggle-favorite', $event)"
+        @toggle-status="$emit('toggle-product-status', $event)" @edit="$emit('edit-product', $event)" @delete="$emit('delete-product', $event)"
       />
     </div>
 
@@ -128,5 +129,8 @@ defineEmits<{
   'order-product': [product: CatalogProduct]
   'toggle-favorite': [id: string]
   'change-page': [page: number]
+  'toggle-product-status': [productId: string]
+  'edit-product': [productId: string]
+  'delete-product': [productId: string]
 }>()
 </script>
