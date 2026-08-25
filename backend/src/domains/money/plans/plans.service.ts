@@ -10,11 +10,16 @@ import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
-import { SubscriptionStatus, KycStatus, AccountType, BillingInterval } from '@prisma/client';
+import { SubscriptionStatus, KycStatus, BillingInterval, ProfileType, ProfessionalSubtype, ProfileStatus } from '@prisma/client';
+import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
 
 @Injectable()
 export class PlansService {
-  constructor(private prisma: PrismaService, private redis: RedisService) {}
+  constructor(
+    private prisma: PrismaService,
+    private redis: RedisService,
+    private readonly roleResolver: RoleResolverService,
+  ) {}
 
   // ─── Plans CRUD ──────────────────────────────────────────────────────────────
 
@@ -394,19 +399,56 @@ export class PlansService {
     if (subscription.interval === 'ANNUAL') endAt.setFullYear(endAt.getFullYear() + 1);
     else endAt.setMonth(endAt.getMonth() + 1);
 
-    const [updatedSubscription] = await this.prisma.$transaction([
-      this.prisma.subscription.update({
+    const profileType = targetRole === 'COMMERCE' ? ProfileType.BUSINESS : ProfileType.PROFESSIONAL;
+
+    const updatedSubscription = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.subscription.update({
         where: { id },
         data: { status: 'ACTIVE', startAt, endAt, assignedBy: adminId },
         include: { plan: true, user: true },
-      }),
-      this.prisma.user.update({
-        where: { id: subscription.userId },
-        // accountType es la fuente de verdad de negocio (AccountTypeResolver);
-        // role se mantiene en paralelo por retrocompatibilidad (JWTs/guards RBAC).
-        data: { role: targetRole as any, accountType: targetRole as AccountType },
-      }),
-    ]);
+      });
+
+      // UserProfile es la fuente de verdad de negocio — aprobar un upgrade
+      // de plan es otro camino hacia el mismo destino que
+      // ProfileActivationsService/FreelancerApplicationsService, así que
+      // también debe pasar por ahí (antes escribía User.role/accountType
+      // directo, sin dejar rastro en UserProfile). Reutiliza el perfil
+      // existente si ya lo tenía (evita duplicar filas si el usuario
+      // upgradeó de plan más de una vez).
+      const existingProfile = await tx.userProfile.findFirst({
+        where: { userId: subscription.userId, type: profileType },
+      });
+      if (existingProfile) {
+        await tx.userProfile.update({
+          where: { id: existingProfile.id },
+          data: {
+            status: ProfileStatus.ACTIVE,
+            subtype: profileType === ProfileType.PROFESSIONAL ? ProfessionalSubtype.FREELANCER : null,
+            categoryId: subscription.user.categoryId,
+            subcategoryId: subscription.user.subcategoryId,
+            reviewedBy: adminId,
+            reviewedAt: new Date(),
+          },
+        });
+      } else {
+        await tx.userProfile.create({
+          data: {
+            userId: subscription.userId,
+            type: profileType,
+            subtype: profileType === ProfileType.PROFESSIONAL ? ProfessionalSubtype.FREELANCER : null,
+            categoryId: subscription.user.categoryId,
+            subcategoryId: subscription.user.subcategoryId,
+            status: ProfileStatus.ACTIVE,
+            reviewedBy: adminId,
+            reviewedAt: new Date(),
+          },
+        });
+      }
+
+      await this.roleResolver.syncRoleForUser(subscription.userId, tx);
+
+      return result;
+    });
     await this.redis.del(userFindByIdCacheKey(subscription.userId));
 
     return { subscription: updatedSubscription, targetRole };

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { PlansService } from '../../domains/money/plans/plans.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
+import { RoleResolverService } from '../../common/account-type/role-resolver.service'
 import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common'
 
 describe('PlansService', () => {
@@ -35,6 +36,15 @@ describe('PlansService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    userProfile: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(1),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    // Transacción interactiva: el callback recibe el mismo mock como `tx`.
+    $transaction: jest.fn((fn: any) => fn(mockPrismaService)),
   }
 
   const redisStore = new Map<string, string>()
@@ -50,6 +60,7 @@ describe('PlansService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PlansService,
+        RoleResolverService,
         {
           provide: PrismaService,
           useValue: mockPrismaService,
@@ -392,6 +403,92 @@ describe('updatePlan', () => {
       mockPrismaService.plan.findUnique.mockResolvedValue(null)
 
       await expect(service.selfSubscribe('user-123', { planId: 'nope' })).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('approveSubscription', () => {
+    function pendingSubscription(overrides: Partial<any> = {}) {
+      return {
+        id: 'sub-1',
+        userId: 'user-1',
+        status: 'PENDING',
+        interval: 'MONTHLY',
+        plan: { forCommerce: true, forFreelancer: false },
+        user: { id: 'user-1', kycStatus: 'APPROVED', categoryId: 'cat-1', subcategoryId: null },
+        ...overrides,
+      }
+    }
+
+    beforeEach(() => {
+      mockPrismaService.subscription.findUnique.mockReset()
+      mockPrismaService.subscription.update.mockReset()
+      mockPrismaService.subscription.updateMany.mockReset()
+      mockPrismaService.user.update.mockReset()
+      mockPrismaService.userProfile.findFirst.mockReset().mockResolvedValue(null)
+      mockPrismaService.userProfile.findMany.mockReset().mockResolvedValue([])
+      mockPrismaService.userProfile.count.mockReset().mockResolvedValue(1)
+      mockPrismaService.userProfile.create.mockReset()
+      mockPrismaService.userProfile.update.mockReset()
+      mockPrismaService.subscription.update.mockImplementation(({ data }: any) =>
+        Promise.resolve({ ...pendingSubscription(), ...data }),
+      )
+    })
+
+    it('bloquea la aprobación si el KYC del usuario no está APPROVED', async () => {
+      mockPrismaService.subscription.findUnique.mockResolvedValue(
+        pendingSubscription({ user: { id: 'user-1', kycStatus: 'PENDING' } }),
+      )
+
+      await expect(service.approveSubscription('sub-1', 'admin-1')).rejects.toThrow(
+        'debe completar y aprobar la verificación de identidad',
+      )
+      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled()
+    })
+
+    it('un plan forCommerce crea/activa un UserProfile BUSINESS y otorga role COMMERCE', async () => {
+      mockPrismaService.subscription.findUnique.mockResolvedValue(pendingSubscription())
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'NORMAL' })
+      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'BUSINESS', subtype: null }])
+
+      await service.approveSubscription('sub-1', 'admin-1')
+
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ userId: 'user-1', type: 'BUSINESS', subtype: null, status: 'ACTIVE' }),
+        }),
+      )
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: 'COMMERCE' } })
+    })
+
+    it('un plan forFreelancer crea/activa un UserProfile PROFESSIONAL/FREELANCER y otorga role FREELANCER', async () => {
+      mockPrismaService.subscription.findUnique.mockResolvedValue(
+        pendingSubscription({ plan: { forCommerce: false, forFreelancer: true } }),
+      )
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'NORMAL' })
+      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'PROFESSIONAL', subtype: 'FREELANCER' }])
+
+      await service.approveSubscription('sub-1', 'admin-1')
+
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ userId: 'user-1', type: 'PROFESSIONAL', subtype: 'FREELANCER', status: 'ACTIVE' }),
+        }),
+      )
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: 'FREELANCER' } })
+    })
+
+    it('reutiliza un UserProfile existente del mismo tipo en vez de duplicarlo', async () => {
+      mockPrismaService.subscription.findUnique.mockResolvedValue(pendingSubscription())
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'NORMAL' })
+      mockPrismaService.userProfile.findFirst.mockResolvedValue({ id: 'profile-existing' })
+      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'BUSINESS', subtype: null }])
+
+      await service.approveSubscription('sub-1', 'admin-1')
+
+      expect(mockPrismaService.userProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'profile-existing' }, data: expect.objectContaining({ status: 'ACTIVE' }) }),
+      )
+      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled()
     })
   })
 
