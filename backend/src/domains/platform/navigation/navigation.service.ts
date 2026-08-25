@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PermissionsFacade, PERMISSIONS_FACADE } from '../../identity-access/permissions/permissions.facade';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
+import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { EXTRA_PROTECTED_ROUTES, NAVIGATION_TREE } from './navigation-tree.data';
 import { NavItemDef, NavigationResponse } from './navigation.types';
 
@@ -10,26 +11,23 @@ export class NavigationService {
   constructor(
     @Inject(PERMISSIONS_FACADE) private readonly permissionsService: PermissionsFacade,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimitsService: PlanLimitsFacade,
+    private readonly accountTypeResolver: AccountTypeResolver,
   ) {}
 
   async buildNavigationForUser(user: { id: string; role: Role }): Promise<NavigationResponse> {
     const { role } = user;
     const isSuperAdmin = role === Role.SUPERADMIN;
-    // accountType se deriva de role sin query extra — navigation es un
-    // endpoint de alta frecuencia, no amerita ir a la DB solo para leer lo
-    // que el JWT ya trae. Esto es seguro porque RoleResolverService.
-    // syncRoleForUser mantiene User.role sincronizado con los UserProfile
-    // ACTIVE del usuario en el momento de la aprobación (ver
-    // ProfileActivationsService.review() / FreelancerApplicationsService.
-    // review()) — role YA es la fuente de verdad correcta acá, no un atajo
-    // que se desincroniza. Ver AccountTypeResolver para el caso donde sí
-    // hace falta ir a UserProfile directo (no solo el valor escalar).
-    const accountType = role === Role.COMMERCE || role === Role.FREELANCER ? role : null;
-
-    const [rolePermKeys, overrides, limits] = await Promise.all([
+    // Tipo de cuenta real vía AccountTypeResolver (UserProfile ACTIVE, con
+    // fallback a Role) en vez del Role crudo del JWT — Role es un espejo
+    // derivado (ver RoleResolverService) que puede quedar desactualizado
+    // hasta 15min tras un cambio de perfil reciente. La query extra por
+    // request es el trade-off aceptado a cambio de no depender de ese
+    // espejo potencialmente obsoleto.
+    const [rolePermKeys, overrides, limits, accountType] = await Promise.all([
       this.permissionsService.getRolePermissions(role),
       this.permissionsService.getUserOverrides(user.id),
       this.planLimitsService.getPlanLimits(user.id),
+      this.accountTypeResolver.resolve(user.id),
     ]);
 
     const can = (key: string | null): boolean => {
