@@ -11,30 +11,31 @@ import {
 } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
+import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.guard';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
 @Controller('telegram')
 export class TelegramController {
   constructor(
     private readonly telegram: TelegramService,
     private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService,
   ) {}
 
   // ─── Generate link for a customer (commerce use) ─────────────────────────────
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AccountTypeGuard)
+  @RequireAccountType('COMMERCE')
   @Get('link/:customerId')
   async getLink(
     @Param('customerId') customerId: string,
     @CurrentUser() user: { id: string },
   ) {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    });
-    const commerceId = commerce?.id ?? user.id;
+    const commerceId = await this.commerceResolver.resolve(user.id);
 
     const customer = await this.prisma.customer.findFirst({
       where: { id: customerId, commerceId },

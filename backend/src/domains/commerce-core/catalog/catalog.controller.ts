@@ -14,15 +14,19 @@ import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
+import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CatalogOrderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
 @Controller('catalog')
 export class CatalogController {
   constructor(
     private readonly catalogService: CatalogService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   @Get('categories')
@@ -89,19 +93,17 @@ export class CatalogController {
   }
 
   @Patch('orders/:id/status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AccountTypeGuard)
+  @RequireAccountType('COMMERCE')
   async updateOrderStatus(
     @Param('id') id: string,
     @Body('status') status: CatalogOrderStatus,
     @CurrentUser() user: any
   ) {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    });
+    const commerceId = await this.commerceResolver.resolve(user.id);
     return this.catalogService.updateOrderStatus(
       id,
-      commerce?.id ?? '',
+      commerceId,
       status
     );
   }
