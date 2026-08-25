@@ -9,7 +9,7 @@ import {
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { Prisma, Role, Sex } from '@prisma/client';
+import { Prisma, Role, Sex, ProfileType, ProfessionalSubtype, ProfileStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 import { ChangePasswordDto } from '../auth/dto/change-password.dto';
@@ -83,38 +83,62 @@ export class UsersService {
     const role = data.role ?? Role.NORMAL;
     const createCommerce =
       role === Role.COMMERCE || role === Role.ADMIN || role === Role.FREELANCER;
+    // UserProfile es la fuente de verdad del tipo de negocio (ver
+    // RoleResolverService) — ADMIN queda fuera a propósito, no es un perfil
+    // de negocio aunque también reciba un Commerce por conveniencia arriba.
+    const businessProfileType =
+      role === Role.COMMERCE ? ProfileType.BUSINESS
+      : role === Role.FREELANCER ? ProfileType.PROFESSIONAL
+      : null;
 
     const now = new Date();
     let user;
     try {
-      user = await this.prisma.user.create({
-        data: {
-          email: data.email,
-          password: hashedPassword,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          phone: data.phone,
-          birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
-          sex: data.sex,
-          role,
-          // El registro no pide ubicación; Venezuela es el mercado por defecto
-          // de la plataforma y el usuario puede ajustarlo después en /perfil.
-          country: 'Venezuela',
-          ...(data.categoryId && { categoryId: data.categoryId }),
-          ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
-          wallet: { create: { currency: 'USD' } },
-          ...(createCommerce && data.commerceName
-            ? { commerce: { create: { name: data.commerceName } } }
-            : {}),
-          ...(data.acceptTerms
-            ? {
-                termsAcceptedAt: now,
-                termsVersion: CURRENT_TERMS_VERSION,
-                privacyAcceptedAt: now,
-              }
-            : {}),
-        },
-        include: { commerce: true, category: true, subcategory: true },
+      user = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            email: data.email,
+            password: hashedPassword,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            phone: data.phone,
+            birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+            sex: data.sex,
+            role,
+            // El registro no pide ubicación; Venezuela es el mercado por defecto
+            // de la plataforma y el usuario puede ajustarlo después en /perfil.
+            country: 'Venezuela',
+            ...(data.categoryId && { categoryId: data.categoryId }),
+            ...(data.subcategoryId && { subcategoryId: data.subcategoryId }),
+            wallet: { create: { currency: 'USD' } },
+            ...(createCommerce && data.commerceName
+              ? { commerce: { create: { name: data.commerceName } } }
+              : {}),
+            ...(data.acceptTerms
+              ? {
+                  termsAcceptedAt: now,
+                  termsVersion: CURRENT_TERMS_VERSION,
+                  privacyAcceptedAt: now,
+                }
+              : {}),
+          },
+          include: { commerce: true, category: true, subcategory: true },
+        });
+
+        if (businessProfileType) {
+          await tx.userProfile.create({
+            data: {
+              userId: created.id,
+              type: businessProfileType,
+              subtype: businessProfileType === ProfileType.PROFESSIONAL ? ProfessionalSubtype.FREELANCER : null,
+              categoryId: data.categoryId,
+              subcategoryId: data.subcategoryId,
+              status: ProfileStatus.ACTIVE,
+            },
+          });
+        }
+
+        return created;
       });
     } catch (e) {
       if (
