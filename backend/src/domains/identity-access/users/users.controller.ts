@@ -39,6 +39,7 @@ export class UsersController {
     @Query('categoryId') categoryId?: string,
     @Query('subcategoryId') subcategoryId?: string,
     @Query('search') search?: string,
+    @Query('profileKind') profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER',
     @Query('page') page = '1',
     @Query('limit') limit = '20'
   ) {
@@ -52,6 +53,7 @@ export class UsersController {
       categoryId,
       subcategoryId,
       search,
+      profileKind,
       page: parseInt(page),
       limit: parseInt(limit),
     });
@@ -64,7 +66,8 @@ export class UsersController {
     @Query('role') roleFilter?: Role,
     @Query('categoryId') categoryId?: string,
     @Query('subcategoryId') subcategoryId?: string,
-    @Query('search') search?: string
+    @Query('search') search?: string,
+    @Query('profileKind') profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER'
   ) {
     const allowedRoles = assignableRolesFor(caller.role);
 
@@ -74,6 +77,7 @@ export class UsersController {
       categoryId,
       subcategoryId,
       search,
+      profileKind,
     });
   }
 

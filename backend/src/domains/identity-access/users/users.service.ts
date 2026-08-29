@@ -190,8 +190,11 @@ export class UsersService {
     subcategoryId?: string;
     search?: string;
     excludeUserId?: string;
+    // Desglose fino que Role ya no captura (ver comentario en getUsersStats)
+    // — filtra por el UserProfile ACTIVE del usuario, no por Role.
+    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
   }): Record<string, unknown> {
-    const { roleFilter, allowedRoles, categoryId, subcategoryId, search, excludeUserId } =
+    const { roleFilter, allowedRoles, categoryId, subcategoryId, search, excludeUserId, profileKind } =
       options;
     const where: Record<string, unknown> = {};
     if (allowedRoles) {
@@ -206,6 +209,13 @@ export class UsersService {
     if (categoryId) where.categoryId = categoryId;
     if (subcategoryId) where.subcategoryId = subcategoryId;
     if (excludeUserId) where.id = { not: excludeUserId };
+    if (profileKind) {
+      where.profiles = {
+        some: profileKind === 'BUSINESS'
+          ? { type: 'BUSINESS', status: 'ACTIVE' }
+          : { type: 'PROFESSIONAL', subtype: profileKind, status: 'ACTIVE' },
+      };
+    }
     if (search) {
       where.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
@@ -222,6 +232,7 @@ export class UsersService {
     categoryId?: string;
     subcategoryId?: string;
     search?: string;
+    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
     page: number;
     limit: number;
   }) {
@@ -248,6 +259,15 @@ export class UsersService {
           commerce: { select: { id: true, name: true } },
           category: { select: { id: true, name: true, icon: true } },
           subcategory: { select: { id: true, name: true } },
+          // Role.PROFESIONAL ya no distingue Comercio/Freelancer/Prestador
+          // de servicio — esa distinción vive acá (ver
+          // AccountTypeResolver). Solo el perfil ACTIVE de negocio importa
+          // para la UI de administración de usuarios.
+          profiles: {
+            where: { status: ProfileStatus.ACTIVE, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
+            select: { type: true, subtype: true },
+            take: 1,
+          },
         },
       }),
       this.prisma.user.count({ where }),
@@ -267,6 +287,7 @@ export class UsersService {
     categoryId?: string;
     subcategoryId?: string;
     search?: string;
+    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
   }) {
     const where = this.buildUsersWhere(options);
     // "commerce"/"freelancer" ya no son valores de Role (colapsados en
@@ -300,23 +321,34 @@ export class UsersService {
 
     let user;
     try {
-      user = await this.prisma.user.update({
-        where: { id },
-        data: {
-          ...(dto.firstName !== undefined && { firstName: dto.firstName }),
-          ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-          ...(dto.email !== undefined && { email: dto.email }),
-          ...(dto.phone !== undefined && { phone: dto.phone || null }),
-          ...(dto.role !== undefined && { role: dto.role }),
-          ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-          ...(dto.categoryId !== undefined && {
-            categoryId: dto.categoryId || null,
-          }),
-          ...(dto.subcategoryId !== undefined && {
-            subcategoryId: dto.subcategoryId || null,
-          }),
-        },
-        include: { commerce: true, category: true, subcategory: true },
+      user = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.user.update({
+          where: { id },
+          data: {
+            ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+            ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+            ...(dto.email !== undefined && { email: dto.email }),
+            ...(dto.phone !== undefined && { phone: dto.phone || null }),
+            ...(dto.role !== undefined && { role: dto.role }),
+            ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+            ...(dto.categoryId !== undefined && {
+              categoryId: dto.categoryId || null,
+            }),
+            ...(dto.subcategoryId !== undefined && {
+              subcategoryId: dto.subcategoryId || null,
+            }),
+          },
+          include: { commerce: true, category: true, subcategory: true },
+        });
+
+        // businessProfileType: undefined = no tocar el UserProfile actual;
+        // null explícito = quitar el perfil de negocio (desactivarlo, no
+        // borrarlo — conserva el historial); un ProfileType = crear/actualizar.
+        if (dto.businessProfileType !== undefined) {
+          await this.applyBusinessProfileType(tx, updated.id, dto.businessProfileType, dto.professionalSubtype);
+        }
+
+        return updated;
       });
     } catch (e) {
       if (
@@ -331,6 +363,46 @@ export class UsersService {
     const { password, twoFactorSecret, ...result } = user;
     await this.invalidateFindByIdCache(id);
     return result;
+  }
+
+  // Crea, actualiza o desactiva el UserProfile de tipo BUSINESS/PROFESSIONAL
+  // de un usuario ya existente — mismo efecto que el bloque de creación en
+  // `create()`, pero operando sobre un usuario que puede ya tener uno
+  // (a diferencia de create, que siempre parte de cero).
+  private async applyBusinessProfileType(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    businessProfileType: ProfileType | null,
+    professionalSubtype?: ProfessionalSubtype,
+  ) {
+    const existing = await tx.userProfile.findFirst({
+      where: { userId, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
+    });
+
+    if (businessProfileType === null) {
+      // Se conserva la fila (historial de reviewedBy/categoría) pero se
+      // desactiva — igual semántica que ProfileActivationsService, que
+      // nunca borra un UserProfile, solo cambia su status.
+      if (existing) {
+        await tx.userProfile.update({ where: { id: existing.id }, data: { status: ProfileStatus.SUSPENDED } });
+      }
+      return;
+    }
+
+    const subtype = businessProfileType === ProfileType.PROFESSIONAL
+      ? (professionalSubtype ?? ProfessionalSubtype.FREELANCER)
+      : null;
+
+    if (existing) {
+      await tx.userProfile.update({
+        where: { id: existing.id },
+        data: { type: businessProfileType, subtype, status: ProfileStatus.ACTIVE },
+      });
+    } else {
+      await tx.userProfile.create({
+        data: { userId, type: businessProfileType, subtype, status: ProfileStatus.ACTIVE },
+      });
+    }
   }
 
   async updateOwnProfile(id: string, dto: UpdateOwnProfileDto) {
