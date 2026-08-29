@@ -4,7 +4,7 @@
       <div class="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg mr-3">
         <LinkIcon class="h-6 w-6 text-white" />
       </div>
-      <h3 class="text-xl font-bold text-gray-900">URL de tu Tienda</h3>
+      <h3 class="text-xl font-bold text-gray-900">{{ title }}</h3>
     </div>
 
     <div class="space-y-5">
@@ -16,7 +16,7 @@
 
         <!-- Locked: cooldown active -->
         <div v-if="slugIsLocked" class="relative">
-          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm select-none">/loja/</span>
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm select-none">{{ prefix }}</span>
           <input
             :value="form.slug"
             type="text"
@@ -25,12 +25,12 @@
           >
         </div>
         <p v-if="slugIsLocked" class="mt-1.5 text-xs text-amber-600">
-          Podrás cambiar la URL de tu tienda en {{ slugDaysLeft }} día{{ slugDaysLeft !== 1 ? 's' : '' }} (cada 30 días)
+          Podrás cambiar la URL {{ ownerLabel }} en {{ slugDaysLeft }} día{{ slugDaysLeft !== 1 ? 's' : '' }} (cada 30 días)
         </p>
 
         <!-- Unlocked: editable -->
         <div v-else class="relative">
-          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm select-none">/loja/</span>
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm select-none">{{ prefix }}</span>
           <input
             v-model="form.slug"
             type="text"
@@ -41,7 +41,7 @@
               'border-green-400 focus:ring-green-100 focus:border-green-500': slugStatus === 'available',
               'border-red-400 focus:ring-red-100 focus:border-red-500': slugStatus === 'taken' || slugStatus === 'invalid' || slugStatus === 'cooldown',
             }"
-            placeholder="mi-negocio"
+            :placeholder="placeholder"
             @input="onSlugInput(($event.target as HTMLInputElement).value)"
           >
           <span class="absolute right-3 top-1/2 -translate-y-1/2">
@@ -92,13 +92,29 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { LinkIcon } from '@heroicons/vue/24/outline'
-import type { CommerceInfo } from '~/composables/commerce/useSettings'
 
-const props = defineProps<{
-  commerce: CommerceInfo | null
+// slugOwner: objeto mínimo compartido por CommerceInfo (/loja/:slug) y
+// FreelancerSettingsData (/pro/:slug) — mismo cooldown/validación en ambos,
+// solo cambia el prefijo de URL y el modelo detrás en el backend.
+interface SlugOwner {
+  slug?: string | null
+  slugUpdatedAt?: string | null
+}
+
+const props = withDefaults(defineProps<{
+  slugOwner: SlugOwner | null
   saving: boolean
   checkSlugAvailability: (slug: string) => Promise<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null } | null>
-}>()
+  title?: string
+  prefix?: string
+  placeholder?: string
+  ownerLabel?: string
+}>(), {
+  title: 'URL de tu Tienda',
+  prefix: '/loja/',
+  placeholder: 'mi-negocio',
+  ownerLabel: 'de tu tienda',
+})
 
 const emit = defineEmits<{
   save: [slug: string]
@@ -106,12 +122,12 @@ const emit = defineEmits<{
 
 const form = ref({ slug: '' })
 
-watch(() => props.commerce, (commerce) => {
-  if (!commerce) return
-  form.value.slug = commerce.slug ?? ''
+watch(() => props.slugOwner, (owner) => {
+  if (!owner) return
+  form.value.slug = owner.slug ?? ''
 }, { immediate: true })
 
-const dirty = computed(() => form.value.slug !== (props.commerce?.slug ?? ''))
+const dirty = computed(() => form.value.slug !== (props.slugOwner?.slug ?? ''))
 
 type SlugStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid' | 'cooldown'
 const slugStatus = ref<SlugStatus>('idle')
@@ -119,16 +135,16 @@ const slugCooldownDaysLeft = ref(0)
 let slugDebounce: ReturnType<typeof setTimeout> | null = null
 
 const slugIsLocked = computed(() => {
-  const c = props.commerce
-  if (!c?.slugUpdatedAt) return false
-  const daysSince = (Date.now() - new Date(c.slugUpdatedAt).getTime()) / (1000 * 60 * 60 * 24)
+  const o = props.slugOwner
+  if (!o?.slugUpdatedAt) return false
+  const daysSince = (Date.now() - new Date(o.slugUpdatedAt).getTime()) / (1000 * 60 * 60 * 24)
   return daysSince < 30
 })
 
 const slugDaysLeft = computed(() => {
-  const c = props.commerce
-  if (!c?.slugUpdatedAt) return 0
-  const daysSince = (Date.now() - new Date(c.slugUpdatedAt).getTime()) / (1000 * 60 * 60 * 24)
+  const o = props.slugOwner
+  if (!o?.slugUpdatedAt) return 0
+  const daysSince = (Date.now() - new Date(o.slugUpdatedAt).getTime()) / (1000 * 60 * 60 * 24)
   return Math.max(0, Math.ceil(30 - daysSince))
 })
 
@@ -144,7 +160,7 @@ function onSlugInput(val: string) {
     return
   }
 
-  if (val === (props.commerce?.slug ?? '')) {
+  if (val === (props.slugOwner?.slug ?? '')) {
     slugStatus.value = 'idle'
     return
   }
