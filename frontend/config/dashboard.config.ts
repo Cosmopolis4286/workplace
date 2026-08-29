@@ -1,8 +1,14 @@
 // @ts-nocheck - Este archivo es de configuración, no necesita imports de Vue
 import type { Component } from 'vue'
 
-// Tipos de roles disponibles en el sistema
-export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
+// Tipos de roles disponibles en el sistema. COMMERCE/FREELANCER se
+// fusionaron en PROFESIONAL (backend, 2026-08-25) — role ya no distingue
+// "tiene Commerce" de "es freelancer/service provider". Los widgets/
+// acciones/hero que SÍ necesitan esa distinción real (inventario, pedidos
+// vs. solicitudes de servicio) usan el campo accountTypes opcional además
+// de roles — ver AccountTypeResolver / useAuth().user.value.accountType.
+export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
+export type AccountType = 'COMMERCE' | 'FREELANCER'
 
 // Configuración de widgets del dashboard
 export interface WidgetConfig {
@@ -10,6 +16,10 @@ export interface WidgetConfig {
   name: string
   component: string
   roles: UserRole[]
+  // Filtro adicional: si se especifica, el usuario con role=PROFESIONAL
+  // también debe tener uno de estos accountType (ver AccountTypeResolver).
+  // No aplica a SUPERADMIN/ADMIN/NORMAL.
+  accountTypes?: AccountType[]
   permissions?: string[]
   priority: number
   defaultVisible: boolean
@@ -24,6 +34,7 @@ export interface QuickActionConfig {
   icon: string
   route: string
   roles: UserRole[]
+  accountTypes?: AccountType[]
   permissions?: string[]
   color: 'blue' | 'green' | 'purple' | 'yellow' | 'red' | 'teal' | 'indigo' | 'orange'
   description?: string
@@ -32,6 +43,7 @@ export interface QuickActionConfig {
 // Mensajes de bienvenida por rol
 export interface HeroConfig {
   roles: UserRole[]
+  accountTypes?: AccountType[]
   title: string
   subtitle: string
   icon: string
@@ -45,7 +57,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     id: 'salesToday',
     name: 'Ventas Hoy',
     component: 'SalesTodayWidget',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     priority: 1,
     defaultVisible: true,
     gridCols: 1,
@@ -55,7 +67,8 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     id: 'activeOrders',
     name: 'Pedidos Activos',
     component: 'ActiveOrdersWidget',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
+    accountTypes: ['COMMERCE'],
     priority: 2,
     defaultVisible: true,
     gridCols: 1,
@@ -65,7 +78,8 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     id: 'lowStock',
     name: 'Bajo Stock',
     component: 'LowStockWidget',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
+    accountTypes: ['COMMERCE'],
     priority: 3,
     defaultVisible: true,
     gridCols: 1,
@@ -75,7 +89,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     id: 'newCustomers',
     name: 'Clientes Nuevos',
     component: 'NewCustomersWidget',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     priority: 4,
     defaultVisible: true,
     gridCols: 1,
@@ -85,7 +99,8 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     id: 'ordersList',
     name: 'Lista de Pedidos',
     component: 'OrdersListWidget',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
+    accountTypes: ['COMMERCE'],
     priority: 5,
     defaultVisible: true,
     gridCols: 2,
@@ -98,7 +113,8 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     id: 'activeServiceRequests',
     name: 'Solicitudes Activas',
     component: 'ActiveOrdersWidget',
-    roles: ['FREELANCER'],
+    roles: ['PROFESIONAL'],
+    accountTypes: ['FREELANCER'],
     priority: 2,
     defaultVisible: true,
     gridCols: 1,
@@ -108,7 +124,8 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     id: 'providerServiceRequests',
     name: 'Solicitudes Recibidas',
     component: 'ProviderServiceRequestsWidget',
-    roles: ['FREELANCER'],
+    roles: ['PROFESIONAL'],
+    accountTypes: ['FREELANCER'],
     priority: 5,
     defaultVisible: true,
     gridCols: 2,
@@ -158,7 +175,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     id: 'recentActivity',
     name: 'Actividad Reciente',
     component: 'RecentActivityWidget',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     priority: 8,
     defaultVisible: true,
     gridCols: 2,
@@ -173,7 +190,8 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Ver Pedidos',
     icon: 'ShoppingCartIcon',
     route: '/customer-dashboard',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
+    accountTypes: ['COMMERCE'],
     color: 'blue',
     description: 'Gestión de pedidos',
   },
@@ -182,7 +200,8 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Mis Servicios',
     icon: 'WrenchIcon',
     route: '/my-services',
-    roles: ['FREELANCER'],
+    roles: ['PROFESIONAL'],
+    accountTypes: ['FREELANCER'],
     color: 'blue',
     description: 'Gestionar los servicios que ofreces',
   },
@@ -191,7 +210,8 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Mis Empleos',
     icon: 'BriefcaseIcon',
     route: '/jobs',
-    roles: ['FREELANCER'],
+    roles: ['PROFESIONAL'],
+    accountTypes: ['FREELANCER'],
     color: 'purple',
     description: 'Gestionar las vacantes que publicas',
   },
@@ -200,7 +220,8 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Gestionar Menú',
     icon: 'DocumentTextIcon',
     route: '/menu',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
+    accountTypes: ['COMMERCE'],
     color: 'green',
     description: 'Administrar productos',
   },
@@ -209,7 +230,8 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Ver Inventario',
     icon: 'CubeIcon',
     route: '/inventory',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
+    accountTypes: ['COMMERCE'],
     color: 'purple',
     description: 'Control de stock',
   },
@@ -218,7 +240,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Analytics',
     icon: 'ChartBarIcon',
     route: '/analytics',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     color: 'yellow',
     description: 'Reportes y estadísticas',
   },
@@ -227,7 +249,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Control Gastos',
     icon: 'CurrencyDollarIcon',
     route: '/expenses',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     color: 'red',
     description: 'Gestión de gastos',
   },
@@ -236,7 +258,8 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Delivery',
     icon: 'TruckIcon',
     route: '/delivery',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
+    accountTypes: ['COMMERCE'],
     color: 'teal',
     description: 'Gestión de entregas',
   },
@@ -254,7 +277,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Configuración',
     icon: 'CogIcon',
     route: '/settings',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     color: 'orange',
     description: 'Ajustes del sistema',
   },
@@ -263,7 +286,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     name: 'Mi Perfil',
     icon: 'UserIcon',
     route: '/profile',
-    roles: ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER', 'NORMAL'],
+    roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL', 'NORMAL'],
     color: 'blue',
     description: 'Ver mi perfil',
   },
@@ -322,14 +345,16 @@ export const HERO_CONFIGS: HeroConfig[] = [
     gradient: 'from-workplace-red via-red-500 to-red-600',
   },
   {
-    roles: ['COMMERCE'],
+    roles: ['PROFESIONAL'],
+    accountTypes: ['COMMERCE'],
     title: 'Panel de Comercio',
     subtitle: 'Bienvenido a tu panel de control WorkPlace Manager',
     icon: 'BuildingStorefrontIcon',
     gradient: 'from-workplace-red via-red-500 to-red-600',
   },
   {
-    roles: ['FREELANCER'],
+    roles: ['PROFESIONAL'],
+    accountTypes: ['FREELANCER'],
     title: 'Panel de Proveedor',
     subtitle: 'Gestión de tus servicios y solicitudes de clientes',
     icon: 'WrenchIcon',
@@ -344,19 +369,30 @@ export const HERO_CONFIGS: HeroConfig[] = [
   },
 ]
 
+// Coincide roles siempre; accountTypes solo se exige si la config lo define
+// (widgets/acciones/hero sin accountTypes son visibles a cualquier
+// accountType, incluido null/undefined — ej. mientras aún no carga).
+function matchesAccountType(configTypes: AccountType[] | undefined, accountType?: AccountType | null): boolean {
+  if (!configTypes || configTypes.length === 0) return true
+  return !!accountType && configTypes.includes(accountType)
+}
+
 // Helper para obtener hero según rol
-export function getHeroConfig(role: UserRole): HeroConfig {
-  return HERO_CONFIGS.find(config => config.roles.includes(role)) || HERO_CONFIGS[HERO_CONFIGS.length - 1]
+export function getHeroConfig(role: UserRole, accountType?: AccountType | null): HeroConfig {
+  return (
+    HERO_CONFIGS.find(config => config.roles.includes(role) && matchesAccountType(config.accountTypes, accountType)) ||
+    HERO_CONFIGS[HERO_CONFIGS.length - 1]
+  )
 }
 
 // Helper para verificar si un rol tiene acceso a un widget
-export function canAccessWidget(widgetId: string, role: UserRole): boolean {
+export function canAccessWidget(widgetId: string, role: UserRole, accountType?: AccountType | null): boolean {
   const widget = DASHBOARD_WIDGETS.find(w => w.id === widgetId)
-  return widget ? widget.roles.includes(role) : false
+  return widget ? widget.roles.includes(role) && matchesAccountType(widget.accountTypes, accountType) : false
 }
 
 // Helper para verificar si un rol tiene acceso a una acción
-export function canAccessAction(actionId: string, role: UserRole): boolean {
+export function canAccessAction(actionId: string, role: UserRole, accountType?: AccountType | null): boolean {
   const action = QUICK_ACTIONS.find(a => a.id === actionId)
-  return action ? action.roles.includes(role) : false
+  return action ? action.roles.includes(role) && matchesAccountType(action.accountTypes, accountType) : false
 }
