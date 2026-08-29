@@ -59,7 +59,7 @@
                 </div>
                 <div>
                   <h3 class="font-bold text-gray-900 text-sm">Cuentas Demo</h3>
-                  <p class="text-xs text-gray-500">{{ credentials.length }} roles disponibles · Solo en desarrollo</p>
+                  <p class="text-xs text-gray-500">{{ credentials.length }} cuentas de ejemplo · Solo en desarrollo</p>
                 </div>
               </div>
               <button
@@ -86,8 +86,21 @@
                 </button>
               </div>
 
+              <!-- Leyenda: qué significa cada tipo de cuenta de negocio -->
+              <div v-if="!isLoading && !error && credentials.length" class="flex flex-wrap gap-x-3 gap-y-1 px-1 pb-1 text-[10px] text-gray-400">
+                <span class="flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-orange-400" /> Comercio: negocio físico con catálogo propio
+                </span>
+                <span class="flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-teal-500" /> Freelancer: profesional independiente
+                </span>
+                <span class="flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-cyan-500" /> Trabajador autónomo: presta un servicio (ej. delivery)
+                </span>
+              </div>
+
               <!-- Credentials list -->
-              <template v-else-if="credentials.length">
+              <template v-if="!isLoading && !error && credentials.length">
                 <div
                   v-for="cred in credentials"
                   :key="cred.email"
@@ -99,18 +112,18 @@
                     <div class="flex items-center gap-3 min-w-0">
                       <div
                         class="w-9 h-9 bg-gradient-to-br rounded-xl flex items-center justify-center shadow flex-shrink-0"
-                        :class="ROLE_COLORS[cred.role]"
+                        :class="kindOf(cred).color"
                       >
-                        <SharedIcon name="user" class="w-4 h-4 text-white" />
+                        <SharedIcon :name="kindOf(cred).icon" class="w-4 h-4 text-white" />
                       </div>
                       <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                           <span class="font-semibold text-sm text-gray-900">{{ cred.label }}</span>
                           <span
                             class="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
-                            :class="ROLE_BADGE[cred.role]"
+                            :class="kindOf(cred).badge"
                           >
-                            {{ cred.role }}
+                            {{ kindOf(cred).label }}
                           </span>
                         </div>
                         <div class="text-xs text-gray-500 truncate">{{ cred.email }}</div>
@@ -206,20 +219,38 @@ const fillingEmail = ref<string | null>(null)
 const toggleModal = () => { isOpen.value = !isOpen.value }
 const closeModal = () => { isOpen.value = false }
 
-const ROLE_COLORS: Record<string, string> = {
-  SUPERADMIN: 'from-purple-500 to-purple-700',
-  ADMIN: 'from-blue-500 to-blue-700',
-  COMMERCE: 'from-orange-400 to-amber-500',
-  FREELANCER: 'from-teal-500 to-cyan-600',
-  NORMAL: 'from-gray-400 to-gray-600',
+// Desde el refactor a Role.PROFESIONAL, `role` solo distingue nivel de
+// acceso (SUPERADMIN/ADMIN/PROFESIONAL/NORMAL) — el tipo de perfil real
+// (Comercio, Freelancer, Trabajador autónomo, Busca empleo) viene de
+// profileType+subtype, el ProfileType completo del backend (4 valores),
+// no reducido a solo dos. Esta función resuelve la combinación visible en
+// la tarjeta a partir de ambos.
+interface CredentialKind {
+  label: string
+  icon: string
+  color: string
+  badge: string
 }
 
-const ROLE_BADGE: Record<string, string> = {
-  SUPERADMIN: 'bg-purple-100 text-purple-700',
-  ADMIN: 'bg-blue-100 text-blue-700',
-  COMMERCE: 'bg-orange-100 text-orange-700',
-  FREELANCER: 'bg-teal-100 text-teal-700',
-  NORMAL: 'bg-gray-100 text-gray-600',
+const KIND_BY_ROLE: Record<string, CredentialKind> = {
+  SUPERADMIN: { label: 'Superadmin', icon: 'shield-check', color: 'from-purple-500 to-purple-700', badge: 'bg-purple-100 text-purple-700' },
+  ADMIN: { label: 'Admin', icon: 'shield-check', color: 'from-blue-500 to-blue-700', badge: 'bg-blue-100 text-blue-700' },
+  NORMAL: { label: 'Normal', icon: 'user', color: 'from-gray-400 to-gray-600', badge: 'bg-gray-100 text-gray-600' },
+}
+
+const KIND_COMMERCE: CredentialKind = { label: 'Comercio', icon: 'building-storefront', color: 'from-orange-400 to-amber-500', badge: 'bg-orange-100 text-orange-700' }
+const KIND_FREELANCER: CredentialKind = { label: 'Freelancer', icon: 'briefcase', color: 'from-teal-500 to-cyan-600', badge: 'bg-teal-100 text-teal-700' }
+const KIND_SERVICE_PROVIDER: CredentialKind = { label: 'Trabajador autónomo', icon: 'wrench', color: 'from-cyan-500 to-blue-500', badge: 'bg-cyan-100 text-cyan-700' }
+const KIND_JOB_SEEKER: CredentialKind = { label: 'Busca empleo', icon: 'briefcase', color: 'from-indigo-500 to-violet-600', badge: 'bg-indigo-100 text-indigo-700' }
+const KIND_CUSTOMER: CredentialKind = { label: 'Comprador', icon: 'user', color: 'from-emerald-500 to-green-600', badge: 'bg-emerald-100 text-emerald-700' }
+
+function kindOf(cred: DemoCredential): CredentialKind {
+  if (cred.profileType === 'BUSINESS') return KIND_COMMERCE
+  if (cred.profileType === 'PROFESSIONAL' && cred.subtype === 'SERVICE_PROVIDER') return KIND_SERVICE_PROVIDER
+  if (cred.profileType === 'PROFESSIONAL') return KIND_FREELANCER
+  if (cred.profileType === 'JOB_SEEKER') return KIND_JOB_SEEKER
+  if (cred.profileType === 'CUSTOMER') return KIND_CUSTOMER
+  return KIND_BY_ROLE[cred.role] ?? KIND_BY_ROLE.NORMAL
 }
 
 const togglePassword = (email: string) => {

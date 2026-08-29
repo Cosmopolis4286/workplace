@@ -53,12 +53,32 @@
                 <option v-for="r in creatableRoles" :key="r.value" :value="r.value">{{ r.label }}</option>
               </select>
             </div>
-            <div v-if="(form.role === 'COMMERCE' || form.role === 'FREELANCER') && !editing">
-              <label class="block text-xs font-medium text-gray-700 mb-1">
-                {{ form.role === 'FREELANCER' ? 'Nombre del negocio' : 'Nombre del comercio' }}
-                <span class="text-gray-300">(opcional)</span>
-              </label>
-              <input v-model="form.commerceName" type="text" placeholder="Se puede configurar después" class="input-field" />
+            <div v-if="form.role === 'PROFESIONAL'" class="space-y-3">
+              <div v-if="editing && !hadProfileOnOpen" class="p-2.5 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700 flex items-center gap-1.5">
+                <ExclamationCircleIcon class="h-3.5 w-3.5 flex-shrink-0" />
+                Este usuario no tiene tipo de perfil asignado — sin uno no puede operar como comercio ni freelancer.
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Tipo de perfil <span class="text-red-500">*</span></label>
+                <select v-model="form.businessProfileType" class="input-field">
+                  <option value="BUSINESS">Negocio (tiene un Commerce)</option>
+                  <option value="PROFESSIONAL">Profesional (freelancer / prestador de servicio)</option>
+                </select>
+              </div>
+              <div v-if="form.businessProfileType === 'PROFESSIONAL'">
+                <label class="block text-xs font-medium text-gray-700 mb-1">Subtipo</label>
+                <select v-model="form.professionalSubtype" class="input-field">
+                  <option value="FREELANCER">Freelancer</option>
+                  <option value="SERVICE_PROVIDER">Prestador de servicio</option>
+                </select>
+              </div>
+              <div v-if="!editing">
+                <label class="block text-xs font-medium text-gray-700 mb-1">
+                  {{ form.businessProfileType === 'BUSINESS' ? 'Nombre del comercio' : 'Nombre del negocio' }}
+                  <span class="text-gray-300">(opcional)</span>
+                </label>
+                <input v-model="form.commerceName" type="text" placeholder="Se puede configurar después" class="input-field" />
+              </div>
             </div>
             <div class="p-4 bg-gray-50 rounded-xl space-y-3">
               <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clasificación del perfil</p>
@@ -109,6 +129,11 @@ const props = defineProps<{
   form: UserFormData
   editing: boolean
   userId?: string | null
+  // Si el usuario ya tenía un UserProfile de negocio al abrir el modal —
+  // distinto de form.businessProfileType, que siempre tiene un valor por
+  // los defaults de emptyUserForm(). Solo para mostrar el aviso de "sin
+  // tipo asignado" (ver openEdit() en users.vue).
+  hadProfileOnOpen?: boolean
   saving: boolean
   formError: string | null
   categories: UserCategory[]

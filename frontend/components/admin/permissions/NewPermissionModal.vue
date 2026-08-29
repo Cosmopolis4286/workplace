@@ -72,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
+type Role = 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
 
 export interface NewPermissionForm {
   module: string

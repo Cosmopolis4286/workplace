@@ -46,7 +46,7 @@
 
         <!-- Right side -->
         <div class="flex items-center gap-3">
-          <!-- Public profile shortcut (COMMERCE / FREELANCER con username) -->
+          <!-- Public profile shortcut (PROFESIONAL con username) -->
           <a
             v-if="publicProfileUrl"
             :href="publicProfileUrl"
@@ -265,15 +265,14 @@ const userEmail = computed(() => user.value?.email ?? '')
 const publicProfileUrl = computed(() => {
   const u = user.value
   if (!u?.username) return ''
-  if (u.role !== 'COMMERCE' && u.role !== 'FREELANCER') return ''
+  if (u.role !== 'PROFESIONAL') return ''
   return `/p/${u.username}`
 })
 
 const ROLE_LABELS = {
   SUPERADMIN: 'Super Admin',
   ADMIN: 'Administrador',
-  COMMERCE: 'Comercio',
-  FREELANCER: 'Freelancer',
+  PROFESIONAL: 'Profesional',
   NORMAL: 'Usuario',
 }
 const roleLabel = computed(() => ROLE_LABELS[user.value?.role] ?? user.value?.role ?? '')

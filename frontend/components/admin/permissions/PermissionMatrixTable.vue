@@ -126,7 +126,7 @@
 <script setup lang="ts">
 // `Role` es genérico a propósito (string, no el enum literal): este mismo
 // componente se reutiliza tanto para la matriz por Role de RBAC
-// (SUPERADMIN/ADMIN/COMMERCE/FREELANCER/NORMAL) como para la matriz por
+// (SUPERADMIN/ADMIN/PROFESIONAL/NORMAL) como para la matriz por
 // UserProfile (BUSINESS/PROFESSIONAL_FREELANCER/PROFESSIONAL_SERVICE_PROVIDER)
 // — ver permissions.vue.
 type Role = string

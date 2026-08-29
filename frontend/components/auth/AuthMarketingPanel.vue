@@ -215,7 +215,6 @@ import {
   UsersIcon,
   TruckIcon,
   BriefcaseIcon,
-  WrenchScrewdriverIcon,
   CheckIcon,
 } from '@heroicons/vue/24/outline'
 import { StarIcon } from '@heroicons/vue/24/solid'
@@ -307,14 +306,11 @@ onUnmounted(() => {
 
 // ─── Features por rol (fallback si no hay testimonios) ───────────────────────
 
+// Este panel se muestra en login/register, sin sesión activa la mayor parte
+// del tiempo — role.value casi siempre es null acá. `accountType` (que sí
+// distinguiría FREELANCER de COMMERCE) no está disponible sin sesión, así
+// que ese caso queda cubierto por el fallback genérico de "comercio" abajo.
 const features = computed(() => {
-  if (role.value === 'FREELANCER') {
-    return [
-      { icon: WrenchScrewdriverIcon, label: t('auth.roleFeatures.freelancer.catalog.label'), desc: t('auth.roleFeatures.freelancer.catalog.desc') },
-      { icon: UsersIcon, label: t('auth.roleFeatures.freelancer.clients.label'), desc: t('auth.roleFeatures.freelancer.clients.desc') },
-      { icon: ChartBarIcon, label: t('auth.roleFeatures.freelancer.reports.label'), desc: t('auth.roleFeatures.freelancer.reports.desc') },
-    ]
-  }
   if (role.value === 'NORMAL') {
     return [
       { icon: ShoppingBagIcon, label: t('auth.roleFeatures.normal.marketplace.label'), desc: t('auth.roleFeatures.normal.marketplace.desc') },
