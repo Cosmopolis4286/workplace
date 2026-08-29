@@ -19,7 +19,13 @@ export interface User {
   lastName: string
   phone?: string
   avatar?: string
-  role: 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
+  role: 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
+  // role ya no distingue "tiene Commerce" de "es freelancer/service
+  // provider" (ambos son PROFESIONAL) — accountType (resuelto por el
+  // backend vía AccountTypeResolver, viene solo en GET /auth/me) es la
+  // fuente para esa distinción fina. Puede venir undefined en respuestas
+  // que no pasan por getProfile (login/register no lo incluyen todavía).
+  accountType?: 'COMMERCE' | 'FREELANCER' | null
   isActive: boolean
   emailVerified?: boolean
   commerce?: Commerce

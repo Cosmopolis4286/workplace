@@ -1,6 +1,13 @@
 import { ref } from 'vue'
 import { useApi } from '../core/useApi'
 
+export interface SocialLinks {
+  instagram?: string
+  facebook?: string
+  whatsapp?: string
+  tiktok?: string
+}
+
 export interface CommerceInfo {
   id: string
   name: string
@@ -16,6 +23,9 @@ export interface CommerceInfo {
   parish?: string
   slug?: string | null
   slugUpdatedAt?: string | null
+  description?: string | null
+  isPublic?: boolean
+  socialLinks?: SocialLinks | null
 }
 
 export interface SlugAvailability {
@@ -53,6 +63,8 @@ export interface FreelancerSettingsData {
   notifyDailyReports: boolean
   notifyCustomerReviews: boolean
   disabledModules: string[]
+  slug?: string | null
+  slugUpdatedAt?: string | null
 }
 
 export interface FullSettings {
@@ -133,6 +145,33 @@ export const useSettings = () => {
       return true
     } catch (err: any) {
       error.value = err?.message ?? 'Error al guardar la URL de la tienda'
+      return false
+    } finally {
+      saving.value = null
+    }
+  }
+
+  // ─── Profile slug (/pro/:slug) ──────────────────────────────────────────────
+
+  async function checkFreelancerSlugAvailability(slug: string): Promise<SlugAvailability | null> {
+    try {
+      return await get<SlugAvailability>(`/settings/freelancer/check-slug?slug=${encodeURIComponent(slug)}`)
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al verificar disponibilidad'
+      return null
+    }
+  }
+
+  async function saveFreelancerSlug(slug: string): Promise<boolean> {
+    saving.value = 'slug'
+    error.value = null
+    try {
+      const updated = await patch<FreelancerSettingsData>('/settings/freelancer/slug', { slug })
+      settings.value = { ...settings.value!, ...updated }
+      showSuccess('URL de tu perfil guardada')
+      return true
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar la URL del perfil'
       return false
     } finally {
       saving.value = null
@@ -232,6 +271,8 @@ export const useSettings = () => {
     saveCommerceInfo,
     checkSlugAvailability,
     saveCommerceSlug,
+    checkFreelancerSlugAvailability,
+    saveFreelancerSlug,
     savePaymentSettings,
     saveOperationSettings,
     saveNotificationSettings,

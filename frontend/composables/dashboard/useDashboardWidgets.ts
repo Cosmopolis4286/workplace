@@ -3,7 +3,10 @@ import {
   DASHBOARD_WIDGETS,
   QUICK_ACTIONS,
   getHeroConfig,
+  canAccessWidget,
+  canAccessAction,
   type UserRole,
+  type AccountType,
   type WidgetConfig,
   type QuickActionConfig,
 } from '~/config/dashboard.config'
@@ -22,6 +25,10 @@ export const useDashboardWidgets = () => {
   const { selectedItems: selectedQuickActions } = useDashboardQuickActions()
 
   const userRole = computed<UserRole | null>(() => user.value?.role || null)
+  // role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
+  // (resuelto por el backend, ver useAuth().User.accountType) es la fuente
+  // real para los widgets/acciones/hero que sí necesitan esa distinción.
+  const accountType = computed<AccountType | null>(() => user.value?.accountType ?? null)
 
   // Widgets visibles según el rol del usuario
   const visibleWidgets = computed<WidgetConfig[]>(() => {
@@ -29,7 +36,7 @@ export const useDashboardWidgets = () => {
     if (!role) return []
 
     return DASHBOARD_WIDGETS.filter(
-      widget => widget.roles.includes(role) && widget.defaultVisible
+      widget => canAccessWidget(widget.id, role, accountType.value) && widget.defaultVisible
     ).sort((a, b) => a.priority - b.priority)
   })
 
@@ -38,7 +45,7 @@ export const useDashboardWidgets = () => {
     const role = userRole.value
     if (!role) return []
 
-    return QUICK_ACTIONS.filter(action => action.roles.includes(role))
+    return QUICK_ACTIONS.filter(action => canAccessAction(action.id, role, accountType.value))
   })
 
   // Acciones elegidas por el usuario (o las primeras 6 si no ha configurado nada)
@@ -48,25 +55,21 @@ export const useDashboardWidgets = () => {
   const heroConfig = computed(() => {
     const role = userRole.value
     if (!role) return getHeroConfig('NORMAL')
-    return getHeroConfig(role)
+    return getHeroConfig(role, accountType.value)
   })
 
   // Verificar si el usuario puede ver un widget específico
   const canViewWidget = (widgetId: string): boolean => {
     const role = userRole.value
     if (!role) return false
-
-    const widget = DASHBOARD_WIDGETS.find(w => w.id === widgetId)
-    return widget ? widget.roles.includes(role) : false
+    return canAccessWidget(widgetId, role, accountType.value)
   }
 
   // Verificar si el usuario puede ver una acción específica
   const canViewAction = (actionId: string): boolean => {
     const role = userRole.value
     if (!role) return false
-
-    const action = QUICK_ACTIONS.find(a => a.id === actionId)
-    return action ? action.roles.includes(role) : false
+    return canAccessAction(actionId, role, accountType.value)
   }
 
   // Obtener widgets por sección

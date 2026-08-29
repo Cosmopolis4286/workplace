@@ -6,7 +6,16 @@ import { getApiErrorMessage } from '../core/useApiErrors'
  * Tipos de credenciales demo disponibles
  */
 export interface DemoCredential {
-  role: 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
+  role: 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
+  // Desde el refactor a Role.PROFESIONAL, `role` ya no distingue el tipo de
+  // perfil de negocio — esa distinción vive en profileType/subtype, el
+  // ProfileType real (ver schema.prisma), no reducido a solo dos valores.
+  // Null para SUPERADMIN/ADMIN o un usuario sin ningún perfil activo.
+  profileType: 'BUSINESS' | 'PROFESSIONAL' | 'JOB_SEEKER' | 'CUSTOMER' | null
+  // Solo aplica cuando profileType=PROFESSIONAL: distingue un freelancer
+  // "creativo" (FREELANCER) de uno que presta un servicio operativo
+  // (SERVICE_PROVIDER, ej. delivery).
+  subtype: 'FREELANCER' | 'SERVICE_PROVIDER' | null
   email: string
   password: string
   label: string

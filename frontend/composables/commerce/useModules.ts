@@ -4,7 +4,7 @@
  * effectiveModules = Plan.enabledModules ∩ UserCategory.allowedModules
  *
  * SUPERADMIN/ADMIN/NORMAL get all modules (backend returns ALL_MODULES).
- * COMMERCE/FREELANCER get the intersection of their plan and business category.
+ * PROFESIONAL get the intersection of their plan and business category.
  *
  * Usage:
  *   const { hasModule, effectiveModules } = useModules()
@@ -39,7 +39,7 @@ export function useModules() {
     const role = user.value?.role
     const unrestricted = role === 'SUPERADMIN' || role === 'ADMIN' || role === 'NORMAL'
     if (unrestricted) return true
-    // COMMERCE/FREELANCER: mientras no haya cargado el plan, denegar (evita "flash" de módulos no permitidos)
+    // PROFESIONAL: mientras no haya cargado el plan, denegar (evita "flash" de módulos no permitidos)
     if (!loaded.value) return false
     return effectiveModules.value.includes(module)
   }

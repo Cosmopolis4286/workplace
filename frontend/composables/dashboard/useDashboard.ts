@@ -67,7 +67,9 @@ export function useDashboard() {
     error.value   = null
 
     const isNormal = user.value?.role === 'NORMAL'
-    const isFreelancer = user.value?.role === 'FREELANCER'
+    // role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
+    // (resuelto por el backend, ver AccountTypeResolver) es la fuente real.
+    const isFreelancer = user.value?.accountType === 'FREELANCER'
 
     try {
       // Usuarios NORMAL no tienen commerceId — solo cargan sus propios pedidos via /orders/mine
