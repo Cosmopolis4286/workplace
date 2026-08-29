@@ -42,8 +42,7 @@
             >
               <option value="">Todos</option>
               <option value="ADMIN">Admin</option>
-              <option value="COMMERCE">Comercio</option>
-              <option value="FREELANCER">Freelancer</option>
+              <option value="PROFESIONAL">Profesional</option>
               <option value="NORMAL">Normal</option>
             </select>
           </div>

@@ -152,23 +152,21 @@ import { useModuleCatalog } from '~/composables/commerce/useModuleCatalog'
 
 definePageMeta({ middleware: 'auth' })
 
-type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
+type Role = 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
 
-const ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER', 'NORMAL']
+const ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'PROFESIONAL', 'NORMAL']
 
 const ROLE_LABELS: Record<Role, string> = {
   SUPERADMIN: 'SuperAdmin',
   ADMIN: 'Admin',
-  COMMERCE: 'Comercio',
-  FREELANCER: 'Freelancer',
+  PROFESIONAL: 'Profesional',
   NORMAL: 'Normal',
 }
 
 const ROLE_BADGE_CLASSES: Record<Role, string> = {
   SUPERADMIN: 'bg-purple-100 text-purple-800',
   ADMIN: 'bg-blue-100 text-blue-800',
-  COMMERCE: 'bg-green-100 text-green-800',
-  FREELANCER: 'bg-yellow-100 text-yellow-800',
+  PROFESIONAL: 'bg-green-100 text-green-800',
   NORMAL: 'bg-gray-100 text-gray-700',
 }
 

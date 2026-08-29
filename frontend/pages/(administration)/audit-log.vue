@@ -274,10 +274,15 @@ function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat('es', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(iso))
 }
 
+// AuditLog.userRole es texto libre (snapshot histórico, no FK al enum
+// Role actual) — registros de antes de que COMMERCE/FREELANCER se
+// fusionaran en PROFESIONAL (2026-08-25) siguen teniendo esos valores
+// guardados y deben seguir mostrándose bien; no se quitan del mapa.
 function roleBadge(role: string | null) {
   const map: Record<string, string> = {
     SUPERADMIN: 'bg-red-100 text-red-800',
     ADMIN: 'bg-purple-100 text-purple-800',
+    PROFESIONAL: 'bg-blue-100 text-blue-800',
     COMMERCE: 'bg-blue-100 text-blue-800',
     FREELANCER: 'bg-amber-100 text-amber-800',
     NORMAL: 'bg-gray-100 text-gray-700',

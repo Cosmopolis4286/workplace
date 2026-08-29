@@ -40,6 +40,12 @@
           <option value="">Todos los roles</option>
           <option v-for="r in availableRoles" :key="r.value" :value="r.value">{{ r.label }}</option>
         </select>
+        <select v-model="profileKindFilter" class="input-field w-auto" @change="page = 1; load()">
+          <option value="">Todos los tipos</option>
+          <option value="BUSINESS">Comercio</option>
+          <option value="FREELANCER">Freelancer</option>
+          <option value="SERVICE_PROVIDER">Trabajador autónomo</option>
+        </select>
       </div>
       <div class="flex flex-col sm:flex-row gap-3">
         <select v-model="categoryFilter" class="input-field flex-1" @change="subcategoryFilter = ''; page = 1; load()">
@@ -53,7 +59,7 @@
           <option v-for="sub in filterSubcategories" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
         </select>
         <button
-          v-if="roleFilter || categoryFilter || subcategoryFilter || search"
+          v-if="roleFilter || profileKindFilter || categoryFilter || subcategoryFilter || search"
           class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap"
           @click="resetFilters"
         >Limpiar filtros</button>
@@ -102,13 +108,14 @@
       :page-size="limit"
       :current-page="page"
       total-label="usuarios en total"
-      :slots-colspan="5"
+      :slots-colspan="6"
       @update:selected="selectedUsers = $event"
       @page-change="page = $event; load()"
     >
       <template #headers>
         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Usuario</th>
         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Rol</th>
+        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
         <th class="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoría</th>
         <th class="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Comercio</th>
         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
@@ -130,6 +137,16 @@
 
         <td class="px-4 py-3">
           <span class="badge" :class="ROLE_BADGE_CLASSES[u.role]">{{ ROLE_LABELS[u.role] }}</span>
+        </td>
+
+        <td class="px-4 py-3">
+          <span v-if="profileKindOf(u.profiles?.[0])" class="badge" :class="profileKindOf(u.profiles[0])!.badge">
+            {{ profileKindOf(u.profiles[0])!.label }}
+          </span>
+          <span v-else-if="u.role === 'PROFESIONAL'" class="text-xs text-amber-500" title="Rol Profesional sin tipo de perfil asignado">
+            Sin tipo
+          </span>
+          <span v-else class="text-xs text-gray-400">—</span>
         </td>
 
         <td class="hidden lg:table-cell px-4 py-3">
@@ -173,6 +190,7 @@
       :form="form"
       :editing="!!editing"
       :user-id="editing?.id"
+      :had-profile-on-open="hadProfileOnOpen"
       :saving="saving"
       :form-error="formError"
       :categories="categories"
@@ -205,7 +223,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import AppTable from '~/components/ui/AppTable.vue'
 import UserFormModal from '~/components/modals/UserFormModal.vue'
-import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, type Role } from '~/config/roles.config'
+import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, profileKindOf, type Role } from '~/config/roles.config'
 import { useUsers, emptyUserForm, type UserItem, type UserCategory, type UsersStats } from '~/composables/users/useUsers'
 import { useConfirm } from '~/composables/ui/useConfirm'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
@@ -223,9 +241,9 @@ const availableRoles = computed<{ value: Role; label: string }[]>(() =>
   isSuperAdmin.value
     ? [
         { value: 'SUPERADMIN', label: 'SuperAdmin' }, { value: 'ADMIN', label: 'Admin' },
-        { value: 'COMMERCE', label: 'Comercio' }, { value: 'FREELANCER', label: 'Freelancer' }, { value: 'NORMAL', label: 'Normal' },
+        { value: 'PROFESIONAL', label: 'Profesional' }, { value: 'NORMAL', label: 'Normal' },
       ]
-    : [{ value: 'COMMERCE', label: 'Comercio' }, { value: 'FREELANCER', label: 'Freelancer' }, { value: 'NORMAL', label: 'Normal' }]
+    : [{ value: 'PROFESIONAL', label: 'Profesional' }, { value: 'NORMAL', label: 'Normal' }]
 )
 const creatableRoles = availableRoles
 
@@ -238,6 +256,7 @@ const total             = ref(0)
 const page              = ref(1)
 const limit             = 20
 const roleFilter        = ref('')
+const profileKindFilter = ref<'' | 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER'>('')
 const categoryFilter    = ref('')
 const subcategoryFilter = ref('')
 const search            = ref('')
@@ -249,6 +268,7 @@ const showCategoryModal  = ref(false)
 const editing            = ref<UserItem | null>(null)
 const saving             = ref(false)
 const formError          = ref<string | null>(null)
+const hadProfileOnOpen   = ref(false)
 
 const form = ref(emptyUserForm())
 const stats = ref<UsersStats>({ total: 0, commerce: 0, freelancer: 0, active: 0 })
@@ -286,6 +306,7 @@ async function load() {
   const filters = {
     roleFilter: roleFilter.value, categoryFilter: categoryFilter.value,
     subcategoryFilter: subcategoryFilter.value, search: search.value,
+    profileKind: profileKindFilter.value,
   }
   try {
     const [res, statsRes] = await Promise.all([
@@ -299,7 +320,8 @@ async function load() {
 }
 
 function resetFilters() {
-  search.value = ''; roleFilter.value = ''; categoryFilter.value = ''; subcategoryFilter.value = ''
+  search.value = ''; roleFilter.value = ''; profileKindFilter.value = ''
+  categoryFilter.value = ''; subcategoryFilter.value = ''
   page.value = 1; load()
 }
 
@@ -311,12 +333,20 @@ function onSearch() {
 function openCreate() {
   editing.value = null
   form.value = emptyUserForm()
+  hadProfileOnOpen.value = false
   formError.value = null; showModal.value = true
 }
 
 function openEdit(u: UserItem) {
   editing.value = u
-  form.value = { firstName: u.firstName, lastName: u.lastName, email: u.email, password: '', phone: u.phone ?? '', role: u.role, commerceName: '', categoryId: u.category?.id ?? '', subcategoryId: u.subcategory?.id ?? '' }
+  const profile = u.profiles?.[0]
+  form.value = {
+    firstName: u.firstName, lastName: u.lastName, email: u.email, password: '', phone: u.phone ?? '',
+    role: u.role, commerceName: '', categoryId: u.category?.id ?? '', subcategoryId: u.subcategory?.id ?? '',
+    businessProfileType: profile?.type ?? 'BUSINESS',
+    professionalSubtype: profile?.subtype ?? 'FREELANCER',
+  }
+  hadProfileOnOpen.value = !!profile
   formError.value = null; showModal.value = true
 }
 
