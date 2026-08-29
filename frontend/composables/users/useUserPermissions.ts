@@ -11,6 +11,9 @@ export interface PermissionsUser {
   isActive: boolean
   createdAt: string
   hasCustomPermissions: boolean
+  // Solo el perfil de negocio ACTIVE (BUSINESS/PROFESSIONAL), si tiene uno —
+  // ver profileKindOf() en config/roles.config.ts.
+  profiles: { type: 'BUSINESS' | 'PROFESSIONAL'; subtype?: 'FREELANCER' | 'SERVICE_PROVIDER' | null }[]
 }
 
 export interface UserPermission {
@@ -45,12 +48,14 @@ export const useUserPermissions = () => {
   async function listUsers(params: {
     role?: Role
     search?: string
+    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER' | ''
     page?: number
     limit?: number
   } = {}) {
     const query = new URLSearchParams()
     if (params.role) query.set('role', params.role)
     if (params.search) query.set('search', params.search)
+    if (params.profileKind) query.set('profileKind', params.profileKind)
     if (params.page) query.set('page', params.page.toString())
     if (params.limit) query.set('limit', params.limit.toString())
 

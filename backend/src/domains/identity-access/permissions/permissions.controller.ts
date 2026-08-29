@@ -174,6 +174,7 @@ export class PermissionsController {
     @CurrentUser() admin: { id: string; role: Role },
     @Query('role') role?: Role,
     @Query('search') search?: string,
+    @Query('profileKind') profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER',
     @Query('page') page = '1',
     @Query('limit') limit = '20'
   ) {
@@ -185,6 +186,7 @@ export class PermissionsController {
     return this.permissionsService.listUsers({
       role,
       search,
+      profileKind,
       page: parseInt(page),
       limit: parseInt(limit),
       visibleRoles,

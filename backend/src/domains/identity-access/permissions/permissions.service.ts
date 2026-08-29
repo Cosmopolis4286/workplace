@@ -648,8 +648,9 @@ export class PermissionsService implements PermissionsFacade {
     limit: number;
     visibleRoles?: Role[];
     excludeUserId?: string;
+    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
   }) {
-    const { role, search, page, limit, visibleRoles, excludeUserId } = params;
+    const { role, search, page, limit, visibleRoles, excludeUserId, profileKind } = params;
 
     // Reusa el mismo where-builder que /users (findAllUsers) para no
     // mantener dos veces la lógica de scoping por rol/búsqueda.
@@ -660,6 +661,7 @@ export class PermissionsService implements PermissionsFacade {
       allowedRoles: visibleRoles,
       search,
       excludeUserId,
+      profileKind,
     });
 
     const [users, total] = await Promise.all([
@@ -674,6 +676,13 @@ export class PermissionsService implements PermissionsFacade {
           isActive: true,
           createdAt: true,
           _count: { select: { userPermissions: true } },
+          // Mismo propósito que en UsersService.findAllUsers: Role ya no
+          // distingue Comercio/Freelancer/Prestador de servicio.
+          profiles: {
+            where: { status: 'ACTIVE', type: { in: ['BUSINESS', 'PROFESSIONAL'] } },
+            select: { type: true, subtype: true },
+            take: 1,
+          },
         },
         skip: (page - 1) * limit,
         take: limit,
