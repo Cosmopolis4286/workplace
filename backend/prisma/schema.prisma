@@ -184,6 +184,16 @@ model Commerce {
   slug          String?   @unique
   slugUpdatedAt DateTime?
 
+  // Contenido de la página pública de la tienda (/loja/:slug).
+  description String?
+  // Permite ocultar la tienda pública sin afectar el resto de la app (el
+  // comercio sigue operando en dashboard/catálogo interno). Default true:
+  // comercios existentes no deben desaparecer de /loja al desplegar esto.
+  isPublic    Boolean @default(true)
+  // Estructura libre {instagram, facebook, whatsapp, tiktok, ...} — evita una
+  // tabla nueva para algo que no se consulta ni se filtra, solo se muestra.
+  socialLinks Json?
+
   userId            String                 @unique
   user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Vínculo al perfil BUSINESS del dueño (ver UserProfile). Nullable y
@@ -341,6 +351,14 @@ model FreelancerSettings {
   // Diseño"), distinto de User.firstName/lastName. Nullable: si no lo define,
   // el resto de la app sigue usando firstName+lastName como hoy.
   professionalName String?
+
+  // URL pública del perfil profesional (/pro/:slug), independiente del
+  // username del usuario (ver User.username) y del slug de tienda de
+  // Commerce (ver Commerce.slug) — mismo patrón (regex, cooldown de 30 días)
+  // pero con su propio namespace: un freelancer puede querer una marca
+  // profesional distinta de su username de red social.
+  slug          String?   @unique
+  slugUpdatedAt DateTime?
 
   // Payment
   currency String @default("USD")
