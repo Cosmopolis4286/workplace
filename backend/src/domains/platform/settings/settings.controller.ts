@@ -14,7 +14,7 @@ import {
   UpdateModuleSettingsDto,
   UpdateBusinessNameDto,
 } from './dto/update-settings.dto';
-import { UpdateCommerceSlugDto } from './dto/update-commerce-slug.dto';
+import { UpdateCommerceSlugDto, UpdateFreelancerSlugDto } from './dto/update-commerce-slug.dto';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
@@ -80,6 +80,29 @@ export class SettingsController {
     @Body() dto: UpdateCommerceSlugDto
   ) {
     return this.settingsService.updateCommerceSlug(user.id, dto.slug);
+  }
+
+  @Get('freelancer/check-slug')
+  @RequirePermission('settings:view')
+  @RequireAccountType('FREELANCER')
+  checkFreelancerSlug(
+    @CurrentUser() user: { id: string },
+    @Query('slug') slug: string
+  ) {
+    if (!slug || slug.length < 3) {
+      return { available: false, canChange: true, daysLeft: 0, nextChangeAt: null };
+    }
+    return this.settingsService.checkFreelancerSlugAvailability(user.id, slug);
+  }
+
+  @Patch('freelancer/slug')
+  @RequirePermission('settings:edit')
+  @RequireAccountType('FREELANCER')
+  updateFreelancerSlug(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateFreelancerSlugDto
+  ) {
+    return this.settingsService.updateFreelancerSlug(user.id, dto.slug);
   }
 
   @Patch('operations')

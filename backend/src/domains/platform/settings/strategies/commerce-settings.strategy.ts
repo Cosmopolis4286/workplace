@@ -17,7 +17,9 @@ export const COMMERCE_SLUG_COOLDOWN_DAYS = 30;
 
 // El slug es más público que un username (se comparte como URL de tienda),
 // así que a diferencia de username sí bloqueamos rutas reservadas de la app.
-const RESERVED_SLUGS = new Set([
+// Exportado: reusado también por FreelancerSettingsStrategy (/pro/:slug) —
+// mismo namespace de rutas reservadas de la app para ambos tipos de slug.
+export const RESERVED_SLUGS = new Set([
   'admin', 'api', 'app', 'auth', 'login', 'register', 'settings', 'p',
   'loja', 'catalog', 'catalogo', 'search', 'buscar', 'profile', 'perfil',
   'wallet', 'checkout', 'orders', 'pedidos', 'services', 'servicios',
