@@ -96,7 +96,9 @@ const { get } = useApi()
 const { user } = useAuth()
 // Un freelancer no tiene Commerce/Expense/Employee: su reporte de negocio
 // se basa en ServiceRequest (solicitudes recibidas), no en Order/Expense.
-const isFreelancer = computed(() => user.value?.role === 'FREELANCER')
+// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
+// (resuelto por el backend) es la fuente real.
+const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
 
 const loadingOrders    = ref(false)
 const loadingExpenses  = ref(false)

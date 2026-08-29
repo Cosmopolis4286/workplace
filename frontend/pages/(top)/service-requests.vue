@@ -8,7 +8,7 @@
       :stats="headerStats"
     >
       <template #actions>
-        <!-- Toggle recibidas / enviadas — solo para FREELANCER y COMMERCE (proveedores) -->
+        <!-- Toggle recibidas / enviadas — solo para PROFESIONAL (proveedores) -->
         <div v-if="!isNormal" class="flex items-center bg-white border border-gray-200 rounded-xl p-1 gap-1 shadow-sm">
           <button
             class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"

@@ -33,7 +33,7 @@
     </template>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         VISTA COMMERCE / FREELANCER — configuración del negocio (backend)
+         VISTA PROFESIONAL (Comercio / Freelancer) — configuración del negocio (backend)
          ════════════════════════════════════════════════════════════════════ -->
     <template v-else>
       <!-- Loading skeleton -->
@@ -82,10 +82,22 @@
 
         <StoreSlugCard
           v-if="!isFreelancer"
-          :commerce="commerce"
+          :slug-owner="commerce"
           :saving="saving === 'slug'"
           :check-slug-availability="checkSlugAvailability"
           @save="saveCommerceSlug"
+        />
+
+        <StoreSlugCard
+          v-else
+          :slug-owner="freelancerSettings"
+          :saving="saving === 'slug'"
+          :check-slug-availability="checkFreelancerSlugAvailability"
+          title="URL de tu Perfil"
+          prefix="/pro/"
+          placeholder="mi-nombre"
+          owner-label="de tu perfil"
+          @save="saveFreelancerSlug"
         />
 
         <BusinessNotificationsCard
@@ -152,26 +164,27 @@ import BusinessNotificationsCard from '~/components/settings/BusinessNotificatio
 import PaymentSettingsCard from '~/components/settings/PaymentSettingsCard.vue'
 import OperationsSettingsCard from '~/components/settings/OperationsSettingsCard.vue'
 import AppLockCard from '~/components/settings/AppLockCard.vue'
-import { useSettings, type CommerceSettings } from '~/composables/commerce/useSettings'
+import { useSettings, type CommerceSettings, type FreelancerSettingsData } from '~/composables/commerce/useSettings'
 import { useAuth } from '~/composables/auth/useAuth'
 import { usePermissions } from '~/composables/users/usePermissions'
 
 const { user } = useAuth()
 const { userCategory } = usePermissions()
 const role = computed(() => user.value?.role ?? 'NORMAL')
-// Solo COMMERCE y FREELANCER tienen un negocio propio con configuración de backend
-const isCommerce = computed(() => ['COMMERCE', 'FREELANCER'].includes(role.value))
+// Solo PROFESIONAL tiene un negocio propio con configuración de backend.
+const isCommerce = computed(() => role.value === 'PROFESIONAL')
 // Un freelancer es proveedor de servicios independiente: sin Commerce, sin
 // campos de comercio físico (dirección, horario, tax, delivery, etc.)
-const isFreelancer = computed(() => role.value === 'FREELANCER')
+// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
+// (resuelto por el backend) es la fuente real.
+const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
 // Solo usuarios de categoría "Comida" pueden ver Operaciones y Configuración de Pagos
 const isComidaCategory = computed(() => userCategory.value === 'Comida')
 const roleLabel = computed(() => {
   const labels: Record<string, string> = {
     SUPERADMIN: 'Super Administrador',
     ADMIN: 'Administrador',
-    COMMERCE: 'Comercio',
-    FREELANCER: 'Freelancer',
+    PROFESIONAL: 'Profesional',
     NORMAL: 'Usuario',
   }
   return labels[role.value] ?? role.value
@@ -190,17 +203,23 @@ const {
   saveCommerceInfo: saveCommerceInfoApi,
   checkSlugAvailability,
   saveCommerceSlug: saveCommerceSlugApi,
+  checkFreelancerSlugAvailability,
+  saveFreelancerSlug: saveFreelancerSlugApi,
   savePaymentSettings: savePaymentSettingsApi,
   saveOperationSettings: saveOperationSettingsApi,
   saveNotificationSettings: saveNotificationSettingsApi,
 } = useSettings()
 
 // OperationsSettingsCard solo se muestra cuando isComidaCategory, y esa categoría
-// implica rol COMMERCE (no FREELANCER) — settings siempre es CommerceSettings ahí.
+// implica accountType COMMERCE (no FREELANCER) — settings siempre es CommerceSettings ahí.
 const commerceSettings = computed(() => settings.value as CommerceSettings | null)
+// StoreSlugCard (rama freelancer) solo se monta cuando isFreelancer — settings
+// siempre es FreelancerSettingsData ahí.
+const freelancerSettings = computed(() => settings.value as FreelancerSettingsData | null)
 
 async function saveCommerceInfo(form: Record<string, unknown>) { await saveCommerceInfoApi(form) }
 async function saveCommerceSlug(slug: string) { await saveCommerceSlugApi(slug) }
+async function saveFreelancerSlug(slug: string) { await saveFreelancerSlugApi(slug) }
 async function savePaymentSettings(form: Record<string, unknown>) { await savePaymentSettingsApi(form) }
 async function saveOperationSettings(form: Record<string, unknown>) { await saveOperationSettingsApi(form) }
 async function saveNotificationSettings(form: Record<string, boolean>) { await saveNotificationSettingsApi(form) }

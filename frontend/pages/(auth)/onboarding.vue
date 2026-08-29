@@ -37,7 +37,7 @@
             :logo-url="user?.avatar"
             :uploading-logo="uploadingLogo"
             :error="businessError"
-            :is-freelancer="user?.role === 'FREELANCER'"
+            :is-freelancer="user?.accountType === 'FREELANCER'"
             @update:business-name="businessName = $event"
             @upload-logo="handleLogoUpload"
           />
@@ -198,7 +198,11 @@ async function loadPlans() {
   loadingPlans.value = true
   try {
     const { get } = useApi()
-    const role = user.value?.role ?? 'COMMERCE'
+    // El backend resuelve los planes visibles vía accountType real
+    // (AccountTypeResolver, por userId) — `role` en este endpoint solo
+    // distingue NORMAL de otros, y en onboarding el usuario ya es
+    // PROFESIONAL, así que este valor no afecta el resultado.
+    const role = user.value?.role ?? 'PROFESIONAL'
     const catParam = selectedCategory.value && selectedCategory.value !== OTHER ? `&categoryId=${selectedCategory.value}` : ''
     plans.value = await get(`/plans/public?role=${role}${catParam}`)
   } catch { } finally { loadingPlans.value = false }

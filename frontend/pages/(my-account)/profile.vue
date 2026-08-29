@@ -143,13 +143,14 @@ const roleStyle = computed(() => {
   const ROLE_STYLES: Record<string, { label: string; badge: string }> = {
     SUPERADMIN: { label: 'Super Administrador', badge: 'bg-red-100 text-red-800' },
     ADMIN: { label: 'Administrador', badge: 'bg-purple-100 text-purple-800' },
-    COMMERCE: { label: 'Comercio', badge: 'bg-blue-100 text-blue-800' },
-    FREELANCER: { label: 'Freelancer', badge: 'bg-amber-100 text-amber-800' },
+    PROFESIONAL: { label: 'Profesional', badge: 'bg-blue-100 text-blue-800' },
     NORMAL: { label: 'Usuario', badge: 'bg-gray-100 text-gray-700' },
   }
   return ROLE_STYLES[auth.user.value?.role ?? 'NORMAL'] ?? ROLE_STYLES.NORMAL
 })
-const isCommerce = computed(() => auth.user.value?.role === 'COMMERCE')
+// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
+// (resuelto por el backend) es la fuente real.
+const isCommerce = computed(() => auth.user.value?.accountType === 'COMMERCE')
 
 const fullName = computed(() => {
   const u = auth.user.value

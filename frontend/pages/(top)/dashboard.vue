@@ -365,6 +365,10 @@ async function handleMarkPaid(id: string) {
 // Auto-refresh every 60s
 let refreshTimer: ReturnType<typeof setInterval>
 
+// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
+// (resuelto por el backend) es la fuente real para esta distinción.
+const isFreelancerAccount = computed(() => user.value?.accountType === 'FREELANCER')
+
 onMounted(async () => {
   loadLayout()
   await loadDashboard(selectedPeriod.value)
@@ -372,8 +376,8 @@ onMounted(async () => {
   if (userRole.value === 'NORMAL') {
     await loadCustomerData()
   }
-  // Load provider-specific data (solicitudes recibidas) for FREELANCER users
-  if (userRole.value === 'FREELANCER') {
+  // Load provider-specific data (solicitudes recibidas) for FREELANCER accounts
+  if (isFreelancerAccount.value) {
     await loadFreelancerData()
   }
   refreshTimer = setInterval(() => {
@@ -381,7 +385,7 @@ onMounted(async () => {
     if (userRole.value === 'NORMAL') {
       loadCustomerData()
     }
-    if (userRole.value === 'FREELANCER') {
+    if (isFreelancerAccount.value) {
       loadFreelancerData()
     }
   }, 60_000)

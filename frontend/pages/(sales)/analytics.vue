@@ -327,8 +327,10 @@ const {
 // Un freelancer no vende productos con stock/preparación/entrega: vende
 // servicios vía solicitudes (ServiceRequest). El backend ya devuelve el
 // mismo contrato de datos remapeado; acá solo se ajustan los textos.
+// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
+// (resuelto por el backend) es la fuente real.
 const { user } = useAuth()
-const isFreelancer = computed(() => user.value?.role === 'FREELANCER')
+const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
 
 const { formatDate, formatNumber } = useDateFormat()
 

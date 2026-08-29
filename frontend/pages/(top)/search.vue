@@ -495,7 +495,7 @@ const activeTabData = computed(() =>
   searchTabs.value.find(t => t.key === activeTab.value) ?? null,
 )
 
-const canProposeCategory = computed(() => ['COMMERCE', 'FREELANCER'].includes(user.value?.role ?? ''))
+const canProposeCategory = computed(() => user.value?.role === 'PROFESIONAL')
 const proposeCategoryTarget = computed<'PRODUCTO' | 'SERVICIO' | 'EMPLEO'>(() => {
   if (activeTab.value === 'productos') return 'PRODUCTO'
   if (activeTab.value === 'servicios') return 'SERVICIO'

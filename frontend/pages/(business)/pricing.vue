@@ -131,7 +131,7 @@ const changePlanError = ref('')
 const wizardStep = ref(0)
 
 const isNormalUser       = computed(() => isAuthenticated.value && user.value?.role === 'NORMAL')
-const canChangePlan      = computed(() => isAuthenticated.value && (user.value?.role === 'COMMERCE' || user.value?.role === 'FREELANCER'))
+const canChangePlan      = computed(() => isAuthenticated.value && user.value?.role === 'PROFESIONAL')
 
 function currentPrice(plan: PricingPlan): number {
   if (annual.value && plan.priceAnnual) return plan.priceAnnual
