@@ -7,18 +7,17 @@ describe('Source Code Coverage', () => {
     it('should have all role values', () => {
       expect(Role.SUPERADMIN).toBe('SUPERADMIN')
       expect(Role.ADMIN).toBe('ADMIN')
-      expect(Role.COMMERCE).toBe('COMMERCE')
-      expect(Role.FREELANCER).toBe('FREELANCER')
+      expect(Role.PROFESIONAL).toBe('PROFESIONAL')
       expect(Role.NORMAL).toBe('NORMAL')
     })
 
     it('should have correct role count', () => {
       const roles = Object.values(Role)
-      expect(roles).toHaveLength(5)
+      expect(roles).toHaveLength(4)
     })
 
     it('should validate role values', () => {
-      const validRoles = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER', 'NORMAL']
+      const validRoles = ['SUPERADMIN', 'ADMIN', 'PROFESIONAL', 'PROFESIONAL', 'NORMAL']
       const roles = Object.values(Role)
       
       roles.forEach(role => {
@@ -37,7 +36,7 @@ describe('Source Code Coverage', () => {
       const userRole: string = Role.ADMIN
       const permissions = {
         canManageUsers: userRole === Role.ADMIN || userRole === Role.SUPERADMIN,
-        canManageCommerce: userRole === Role.COMMERCE || userRole === Role.ADMIN || userRole === Role.SUPERADMIN,
+        canManageCommerce: userRole === Role.PROFESIONAL || userRole === Role.ADMIN || userRole === Role.SUPERADMIN,
         canViewDashboard: true // All roles can view dashboard
       }
 
@@ -52,7 +51,7 @@ describe('Source Code Coverage', () => {
       const allRoles = Object.values(Role)
       expect(allRoles).toContain(Role.SUPERADMIN)
       expect(allRoles).toContain(Role.ADMIN)
-      expect(allRoles).toContain(Role.COMMERCE)
+      expect(allRoles).toContain(Role.PROFESIONAL)
       expect(allRoles).toContain(Role.NORMAL)
     })
 
@@ -72,7 +71,7 @@ describe('Source Code Coverage', () => {
       const getRoleLevel = (role: Role): number => {
         const hierarchy = {
           [Role.NORMAL]: 1,
-          [Role.COMMERCE]: 2,
+          [Role.PROFESIONAL]: 2,
           [Role.ADMIN]: 3,
           [Role.SUPERADMIN]: 4
         }
@@ -80,7 +79,7 @@ describe('Source Code Coverage', () => {
       }
 
       expect(getRoleLevel(Role.NORMAL)).toBe(1)
-      expect(getRoleLevel(Role.COMMERCE)).toBe(2)
+      expect(getRoleLevel(Role.PROFESIONAL)).toBe(2)
       expect(getRoleLevel(Role.ADMIN)).toBe(3)
       expect(getRoleLevel(Role.SUPERADMIN)).toBe(4)
     })
@@ -95,7 +94,7 @@ describe('Source Code Coverage', () => {
       const getRoleLevel = (role: Role): number => {
         const hierarchy = {
           [Role.NORMAL]: 1,
-          [Role.COMMERCE]: 2,
+          [Role.PROFESIONAL]: 2,
           [Role.ADMIN]: 3,
           [Role.SUPERADMIN]: 4
         }
@@ -104,7 +103,7 @@ describe('Source Code Coverage', () => {
 
       expect(hasPermission(Role.SUPERADMIN, Role.ADMIN)).toBe(true)
       expect(hasPermission(Role.ADMIN, Role.SUPERADMIN)).toBe(false)
-      expect(hasPermission(Role.COMMERCE, Role.NORMAL)).toBe(true)
+      expect(hasPermission(Role.PROFESIONAL, Role.NORMAL)).toBe(true)
     })
   })
 })

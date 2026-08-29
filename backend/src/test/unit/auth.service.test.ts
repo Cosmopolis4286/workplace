@@ -11,6 +11,7 @@ import { MailService } from '../../domains/engagement/mail/mail.service'
 import { AuditService } from '../../domains/identity-access/audit/audit.service'
 import { TwoFactorService } from '../../domains/identity-access/auth/two-factor.service'
 import { RecaptchaService } from '../../common/recaptcha/recaptcha.service'
+import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
 
 describe('AuthService', () => {
   let service: AuthService
@@ -70,6 +71,12 @@ describe('AuthService', () => {
   const mockRecaptchaService = {
     isEnabled: false,
     verify: jest.fn().mockResolvedValue(true),
+  }
+
+  const mockAccountTypeResolver = {
+    resolve: jest.fn().mockResolvedValue(null),
+    isFreelancer: jest.fn().mockReturnValue(false),
+    isCommerce: jest.fn().mockReturnValue(false),
   }
 
   const mockConfigService = {
@@ -137,6 +144,10 @@ describe('AuthService', () => {
         {
           provide: RecaptchaService,
           useValue: mockRecaptchaService,
+        },
+        {
+          provide: AccountTypeResolver,
+          useValue: mockAccountTypeResolver,
         },
       ],
     }).compile()

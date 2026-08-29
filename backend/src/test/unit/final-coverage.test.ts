@@ -6,7 +6,7 @@ describe('Final Coverage Tests', () => {
     it('should have correct role values', () => {
       expect(Role.SUPERADMIN).toBe('SUPERADMIN')
       expect(Role.ADMIN).toBe('ADMIN')
-      expect(Role.COMMERCE).toBe('COMMERCE')
+      expect(Role.PROFESIONAL).toBe('PROFESIONAL')
       expect(Role.NORMAL).toBe('NORMAL')
     })
 
@@ -14,10 +14,9 @@ describe('Final Coverage Tests', () => {
       const roles = Object.values(Role)
       expect(roles).toContain('SUPERADMIN')
       expect(roles).toContain('ADMIN')
-      expect(roles).toContain('COMMERCE')
-      expect(roles).toContain('FREELANCER')
+      expect(roles).toContain('PROFESIONAL')
       expect(roles).toContain('NORMAL')
-      expect(roles).toHaveLength(5)
+      expect(roles).toHaveLength(4)
     })
   })
 
@@ -25,7 +24,7 @@ describe('Final Coverage Tests', () => {
     it('should compare roles as strings', () => {
       const userRole = 'ADMIN' as any
       const isAdmin = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
-      const isCommerce = userRole === 'COMMERCE' || userRole === 'ADMIN' || userRole === 'SUPERADMIN'
+      const isCommerce = userRole === 'PROFESIONAL' || userRole === 'ADMIN' || userRole === 'SUPERADMIN'
       
       expect(isAdmin).toBe(true)
       expect(isCommerce).toBe(true)
@@ -34,7 +33,7 @@ describe('Final Coverage Tests', () => {
     it('should handle normal user permissions', () => {
       const userRole = 'NORMAL' as any
       const canManageUsers = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
-      const canManageCommerce = userRole === 'COMMERCE' || userRole === 'ADMIN' || userRole === 'SUPERADMIN'
+      const canManageCommerce = userRole === 'PROFESIONAL' || userRole === 'ADMIN' || userRole === 'SUPERADMIN'
       
       expect(canManageUsers).toBe(false)
       expect(canManageCommerce).toBe(false)
@@ -46,7 +45,7 @@ describe('Final Coverage Tests', () => {
       const getRoleLevel = (role: string): number => {
         const hierarchy: Record<string, number> = {
           'NORMAL': 1,
-          'COMMERCE': 2,
+          'PROFESIONAL': 2,
           'ADMIN': 3,
           'SUPERADMIN': 4
         }
@@ -54,7 +53,7 @@ describe('Final Coverage Tests', () => {
       }
 
       expect(getRoleLevel('NORMAL')).toBe(1)
-      expect(getRoleLevel('COMMERCE')).toBe(2)
+      expect(getRoleLevel('PROFESIONAL')).toBe(2)
       expect(getRoleLevel('ADMIN')).toBe(3)
       expect(getRoleLevel('SUPERADMIN')).toBe(4)
     })
@@ -69,7 +68,7 @@ describe('Final Coverage Tests', () => {
       const getRoleLevel = (role: string): number => {
         const hierarchy: Record<string, number> = {
           'NORMAL': 1,
-          'COMMERCE': 2,
+          'PROFESIONAL': 2,
           'ADMIN': 3,
           'SUPERADMIN': 4
         }
@@ -78,7 +77,7 @@ describe('Final Coverage Tests', () => {
 
       expect(hasPermission('SUPERADMIN', 'ADMIN')).toBe(true)
       expect(hasPermission('ADMIN', 'SUPERADMIN')).toBe(false)
-      expect(hasPermission('COMMERCE', 'NORMAL')).toBe(true)
+      expect(hasPermission('PROFESIONAL', 'NORMAL')).toBe(true)
       expect(hasPermission('ADMIN', 'ADMIN')).toBe(true)
     })
   })

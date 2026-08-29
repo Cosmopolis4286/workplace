@@ -83,7 +83,7 @@ describe('AuthService', () => {
       const mockUser = {
         id: 'user-id',
         email: 'test@example.com',
-        role: Role.COMMERCE,
+        role: Role.PROFESIONAL,
         password: 'hashed-password',
       };
 
@@ -117,7 +117,7 @@ describe('AuthService', () => {
       const mockUser = {
         id: 'user-id',
         email: 'test@example.com',
-        role: Role.COMMERCE,
+        role: Role.PROFESIONAL,
         password: 'hashed-password',
       };
 
@@ -145,7 +145,7 @@ describe('AuthService', () => {
       const mockUser = {
         id: 'new-user-id',
         email: 'new@example.com',
-        role: Role.COMMERCE,
+        role: Role.PROFESIONAL,
       };
 
       mockUsersService.create = jest.fn().mockResolvedValue(mockUser);
@@ -177,7 +177,7 @@ describe('AuthService', () => {
       const mockUser = {
         id: 'user-id',
         email: 'test@example.com',
-        role: Role.COMMERCE,
+        role: Role.PROFESIONAL,
       };
 
       mockPrismaService.refreshToken.findUnique = jest.fn().mockResolvedValue(mockStoredToken);
@@ -238,7 +238,7 @@ describe('AuthService', () => {
       const mockUser = {
         id: 'user-id',
         email: 'test@example.com',
-        role: Role.COMMERCE,
+        role: Role.PROFESIONAL,
       };
 
       mockUsersService.findById = jest.fn().mockResolvedValue(mockUser);

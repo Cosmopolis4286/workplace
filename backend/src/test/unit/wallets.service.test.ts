@@ -244,7 +244,7 @@ describe('WalletsService — escrow', () => {
     })
 
     it('rechaza a un usuario que no es admin', async () => {
-      await expect(service.getEscrowReconciliation(Role.FREELANCER)).rejects.toThrow()
+      await expect(service.getEscrowReconciliation(Role.PROFESIONAL)).rejects.toThrow()
     })
   })
 
@@ -271,7 +271,7 @@ describe('WalletsService — escrow', () => {
 
     it('rechaza a un actor que no es admin', async () => {
       await expect(
-        service.adjust(TARGET_ID, ADMIN_ID, Role.FREELANCER, { type: 'CREDIT', amount: 10, description: 'motivo' } as any),
+        service.adjust(TARGET_ID, ADMIN_ID, Role.PROFESIONAL, { type: 'CREDIT', amount: 10, description: 'motivo' } as any),
       ).rejects.toThrow()
     })
 

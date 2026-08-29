@@ -87,7 +87,7 @@ describe('UsersService', () => {
         email: 'commerce@example.com',
         firstName: 'Business',
         lastName: 'Owner',
-        role: Role.COMMERCE,
+        role: Role.PROFESIONAL,
         commerce: { id: 'commerce-id', name: 'My Business' },
         category: null,
         subcategory: null,
@@ -104,7 +104,7 @@ describe('UsersService', () => {
         password: 'password123',
         firstName: 'Business',
         lastName: 'Owner',
-        role: Role.COMMERCE,
+        role: Role.PROFESIONAL,
         commerceName: 'My Business',
       });
 

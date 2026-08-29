@@ -447,7 +447,7 @@ describe('updatePlan', () => {
       expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled()
     })
 
-    it('un plan forCommerce crea/activa un UserProfile BUSINESS y otorga role COMMERCE', async () => {
+    it('un plan forCommerce crea/activa un UserProfile BUSINESS y otorga role PROFESIONAL', async () => {
       mockPrismaService.subscription.findUnique.mockResolvedValue(pendingSubscription())
       mockPrismaService.user.findUnique.mockResolvedValue({ role: 'NORMAL' })
       mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'BUSINESS', subtype: null }])
@@ -459,10 +459,10 @@ describe('updatePlan', () => {
           data: expect.objectContaining({ userId: 'user-1', type: 'BUSINESS', subtype: null, status: 'ACTIVE' }),
         }),
       )
-      expect(mockPrismaService.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: 'COMMERCE' } })
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: 'PROFESIONAL' } })
     })
 
-    it('un plan forFreelancer crea/activa un UserProfile PROFESSIONAL/FREELANCER y otorga role FREELANCER', async () => {
+    it('un plan forFreelancer crea/activa un UserProfile PROFESSIONAL/FREELANCER y otorga role PROFESIONAL', async () => {
       mockPrismaService.subscription.findUnique.mockResolvedValue(
         pendingSubscription({ plan: { forCommerce: false, forFreelancer: true } }),
       )
@@ -476,7 +476,7 @@ describe('updatePlan', () => {
           data: expect.objectContaining({ userId: 'user-1', type: 'PROFESSIONAL', subtype: 'FREELANCER', status: 'ACTIVE' }),
         }),
       )
-      expect(mockPrismaService.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: 'FREELANCER' } })
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: 'PROFESIONAL' } })
     })
 
     it('reutiliza un UserProfile existente del mismo tipo en vez de duplicarlo', async () => {

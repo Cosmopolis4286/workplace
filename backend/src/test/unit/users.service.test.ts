@@ -196,18 +196,18 @@ describe('UsersService', () => {
       expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled()
     })
 
-    it('creates a BUSINESS UserProfile when role is COMMERCE', async () => {
+    it('creates a BUSINESS UserProfile when role is PROFESIONAL with a commerceName (inferred)', async () => {
       const createUserDto = {
         email: 'commerce@example.com',
         password: 'password123',
         firstName: 'Comercio',
         lastName: 'Uno',
-        role: Role.COMMERCE,
+        role: Role.PROFESIONAL,
         commerceName: 'Mi Negocio',
         categoryId: 'cat-1',
       }
 
-      mockPrismaService.user.create.mockResolvedValue({ id: 'user-1', role: 'COMMERCE' })
+      mockPrismaService.user.create.mockResolvedValue({ id: 'user-1', role: 'PROFESIONAL' })
 
       await service.create(createUserDto)
 
@@ -222,17 +222,17 @@ describe('UsersService', () => {
       })
     })
 
-    it('creates a PROFESSIONAL/FREELANCER UserProfile when role is FREELANCER', async () => {
+    it('creates a PROFESSIONAL/FREELANCER UserProfile when role is PROFESIONAL without a commerceName', async () => {
       const createUserDto = {
         email: 'freelancer@example.com',
         password: 'password123',
         firstName: 'Free',
         lastName: 'Lancer',
-        role: Role.FREELANCER,
+        role: Role.PROFESIONAL,
         categoryId: 'cat-2',
       }
 
-      mockPrismaService.user.create.mockResolvedValue({ id: 'user-2', role: 'FREELANCER' })
+      mockPrismaService.user.create.mockResolvedValue({ id: 'user-2', role: 'PROFESIONAL' })
 
       await service.create(createUserDto)
 
@@ -242,6 +242,33 @@ describe('UsersService', () => {
           type: 'PROFESSIONAL',
           subtype: 'FREELANCER',
           categoryId: 'cat-2',
+          status: 'ACTIVE',
+        }),
+      })
+    })
+
+    it('creates a PROFESSIONAL/SERVICE_PROVIDER UserProfile when businessProfileType/professionalSubtype are explicit', async () => {
+      const createUserDto = {
+        email: 'plumber@example.com',
+        password: 'password123',
+        firstName: 'Service',
+        lastName: 'Provider',
+        role: Role.PROFESIONAL,
+        businessProfileType: 'PROFESSIONAL' as any,
+        professionalSubtype: 'SERVICE_PROVIDER' as any,
+        categoryId: 'cat-3',
+      }
+
+      mockPrismaService.user.create.mockResolvedValue({ id: 'user-3', role: 'PROFESIONAL' })
+
+      await service.create(createUserDto)
+
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'user-3',
+          type: 'PROFESSIONAL',
+          subtype: 'SERVICE_PROVIDER',
+          categoryId: 'cat-3',
           status: 'ACTIVE',
         }),
       })

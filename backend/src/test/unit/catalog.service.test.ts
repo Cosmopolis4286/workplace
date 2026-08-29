@@ -46,6 +46,7 @@ describe('CatalogService', () => {
     mockPrismaService = {
       product: { findMany: jest.fn(), updateMany: jest.fn() },
       catalogOrder: { create: jest.fn() },
+      commerce: { findUnique: jest.fn() },
       $transaction: jest.fn((callback: (tx: any) => unknown) => callback(mockPrismaService)),
     }
     mockNotificationsService = {
@@ -157,6 +158,54 @@ describe('CatalogService', () => {
       expect(mockNotificationsService.notifyNewCatalogOrder).toHaveBeenCalledWith(
         COMMERCE_ID, 'Cliente Uno', 'Torta de chocolate', 2, 50,
       )
+    })
+  })
+
+  describe('getStoreBySlug', () => {
+    function baseCommerce(overrides: Partial<any> = {}) {
+      return {
+        id: COMMERCE_ID,
+        userId: 'owner-1',
+        name: 'Pastelería Ana',
+        isPublic: true,
+        description: null,
+        socialLinks: null,
+        user: { avatar: null, coverImage: null },
+        settings: null,
+        _count: { products: 3 },
+        ...overrides,
+      }
+    }
+
+    it('lanza NotFoundException si el slug no existe', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue(null)
+
+      await expect(service.getStoreBySlug('inexistente')).rejects.toBeInstanceOf(NotFoundException)
+    })
+
+    it('lanza NotFoundException si la tienda está oculta (isPublic=false) y quien pide no es el dueño', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue(baseCommerce({ isPublic: false }))
+
+      await expect(service.getStoreBySlug('mi-tienda', 'otro-usuario')).rejects.toBeInstanceOf(NotFoundException)
+      await expect(service.getStoreBySlug('mi-tienda')).rejects.toBeInstanceOf(NotFoundException)
+    })
+
+    it('permite al dueño ver su propia tienda aunque esté oculta (isPublic=false)', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue(baseCommerce({ isPublic: false }))
+
+      const result = await service.getStoreBySlug('mi-tienda', 'owner-1')
+
+      expect(result.data.name).toBe('Pastelería Ana')
+      expect(result.data.productCount).toBe(3)
+    })
+
+    it('devuelve la tienda pública normalmente y no filtra el userId interno', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue(baseCommerce())
+
+      const result = await service.getStoreBySlug('mi-tienda')
+
+      expect(result.data.productCount).toBe(3)
+      expect((result.data as any).userId).toBeUndefined()
     })
   })
 })

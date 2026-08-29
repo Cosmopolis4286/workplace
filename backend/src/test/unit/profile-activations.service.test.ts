@@ -114,7 +114,7 @@ describe('ProfileActivationsService', () => {
       ).resolves.toBeDefined()
     })
 
-    it('al activar un perfil PROFESSIONAL/FREELANCER con KYC aprobado, otorga el rol FREELANCER real', async () => {
+    it('al activar un perfil PROFESSIONAL/FREELANCER con KYC aprobado, otorga el rol PROFESIONAL real', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(pendingProfile())
       // syncRoleForUser relee los ACTIVE profiles dentro de la transacción —
       // simula que el update de arriba ya dejó este perfil como ACTIVE.
@@ -126,11 +126,11 @@ describe('ProfileActivationsService', () => {
 
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { role: Role.FREELANCER },
+        data: { role: Role.PROFESIONAL },
       })
     })
 
-    it('otorga rol FREELANCER también para un perfil PROFESSIONAL/SERVICE_PROVIDER', async () => {
+    it('otorga rol PROFESIONAL también para un perfil PROFESSIONAL/SERVICE_PROVIDER', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
         pendingProfile({ subtype: ProfessionalSubtype.SERVICE_PROVIDER }),
       )
@@ -142,11 +142,11 @@ describe('ProfileActivationsService', () => {
 
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { role: Role.FREELANCER },
+        data: { role: Role.PROFESIONAL },
       })
     })
 
-    it('otorga rol COMMERCE para un perfil BUSINESS activado', async () => {
+    it('otorga rol PROFESIONAL para un perfil BUSINESS activado', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
         pendingProfile({ type: ProfileType.BUSINESS, subtype: null, categoryId: null }),
       )
@@ -158,7 +158,7 @@ describe('ProfileActivationsService', () => {
 
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { role: Role.COMMERCE },
+        data: { role: Role.PROFESIONAL },
       })
     })
 

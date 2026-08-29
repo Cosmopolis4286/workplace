@@ -70,7 +70,7 @@ describe('FreelancerApplicationsService', () => {
 
   describe('create', () => {
     it('rechaza la solicitud si el usuario no es NORMAL', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.FREELANCER })
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL })
 
       await expect(
         service.create(USER_ID, { categoryId: CATEGORY_ID } as any),
@@ -123,7 +123,7 @@ describe('FreelancerApplicationsService', () => {
       ).resolves.toBeDefined()
     })
 
-    it('al aprobar con KYC aprobado, copia categoría/subcategoría y otorga el rol FREELANCER vía RoleResolverService', async () => {
+    it('al aprobar con KYC aprobado, copia categoría/subcategoría y otorga el rol PROFESIONAL vía RoleResolverService', async () => {
       mockPrismaService.freelancerApplication.findUnique.mockResolvedValue(pendingApplication())
       // Sin linkedProfile (dual-write no dejó nada PENDING): el servicio
       // debe crear un UserProfile ACTIVE self-healing antes de sincronizar role.
@@ -141,7 +141,7 @@ describe('FreelancerApplicationsService', () => {
       })
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
-        data: { role: Role.FREELANCER },
+        data: { role: Role.PROFESIONAL },
       })
       expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith(
         expect.objectContaining({
