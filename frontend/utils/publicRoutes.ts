@@ -9,5 +9,10 @@ export const PUBLIC_ROUTES: string[] = [
 ]
 
 export function isPublicRoute(path: string): boolean {
-  return PUBLIC_ROUTES.some(r => path === r) || path.startsWith('/p/')
+  return (
+    PUBLIC_ROUTES.some(r => path === r) ||
+    path.startsWith('/p/') ||
+    path.startsWith('/loja/') ||
+    path.startsWith('/pro/')
+  )
 }

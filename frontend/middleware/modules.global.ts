@@ -1,7 +1,7 @@
 /**
  * modules middleware
  * Protege rutas según los módulos efectivos del usuario (plan ∩ categoría).
- * Solo aplica a COMMERCE y FREELANCER — ADMIN/SUPERADMIN/NORMAL pasan siempre.
+ * Solo aplica a PROFESIONAL — ADMIN/SUPERADMIN/NORMAL pasan siempre.
  */
 
 import { navigateTo, defineNuxtRouteMiddleware } from "nuxt/app"

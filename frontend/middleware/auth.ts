@@ -4,14 +4,14 @@ import { usePermissions } from '~/composables/users/usePermissions'
 import { useNavigation } from '~/composables/core/useNavigation'
 import { isPublicRoute } from '~/utils/publicRoutes'
 
-type Role = 'SUPERADMIN' | 'ADMIN' | 'COMMERCE' | 'FREELANCER' | 'NORMAL'
+type Role = 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
 
 // ─── Grupos de roles ──────────────────────────────────────────────────────────
+// COMMERCE/FREELANCER se fusionaron en PROFESIONAL (backend, 2026-08-25) —
+// ninguno de estos grupos necesitaba distinguir cuál de los dos era, solo
+// "tiene algún perfil de negocio activo".
 const ADMIN_ROLES:              Role[] = ['SUPERADMIN', 'ADMIN']
-const COMMERCE_ROLES:           Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE']
-const FREELANCER_COMMERCE:      Role[] = ['COMMERCE', 'FREELANCER']
-const ALL_EXCEPT_NORMAL:        Role[] = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER']
-const SERVICE_REQUEST_ROLES:    Role[] = ['COMMERCE', 'FREELANCER', 'NORMAL']
+const ALL_EXCEPT_NORMAL:        Role[] = ['SUPERADMIN', 'ADMIN', 'PROFESIONAL']
 
 // ─── Rutas que solo pueden ver usuarios NO autenticados ───────────────────────
 // (autenticado → redirige al dashboard)
@@ -116,7 +116,7 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
   // sesión — no-op si ya está cargado (singleton compartido con el sidebar).
   await loadNavigation()
 
-  // ── 4b. Onboarding: COMMERCE/FREELANCER sin categoría ────────────────────
+  // ── 4b. Onboarding: PROFESIONAL sin categoría ────────────────────────────
   // Clave namespaced por userId (misma convención que pages/onboarding.vue)
   // — sin esto, en un dispositivo compartido el "completado" de un usuario
   // se filtraba a la sesión del siguiente que iniciara sesión ahí.
@@ -125,7 +125,7 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
     : false
 
   if (
-    FREELANCER_COMMERCE.includes(role) &&
+    role === 'PROFESIONAL' &&
     !user.value.categoryId &&
     !onboardingDone &&
     !ONBOARDING_EXCLUDED.some(p => path.startsWith(p))
