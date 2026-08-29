@@ -69,6 +69,20 @@
                 </div>
 
                 <p v-if="store.schedule" class="mt-3 text-sm text-gray-600 whitespace-pre-line">{{ store.schedule }}</p>
+                <p v-if="store.description" class="mt-2 text-sm text-gray-700">{{ store.description }}</p>
+
+                <div v-if="hasSocialLinks" class="flex flex-wrap gap-3 mt-3">
+                  <a
+                    v-for="link in socialLinksList"
+                    :key="link.key"
+                    :href="link.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-xs font-semibold text-workplace-red hover:underline"
+                  >
+                    {{ link.label }}
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -167,6 +181,8 @@ interface PublicStore {
   avgRating: number | null
   reviewsCount: number
   productCount: number
+  description: string | null
+  socialLinks: { instagram?: string; facebook?: string; whatsapp?: string; tiktok?: string } | null
   user: { avatar: string | null; coverImage: string | null }
   settings: { avgPrepTime: number | null; avgDeliveryTime: number | null; deliveryFee: number | null; freeDeliveryMinimum: number | null } | null
 }
@@ -187,6 +203,18 @@ const error = ref(false)
 const coverSrc = computed(() => getAssetUrl(store.value?.user?.coverImage))
 const avatarSrc = computed(() => getAssetUrl(store.value?.user?.avatar))
 const initials = computed(() => (store.value?.name ?? '?').trim().charAt(0).toUpperCase())
+
+const SOCIAL_LABELS: Record<string, string> = {
+  instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp', tiktok: 'TikTok',
+}
+const socialLinksList = computed(() => {
+  const links = store.value?.socialLinks
+  if (!links) return []
+  return Object.entries(links)
+    .filter(([, url]) => !!url)
+    .map(([key, url]) => ({ key, url: url as string, label: SOCIAL_LABELS[key] ?? key }))
+})
+const hasSocialLinks = computed(() => socialLinksList.value.length > 0)
 
 async function fetchStore() {
   loading.value = true

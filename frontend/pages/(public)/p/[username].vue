@@ -1306,7 +1306,7 @@ const roleLabel = computed(() => {
 })
 
 const isOwnProfile = computed(() => currentUser.value?.id === profile.value?.id)
-const canPost = computed(() => ['COMMERCE', 'FREELANCER', 'SUPERADMIN', 'ADMIN'].includes(currentUser.value?.role ?? ''))
+const canPost = computed(() => ['PROFESIONAL', 'SUPERADMIN', 'ADMIN'].includes(currentUser.value?.role ?? ''))
 
 const tabs = computed(() => {
   const t: { key: string; label: string }[] = [
@@ -1314,12 +1314,13 @@ const tabs = computed(() => {
   ]
   const ps = profile.value?.profileSettings ?? { showCatalog: true, showServices: true }
   const role = profile.value?.role ?? ''
-  // Catálogo: solo COMMERCE/ADMIN/SUPERADMIN con commerce
-  if (ps.showCatalog && profile.value?.commerce && ['COMMERCE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
+  // Catálogo: cualquier perfil con un Commerce real (la guarda real es
+  // profile.value?.commerce, no role — PROFESIONAL ya no distingue).
+  if (ps.showCatalog && profile.value?.commerce) {
     t.push({ key: 'catalog', label: 'Catálogo' })
   }
-  // Servicios: FREELANCER o COMMERCE
-  if (ps.showServices && ['FREELANCER', 'COMMERCE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
+  // Servicios: PROFESIONAL/ADMIN/SUPERADMIN
+  if (ps.showServices && ['PROFESIONAL', 'ADMIN', 'SUPERADMIN'].includes(role)) {
     t.push({ key: 'services', label: 'Servicios' })
   }
   t.push({ key: 'reviews', label: 'Reseñas' })
