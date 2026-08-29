@@ -46,6 +46,19 @@
               <option value="NORMAL">Normal</option>
             </select>
           </div>
+          <div class="w-56">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de perfil</label>
+            <select
+              v-model="filterProfileKind"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              @change="loadUsers"
+            >
+              <option value="">Todos</option>
+              <option value="BUSINESS">Comercio</option>
+              <option value="FREELANCER">Freelancer</option>
+              <option value="SERVICE_PROVIDER">Trabajador autónomo</option>
+            </select>
+          </div>
           <div class="flex items-end">
             <button
               @click="loadUsers"
@@ -74,6 +87,7 @@
               <tr>
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Usuario</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Rol</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Tipo</th>
                 <th class="text-center px-4 py-3 font-semibold text-gray-700">Permisos Personalizados</th>
                 <th class="text-center px-4 py-3 font-semibold text-gray-700">Estado</th>
                 <th class="text-right px-4 py-3 font-semibold text-gray-700">Acciones</th>
@@ -99,6 +113,12 @@
                   >
                     {{ ROLE_LABELS[user.role] }}
                   </span>
+                </td>
+                <td class="px-4 py-3">
+                  <span v-if="profileKindOf(user.profiles?.[0])" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" :class="profileKindOf(user.profiles[0])!.badge">
+                    {{ profileKindOf(user.profiles[0])!.label }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">—</span>
                 </td>
                 <td class="px-4 py-3 text-center">
                   <span
@@ -180,7 +200,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ROLE_LABELS, ROLE_BADGE_CLASSES, type Role } from '~/config/roles.config'
+import { ROLE_LABELS, ROLE_BADGE_CLASSES, profileKindOf, type Role } from '~/config/roles.config'
 import type { PermissionsUser } from '~/composables/users/useUserPermissions'
 import UserPermissionsModal from '~/components/permissions/UserPermissionsModal.vue'
 
@@ -193,6 +213,7 @@ const { listUsers, getUserPermissions, loading, error } = useUserPermissions()
 const users = ref<PermissionsUser[]>([])
 const search = ref('')
 const filterRole = ref<Role | ''>('')
+const filterProfileKind = ref<'' | 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER'>('')
 const pagination = ref({ page: 1, limit: 20, total: 0, pages: 1 })
 const selectedUser = ref<PermissionsUser | null>(null)
 const showModal = ref(false)
