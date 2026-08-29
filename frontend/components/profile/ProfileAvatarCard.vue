@@ -43,7 +43,7 @@
         <component :is="kycBadge.icon" class="h-3.5 w-3.5" />
         {{ kycBadge.label }}
       </NuxtLink>
-      <div v-if="user?.username && (isCommerce || user?.role === 'FREELANCER')" class="mt-3">
+      <div v-if="user?.username && user?.role === 'PROFESIONAL'" class="mt-3">
         <NuxtLink
           :to="`/p/${user.username}`"
           class="inline-flex items-center gap-1.5 text-sm text-workplace-red hover:underline font-medium"
@@ -54,7 +54,7 @@
           Ver perfil público
         </NuxtLink>
       </div>
-      <p v-else-if="isCommerce || user?.role === 'FREELANCER'" class="mt-2 text-xs text-gray-400">
+      <p v-else-if="user?.role === 'PROFESIONAL'" class="mt-2 text-xs text-gray-400">
         Define un <span class="font-medium">@username</span> para activar tu perfil público
       </p>
     </div>

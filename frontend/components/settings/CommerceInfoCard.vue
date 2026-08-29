@@ -104,6 +104,50 @@
           placeholder="Lunes a Viernes: 9:00 - 22:00&#10;Sábados y Domingos: 10:00 - 23:00"
         />
       </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">
+          Descripción <span class="text-gray-400 font-normal">(visible en tu tienda pública)</span>
+        </label>
+        <textarea
+          v-model="form.description"
+          rows="3"
+          maxlength="500"
+          class="input-field resize-none"
+          placeholder="Cuéntale a tus clientes de qué trata tu negocio..."
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">Redes sociales</label>
+        <div class="grid grid-cols-2 gap-4">
+          <input v-model="form.socialLinks.instagram" type="text" class="input-field" placeholder="Instagram">
+          <input v-model="form.socialLinks.facebook" type="text" class="input-field" placeholder="Facebook">
+          <input v-model="form.socialLinks.whatsapp" type="text" class="input-field" placeholder="WhatsApp">
+          <input v-model="form.socialLinks.tiktok" type="text" class="input-field" placeholder="TikTok">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+        <div>
+          <p class="text-sm font-semibold text-gray-700">Tienda pública visible</p>
+          <p class="text-xs text-gray-500">Si la desactivas, tu página /loja dejará de mostrarse a clientes</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="form.isPublic"
+          class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+          :class="form.isPublic ? 'bg-blue-600' : 'bg-gray-300'"
+          @click="form.isPublic = !form.isPublic"
+        >
+          <span
+            class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+            :class="form.isPublic ? 'translate-x-6' : 'translate-x-1'"
+          />
+        </button>
+      </div>
+
       <button :disabled="saving" class="btn-save btn-blue" @click="$emit('save', { ...form })">
         <span v-if="saving" class="flex items-center justify-center gap-2">
           <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -124,7 +168,7 @@ import { BuildingStorefrontIcon } from '@heroicons/vue/24/outline'
 import SearchableSelect from '~/components/ui/SearchableSelect.vue'
 import { useVeLocations, type VeMunicipio, type VeCiudad } from '~/composables/location/useVeLocations'
 import { useLocationData } from '~/composables/location/useLocationData'
-import type { CommerceInfo } from '~/composables/commerce/useSettings'
+import type { CommerceInfo, SocialLinks } from '~/composables/commerce/useSettings'
 
 export interface CommerceInfoForm {
   name: string
@@ -138,6 +182,9 @@ export interface CommerceInfoForm {
   city: string
   municipality: string
   parish: string
+  description: string
+  isPublic: boolean
+  socialLinks: SocialLinks
 }
 
 const props = defineProps<{
@@ -150,7 +197,11 @@ defineEmits<{
 }>()
 
 function emptyForm(): CommerceInfoForm {
-  return { name: '', type: '', address: '', phone: '', email: '', schedule: '', country: '', state: '', city: '', municipality: '', parish: '' }
+  return {
+    name: '', type: '', address: '', phone: '', email: '', schedule: '',
+    country: '', state: '', city: '', municipality: '', parish: '',
+    description: '', isPublic: true, socialLinks: {},
+  }
 }
 
 const form = ref<CommerceInfoForm>(emptyForm())
@@ -169,6 +220,9 @@ watch(() => props.commerce, (commerce) => {
     city: commerce.city ?? '',
     municipality: commerce.municipality ?? '',
     parish: commerce.parish ?? '',
+    description: commerce.description ?? '',
+    isPublic: commerce.isPublic ?? true,
+    socialLinks: { ...(commerce.socialLinks ?? {}) },
   }
 }, { immediate: true })
 

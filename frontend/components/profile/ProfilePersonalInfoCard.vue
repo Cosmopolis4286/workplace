@@ -144,8 +144,8 @@
         </div>
       </div>
 
-      <!-- Username — solo COMMERCE y FREELANCER -->
-      <div v-if="isCommerce || user?.role === 'FREELANCER'">
+      <!-- Username — solo PROFESIONAL -->
+      <div v-if="isCommerceOrFreelancer">
         <label class="block text-sm font-semibold text-gray-700 mb-2">
           Nombre de usuario
           <span class="ml-1 text-xs font-normal text-gray-400">(visible públicamente)</span>
@@ -265,8 +265,9 @@ const { checkUsername } = auth
 const { confirm } = useConfirm()
 
 const user = computed(() => auth.user.value)
-const isCommerce = computed(() => user.value?.role === 'COMMERCE')
-const isCommerceOrFreelancer = computed(() => ['COMMERCE', 'FREELANCER'].includes(user.value?.role ?? ''))
+// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — ambos casos
+// colapsan a un único check.
+const isCommerceOrFreelancer = computed(() => user.value?.role === 'PROFESIONAL')
 
 // ─── Categorías (solo lectura, para mostrar nombre) ──────────────────────────
 const categories = ref<{ id: string; name: string; icon: string }[]>([])
