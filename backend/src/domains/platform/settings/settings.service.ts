@@ -55,9 +55,16 @@ export class SettingsService {
 
   async updateCommerceInfo(userId: string, dto: UpdateCommerceInfoDto) {
     const commerce = await this.commerceStrategy.getCommerce(userId);
+    // socialLinks llega como instancia de SocialLinksDto (class-transformer);
+    // Prisma exige un plain object para un campo Json (InputJsonObject), no
+    // una clase con tipado nominal — se serializa explícitamente.
+    const { socialLinks, ...rest } = dto;
     const updated = await this.prisma.commerce.update({
       where: { id: commerce.id },
-      data: dto,
+      data: {
+        ...rest,
+        ...(socialLinks !== undefined && { socialLinks: { ...socialLinks } }),
+      },
     });
     await this.redis.del(userFindByIdCacheKey(userId));
     return updated;
@@ -83,6 +90,16 @@ export class SettingsService {
 
   async updateCommerceSlug(userId: string, slug: string) {
     return this.commerceStrategy.updateSlug(userId, slug.toLowerCase());
+  }
+
+  // ─── Profile slug (/pro/:slug) — solo FREELANCER ────────────────────────────
+
+  async checkFreelancerSlugAvailability(userId: string, slug: string) {
+    return this.freelancerStrategy.checkSlugAvailability(slug.toLowerCase(), userId);
+  }
+
+  async updateFreelancerSlug(userId: string, slug: string) {
+    return this.freelancerStrategy.updateSlug(userId, slug.toLowerCase());
   }
 
   // ─── Payment settings ───────────────────────────────────────────────────────

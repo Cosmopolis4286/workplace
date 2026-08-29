@@ -4,9 +4,30 @@ import {
   IsBoolean,
   IsOptional,
   IsArray,
+  ValidateNested,
+  MaxLength,
   Min,
   Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class SocialLinksDto {
+  @IsOptional()
+  @IsString()
+  instagram?: string;
+
+  @IsOptional()
+  @IsString()
+  facebook?: string;
+
+  @IsOptional()
+  @IsString()
+  whatsapp?: string;
+
+  @IsOptional()
+  @IsString()
+  tiktok?: string;
+}
 
 export class UpdateCommerceInfoDto {
   @IsOptional()
@@ -52,6 +73,29 @@ export class UpdateCommerceInfoDto {
   @IsOptional()
   @IsString()
   parish?: string;
+
+  // Texto libre para la página pública de la tienda (/loja/:slug).
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  // Permite al dueño ocultar la tienda pública sin borrar el slug ni
+  // desactivar el comercio en sí (sigue operando en el dashboard/catálogo
+  // interno, solo /loja/:slug deja de mostrarla a no-dueños).
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
+
+  // Estructura libre (no se valida cada red por separado) para no acoplar
+  // el DTO a qué redes soporta la UI hoy — ver Commerce.socialLinks (Json).
+  // @ValidateNested+@Type es obligatorio bajo whitelist:true (main.ts): sin
+  // esto, class-validator no desciende al objeto anidado y todas sus
+  // propiedades se descartan silenciosamente antes de llegar a Prisma.
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SocialLinksDto)
+  socialLinks?: SocialLinksDto;
 }
 
 // Compartido por COMMERCE y FREELANCER en el mismo endpoint (PATCH /settings/payment).
