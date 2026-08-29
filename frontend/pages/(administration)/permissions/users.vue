@@ -225,6 +225,7 @@ async function loadUsers() {
     const result = await listUsers({
       role: filterRole.value || undefined,
       search: search.value || undefined,
+      profileKind: filterProfileKind.value || undefined,
       page: pagination.value.page,
       limit: pagination.value.limit,
     })
