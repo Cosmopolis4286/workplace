@@ -39,6 +39,15 @@ export class ProfilesController {
 
   // ─── Public profile ───────────────────────────────────────────────────────
 
+  // Debe declararse ANTES de ':username' — Nest resuelve rutas en el mismo
+  // controller por orden de declaración, y ':username' capturaría "pro" como
+  // si fuera un username si esta ruta fuera declarada después.
+  @Get('pro/:slug')
+  @UseGuards(OptionalJwtAuthGuard)
+  getProfileBySlug(@Param('slug') slug: string, @CurrentUser() user: any) {
+    return this.profilesService.getPublicProfileBySlug(slug, user?.id);
+  }
+
   @Get(':username')
   @UseGuards(OptionalJwtAuthGuard)
   getProfile(@Param('username') username: string, @CurrentUser() user: any) {

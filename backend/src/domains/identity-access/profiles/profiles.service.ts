@@ -45,6 +45,20 @@ export class ProfilesService {
 
   // ─── Public profile ───────────────────────────────────────────────────────
 
+  // Resuelve /pro/:slug (FreelancerSettings.slug, ver CommerceSettingsStrategy
+  // para el mismo patrón del lado de Commerce) al username real y delega en
+  // getPublicProfile — evita duplicar el payload/reglas del perfil público.
+  async getPublicProfileBySlug(slug: string, currentUserId?: string) {
+    const freelancerSettings = await this.prisma.freelancerSettings.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: { user: { select: { username: true } } },
+    });
+    if (!freelancerSettings?.user.username) {
+      throw new NotFoundException('Perfil no encontrado');
+    }
+    return this.getPublicProfile(freelancerSettings.user.username, currentUserId);
+  }
+
   async getPublicProfile(username: string, currentUserId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { username },
