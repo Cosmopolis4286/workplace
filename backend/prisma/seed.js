@@ -1,4 +1,4 @@
-const { PrismaClient, Role, VeLocationType } = require('@prisma/client')
+const { PrismaClient, Role, VeLocationType, ProfileType, ProfessionalSubtype, ProfileStatus } = require('@prisma/client')
 const bcrypt = require('bcrypt')
 const veLocationsData = require('./data/ve-locations.json')
 
@@ -23,7 +23,8 @@ const DEMO_USERS = [
     country: 'Venezuela', state: 'Distrito Capital', municipality: 'Libertador', city: 'Caracas', parish: 'Altagracia',
   },
   {
-    role: Role.COMMERCE,
+    role: Role.PROFESIONAL,
+    profileType: ProfileType.BUSINESS,
     email: 'commerce@demo.com',
     password: 'C0mm3rc3!Biz#26',
     firstName: 'Comercio',
@@ -34,7 +35,8 @@ const DEMO_USERS = [
     country: 'Venezuela', state: 'Miranda', municipality: 'Chacao', city: 'Chacao', parish: 'Chacao',
   },
   {
-    role: Role.COMMERCE,
+    role: Role.PROFESIONAL,
+    profileType: ProfileType.BUSINESS,
     email: 'tecnologia@demo.com',
     password: 'T3ch@Biz#26',
     firstName: 'Tech',
@@ -45,7 +47,9 @@ const DEMO_USERS = [
     country: 'Venezuela', state: 'Miranda', municipality: 'Baruta', city: 'Baruta', parish: 'El Cafetal',
   },
   {
-    role: Role.FREELANCER,
+    role: Role.PROFESIONAL,
+    profileType: ProfileType.PROFESSIONAL,
+    subtype: ProfessionalSubtype.FREELANCER,
     email: 'freelancer@demo.com',
     password: 'Fr33lanc3r!#2026',
     firstName: 'Freelancer',
@@ -55,7 +59,9 @@ const DEMO_USERS = [
     country: 'Venezuela', state: 'Carabobo', municipality: 'Valencia', city: 'Valencia', parish: 'Urbana San José',
   },
   {
-    role: Role.FREELANCER,
+    role: Role.PROFESIONAL,
+    profileType: ProfileType.PROFESSIONAL,
+    subtype: ProfessionalSubtype.SERVICE_PROVIDER,
     email: 'delivery@demo.com',
     password: 'D3l1v3ry@Fast#26',
     firstName: 'Carlos',
@@ -65,7 +71,9 @@ const DEMO_USERS = [
     country: 'Venezuela', state: 'Zulia', municipality: 'Maracaibo', city: 'Maracaibo', parish: 'Bolívar',
   },
   {
-    role: Role.FREELANCER,
+    role: Role.PROFESIONAL,
+    profileType: ProfileType.PROFESSIONAL,
+    subtype: ProfessionalSubtype.FREELANCER,
     email: 'comidarapida@demo.com',
     password: 'C0m1d4R4p!d4#26',
     firstName: 'María',
@@ -1330,6 +1338,28 @@ async function seedPlatformFees() {
   console.log('\n✨ Platform fees seeded.')
 }
 
+// Crea/actualiza el UserProfile ACTIVE que distingue COMMERCE de FREELANCER
+// para un usuario demo — desde el refactor a Role.PROFESIONAL (2026-08-25),
+// User.role ya no distingue eso, así que sin esto AccountTypeResolver.resolve()
+// devuelve null para todos los usuarios demo (ver account-type.resolver.ts).
+async function upsertDemoUserProfile(userId, demo, categoryId, subcategoryId) {
+  const existing = await prisma.userProfile.findFirst({
+    where: { userId, type: demo.profileType },
+  })
+  const data = {
+    type: demo.profileType,
+    subtype: demo.subtype ?? null,
+    status: ProfileStatus.ACTIVE,
+    categoryId,
+    subcategoryId,
+  }
+  if (existing) {
+    await prisma.userProfile.update({ where: { id: existing.id }, data })
+  } else {
+    await prisma.userProfile.create({ data: { ...data, userId } })
+  }
+}
+
 async function main() {
   console.log('🌱 Seeding demo users...\n')
 
@@ -1393,6 +1423,11 @@ async function main() {
           },
         })
       }
+
+      if (demo.profileType) {
+        await upsertDemoUserProfile(existing.id, demo, categoryId, subcategoryId)
+      }
+
       const categoryInfo = categoryId ? ` | 📦 ${demo.categoryName}${demo.subcategoryName ? ' → ' + demo.subcategoryName : ''}` : ''
       console.log(`✅ [${demo.role}] Updated (role, userType, password & category refreshed): ${demo.email}${categoryInfo}`)
       continue
@@ -1448,6 +1483,10 @@ async function main() {
       include: { commerce: true, category: true, subcategory: true },
     })
 
+    if (demo.profileType) {
+      await upsertDemoUserProfile(user.id, demo, categoryId, subcategoryId)
+    }
+
     const categoryInfo = user.category ? ` | 📦 ${user.category.name}${user.subcategory ? ' → ' + user.subcategory.name : ''}` : ''
     console.log(`✅ [${demo.role}] Created: ${user.email}${user.commerce ? ` | Commerce: ${user.commerce.name}` : ''}${categoryInfo}`)
     console.log(`   Password: ${demo.password}`)
@@ -1479,7 +1518,7 @@ async function seedDemoSubscriptions() {
   }
 
   const emails = DEMO_USERS
-    .filter(d => d.role === Role.FREELANCER || d.role === Role.COMMERCE)
+    .filter(d => d.profileType === ProfileType.BUSINESS || d.profileType === ProfileType.PROFESSIONAL)
     .map(d => d.email)
 
   for (const email of emails) {
