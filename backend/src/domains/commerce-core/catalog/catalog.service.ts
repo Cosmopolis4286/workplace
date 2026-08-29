@@ -112,11 +112,12 @@ export class CatalogService {
     };
   }
 
-  async getStoreBySlug(slug: string) {
+  async getStoreBySlug(slug: string, currentUserId?: string) {
     const commerce = await this.prisma.commerce.findUnique({
       where: { slug: slug.toLowerCase() },
       select: {
         id: true,
+        userId: true,
         name: true,
         type: true,
         address: true,
@@ -129,6 +130,9 @@ export class CatalogService {
         country: true,
         state: true,
         city: true,
+        description: true,
+        isPublic: true,
+        socialLinks: true,
         settings: {
           select: {
             avgPrepTime: true,
@@ -146,9 +150,14 @@ export class CatalogService {
       },
     });
 
-    if (!commerce) throw new NotFoundException('Tienda no encontrada');
+    // Mismo criterio de "no encontrado" tanto si el slug no existe como si
+    // el dueño la ocultó — evita filtrar a un visitante que una tienda con
+    // ese slug existe pero está oculta.
+    if (!commerce || (!commerce.isPublic && commerce.userId !== currentUserId)) {
+      throw new NotFoundException('Tienda no encontrada');
+    }
 
-    const { _count, ...rest } = commerce;
+    const { _count, userId, ...rest } = commerce;
     return { data: { ...rest, productCount: _count.products } };
   }
 

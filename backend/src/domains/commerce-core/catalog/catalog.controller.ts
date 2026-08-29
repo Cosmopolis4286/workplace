@@ -45,8 +45,8 @@ export class CatalogController {
 
   @Get('store/:slug')
   @UseGuards(OptionalJwtAuthGuard)
-  getStoreBySlug(@Param('slug') slug: string) {
-    return this.catalogService.getStoreBySlug(slug);
+  getStoreBySlug(@Param('slug') slug: string, @CurrentUser() user: any) {
+    return this.catalogService.getStoreBySlug(slug, user?.id);
   }
 
   @Get('tags')
