@@ -17,7 +17,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { MailService } from '../../engagement/mail/mail.service';
 import { AuditService } from '../audit/audit.service';
-import { AuditAction, ProfileType, Role } from '@prisma/client';
+import { AuditAction, ProfileType, ProfileStatus, Role } from '@prisma/client';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -28,6 +28,7 @@ import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { TwoFactorService } from './two-factor.service';
 import { RecaptchaService } from '../../../common/recaptcha/recaptcha.service';
 import { encryptSecret, decryptSecret, hashToken } from '../../../common/utils/crypto.util';
+import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 // Duración del refresh token cuando el usuario NO marca "mantener sesión
@@ -49,7 +50,8 @@ export class AuthService {
     private audit: AuditService,
     private i18n: I18nService,
     private twoFactor: TwoFactorService,
-    private recaptcha: RecaptchaService
+    private recaptcha: RecaptchaService,
+    private accountTypeResolver: AccountTypeResolver
   ) {}
 
   async register(dto: RegisterDto, securityContext?: any) {
@@ -570,7 +572,12 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
-    return this.usersService.findById(userId);
+    const user = await this.usersService.findById(userId);
+    // Role.PROFESIONAL ya no distingue "tiene Commerce" de "es freelancer/
+    // service provider" — el frontend necesita accountType para las pantallas
+    // que sí requieren esa distinción (dashboard, settings, reports...).
+    const accountType = await this.accountTypeResolver.resolve(userId);
+    return { ...user, accountType };
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -593,7 +600,23 @@ export class AuthService {
     // Buscar usuarios marcados como DEMO en la BD (dinámico, no array fijo)
     const demoUsers = await this.prisma.user.findMany({
       where: { userType: 'DEMO' },
-      include: { commerce: true, category: true, subcategory: true },
+      include: {
+        commerce: true,
+        category: true,
+        subcategory: true,
+        // Desde el refactor a Role.PROFESIONAL (2026-08-25), user.role ya no
+        // distingue el tipo de perfil de negocio — esa distinción vive solo
+        // en UserProfile. Se exponen los 4 ProfileType reales (BUSINESS,
+        // PROFESSIONAL, JOB_SEEKER, CUSTOMER) en vez de reducirlos al
+        // COMMERCE|FREELANCER de AccountTypeResolver.resolve() — ese
+        // resolver simplifica a propósito para sus otros consumidores
+        // (colapsa BUSINESS+PROFESSIONAL a un solo "tipo de cuenta de
+        // negocio"), pero acá queremos la distinción completa.
+        profiles: {
+          where: { status: ProfileStatus.ACTIVE },
+          select: { type: true, subtype: true },
+        },
+      },
     });
 
     if (demoUsers.length === 0) {
@@ -612,17 +635,34 @@ export class AuthService {
       'normal@demo.com': this.config.get('DEMO_PWD_NORMAL', 'Demo123'),
     };
 
-    const credentials = demoUsers.map((user) => ({
-      role: user.role,
-      email: user.email,
-      password: emailPasswords[user.email] ?? 'Demo123',
-      label: `${user.firstName} ${user.lastName}`,
-      description: this.getRoleDescription(user.role),
-      commerceName: (user as any).commerce?.name ?? null,
-      categoryName: (user as any).category?.name ?? null,
-      categoryIcon: (user as any).category?.icon ?? null,
-      subcategoryName: (user as any).subcategory?.name ?? null,
-    }));
+    const credentials = demoUsers.map((user) => {
+      const profiles = (user as any).profiles as { type: ProfileType; subtype: string | null }[];
+      // Si tiene varios perfiles activos a la vez, prioriza el más
+      // específico para representar en la tarjeta (mismo orden de
+      // prioridad que AccountTypeResolver: BUSINESS > PROFESSIONAL).
+      const profile =
+        profiles.find((p) => p.type === ProfileType.BUSINESS) ??
+        profiles.find((p) => p.type === ProfileType.PROFESSIONAL) ??
+        profiles.find((p) => p.type === ProfileType.JOB_SEEKER) ??
+        profiles.find((p) => p.type === ProfileType.CUSTOMER) ??
+        null;
+      const profileType = profile?.type ?? null;
+      const subtype = profile?.subtype ?? null;
+
+      return {
+        role: user.role,
+        profileType,
+        subtype,
+        email: user.email,
+        password: emailPasswords[user.email] ?? 'Demo123',
+        label: `${user.firstName} ${user.lastName}`,
+        description: this.getRoleDescription(user.role, profileType, subtype),
+        commerceName: (user as any).commerce?.name ?? null,
+        categoryName: (user as any).category?.name ?? null,
+        categoryIcon: (user as any).category?.icon ?? null,
+        subcategoryName: (user as any).subcategory?.name ?? null,
+      };
+    });
 
     return {
       success: true,
@@ -630,15 +670,20 @@ export class AuthService {
     };
   }
 
-  private getRoleDescription(role: string): string {
-    const descriptions: Record<string, string> = {
-      SUPERADMIN: 'Acceso total: gestiona todos los usuarios y roles',
-      ADMIN: 'Gestiona commerce, freelancer y normal',
-      COMMERCE: 'Acceso completo al negocio y operaciones',
-      FREELANCER: 'Acceso a sus propios servicios',
-      NORMAL: 'Acceso básico de usuario final',
-    };
-    return descriptions[role] || 'Usuario demo';
+  private getRoleDescription(
+    role: string,
+    profileType: ProfileType | null,
+    subtype: string | null
+  ): string {
+    if (role === 'SUPERADMIN') return 'Acceso total: gestiona todos los usuarios y roles';
+    if (role === 'ADMIN') return 'Gestiona comercios, profesionales y usuarios normales';
+    if (profileType === ProfileType.BUSINESS) return 'Comercio: tiene un negocio físico con catálogo propio';
+    if (profileType === ProfileType.PROFESSIONAL && subtype === 'SERVICE_PROVIDER') {
+      return 'Trabajador autónomo: presta un servicio (ej. delivery, mantenimiento)';
+    }
+    if (profileType === ProfileType.PROFESSIONAL) return 'Freelancer: profesional independiente sin negocio físico';
+    if (profileType === ProfileType.JOB_SEEKER) return 'Busca empleo en la plataforma';
+    return 'Acceso básico de usuario final';
   }
 
   // --- Password Reset ---
