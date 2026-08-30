@@ -45,7 +45,6 @@ export class NavigationService {
       if (c.excludeRoles && c.excludeRoles.includes(role)) return false;
       if (c.accountTypeOnly && (!accountType || !c.accountTypeOnly.includes(accountType))) return false;
       if (c.excludeAccountTypes && accountType && c.excludeAccountTypes.includes(accountType)) return false;
-      if (c.requiresCategory && limits.categoryName !== c.requiresCategory) return false;
       if (!can(c.permission)) return false;
       if (c.requiresModule && c.permission && !hasModule(c.permission)) return false;
       return true;

@@ -22,8 +22,6 @@ export interface NavNodeCondition {
   accountTypeOnly?: BusinessAccountType[];
   /** Tipo(s) de cuenta de negocio excluido(s) */
   excludeAccountTypes?: BusinessAccountType[];
-  /** Requiere que la categoría de negocio del usuario coincida exactamente */
-  requiresCategory?: string;
 }
 
 export interface NavItemDef {

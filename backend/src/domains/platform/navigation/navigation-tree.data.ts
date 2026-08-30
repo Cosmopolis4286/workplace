@@ -30,7 +30,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
       { id: 'dashboard', to: '/dashboard', label: 'Dashboard', icon: 'dashboard', order: 0,
         condition: { permission: 'dashboard:view' } },
       { id: 'menu', to: '/menu', label: 'Menú', icon: 'menu', order: 1,
-        condition: { permission: 'menu:view', requiresModule: true, excludeRoles: [Role.NORMAL], excludeAccountTypes: ['FREELANCER'], requiresCategory: 'Comida' } },
+        condition: { permission: 'menu:view', requiresModule: true, excludeRoles: [Role.NORMAL], excludeAccountTypes: ['FREELANCER'] } },
       { id: 'inventory', to: '/inventory', label: 'Inventario', icon: 'inventory', order: 2,
         condition: { permission: 'inventory:view', requiresModule: true, excludeRoles: [Role.NORMAL], excludeAccountTypes: ['FREELANCER'] } },
       { id: 'my-services', to: '/my-services', label: 'Servicios', icon: 'services', order: 3,
