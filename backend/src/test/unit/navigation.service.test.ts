@@ -58,11 +58,15 @@ describe('NavigationService', () => {
     expect(sectionIds).toContain('my-account')
   })
 
-  it('respects requiresCategory: menu:view only shows for category "Comida"', async () => {
+  it('hides menu:view when the category (allowedModules) does not grant the "menu" module', async () => {
+    // Gating es 100% por effectiveModules (plan ∩ categoría.allowedModules,
+    // ver PlanLimitsService) — ya no por un nombre de categoría hardcodeado.
+    // Cualquier categoría cuyo admin no le agregó "menu" a allowedModules
+    // queda afuera, sin importar su nombre.
     permissionsService.getRolePermissions.mockResolvedValue(['menu:view'])
     planLimitsService.getPlanLimits.mockResolvedValue({
-      effectiveModules: ['menu'],
-      categoryName: 'Servicios', // distinta de "Comida"
+      effectiveModules: ['services'],
+      categoryName: 'Servicios',
     })
 
     currentAccountType = 'COMMERCE'
@@ -72,7 +76,7 @@ describe('NavigationService', () => {
     expect(topSection?.items.find((i) => i.id === 'menu')).toBeUndefined()
   })
 
-  it('shows menu:view when category is exactly "Comida" and module/permission are granted', async () => {
+  it('shows menu:view for any category whose allowedModules grants "menu"', async () => {
     permissionsService.getRolePermissions.mockResolvedValue(['menu:view'])
     planLimitsService.getPlanLimits.mockResolvedValue({
       effectiveModules: ['menu'],

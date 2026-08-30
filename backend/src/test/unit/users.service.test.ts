@@ -5,6 +5,7 @@ import { RedisService } from '../../redis/redis.service'
 import { MailService } from '../../domains/engagement/mail/mail.service'
 import { CommerceProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/commerce-profile-completion.strategy'
 import { FreelancerProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/freelancer-profile-completion.strategy'
+import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
 import { Role } from '@prisma/client'
 import { I18nService } from 'nestjs-i18n'
 
@@ -47,6 +48,12 @@ describe('UsersService', () => {
     t: jest.fn((key: string) => I18N_MESSAGES[key] ?? key),
   }
 
+  const mockAccountTypeResolver = {
+    resolve: jest.fn().mockResolvedValue(null),
+    isFreelancer: jest.fn((accountType: string | null) => accountType === 'FREELANCER'),
+    isCommerce: jest.fn((accountType: string | null) => accountType === 'COMMERCE'),
+  }
+
   beforeEach(async () => {
     redisStore.clear()
 
@@ -70,6 +77,10 @@ describe('UsersService', () => {
         {
           provide: I18nService,
           useValue: mockI18nService,
+        },
+        {
+          provide: AccountTypeResolver,
+          useValue: mockAccountTypeResolver,
         },
       ],
     }).compile()
@@ -317,6 +328,58 @@ describe('UsersService', () => {
         data: updateUserDto,
         include: expect.any(Object),
       })
+    })
+  })
+
+  describe('getProfileCompletion', () => {
+    beforeEach(() => {
+      mockAccountTypeResolver.resolve.mockReset()
+      mockAccountTypeResolver.isFreelancer.mockReset().mockImplementation((accountType: string | null) => accountType === 'FREELANCER')
+    })
+
+    it('classifies a PROFESIONAL user without a Commerce as freelancer via AccountTypeResolver, not via a local role heuristic', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: Role.PROFESIONAL,
+        firstName: 'Ana',
+        lastName: 'Perez',
+        phone: '123',
+        categoryId: 'cat-1',
+        subcategoryId: 'sub-1',
+        commerce: null,
+      })
+      mockPrismaService.userCategory = { findUnique: jest.fn().mockResolvedValue({ id: 'cat-1' }) }
+      mockPrismaService.userSubcategory = { findUnique: jest.fn().mockResolvedValue({ id: 'sub-1' }) }
+      // El perfil BUSINESS quedó ACTIVE un instante antes de que el usuario
+      // cree su Commerce — AccountTypeResolver ya lo resolvería como COMMERCE,
+      // pero acá no hay Commerce todavía, así que debe caer a freelancer.
+      mockAccountTypeResolver.resolve.mockResolvedValue('FREELANCER')
+
+      const result = await service.getProfileCompletion('user-1')
+
+      expect(mockAccountTypeResolver.resolve).toHaveBeenCalledWith('user-1')
+      expect(result).toBeDefined()
+    })
+
+    it('never asks AccountTypeResolver for a freelancer classification when the user already has a Commerce', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-2',
+        role: Role.PROFESIONAL,
+        firstName: 'Luis',
+        lastName: 'Gomez',
+        phone: '456',
+        categoryId: 'cat-1',
+        subcategoryId: 'sub-1',
+        commerce: { id: 'commerce-1' },
+      })
+      mockPrismaService.userCategory = { findUnique: jest.fn().mockResolvedValue({ id: 'cat-1' }) }
+      mockPrismaService.userSubcategory = { findUnique: jest.fn().mockResolvedValue({ id: 'sub-1' }) }
+      mockAccountTypeResolver.resolve.mockResolvedValue('COMMERCE')
+
+      const result = await service.getProfileCompletion('user-2')
+
+      expect(mockAccountTypeResolver.isFreelancer).toHaveBeenCalledWith('COMMERCE')
+      expect(result).toBeDefined()
     })
   })
 

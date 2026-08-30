@@ -21,6 +21,12 @@ describe('PlanLimitsService', () => {
 
   const mockSystemModulesService = {
     getDisabledModules: jest.fn().mockResolvedValue([]),
+    listBusinessModules: jest.fn().mockResolvedValue([
+      'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
+      'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
+      'branches', 'settings', 'notifications', 'services', 'service_requests',
+      'jobs', 'catalog', 'corridas', 'wallets',
+    ]),
   }
 
   const userId = 'user-123'
@@ -29,6 +35,12 @@ describe('PlanLimitsService', () => {
   beforeEach(async () => {
     jest.clearAllMocks()
     mockSystemModulesService.getDisabledModules.mockResolvedValue([])
+    mockSystemModulesService.listBusinessModules.mockResolvedValue([
+      'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
+      'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
+      'branches', 'settings', 'notifications', 'services', 'service_requests',
+      'jobs', 'catalog', 'corridas', 'wallets',
+    ])
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

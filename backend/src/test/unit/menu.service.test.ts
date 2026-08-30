@@ -4,7 +4,6 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
-import { CategoryHelper } from '../../common/helpers/category.helper'
 import { CreateCategoryDto } from '../../domains/commerce-core/menu/dto/create-category.dto'
 import { UpdateCategoryDto } from '../../domains/commerce-core/menu/dto/update-category.dto'
 import { CreateProductDto } from '../../domains/commerce-core/menu/dto/create-product.dto'
@@ -60,13 +59,6 @@ describe('MenuService', () => {
     notifyLowStock: jest.fn(),
   }
 
-  const mockCategoryHelper = {
-    isUserInFoodCategory: jest.fn().mockResolvedValue(true),
-    userNeedsCommerce: jest.fn().mockResolvedValue(true),
-    getCommerceIdForUser: jest.fn().mockResolvedValue('commerce-123'),
-    validateCommerceForFoodCategory: jest.fn().mockResolvedValue('commerce-123'),
-  }
-
   const mockI18nService = {
     t: jest.fn((key: string) => key),
   }
@@ -92,10 +84,6 @@ describe('MenuService', () => {
         {
           provide: NotificationsService,
           useValue: mockNotificationsService,
-        },
-        {
-          provide: CategoryHelper,
-          useValue: mockCategoryHelper,
         },
         {
           provide: I18nService,
