@@ -73,6 +73,60 @@ describe('AccountTypeResolver', () => {
     })
   })
 
+  describe('resolveDetailed', () => {
+    it('returns accountType null and an empty activeProfiles list when there are no active profiles', async () => {
+      mockPrisma.userProfile.findMany.mockResolvedValue([])
+
+      const result = await service.resolveDetailed('user-1')
+
+      expect(result).toEqual({ accountType: null, activeProfiles: [] })
+    })
+
+    it('includes CUSTOMER/JOB_SEEKER profiles in activeProfiles even though they never affect accountType', async () => {
+      const customerProfile = { id: 'p1', type: ProfileType.CUSTOMER, subtype: null }
+      const jobSeekerProfile = { id: 'p2', type: ProfileType.JOB_SEEKER, subtype: null }
+      mockPrisma.userProfile.findMany.mockResolvedValue([customerProfile, jobSeekerProfile])
+
+      const result = await service.resolveDetailed('user-1')
+
+      expect(result.accountType).toBeNull()
+      expect(result.activeProfiles).toEqual([customerProfile, jobSeekerProfile])
+    })
+
+    it('resolves accountType from the same set it returns in activeProfiles (single query, no duplicated lookups)', async () => {
+      const businessProfile = { id: 'p1', type: ProfileType.BUSINESS, subtype: null }
+      const customerProfile = { id: 'p2', type: ProfileType.CUSTOMER, subtype: null }
+      mockPrisma.userProfile.findMany.mockResolvedValue([businessProfile, customerProfile])
+
+      const result = await service.resolveDetailed('user-1')
+
+      expect(result.accountType).toBe('COMMERCE')
+      expect(result.activeProfiles).toHaveLength(2)
+      expect(mockPrisma.userProfile.findMany).toHaveBeenCalledTimes(1)
+    })
+
+    it('queries all ACTIVE profiles regardless of type, unlike resolve() which filters to BUSINESS/PROFESSIONAL', async () => {
+      mockPrisma.userProfile.findMany.mockResolvedValue([])
+
+      await service.resolveDetailed('user-1')
+
+      expect(mockPrisma.userProfile.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', status: ProfileStatus.ACTIVE },
+      })
+    })
+
+    it('prioritizes COMMERCE over FREELANCER when both BUSINESS and PROFESSIONAL are active, same as resolve()', async () => {
+      mockPrisma.userProfile.findMany.mockResolvedValue([
+        { id: 'p1', type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+        { id: 'p2', type: ProfileType.BUSINESS, subtype: null },
+      ])
+
+      const result = await service.resolveDetailed('user-1')
+
+      expect(result.accountType).toBe('COMMERCE')
+    })
+  })
+
   describe('isFreelancer / isCommerce', () => {
     it('isFreelancer is true only for FREELANCER', () => {
       expect(service.isFreelancer('FREELANCER')).toBe(true)

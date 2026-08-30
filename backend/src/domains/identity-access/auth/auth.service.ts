@@ -576,8 +576,12 @@ export class AuthService {
     // Role.PROFESIONAL ya no distingue "tiene Commerce" de "es freelancer/
     // service provider" — el frontend necesita accountType para las pantallas
     // que sí requieren esa distinción (dashboard, settings, reports...).
-    const accountType = await this.accountTypeResolver.resolve(userId);
-    return { ...user, accountType };
+    // `profiles` (aditivo, IDENTITY_ARCHITECTURE_PLAN.md paso 5) expone la
+    // lista completa de UserProfile ACTIVE — incluye CUSTOMER/JOB_SEEKER, no
+    // solo el accountType colapsado — para que el frontend pueda construir
+    // un selector de contexto sin una llamada aparte a /profiles.
+    const { accountType, activeProfiles } = await this.accountTypeResolver.resolveDetailed(userId);
+    return { ...user, accountType, profiles: activeProfiles };
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {

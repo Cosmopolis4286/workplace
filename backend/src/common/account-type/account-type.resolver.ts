@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ProfileType, ProfileStatus } from '@prisma/client';
+import { ProfileType, ProfileStatus, UserProfile } from '@prisma/client';
 
 export type ResolvedAccountType = 'COMMERCE' | 'FREELANCER' | null;
+
+export interface ResolvedAccountDetails {
+  accountType: ResolvedAccountType;
+  /** Todos los UserProfile ACTIVE del usuario, de cualquier tipo (incluye CUSTOMER/JOB_SEEKER, no solo BUSINESS/PROFESSIONAL). */
+  activeProfiles: UserProfile[];
+}
 
 /**
  * Única fuente de lectura para "¿qué tipo de cuenta de negocio es este
@@ -34,8 +40,27 @@ export class AccountTypeResolver {
       where: { userId, status: ProfileStatus.ACTIVE, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
       select: { type: true },
     });
-    if (profiles.some((p) => p.type === ProfileType.BUSINESS)) return 'COMMERCE';
-    if (profiles.some((p) => p.type === ProfileType.PROFESSIONAL)) return 'FREELANCER';
+    return this.accountTypeFromProfileTypes(profiles.map((p) => p.type));
+  }
+
+  /**
+   * Igual que `resolve()`, pero en una sola consulta trae además TODOS los
+   * UserProfile ACTIVE del usuario (incluye CUSTOMER/JOB_SEEKER) — para que
+   * llamadores que necesiten ambos (ej. `/auth/me`) no dupliquen la query.
+   */
+  async resolveDetailed(userId: string): Promise<ResolvedAccountDetails> {
+    const activeProfiles = await this.prisma.userProfile.findMany({
+      where: { userId, status: ProfileStatus.ACTIVE },
+    });
+    const businessTypes = activeProfiles
+      .filter((p) => p.type === ProfileType.BUSINESS || p.type === ProfileType.PROFESSIONAL)
+      .map((p) => p.type);
+    return { accountType: this.accountTypeFromProfileTypes(businessTypes), activeProfiles };
+  }
+
+  private accountTypeFromProfileTypes(types: ProfileType[]): ResolvedAccountType {
+    if (types.includes(ProfileType.BUSINESS)) return 'COMMERCE';
+    if (types.includes(ProfileType.PROFESSIONAL)) return 'FREELANCER';
     return null;
   }
 
