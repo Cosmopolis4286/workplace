@@ -73,6 +73,7 @@ export class ProfileActivationsService {
         subtype: dto.subtype,
         categoryId: dto.categoryId,
         subcategoryId: dto.subcategoryId,
+        pendingCommerceName: dto.type === ProfileType.BUSINESS ? dto.commerceName : undefined,
         status: needsApproval ? ProfileStatus.PENDING : ProfileStatus.ACTIVE,
       },
     });
@@ -165,6 +166,31 @@ export class ProfileActivationsService {
       // leyendo User.role — sería un callejón sin salida silencioso.
       if (profile.type === ProfileType.BUSINESS || profile.type === ProfileType.PROFESSIONAL) {
         await this.roleResolver.syncRoleForUser(profile.userId, tx);
+      }
+
+      // Crea el Commerce real al aprobar — sin esto, el usuario quedaba con
+      // UserProfile BUSINESS ACTIVE pero SIN Commerce hasta que por
+      // casualidad tocara /menu (el único call site con auto-creación vía
+      // CommerceResolverService.resolveOrCreate); los otros 12+ servicios
+      // usan resolve() (sin auto-crear) y habrían operado sobre `userId`
+      // como fallback, huérfano de cualquier vista basada en Commerce.
+      // UsersService.create() ya hace esto mismo al crear un usuario
+      // BUSINESS directo (con commerceName) — este es el mismo requisito
+      // para el camino de auto-solicitud.
+      if (dto.status === ProfileStatus.ACTIVE && profile.type === ProfileType.BUSINESS) {
+        const existingCommerce = await tx.commerce.findUnique({
+          where: { userId: profile.userId },
+          select: { id: true },
+        });
+        if (!existingCommerce) {
+          await tx.commerce.create({
+            data: {
+              userId: profile.userId,
+              profileId: profile.id,
+              name: profile.pendingCommerceName ?? 'Mi Negocio',
+            },
+          });
+        }
       }
 
       return result;

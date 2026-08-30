@@ -19,7 +19,7 @@ import { Type } from 'class-transformer';
 import { CreateServiceRequestItemDto } from './create-service-request-item.dto';
 
 @ValidatorConstraint({ name: 'isFutureDate' })
-class IsFutureDateConstraint implements ValidatorConstraintInterface {
+export class IsFutureDateConstraint implements ValidatorConstraintInterface {
   validate(value: string) {
     if (!value) return false;
     const date = new Date(value);

@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from 'class-validator';
 import { ProfessionalSubtype, ProfileType } from '@prisma/client';
 
 export class CreateProfileActivationDto {
@@ -16,6 +16,16 @@ export class CreateProfileActivationDto {
   @IsOptional()
   @IsUUID()
   subcategoryId?: string;
+
+  // Solo aplica (y es requerido) para type=BUSINESS — nombre del comercio a
+  // crear cuando se apruebe la solicitud. Sin esto, ProfileActivationsService
+  // no tenía forma de crear el Commerce en review(), a diferencia de
+  // UsersService.create() (que sí recibe commerceName).
+  @ValidateIf((dto) => dto.type === ProfileType.BUSINESS)
+  @IsString({ message: 'commerceName es requerido para perfiles BUSINESS' })
+  @IsNotEmpty({ message: 'commerceName es requerido para perfiles BUSINESS' })
+  @MaxLength(120)
+  commerceName?: string;
 
   @IsOptional()
   @IsString()
