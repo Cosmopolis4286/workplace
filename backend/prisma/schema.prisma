@@ -273,6 +273,13 @@ model UserProfile {
   category      UserCategory?    @relation(fields: [categoryId], references: [id])
   subcategory   UserSubcategory? @relation(fields: [subcategoryId], references: [id])
 
+  // Solo aplica a type=BUSINESS: nombre elegido por el solicitante al pedir
+  // el perfil, antes de que exista el Commerce. Al aprobar, review() crea el
+  // Commerce con este nombre (ver ProfileActivationsService.review()) — sin
+  // esto, un usuario aprobado quedaba sin Commerce real hasta que por
+  // casualidad tocara /menu (el único call site con auto-creación).
+  pendingCommerceName String?
+
   rejectionReason String?
   reviewedBy      String?
   reviewer        User?     @relation("UserProfileReviewer", fields: [reviewedBy], references: [id])
