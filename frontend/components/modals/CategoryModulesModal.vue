@@ -106,15 +106,11 @@ import { useModuleCatalog } from '~/composables/commerce/useModuleCatalog'
 import { useConfirm } from '~/composables/ui/useConfirm'
 
 const { confirm } = useConfirm()
-const { labels: MODULE_LABELS, load: loadModuleCatalog } = useModuleCatalog()
+const { labels: MODULE_LABELS, businessModules, load: loadModuleCatalog } = useModuleCatalog()
 
-// Módulos de NEGOCIO seleccionables por categoría — subset del catálogo
-// completo (excluye módulos "de sistema" como users/permissions/audit).
-const ALL_MODULES = [
-  'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
-  'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
-  'branches', 'settings', 'notifications', 'services', 'service_requests', 'catalog',
-]
+// Módulos de NEGOCIO seleccionables por categoría — subset dinámico del
+// catálogo (SystemModule.isBusinessModule=true), gerenciable por un admin.
+const ALL_MODULES = computed(() => businessModules.value.map((m) => m.module))
 
 interface Cat { id: string; name: string; icon?: string; allowedModules: string[]; _count?: { users: number } }
 

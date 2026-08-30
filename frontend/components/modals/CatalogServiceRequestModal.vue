@@ -271,6 +271,7 @@ import { useApi } from '~/composables/core/useApi'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useKyc } from '~/composables/kyc/useKyc'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
+import { useCheckoutResume } from '~/composables/catalog/useCheckoutResume'
 import ServiceRequestModalHeader from '~/components/modals/catalog-service-request/ServiceRequestModalHeader.vue'
 import ServiceRequestItemEditor from '~/components/modals/catalog-service-request/ServiceRequestItemEditor.vue'
 import ServiceRequestPriceInfo from '~/components/modals/catalog-service-request/ServiceRequestPriceInfo.vue'
@@ -296,10 +297,12 @@ const emit = defineEmits<{
 
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
+const route = useRoute()
 const { user } = useAuth()
 const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
 const kycStatus = computed(() => myKycStatus.value?.kycStatus)
 const { defaultRate } = useExchangeRates()
+const { saveCheckoutDraft } = useCheckoutResume()
 
 const convertedPrice = computed(() => {
   const price = props.service?.price
@@ -498,16 +501,37 @@ function validateAll(): boolean {
   return true
 }
 
+// Guarda la selección actual (sin archivos — no son serializables a
+// sessionStorage) y redirige a login; se retoma automáticamente al volver.
+function redirectToLoginAndResume() {
+  if (!props.service) return
+  saveCheckoutDraft({
+    kind: 'service-request',
+    serviceId: props.service.id,
+    form: form.value,
+  })
+  const currentPath = route.fullPath
+  const target = currentPath.includes('?') ? `${currentPath}&intent=checkout` : `${currentPath}?intent=checkout`
+  navigateTo(`/login?redirect=${encodeURIComponent(target)}`)
+}
+
 async function submit() {
   if (!props.service) return
   errorMsg.value = ''
 
   if (!validateAll()) return
 
-  // File uploads require authentication — catch this before hitting the API
   const hasFiles = items.value.some(i => i.photoFiles.length || i.videoFiles.length)
-  if (hasFiles && !user.value) {
-    errorMsg.value = 'Debes iniciar sesión para adjuntar archivos a tu solicitud.'
+
+  if (!user.value) {
+    // Con archivos adjuntos no hay forma de preservarlos a través del
+    // redirect (no son serializables) — se le pide iniciar sesión antes de
+    // adjuntar en vez de perder silenciosamente lo que subió.
+    if (hasFiles) {
+      errorMsg.value = 'Debes iniciar sesión para adjuntar archivos a tu solicitud.'
+      return
+    }
+    redirectToLoginAndResume()
     return
   }
 
@@ -556,4 +580,13 @@ async function submit() {
     sending.value = false
   }
 }
+
+// Llamado por la página anfitriona cuando detecta un draft de solicitud
+// pendiente tras volver de /login — rellena el formulario pero deja que el
+// usuario confirme el envío con un click.
+function applyDraftForm(draftForm: Record<string, unknown>) {
+  form.value = { ...form.value, ...draftForm } as typeof form.value
+}
+
+defineExpose({ applyDraftForm })
 </script>

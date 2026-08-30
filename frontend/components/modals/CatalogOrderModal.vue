@@ -203,6 +203,7 @@ import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useKyc } from '~/composables/kyc/useKyc'
+import { useCheckoutResume } from '~/composables/catalog/useCheckoutResume'
 
 const props = defineProps<{
   modelValue: boolean
@@ -216,9 +217,11 @@ const emit = defineEmits<{
 
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
+const route = useRoute()
 const { user } = useAuth()
 const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
 const kycStatus = computed(() => myKycStatus.value?.kycStatus)
+const { saveCheckoutDraft } = useCheckoutResume()
 
 watch(() => props.modelValue, (open) => {
   if (open) fetchMyKycStatus()
@@ -269,9 +272,28 @@ function formatPrice(price: number): string {
   return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
 }
 
+// Guarda la selección actual y redirige a login — se retoma automáticamente
+// al volver (ver checkoutResume.ts), sin perder lo que el visitante ya llenó.
+function redirectToLoginAndResume() {
+  if (!props.product) return
+  saveCheckoutDraft({
+    kind: 'catalog-order',
+    productId: props.product.id,
+    form: form.value,
+  })
+  const currentPath = route.fullPath
+  const target = currentPath.includes('?') ? `${currentPath}&intent=checkout` : `${currentPath}?intent=checkout`
+  navigateTo(`/login?redirect=${encodeURIComponent(target)}`)
+}
+
 async function submit() {
   if (!props.product) return
   errorMsg.value = ''
+
+  if (!user.value) {
+    redirectToLoginAndResume()
+    return
+  }
 
   if (form.value.deliveryType === 'HOME_DELIVERY' && !form.value.address.trim()) {
     errorMsg.value = 'La dirección es requerida para entrega a domicilio.'
@@ -301,4 +323,14 @@ async function submit() {
     sending.value = false
   }
 }
+
+// Llamado por la página anfitriona (loja/[slug].vue) cuando detecta un
+// draft de checkout pendiente tras volver de /login — rellena el formulario
+// pero deja que el usuario confirme el envío con un click, en vez de
+// auto-enviar (evita un pedido duplicado por doble submit accidental).
+function applyDraftForm(draftForm: Record<string, unknown>) {
+  form.value = { ...form.value, ...draftForm } as typeof form.value
+}
+
+defineExpose({ applyDraftForm })
 </script>
