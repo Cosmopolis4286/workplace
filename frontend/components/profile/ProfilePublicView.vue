@@ -149,11 +149,25 @@
               >
                 Siguiendo
               </button>
+              <button
+                class="h-9 w-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                title="Compartir"
+                @click="showShareModal = true"
+              >
+                <ShareIcon class="h-4 w-4 text-gray-600" />
+              </button>
             </div>
 
             <!-- Own profile badge + settings -->
             <div v-else-if="isAuthenticated && currentUser?.id === profile.id" class="flex-shrink-0 pt-3 sm:pt-2 flex items-center gap-2">
               <span class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium">Tu perfil</span>
+              <button
+                class="h-9 w-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                title="Compartir"
+                @click="showShareModal = true"
+              >
+                <ShareIcon class="h-4 w-4 text-gray-600" />
+              </button>
               <button
                 class="h-9 w-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
                 title="Configurar perfil público"
@@ -1045,6 +1059,7 @@
 
     <!-- ── Modal: Order (catálogo) ──────────────────────────────────────── -->
     <CatalogOrderModal
+      ref="orderModalRef"
       v-model="showOrderModal"
       :product="orderTarget"
       @success="onOrderSuccess"
@@ -1052,9 +1067,17 @@
 
     <!-- ── Modal: Solicitud de servicio ──────────────────────────────────── -->
     <CatalogServiceRequestModal
+      ref="serviceReqModalRef"
       v-model="showServiceReqModal"
       :service="serviceReqTarget"
       @success="onServiceReqSuccess"
+    />
+
+    <!-- ── Modal: Compartir ─────────────────────────────────────────────── -->
+    <ShareStoreModal
+      v-model="showShareModal"
+      :url="shareUrl"
+      :title="profile ? `${profile.firstName} ${profile.lastName}` : undefined"
     />
 
     <!-- ── Panel: Configuración del perfil ───────────────────────────────── -->
@@ -1203,12 +1226,18 @@ import {
   PlayCircleIcon,
   SquaresPlusIcon,
   InformationCircleIcon,
+  ShareIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useProfiles, type ProfilePost, type PostComment, type ProfileReview } from '~/composables/users/useProfiles'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { useCheckoutResume } from '~/composables/catalog/useCheckoutResume'
+import { PROFILE_KIND_LABELS } from '~/config/roles.config'
+import CatalogOrderModal from '~/components/modals/CatalogOrderModal.vue'
+import CatalogServiceRequestModal from '~/components/modals/CatalogServiceRequestModal.vue'
+import ShareStoreModal from '~/components/modals/ShareStoreModal.vue'
 
 // Componente compartido entre /p/:username (pages/(public)/p/[username].vue)
 // y /pro/:slug (pages/(public)/pro/[slug].vue) — este último resuelve el
@@ -1216,11 +1245,14 @@ import { useConfirm } from '~/composables/ui/useConfirm'
 // componente, así toda la lógica interna (fetchProfile, follow, reviews,
 // etc.) sigue trabajando con username como en el resto del backend, sin
 // que este componente necesite saber que existe un modo "slug".
-const props = defineProps<{ initialUsername: string }>()
+const props = withDefaults(defineProps<{ initialUsername: string; canonicalPath?: string }>(), {
+  canonicalPath: '',
+})
 
 const { confirm } = useConfirm()
 const route = useRoute()
 const username = ref(props.initialUsername)
+const config = useRuntimeConfig()
 
 const {
   profile, posts, postsMeta, reviews, reviewStats,
@@ -1234,6 +1266,21 @@ const {
 
 const { user: currentUser, isAuthenticated, uploadAvatar } = useAuth()
 const { getAssetUrl } = useAssetUrl()
+
+// SEO/compartir — igual limitación que /loja/:slug: sin SSR no indexa a
+// crawlers, pero sí mejora title tab y OG tags al compartir el link.
+useSeoMeta({
+  title: () => profile.value ? `${profile.value.firstName} ${profile.value.lastName} | WorkPlace` : 'Perfil | WorkPlace',
+  description: () => profile.value?.commerce?.name
+    ? `${profile.value.firstName} ${profile.value.lastName} · ${profile.value.commerce.name} en WorkPlace`
+    : `Perfil de ${profile.value?.firstName ?? ''} ${profile.value?.lastName ?? ''} en WorkPlace`.trim(),
+  ogTitle: () => profile.value ? `${profile.value.firstName} ${profile.value.lastName}` : undefined,
+  ogImage: () => getAssetUrl(profile.value?.avatar) || getAssetUrl(profile.value?.coverImage) || undefined,
+  ogUrl: () => `${config.public.siteUrl}${props.canonicalPath || `/p/${username.value}`}`,
+})
+
+const showShareModal = ref(false)
+const shareUrl = computed(() => `${config.public.siteUrl}${props.canonicalPath || `/p/${username.value}`}`)
 
 // ─── Cover image ──────────────────────────────────────────────────────────────
 const coverFileInput = ref<HTMLInputElement | null>(null)
@@ -1294,21 +1341,28 @@ const initials = computed(() => {
   return `${profile.value.firstName[0]}${profile.value.lastName[0]}`.toUpperCase()
 })
 
+// role=PROFESIONAL ya no distingue Comercio de Freelancer — accountType
+// (resuelto por el backend vía AccountTypeResolver, ver ProfilesService.
+// getPublicProfile) es la fuente real. PROFILE_KIND_LABELS ya trae el
+// label/badge correctos para BUSINESS/FREELANCER (roles.config.ts).
 const roleBadge = computed(() => {
-  const map: Record<string, string> = {
-    SUPERADMIN: 'bg-red-100 text-red-800',
-    ADMIN: 'bg-purple-100 text-purple-800',
-    COMMERCE: 'bg-blue-100 text-blue-800',
-    FREELANCER: 'bg-amber-100 text-amber-800',
-  }
-  return map[profile.value?.role ?? ''] ?? 'bg-gray-100 text-gray-700'
+  const role = profile.value?.role
+  if (role === 'SUPERADMIN') return 'bg-red-100 text-red-800'
+  if (role === 'ADMIN') return 'bg-purple-100 text-purple-800'
+  const accountType = profile.value?.accountType
+  if (accountType === 'COMMERCE') return PROFILE_KIND_LABELS.BUSINESS.badge
+  if (accountType === 'FREELANCER') return PROFILE_KIND_LABELS.FREELANCER.badge
+  return 'bg-gray-100 text-gray-700'
 })
 
 const roleLabel = computed(() => {
-  const map: Record<string, string> = {
-    SUPERADMIN: 'Super Admin', ADMIN: 'Admin', COMMERCE: 'Comercio', FREELANCER: 'Freelancer',
-  }
-  return map[profile.value?.role ?? ''] ?? profile.value?.role ?? ''
+  const role = profile.value?.role
+  if (role === 'SUPERADMIN') return 'Super Admin'
+  if (role === 'ADMIN') return 'Admin'
+  const accountType = profile.value?.accountType
+  if (accountType === 'COMMERCE') return PROFILE_KIND_LABELS.BUSINESS.label
+  if (accountType === 'FREELANCER') return PROFILE_KIND_LABELS.FREELANCER.label
+  return role ?? ''
 })
 
 const isOwnProfile = computed(() => currentUser.value?.id === profile.value?.id)
@@ -1508,6 +1562,7 @@ const catalogTotal = ref(0)
 const catalogPage = ref(1)
 const showOrderModal = ref(false)
 const orderTarget = ref<any>(null)
+const orderModalRef = ref<InstanceType<typeof CatalogOrderModal> | null>(null)
 const catalogToast = ref('')
 
 async function fetchCatalogProducts(page = 1) {
@@ -1542,6 +1597,7 @@ const profileServices = ref<any[]>([])
 const servicesLoading = ref(false)
 const showServiceReqModal = ref(false)
 const serviceReqTarget = ref<any>(null)
+const serviceReqModalRef = ref<InstanceType<typeof CatalogServiceRequestModal> | null>(null)
 const serviceToast = ref('')
 
 async function fetchProfileServices() {
@@ -1590,6 +1646,39 @@ function onServiceReqSuccess() {
   setTimeout(() => { serviceToast.value = '' }, 4000)
   if (serviceReqTarget.value) {
     trackSvcEvent(serviceReqTarget.value.id, 'REQUEST')
+  }
+}
+
+// ─── Redirect-and-resume ────────────────────────────────────────────────────
+// Si el visitante llegó de /login tras intentar pedir/solicitar sin sesión,
+// reabre el modal correspondiente con lo que ya había llenado (ver
+// composables/catalog/useCheckoutResume.ts).
+const { consumeCheckoutDraft } = useCheckoutResume()
+
+async function resumeCheckoutIfNeeded() {
+  if (route.query.intent !== 'checkout') return
+  const draft = consumeCheckoutDraft()
+  if (!draft) return
+
+  try {
+    const { get } = useApi()
+    if (draft.kind === 'catalog-order') {
+      activeTab.value = 'catalog'
+      const res = await get<{ data: any }>(`/catalog/products/${draft.productId}`)
+      orderTarget.value = res.data
+      showOrderModal.value = true
+      await nextTick()
+      orderModalRef.value?.applyDraftForm(draft.form)
+    } else if (draft.kind === 'service-request') {
+      activeTab.value = 'services'
+      const svc = await get<any>(`/services/catalog/${draft.serviceId}`)
+      serviceReqTarget.value = svc
+      showServiceReqModal.value = true
+      await nextTick()
+      serviceReqModalRef.value?.applyDraftForm(draft.form)
+    }
+  } catch {
+    // Producto/servicio ya no disponible — no interrumpe la carga normal.
   }
 }
 
@@ -1866,6 +1955,8 @@ onMounted(async () => {
     openReviewForm()
     document.getElementById('review-form-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
+
+  await resumeCheckoutIfNeeded()
 })
 
 watch(username, async (u) => {
