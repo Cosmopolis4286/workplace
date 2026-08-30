@@ -69,7 +69,7 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
 
   const auth = useAuth()
   const { isAuthenticated, user } = auth
-  const { can, userCategory, initialized } = usePermissions()
+  const { can, initialized } = usePermissions()
   const { routePermissions, loadNavigation } = useNavigation()
 
   const path  = to.path as string
@@ -138,9 +138,12 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
     return navigateTo('/plans')
   }
 
-  // ── 4c. Restricción especial de /menu → solo categoría "Comida" ───────────
+  // ── 4c. /menu requiere el permiso "menu:view" ─────────────────────────────
+  // El gating por categoría/módulo ("¿esta categoría tiene el módulo menu?")
+  // ya lo hace middleware/modules.global.ts vía routeModules/effectiveModules
+  // (categoría→allowedModules es admin-gerenciable, ya no un nombre fijo aquí).
   if (path.startsWith('/menu') && initialized.value) {
-    if (!can('menu:view') || userCategory.value !== 'Comida') {
+    if (!can('menu:view')) {
       // Si tiene acceso a servicios → redirigir ahí; si no, al default
       return navigateTo(can('services:view') ? '/my-services' : defaultDest(role))
     }
