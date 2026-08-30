@@ -271,7 +271,7 @@ const formError          = ref<string | null>(null)
 const hadProfileOnOpen   = ref(false)
 
 const form = ref(emptyUserForm())
-const stats = ref<UsersStats>({ total: 0, commerce: 0, freelancer: 0, active: 0 })
+const stats = ref<UsersStats>({ total: 0, commerce: 0, freelancer: 0, serviceProvider: 0, active: 0 })
 
 // ─── Computados ───────────────────────────────────────────────────────────────
 const filterSubcategories = computed(() =>
@@ -281,10 +281,10 @@ const filterSubcategories = computed(() =>
 // Agregados sobre todo el conjunto filtrado (vía GET /users/stats), no solo
 // la página de 20 registros cargada en `users`.
 const headerStats = computed(() => [
-  { label: 'Total',      value: String(stats.value.total) },
-  { label: 'Commerce',   value: String(stats.value.commerce) },
-  { label: 'Freelancer', value: String(stats.value.freelancer) },
-  { label: 'Activos',    value: String(stats.value.active) },
+  { label: 'Comercio',            value: String(stats.value.commerce) },
+  { label: 'Freelancer',          value: String(stats.value.freelancer) },
+  { label: 'Trabajador autónomo', value: String(stats.value.serviceProvider) },
+  { label: 'Activos',             value: String(stats.value.active) },
 ])
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -199,7 +199,7 @@ const PROFILE_KEY_TO_PARTS: Record<string, { profileType: string; subtype?: stri
 const { labels: MODULE_LABELS, catalog: moduleCatalog, load: loadModuleCatalog } = useModuleCatalog()
 
 // All modules available for permission grouping
-const ALL_PERM_MODULES = computed(() => moduleCatalog.value.map((m) => m.key))
+const ALL_PERM_MODULES = computed(() => moduleCatalog.value.map((m) => m.module))
 
 interface PermissionRow {
   id: string

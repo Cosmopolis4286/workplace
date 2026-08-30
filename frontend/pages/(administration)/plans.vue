@@ -121,17 +121,11 @@ definePageMeta({ layout: 'default', middleware: ['auth'] })
 const toast = useToast()
 const { confirm } = useConfirm()
 const { invalidate: invalidateModules } = useModules()
-const { labels: MODULE_LABELS, load: loadModuleCatalog } = useModuleCatalog()
+const { labels: MODULE_LABELS, businessModules, load: loadModuleCatalog } = useModuleCatalog()
 
-// Módulos de NEGOCIO seleccionables al armar un plan — subset del catálogo
-// completo (excluye módulos "de sistema" como users/permissions/audit, que
-// no participan de plan∩categoría).
-const ALL_MODULES = [
-  'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
-  'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
-  'branches', 'settings', 'notifications', 'services', 'service_requests', 'catalog',
-  'corridas', 'wallets',
-] as const
+// Módulos de NEGOCIO seleccionables al armar un plan — subset dinámico del
+// catálogo (SystemModule.isBusinessModule=true), gerenciable por un admin.
+const ALL_MODULES = computed(() => businessModules.value.map((m) => m.module))
 
 const {
   plans, subscriptions, stats, loading, loadingSubs, error,
