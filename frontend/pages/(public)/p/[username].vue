@@ -1,5 +1,5 @@
 <template>
-  <ProfilePublicView :initial-username="username" />
+  <ProfilePublicView :initial-username="username" :canonical-path="`/p/${username}`" />
 </template>
 
 <script setup lang="ts">

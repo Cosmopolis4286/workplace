@@ -49,7 +49,16 @@
               </div>
 
               <div class="flex-1 pt-2 sm:pt-4">
-                <h1 class="text-2xl font-black text-gray-900">{{ store.name }}</h1>
+                <div class="flex items-start justify-between gap-3">
+                  <h1 class="text-2xl font-black text-gray-900">{{ store.name }}</h1>
+                  <button
+                    class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 border-2 border-gray-200 text-gray-600 text-xs font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                    @click="showShareModal = true"
+                  >
+                    <ShareIcon class="h-3.5 w-3.5" />
+                    Compartir
+                  </button>
+                </div>
                 <p v-if="store.type" class="text-sm text-gray-500 mt-0.5">{{ store.type }}</p>
 
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
@@ -154,20 +163,30 @@
 
     <!-- ── Modal: Order (catálogo) ──────────────────────────────────────── -->
     <CatalogOrderModal
+      ref="orderModalRef"
       v-model="showOrderModal"
       :product="orderTarget"
       @success="onOrderSuccess"
+    />
+
+    <!-- ── Modal: Compartir ─────────────────────────────────────────────── -->
+    <ShareStoreModal
+      v-model="showShareModal"
+      :url="shareUrl"
+      :title="store?.name"
     />
   </NuxtLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { StarIcon, MapPinIcon, PhoneIcon } from '@heroicons/vue/24/outline'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { StarIcon, MapPinIcon, PhoneIcon, ShareIcon } from '@heroicons/vue/24/outline'
 import CatalogOrderModal from '~/components/modals/CatalogOrderModal.vue'
+import ShareStoreModal from '~/components/modals/ShareStoreModal.vue'
 import { useApi } from '~/composables/core/useApi'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import { useAuth } from '~/composables/auth/useAuth'
+import { useCheckoutResume } from '~/composables/catalog/useCheckoutResume'
 
 interface PublicStore {
   id: string
@@ -191,6 +210,7 @@ const route = useRoute()
 const { get } = useApi()
 const { getAssetUrl } = useAssetUrl()
 const { isAuthenticated } = useAuth()
+const config = useRuntimeConfig()
 
 const layout = computed(() => isAuthenticated.value ? 'default' : 'public')
 
@@ -203,6 +223,21 @@ const error = ref(false)
 const coverSrc = computed(() => getAssetUrl(store.value?.user?.coverImage))
 const avatarSrc = computed(() => getAssetUrl(store.value?.user?.avatar))
 const initials = computed(() => (store.value?.name ?? '?').trim().charAt(0).toUpperCase())
+
+const showShareModal = ref(false)
+const shareUrl = computed(() => `${config.public.siteUrl}/loja/${slug.value}`)
+
+// SEO/compartir: solo se completa una vez que el fetch resuelve (SPA sin
+// SSR — no indexa a crawlers que no ejecutan JS, pero sí mejora el title
+// tab y las OG tags al compartir el link por WhatsApp/redes).
+useSeoMeta({
+  title: () => store.value ? `${store.value.name} | WorkPlace` : 'Tienda | WorkPlace',
+  description: () => store.value?.description || `Catálogo de ${store.value?.name ?? 'esta tienda'} en WorkPlace`,
+  ogTitle: () => store.value?.name,
+  ogDescription: () => store.value?.description || undefined,
+  ogImage: () => avatarSrc.value || coverSrc.value || undefined,
+  ogUrl: () => `${config.public.siteUrl}/loja/${slug.value}`,
+})
 
 const SOCIAL_LABELS: Record<string, string> = {
   instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp', tiktok: 'TikTok',
@@ -237,6 +272,8 @@ const catalogLoading = ref(false)
 const showOrderModal = ref(false)
 const orderTarget = ref<any>(null)
 const orderToast = ref('')
+const orderModalRef = ref<InstanceType<typeof CatalogOrderModal> | null>(null)
+const { consumeCheckoutDraft } = useCheckoutResume()
 
 async function fetchProducts(page = 1) {
   if (!store.value?.id) return
@@ -264,8 +301,26 @@ function onOrderSuccess() {
   setTimeout(() => { orderToast.value = '' }, 4000)
 }
 
+// Redirect-and-resume: si el visitante llegó de /login tras haber intentado
+// pedir sin sesión, reabre el modal con lo que ya había llenado.
+async function resumeCheckoutIfNeeded() {
+  if (route.query.intent !== 'checkout') return
+  const draft = consumeCheckoutDraft()
+  if (!draft || draft.kind !== 'catalog-order') return
+  try {
+    const res = await get<{ data: any }>(`/catalog/products/${draft.productId}`)
+    orderTarget.value = res.data
+    showOrderModal.value = true
+    await nextTick()
+    orderModalRef.value?.applyDraftForm(draft.form)
+  } catch {
+    // Producto ya no disponible — no interrumpe la carga normal de la página.
+  }
+}
+
 onMounted(async () => {
   await fetchStore()
   if (store.value) await fetchProducts(1)
+  await resumeCheckoutIfNeeded()
 })
 </script>

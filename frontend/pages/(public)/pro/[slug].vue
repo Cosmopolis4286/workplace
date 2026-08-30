@@ -20,7 +20,7 @@
     </div>
   </div>
 
-  <ProfilePublicView v-else :initial-username="resolvedUsername" />
+  <ProfilePublicView v-else :initial-username="resolvedUsername" :canonical-path="`/pro/${slug}`" />
 </template>
 
 <script setup lang="ts">
