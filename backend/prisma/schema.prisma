@@ -93,6 +93,16 @@ model User {
   profiles                UserProfile[]
   reviewedProfiles        UserProfile[]            @relation("UserProfileReviewer")
 
+  // Contexto de UX activo ("estoy usando WorkPlace como..."). Puramente
+  // presentacional: NO participa en permisos ni capacidades — esas siguen
+  // siendo la unión de TODOS los UserProfile ACTIVE, no solo este. Null =
+  // sin preferencia explícita; el frontend infiere el default con la misma
+  // prioridad que AccountTypeResolver (BUSINESS > PROFESSIONAL > JOB_SEEKER
+  // > CUSTOMER). SetNull: si el perfil activo se borra/rechaza, no debe
+  // arrastrar al User con un FK colgante.
+  activeProfileId String?
+  activeProfile   UserProfile? @relation("ActiveProfile", fields: [activeProfileId], references: [id], onDelete: SetNull)
+
   // Jobs / Empleos
   jobsPosted      Job[]            @relation("UserJobs")
   jobApplications JobApplication[]
@@ -269,6 +279,11 @@ model UserProfile {
   reviewedAt      DateTime?
 
   commerce Commerce?
+
+  // Inverso de User.activeProfileId — usuarios que tienen ESTE perfil
+  // marcado como su contexto de UX activo (0 o 1 en la práctica, ya que es
+  // 1:1 conceptualmente, pero Prisma requiere la lista en el lado sin FK).
+  activeForUsers User[] @relation("ActiveProfile")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
