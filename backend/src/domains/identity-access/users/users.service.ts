@@ -20,6 +20,7 @@ import { MailService } from '../../engagement/mail/mail.service';
 import { CommerceProfileCompletionStrategy } from './strategies/commerce-profile-completion.strategy';
 import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-profile-completion.strategy';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
+import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 
 export const CURRENT_TERMS_VERSION = '2.0';
 
@@ -47,6 +48,7 @@ export class UsersService {
     private i18n: I18nService,
     private commerceProfileCompletion: CommerceProfileCompletionStrategy,
     private freelancerProfileCompletion: FreelancerProfileCompletionStrategy,
+    private accountTypeResolver: AccountTypeResolver,
   ) {}
 
   // Invalida el caché de findById para un usuario. Llamar después de
@@ -293,16 +295,20 @@ export class UsersService {
     // "commerce"/"freelancer" ya no son valores de Role (colapsados en
     // PROFESIONAL) — el desglose fino ahora se cuenta vía UserProfile
     // ACTIVE, que es donde vive esa distinción real.
-    const withActiveProfile = (type: 'BUSINESS' | 'PROFESSIONAL') => ({
-      AND: [where, { profiles: { some: { type, status: 'ACTIVE' as const } } }],
+    const withActiveProfile = (type: 'BUSINESS' | 'PROFESSIONAL', subtype?: ProfessionalSubtype) => ({
+      AND: [
+        where,
+        { profiles: { some: { type, status: 'ACTIVE' as const, ...(subtype && { subtype }) } } },
+      ],
     });
-    const [total, commerce, freelancer, active] = await Promise.all([
+    const [total, commerce, freelancer, serviceProvider, active] = await Promise.all([
       this.prisma.user.count({ where }),
       this.prisma.user.count({ where: withActiveProfile('BUSINESS') }),
-      this.prisma.user.count({ where: withActiveProfile('PROFESSIONAL') }),
+      this.prisma.user.count({ where: withActiveProfile('PROFESSIONAL', ProfessionalSubtype.FREELANCER) }),
+      this.prisma.user.count({ where: withActiveProfile('PROFESSIONAL', ProfessionalSubtype.SERVICE_PROVIDER) }),
       this.prisma.user.count({ where: { AND: [where, { isActive: true }] } }),
     ]);
-    return { total, commerce, freelancer, active };
+    return { total, commerce, freelancer, serviceProvider, active };
   }
 
   async updateUser(id: string, dto: UpdateUserDto) {
@@ -847,10 +853,15 @@ export class UsersService {
     let hasServicesSetup = false;
 
     // Role.COMMERCE/FREELANCER se fusionaron en Role.PROFESIONAL — la
-    // distinción "tiene Commerce (negocio) vs es freelancer" ya no vive en
-    // role, se infiere de si tiene un Commerce real (ya incluido arriba).
+    // distinción "es comercio vs es freelancer" ya no vive en role, vive en
+    // UserProfile (ver AccountTypeResolver). isBusiness usa `!!user.commerce`
+    // en vez del resolver porque acá lo que importa es si YA existe el
+    // Commerce físico para chequear su completitud, no solo el perfil
+    // BUSINESS aprobado (que puede estar activo un instante antes de que el
+    // usuario cree su Commerce).
     const isBusiness = !!user.commerce;
-    const isFreelancerProfile = user.role === 'PROFESIONAL' && !user.commerce;
+    const accountType = await this.accountTypeResolver.resolve(userId);
+    const isFreelancerProfile = !isBusiness && this.accountTypeResolver.isFreelancer(accountType);
 
     const profileContext = { hasBasicInfo, hasCategory, category };
     if (isBusiness) {

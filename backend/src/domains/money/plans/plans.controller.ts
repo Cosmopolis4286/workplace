@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { PlansService } from './plans.service';
 import { PlanLimitsService } from './plan-limits.service';
-import { MODULE_CATALOG } from '../../../common/data/module-catalog.data';
+import { SystemModulesService } from '../../platform/system-modules/system-modules.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
@@ -29,7 +29,8 @@ import { Role, SubscriptionStatus } from '@prisma/client';
 export class PlansController {
   constructor(
     private readonly plansService: PlansService,
-    private readonly planLimitsService: PlanLimitsService
+    private readonly planLimitsService: PlanLimitsService,
+    private readonly systemModulesService: SystemModulesService
   ) {}
 
   // ─── Public — no auth required ────────────────────────────────────────────
@@ -38,7 +39,7 @@ export class PlansController {
   @Get('modules/catalog')
   @UseGuards(JwtAuthGuard)
   getModuleCatalog() {
-    return MODULE_CATALOG;
+    return this.systemModulesService.listAll();
   }
 
   @Get('public')

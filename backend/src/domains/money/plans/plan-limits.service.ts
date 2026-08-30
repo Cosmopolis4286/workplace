@@ -2,27 +2,15 @@ import { Inject, Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Role, ServiceStatus, JobStatus } from '@prisma/client';
 import { SystemModulesFacade, SYSTEM_MODULES_FACADE } from '../../platform/system-modules/system-modules.facade';
-import { MODULE_CATALOG } from '../../../common/data/module-catalog.data';
 import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
 
-// Módulos de NEGOCIO (con plan/categoría propia) — subset de MODULE_CATALOG.
-// Los módulos "de sistema" (users, permissions, audit, etc.) viven en el
-// catálogo pero no participan de plan∩categoría, así que se excluyen aquí.
-const BUSINESS_MODULE_KEYS = [
-  'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
-  'delivery', 'expenses', 'analytics', 'reports', 'sales', 'employees',
-  'branches', 'settings', 'notifications', 'services', 'service_requests',
-  'jobs', 'catalog', 'corridas', 'wallets',
-] as const;
-
-export const ALL_MODULES = MODULE_CATALOG
-  .filter((m) => (BUSINESS_MODULE_KEYS as readonly string[]).includes(m.key))
-  .map((m) => m.key) as (typeof BUSINESS_MODULE_KEYS)[number][];
-
-export type AppModule = (typeof ALL_MODULES)[number];
+// AppModule ya no es un union type cerrado — el catálogo de módulos de
+// negocio ahora es dinámico (tabla SystemModule, isBusinessModule=true),
+// gerenciable por un admin sin tocar código. Ver SystemModulesService.
+export type AppModule = string;
 export type { PlanLimits };
 
-const UNLIMITED_LIMITS: PlanLimits = {
+const UNLIMITED_LIMITS_BASE = {
   maxProducts: -1,
   maxEmployees: -1,
   maxBranches: -1,
@@ -31,10 +19,8 @@ const UNLIMITED_LIMITS: PlanLimits = {
   maxServices: -1,
   maxServiceRequests: -1,
   maxJobs: -1,
-  enabledModules: [...ALL_MODULES],
-  effectiveModules: [...ALL_MODULES],
   planName: 'Sin límite',
-  categoryName: null,
+  categoryName: null as string | null,
 };
 
 // Free-tier fallback when no active subscription exists
@@ -93,11 +79,11 @@ export class PlanLimitsService implements PlanLimitsFacade {
       user?.role === Role.ADMIN ||
       user?.role === Role.NORMAL
     ) {
+      const allModules = await this.systemModulesService.listBusinessModules();
       return {
-        ...UNLIMITED_LIMITS,
-        effectiveModules: UNLIMITED_LIMITS.effectiveModules.filter(
-          (m) => !globallyDisabled.includes(m)
-        ),
+        ...UNLIMITED_LIMITS_BASE,
+        enabledModules: allModules,
+        effectiveModules: allModules.filter((m) => !globallyDisabled.includes(m)),
       };
     }
 
@@ -184,7 +170,8 @@ export class PlanLimitsService implements PlanLimitsFacade {
       user?.role === Role.ADMIN ||
       user?.role === Role.NORMAL
     ) {
-      return UNLIMITED_LIMITS.effectiveModules.filter((m) => !globallyDisabled.includes(m));
+      const allModules = await this.systemModulesService.listBusinessModules();
+      return allModules.filter((m) => !globallyDisabled.includes(m));
     }
 
     const sub = await this.prisma.subscription.findFirst({

@@ -86,6 +86,11 @@ export class ProfilesService {
       throw new NotFoundException('Perfil no encontrado');
     }
 
+    // Role.PROFESIONAL ya no distingue Comercio de Freelancer — accountType
+    // es la fuente real para que el frontend muestre el badge/label correcto
+    // en el perfil público (ver ProfilePublicView.vue).
+    const accountType = await this.accountTypeResolver.resolve(user.id);
+
     // Rating aggregado
     const ratingAgg = await this.prisma.review.aggregate({
       where: { targetId: user.id, isHidden: false },
@@ -128,6 +133,7 @@ export class ProfilesService {
       avatar: user.avatar,
       coverImage: user.coverImage,
       role: user.role,
+      accountType,
       commerce: user.commerce,
       profileSettings: user.profileSettings ?? {
         showCatalog: true,

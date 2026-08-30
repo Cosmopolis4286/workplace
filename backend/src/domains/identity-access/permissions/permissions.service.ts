@@ -535,7 +535,14 @@ export class PermissionsService implements PermissionsFacade {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, firstName: true, lastName: true, role: true },
+      select: {
+        id: true, email: true, firstName: true, lastName: true, role: true,
+        profiles: {
+          where: { status: 'ACTIVE', type: { in: ['BUSINESS', 'PROFESSIONAL'] } },
+          select: { type: true, subtype: true },
+          take: 1,
+        },
+      },
     });
 
     if (!user) throw new NotFoundException('Usuario no encontrado');
