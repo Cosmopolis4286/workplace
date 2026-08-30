@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { resetWallets } from '../wallets/useWallets'
+import type { ProfileActivation } from '../users/useProfileActivations'
 
 interface Commerce {
   id: string
@@ -26,6 +27,12 @@ export interface User {
   // fuente para esa distinción fina. Puede venir undefined en respuestas
   // que no pasan por getProfile (login/register no lo incluyen todavía).
   accountType?: 'COMMERCE' | 'FREELANCER' | null
+  // Todos los UserProfile ACTIVE del usuario (incluye CUSTOMER/JOB_SEEKER,
+  // no solo los que determinan accountType) — mismo shape que useProfileActivations
+  // (ProfileActivation), reutilizado acá en vez de duplicar el tipo. Ver
+  // useProfileContext() para helpers de consulta. Mismo caveat que
+  // accountType: solo viene en GET /auth/me, undefined en login/register.
+  profiles?: ProfileActivation[]
   isActive: boolean
   emailVerified?: boolean
   commerce?: Commerce
