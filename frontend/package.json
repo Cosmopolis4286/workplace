@@ -9,6 +9,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "type-check": "nuxi typecheck",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "coverage:percentage": "node scripts/get-coverage.js"
