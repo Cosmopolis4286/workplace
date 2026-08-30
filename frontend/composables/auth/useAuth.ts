@@ -33,6 +33,10 @@ export interface User {
   // useProfileContext() para helpers de consulta. Mismo caveat que
   // accountType: solo viene en GET /auth/me, undefined en login/register.
   profiles?: ProfileActivation[]
+  // Contexto de UX activo ("estoy usando WorkPlace como..."), ver
+  // useProfileContext(). Puramente presentacional — null hasta que el
+  // usuario elige uno explícitamente vía PATCH /profile-activations/active.
+  activeProfileId?: string | null
   isActive: boolean
   emailVerified?: boolean
   commerce?: Commerce

@@ -78,6 +78,27 @@ export class ProfileActivationsService {
     });
   }
 
+  // Fija User.activeProfileId — contexto de UX ("estoy usando WorkPlace
+  // como..."), puramente presentacional. NO toca permisos ni capacidades:
+  // esas siguen siendo la unión de TODOS los UserProfile ACTIVE del
+  // usuario, no solo el activo (ver IDENTITY_ARCHITECTURE_PLAN.md, sección
+  // "activeProfile"). El perfil debe pertenecer al usuario y estar ACTIVE
+  // — no tiene sentido "activar" un perfil PENDING/REJECTED/SUSPENDED.
+  async setActive(userId: string, profileId: string) {
+    const profile = await this.prisma.userProfile.findUnique({ where: { id: profileId } });
+    if (!profile || profile.userId !== userId) {
+      throw new NotFoundException('Perfil no encontrado');
+    }
+    if (profile.status !== ProfileStatus.ACTIVE) {
+      throw new BadRequestException('Solo se puede activar un perfil que ya está ACTIVE');
+    }
+
+    await this.prisma.user.update({ where: { id: userId }, data: { activeProfileId: profileId } });
+    await this.redis.del(userFindByIdCacheKey(userId));
+
+    return profile;
+  }
+
   // ─── Admin ────────────────────────────────────────────────────────────────────
 
   async findAllPending(page = 1, limit = 20) {

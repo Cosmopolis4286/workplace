@@ -61,6 +61,17 @@ export function useProfileActivations() {
     return patch<ProfileActivation>(`/profile-activations/admin/${id}/review`, { status, rejectionReason })
   }
 
+  // Contexto de UX activo ("estoy usando WorkPlace como..."). No afecta
+  // permisos/capacidades — el perfil debe ya estar ACTIVE. Actualiza el
+  // usuario en sesión localmente en vez de refetchear /auth/me completo.
+  async function setActiveProfile(profileId: string): Promise<ProfileActivation> {
+    const { patch } = useApi()
+    const result = await patch<ProfileActivation>('/profile-activations/active', { profileId })
+    const { updateLocalUser } = useAuth()
+    updateLocalUser({ activeProfileId: result.id })
+    return result
+  }
+
   return {
     mine,
     loading,
@@ -68,5 +79,6 @@ export function useProfileActivations() {
     create,
     fetchPending,
     review,
+    setActiveProfile,
   }
 }

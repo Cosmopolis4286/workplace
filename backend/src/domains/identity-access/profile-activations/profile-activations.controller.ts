@@ -8,6 +8,7 @@ import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.gua
 import { ProfileActivationsService } from './profile-activations.service';
 import { CreateProfileActivationDto } from './dto/create-profile-activation.dto';
 import { ReviewProfileActivationDto } from './dto/review-profile-activation.dto';
+import { SetActiveProfileDto } from './dto/set-active-profile.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)
 @Controller('profile-activations')
@@ -23,6 +24,13 @@ export class ProfileActivationsController {
   @RateLimit({ windowMs: 60_000 * 60, maxRequests: 5, keyGenerator: (req) => `profile-activation:create:${(req as any).user?.id}` })
   create(@CurrentUser() user: any, @Body() dto: CreateProfileActivationDto) {
     return this.service.create(user.id, dto);
+  }
+
+  // Contexto de UX activo ("estoy usando WorkPlace como...") — ver
+  // ProfileActivationsService.setActive. No afecta permisos/capacidades.
+  @Patch('active')
+  setActive(@CurrentUser() user: any, @Body() dto: SetActiveProfileDto) {
+    return this.service.setActive(user.id, dto.profileId);
   }
 
   // ─── Admin ────────────────────────────────────────────────────────────────────

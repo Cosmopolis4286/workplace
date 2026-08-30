@@ -188,4 +188,53 @@ describe('ProfileActivationsService', () => {
       ).rejects.toBeInstanceOf(NotFoundException)
     })
   })
+
+  describe('setActive', () => {
+    it('fija User.activeProfileId cuando el perfil es propio y está ACTIVE', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.ACTIVE }),
+      )
+
+      const result = await service.setActive(USER_ID, PROFILE_ID)
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { activeProfileId: PROFILE_ID },
+      })
+      expect(result.id).toBe(PROFILE_ID)
+    })
+
+    it('lanza NotFoundException si el perfil no existe', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(null)
+
+      await expect(service.setActive(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(NotFoundException)
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled()
+    })
+
+    it('lanza NotFoundException si el perfil pertenece a otro usuario (no filtra por accidente)', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.ACTIVE, userId: 'other-user' }),
+      )
+
+      await expect(service.setActive(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(NotFoundException)
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled()
+    })
+
+    it('rechaza activar un perfil que todavía está PENDING', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.PENDING }),
+      )
+
+      await expect(service.setActive(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(BadRequestException)
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled()
+    })
+
+    it('rechaza activar un perfil REJECTED o SUSPENDED', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.REJECTED }),
+      )
+
+      await expect(service.setActive(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(BadRequestException)
+    })
+  })
 })
