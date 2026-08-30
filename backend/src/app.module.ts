@@ -58,6 +58,7 @@ import { ReportsModule } from './domains/engagement/reports/reports.module';
 import { LocationsModule } from './domains/platform/locations/locations.module';
 import { BnplModule } from './domains/money/bnpl/bnpl.module';
 import { NavigationModule } from './domains/platform/navigation/navigation.module';
+import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orchestrator.module';
 
 @Module({
   imports: [
@@ -130,6 +131,7 @@ import { NavigationModule } from './domains/platform/navigation/navigation.modul
     LandingModule,
     ReportsModule,
     LocationsModule,
+    AiOrchestratorModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },
