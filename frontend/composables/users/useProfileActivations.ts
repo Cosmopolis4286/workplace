@@ -11,6 +11,7 @@ export interface ProfileActivation {
   category?: { id: string; name: string; icon?: string | null }
   subcategoryId: string | null
   subcategory?: { id: string; name: string } | null
+  pendingCommerceName: string | null
   status: ProfileActivationStatus
   rejectionReason: string | null
   reviewedBy: string | null
@@ -39,6 +40,7 @@ export function useProfileActivations() {
     subtype?: ProfessionalSubtype
     categoryId?: string
     subcategoryId?: string
+    commerceName?: string
     message?: string
   }): Promise<ProfileActivation> {
     const { post } = useApi()

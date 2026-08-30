@@ -87,6 +87,18 @@
                 <option value="SERVICE_PROVIDER">Proveedor de servicios (presenciales)</option>
               </select>
             </div>
+
+            <div v-if="type.value === 'BUSINESS'">
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Nombre del negocio</label>
+              <input
+                v-model="form.commerceName"
+                type="text"
+                maxlength="120"
+                placeholder="Ej. Panadería El Trigal"
+                class="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red bg-white"
+                required
+              />
+            </div>
           </template>
 
           <p v-if="submitError" class="text-xs text-red-600">{{ submitError }}</p>
@@ -94,7 +106,7 @@
           <div class="flex items-center gap-2">
             <button
               type="submit"
-              :disabled="(type.requiresCategory && !form.categoryId) || submitting"
+              :disabled="(type.requiresCategory && !form.categoryId) || (type.value === 'BUSINESS' && !form.commerceName.trim()) || submitting"
               class="px-4 py-2 bg-workplace-red hover:bg-red-700 disabled:opacity-60 text-white rounded-lg text-xs font-bold transition-colors"
             >
               {{ submitting ? 'Enviando…' : type.requiresApproval ? 'Enviar solicitud' : 'Activar' }}
@@ -122,7 +134,7 @@ const submitting = ref(false)
 const submitError = ref('')
 const categories = ref<{ id: string; name: string; icon?: string }[]>([])
 const subcategories = ref<{ id: string; name: string }[]>([])
-const form = ref({ categoryId: '', subcategoryId: '', subtype: '' })
+const form = ref({ categoryId: '', subcategoryId: '', subtype: '', commerceName: '' })
 
 const PROFILE_TYPES: Array<{
   value: ProfileActivationType
@@ -181,7 +193,7 @@ async function onCategoryChange() {
 function startActivation(type: ProfileActivationType) {
   activatingType.value = type
   submitError.value = ''
-  form.value = { categoryId: '', subcategoryId: '', subtype: '' }
+  form.value = { categoryId: '', subcategoryId: '', subtype: '', commerceName: '' }
 }
 
 function cancelActivation() {
@@ -198,6 +210,7 @@ async function submit(type: ProfileActivationType) {
       subtype: type === 'PROFESSIONAL' ? (form.value.subtype as any) : undefined,
       categoryId: form.value.categoryId || undefined,
       subcategoryId: form.value.subcategoryId || undefined,
+      commerceName: type === 'BUSINESS' ? form.value.commerceName.trim() : undefined,
     })
     activatingType.value = null
   } catch (e: any) {

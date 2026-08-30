@@ -37,6 +37,7 @@
 
         <div class="px-6 py-4">
           <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div v-if="item.pendingCommerceName" class="flex justify-between"><dt class="text-gray-500">Nombre del negocio</dt><dd class="font-medium text-gray-900">{{ item.pendingCommerceName }}</dd></div>
             <div v-if="item.category" class="flex justify-between"><dt class="text-gray-500">Categoría</dt><dd class="font-medium text-gray-900">{{ item.category?.icon }} {{ item.category?.name }}</dd></div>
             <div v-if="item.subcategory" class="flex justify-between"><dt class="text-gray-500">Subcategoría</dt><dd class="font-medium text-gray-900">{{ item.subcategory.name }}</dd></div>
             <div v-if="item.subtype" class="flex justify-between"><dt class="text-gray-500">Tipo</dt><dd class="font-medium text-gray-900">{{ item.subtype === 'FREELANCER' ? 'Freelancer' : 'Proveedor de servicios' }}</dd></div>
