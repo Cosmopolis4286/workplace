@@ -50,7 +50,10 @@ export interface UserListFilters {
 export interface UsersStats {
   total: number
   commerce: number
+  // Ambos cuentan solo su subtipo específico (no se solapan) — juntos con
+  // `commerce` suman el total de perfiles de negocio activos.
   freelancer: number
+  serviceProvider: number
   active: number
 }
 

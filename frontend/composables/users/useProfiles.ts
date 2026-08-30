@@ -37,6 +37,10 @@ export interface PublicProfile {
   avatar?: string
   coverImage?: string
   role: string
+  // role=PROFESIONAL ya no distingue Comercio de Freelancer/Prestador de
+  // servicio — accountType (resuelto por el backend vía AccountTypeResolver)
+  // es la fuente real para esa distinción en el perfil público.
+  accountType?: 'COMMERCE' | 'FREELANCER' | null
   commerce?: { id: string; name: string; type?: string }
   profileSettings: { showCatalog: boolean; showServices: boolean }
   followersCount: number

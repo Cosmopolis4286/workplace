@@ -36,7 +36,7 @@ export const MAX_QUICK_ACCESS = 3
 
 export function useQuickAccess() {
   const { user, updateLocalUser } = useAuth()
-  const { can, userCategory } = usePermissions()
+  const { can } = usePermissions()
   const { hasModule } = useModules()
   const { patch } = useApi()
 
@@ -46,9 +46,8 @@ export function useQuickAccess() {
   function canSee(permission: string | null, to?: string): boolean {
     if (permission === null) return true
     const module = permission.split(':')[0]
-    if (permission === 'menu:view') {
-      return can(permission) && hasModule(module) && userCategory.value === 'Comida'
-    }
+    // hasModule ya refleja plan ∩ categoría.allowedModules (admin-gerenciable,
+    // ver useModules.ts) — no hace falta un chequeo de categoría aparte aquí.
     if (to === '/orders' && role.value === 'NORMAL') return false
     return can(permission) && hasModule(module)
   }
