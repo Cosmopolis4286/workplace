@@ -361,7 +361,7 @@ describe('UsersService', () => {
       expect(result).toBeDefined()
     })
 
-    it('never asks AccountTypeResolver for a freelancer classification when the user already has a Commerce', async () => {
+    it('short-circuits isFreelancer when the user already has a Commerce (isBusiness wins, no ambiguity possible)', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-2',
         role: Role.PROFESIONAL,
@@ -378,7 +378,8 @@ describe('UsersService', () => {
 
       const result = await service.getProfileCompletion('user-2')
 
-      expect(mockAccountTypeResolver.isFreelancer).toHaveBeenCalledWith('COMMERCE')
+      expect(mockAccountTypeResolver.resolve).toHaveBeenCalledWith('user-2')
+      expect(mockAccountTypeResolver.isFreelancer).not.toHaveBeenCalled()
       expect(result).toBeDefined()
     })
   })
