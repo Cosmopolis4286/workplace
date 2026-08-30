@@ -1606,16 +1606,27 @@ model UserPermission {
   @@map("user_permissions")
 }
 
-// Global kill-switch: when a module is disabled here, it disappears from
-// EVERY user's sidebar regardless of role, plan, or category — including
-// SUPERADMIN. Intended for maintenance windows / staged rollouts, not RBAC.
+// Catálogo canónico de módulos de la plataforma (fue solo un kill-switch de
+// excepciones; ahora es la fuente de verdad completa — antes vivía como
+// array hardcodeado en common/data/module-catalog.data.ts, duplicado a mano
+// en varios lugares del frontend). Cada módulo real tiene SIEMPRE una fila
+// acá (no solo los que un admin tocó alguna vez).
+//
+// `enabled`: kill-switch global — deshabilitado desaparece del sidebar de
+// TODO usuario sin importar rol/plan/categoría, incluido SUPERADMIN.
+// `isBusinessModule`: si participa en plan∩categoría (Plan.enabledModules /
+// UserCategory.allowedModules) — false para módulos "de sistema" (users,
+// permissions, audit...) que solo agrupan permisos y nunca están en un plan.
 model SystemModule {
-  id        String   @id @default(uuid())
-  module    String   @unique
-  enabled   Boolean  @default(true)
-  label     String?
-  updatedAt DateTime @updatedAt
-  updatedBy String?
+  id               String   @id @default(uuid())
+  module           String   @unique
+  label            String
+  enabled          Boolean  @default(true)
+  isBusinessModule Boolean  @default(false)
+  isSystemDefault  Boolean  @default(false) // seed original — no se puede borrar, sí renombrar/deshabilitar
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  updatedBy        String?
 
   @@map("system_modules")
 }
