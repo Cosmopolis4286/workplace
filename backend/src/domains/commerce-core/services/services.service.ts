@@ -17,6 +17,7 @@ import { NotificationsService } from '../../engagement/notifications/notificatio
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { WalletsService, InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
+import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util';
 import { fetchImageFromUrlSafely } from '../../../common/utils/safe-url-image-fetch.util';
 import { writeFile, mkdir } from 'fs/promises';
@@ -72,7 +73,8 @@ export class ServicesService {
     private notifications: NotificationsService,
     @Inject(PLATFORM_FEES_FACADE) private platformFees: PlatformFeesFacade,
     @Inject(PLAN_LIMITS_FACADE) private planLimits: PlanLimitsFacade,
-    private wallets: WalletsService
+    private wallets: WalletsService,
+    @Inject(REPUTATION_FACADE) private reputation: ReputationFacade
   ) {}
 
   // ─── Catalog (public) ─────────────────────────────────────────────────────
@@ -816,6 +818,8 @@ export class ServicesService {
       // tener sentido si la solicitud llega a un estado terminal — invalidarla evita
       // que el cliente apruebe un aumento sobre un trato ya cerrado/cancelado/rechazado.
       if (ServicesService.TERMINAL_STATUSES.includes(data.status)) {
+        this.reputation.recalculate('PROFESSIONAL', req.providerId).catch(() => {});
+
         const invalidated = await this.prisma.serviceRequestPriceChangeProposal.updateMany({
           where: { serviceRequestId: id, status: 'PENDING' },
           data: { status: 'INVALIDATED', resolvedAt: new Date() },

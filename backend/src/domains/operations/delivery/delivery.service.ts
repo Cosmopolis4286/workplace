@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -23,6 +24,7 @@ import {
   DriverInvitationStatus,
   KycStatus,
 } from '@prisma/client';
+import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
 
 const DRIVER_INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 const LEGACY_DRIVER_GRACE_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
@@ -43,6 +45,7 @@ export class DeliveryService {
     private readonly telegram: TelegramService,
     private readonly mail: MailService,
     private readonly i18n: I18nService,
+    @Inject(REPUTATION_FACADE) private readonly reputation: ReputationFacade,
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -590,6 +593,15 @@ export class DeliveryService {
         },
       },
     });
+
+    if (
+      delivery.driverId &&
+      (status === DeliveryStatus.DELIVERED ||
+        status === DeliveryStatus.CANCELLED ||
+        status === DeliveryStatus.FAILED)
+    ) {
+      this.reputation.recalculate('DRIVER', delivery.driverId).catch(() => {});
+    }
 
     this.notifications
       .notifyDeliveryStatusChange(commerceId, delivery.orderNumber, status)

@@ -5,9 +5,10 @@ import { NotificationsModule } from '../../engagement/notifications/notification
 import { PlansModule } from '../../money/plans/plans.module';
 import { TelegramModule } from '../../engagement/telegram/telegram.module';
 import { PlatformFeesModule } from '../../money/platform-fees/platform-fees.module';
+import { ReputationModule } from '../../reputation/reputation.module';
 
 @Module({
-  imports: [NotificationsModule, PlansModule, TelegramModule, PlatformFeesModule],
+  imports: [NotificationsModule, PlansModule, TelegramModule, PlatformFeesModule, ReputationModule],
   controllers: [OrdersController],
   providers: [OrdersService],
   exports: [OrdersService],

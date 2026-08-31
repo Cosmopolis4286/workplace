@@ -14,6 +14,7 @@ import { QueryOrdersDto } from './dto/query-orders.dto';
 import { OrderStatus } from '@prisma/client';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
+import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
 
 // Valid status transitions for business logic enforcement
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -35,6 +36,7 @@ export class OrdersService {
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly telegram: TelegramService,
     @Inject(PLATFORM_FEES_FACADE) private readonly platformFees: PlatformFeesFacade,
+    @Inject(REPUTATION_FACADE) private readonly reputation: ReputationFacade,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -356,6 +358,10 @@ export class OrdersService {
     });
 
     if (dto.status && dto.status !== existing.status) {
+      if (dto.status === 'DELIVERED' || dto.status === 'CANCELLED') {
+        this.reputation.recalculate('COMMERCE', commerceId).catch(() => {});
+      }
+
       this.notifications
         .notifyOrderStatusChange(commerceId, existing.orderNumber, dto.status)
         .catch(() => null);

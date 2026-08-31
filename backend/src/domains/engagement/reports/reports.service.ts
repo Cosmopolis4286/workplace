@@ -1,6 +1,7 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
 import { CreateReportDto } from './dto/create-report.dto';
 import { ModerateReportDto } from './dto/moderate-report.dto';
 
@@ -9,6 +10,7 @@ export class ReportsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    @Inject(REPUTATION_FACADE) private reputation: ReputationFacade,
   ) {}
 
   async create(reporterId: string, dto: CreateReportDto) {
@@ -63,7 +65,7 @@ export class ReportsService {
     const report = await this.prisma.report.findUnique({ where: { id } });
     if (!report) throw new NotFoundException('Reporte no encontrado');
 
-    return this.prisma.report.update({
+    const updated = await this.prisma.report.update({
       where: { id },
       data: {
         status: dto.status,
@@ -73,6 +75,36 @@ export class ReportsService {
           : null,
       },
     });
+
+    // El disputeRate del score se calcula sobre reportes PENDING/IN_REVIEW/
+    // RESOLVED de la entidad — cualquier cambio de status (incluido
+    // DISMISSED, que sale de ese conjunto) puede mover el score.
+    if (report.entityId) {
+      await this.recalculateReputationForReport(report.entityType, report.entityId);
+    }
+
+    return updated;
+  }
+
+  private async recalculateReputationForReport(
+    entityType: string,
+    entityId: string,
+  ): Promise<void> {
+    if (entityType === 'ORDER') {
+      const order = await this.prisma.order.findUnique({
+        where: { id: entityId },
+        select: { commerceId: true },
+      });
+      if (order) this.reputation.recalculate('COMMERCE', order.commerceId).catch(() => {});
+      return;
+    }
+    if (entityType === 'SERVICE_REQUEST') {
+      const req = await this.prisma.serviceRequest.findUnique({
+        where: { id: entityId },
+        select: { providerId: true },
+      });
+      if (req) this.reputation.recalculate('PROFESSIONAL', req.providerId).catch(() => {});
+    }
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
