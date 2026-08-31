@@ -60,6 +60,15 @@
               {{ t('landing.hero.support247') }}
             </span>
           </div>
+
+          <!-- Live stat (dato real de la plataforma, actualizado por WebSocket) -->
+          <div v-if="liveStat" class="flex items-center gap-2.5 pt-1">
+            <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+            <p class="text-sm text-gray-500">
+              <span class="font-black text-gray-900 tabular-nums">{{ liveStatDisplay }}</span>
+              {{ liveStat.label }}
+            </p>
+          </div>
         </div>
 
         <!-- Stats panel (mock dashboard preview) -->
@@ -146,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ArrowRightIcon, PlayIcon, CheckIcon, ArrowTrendingUpIcon } from '@heroicons/vue/24/outline'
 
 defineEmits<{
@@ -172,5 +181,58 @@ const heroOrders = computed(() => [
 
 onMounted(() => {
   setTimeout(() => { chartAnimated.value = true }, 200)
+})
+
+// ─── Live stat (comercios activos) ────────────────────────────────────────────
+// A diferencia del panel de la derecha (mock explícito, etiquetado "demo"), esta
+// franja muestra una métrica real calculada en el backend (LandingService) y
+// empujada por WebSocket (landing:update) cuando cambia — sin recargar la página.
+
+// No conecta/desconecta el socket acá: el padre (pages/(public)/index.vue) ya
+// gestiona connectRealtime/disconnectRealtime para toda la landing — hacerlo
+// también aquí arriesgaría cortar el socket del padre si este hijo se desmonta
+// primero (mismo useState singleton 'landing-socket-connected').
+const { stats: landingStats } = useLandingContent()
+
+const targetStat = computed(() => landingStats.value.find((s) => s.key === 'commerces') ?? null)
+const liveStat = computed(() => targetStat.value)
+
+const animatedValue = ref(0)
+let rafId: number | null = null
+
+function animateTo(target: number) {
+  if (rafId) cancelAnimationFrame(rafId)
+  const start = animatedValue.value
+  const startTime = performance.now()
+  const duration = 900
+
+  const step = (now: number) => {
+    const progress = Math.min((now - startTime) / duration, 1)
+    const eased = 1 - Math.pow(1 - progress, 3)
+    animatedValue.value = Math.round(start + (target - start) * eased)
+    if (progress < 1) rafId = requestAnimationFrame(step)
+  }
+  rafId = requestAnimationFrame(step)
+}
+
+watch(
+  () => targetStat.value?.rawValue,
+  (rawValue) => {
+    if (typeof rawValue === 'number') animateTo(rawValue)
+  },
+  { immediate: true },
+)
+
+// El label completo ya trae el sufijo (+, k+) calculado por el backend; solo
+// reemplazamos la parte numérica por el valor animado para no reinventar ese formato.
+const liveStatDisplay = computed(() => {
+  const stat = targetStat.value
+  if (!stat) return ''
+  const suffix = stat.value.replace(/^[\d.,]+/, '')
+  return `${animatedValue.value}${suffix}`
+})
+
+onUnmounted(() => {
+  if (rafId) cancelAnimationFrame(rafId)
 })
 </script>

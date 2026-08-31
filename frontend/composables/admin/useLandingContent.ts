@@ -84,6 +84,11 @@ const FALLBACK_STEPS: PublicStep[] = [
 ]
 
 type LandingSection = 'testimonials' | 'stats' | 'features' | 'steps'
+export type LandingHealthStatus = 'up' | 'degraded' | 'down'
+
+// Module-level (no useState): son callbacks, no estado serializable/SSR, y deben
+// ser el mismo Set sin importar cuántos componentes llamen a useLandingContent().
+const healthListeners = new Set<(status: LandingHealthStatus) => void>()
 
 export const useLandingContent = () => {
   const { get } = useApi()
@@ -145,6 +150,9 @@ export const useLandingContent = () => {
     socket.on('landing:update', ({ section }: { section: LandingSection }) => {
       fetchSection(section)
     })
+    socket.on('landing:health', ({ status }: { status: LandingHealthStatus }) => {
+      healthListeners.forEach((cb) => cb(status))
+    })
     socketConnected.value = true
   }
 
@@ -155,5 +163,11 @@ export const useLandingContent = () => {
     socketConnected.value = false
   }
 
-  return { testimonials, stats, features, steps, loading, load, connectRealtime, disconnectRealtime }
+  // Suscribirse a landing:health (badge "Plataforma activa"). Devuelve unsubscribe.
+  function onHealth(callback: (status: LandingHealthStatus) => void) {
+    healthListeners.add(callback)
+    return () => healthListeners.delete(callback)
+  }
+
+  return { testimonials, stats, features, steps, loading, load, connectRealtime, disconnectRealtime, onHealth }
 }

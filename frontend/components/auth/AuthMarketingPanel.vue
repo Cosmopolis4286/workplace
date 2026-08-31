@@ -235,6 +235,9 @@ const { user } = useAuth()
 const role = computed(() => user.value?.role ?? null)
 
 // ─── Health check realtime ────────────────────────────────────────────────────
+// Antes hacía polling HTTP a /api/health cada 60s. Ahora escucha 'landing:health'
+// en el mismo socket /landing que ya se abre para stats/testimonios: si el evento
+// no llega en un tiempo razonable (server caído o socket desconectado), cae a 'down'.
 
 type HealthStatus = 'up' | 'degraded' | 'down'
 const healthStatus = ref<HealthStatus>('up') // optimistic initial state
@@ -245,20 +248,25 @@ const healthLabel = computed(() => ({
   down: t('auth.layout.platformDown'),
 }[healthStatus.value] ?? t('auth.layout.platformActive')))
 
-let healthTimer: ReturnType<typeof setInterval> | null = null
+const HEALTH_TIMEOUT_MS = 90_000 // > que el poll de 5 min del backend en tick 'up', solo cubre caída del socket
+let healthTimeoutTimer: ReturnType<typeof setTimeout> | null = null
 
-async function checkHealth() {
-  try {
-    const res = await $fetch<{ status: string }>('/api/health', { timeout: 5000 })
-    healthStatus.value = res.status === 'ok' ? 'up' : 'degraded'
-  } catch {
-    healthStatus.value = 'down'
-  }
+function onHealthEvent(status: HealthStatus) {
+  healthStatus.value = status
+  if (healthTimeoutTimer) clearTimeout(healthTimeoutTimer)
+  healthTimeoutTimer = setTimeout(() => { healthStatus.value = 'down' }, HEALTH_TIMEOUT_MS)
 }
 
 // ─── Stats dinámicas ──────────────────────────────────────────────────────────
 
-const { stats: landingStats, testimonials: landingTestimonials, load: loadStats, connectRealtime: connectLandingRealtime, disconnectRealtime: disconnectLandingRealtime } = useLandingContent()
+const {
+  stats: landingStats,
+  testimonials: landingTestimonials,
+  load: loadStats,
+  connectRealtime: connectLandingRealtime,
+  disconnectRealtime: disconnectLandingRealtime,
+  onHealth: onLandingHealth,
+} = useLandingContent()
 
 const stats = computed(() =>
   landingStats.value.slice(0, 4).map(s => ({ value: s.value, label: s.label }))
@@ -291,16 +299,18 @@ unwatchTestimonials = watch(testimonials, (val) => {
   }
 }, { immediate: true })
 
+let unwatchHealth: (() => void) | null = null
+
 onMounted(() => {
   loadStats()
-  checkHealth()
-  healthTimer = setInterval(checkHealth, 60_000)
   connectLandingRealtime()
+  unwatchHealth = onLandingHealth(onHealthEvent)
 })
 
 onUnmounted(() => {
-  if (healthTimer) clearInterval(healthTimer)
+  if (healthTimeoutTimer) clearTimeout(healthTimeoutTimer)
   if (testimonialTimer) clearInterval(testimonialTimer)
+  unwatchHealth?.()
   disconnectLandingRealtime()
 })
 
