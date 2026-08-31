@@ -1,20 +1,23 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
-import { ProfessionalSubtype, ProfileStatus, ProfileType, Role } from '@prisma/client'
+import { BillingInterval, ProfessionalSubtype, ProfileStatus, ProfileType, Role } from '@prisma/client'
 import { ProfileActivationsService } from '../../domains/identity-access/profile-activations/profile-activations.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { RoleResolverService } from '../../common/account-type/role-resolver.service'
+import { PlansService } from '../../domains/money/plans/plans.service'
 
 describe('ProfileActivationsService', () => {
   let service: ProfileActivationsService
   let mockPrismaService: any
+  let mockPlansService: any
 
   const USER_ID = 'user-1'
   const ADMIN_ID = 'admin-1'
   const PROFILE_ID = 'profile-1'
   const CATEGORY_ID = 'cat-1'
+  const PLAN_ID = 'plan-1'
 
   function pendingProfile(overrides: Partial<any> = {}) {
     return {
@@ -35,6 +38,7 @@ describe('ProfileActivationsService', () => {
       user: { update: jest.fn(), findUnique: jest.fn().mockResolvedValue({ role: Role.NORMAL }) },
       userCategory: { findUnique: jest.fn() },
       userSubcategory: { findUnique: jest.fn() },
+      plan: { findUnique: jest.fn() },
       userProfile: {
         findFirst: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
@@ -54,6 +58,7 @@ describe('ProfileActivationsService', () => {
 
     const mockRedisService = { del: jest.fn() }
     const mockNotificationsService = { notifyProfileActivationReviewed: jest.fn().mockResolvedValue(undefined) }
+    mockPlansService = { activateSubscriptionForPlan: jest.fn().mockResolvedValue({ id: 'sub-1' }) }
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -62,6 +67,7 @@ describe('ProfileActivationsService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisService, useValue: mockRedisService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: PlansService, useValue: mockPlansService },
       ],
     }).compile()
 
@@ -123,6 +129,62 @@ describe('ProfileActivationsService', () => {
       } as any)
 
       expect(result.pendingCommerceName).toBeUndefined()
+    })
+
+    it('rechaza planId si el tipo no requiere aprobación (CUSTOMER/JOB_SEEKER)', async () => {
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(null)
+
+      await expect(
+        service.create(USER_ID, { type: ProfileType.CUSTOMER, planId: PLAN_ID } as any),
+      ).rejects.toBeInstanceOf(BadRequestException)
+    })
+
+    it('rechaza un plan inexistente', async () => {
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(null)
+      mockPrismaService.userCategory.findUnique.mockResolvedValue({ id: CATEGORY_ID })
+      mockPrismaService.plan.findUnique.mockResolvedValue(null)
+
+      await expect(
+        service.create(USER_ID, {
+          type: ProfileType.PROFESSIONAL,
+          subtype: ProfessionalSubtype.FREELANCER,
+          categoryId: CATEGORY_ID,
+          planId: PLAN_ID,
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException)
+    })
+
+    it('rechaza un plan forCommerce=true para un perfil PROFESSIONAL (incompatible)', async () => {
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(null)
+      mockPrismaService.userCategory.findUnique.mockResolvedValue({ id: CATEGORY_ID })
+      mockPrismaService.plan.findUnique.mockResolvedValue({ id: PLAN_ID, forCommerce: true, forFreelancer: false })
+
+      await expect(
+        service.create(USER_ID, {
+          type: ProfileType.PROFESSIONAL,
+          subtype: ProfessionalSubtype.FREELANCER,
+          categoryId: CATEGORY_ID,
+          planId: PLAN_ID,
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException)
+    })
+
+    it('guarda pendingPlanId y pendingPlanInterval cuando el plan es compatible', async () => {
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(null)
+      mockPrismaService.userProfile.create.mockImplementation(({ data }: any) => Promise.resolve(data))
+      mockPrismaService.userCategory.findUnique.mockResolvedValue({ id: CATEGORY_ID })
+      mockPrismaService.plan.findUnique.mockResolvedValue({ id: PLAN_ID, forCommerce: false, forFreelancer: true })
+
+      const result = await service.create(USER_ID, {
+        type: ProfileType.PROFESSIONAL,
+        subtype: ProfessionalSubtype.FREELANCER,
+        categoryId: CATEGORY_ID,
+        planId: PLAN_ID,
+        planInterval: BillingInterval.ANNUAL,
+      } as any)
+
+      expect(result.pendingPlanId).toBe(PLAN_ID)
+      expect(result.pendingPlanInterval).toBe(BillingInterval.ANNUAL)
     })
   })
 
@@ -276,6 +338,46 @@ describe('ProfileActivationsService', () => {
       await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.REJECTED, rejectionReason: 'No aplica' } as any)
 
       expect(mockPrismaService.user.update).not.toHaveBeenCalled()
+    })
+
+    it('activa la Subscription del pendingPlanId al aprobar', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ pendingPlanId: PLAN_ID, pendingPlanInterval: BillingInterval.ANNUAL }),
+      )
+      mockPrismaService.userProfile.findMany.mockResolvedValue([
+        { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+      ])
+
+      await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.ACTIVE } as any)
+
+      expect(mockPlansService.activateSubscriptionForPlan).toHaveBeenCalledWith(
+        mockPrismaService,
+        USER_ID,
+        PLAN_ID,
+        BillingInterval.ANNUAL,
+        ADMIN_ID,
+      )
+    })
+
+    it('no activa ninguna Subscription si la solicitud no tenía pendingPlanId', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(pendingProfile({ pendingPlanId: null }))
+      mockPrismaService.userProfile.findMany.mockResolvedValue([
+        { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+      ])
+
+      await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.ACTIVE } as any)
+
+      expect(mockPlansService.activateSubscriptionForPlan).not.toHaveBeenCalled()
+    })
+
+    it('no activa ninguna Subscription al rechazar, aunque haya pendingPlanId', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(pendingProfile({ pendingPlanId: PLAN_ID }))
+      mockPrismaService.userProfile.findMany.mockResolvedValue([])
+      mockPrismaService.userProfile.count.mockResolvedValue(0)
+
+      await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.REJECTED, rejectionReason: 'No aplica' } as any)
+
+      expect(mockPlansService.activateSubscriptionForPlan).not.toHaveBeenCalled()
     })
 
     it('rechaza revisar una solicitud que ya no está PENDING', async () => {

@@ -33,9 +33,11 @@ describe('TrackingService', () => {
       delivery: {
         findUnique: jest.fn(),
         findUniqueOrThrow: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
       },
       driver: {
+        findUnique: jest.fn(),
         update: jest.fn(),
       },
     };
@@ -65,6 +67,33 @@ describe('TrackingService', () => {
     }).compile();
 
     service = module.get<TrackingService>(TrackingService);
+  });
+
+  // ─── findMyActiveDeliveries (vista del repartidor) ──────────────────────
+
+  describe('findMyActiveDeliveries', () => {
+    it('returns active deliveries for the driver linked to this user', async () => {
+      mockPrismaService.driver.findUnique.mockResolvedValue({ id: 'driver-1', userId: 'driver-user-1' });
+      mockPrismaService.delivery.findMany.mockResolvedValue([{ id: 'delivery-1', status: DeliveryStatus.IN_TRANSIT }]);
+
+      const result = await service.findMyActiveDeliveries('driver-user-1');
+
+      expect(mockPrismaService.delivery.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ driverId: 'driver-1' }),
+        })
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it('returns an empty list when the user has no linked Driver profile', async () => {
+      mockPrismaService.driver.findUnique.mockResolvedValue(null);
+
+      const result = await service.findMyActiveDeliveries('random-user');
+
+      expect(result).toEqual([]);
+      expect(mockPrismaService.delivery.findMany).not.toHaveBeenCalled();
+    });
   });
 
   // ─── assertCanView (autorización) ────────────────────────────────────────
