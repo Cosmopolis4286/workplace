@@ -90,6 +90,7 @@ model User {
   ridesAsDriver           Ride[]                   @relation("RideDriver")
   reportsFiled            Report[]
   driverProfile           Driver?
+  deliveriesAsCustomer    Delivery[]
   profiles                UserProfile[]
   reviewedProfiles        UserProfile[]            @relation("UserProfileReviewer")
 
@@ -716,6 +717,14 @@ model Driver {
   // DriverGraceReminderScheduler). Null = aún no se avisó.
   graceReminderSentAt DateTime?
 
+  // Última posición GPS conocida (no histórico — ver TrackingService, que
+  // guarda el histórico corto en Redis con TTL, no en Postgres).
+  currentLat          Float?
+  currentLng          Float?
+  currentHeading      Float?
+  currentSpeed        Float?
+  locationUpdatedAt   DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -771,11 +780,35 @@ model Delivery {
   driver          Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
   commerceId      String
   commerce        Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+
+  // Cliente autenticado dueño de esta entrega, si se conoce (nullable: la
+  // mayoría de las entregas hoy se crean manualmente por el comercio desde
+  // pedidos por WhatsApp/teléfono, sin usuario de la plataforma asociado).
+  // Es el único campo que autoriza a un cliente a suscribirse al tracking en
+  // vivo de esta entrega — ver TrackingGateway.
+  customerUserId String?
+  customerUser   User?   @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
+
+  // Coordenadas de recogida/entrega. Nullable porque `deliveryAddress` sigue
+  // siendo el dato canónico (texto libre); las coordenadas son necesarias
+  // solo para poder trazar ruta/mapa/ETA y pueden faltar en entregas viejas
+  // o cargadas sin geocodificar.
+  pickupLat  Float?
+  pickupLng  Float?
+  destLat    Float?
+  destLng    Float?
+
+  // Se activa mientras el estado permite transmitir GPS en vivo (ver
+  // TrackingService.syncTrackingActive) y se apaga al finalizar/cancelar —
+  // corta la emisión WS y evita exponer ubicación fuera de ese período.
+  trackingActive Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([commerceId])
   @@index([driverId])
+  @@index([customerUserId])
   @@map("deliveries")
 }
 
