@@ -106,7 +106,7 @@ export const useNotifications = () => {
 
   // ── WebSocket: connect usando plugin ─────────────────────────────────────
   function connectWebSocket(commerceId: string) {
-    if (socketCommerceId === commerceId && $socketio.isConnected.value) return
+    if (socketCommerceId === commerceId && $socketio.isNamespaceConnected('/notifications')) return
 
     disconnectWebSocket()
     socketCommerceId = commerceId
@@ -134,7 +134,7 @@ export const useNotifications = () => {
   }
 
   function disconnectWebSocket() {
-    $socketio.disconnect()
+    $socketio.disconnect('/notifications')
     socketCommerceId = null
   }
 

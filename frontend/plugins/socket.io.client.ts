@@ -1,5 +1,11 @@
 // plugins/socket.io.client.ts
 // Plugin de Nuxt para Socket.IO - manejo global de WebSocket
+//
+// Soporta múltiples namespaces conectados en simultáneo (ej. /notifications
+// + /tracking), indexados por namespace. La API previa (un solo socket
+// implícito) se mantiene intacta para no romper useNotifications.ts: sin
+// namespace explícito, `socket`/`disconnect()` operan sobre el último
+// namespace conectado.
 
 import { io, Socket } from 'socket.io-client'
 import { computed, readonly, ref } from 'vue'
@@ -8,8 +14,9 @@ import type { InjectionKey, Ref } from 'vue'
 export interface SocketIOPlugin {
   socket: Socket | null
   connect: (namespace: string, options?: { token?: string; commerceId?: string }) => Socket
-  disconnect: () => void
+  disconnect: (namespace?: string) => void
   isConnected: Ref<boolean>
+  isNamespaceConnected: (namespace: string) => boolean
 }
 
 export const SocketIOKey: InjectionKey<SocketIOPlugin> = Symbol('socket.io')
@@ -20,69 +27,92 @@ export default defineNuxtPlugin(() => {
   // pero los namespaces de WebSocket cuelgan de la raíz del host, no de /api.
   const wsBase = (config.public.apiUrl as string).replace(/\/api\/?$/, '')
 
-  let socket: Socket | null = null
-  const isConnected = ref(false)
+  const sockets = new Map<string, Socket>()
+  const connectedNamespaces = ref<Set<string>>(new Set())
+  let lastNamespace: string | null = null
+
+  const isConnected = computed(() =>
+    lastNamespace ? connectedNamespaces.value.has(lastNamespace) : false
+  )
 
   const connect = (namespace: string, options: { token?: string; commerceId?: string } = {}) => {
-    // Desconectar socket anterior si existe
-    if (socket) {
-      socket.disconnect()
+    // Desconectar socket previo del MISMO namespace si existe (reconexión
+    // con credenciales nuevas), sin afectar otros namespaces activos.
+    const existing = sockets.get(namespace)
+    if (existing) {
+      existing.disconnect()
+      sockets.delete(namespace)
     }
 
-    // Crear nueva conexión
-    socket = io(`${wsBase}${namespace}`, {
+    const socket = io(`${wsBase}${namespace}`, {
       auth: { token: options.token },
       transports: ['websocket'],
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionAttempts: 5,
     })
-    
-    // Manejar eventos de conexión
+
     socket.on('connect', () => {
-      isConnected.value = true
+      connectedNamespaces.value = new Set(connectedNamespaces.value).add(namespace)
       console.log(`[Socket.IO] Connected to ${namespace}`)
-      
-      // Unirse a room del comercio si se proporcionó
+
       if (options.commerceId) {
-        socket?.emit('join', { commerceId: options.commerceId })
+        socket.emit('join', { commerceId: options.commerceId })
       }
     })
-    
+
     socket.on('disconnect', (reason) => {
-      isConnected.value = false
-      console.log(`[Socket.IO] Disconnected: ${reason}`)
+      const next = new Set(connectedNamespaces.value)
+      next.delete(namespace)
+      connectedNamespaces.value = next
+      console.log(`[Socket.IO] Disconnected from ${namespace}: ${reason}`)
     })
-    
+
     socket.on('connect_error', (err) => {
-      console.error('[Socket.IO] Connection error:', err.message)
+      console.error(`[Socket.IO] Connection error on ${namespace}:`, err.message)
     })
-    
+
+    sockets.set(namespace, socket)
+    lastNamespace = namespace
     return socket
   }
-  
-  const disconnect = () => {
+
+  const disconnect = (namespace?: string) => {
+    const target = namespace ?? lastNamespace
+    if (!target) return
+
+    const socket = sockets.get(target)
     if (socket) {
       socket.disconnect()
-      socket = null
-      isConnected.value = false
+      sockets.delete(target)
+    }
+    const next = new Set(connectedNamespaces.value)
+    next.delete(target)
+    connectedNamespaces.value = next
+
+    if (target === lastNamespace) {
+      lastNamespace = null
     }
   }
-  
+
+  const isNamespaceConnected = (namespace: string) => connectedNamespaces.value.has(namespace)
+
   // Limpiar al cerrar la pestaña - en plugin usamos beforeunload del window
   if (process.client) {
     window.addEventListener('beforeunload', () => {
-      disconnect()
+      sockets.forEach((s) => s.disconnect())
+      sockets.clear()
     })
   }
-  
+
   const plugin: SocketIOPlugin = {
-    socket: computed(() => socket),
+    socket: computed(() => (lastNamespace ? sockets.get(lastNamespace) ?? null : null)) as unknown as Socket | null,
     connect,
     disconnect,
-    isConnected: readonly(isConnected),
+    isConnected: readonly(isConnected) as unknown as Ref<boolean>,
+    isNamespaceConnected,
   }
-  
+
   return {
     provide: {
       socketio: plugin,
