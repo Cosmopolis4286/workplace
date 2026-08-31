@@ -85,15 +85,6 @@ export class PlansController {
     return this.plansService.selfSubscribe(user.id, dto);
   }
 
-  @Post('upgrade')
-  @UseGuards(JwtAuthGuard)
-  upgradePlan(
-    @Body() dto: { planId: string; categoryId: string; interval?: string },
-    @CurrentUser() user: { id: string; role: string }
-  ) {
-    return this.plansService.upgradePlan(user.id, dto);
-  }
-
   // ─── Admin endpoints ──────────────────────────────────────────────────────
 
   @Get('stats')

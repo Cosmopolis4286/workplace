@@ -10,7 +10,7 @@ import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
-import { SubscriptionStatus, KycStatus, BillingInterval, ProfileType, ProfessionalSubtype, ProfileStatus } from '@prisma/client';
+import { Prisma, SubscriptionStatus, KycStatus, BillingInterval, ProfileType, ProfessionalSubtype, ProfileStatus } from '@prisma/client';
 import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 
@@ -267,6 +267,47 @@ export class PlansService {
     });
   }
 
+  // Activa (crea) la Subscription de un plan al aprobar una solicitud de
+  // perfil (ProfileActivationsService.review()) — mismo cálculo de vigencia
+  // que approveSubscription()/selfSubscribe(), reutilizado para no bifurcar
+  // "cómo se activa un plan" en un tercer lugar. Recibe `tx` porque debe
+  // correr dentro de la misma transacción que activa el UserProfile: si
+  // cualquiera de las dos escrituras falla, ninguna debe persistir.
+  async activateSubscriptionForPlan(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    planId: string,
+    interval: BillingInterval,
+    adminId: string,
+  ) {
+    const plan = await tx.plan.findUnique({ where: { id: planId } });
+    if (!plan) throw new NotFoundException('Plan no encontrado');
+
+    await tx.subscription.updateMany({
+      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+      data: { status: 'CANCELLED' },
+    });
+
+    const startAt = new Date();
+    const endAt = new Date(startAt);
+    if (interval === 'ANNUAL') endAt.setFullYear(endAt.getFullYear() + 1);
+    else endAt.setMonth(endAt.getMonth() + 1);
+
+    return tx.subscription.create({
+      data: {
+        userId,
+        planId,
+        status: 'ACTIVE',
+        interval,
+        startAt,
+        endAt,
+        pricePaid: plan.price,
+        assignedBy: adminId,
+      },
+      include: { plan: true },
+    });
+  }
+
   async getMySubscription(userId: string) {
     const [subscription, pendingSubscription] = await Promise.all([
       this.prisma.subscription.findFirst({
@@ -323,58 +364,6 @@ export class PlansService {
     if (plan.forCommerce) return 'COMMERCE';
     if (plan.forFreelancer) return 'FREELANCER';
     return null;
-  }
-
-  async upgradePlan(userId: string, dto: { planId: string; categoryId: string; interval?: string }) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('Usuario no encontrado');
-
-    const plan = await this.prisma.plan.findUnique({ where: { id: dto.planId } });
-    if (!plan) throw new NotFoundException('Plan no encontrado');
-
-    const targetRole = this.getTargetRole(plan);
-    if (!targetRole) throw new ConflictException('El plan seleccionado no permite cambio de rol');
-
-    // Verify category exists
-    const category = await this.prisma.userCategory.findUnique({ where: { id: dto.categoryId } });
-    if (!category) throw new NotFoundException('Categoría no encontrada');
-
-    // Ya tiene una solicitud pendiente
-    const existingPending = await this.prisma.subscription.findFirst({
-      where: { userId, status: 'PENDING' },
-    });
-    if (existingPending) {
-      throw new ConflictException('Ya tienes una solicitud de upgrade pendiente de aprobación');
-    }
-
-    // Asignar la categoría desde ya, pero el rol se mantiene sin cambios
-    // hasta que un admin apruebe la solicitud.
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { categoryId: dto.categoryId },
-    });
-    await this.redis.del(userFindByIdCacheKey(userId));
-
-    const subscription = await this.prisma.subscription.create({
-      data: {
-        userId,
-        planId: dto.planId,
-        status: 'PENDING',
-        interval: (dto.interval === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY') as any,
-        pricePaid: plan.price,
-        assignedBy: userId,
-      },
-      include: { plan: true },
-    });
-
-    // Return updated user profile + subscription
-    const updatedUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { commerce: true },
-    });
-    const { password: _, ...userResult } = updatedUser as any;
-
-    return { user: userResult, subscription, targetRole };
   }
 
   async approveSubscription(id: string, adminId: string) {
