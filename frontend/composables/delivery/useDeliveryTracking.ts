@@ -1,4 +1,5 @@
 import { useApi } from '../core/useApi'
+import { useSocketIO } from '../../plugins/socket.io.client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // Reflejan TrackingSnapshot / LocationSnapshot del backend
@@ -49,7 +50,7 @@ const TRACKABLE_STATUSES = new Set(['ASSIGNED', 'PICKING_UP', 'IN_TRANSIT'])
 // el backend (TrackingService.assertCanView) — este composable no decide
 // quién puede ver qué, solo consume lo que el backend ya autorizó.
 export function useDeliveryTracking(deliveryId: string) {
-  const { $socketio } = useNuxtApp()
+  const $socketio = useSocketIO()
   const { token } = useAuth()
   const { get } = useApi()
 

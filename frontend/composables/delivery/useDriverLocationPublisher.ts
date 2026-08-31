@@ -4,6 +4,8 @@
 // innecesario — el backend igual descarta silenciosamente cualquier update
 // que no cumpla el umbral, esto solo evita mandarlo desde el origen.
 
+import { useSocketIO } from '../../plugins/socket.io.client'
+
 const MIN_DISTANCE_METERS = 15
 const MIN_INTERVAL_MS = 4000
 
@@ -19,7 +21,7 @@ function haversineMeters(a: { lat: number; lng: number }, b: { lat: number; lng:
 }
 
 export function useDriverLocationPublisher(deliveryId: string) {
-  const { $socketio } = useNuxtApp()
+  const $socketio = useSocketIO()
   const { token } = useAuth()
 
   const active = ref(false)

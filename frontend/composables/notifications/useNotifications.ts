@@ -1,5 +1,6 @@
 import type { Socket } from 'socket.io-client'
 import { useApi } from '../core/useApi'
+import { useSocketIO } from '../../plugins/socket.io.client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ let socketCommerceId: string | null = null
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export const useNotifications = () => {
-  const { $socketio } = useNuxtApp()
+  const $socketio = useSocketIO()
   const { token } = useAuth()
   const { get, patch, del } = useApi()
 
