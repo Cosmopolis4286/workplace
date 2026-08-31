@@ -1,0 +1,41 @@
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { TrackingService } from './tracking.service';
+import { TrackingGateway } from './tracking.gateway';
+import { UpdateLocationDto } from './dto/update-location.dto';
+
+// Sin @RequireAccountType a propósito: a diferencia de DeliveryController
+// (100% comercio), este endpoint también lo consume el cliente final y el
+// repartidor — la autorización real es por-entrega, vía
+// TrackingService.assertCanView/publishLocation, no por tipo de cuenta.
+@Controller('delivery')
+@UseGuards(JwtAuthGuard)
+export class TrackingController {
+  constructor(
+    private readonly trackingService: TrackingService,
+    private readonly trackingGateway: TrackingGateway
+  ) {}
+
+  // Fetch inicial (posición actual + ruta + ETA) antes de conectar el WS.
+  @Get(':id/tracking')
+  async getSnapshot(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    await this.trackingService.assertCanView(id, user.id);
+    return this.trackingService.getSnapshot(id);
+  }
+
+  // Alternativa HTTP a el evento WS driver:location — mismo throttling y
+  // misma autorización (solo el driver asignado, y solo si trackingActive).
+  @Post(':id/location')
+  async publishLocation(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() dto: UpdateLocationDto
+  ) {
+    const { accepted, snapshot } = await this.trackingService.publishLocation(id, user.id, dto);
+    if (accepted) {
+      this.trackingGateway.emitLocationUpdate(id, snapshot);
+    }
+    return { accepted, snapshot };
+  }
+}
