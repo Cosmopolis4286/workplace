@@ -8,9 +8,17 @@ import { NotificationsModule } from '../../engagement/notifications/notification
 import { TelegramModule } from '../../engagement/telegram/telegram.module';
 import { MailModule } from '../../engagement/mail/mail.module';
 import { ReputationModule } from '../../reputation/reputation.module';
+import { TrackingModule } from './tracking/tracking.module';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, TelegramModule, MailModule, ReputationModule],
+  imports: [
+    PrismaModule,
+    NotificationsModule,
+    TelegramModule,
+    MailModule,
+    ReputationModule,
+    TrackingModule,
+  ],
   controllers: [DeliveryController, DriverInvitationsController],
   providers: [DeliveryService, DriverGraceReminderScheduler],
 })

@@ -25,6 +25,8 @@ import {
   KycStatus,
 } from '@prisma/client';
 import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
+import { TrackingService } from './tracking/tracking.service';
+import { TrackingGateway } from './tracking/tracking.gateway';
 
 const DRIVER_INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 const LEGACY_DRIVER_GRACE_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
@@ -46,6 +48,8 @@ export class DeliveryService {
     private readonly mail: MailService,
     private readonly i18n: I18nService,
     @Inject(REPUTATION_FACADE) private readonly reputation: ReputationFacade,
+    private readonly tracking: TrackingService,
+    private readonly trackingGateway: TrackingGateway,
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -603,6 +607,9 @@ export class DeliveryService {
       this.reputation.recalculate('DRIVER', delivery.driverId).catch(() => {});
     }
 
+    const trackingActive = await this.tracking.syncTrackingActive(deliveryId, status);
+    this.trackingGateway.emitStatusUpdate(deliveryId, status, trackingActive);
+
     this.notifications
       .notifyDeliveryStatusChange(commerceId, delivery.orderNumber, status)
       .catch(() => null);
@@ -669,6 +676,12 @@ export class DeliveryService {
         data: { status: DriverStatus.ON_DELIVERY },
       }),
     ]);
+
+    const trackingActive = await this.tracking.syncTrackingActive(
+      deliveryId,
+      DeliveryStatus.ASSIGNED
+    );
+    this.trackingGateway.emitStatusUpdate(deliveryId, DeliveryStatus.ASSIGNED, trackingActive);
 
     return delivery;
   }

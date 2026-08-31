@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsInt,
   Min,
+  Max,
   MaxLength,
   IsPositive,
 } from 'class-validator';
@@ -58,4 +59,32 @@ export class CreateDeliveryDto {
   @IsOptional()
   @IsEnum(DeliveryStatus)
   status?: DeliveryStatus;
+
+  @IsOptional()
+  @IsString()
+  customerUserId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  pickupLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  pickupLng?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  destLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  destLng?: number;
 }
