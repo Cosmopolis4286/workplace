@@ -8,6 +8,8 @@ import { NotificationsService } from '../../domains/engagement/notifications/not
 import { TelegramService } from '../../domains/engagement/telegram/telegram.service';
 import { MailService } from '../../domains/engagement/mail/mail.service';
 import { REPUTATION_FACADE } from '../../domains/reputation/reputation.facade';
+import { TrackingService } from '../../domains/operations/delivery/tracking/tracking.service';
+import { TrackingGateway } from '../../domains/operations/delivery/tracking/tracking.gateway';
 
 describe('DeliveryService — driver invitations & assignability', () => {
   let service: DeliveryService;
@@ -122,6 +124,14 @@ describe('DeliveryService — driver invitations & assignability', () => {
         {
           provide: REPUTATION_FACADE,
           useValue: { recalculate: jest.fn().mockResolvedValue(undefined), getScore: jest.fn().mockResolvedValue(null) },
+        },
+        {
+          provide: TrackingService,
+          useValue: { syncTrackingActive: jest.fn().mockResolvedValue(false) },
+        },
+        {
+          provide: TrackingGateway,
+          useValue: { emitStatusUpdate: jest.fn(), emitLocationUpdate: jest.fn() },
         },
       ],
     }).compile();
