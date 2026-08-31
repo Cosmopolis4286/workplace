@@ -1,10 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { KycStatus, ProfileStatus, ProfileType } from '@prisma/client';
+import { BillingInterval, KycStatus, ProfileStatus, ProfileType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
+import { PlansService } from '../../money/plans/plans.service';
 import { CreateProfileActivationDto } from './dto/create-profile-activation.dto';
 import { ReviewProfileActivationDto } from './dto/review-profile-activation.dto';
 
@@ -27,6 +28,7 @@ export class ProfileActivationsService {
     private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
     private readonly roleResolver: RoleResolverService,
+    private readonly plansService: PlansService,
   ) {}
 
   async getMine(userId: string) {
@@ -64,6 +66,18 @@ export class ProfileActivationsService {
       }
     }
 
+    // planId solo tiene sentido para tipos con aprobación (PROFESSIONAL/
+    // BUSINESS) — CUSTOMER/JOB_SEEKER no tienen plan de negocio asociado.
+    if (dto.planId) {
+      if (!REQUIRES_APPROVAL.includes(dto.type)) {
+        throw new BadRequestException('planId solo aplica a perfiles Profesional o Negocio');
+      }
+      const plan = await this.prisma.plan.findUnique({ where: { id: dto.planId } });
+      if (!plan) throw new BadRequestException('Plan inválido');
+      const compatible = dto.type === ProfileType.BUSINESS ? plan.forCommerce : plan.forFreelancer;
+      if (!compatible) throw new BadRequestException('El plan seleccionado no corresponde a este tipo de perfil');
+    }
+
     const needsApproval = REQUIRES_APPROVAL.includes(dto.type);
 
     return this.prisma.userProfile.create({
@@ -74,6 +88,8 @@ export class ProfileActivationsService {
         categoryId: dto.categoryId,
         subcategoryId: dto.subcategoryId,
         pendingCommerceName: dto.type === ProfileType.BUSINESS ? dto.commerceName : undefined,
+        pendingPlanId: dto.planId,
+        pendingPlanInterval: dto.planId ? (dto.planInterval ?? BillingInterval.MONTHLY) : undefined,
         status: needsApproval ? ProfileStatus.PENDING : ProfileStatus.ACTIVE,
       },
     });
@@ -166,6 +182,22 @@ export class ProfileActivationsService {
       // leyendo User.role — sería un callejón sin salida silencioso.
       if (profile.type === ProfileType.BUSINESS || profile.type === ProfileType.PROFESSIONAL) {
         await this.roleResolver.syncRoleForUser(profile.userId, tx);
+      }
+
+      // Activa el plan elegido al solicitar el perfil (si lo hubo) — mismo
+      // helper que usa PlansService.approveSubscription() para un upgrade de
+      // plan de un PROFESIONAL ya existente. Este es el único punto donde
+      // un plan pago queda ACTIVE tras un alta de identidad: antes vivía en
+      // PlansService.upgradePlan() (eliminado), como una segunda solicitud
+      // paralela que un admin revisaba por separado.
+      if (dto.status === ProfileStatus.ACTIVE && profile.pendingPlanId) {
+        await this.plansService.activateSubscriptionForPlan(
+          tx,
+          profile.userId,
+          profile.pendingPlanId,
+          profile.pendingPlanInterval ?? BillingInterval.MONTHLY,
+          reviewerId,
+        );
       }
 
       // Crea el Commerce real al aprobar — sin esto, el usuario quedaba con

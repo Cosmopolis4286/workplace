@@ -1,5 +1,5 @@
 import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from 'class-validator';
-import { ProfessionalSubtype, ProfileType } from '@prisma/client';
+import { BillingInterval, ProfessionalSubtype, ProfileType } from '@prisma/client';
 
 export class CreateProfileActivationDto {
   @IsEnum(ProfileType)
@@ -31,4 +31,16 @@ export class CreateProfileActivationDto {
   @IsString()
   @MaxLength(1000)
   message?: string;
+
+  // Plan elegido por el solicitante — solo aplica a PROFESSIONAL/BUSINESS.
+  // Se guarda en UserProfile.pendingPlanId y se activa como Subscription al
+  // aprobar (ver ProfileActivationsService.review()). Único punto de entrada
+  // para "quiero ser Profesional/Negocio" — reemplaza POST /plans/upgrade.
+  @ValidateIf((dto) => !!dto.planId)
+  @IsUUID(undefined, { message: 'planId debe ser un UUID válido' })
+  planId?: string;
+
+  @IsOptional()
+  @IsEnum(BillingInterval)
+  planInterval?: BillingInterval;
 }

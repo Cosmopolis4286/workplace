@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { ProfileActivationsController } from './profile-activations.controller';
 import { ProfileActivationsService } from './profile-activations.service';
 import { NotificationsModule } from '../../engagement/notifications/notifications.module';
+import { PlansModule } from '../../money/plans/plans.module';
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, PlansModule],
   controllers: [ProfileActivationsController],
   providers: [ProfileActivationsService],
   exports: [ProfileActivationsService],
