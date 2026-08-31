@@ -123,6 +123,10 @@
                   </div>
                   <div class="text-xs text-gray-500">{{ profile.reviewsCount }} reseñas</div>
                 </button>
+                <div>
+                  <ReputationBadge entity-type="PROFESSIONAL" :entity-id="profile.id" />
+                  <div class="text-xs text-gray-500">WorkPlace Score</div>
+                </div>
                 <div v-if="profile.avgResponseHours != null">
                   <div class="text-xl font-bold text-gray-900">{{ formatResponseTime(profile.avgResponseHours) }}</div>
                   <div class="text-xs text-gray-500">tiempo de respuesta</div>

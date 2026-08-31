@@ -67,6 +67,7 @@
                     {{ store.avgRating.toFixed(1) }}
                     <span class="text-gray-400 font-normal">({{ store.reviewsCount }})</span>
                   </span>
+                  <ReputationBadge entity-type="COMMERCE" :entity-id="store.id" />
                   <span v-if="store.address" class="flex items-center gap-1">
                     <MapPinIcon class="h-4 w-4" />
                     {{ store.address }}
