@@ -227,6 +227,7 @@ model Commerce {
   notifications     Notification[]
   employees         Employee[]
   branches          Branch[]
+  suppliers         Supplier[]
   stockSnapshots    ProductStockSnapshot[]
   cashSessions      CashSession[]
   cashMovements     CashMovement[]
@@ -1425,6 +1426,39 @@ model Branch {
   @@unique([name, commerceId])
   @@index([commerceId])
   @@map("branches")
+}
+
+// ─── Suppliers (proveedores B2B del comercio) ──────────────────────────────────
+//
+// Cierra el hueco de "Proveedores" del MVP de Commerce (ver diagnóstico
+// WORKPLACE_STATUS_FEEDBACK.md). v1 deliberadamente simple: solo el
+// directorio de contactos del comercio, sin SupplierOrder (compra B2B) ni
+// vínculo al ecosistema — Expense.supplier sigue siendo texto libre, no se
+// migra a esta entidad todavía (ese vínculo es un paso futuro, no bloqueante).
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Supplier {
+  id          String         @id @default(uuid())
+  name        String
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  category    String?
+  notes       String?
+  status      SupplierStatus @default(ACTIVE)
+  commerceId  String
+  commerce    Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([name, commerceId])
+  @@index([commerceId])
+  @@map("suppliers")
 }
 
 // ─── Social / Profiles ────────────────────────────────────────────────────────
