@@ -6,6 +6,7 @@ import { NotificationsService } from '../../domains/engagement/notifications/not
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
 import { TelegramService } from '../../domains/engagement/telegram/telegram.service'
 import { PLATFORM_FEES_FACADE } from '../../domains/money/platform-fees/platform-fees.facade'
+import { REPUTATION_FACADE } from '../../domains/reputation/reputation.facade'
 import { OrderStatus } from '@prisma/client'
 import { CreateOrderDto } from '../../domains/operations/orders/dto/create-order.dto'
 import { UpdateOrderDto } from '../../domains/operations/orders/dto/update-order.dto'
@@ -66,6 +67,11 @@ describe('OrdersService', () => {
     chargeProviderFee: jest.fn().mockResolvedValue(undefined),
   }
 
+  const mockReputationService = {
+    recalculate: jest.fn().mockResolvedValue(undefined),
+    getScore: jest.fn().mockResolvedValue(null),
+  }
+
   beforeEach(async () => {
     jest.clearAllMocks()
 
@@ -95,6 +101,10 @@ describe('OrdersService', () => {
         {
           provide: PLATFORM_FEES_FACADE,
           useValue: mockPlatformFeesService,
+        },
+        {
+          provide: REPUTATION_FACADE,
+          useValue: mockReputationService,
         },
       ],
     }).compile()

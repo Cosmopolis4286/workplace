@@ -7,6 +7,7 @@ import { CommerceResolverService } from '../../common/commerce-resolver/commerce
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { TelegramService } from '../../domains/engagement/telegram/telegram.service';
 import { MailService } from '../../domains/engagement/mail/mail.service';
+import { REPUTATION_FACADE } from '../../domains/reputation/reputation.facade';
 
 describe('DeliveryService — driver invitations & assignability', () => {
   let service: DeliveryService;
@@ -118,6 +119,10 @@ describe('DeliveryService — driver invitations & assignability', () => {
         { provide: TelegramService, useValue: {} },
         { provide: MailService, useValue: mockMailService },
         { provide: I18nService, useValue: mockI18nService },
+        {
+          provide: REPUTATION_FACADE,
+          useValue: { recalculate: jest.fn().mockResolvedValue(undefined), getScore: jest.fn().mockResolvedValue(null) },
+        },
       ],
     }).compile();
 

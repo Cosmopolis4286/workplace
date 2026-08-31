@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../domains/money/platform-fees/platform-fees.facade';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade';
+import { ReputationFacade, REPUTATION_FACADE } from '../../domains/reputation/reputation.facade';
 import { WalletsService, InsufficientEscrowFundsError } from '../../domains/money/wallets/wallets.service';
 
 describe('ServicesService — service request status transitions', () => {
@@ -14,6 +15,7 @@ describe('ServicesService — service request status transitions', () => {
   let mockPlatformFeesService: Partial<PlatformFeesFacade>;
   let mockPlanLimitsService: Partial<PlanLimitsFacade>;
   let mockWalletsService: Partial<WalletsService>;
+  let mockReputationService: Partial<ReputationFacade>;
 
   function baseRequest(overrides: Partial<any> = {}) {
     return {
@@ -87,6 +89,11 @@ describe('ServicesService — service request status transitions', () => {
       refundEscrow: jest.fn().mockResolvedValue({ transaction: {} }),
     };
 
+    mockReputationService = {
+      recalculate: jest.fn().mockResolvedValue(undefined),
+      getScore: jest.fn().mockResolvedValue(null),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ServicesService,
@@ -95,6 +102,7 @@ describe('ServicesService — service request status transitions', () => {
         { provide: PLATFORM_FEES_FACADE, useValue: mockPlatformFeesService },
         { provide: PLAN_LIMITS_FACADE, useValue: mockPlanLimitsService },
         { provide: WalletsService, useValue: mockWalletsService },
+        { provide: REPUTATION_FACADE, useValue: mockReputationService },
       ],
     }).compile();
 
