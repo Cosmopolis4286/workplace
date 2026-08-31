@@ -282,6 +282,19 @@ model UserProfile {
   // casualidad tocara /menu (el único call site con auto-creación).
   pendingCommerceName String?
 
+  // Solo aplica a PROFESSIONAL/BUSINESS: plan elegido por el solicitante al
+  // pedir el perfil, antes de existir un Commerce/Subscription. Al aprobar,
+  // review() activa (o crea) la Subscription correspondiente con este plan
+  // — mismo dato que antes se perdía al pasar por /plans/upgrade sin dejar
+  // rastro en UserProfile.
+  // onDelete: SetNull (no Restrict, a diferencia de Subscription.plan) —
+  // esta referencia es solo una intención mientras la solicitud está
+  // PENDING, no debe bloquear el borrado de un Plan por una fila que aún
+  // no se materializó en una Subscription real.
+  pendingPlanId       String?
+  pendingPlan         Plan?            @relation(fields: [pendingPlanId], references: [id], onDelete: SetNull)
+  pendingPlanInterval BillingInterval?
+
   rejectionReason String?
   reviewedBy      String?
   reviewer        User?     @relation("UserProfileReviewer", fields: [reviewedBy], references: [id])
@@ -306,6 +319,7 @@ model UserProfile {
   @@index([type, status])
   @@index([categoryId])
   @@index([subcategoryId])
+  @@index([pendingPlanId])
   @@map("user_profiles")
 }
 
@@ -2218,8 +2232,9 @@ model Plan {
   // Módulos habilitados — valores coinciden con Permission.module del seed
   enabledModules String[] @default([])
 
-  subscriptions Subscription[]
-  feeOverrides  PlatformFeeOverride[]
+  subscriptions      Subscription[]
+  feeOverrides       PlatformFeeOverride[]
+  pendingForProfiles UserProfile[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
