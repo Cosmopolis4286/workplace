@@ -17,6 +17,15 @@ export class TrackingController {
     private readonly trackingGateway: TrackingGateway
   ) {}
 
+  // Entregas activas asignadas al driver vinculado al usuario logueado — la
+  // "app del repartidor". Prefijo /driver/ (no /:id) a propósito: evita que
+  // Nest la confunda con GET /delivery/:id de DeliveryController, registrado
+  // antes en el árbol de módulos.
+  @Get('driver/my-deliveries')
+  async myDeliveries(@CurrentUser() user: { id: string }) {
+    return this.trackingService.findMyActiveDeliveries(user.id);
+  }
+
   // Fetch inicial (posición actual + ruta + ETA) antes de conectar el WS.
   @Get(':id/tracking')
   async getSnapshot(@CurrentUser() user: { id: string }, @Param('id') id: string) {

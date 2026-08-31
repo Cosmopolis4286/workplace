@@ -65,6 +65,23 @@ export class TrackingService {
     private readonly routing: RoutingService
   ) {}
 
+  // ─── Vista del repartidor ───────────────────────────────────────────────
+  // Entregas activas asignadas al Driver vinculado a este usuario. No exige
+  // trackingActive=true (ASSIGNED recién asignada también debe verse, para
+  // que el repartidor pueda actuar) — solo excluye estados terminales.
+  async findMyActiveDeliveries(userId: string) {
+    const driver = await this.prisma.driver.findUnique({ where: { userId } });
+    if (!driver) return [];
+
+    return this.prisma.delivery.findMany({
+      where: {
+        driverId: driver.id,
+        status: { in: [DeliveryStatus.ASSIGNED, DeliveryStatus.PICKING_UP, DeliveryStatus.IN_TRANSIT] },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   // ─── Autorización ───────────────────────────────────────────────────────
   // Único punto de verdad de "quién puede ver el tracking de esta entrega":
   // el cliente dueño (customerUserId), el driver asignado (driver.userId),
