@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, Logger } from '@nestjs/common'
+import { Interval } from '@nestjs/schedule'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { RedisService } from '../../../redis/redis.service'
 import { LandingGateway } from './landing.gateway'
@@ -16,13 +17,46 @@ const CACHE_KEY_FEATURES = 'landing:features'
 const CACHE_KEY_STEPS = 'landing:steps'
 const CACHE_TTL = 3600 // 1 hour
 
+const DYNAMIC_STAT_POLL_MS = 5 * 60 * 1000 // 5 minutos
+
 @Injectable()
 export class LandingService {
+  private readonly logger = new Logger(LandingService.name)
+  private lastDynamicStatSnapshot: string | null = null
+
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
     private gateway: LandingGateway,
   ) {}
+
+  // El admin dispara broadcastUpdate('stats') al editar manualmente, pero las
+  // stats "dinámicas" (comercios, pedidos, etc.) cambian solas por actividad
+  // real de la plataforma — sin este poll, el hero/badge quedarían desactualizados
+  // hasta la próxima edición manual de un admin, que puede no llegar nunca.
+  @Interval(DYNAMIC_STAT_POLL_MS)
+  async pollDynamicStats() {
+    try {
+      const dbStats = await this.prisma.landingStat.findMany({
+        where: { isDynamic: true },
+        orderBy: { sortOrder: 'asc' },
+      })
+      const computed = await Promise.all(
+        dbStats.map(async (stat) => [stat.key, await this.computeDynamicStat(stat.key)] as const),
+      )
+      const snapshot = JSON.stringify(computed)
+
+      if (this.lastDynamicStatSnapshot !== null && snapshot !== this.lastDynamicStatSnapshot) {
+        await this.redis.del(CACHE_KEY_STATS)
+        this.gateway.broadcastUpdate('stats')
+      }
+      this.lastDynamicStatSnapshot = snapshot
+      this.gateway.broadcastHealth('up')
+    } catch (error) {
+      this.logger.error('pollDynamicStats failed:', error)
+      this.gateway.broadcastHealth('degraded')
+    }
+  }
 
   // ─── Public endpoints ──────────────────────────────────────────────────────
 
@@ -60,7 +94,12 @@ export class LandingService {
       dbStats.map(async (stat) => {
         if (!stat.isDynamic) return { key: stat.key, value: stat.value, label: stat.label }
         const computed = await this.computeDynamicStat(stat.key)
-        return { key: stat.key, value: computed ?? stat.value, label: stat.label }
+        return {
+          key: stat.key,
+          value: computed?.display ?? stat.value,
+          label: stat.label,
+          rawValue: computed?.raw,
+        }
       }),
     )
 
@@ -96,29 +135,33 @@ export class LandingService {
     return steps
   }
 
-  private async computeDynamicStat(key: string): Promise<string | null> {
+  // raw: valor numérico crudo, para que el frontend anime el conteo (count-up)
+  // sin tener que parsear el string ya formateado ("500+", "50k+", "4.9★").
+  private async computeDynamicStat(key: string): Promise<{ display: string; raw: number } | null> {
     switch (key) {
       case 'commerces': {
         const count = await this.prisma.commerce.count()
-        return count > 0 ? `${count}+` : null
+        return count > 0 ? { display: `${count}+`, raw: count } : null
       }
       case 'orders': {
         const count = await this.prisma.order.count()
-        return count > 1000 ? `${Math.floor(count / 1000)}k+` : `${count}+`
+        const display = count > 1000 ? `${Math.floor(count / 1000)}k+` : `${count}+`
+        return { display, raw: count }
       }
       case 'freelancers': {
         // role='FREELANCER' ya no existe (colapsado en PROFESIONAL) — la
         // distinción vive en UserProfile.
         const count = await this.prisma.userProfile.count({ where: { type: 'PROFESSIONAL', status: 'ACTIVE' } })
-        return `${count}+`
+        return { display: `${count}+`, raw: count }
       }
       case 'services': {
         const count = await this.prisma.serviceRequest.count({ where: { status: 'CLOSED' } })
-        return count > 1000 ? `${Math.floor(count / 1000)}k+` : `${count}+`
+        const display = count > 1000 ? `${Math.floor(count / 1000)}k+` : `${count}+`
+        return { display, raw: count }
       }
       case 'rating': {
         const result = await this.prisma.review.aggregate({ _avg: { rating: true }, _count: true })
-        return result._count > 0 ? `${result._avg.rating!.toFixed(1)}★` : null
+        return result._count > 0 ? { display: `${result._avg.rating!.toFixed(1)}★`, raw: result._avg.rating! } : null
       }
       default:
         return null

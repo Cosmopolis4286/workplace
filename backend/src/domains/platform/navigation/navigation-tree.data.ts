@@ -27,6 +27,12 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     order: 0,
     flat: true,
     items: [
+      // Sin permission/módulo a propósito — cualquier usuario autenticado
+      // (incluyendo NORMAL) puede buscar un servicio por lenguaje natural,
+      // igual que ya puede hacerlo manualmente desde /search. Base sin LLM
+      // del AI Agent orquestador (WORKPLACE_VISION.md §4/§16).
+      { id: 'ai-assistant', to: '/ai-assistant', label: 'Asistente IA', icon: 'ai_assistant', order: -1,
+        condition: { permission: null } },
       { id: 'dashboard', to: '/dashboard', label: 'Dashboard', icon: 'dashboard', order: 0,
         condition: { permission: 'dashboard:view' } },
       { id: 'menu', to: '/menu', label: 'Menú', icon: 'menu', order: 1,

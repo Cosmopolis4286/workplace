@@ -5,7 +5,7 @@ export type NavIconKey =
   | 'wallet' | 'sales' | 'analytics' | 'reports' | 'ventas_group' | 'ops_group'
   | 'empresa_group' | 'orders' | 'appointments' | 'customers' | 'profile'
   | 'home' | 'delivery' | 'employees' | 'jobs' | 'branches' | 'modules' | 'cash'
-  | 'opportunities';
+  | 'opportunities' | 'ai_assistant';
 
 export type BusinessAccountType = 'COMMERCE' | 'FREELANCER';
 
