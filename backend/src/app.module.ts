@@ -51,6 +51,7 @@ import { TelegramModule } from './domains/engagement/telegram/telegram.module';
 import { WalletsModule } from './domains/money/wallets/wallets.module'
 import { WalletDepositRequestsModule } from './domains/money/wallet-deposit-requests/wallet-deposit-requests.module';
 import { PlatformFeesModule } from './domains/money/platform-fees/platform-fees.module';
+import { ReputationModule } from './domains/reputation/reputation.module';
 import { SearchTabsModule } from './domains/commerce-core/search-tabs/search-tabs.module';
 import { SearchModule } from './domains/commerce-core/search/search.module';
 import { LandingModule } from './domains/platform/landing/landing.module';
@@ -132,6 +133,7 @@ import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orch
     ReportsModule,
     LocationsModule,
     AiOrchestratorModule,
+    ReputationModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },

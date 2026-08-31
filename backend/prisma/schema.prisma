@@ -2614,4 +2614,46 @@ model VeLocation {
   @@map("ve_locations")
 }
 
+// ─── Reputation Score ─────────────────────────────────────────────────────────
+//
+// Proyección de solo lectura, recalculada por ReputationService a partir de
+// transacciones ya validadas (Order/ServiceRequest/Delivery/Report) — nunca
+// escrita directo por un endpoint público. Mismo patrón que
+// Commerce.avgRating (ver ProfilesService.recalculateCommerceRating): una
+// fila por entidad, sobreescrita en cada evento relevante, no acumulada
+// como histórico.
+
+enum ReputationEntityType {
+  COMMERCE
+  PROFESSIONAL
+  DRIVER
+}
+
+model ReputationScore {
+  id         String               @id @default(uuid())
+  entityType ReputationEntityType
+  // Commerce.id | User.id (profesional) | Driver.id según entityType
+  entityId   String
+
+  // 0-100 redondeado — lo único que se expone hoy en UI pública.
+  score Int
+
+  // Desglose auditable de la fórmula (completionRate, cancellationRate,
+  // punctualityRate, disputeRate) — no se expone crudo en UI pública todavía,
+  // para no facilitar optimizar exactamente el mínimo por componente.
+  breakdown Json
+
+  // Denominador de confianza: cuántas operaciones sostienen este score. Todo
+  // consumidor (UI, matching, AI agent) debe tratar sampleSize bajo como
+  // "todavía sin suficiente historial", nunca como 0/100 real.
+  sampleSize Int
+
+  calculatedAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([entityType, score])
+  @@map("reputation_scores")
+}
+
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────
