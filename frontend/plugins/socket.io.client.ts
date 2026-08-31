@@ -21,6 +21,16 @@ export interface SocketIOPlugin {
 
 export const SocketIOKey: InjectionKey<SocketIOPlugin> = Symbol('socket.io')
 
+// La inferencia automática de Nuxt para $socketio (vía el genérico de
+// defineNuxtPlugin) no se resuelve en este proyecto ni con anotación de
+// retorno explícita ni con `declare module '#app'` en types/nuxt.d.ts —
+// afecta también a useNotifications.ts, que ya consumía este plugin con el
+// mismo problema antes de esta sesión. Cast centralizado en un único lugar
+// en vez de repetirlo en cada composable consumidor.
+export function useSocketIO(): SocketIOPlugin {
+  return (useNuxtApp() as unknown as { $socketio: SocketIOPlugin }).$socketio
+}
+
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
   // apiUrl incluye el prefijo REST '/api' (ej: http://localhost:3001/api),

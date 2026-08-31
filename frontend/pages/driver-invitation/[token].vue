@@ -110,7 +110,10 @@ async function handleAccept() {
   acceptError.value = null
   try {
     await acceptInvitation(token)
-    await navigateTo('/delivery')
+    // No a /delivery: esa vista es exclusiva del comercio
+    // (@RequireAccountType('COMMERCE')) y el repartidor recién vinculado no
+    // tiene ese account type — su propia vista es /my-deliveries.
+    await navigateTo('/my-deliveries')
   } catch (e: any) {
     acceptError.value = e?.message ?? 'No se pudo aceptar la invitación. Intenta de nuevo.'
   } finally {
