@@ -55,6 +55,39 @@
               <label class="block text-xs font-medium text-gray-700 mb-1">Notas</label>
               <textarea v-model="form.notes" rows="2" placeholder="Instrucciones especiales..." class="input-field resize-none" />
             </div>
+
+            <details class="border border-gray-200 rounded-lg p-3">
+              <summary class="text-xs font-medium text-gray-700 cursor-pointer select-none">
+                Seguimiento en vivo (opcional)
+              </summary>
+              <p class="text-xs text-gray-400 mt-2 mb-3">
+                Solo necesario si el cliente va a ver la ubicación del repartidor en tiempo real. Copia las coordenadas desde Google Maps (clic derecho sobre el punto → coordenadas).
+              </p>
+              <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Latitud recogida</label>
+                  <input v-model.number="form.pickupLat" type="number" step="any" placeholder="10.4806" class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Longitud recogida</label>
+                  <input v-model.number="form.pickupLng" type="number" step="any" placeholder="-66.9036" class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Latitud destino</label>
+                  <input v-model.number="form.destLat" type="number" step="any" placeholder="10.4906" class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Longitud destino</label>
+                  <input v-model.number="form.destLng" type="number" step="any" placeholder="-66.8936" class="input-field" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">ID de usuario del cliente</label>
+                <input v-model="form.customerUserId" placeholder="Solo si el cliente tiene cuenta en WorkPlace" class="input-field" />
+                <p class="text-xs text-gray-400 mt-1">Sin esto, el cliente no podrá ver el seguimiento aunque haya coordenadas.</p>
+              </div>
+            </details>
+
             <div class="flex gap-3 pt-2">
               <button type="button" class="btn-secondary flex-1" @click="$emit('close')">Cancelar</button>
               <button type="submit" class="btn-primary flex-1" :disabled="saving">

@@ -91,6 +91,15 @@ export interface Delivery {
   driverId?: string
   driver?: DeliveryDriver
   commerceId: string
+  // Tracking en vivo (ver TrackingService en el backend). Nullable/false por
+  // defecto: la mayoría de entregas no tienen coordenadas ni cliente
+  // vinculado todavía, así que nunca hay nada que trackear en vivo.
+  customerUserId?: string | null
+  pickupLat?: number | null
+  pickupLng?: number | null
+  destLat?: number | null
+  destLng?: number | null
+  trackingActive?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -142,6 +151,11 @@ export interface CreateDeliveryPayload {
   estimatedTime?: number
   driverId?: string
   status?: DeliveryStatus
+  customerUserId?: string
+  pickupLat?: number
+  pickupLng?: number
+  destLat?: number
+  destLng?: number
 }
 
 // ─── Status metadata ──────────────────────────────────────────────────────────

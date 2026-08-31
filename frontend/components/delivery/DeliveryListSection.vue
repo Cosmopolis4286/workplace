@@ -51,6 +51,17 @@
           </span>
         </div>
 
+        <!-- Seguimiento en vivo: solo si hay coordenadas + cliente vinculado y el backend activó trackingActive -->
+        <NuxtLink
+          v-if="delivery.trackingActive"
+          :to="`/delivery-tracking/${delivery.id}`"
+          target="_blank"
+          class="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700"
+        >
+          <MapPinIcon class="h-3.5 w-3.5" />
+          Ver seguimiento en vivo
+        </NuxtLink>
+
         <!-- Info -->
         <div class="space-y-1 text-xs text-gray-500">
           <div class="flex items-start gap-1.5">

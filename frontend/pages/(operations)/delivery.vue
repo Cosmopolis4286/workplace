@@ -192,20 +192,38 @@ const savingDelivery    = ref(false)
 const defaultDeliveryForm = (): CreateDeliveryPayload => ({
   orderNumber: '', customerName: '', customerPhone: '', deliveryAddress: '',
   notes: '', total: 0, deliveryFee: 0, estimatedTime: undefined, driverId: '',
+  customerUserId: '', pickupLat: undefined, pickupLng: undefined, destLat: undefined, destLng: undefined,
 })
 const deliveryForm = ref<CreateDeliveryPayload>(defaultDeliveryForm())
 
 function openNewDelivery() { editingDelivery.value = null; deliveryForm.value = defaultDeliveryForm(); showDeliveryModal.value = true }
 function openEditDelivery(d: Delivery) {
   editingDelivery.value = d
-  deliveryForm.value = { orderNumber: d.orderNumber, customerName: d.customerName, customerPhone: d.customerPhone ?? '', deliveryAddress: d.deliveryAddress, notes: d.notes ?? '', total: d.total, deliveryFee: d.deliveryFee, estimatedTime: d.estimatedTime, driverId: d.driverId ?? '' }
+  deliveryForm.value = {
+    orderNumber: d.orderNumber, customerName: d.customerName, customerPhone: d.customerPhone ?? '', deliveryAddress: d.deliveryAddress,
+    notes: d.notes ?? '', total: d.total, deliveryFee: d.deliveryFee, estimatedTime: d.estimatedTime, driverId: d.driverId ?? '',
+    customerUserId: d.customerUserId ?? '', pickupLat: d.pickupLat ?? undefined, pickupLng: d.pickupLng ?? undefined,
+    destLat: d.destLat ?? undefined, destLng: d.destLng ?? undefined,
+  }
   showDeliveryModal.value = true
 }
 function closeDeliveryModal() { showDeliveryModal.value = false; editingDelivery.value = null }
 async function saveDelivery() {
   savingDelivery.value = true
   try {
-    const payload = { ...deliveryForm.value, driverId: deliveryForm.value.driverId || undefined }
+    // Tracking en vivo requiere las 4 coordenadas juntas o ninguna — mandar
+    // solo pickup o solo destino no sirve para calcular ruta/ETA.
+    const hasFullRoute = deliveryForm.value.pickupLat != null && deliveryForm.value.pickupLng != null
+      && deliveryForm.value.destLat != null && deliveryForm.value.destLng != null
+    const payload = {
+      ...deliveryForm.value,
+      driverId: deliveryForm.value.driverId || undefined,
+      customerUserId: deliveryForm.value.customerUserId || undefined,
+      pickupLat: hasFullRoute ? deliveryForm.value.pickupLat : undefined,
+      pickupLng: hasFullRoute ? deliveryForm.value.pickupLng : undefined,
+      destLat: hasFullRoute ? deliveryForm.value.destLat : undefined,
+      destLng: hasFullRoute ? deliveryForm.value.destLng : undefined,
+    }
     if (editingDelivery.value) await updateDelivery(editingDelivery.value.id, payload)
     else await createDelivery(payload)
     closeDeliveryModal()
