@@ -38,6 +38,7 @@ export class ProfileActivationsService {
       include: {
         category: { select: { id: true, name: true, icon: true } },
         subcategory: { select: { id: true, name: true } },
+        pendingPlan: { select: { id: true, name: true, price: true, color: true } },
       },
     });
   }
@@ -130,6 +131,7 @@ export class ProfileActivationsService {
           user: { select: { id: true, firstName: true, lastName: true, email: true, role: true, kycStatus: true } },
           category: { select: { id: true, name: true, icon: true } },
           subcategory: { select: { id: true, name: true } },
+          pendingPlan: { select: { id: true, name: true, price: true, color: true } },
         },
       }),
       this.prisma.userProfile.count({ where: { status: ProfileStatus.PENDING } }),
