@@ -146,6 +146,18 @@
               >{{ selectedPlanObj && planTargetRole(selectedPlanObj) === 'FREELANCER' ? 'Freelancer' : 'Comercio' }}</span>
             </div>
           </div>
+
+          <div v-if="selectedPlanObj && planTargetRole(selectedPlanObj) === 'COMMERCE'" class="mt-4">
+            <label class="block text-xs font-semibold text-gray-700 mb-1.5">Nombre del negocio</label>
+            <input
+              v-model="commerceName"
+              type="text"
+              maxlength="120"
+              placeholder="Ej. Panadería El Trigal"
+              class="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red bg-white"
+            />
+          </div>
+
           <div class="mt-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 leading-relaxed">
             Al confirmar, tu solicitud quedará en revisión y un administrador deberá aprobarla antes de activar tu nuevo rol.
           </div>
@@ -192,7 +204,7 @@
         <button
           v-if="upgradeStep === 2"
           type="button"
-          :disabled="upgrading"
+          :disabled="upgrading || !!(selectedPlanObj && planTargetRole(selectedPlanObj) === 'COMMERCE' && !commerceName.trim())"
           class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
           @click="confirmUpgrade"
         >
@@ -212,6 +224,7 @@ import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useKyc } from '~/composables/kyc/useKyc'
 import { usePlans } from '~/composables/commerce/usePlans'
 import { useMoneyFormat } from '~/composables/core/useMoneyFormat'
+import { useProfileActivations } from '~/composables/users/useProfileActivations'
 
 export interface PricingPlan {
   id: string
@@ -250,6 +263,7 @@ const { fetchProfile } = useAuth()
 const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
 const { pendingSubscription, fetchMySubscription } = usePlans()
 const { formatPrice } = useMoneyFormat()
+const { create: createProfileActivation } = useProfileActivations()
 
 const categories    = ref<Category[]>([])
 const subcategories = ref<Subcategory[]>([])
@@ -260,6 +274,7 @@ const upgradeStep     = ref(0)
 const selectedCategory    = ref('')
 const selectedSubcategory = ref('')
 const selectedPlan    = ref('')
+const commerceName    = ref('')
 const catError        = ref('')
 const upgradeError     = ref('')
 const upgrading        = ref(false)
@@ -309,20 +324,32 @@ async function nextUpgradeStep() {
   }
 }
 
+// Único punto de entrada para "convertirme en freelancer o comercio":
+// crea/reutiliza el UserProfile PENDING vía profile-activations (misma
+// puerta que usa /profile → "Mis perfiles"), con el plan elegido adjunto
+// como pendingPlanId — se activa como Subscription real recién al aprobar
+// (ver ProfileActivationsService.review()). Reemplaza POST /plans/upgrade,
+// que creaba una segunda solicitud paralela sin relación con UserProfile.
 async function confirmUpgrade() {
   if (!selectedPlan.value || !selectedCategory.value) return
+  const targetRole = selectedPlanObj.value ? planTargetRole(selectedPlanObj.value) : null
+  if (!targetRole) return
+  if (targetRole === 'COMMERCE' && !commerceName.value.trim()) return
+
   upgradeError.value = ''
   upgrading.value = true
   try {
-    const { post } = useApi()
-    await post('/plans/upgrade', {
-      planId: selectedPlan.value,
+    await createProfileActivation({
+      type: targetRole === 'COMMERCE' ? 'BUSINESS' : 'PROFESSIONAL',
+      subtype: targetRole === 'FREELANCER' ? 'FREELANCER' : undefined,
       categoryId: selectedCategory.value,
-      interval: props.annual ? 'ANNUAL' : 'MONTHLY',
+      subcategoryId: selectedSubcategory.value || undefined,
+      commerceName: targetRole === 'COMMERCE' ? commerceName.value.trim() : undefined,
+      planId: selectedPlan.value,
+      planInterval: props.annual ? 'ANNUAL' : 'MONTHLY',
     })
 
     await fetchProfile()
-    await fetchMySubscription()
 
     upgradeStep.value = 3
     emit('completed')

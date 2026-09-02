@@ -34,12 +34,20 @@
     />
 
     <PendingSubscriptionBanner
-      v-if="(isNormalUser || canChangePlan) && pendingSubscription && wizardStep !== 3"
+      v-if="canChangePlan && pendingSubscription"
       :pending-subscription="pendingSubscription"
     />
 
+    <!-- Ya existe una solicitud de perfil (Profesional/Negocio) en revisión
+         vía /profile → "Mis perfiles" — mismo destino que este wizard, no
+         tiene sentido dejar abrir una segunda solicitud en paralelo. -->
+    <PendingProfileBanner
+      v-if="isNormalUser && pendingProfileActivation && wizardStep !== 3"
+      :pending-profile="pendingProfileActivation"
+    />
+
     <UpgradeWizard
-      v-if="isNormalUser && (!pendingSubscription || wizardStep === 3)"
+      v-if="isNormalUser && (!pendingProfileActivation || wizardStep === 3)"
       :plans="plans"
       :loading-plans="loadingPlans"
       :annual="annual"
@@ -89,11 +97,13 @@ import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import CurrentSubscriptionBanner from '~/components/pricing/CurrentSubscriptionBanner.vue'
 import PendingSubscriptionBanner from '~/components/pricing/PendingSubscriptionBanner.vue'
+import PendingProfileBanner from '~/components/pricing/PendingProfileBanner.vue'
 import UpgradeWizard, { type PricingPlan } from '~/components/pricing/UpgradeWizard.vue'
 import PlanCardsGrid from '~/components/pricing/PlanCardsGrid.vue'
 import PlanComparisonTable from '~/components/pricing/PlanComparisonTable.vue'
 import PricingFaq from '~/components/pricing/PricingFaq.vue'
 import { usePlans } from '~/composables/commerce/usePlans'
+import { useProfileActivations } from '~/composables/users/useProfileActivations'
 import { useConfirm } from '~/composables/ui/useConfirm'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 import { useMoneyFormat } from '~/composables/core/useMoneyFormat'
@@ -110,6 +120,7 @@ const { formatPrice } = useMoneyFormat()
 
 const { user, isAuthenticated, ensureSessionVerified } = useAuth()
 const { mySubscription, pendingSubscription, myPlan, fetchMySubscription, daysRemaining } = usePlans()
+const { mine: myProfileActivations, fetchMine: fetchMyProfileActivations } = useProfileActivations()
 
 // La sesión cacheada podría estar caducada (token expirado); confirmamos
 // contra el servidor antes de decidir qué layout/contenido mostrar.
@@ -127,11 +138,17 @@ const changePlanError = ref('')
 
 // Refleja el paso actual del UpgradeWizard, para decidir si mostrar el banner
 // de "solicitud pendiente" (se oculta mientras el wizard muestra su paso 3
-// de confirmación, aunque ya exista una pendingSubscription).
+// de confirmación, aunque ya exista una solicitud pendiente).
 const wizardStep = ref(0)
 
 const isNormalUser       = computed(() => isAuthenticated.value && user.value?.role === 'NORMAL')
 const canChangePlan      = computed(() => isAuthenticated.value && user.value?.role === 'PROFESIONAL')
+
+// Solicitud de "convertirme en Profesional/Negocio" ya en curso — mismo
+// destino que UpgradeWizard, vía /profile-activations (ver PendingProfileBanner).
+const pendingProfileActivation = computed(() =>
+  myProfileActivations.value.find(p => (p.type === 'PROFESSIONAL' || p.type === 'BUSINESS') && p.status === 'PENDING') ?? null
+)
 
 function currentPrice(plan: PricingPlan): number {
   if (annual.value && plan.priceAnnual) return plan.priceAnnual
@@ -182,6 +199,6 @@ async function changePlan(plan: PricingPlan) {
 onMounted(async () => {
   await loadPlans()
   if (canChangePlan.value) fetchMySubscription()
-  if (isNormalUser.value) fetchMySubscription()
+  if (isNormalUser.value) fetchMyProfileActivations()
 })
 </script>
