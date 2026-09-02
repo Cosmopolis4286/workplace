@@ -41,12 +41,17 @@
             <div v-if="item.category" class="flex justify-between"><dt class="text-gray-500">Categoría</dt><dd class="font-medium text-gray-900">{{ item.category?.icon }} {{ item.category?.name }}</dd></div>
             <div v-if="item.subcategory" class="flex justify-between"><dt class="text-gray-500">Subcategoría</dt><dd class="font-medium text-gray-900">{{ item.subcategory.name }}</dd></div>
             <div v-if="item.subtype" class="flex justify-between"><dt class="text-gray-500">Tipo</dt><dd class="font-medium text-gray-900">{{ item.subtype === 'FREELANCER' ? 'Freelancer' : 'Proveedor de servicios' }}</dd></div>
+            <div v-if="item.pendingPlan" class="flex justify-between"><dt class="text-gray-500">Plan solicitado</dt><dd class="font-medium text-gray-900">{{ item.pendingPlan.name }} ({{ item.pendingPlan.price === 0 ? 'Gratis' : `$${item.pendingPlan.price}` }})</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">Identidad verificada</dt>
               <dd class="font-medium" :class="item.user?.kycStatus === 'APPROVED' ? 'text-green-600' : 'text-amber-600'">
                 {{ item.user?.kycStatus === 'APPROVED' ? 'Sí' : 'No' }}
               </dd>
             </div>
           </dl>
+
+          <p v-if="item.pendingPlan" class="mt-3 text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+            Al aprobar, además de activar el perfil se activará la suscripción al plan "{{ item.pendingPlan.name }}".
+          </p>
         </div>
 
         <div v-if="rejectingId === item.id" class="px-6 pb-4">

@@ -48,6 +48,10 @@
           Motivo: {{ profileFor(type.value)?.rejectionReason }}
         </p>
 
+        <p v-if="profileFor(type.value)?.status === 'PENDING' && profileFor(type.value)?.pendingPlan" class="text-xs text-amber-700 mt-2">
+          Plan solicitado: {{ profileFor(type.value)?.pendingPlan?.name }}
+        </p>
+
         <!-- Formulario (solo tipos que requieren categoría) -->
         <form v-if="activatingType === type.value" @submit.prevent="submit(type.value)" class="mt-3 space-y-3 border-t border-gray-100 pt-3">
           <template v-if="type.requiresCategory">
@@ -99,6 +103,21 @@
                 required
               />
             </div>
+
+            <div v-if="form.categoryId">
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Plan <span class="font-normal text-gray-400">(opcional, puedes elegirlo después)</span></label>
+              <div v-if="loadingPlans" class="text-xs text-gray-400">Cargando planes…</div>
+              <select
+                v-else
+                v-model="form.planId"
+                class="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-workplace-red/20 focus:border-workplace-red bg-white"
+              >
+                <option value="">Sin plan por ahora</option>
+                <option v-for="plan in plansForType" :key="plan.id" :value="plan.id">
+                  {{ plan.name }} — {{ plan.price === 0 ? 'Gratis' : `$${plan.price}/mes` }}
+                </option>
+              </select>
+            </div>
           </template>
 
           <p v-if="submitError" class="text-xs text-red-600">{{ submitError }}</p>
@@ -134,7 +153,17 @@ const submitting = ref(false)
 const submitError = ref('')
 const categories = ref<{ id: string; name: string; icon?: string }[]>([])
 const subcategories = ref<{ id: string; name: string }[]>([])
-const form = ref({ categoryId: '', subcategoryId: '', subtype: '', commerceName: '' })
+const plans = ref<{ id: string; name: string; price: number; forCommerce?: boolean; forFreelancer?: boolean }[]>([])
+const loadingPlans = ref(false)
+const form = ref({ categoryId: '', subcategoryId: '', subtype: '', commerceName: '', planId: '' })
+
+// El plan mostrado depende del tipo de perfil que se está solicitando —
+// mismo criterio de compatibilidad que valida ProfileActivationsService.create().
+const plansForType = computed(() => {
+  if (activatingType.value === 'BUSINESS') return plans.value.filter(p => p.forCommerce)
+  if (activatingType.value === 'PROFESSIONAL') return plans.value.filter(p => p.forFreelancer)
+  return []
+})
 
 const PROFILE_TYPES: Array<{
   value: ProfileActivationType
@@ -183,17 +212,24 @@ async function loadCategories() {
 
 async function onCategoryChange() {
   form.value.subcategoryId = ''
+  form.value.planId = ''
   subcategories.value = []
   if (!form.value.categoryId) return
   try {
     subcategories.value = await apiGet(`/users/categories/${form.value.categoryId}/subcategories`)
   } catch { /* sin subcategorías es un caso válido */ }
+  loadingPlans.value = true
+  try {
+    plans.value = await apiGet(`/plans/public?categoryId=${form.value.categoryId}`)
+  } catch { /* elegir plan es opcional, no bloquea la solicitud */ }
+  finally { loadingPlans.value = false }
 }
 
 function startActivation(type: ProfileActivationType) {
   activatingType.value = type
   submitError.value = ''
-  form.value = { categoryId: '', subcategoryId: '', subtype: '', commerceName: '' }
+  form.value = { categoryId: '', subcategoryId: '', subtype: '', commerceName: '', planId: '' }
+  plans.value = []
 }
 
 function cancelActivation() {
@@ -211,6 +247,8 @@ async function submit(type: ProfileActivationType) {
       categoryId: form.value.categoryId || undefined,
       subcategoryId: form.value.subcategoryId || undefined,
       commerceName: type === 'BUSINESS' ? form.value.commerceName.trim() : undefined,
+      planId: form.value.planId || undefined,
+      planInterval: form.value.planId ? 'MONTHLY' : undefined,
     })
     activatingType.value = null
   } catch (e: any) {

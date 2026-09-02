@@ -12,6 +12,9 @@ export interface ProfileActivation {
   subcategoryId: string | null
   subcategory?: { id: string; name: string } | null
   pendingCommerceName: string | null
+  pendingPlanId: string | null
+  pendingPlan?: { id: string; name: string; price: number; color?: string } | null
+  pendingPlanInterval: 'MONTHLY' | 'ANNUAL' | null
   status: ProfileActivationStatus
   rejectionReason: string | null
   reviewedBy: string | null
@@ -42,6 +45,8 @@ export function useProfileActivations() {
     subcategoryId?: string
     commerceName?: string
     message?: string
+    planId?: string
+    planInterval?: 'MONTHLY' | 'ANNUAL'
   }): Promise<ProfileActivation> {
     const { post } = useApi()
     const result = await post<ProfileActivation>('/profile-activations', payload)
