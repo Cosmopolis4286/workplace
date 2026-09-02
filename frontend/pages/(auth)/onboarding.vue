@@ -70,6 +70,7 @@
             v-if="step === LAST_STEP"
             :category-obj="selectedCategoryObj"
             :plan-obj="selectedPlanObj"
+            :pending-approval="planPendingApproval"
           />
 
           <!-- Error -->
@@ -128,6 +129,7 @@ import { BoltIcon, ExclamationCircleIcon, ArrowRightIcon, LockClosedIcon } from 
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useProposedCategories } from '~/composables/admin/useProposedCategories'
+import { useProfileActivations } from '~/composables/users/useProfileActivations'
 import OnboardingStepIndicator from '~/components/onboarding/OnboardingStepIndicator.vue'
 import OnboardingBusinessStep from '~/components/onboarding/OnboardingBusinessStep.vue'
 import OnboardingSectorStep from '~/components/onboarding/OnboardingSectorStep.vue'
@@ -160,7 +162,7 @@ const OTHER = '__OTHER__'
 
 const categories      = ref<{ id: string; name: string; icon?: string }[]>([])
 const subcategories   = ref<{ id: string; name: string }[]>([])
-const plans           = ref<{ id: string; name: string; description?: string; price: number; color: string; isPopular: boolean; features?: string[] }[]>([])
+const plans           = ref<{ id: string; name: string; description?: string; price: number; color: string; isPopular: boolean; features?: string[]; forCommerce?: boolean; forFreelancer?: boolean }[]>([])
 const selectedCategory    = ref('')
 const selectedSubcategory = ref('')
 const otherCategoryText    = ref('')
@@ -171,6 +173,7 @@ const loadingPlans = ref(false)
 const saving       = ref(false)
 const catError     = ref('')
 const saveError    = ref('')
+const planPendingApproval = ref(false)
 
 const selectedCategoryObj = computed(() => categories.value.find(c => c.id === selectedCategory.value) ?? null)
 const selectedPlanObj     = computed(() => plans.value.find(p => p.id === selectedPlan.value) ?? null)
@@ -200,9 +203,10 @@ async function loadPlans() {
     const { get } = useApi()
     // El backend resuelve los planes visibles vía accountType real
     // (AccountTypeResolver, por userId) — `role` en este endpoint solo
-    // distingue NORMAL de otros, y en onboarding el usuario ya es
-    // PROFESIONAL, así que este valor no afecta el resultado.
-    const role = user.value?.role ?? 'PROFESIONAL'
+    // distingue NORMAL (ve planes de upgrade) de otros roles. La mayoría
+    // de quienes llegan a onboarding son NORMAL recién registrados sin
+    // accountType resuelto todavía (ver next(), step 2).
+    const role = user.value?.role ?? 'NORMAL'
     const catParam = selectedCategory.value && selectedCategory.value !== OTHER ? `&categoryId=${selectedCategory.value}` : ''
     plans.value = await get(`/plans/public?role=${role}${catParam}`)
   } catch { } finally { loadingPlans.value = false }
@@ -299,11 +303,43 @@ async function next() {
     finally { saving.value = false }
 
   } else if (step.value === 2) {
+    // Con categoría "Otra" (propuesta, aún sin aprobar por un admin) no hay
+    // categoryId real que mandar — profile-activations lo exige para
+    // PROFESSIONAL/BUSINESS. Se puede omitir el plan por ahora y elegirlo
+    // luego desde /profile, una vez que la categoría exista.
+    if (selectedPlan.value && !user.value?.accountType && selectedCategory.value === OTHER) {
+      saveError.value = 'Tu categoría está en revisión — podrás elegir un plan una vez que sea aprobada. Puedes continuar sin plan por ahora.'
+      return
+    }
     saving.value = true
     try {
       if (selectedPlan.value) {
-        const { post } = useApi()
-        await post('/plans/self-subscribe', { planId: selectedPlan.value, interval: 'MONTHLY' })
+        if (user.value?.accountType) {
+          // El usuario ya es PROFESIONAL con un UserProfile ACTIVE (alta
+          // directa, ej. administrativa) — esto es solo un cambio de plan,
+          // no un cambio de rol, así que self-subscribe sigue siendo
+          // correcto (activa gratis / deja PENDING de pago si es de paga).
+          const { post } = useApi()
+          await post('/plans/self-subscribe', { planId: selectedPlan.value, interval: 'MONTHLY' })
+        } else {
+          // Caso mayoritario: usuario NORMAL recién registrado, sin ningún
+          // UserProfile de negocio todavía. Elegir un plan aquí es pedir
+          // convertirse en Profesional/Negocio — mismo único punto de
+          // entrada que /pricing y /profile (ver ProfileActivationsService),
+          // no un atajo que activaba el plan sin aprobación ni KYC.
+          const targetType = selectedPlanObj.value?.forCommerce ? 'BUSINESS' : 'PROFESSIONAL'
+          const { create: createProfileActivation } = useProfileActivations()
+          await createProfileActivation({
+            type: targetType,
+            subtype: targetType === 'PROFESSIONAL' ? 'FREELANCER' : undefined,
+            categoryId: selectedCategory.value !== OTHER ? selectedCategory.value : undefined,
+            subcategoryId: selectedSubcategory.value && selectedSubcategory.value !== OTHER ? selectedSubcategory.value : undefined,
+            commerceName: targetType === 'BUSINESS' ? (businessName.value.trim() || 'Mi Negocio') : undefined,
+            planId: selectedPlan.value,
+            planInterval: 'MONTHLY',
+          })
+          planPendingApproval.value = true
+        }
         invalidateModules()
       }
       step.value = 3
@@ -349,6 +385,16 @@ onMounted(async () => {
     localStorage.setItem(COMPLETION_KEY(), 'true')
     await navigateTo('/dashboard')
     return
+  }
+
+  // accountType solo viene en GET /auth/me — tras login/register puede
+  // seguir undefined en el user cacheado. El step 2 depende de este valor
+  // para decidir entre self-subscribe (ya es PROFESIONAL) o
+  // profile-activations (NORMAL pidiendo convertirse) — sin refrescarlo,
+  // un accountType obsoleto elegiría el camino equivocado.
+  if (user.value?.accountType === undefined) {
+    const { fetchProfile } = useAuth()
+    await fetchProfile()
   }
 
   const savedStep = parseInt(localStorage.getItem(STORAGE_KEY()) ?? '', 10)

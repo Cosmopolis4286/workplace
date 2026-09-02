@@ -25,6 +25,10 @@
         </span>
       </div>
     </div>
+
+    <div v-if="pendingApproval" class="mb-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700 text-left leading-relaxed">
+      Tu solicitud para operar como negocio/profesional quedó pendiente de aprobación por un administrador. Te notificaremos cuando sea revisada — mientras tanto puedes explorar tu panel con tu cuenta actual.
+    </div>
   </div>
 </template>
 
@@ -34,5 +38,6 @@ import { CheckIcon } from '@heroicons/vue/24/outline'
 defineProps<{
   categoryObj: { id: string; name: string; icon?: string } | null
   planObj: { id: string; name: string; color: string } | null
+  pendingApproval?: boolean
 }>()
 </script>
