@@ -61,24 +61,16 @@
                 Seguimiento en vivo (opcional)
               </summary>
               <p class="text-xs text-gray-400 mt-2 mb-3">
-                Solo necesario si el cliente va a ver la ubicación del repartidor en tiempo real. Copia las coordenadas desde Google Maps (clic derecho sobre el punto → coordenadas).
+                Solo necesario si el cliente va a ver la ubicación del repartidor en tiempo real.
               </p>
-              <div class="grid grid-cols-2 gap-3 mb-3">
+              <div class="space-y-3 mb-3">
                 <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Latitud recogida</label>
-                  <input v-model.number="form.pickupLat" type="number" step="any" placeholder="10.4806" class="input-field" />
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Punto de recogida</label>
+                  <PlaceAutocomplete v-model="pickupPlace" placeholder="Busca la dirección del comercio..." show-geo />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Longitud recogida</label>
-                  <input v-model.number="form.pickupLng" type="number" step="any" placeholder="-66.9036" class="input-field" />
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Latitud destino</label>
-                  <input v-model.number="form.destLat" type="number" step="any" placeholder="10.4906" class="input-field" />
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Longitud destino</label>
-                  <input v-model.number="form.destLng" type="number" step="any" placeholder="-66.8936" class="input-field" />
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Punto de entrega</label>
+                  <PlaceAutocomplete v-model="destPlace" placeholder="Busca la dirección de entrega..." />
                 </div>
               </div>
               <div>
@@ -107,8 +99,9 @@ import {
   DRIVER_STATUS_LABELS, VEHICLE_LABELS,
   type Driver, type CreateDeliveryPayload,
 } from '~/composables/delivery/useDelivery'
+import type { PlaceSuggestion } from '~/composables/location/useNominatim'
 
-defineProps<{
+const props = defineProps<{
   show: boolean
   editing: boolean
   saving: boolean
@@ -120,4 +113,30 @@ defineEmits<{
   close: []
   submit: []
 }>()
+
+// Traduce entre las coordenadas planas del form (lo que el backend espera)
+// y el shape { label, lat, lng } que PlaceAutocomplete usa como v-model —
+// mismo componente de geocoding gratuito (Nominatim/OSM) que ya usa
+// RideRequestForm, reutilizado en vez de pedir lat/lng a mano.
+const pickupPlace = computed<PlaceSuggestion | null>({
+  get: () =>
+    props.form.pickupLat != null && props.form.pickupLng != null
+      ? { label: props.form.deliveryAddress || 'Punto de recogida', lat: props.form.pickupLat, lng: props.form.pickupLng }
+      : null,
+  set: (value) => {
+    props.form.pickupLat = value?.lat
+    props.form.pickupLng = value?.lng
+  },
+})
+
+const destPlace = computed<PlaceSuggestion | null>({
+  get: () =>
+    props.form.destLat != null && props.form.destLng != null
+      ? { label: props.form.customerName || 'Punto de entrega', lat: props.form.destLat, lng: props.form.destLng }
+      : null,
+  set: (value) => {
+    props.form.destLat = value?.lat
+    props.form.destLng = value?.lng
+  },
+})
 </script>

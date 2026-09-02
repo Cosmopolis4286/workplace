@@ -13,7 +13,9 @@ import type { InjectionKey, Ref } from 'vue'
 
 export interface SocketIOPlugin {
   socket: Socket | null
-  connect: (namespace: string, options?: { token?: string; commerceId?: string }) => Socket
+  // token acepta null porque useAuth().token es string | null (sin sesión
+  // aún resuelta) — los composables consumidores pasan ese valor directo.
+  connect: (namespace: string, options?: { token?: string | null; commerceId?: string }) => Socket
   disconnect: (namespace?: string) => void
   isConnected: Ref<boolean>
   isNamespaceConnected: (namespace: string) => boolean
@@ -45,7 +47,7 @@ export default defineNuxtPlugin(() => {
     lastNamespace ? connectedNamespaces.value.has(lastNamespace) : false
   )
 
-  const connect = (namespace: string, options: { token?: string; commerceId?: string } = {}) => {
+  const connect = (namespace: string, options: { token?: string | null; commerceId?: string } = {}) => {
     // Desconectar socket previo del MISMO namespace si existe (reconexión
     // con credenciales nuevas), sin afectar otros namespaces activos.
     const existing = sockets.get(namespace)
