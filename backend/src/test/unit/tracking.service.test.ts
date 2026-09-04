@@ -189,11 +189,12 @@ describe('TrackingService', () => {
       });
     });
 
-    it('deactivates tracking and clears the Redis snapshot on a terminal status', async () => {
+    it('deactivates tracking and clears the Redis location + route cache on a terminal status', async () => {
       mockPrismaService.delivery.findUnique.mockResolvedValue({ trackingActive: true });
       const result = await service.syncTrackingActive('delivery-1', DeliveryStatus.DELIVERED);
       expect(result).toBe(false);
       expect(mockRedisService.del).toHaveBeenCalledWith('tracking:delivery:delivery-1');
+      expect(mockRedisService.del).toHaveBeenCalledWith('tracking:route:delivery-1');
     });
 
     it('is a no-op when the value would not change', async () => {
@@ -219,8 +220,10 @@ describe('TrackingService', () => {
 
     it('uses the last known driver location as the route origin, not the pickup point, once en route', async () => {
       mockPrismaService.delivery.findUniqueOrThrow.mockResolvedValue(baseDelivery());
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({ lat: 10.487, lng: -66.892, recordedAt: new Date().toISOString() })
+      mockRedisService.get.mockImplementation((key: string) =>
+        key.startsWith('tracking:delivery:')
+          ? Promise.resolve(JSON.stringify({ lat: 10.487, lng: -66.892, recordedAt: new Date().toISOString() }))
+          : Promise.resolve(null)
       );
 
       await service.getSnapshot('delivery-1');
@@ -229,6 +232,71 @@ describe('TrackingService', () => {
         { lat: 10.487, lng: -66.892 },
         { lat: 10.49, lng: -66.89 },
         'MOTORCYCLE'
+      );
+    });
+
+    it('reuses the cached route when the driver has not drifted significantly from the cached origin', async () => {
+      mockPrismaService.delivery.findUniqueOrThrow.mockResolvedValue(baseDelivery());
+      const cachedOrigin = { lat: 10.487, lng: -66.892 };
+      mockRedisService.get.mockImplementation((key: string) => {
+        if (key.startsWith('tracking:delivery:')) {
+          return Promise.resolve(
+            JSON.stringify({ ...cachedOrigin, recordedAt: new Date().toISOString() })
+          );
+        }
+        if (key.startsWith('tracking:route:')) {
+          return Promise.resolve(
+            JSON.stringify({
+              origin: cachedOrigin,
+              route: { distanceMeters: 500, durationSeconds: 120, geometry: {}, provider: 'osrm' },
+            })
+          );
+        }
+        return Promise.resolve(null);
+      });
+
+      const snapshot = await service.getSnapshot('delivery-1');
+
+      expect(mockRoutingService.calculateRoute).not.toHaveBeenCalled();
+      expect(snapshot.route).toEqual(
+        expect.objectContaining({ distanceMeters: 500, durationSeconds: 120 })
+      );
+    });
+
+    it('recalculates the route when the driver drifted significantly from the cached origin', async () => {
+      mockPrismaService.delivery.findUniqueOrThrow.mockResolvedValue(baseDelivery());
+      // ~1.1km away from the cached origin — well past ROUTE_RECALC_DISTANCE_METERS (100m)
+      const currentLocation = { lat: 10.497, lng: -66.892 };
+      const cachedOrigin = { lat: 10.487, lng: -66.892 };
+      mockRedisService.get.mockImplementation((key: string) => {
+        if (key.startsWith('tracking:delivery:')) {
+          return Promise.resolve(
+            JSON.stringify({ ...currentLocation, recordedAt: new Date().toISOString() })
+          );
+        }
+        if (key.startsWith('tracking:route:')) {
+          return Promise.resolve(
+            JSON.stringify({
+              origin: cachedOrigin,
+              route: { distanceMeters: 500, durationSeconds: 120, geometry: {}, provider: 'osrm' },
+            })
+          );
+        }
+        return Promise.resolve(null);
+      });
+
+      const snapshot = await service.getSnapshot('delivery-1');
+
+      expect(mockRoutingService.calculateRoute).toHaveBeenCalledWith(
+        currentLocation,
+        { lat: 10.49, lng: -66.89 },
+        'MOTORCYCLE'
+      );
+      expect(snapshot.route).toEqual(expect.objectContaining({ distanceMeters: 800 }));
+      expect(mockRedisService.setex).toHaveBeenCalledWith(
+        'tracking:route:delivery-1',
+        expect.any(Number),
+        expect.any(String)
       );
     });
 

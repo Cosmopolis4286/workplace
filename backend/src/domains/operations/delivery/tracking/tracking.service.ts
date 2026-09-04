@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { DeliveryStatus } from '@prisma/client';
+import { DeliveryStatus, VehicleType } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisService } from '../../../../redis/redis.service';
 import { RoutingService } from '../routing/routing.service';
@@ -27,6 +27,19 @@ const LOCATION_TTL_SECONDS = 120;
 const MIN_DISTANCE_METERS = 15;
 const MIN_INTERVAL_MS = 4000;
 
+// TTL de la ruta cacheada (distinta del TTL de la posición). Aunque el
+// repartidor no se desvíe, una ruta calculada hace mucho puede haber
+// quedado desactualizada por tráfico/cambios en el mapa — se fuerza un
+// recálculo periódico igualmente, solo que mucho menos seguido que cada
+// fetch.
+const ROUTE_CACHE_TTL_SECONDS = 45;
+
+// No recalcular ruta si el repartidor sigue a menos de esto del punto desde
+// el que se calculó la ruta cacheada — evita llamar al proveedor de ruteo
+// (OSRM/Google) en cada fetch de snapshot cuando el repartidor está
+// prácticamente parado o se movió poco. Recalcula solo ante un desvío real.
+const ROUTE_RECALC_DISTANCE_METERS = 100;
+
 export interface LocationSnapshot {
   lat: number;
   lng: number;
@@ -34,6 +47,16 @@ export interface LocationSnapshot {
   heading?: number;
   speed?: number;
   recordedAt: string;
+}
+
+interface CachedRoute {
+  origin: { lat: number; lng: number };
+  route: {
+    distanceMeters: number;
+    durationSeconds: number;
+    geometry: unknown;
+    provider: string;
+  };
 }
 
 export interface TrackingSnapshot {
@@ -142,6 +165,7 @@ export class TrackingService {
 
     if (!shouldBeActive) {
       await this.redis.del(this.locationKey(deliveryId));
+      await this.redis.del(this.routeKey(deliveryId));
     }
 
     return shouldBeActive;
@@ -204,6 +228,43 @@ export class TrackingService {
     return `tracking:delivery:${deliveryId}`;
   }
 
+  private routeKey(deliveryId: string) {
+    return `tracking:route:${deliveryId}`;
+  }
+
+  // ─── Ruta con caché + recálculo solo ante desvío real ──────────────────
+  // Evita llamar al proveedor de ruteo (OSRM/Google) en cada fetch de
+  // snapshot: reusa la última ruta calculada mientras (a) siga vigente su
+  // TTL y (b) el repartidor no se haya desviado más de
+  // ROUTE_RECALC_DISTANCE_METERS desde el punto de origen con el que se
+  // calculó. Solo dispara una llamada real al proveedor cuando hace falta.
+  private async getOrRecalculateRoute(
+    deliveryId: string,
+    origin: { lat: number; lng: number },
+    destination: { lat: number; lng: number },
+    vehicleType: VehicleType
+  ): Promise<TrackingSnapshot['route']> {
+    const cached = await this.getCachedRoute(deliveryId);
+
+    if (cached) {
+      const driftMeters = haversineDistanceMeters(cached.origin, origin);
+      if (driftMeters < ROUTE_RECALC_DISTANCE_METERS) {
+        return cached.route;
+      }
+    }
+
+    const route = await this.routing.calculateRoute(origin, destination, vehicleType);
+    const toCache: CachedRoute = { origin, route };
+    await this.redis.setex(this.routeKey(deliveryId), ROUTE_CACHE_TTL_SECONDS, JSON.stringify(toCache));
+    return route;
+  }
+
+  private async getCachedRoute(deliveryId: string): Promise<CachedRoute | null> {
+    const raw = await this.redis.get(this.routeKey(deliveryId));
+    if (!raw) return null;
+    return JSON.parse(raw) as CachedRoute;
+  }
+
   // ─── Snapshot completo (fetch inicial antes de conectar el WS) ─────────
 
   async getSnapshot(deliveryId: string): Promise<TrackingSnapshot> {
@@ -229,12 +290,8 @@ export class TrackingService {
       const origin = location
         ? { lat: location.lat, lng: location.lng }
         : { lat: delivery.pickupLat!, lng: delivery.pickupLng! };
-      const result = await this.routing.calculateRoute(
-        origin,
-        { lat: delivery.destLat!, lng: delivery.destLng! },
-        delivery.driver.vehicleType
-      );
-      route = result;
+      const destination = { lat: delivery.destLat!, lng: delivery.destLng! };
+      route = await this.getOrRecalculateRoute(deliveryId, origin, destination, delivery.driver.vehicleType);
     }
 
     return {
