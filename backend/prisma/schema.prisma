@@ -229,6 +229,7 @@ model Commerce {
   employees         Employee[]
   branches          Branch[]
   suppliers         Supplier[]
+  purchases         Purchase[]
   stockSnapshots    ProductStockSnapshot[]
   cashSessions      CashSession[]
   cashMovements     CashMovement[]
@@ -591,6 +592,7 @@ model Product {
   isBundle        Boolean             @default(false)
   bundleItems     ProductBundleItem[] @relation("BundleComponents")
   partOfBundles   ProductBundleItem[] @relation("ComponentOf")
+  purchases       Purchase[]
   categoryId      String
   category        Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   subcategoryId   String?
@@ -733,11 +735,11 @@ model Driver {
 
   // Última posición GPS conocida (no histórico — ver TrackingService, que
   // guarda el histórico corto en Redis con TTL, no en Postgres).
-  currentLat          Float?
-  currentLng          Float?
-  currentHeading      Float?
-  currentSpeed        Float?
-  locationUpdatedAt   DateTime?
+  currentLat        Float?
+  currentLng        Float?
+  currentHeading    Float?
+  currentSpeed      Float?
+  locationUpdatedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -807,10 +809,10 @@ model Delivery {
   // siendo el dato canónico (texto libre); las coordenadas son necesarias
   // solo para poder trazar ruta/mapa/ETA y pueden faltar en entregas viejas
   // o cargadas sin geocodificar.
-  pickupLat  Float?
-  pickupLng  Float?
-  destLat    Float?
-  destLng    Float?
+  pickupLat Float?
+  pickupLng Float?
+  destLat   Float?
+  destLng   Float?
 
   // Se activa mientras el estado permite transmitir GPS en vivo (ver
   // TrackingService.syncTrackingActive) y se apaga al finalizar/cancelar —
@@ -1500,12 +1502,55 @@ model Supplier {
   status      SupplierStatus @default(ACTIVE)
   commerceId  String
   commerce    Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  purchases   Purchase[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
   @@unique([name, commerceId])
   @@index([commerceId])
   @@map("suppliers")
+}
+
+// Compra de inventario a un proveedor. Es la fuente de datos para el costo
+// de reposición (Business Shield, ver WORKPLACE_VISION.md) — sin este
+// registro no hay forma de distinguir "cuánto costó históricamente" de
+// "cuánto costaría reponer hoy". La tasa de cambio se guarda como snapshot
+// inmutable (no solo el FK a ExchangeRate) porque la tasa real cambia
+// después y el historial de esta compra no debe cambiar retroactivamente.
+model Purchase {
+  id         String    @id @default(uuid())
+  commerceId String
+  commerce   Commerce  @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  quantity Int
+  // Costo unitario en la moneda original de la compra (currencyCode).
+  unitCost Float
+
+  // Moneda en la que se pactó/pagó esta compra (código de ExchangeRate, ej. "USD", "VES").
+  currencyCode       String
+  // Snapshot inmutable de la tasa usada para calcular el equivalente en USD
+  // al momento de la compra — NO se recalcula si la tasa cambia después.
+  exchangeRateValue  Float
+  exchangeRateSource String? // "BCV_SCRAPING" | "MANUAL" | etc., informativo
+
+  // unitCost convertido a USD usando exchangeRateValue, para poder comparar
+  // compras hechas en distintas monedas/fechas sin reconvertir en cada query.
+  unitCostUsd Float
+
+  purchasedAt DateTime @default(now())
+  notes       String?
+
+  createdBy String? // userId de quien registró la compra
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([commerceId, productId, purchasedAt(sort: Desc)])
+  @@index([supplierId])
+  @@map("purchases")
 }
 
 // ─── Social / Profiles ────────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ import { AnalyticsModule } from './domains/engagement/analytics/analytics.module
 import { DeliveryModule } from './domains/operations/delivery/delivery.module';
 import { OrdersModule } from './domains/operations/orders/orders.module';
 import { ExpensesModule } from './domains/operations/expenses/expenses.module';
+import { PurchasesModule } from './domains/operations/purchases/purchases.module';
 import { CashModule } from './domains/operations/cash/cash.module';
 import { ReceiptsModule } from './domains/operations/receipts/receipts.module';
 import { NotificationsModule } from './domains/engagement/notifications/notifications.module';
@@ -100,6 +101,7 @@ import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orch
     OrdersModule,
     BnplModule,
     ExpensesModule,
+    PurchasesModule,
     CashModule,
     ReceiptsModule,
     NotificationsModule,
