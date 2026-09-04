@@ -1552,6 +1552,7 @@ async function main() {
 
   console.log('\n✨ Seed complete.')
   await seedPermissions()
+  await seedProfilePermissions()
   await seedPlans()
   await seedCategories()
   await seedServiceModalities()
