@@ -58,6 +58,11 @@ export function useDeliveryTracking(deliveryId: string) {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const connected = ref(false)
+  // Buffer efímero de posiciones recibidas en esta sesión de tracking — solo
+  // para dibujar el trazo recorrido en el mapa. No se persiste ni se manda
+  // al backend: se pierde al recargar, a propósito (ver DeliveryTrackingMap).
+  const trail = ref<{ lat: number; lng: number }[]>([])
+  const MAX_TRAIL_POINTS = 500
 
   const isTrackable = computed(
     () => !!snapshot.value?.trackingActive && TRACKABLE_STATUSES.has(snapshot.value.status)
@@ -68,6 +73,9 @@ export function useDeliveryTracking(deliveryId: string) {
     error.value = null
     try {
       snapshot.value = await get<DeliveryTrackingSnapshot>(`/delivery/${deliveryId}/tracking`)
+      if (snapshot.value?.location) {
+        trail.value = [{ lat: snapshot.value.location.lat, lng: snapshot.value.location.lng }]
+      }
     } catch (e: any) {
       error.value = e?.message ?? 'No se pudo cargar el seguimiento'
     } finally {
@@ -93,6 +101,7 @@ export function useDeliveryTracking(deliveryId: string) {
     socket.on('DELIVERY_LOCATION_UPDATED', (payload: { deliveryId: string; location: DeliveryLocation }) => {
       if (payload.deliveryId !== deliveryId || !snapshot.value) return
       snapshot.value = { ...snapshot.value, location: payload.location }
+      trail.value = [...trail.value, { lat: payload.location.lat, lng: payload.location.lng }].slice(-MAX_TRAIL_POINTS)
     })
 
     socket.on('DELIVERY_STATUS_UPDATED', (payload: { deliveryId: string; status: string; trackingActive: boolean }) => {
@@ -127,6 +136,7 @@ export function useDeliveryTracking(deliveryId: string) {
     error,
     connected,
     isTrackable,
+    trail,
     fetchSnapshot,
     connect,
     disconnect,

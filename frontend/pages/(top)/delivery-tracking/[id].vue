@@ -44,6 +44,7 @@
             :destination="snapshot.destination"
             :location="snapshot.location"
             :route="snapshot.route"
+            :trail="trail"
           />
           <template #fallback>
             <div class="h-full flex items-center justify-center text-gray-400">Cargando mapa…</div>
@@ -62,7 +63,7 @@ definePageMeta({ middleware: 'auth' })
 const route = useRoute()
 const deliveryId = route.params.id as string
 
-const { snapshot, loading, error, isTrackable, init } = useDeliveryTracking(deliveryId)
+const { snapshot, loading, error, isTrackable, trail, init } = useDeliveryTracking(deliveryId)
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Preparando pedido',

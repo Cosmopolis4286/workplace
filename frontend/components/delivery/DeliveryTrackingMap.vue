@@ -14,6 +14,12 @@ const props = defineProps<{
   destination: { lat: number; lng: number } | null
   location: DeliveryLocation | null
   route: DeliveryRoute | null
+  // Recorrido realizado hasta ahora — acumulado por el composable llamante
+  // (useDeliveryTracking) a partir de los eventos DELIVERY_LOCATION_UPDATED
+  // recibidos, no persistido: es puramente una traza visual de esta sesión
+  // de tracking, se pierde al recargar la página (igual que pide el MVP:
+  // sin histórico GPS indefinido en Postgres).
+  trail?: { lat: number; lng: number }[]
 }>()
 
 const mapContainer = ref<HTMLElement | null>(null)
@@ -22,6 +28,7 @@ let pickupMarker: any = null
 let destMarker: any = null
 let driverMarker: any = null
 let routeLine: any = null
+let trailLine: any = null
 let L: typeof import('leaflet') | null = null
 
 const DRIVER_ICON_HTML = '<div style="font-size:22px;line-height:1">🏍️</div>'
@@ -88,7 +95,18 @@ function render() {
     }
     map.fitBounds(routeLine.getBounds(), { padding: [32, 32] })
   }
+
+  if (props.trail && props.trail.length > 1) {
+    const trailLatlngs = props.trail.map((p) => [p.lat, p.lng] as [number, number])
+    if (trailLine) {
+      trailLine.setLatLngs(trailLatlngs)
+    } else {
+      // Punteada y gris para distinguirla claramente de la ruta planificada
+      // (azul sólida) — esto es "por dónde ya pasó", no "por dónde debería ir".
+      trailLine = L.polyline(trailLatlngs, { color: '#6b7280', weight: 3, opacity: 0.6, dashArray: '6 6' }).addTo(map)
+    }
+  }
 }
 
-watch(() => [props.pickup, props.destination, props.location, props.route], render, { deep: true })
+watch(() => [props.pickup, props.destination, props.location, props.route, props.trail], render, { deep: true })
 </script>
