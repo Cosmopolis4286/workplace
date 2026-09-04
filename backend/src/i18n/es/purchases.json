@@ -1,0 +1,7 @@
+{
+  "not_found": "Compra no encontrada",
+  "deleted": "Compra eliminada correctamente",
+  "product_not_found": "Producto no encontrado",
+  "supplier_not_found": "Proveedor no encontrado",
+  "invalid_exchange_rate": "No hay una tasa de cambio válida para la moneda {code}"
+}

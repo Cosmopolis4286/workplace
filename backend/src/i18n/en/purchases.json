@@ -1,0 +1,7 @@
+{
+  "not_found": "Purchase not found",
+  "deleted": "Purchase deleted successfully",
+  "product_not_found": "Product not found",
+  "supplier_not_found": "Supplier not found",
+  "invalid_exchange_rate": "No valid exchange rate found for currency {code}"
+}
