@@ -1,6 +1,6 @@
 # WorkPlace Manager — Estado actual y flujo (para feedback externo)
 
-> Generado 2026-08-24. Pensado como input para pedir feedback (ej. a ChatGPT) sobre arquitectura, producto o próximos pasos. Refleja el estado real del código en este momento, no aspiracional.
+> Generado 2026-08-24, actualizado 2026-09-04. Pensado como input para pedir feedback (ej. a ChatGPT) sobre arquitectura, producto o próximos pasos. Refleja el estado real del código en este momento, no aspiracional. Ver `CHANGELOG.md` para el detalle cronológico de cambios recientes.
 
 ## 1. Qué es
 
@@ -49,7 +49,17 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases** (backend, ver sección 5.1 — sin frontend todavía).
+
+### 5.1 Purchases + costo de reposición (Business Shield, Fase 2a — 2026-09-04)
+
+Primer módulo del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VISION.md` y el audit estratégico de esta misma fecha). Antes de esto, `Product.cost` era un único `Float` mutable sin historial — no existía forma de distinguir "cuánto costó" de "cuánto costaría reponerlo hoy".
+
+- **Modelo `Purchase`** (`backend/prisma/schema.prisma`): registra cada compra a proveedor — producto, cantidad, costo unitario, moneda, y un **snapshot inmutable** de la tasa de cambio usada (`exchangeRateValue`, `exchangeRateSource`) + el costo ya convertido a USD (`unitCostUsd`). El snapshot es deliberado: si la tasa de cambio cambia mañana, el historial de esta compra no debe recalcularse retroactivamente.
+- **`PurchasesService.getReplacementCost(productId, commerceId)`**: compara el costo histórico (`Product.cost`, cargado a mano) contra el costo de reposición real (última compra y promedio de las últimas 5), devolviendo margen histórico vs. margen de reposición. `Product.cost` no se sobreescribe automáticamente al registrar una compra — el análisis se muestra aparte para no sorprender al comerciante.
+- Multimoneda: USD es la moneda base (tasa=1, no requiere fila en `ExchangeRate`); cualquier otra moneda (ej. VES) resuelve la tasa vía `ExchangeRatesService.findByCode()` ya existente.
+- Endpoints: `POST /api/purchases`, `GET /api/purchases`, `GET /api/purchases/replacement-cost/:productId`, `DELETE /api/purchases/:id` — protegidos por `purchases:view/create/delete` (nuevos permisos) + `RequireAccountType('COMMERCE')`.
+- **Pendiente (Fase 2b/2c)**: UI de captura de compras en el frontend, alertas del Alert Engine (`MARGIN_DROP`, `REPLACEMENT_COST_RISK`) sobre el canal de notificaciones ya existente, `SupplierQuote` para comparar proveedores. Ver el audit estratégico para el orden completo.
 
 ## 6. Decisiones de producto/negocio relevantes ya tomadas
 
@@ -66,10 +76,12 @@ Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, 
 - Sin backup de base de datos automatizado.
 - La FK real `Commerce.userId` sigue siendo 1:1 estricta — bloquea que un mismo usuario tenga comercio + otro perfil de negocio simultáneo hasta que se complete la migración (ver sección 3).
 - El flujo de "convertirse en freelancer" (`FreelancerApplication`) y el nuevo sistema de `UserProfile` coexisten sin estar unificados en el frontend todavía — riesgo de confusión de producto si no se decide cuál es la fuente de verdad a mediano plazo.
+- **71 campos monetarios en `Float`, cero uso de `Decimal`** en todo el schema (confirmado 2026-09-04) — riesgo real de precisión de redondeo para cálculos de margen. Los modelos nuevos de Business Shield (`Purchase` en adelante) deberían evaluar `Decimal` desde el inicio; migrar los 71 campos existentes es un trabajo aparte, más caro, que no se ha hecho.
+- **Bug de RBAC encontrado y corregido (2026-09-04)**: desde la fusión de `Role.COMMERCE`+`Role.FREELANCER` en `Role.PROFESIONAL` (2026-08-25/29), `prisma/seed.js` nunca sembró la tabla `ProfilePermission` — `getActiveProfilePermissions()` devolvía `[]` siempre, así que **todo usuario `PROFESIONAL` tenía el mismo set de permisos sin importar si era comercio o freelancer** (incluyendo módulos irrelevantes como `menu`/`inventory`/`cash` para un freelancer). Corregido: `RolePermission.PROFESIONAL` ahora es la unión de ambos sets (nivel de acceso), y `ProfilePermission` distingue `BUSINESS` (69 permisos) de `PROFESSIONAL/FREELANCER` y `PROFESSIONAL/SERVICE_PROVIDER` (23 permisos cada uno) — la distinción fina real, resuelta en runtime por `hasEffectivePermission()`.
 
 ## 8. Testing y calidad
 
-- 453 tests unitarios backend, todos pasando (`npx jest`).
+- 598 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.
