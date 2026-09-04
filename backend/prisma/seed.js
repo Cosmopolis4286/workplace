@@ -121,6 +121,9 @@ const PERMISSIONS = [
   { key: 'expenses:create',          module: 'expenses',      action: 'create',         label: 'Crear Gastos' },
   { key: 'expenses:edit',            module: 'expenses',      action: 'edit',           label: 'Editar Gastos' },
   { key: 'expenses:delete',         module: 'expenses',      action: 'delete',         label: 'Eliminar Gastos' },
+  { key: 'purchases:view',           module: 'purchases',     action: 'view',           label: 'Ver Compras' },
+  { key: 'purchases:create',         module: 'purchases',     action: 'create',         label: 'Registrar Compras' },
+  { key: 'purchases:delete',         module: 'purchases',     action: 'delete',         label: 'Eliminar Compras' },
   { key: 'cash:view',                module: 'cash',          action: 'view',           label: 'Ver Caja' },
   { key: 'cash:manage',              module: 'cash',          action: 'manage',         label: 'Gestionar Caja (abrir/cerrar/movimientos)' },
   { key: 'analytics:view',           module: 'analytics',     action: 'view',           label: 'Ver Analytics' },
@@ -198,6 +201,7 @@ const COMMERCE_KEYS = [
   'appointments:view', 'appointments:create', 'appointments:edit', 'appointments:delete',
   'delivery:view', 'delivery:create', 'delivery:edit', 'delivery:manage_drivers',
   'expenses:view', 'expenses:create', 'expenses:edit', 'expenses:delete',
+  'purchases:view', 'purchases:create', 'purchases:delete',
   'cash:view', 'cash:manage',
   'analytics:view', 'reports:view', 'sales:view',
   'employees:view', 'employees:create', 'employees:edit', 'employees:delete',
@@ -242,34 +246,45 @@ const ROLE_DEFAULTS = {
     'categories_user:manage',
     'locations:view', 'locations:manage',
   ],
-  COMMERCE: [...COMMERCE_KEYS, 'categories_user:propose'],
-  // FREELANCER es un proveedor de servicios independiente (Service/ServiceRequest),
+  // FREELANCER_KEYS es un proveedor de servicios independiente (Service/ServiceRequest),
   // no un comercio físico: NO hereda de COMMERCE_KEYS porque ese set trae
   // menu/inventory/orders/customers/appointments/delivery/expenses/cash, módulos
   // atados a Commerce/Product/Order que un freelancer nunca usa.
-  FREELANCER: [
-    'dashboard:view',
-    'settings:view', 'settings:edit',
-    'notifications:view',
-    'services:view', 'services:create', 'services:edit', 'services:delete',
-    'service_requests:view',
-    'opportunities:view',
-    'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete',
-    // 'sales:view' no aplica: la "venta" de un freelancer es aceptar una
-    // ServiceRequest ya iniciada por el cliente, no crear una Order eligiendo
-    // productos de un menú — ese flujo vive en /solicitudes-servicio.
-    'analytics:view', 'reports:view',
-    'search:view',
-    'catalog:view',
-    // corridas:manage habilita el rol de conductor: un freelancer puede
-    // ofrecer corridas/fletes como otro servicio más, con el mismo modelo de
-    // comisión (sin escrow todavía) que el resto de las corridas.
-    'corridas:view', 'corridas:create', 'corridas:manage',
-    'wallets:use',
-    'categories_user:propose',
-  ],
   NORMAL: ['catalog:view', 'notifications:view', 'service_requests:view', 'opportunities:view', 'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete', 'dashboard:view', 'corridas:view', 'corridas:create', 'orders:view', 'wallets:use'],
 }
+
+const FREELANCER_KEYS = [
+  'dashboard:view',
+  'settings:view', 'settings:edit',
+  'notifications:view',
+  'services:view', 'services:create', 'services:edit', 'services:delete',
+  'service_requests:view',
+  'opportunities:view',
+  'jobs:view', 'jobs:create', 'jobs:edit', 'jobs:delete',
+  // 'sales:view' no aplica: la "venta" de un freelancer es aceptar una
+  // ServiceRequest ya iniciada por el cliente, no crear una Order eligiendo
+  // productos de un menú — ese flujo vive en /solicitudes-servicio.
+  'analytics:view', 'reports:view',
+  'search:view',
+  'catalog:view',
+  // corridas:manage habilita el rol de conductor: un freelancer puede
+  // ofrecer corridas/fletes como otro servicio más, con el mismo modelo de
+  // comisión (sin escrow todavía) que el resto de las corridas.
+  'corridas:view', 'corridas:create', 'corridas:manage',
+  'wallets:use',
+  'categories_user:propose',
+]
+
+const BUSINESS_PROFILE_KEYS = [...COMMERCE_KEYS, 'categories_user:propose']
+
+// role=PROFESIONAL es solo el nivel de acceso (RBAC) desde que COMMERCE y
+// FREELANCER se fusionaron (ver WORKPLACE_STATUS_FEEDBACK.md) — agrupa tanto
+// comercios como freelancers, así que su RolePermission debe ser la UNIÓN de
+// ambos sets para no bloquear a nadie a nivel de rol. La distinción fina real
+// (un freelancer no debería ver menu/inventory/cash) vive en ProfilePermission
+// (ver seedProfilePermissions), resuelta en tiempo de request por
+// getActiveProfilePermissions() + hasEffectivePermission().
+ROLE_DEFAULTS.PROFESIONAL = Array.from(new Set([...BUSINESS_PROFILE_KEYS, ...FREELANCER_KEYS]))
 
 async function seedPermissions() {
   console.log('\n🔐 Seeding permission matrix...\n')
@@ -295,7 +310,7 @@ async function seedPermissions() {
   console.log(`  📋 ${PERMISSIONS.length} permissions upserted`)
 
   const allPerms = await prisma.permission.findMany()
-  const roles = ['SUPERADMIN', 'ADMIN', 'COMMERCE', 'FREELANCER', 'NORMAL']
+  const roles = ['SUPERADMIN', 'ADMIN', 'PROFESIONAL', 'NORMAL']
 
   for (const role of roles) {
     const grantedKeys = new Set(ROLE_DEFAULTS[role])
@@ -311,6 +326,44 @@ async function seedPermissions() {
   }
 
   console.log('\n✨ Permission matrix seeded.')
+}
+
+// Distinción fina comercio vs. freelancer/service_provider dentro de
+// role=PROFESIONAL. Ver el comentario sobre ROLE_DEFAULTS.PROFESIONAL arriba:
+// sin esto, getActiveProfilePermissions() devuelve [] para todos y todo
+// PROFESIONAL termina con el mismo set de permisos (la unión completa), sin
+// importar si activó un perfil BUSINESS o PROFESSIONAL.
+const PROFILE_PERMISSION_DEFAULTS = [
+  { profileType: ProfileType.BUSINESS, subtype: null, keys: BUSINESS_PROFILE_KEYS },
+  { profileType: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER, keys: FREELANCER_KEYS },
+  { profileType: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.SERVICE_PROVIDER, keys: FREELANCER_KEYS },
+]
+
+async function seedProfilePermissions() {
+  console.log('\n🔐 Seeding profile permission matrix...\n')
+
+  const allPerms = await prisma.permission.findMany()
+
+  for (const { profileType, subtype, keys } of PROFILE_PERMISSION_DEFAULTS) {
+    const grantedKeys = new Set(keys)
+    for (const perm of allPerms) {
+      const granted = grantedKeys.has(perm.key)
+      const existing = await prisma.profilePermission.findFirst({
+        where: { profileType, subtype, permissionId: perm.id },
+        select: { id: true },
+      })
+      if (existing) {
+        await prisma.profilePermission.update({ where: { id: existing.id }, data: { granted } })
+      } else {
+        await prisma.profilePermission.create({
+          data: { profileType, subtype, permissionId: perm.id, granted },
+        })
+      }
+    }
+    console.log(`  ✅ [${profileType}${subtype ? '/' + subtype : ''}] ${grantedKeys.size} permissions granted`)
+  }
+
+  console.log('\n✨ Profile permission matrix seeded.')
 }
 
 async function seedPlans() {
