@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
-import { ProductStatus } from '@prisma/client';
+import { Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
@@ -16,6 +16,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateBundleDto } from './dto/create-bundle.dto';
 import { UpdateStockDto, StockUpdateType } from './dto/update-stock.dto';
+import { QueryProductsDto } from './dto/query-products.dto';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { normalizeTags } from '../../../common/utils/tags.util';
 
@@ -123,13 +124,93 @@ export class MenuService {
 
   // ─── Products ────────────────────────────────────────────────────────────────
 
-  async getProducts(userId: string) {
+  async getProducts(userId: string, query: QueryProductsDto = {}) {
+    const commerceId = await this.getCommerceId(userId);
+    const page = Math.max(1, parseInt(query.page ?? '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? '20')));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = { commerceId };
+    if (query.categoryId) where.categoryId = query.categoryId;
+    if (query.status) where.status = query.status;
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { brand: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        include: { category: { select: { id: true, name: true, color: true } } },
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  // Todos los productos del comercio sin paginar, para el selector de venta
+  // (crear una Order necesita poder buscar en TODO el catálogo, no solo la
+  // página visible de /inventory) — select mínimo para no traer campos que
+  // ese flujo no usa.
+  async getProductsForSelector(userId: string, search?: string) {
+    const commerceId = await this.getCommerceId(userId);
+    return this.prisma.product.findMany({
+      where: {
+        commerceId,
+        status: { not: 'UNAVAILABLE' },
+        ...(search
+          ? { name: { contains: search, mode: 'insensitive' as const } }
+          : {}),
+      },
+      select: { id: true, name: true, price: true, stock: true, image: true, unit: true },
+      orderBy: { name: 'asc' },
+      take: 500,
+    });
+  }
+
+  // Todos los productos del comercio sin paginar, con todos los campos que
+  // necesita el CSV de exportación de Inventario — separado de getProducts
+  // (que sí pagina) porque exportar SIEMPRE debe incluir el catálogo
+  // completo, no solo la página que el usuario tiene visible.
+  async getProductsForExport(userId: string) {
     const commerceId = await this.getCommerceId(userId);
     return this.prisma.product.findMany({
       where: { commerceId },
       include: { category: { select: { id: true, name: true, color: true } } },
       orderBy: { name: 'asc' },
     });
+  }
+
+  // Contadores agregados en SQL — antes se calculaban en el frontend
+  // iterando el array completo de productos, lo que obligaba a traer todo
+  // el catálogo a memoria solo para mostrar 4 números en el header.
+  async getProductsStats(userId: string) {
+    const commerceId = await this.getCommerceId(userId);
+    const [total, lowStock, outOfStock, valueAgg] = await Promise.all([
+      this.prisma.product.count({ where: { commerceId } }),
+      this.prisma.product.count({
+        where: { commerceId, stock: { gt: 0 }, status: 'LOW_STOCK' },
+      }),
+      this.prisma.product.count({ where: { commerceId, stock: 0 } }),
+      this.prisma.$queryRaw<{ totalvalue: number | null; totalcost: number | null }[]>`
+        SELECT SUM(price * stock)::float AS totalvalue, SUM(cost * stock)::float AS totalcost
+        FROM products WHERE "commerceId" = ${commerceId}
+      `,
+    ]);
+
+    return {
+      total,
+      lowStock,
+      outOfStock,
+      totalValue: valueAgg[0]?.totalvalue ?? 0,
+      totalCost: valueAgg[0]?.totalcost ?? 0,
+    };
   }
 
   async getProductsByCategory(userId: string, categoryId: string) {

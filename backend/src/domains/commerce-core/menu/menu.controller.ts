@@ -7,6 +7,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -31,6 +32,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { CreateBundleDto } from './dto/create-bundle.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
+import { QueryProductsDto } from './dto/query-products.dto';
 
 @Controller('menu')
 @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
@@ -76,8 +78,40 @@ export class MenuController {
 
   @Get('products')
   @RequirePermission('menu:view')
-  getProducts(@CurrentUser() user: { id: string }) {
-    return this.menuService.getProducts(user.id);
+  getProducts(@CurrentUser() user: { id: string }, @Query() query: QueryProductsDto) {
+    return this.menuService.getProducts(user.id, query);
+  }
+
+  // Nota: protegido por menu:view igual que el resto de /menu/products —
+  // el sidebar gatea la página /inventory con inventory:view, así que
+  // ambos permisos deben concederse juntos a cualquier rol/perfil que
+  // necesite ver Inventario (hoy siempre es así en el seed). Ver auditoría
+  // de reportes que motivó este comentario.
+  @Get('products/stats')
+  @RequirePermission('menu:view')
+  getProductsStats(@CurrentUser() user: { id: string }) {
+    return this.menuService.getProductsStats(user.id);
+  }
+
+  // Catálogo completo (sin paginar) para el selector de producto al crear
+  // una venta — ese flujo necesita poder buscar en TODO el inventario, no
+  // solo la página visible de /inventory.
+  @Get('products/selector')
+  @RequirePermission('menu:view')
+  getProductsForSelector(
+    @CurrentUser() user: { id: string },
+    @Query('search') search?: string,
+  ) {
+    return this.menuService.getProductsForSelector(user.id, search);
+  }
+
+  // Catálogo completo (sin paginar) con todos los campos, para exportación
+  // CSV desde /inventory — separado de GET /products (paginado) porque
+  // exportar debe incluir siempre TODOS los productos, no solo la página visible.
+  @Get('products/export')
+  @RequirePermission('menu:view')
+  getProductsForExport(@CurrentUser() user: { id: string }) {
+    return this.menuService.getProductsForExport(user.id);
   }
 
   @Get('categories/:id/products')

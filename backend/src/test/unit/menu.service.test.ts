@@ -156,7 +156,7 @@ describe('MenuService', () => {
 
   describe('Products', () => {
     describe('getProducts', () => {
-      it('should return products for user', async () => {
+      it('should return paginated products for user', async () => {
         const userId = 'user-123'
         const mockProducts = [
           {
@@ -169,10 +169,17 @@ describe('MenuService', () => {
 
         mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
         mockPrismaService.product.findMany.mockResolvedValue(mockProducts)
+        mockPrismaService.product.count.mockResolvedValue(1)
 
         const result = await service.getProducts(userId)
 
-        expect(result).toEqual(mockProducts)
+        expect(result).toEqual({
+          data: mockProducts,
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        })
       })
     })
 
