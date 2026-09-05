@@ -24,6 +24,9 @@ describe('AnalyticsService', () => {
       count: jest.fn(),
       groupBy: jest.fn(),
     },
+    orderItem: {
+      groupBy: jest.fn(),
+    },
     customer: {
       findMany: jest.fn(),
       groupBy: jest.fn(),
@@ -50,6 +53,7 @@ describe('AnalyticsService', () => {
     mockPrismaService.order.aggregate.mockResolvedValue({ _sum: { total: 0 }, _avg: { total: 0 }, _count: { id: 0 } })
     mockPrismaService.order.count.mockResolvedValue(0)
     mockPrismaService.order.groupBy.mockResolvedValue([])
+    mockPrismaService.orderItem.groupBy.mockResolvedValue([])
     mockPrismaService.customer.findMany.mockResolvedValue([])
     mockPrismaService.customer.groupBy.mockResolvedValue([])
     mockPrismaService.customer.aggregate.mockResolvedValue({

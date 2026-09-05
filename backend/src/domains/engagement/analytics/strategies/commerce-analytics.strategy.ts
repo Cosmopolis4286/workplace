@@ -85,44 +85,29 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
   // ─── KPIs ────────────────────────────────────────────────────────────────
 
   private async getKpis(commerceId: string, from: Date, to: Date) {
-    // Revenue and orders from appointments (completed ones represent served customers)
-    const [completedAppointments, totalOrders, newCustomers, customers] =
-      await Promise.all([
-        this.prisma.appointment.findMany({
-          where: {
-            commerceId,
-            status: 'COMPLETED',
-            date: { gte: from, lte: to },
-          },
-          select: { id: true },
-        }),
-        this.prisma.appointment.count({
-          where: {
-            commerceId,
-            date: { gte: from, lte: to },
-            status: { notIn: ['CANCELLED', 'NO_SHOW'] },
-          },
-        }),
-        this.prisma.customer.count({
-          where: { commerceId, createdAt: { gte: from, lte: to } },
-        }),
-        this.prisma.customer.aggregate({
-          where: { commerceId },
-          _sum: { totalSpent: true, totalOrders: true },
-          _count: { id: true },
-        }),
-      ]);
+    // Ventas reales sobre Order (mismo criterio que OrdersService.getStats:
+    // DELIVERED = venta confirmada). Antes esto usaba Appointment/Customer
+    // como proxy, lo que daba cifras en cero o desalineadas de /sales para
+    // cualquier comercio de catálogo que no agende citas.
+    const [revenueData, totalOrders, newCustomers] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: { commerceId, status: 'DELIVERED', createdAt: { gte: from, lte: to } },
+        _sum: { total: true },
+        _count: { id: true },
+      }),
+      this.prisma.order.count({
+        where: { commerceId, createdAt: { gte: from, lte: to } },
+      }),
+      this.prisma.customer.count({
+        where: { commerceId, createdAt: { gte: from, lte: to } },
+      }),
+    ]);
 
-    // Revenue: sum of totalSpent from customers updated in period
-    const revenueData = await this.prisma.customer.aggregate({
-      where: { commerceId, updatedAt: { gte: from, lte: to } },
-      _sum: { totalSpent: true },
-    });
-
-    const totalRevenue = Number(revenueData._sum.totalSpent ?? 0);
+    const totalRevenue = Math.round(Number(revenueData._sum.total ?? 0) * 100) / 100;
+    const deliveredCount = revenueData._count.id;
     const avgTicket =
-      totalOrders > 0
-        ? Math.round((totalRevenue / totalOrders) * 100) / 100
+      deliveredCount > 0
+        ? Math.round((totalRevenue / deliveredCount) * 100) / 100
         : 0;
 
     return {
@@ -130,7 +115,6 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
       totalOrders,
       avgTicket,
       newCustomers,
-      completedAppointments: completedAppointments.length,
     };
   }
 
@@ -142,10 +126,12 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
     to: Date,
     period: string
   ) {
-    // Aggregate customer spending updates by day
-    const customers = await this.prisma.customer.findMany({
-      where: { commerceId, updatedAt: { gte: from, lte: to } },
-      select: { totalSpent: true, updatedAt: true, createdAt: true },
+    // Ventas reales entregadas en el período (mismo criterio que getKpis) —
+    // antes esto agregaba Customer.totalSpent por updatedAt, lo que contaba
+    // como "revenue" cualquier actualización del customer, no solo compras.
+    const orders = await this.prisma.order.findMany({
+      where: { commerceId, status: 'DELIVERED', createdAt: { gte: from, lte: to } },
+      select: { total: true, createdAt: true },
     });
 
     // Build daily buckets
@@ -166,9 +152,9 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
     // For today, group by hour
     if (period === 'today') {
       const hourly: number[] = Array(24).fill(0);
-      customers.forEach((c) => {
-        const h = new Date(c.updatedAt).getHours();
-        hourly[h] += Number(c.totalSpent);
+      orders.forEach((o) => {
+        const h = new Date(o.createdAt).getHours();
+        hourly[h] += Number(o.total);
       });
       const currentHour = new Date().getHours();
       for (let h = 6; h <= Math.min(currentHour, 23); h++) {
@@ -187,10 +173,10 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
         const key = `${d.getFullYear()}-${d.getMonth()}`;
         monthly[key] = 0;
       }
-      customers.forEach((c) => {
-        const d = new Date(c.updatedAt);
+      orders.forEach((o) => {
+        const d = new Date(o.createdAt);
         const key = `${d.getFullYear()}-${d.getMonth()}`;
-        if (key in monthly) monthly[key] += Number(c.totalSpent);
+        if (key in monthly) monthly[key] += Number(o.total);
       });
       for (const [key, val] of Object.entries(monthly)) {
         const [year, month] = key.split('-').map(Number);
@@ -204,13 +190,13 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
         labels.push(fmt(d));
         values.push(0);
       }
-      customers.forEach((c) => {
-        const d = new Date(c.updatedAt);
+      orders.forEach((o) => {
+        const d = new Date(o.createdAt);
         const idx = Math.floor(
           (startOfDay(d).getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
         );
         if (idx >= 0 && idx < values.length)
-          values[idx] += Number(c.totalSpent);
+          values[idx] += Number(o.total);
       });
       values.forEach((_, i) => {
         values[i] = Math.round(values[i] * 100) / 100;
@@ -223,18 +209,20 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
   // ─── Orders by hour ──────────────────────────────────────────────────────
 
   private async getOrdersByHour(commerceId: string, from: Date, to: Date) {
-    const appointments = await this.prisma.appointment.findMany({
+    // Antes usaba Appointment (citas), lo que dejaba este gráfico vacío para
+    // cualquier comercio de catálogo que no agende citas.
+    const orders = await this.prisma.order.findMany({
       where: {
         commerceId,
-        date: { gte: from, lte: to },
-        status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+        createdAt: { gte: from, lte: to },
+        status: { not: 'CANCELLED' },
       },
-      select: { date: true },
+      select: { createdAt: true },
     });
 
     const hours: number[] = Array(24).fill(0);
-    appointments.forEach((a) => {
-      const h = new Date(a.date).getHours();
+    orders.forEach((o) => {
+      const h = new Date(o.createdAt).getHours();
       hours[h]++;
     });
 
@@ -251,29 +239,24 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
 
   // ─── Top products ─────────────────────────────────────────────────────────
 
-  private async getTopProducts(commerceId: string, _from: Date, _to: Date) {
-    // Use stock movement as proxy: low stock / products with most turnover
-    const products = await this.prisma.product.findMany({
-      where: { commerceId, status: { not: 'UNAVAILABLE' } },
-      select: { name: true, stock: true, maxStock: true, price: true },
-      orderBy: { stock: 'asc' },
-      take: 10,
+  private async getTopProducts(commerceId: string, from: Date, to: Date) {
+    // Ventas reales por producto (OrderItem), no un proxy de stock — antes
+    // ignoraba el período seleccionado y estimaba "vendidos" desde
+    // maxStock-stock actual, por lo que nunca cambiaba al cambiar de rango.
+    const items = await this.prisma.orderItem.groupBy({
+      by: ['productId', 'productName'],
+      where: {
+        order: { commerceId, status: 'DELIVERED', createdAt: { gte: from, lte: to } },
+      },
+      _sum: { quantity: true, subtotal: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: 5,
     });
 
-    // Score by (maxStock - currentStock) as units sold proxy
-    const scored = products
-      .map((p) => ({
-        name: p.name,
-        unitsSold: Math.max(0, (p.maxStock ?? 0) - p.stock),
-        revenue: Math.max(0, (p.maxStock ?? 0) - p.stock) * Number(p.price),
-      }))
-      .sort((a, b) => b.unitsSold - a.unitsSold)
-      .slice(0, 5);
-
     return {
-      labels: scored.map((p) => p.name),
-      values: scored.map((p) => p.unitsSold),
-      revenue: scored.map((p) => Math.round(p.revenue * 100) / 100),
+      labels: items.map((i) => i.productName),
+      values: items.map((i) => i._sum.quantity ?? 0),
+      revenue: items.map((i) => Math.round((i._sum.subtotal ?? 0) * 100) / 100),
     };
   }
 
