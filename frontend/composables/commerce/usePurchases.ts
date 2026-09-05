@@ -53,6 +53,18 @@ export interface PurchaseFilters {
   limit?: number
 }
 
+export interface MarginReportRow {
+  productId: string
+  productName: string
+  price: number
+  historicalCost: number
+  averageReplacementCostUsd: number
+  marginHistoricalPct: number | null
+  marginReplacementPct: number | null
+  marginDropPct: number | null
+  samplesUsed: number
+}
+
 // ─── Global reactive state ────────────────────────────────────────────────────
 
 const purchases = ref<Purchase[]>([])
@@ -60,6 +72,12 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const totalCount = ref(0)
 const currentPage = ref(1)
+
+const marginReport = ref<MarginReportRow[]>([])
+const marginReportLoading = ref(false)
+const marginReportTotal = ref(0)
+const marginReportPage = ref(1)
+const marginReportTotalPages = ref(1)
 
 // ─── Composable ───────────────────────────────────────────────────────────────
 
@@ -124,6 +142,26 @@ export function usePurchases() {
     }
   }
 
+  // Reporte de Costos: todos los productos con compras registradas,
+  // ordenados por mayor caída de margen (histórico vs. reposición).
+  async function loadMarginReport(page = 1) {
+    marginReportLoading.value = true
+    error.value = null
+    try {
+      const res = await get<{ data: MarginReportRow[]; total: number; page: number; totalPages: number }>(
+        `/purchases/margin-report?page=${page}`,
+      )
+      marginReport.value = res.data
+      marginReportTotal.value = res.total
+      marginReportPage.value = res.page
+      marginReportTotalPages.value = res.totalPages
+    } catch (e: any) {
+      error.value = e?.message ?? 'Error al cargar el reporte de márgenes'
+    } finally {
+      marginReportLoading.value = false
+    }
+  }
+
   return {
     // state
     purchases,
@@ -131,10 +169,16 @@ export function usePurchases() {
     error,
     totalCount,
     currentPage,
+    marginReport,
+    marginReportLoading,
+    marginReportTotal,
+    marginReportPage,
+    marginReportTotalPages,
     // actions
     loadPurchases,
     createPurchase,
     deletePurchase,
     getReplacementCost,
+    loadMarginReport,
   }
 }

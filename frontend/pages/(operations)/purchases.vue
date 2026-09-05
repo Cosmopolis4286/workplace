@@ -2,11 +2,19 @@
   <div>
     <PageHeader
       title="Compras"
-      description="Historial de compras a proveedores — base del costo de reposición (Business Shield)"
+      description="Historial de compras a proveedores y reporte de márgenes — Business Shield"
       :icon="ShoppingCartIcon"
       :breadcrumb="breadcrumbItems"
     >
       <template #actions>
+        <HeaderActionButton
+          v-if="activeTab === 'margins'"
+          :icon="ArrowDownTrayIcon"
+          :disabled="marginReport.length === 0"
+          @click="exportMarginReport"
+        >
+          Exportar
+        </HeaderActionButton>
         <HeaderActionButton variant="primary" :icon="PlusIcon" @click="showProductPicker = true">
           Registrar compra
         </HeaderActionButton>
@@ -20,7 +28,26 @@
       </button>
     </div>
 
-    <div class="card divide-y divide-gray-100">
+    <!-- Tabs -->
+    <div class="flex gap-1 mb-4 border-b border-gray-200">
+      <button
+        class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+        :class="activeTab === 'history' ? 'border-workplace-red text-workplace-red' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        @click="activeTab = 'history'"
+      >
+        Historial
+      </button>
+      <button
+        class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+        :class="activeTab === 'margins' ? 'border-workplace-red text-workplace-red' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        @click="onOpenMarginsTab"
+      >
+        Reporte de Márgenes
+      </button>
+    </div>
+
+    <!-- ─── Historial ─────────────────────────────────────────────────────── -->
+    <div v-if="activeTab === 'history'" class="card divide-y divide-gray-100">
       <div v-if="loading" class="p-4 space-y-3">
         <div v-for="i in 3" :key="i" class="skeleton h-10 rounded" />
       </div>
@@ -53,6 +80,69 @@
         >
           <TrashIcon class="h-4 w-4" />
         </button>
+      </div>
+    </div>
+
+    <!-- ─── Reporte de Márgenes ───────────────────────────────────────────── -->
+    <div v-else class="card">
+      <div v-if="marginReportLoading" class="p-4 space-y-3">
+        <div v-for="i in 3" :key="i" class="skeleton h-10 rounded" />
+      </div>
+
+      <div v-else-if="marginReport.length === 0" class="p-12 text-center">
+        <ExclamationTriangleIcon class="h-12 w-12 text-gray-300 mx-auto mb-3" />
+        <p class="text-gray-500">Ningún producto con compras registradas todavía</p>
+        <p class="text-xs text-gray-400 mt-1">El reporte se arma a partir de los productos que ya tengan al menos una compra.</p>
+      </div>
+
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium text-gray-900">Producto</th>
+              <th class="px-4 py-3 text-right font-medium text-gray-900">Precio</th>
+              <th class="px-4 py-3 text-right font-medium text-gray-900">Costo histórico</th>
+              <th class="px-4 py-3 text-right font-medium text-gray-900">Costo reposición (USD)</th>
+              <th class="px-4 py-3 text-right font-medium text-gray-900">Margen histórico</th>
+              <th class="px-4 py-3 text-right font-medium text-gray-900">Margen reposición</th>
+              <th class="px-4 py-3 text-right font-medium text-gray-900">Caída</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            <tr v-for="row in marginReport" :key="row.productId" class="hover:bg-gray-50">
+              <td class="px-4 py-3 text-gray-900 font-medium">{{ row.productName }}</td>
+              <td class="px-4 py-3 text-right text-gray-600">${{ row.price.toFixed(2) }}</td>
+              <td class="px-4 py-3 text-right text-gray-600">${{ row.historicalCost.toFixed(2) }}</td>
+              <td class="px-4 py-3 text-right text-gray-600">${{ row.averageReplacementCostUsd.toFixed(2) }}</td>
+              <td class="px-4 py-3 text-right text-gray-600">{{ formatPct(row.marginHistoricalPct) }}</td>
+              <td class="px-4 py-3 text-right text-gray-600">{{ formatPct(row.marginReplacementPct) }}</td>
+              <td class="px-4 py-3 text-right">
+                <span
+                  v-if="row.marginDropPct !== null"
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                  :class="marginDropClass(row.marginDropPct)"
+                >
+                  {{ row.marginDropPct >= 0 ? '−' : '+' }}{{ Math.abs(row.marginDropPct).toFixed(1) }}pp
+                </span>
+                <span v-else class="text-gray-400">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="marginReportTotalPages > 1" class="flex items-center justify-between p-4 border-t">
+        <p class="text-sm text-gray-500">{{ marginReportTotal }} productos</p>
+        <div class="flex gap-2">
+          <button class="btn-secondary text-sm px-3 py-1" :disabled="marginReportPage <= 1" @click="loadMarginReport(marginReportPage - 1)">
+            Anterior
+          </button>
+          <span class="text-sm text-gray-600 px-2 py-1">{{ marginReportPage }} / {{ marginReportTotalPages }}</span>
+          <button class="btn-secondary text-sm px-3 py-1" :disabled="marginReportPage >= marginReportTotalPages" @click="loadMarginReport(marginReportPage + 1)">
+            Siguiente
+          </button>
+        </div>
       </div>
     </div>
 
@@ -90,7 +180,7 @@
       :product-id="pickedProductId"
       :product-name="pickedProductName"
       @close="showPurchaseModal = false"
-      @saved="loadPurchases()"
+      @saved="onPurchaseSaved"
     />
   </div>
 </template>
@@ -100,22 +190,42 @@ definePageMeta({ middleware: 'auth' })
 
 import { ref, computed, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
-import { ShoppingCartIcon, PlusIcon, XMarkIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ShoppingCartIcon, PlusIcon, XMarkIcon, TrashIcon, ArrowDownTrayIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import PurchaseModal from '~/components/modals/PurchaseModal.vue'
 import { usePurchases, type Purchase } from '~/composables/commerce/usePurchases'
-import { useMenu } from '~/composables/catalog/useMenu'
+import { useMenu, type ProductSelectorItem } from '~/composables/catalog/useMenu'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { useDataExport } from '~/composables/core/useDataExport'
 
-const { purchases, loading, error, loadPurchases, deletePurchase } = usePurchases()
-const { products, loadProducts } = useMenu()
+const {
+  purchases, loading, error, loadPurchases, deletePurchase,
+  marginReport, marginReportLoading, marginReportTotal, marginReportPage, marginReportTotalPages, loadMarginReport,
+} = usePurchases()
+// Selector "¿qué producto compraste?" necesita TODO el catálogo, no una
+// página — mismo criterio que el selector de venta en sales.vue.
+const { fetchProductsForSelector } = useMenu()
+const products = ref<ProductSelectorItem[]>([])
 const { formatDate } = useDateFormat()
+const { exportCSV } = useDataExport()
 
 const breadcrumbItems = [
   { label: 'Dashboard', to: '/' },
   { label: 'Compras' },
 ]
+
+type Tab = 'history' | 'margins'
+const activeTab = ref<Tab>('history')
+let marginReportLoaded = false
+
+function onOpenMarginsTab() {
+  activeTab.value = 'margins'
+  if (!marginReportLoaded) {
+    marginReportLoaded = true
+    loadMarginReport()
+  }
+}
 
 const showProductPicker = ref(false)
 const showPurchaseModal = ref(false)
@@ -135,8 +245,38 @@ async function confirmDelete(purchase: Purchase) {
   await deletePurchase(purchase.id)
 }
 
+// Una compra nueva puede cambiar el margen de reposición del producto — si
+// el usuario ya vio el reporte, refrescarlo para no dejarlo desactualizado.
+function onPurchaseSaved() {
+  loadPurchases()
+  if (marginReportLoaded) loadMarginReport(marginReportPage.value)
+}
+
+function formatPct(value: number | null): string {
+  return value === null ? '—' : `${value.toFixed(1)}%`
+}
+
+function marginDropClass(dropPct: number): string {
+  if (dropPct >= 10) return 'bg-red-100 text-red-700'
+  if (dropPct >= 5) return 'bg-yellow-100 text-yellow-700'
+  return 'bg-green-100 text-green-700'
+}
+
+function exportMarginReport() {
+  const rows = marginReport.value.map(r => ({
+    Producto: r.productName,
+    Precio: r.price.toFixed(2),
+    'Costo histórico': r.historicalCost.toFixed(2),
+    'Costo reposición (USD)': r.averageReplacementCostUsd.toFixed(2),
+    'Margen histórico': formatPct(r.marginHistoricalPct),
+    'Margen reposición': formatPct(r.marginReplacementPct),
+    'Caída (pp)': r.marginDropPct !== null ? r.marginDropPct.toFixed(1) : '—',
+  }))
+  exportCSV('reporte-margenes', rows)
+}
+
 onMounted(async () => {
-  await Promise.all([loadPurchases(), loadProducts()])
+  await Promise.all([loadPurchases(), fetchProductsForSelector().then(p => { products.value = p })])
 })
 </script>
 
