@@ -72,25 +72,28 @@ export interface CreateBundlePayload {
   items: { productId: string; quantity: number }[]
 }
 
-// Estado global compartido
-const categories = ref<Category[]>([])
-const products = ref<Product[]>([])
-const loading = ref(false)
-const error = ref<string | null>(null)
-const totalCount = ref(0)
-const currentPage = ref(1)
-const totalPages = ref(1)
-const stats = ref<ProductsStats>({ total: 0, lowStock: 0, outOfStock: 0, totalValue: 0, totalCost: 0 })
-const loadingStats = ref(false)
-
-// Cancela la carga de productos en vuelo cuando llega una nueva (ej. un
-// filtro con debounce disparado antes de que la respuesta anterior llegue),
-// mismo patrón que useExpenses.ts.
-let loadProductsController: AbortController | null = null
-
+// Estado por instancia (NO singleton): dos llamadas a useMenu() en
+// componentes distintos —ej. inventory.vue y el StockReportModal.vue que
+// abre encima— deben poder cargar/filtrar productos de forma independiente
+// sin pisarse el array `products` entre sí.
 export const useMenu = () => {
   const { get, post, put, patch, del } = useApi()
   const router = useRouter()
+
+  const categories = ref<Category[]>([])
+  const products = ref<Product[]>([])
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+  const totalCount = ref(0)
+  const currentPage = ref(1)
+  const totalPages = ref(1)
+  const stats = ref<ProductsStats>({ total: 0, lowStock: 0, outOfStock: 0, totalValue: 0, totalCost: 0 })
+  const loadingStats = ref(false)
+
+  // Cancela la carga de productos en vuelo cuando llega una nueva (ej. un
+  // filtro con debounce disparado antes de que la respuesta anterior
+  // llegue), mismo patrón que useExpenses.ts.
+  let loadProductsController: AbortController | null = null
 
   // ─── Computed ──────────────────────────────────────────────────────────────
 
