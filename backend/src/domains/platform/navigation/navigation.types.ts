@@ -9,7 +9,8 @@ export type NavIconKey =
   // Íconos únicos por concepto (evitan compartir glifo entre conceptos no
   // relacionados — ver auditoría de sidebar que motivó esta separación)
   | 'users_admin' | 'kyc' | 'plan' | 'commissions' | 'categories' | 'pricing'
-  | 'search_tabs' | 'permissions' | 'report_issue' | 'locations' | 'audit' | 'logs';
+  | 'search_tabs' | 'permissions' | 'report_issue' | 'locations' | 'audit' | 'logs'
+  | 'purchases' | 'suppliers' | 'accounts';
 
 export type BusinessAccountType = 'COMMERCE' | 'FREELANCER';
 

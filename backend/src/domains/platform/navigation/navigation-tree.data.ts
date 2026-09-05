@@ -87,6 +87,14 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         condition: { permission: 'delivery:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
       { id: 'cash-register', to: '/cash-register', label: 'Caja', icon: 'cash', order: 4,
         condition: { permission: 'cash:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+      // Business Shield (WORKPLACE_VISION.md §4-12): costo de reposición,
+      // comparación de proveedores y riesgo de reposición sobre fiado.
+      { id: 'suppliers', to: '/suppliers', label: 'Proveedores', icon: 'suppliers', order: 5,
+        condition: { permission: 'suppliers:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+      { id: 'purchases', to: '/purchases', label: 'Compras', icon: 'purchases', order: 6,
+        condition: { permission: 'purchases:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+      { id: 'accounts', to: '/accounts', label: 'Cuentas por Cobrar/Pagar', icon: 'accounts', order: 7,
+        condition: { permission: 'accounts:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
     ],
   },
   {
