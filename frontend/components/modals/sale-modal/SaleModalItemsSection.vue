@@ -97,7 +97,7 @@
 
 <script setup lang="ts">
 import { XMarkIcon, PlusIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
-import type { Product } from '~/composables/catalog/useMenu'
+import type { ProductSelectorItem } from '~/composables/catalog/useMenu'
 
 export interface SaleModalFormItem {
   productId?: string
@@ -110,8 +110,8 @@ export interface SaleModalFormItem {
 
 defineProps<{
   items: SaleModalFormItem[]
-  products: Product[]
-  filteredProducts: Product[]
+  products: ProductSelectorItem[]
+  filteredProducts: ProductSelectorItem[]
   productSearch: string
   showProductDropdown: boolean
   formatCurrency: (v: number) => string
@@ -121,7 +121,7 @@ defineEmits<{
   'add-item': []
   'remove-item': [idx: number]
   'update-subtotal': [idx: number]
-  'select-product': [product: Product]
+  'select-product': [product: ProductSelectorItem]
   'update:productSearch': [value: string]
   'update:showProductDropdown': [value: boolean]
   'hide-dropdown-delayed': []

@@ -119,7 +119,7 @@ import {
   type OrderType,
   type PaymentMethod,
 } from '~/composables/catalog/useMerchantOrders'
-import type { Product } from '~/composables/catalog/useMenu'
+import type { ProductSelectorItem } from '~/composables/catalog/useMenu'
 import { useUserPreferences } from '~/composables/users/useUserPreferences'
 import SaleModalItemsSection, { type SaleModalFormItem } from '~/components/modals/sale-modal/SaleModalItemsSection.vue'
 import SaleModalTotals from '~/components/modals/sale-modal/SaleModalTotals.vue'
@@ -131,7 +131,7 @@ const { formatCurrency: _fmt } = useUserPreferences()
 const props = defineProps<{
   isOpen: boolean
   order: Order | null
-  products: Product[]
+  products: ProductSelectorItem[]
   saving: boolean
   eligibleBnplProviders?: PaymentMethod[]
 }>()
@@ -170,7 +170,7 @@ const filteredProducts = computed(() => {
     .slice(0, 8)
 })
 
-function selectProduct(p: Product) {
+function selectProduct(p: ProductSelectorItem) {
   const existing = form.value.items.find(i => i.productId === p.id)
   if (existing) {
     existing.quantity++

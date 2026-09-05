@@ -106,7 +106,8 @@ import {
   type CreateOrderPayload,
   type OrderFilters,
 } from '~/composables/catalog/useMerchantOrders'
-import { useMenu } from '~/composables/catalog/useMenu'
+import { useMenu, type ProductSelectorItem } from '~/composables/catalog/useMenu'
+import { useDataExport } from '~/composables/core/useDataExport'
 
 // ── Composables ───────────────────────────────────────────────────────────────
 
@@ -120,7 +121,10 @@ const {
   formatCurrency, formatDate,
 } = useMerchantOrders()
 
-const { products, loadMenu } = useMenu()
+const { fetchProductsForSelector } = useMenu()
+// Catálogo completo (sin paginar) para el selector de producto del modal de
+// venta — no usa el estado paginado de useMenu, se carga aparte una sola vez.
+const products = ref<ProductSelectorItem[]>([])
 
 // ── Breadcrumb & header stats ─────────────────────────────────────────────────
 
@@ -303,14 +307,10 @@ async function doDelete() {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
+const { exportJSON: downloadJSON } = useDataExport()
+
 function exportJSON() {
-  const blob = new Blob([JSON.stringify(orders.value, null, 2)], { type: 'application/json' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = `ventas-${new Date().toISOString().slice(0, 10)}.json`
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadJSON('ventas', orders.value)
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -319,7 +319,7 @@ onMounted(async () => {
   await Promise.all([
     loadStats(),
     loadOrders(),
-    loadMenu().catch(() => {}), // non-blocking: catalog may be empty
+    fetchProductsForSelector().then(p => { products.value = p }).catch(() => {}), // non-blocking: catalog may be empty
     getEligibleBnplProviders().then(p => { eligibleBnplProviders.value = p }),
   ])
 })

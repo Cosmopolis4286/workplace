@@ -86,6 +86,7 @@ import EmployeesReportCard from '~/components/reports/EmployeesReportCard.vue'
 import FinancialHealthCard from '~/components/reports/FinancialHealthCard.vue'
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { useDataExport } from '~/composables/core/useDataExport'
 import { useUserPreferences } from '~/composables/users/useUserPreferences'
 import { useAuth } from '~/composables/auth/useAuth'
 
@@ -93,6 +94,7 @@ definePageMeta({ middleware: 'auth' })
 
 const { formatCurrency: _fmt } = useUserPreferences()
 const { get } = useApi()
+const { exportJSON: downloadJSON } = useDataExport()
 const { user } = useAuth()
 // Un freelancer no tiene Commerce/Expense/Employee: su reporte de negocio
 // se basa en ServiceRequest (solicitudes recibidas), no en Order/Expense.
@@ -178,13 +180,7 @@ function formatDate(iso: string) {
 
 function exportJSON(name: string, data: any) {
   if (!data) return
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `reporte-${name}-${new Date().toISOString().slice(0, 10)}.json`
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadJSON(`reporte-${name}`, data)
 }
 
 function exportAll() {

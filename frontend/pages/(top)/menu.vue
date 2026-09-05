@@ -205,8 +205,8 @@ const {
   categoriesWithProducts,
   totalProducts,
   availableProducts,
-  lowStockProducts,
-  loadMenu,
+  stats,
+  init,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -282,9 +282,9 @@ const headerStats = computed(() => [
   { label: 'Disponibles', value: availableProducts.value.toString(), change: '', changeType: 'increase' },
   {
     label: 'Bajo Stock',
-    value: lowStockProducts.value.length.toString(),
-    change: lowStockProducts.value.length > 0 ? 'Revisar' : 'OK',
-    changeType: lowStockProducts.value.length > 0 ? 'decrease' : 'increase',
+    value: stats.value.lowStock.toString(),
+    change: stats.value.lowStock > 0 ? 'Revisar' : 'OK',
+    changeType: stats.value.lowStock > 0 ? 'decrease' : 'increase',
   },
 ])
 
@@ -384,7 +384,10 @@ const route = useRoute()
 const router = useRouter()
 
 onMounted(async () => {
-  await Promise.all([loadMenu(), fetchUsage()])
+  // limit alto: esta página agrupa y pagina por categoría client-side (ver
+  // displayCategories/showMore más arriba), necesita el catálogo completo —
+  // a diferencia de /inventory, que sí pagina server-side de verdad.
+  await Promise.all([init({ limit: 1000 }), fetchUsage()])
 
   const editId = typeof route.query.edit === 'string' ? route.query.edit : null
   if (editId) {
