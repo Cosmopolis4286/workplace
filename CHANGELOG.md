@@ -4,6 +4,26 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Business Shield, Fase 2f: Cuentas por Cobrar/Pagar + navegación (2026-09-05)
+
+Cuarto módulo del roadmap "WorkPlace Business Shield" (sección 11 del audit estratégico): detectar cuándo vender fiado en un contexto de inflación destruye valor, sin imponer decisiones — solo mostrar el riesgo real.
+
+- **Modelos `AccountReceivable`/`AccountPayable`** (`domains/money/accounts`): dinero que el comercio tiene que cobrar (venta fiado, vinculada opcionalmente a `Customer`/`Order`) o pagar (compra a crédito, vinculada opcionalmente a `Supplier`/`Purchase`). Mismo criterio de snapshot inmutable de tasa de cambio que `Purchase`/`SupplierQuote`. Deliberadamente separado de `Order.paymentStatus` (que es operativo, "¿ya procesé el pago?") — esto es crédito explícito con vencimiento y riesgo de poder adquisitivo.
+- **`AccountReceivablesService.getReplacementRisk()`**: compara la tasa de cambio de la moneda original al momento de la venta contra la tasa actual. Valida el ejemplo exacto del audit: vendió 4000 VES fiado a tasa 40 (=$100 USD), la tasa subió a 50 antes de cobrar → cobrar hoy esos mismos 4000 VES equivale a solo $80 USD, una pérdida de $20 de poder de reposición por el retraso.
+- Endpoints: `GET/POST /api/accounts/receivables`, `GET/POST /api/accounts/payables`, `PATCH .../:id/paid`, `DELETE .../:id`, `GET /api/accounts/receivables/:id/replacement-risk`. Permisos nuevos `accounts:view/create/edit/delete`.
+- Migración `20260905030345_add_accounts_receivable_payable`.
+- **Frontend**: página completa `/accounts` con tabs Por Cobrar/Por Pagar, `useAccounts.ts`, `ReceivablesList.vue` (con el riesgo de reposición expandible por fila) y `PayablesList.vue`, `ReceivableModal.vue`/`PayableModal.vue`.
+- Tests: suite completa de `AccountReceivablesService` (incluye el ejemplo del audit con devaluación y el caso de apreciación de moneda) y `AccountPayablesService`.
+- Validado end-to-end: cuenta creada en VES a tasa 40, tasa subida a 50 por fuera, `replacement-risk` devuelve exactamente `valueLossUsd: 20` y `rateChangePct: 25`.
+
+**Páginas de listado nuevas + navegación real** (`/purchases`, `/suppliers`, además de `/accounts`): hasta esta fase, Purchases y Suppliers solo eran accesibles desde dentro del modal de un producto — no tenían entrada en el sidebar ni página propia. Se agregaron ambas páginas y las 3 entradas de navegación en la sección "Operaciones".
+
+- **Hallazgo al conectar la navegación**: los módulos nuevos no aparecían en el sidebar aunque el usuario tuviera el permiso — el motivo real era el doble techo `plan ∩ categoría` (`Plan.enabledModules` ∩ `UserCategory.allowedModules`) que decide qué módulos ve cada comercio, independiente de los permisos RBAC. Se agregó `purchases`/`suppliers`/`accounts` a las categorías de comercio físico ("Comida", "Comercio") y a los planes "Pro"/"Enterprise" — Business Shield queda como feature de planes pagos medios/altos, no en "Gratis"/"Básico" (decisión de producto, coherente con la sección K del audit sobre cómo monetizar esto).
+
+### Changed
+
+- `PurchasesService.create()` ahora incluye `product` en la respuesta (antes solo incluía `supplier`) — necesario para que la página `/purchases` muestre el nombre del producto en una compra recién creada sin esperar un refresh.
+
 ### Added — Business Shield, Fase 2e: Price Guard (2026-09-05)
 
 Tercer módulo del roadmap "WorkPlace Business Shield" (sección 6 del audit estratégico): calcula el precio mínimo recomendado para no perder margen frente al costo de reposición real, y simula el impacto de una devaluación antes de que ocurra.

@@ -49,9 +49,9 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote** y **Price Guard** (backend + frontend, ver sección 5.1).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1).
 
-### 5.1 Business Shield: Purchases + Supplier Intelligence + Price Guard (Fases 2a-2e — 2026-09-04/05)
+### 5.1 Business Shield: Purchases + Supplier Intelligence + Price Guard + Accounts (Fases 2a-2f — 2026-09-04/05)
 
 Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VISION.md` y el audit estratégico de esta misma fecha). Antes de esto, `Product.cost` era un único `Float` mutable sin historial, y `Supplier` no tenía ni CRUD ni pantalla — no existía forma de distinguir "cuánto costó" de "cuánto costaría reponerlo hoy", ni de comparar proveedores.
 
@@ -76,7 +76,16 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 - **`PriceGuardService.simulatePriceChange()`**: simula "¿qué pasa si el tipo de cambio sube X%?" sin tocar datos reales — devuelve nuevo costo, nuevo mínimo, y el margen que resultaría con el precio actual (detecta venta a pérdida antes de que ocurra).
 - Endpoints: `GET /api/price-guard/:productId/min-price`, `POST /api/price-guard/:productId/simulate`, `PATCH /api/settings/price-guard`.
 - **Frontend**: `usePriceGuard.ts`, precio mínimo + simulador inline en `ReplacementCostCard.vue`, `PriceGuardSettingsCard.vue` en Settings (visible para todo comercio, no solo categoría "Comida" como Operaciones/Pagos).
-- **Pendiente**: más tipos de alerta del Alert Engine (`REPLACEMENT_COST_RISK`, `SUPPLIER_PRICE_CHANGE`, `LOW_LIQUIDITY`), motor de reglas configurable, Business Health Score compuesto, actualización masiva de precios con Price Guard, reglas de redondeo. Ver el audit estratégico para el orden completo.
+
+**Accounts: AccountReceivable/AccountPayable (Fase 2f):**
+- **Modelos `AccountReceivable`/`AccountPayable`**: dinero por cobrar (fiado a clientes) y por pagar (crédito de proveedores), con el mismo snapshot inmutable de tasa de cambio. Deliberadamente separado de `Order.paymentStatus` (operativo) — esto es crédito explícito con vencimiento.
+- **`AccountReceivablesService.getReplacementRisk()`**: compara la tasa al momento de la venta vs. la tasa actual. Valida el ejemplo del audit: vendió 4000 VES fiado (tasa 40, =$100 USD), la tasa subió a 50 antes de cobrar → cobrar hoy equivale a $80 USD, pérdida de $20 por el retraso.
+- Endpoints: `GET/POST /api/accounts/receivables`, `GET/POST /api/accounts/payables`, `PATCH .../:id/paid`, `GET /api/accounts/receivables/:id/replacement-risk`.
+- **Frontend**: página completa `/accounts` (tabs Por Cobrar/Por Pagar), `useAccounts.ts`, listas con el riesgo de reposición expandible por fila.
+
+**Navegación real para Purchases/Suppliers/Accounts:** hasta esta fase Purchases/Suppliers solo eran accesibles desde dentro del modal de un producto — se agregaron páginas de listado propias (`/purchases`, `/suppliers`) y las 3 entradas en el sidebar. Al conectarlas se encontró que el sidebar tiene un **doble techo de módulos** (`Plan.enabledModules` ∩ `UserCategory.allowedModules`), independiente de los permisos RBAC — los módulos nuevos no aparecían aunque el permiso estuviera bien. Se agregaron a las categorías de comercio físico ("Comida", "Comercio") y a los planes "Pro"/"Enterprise" (decisión de producto: Business Shield como feature de planes pagos medios/altos, no en "Gratis"/"Básico").
+
+- **Pendiente**: más tipos de alerta del Alert Engine (`REPLACEMENT_COST_RISK`, `SUPPLIER_PRICE_CHANGE`, `LOW_LIQUIDITY`), motor de reglas configurable, Business Health Score compuesto (ahora sí con datos reales de cuentas por cobrar/pagar para no ser arbitrario, ver sección 10 del audit), actualización masiva de precios con Price Guard, reglas de redondeo. Ver el audit estratégico para el orden completo.
 
 ## 6. Decisiones de producto/negocio relevantes ya tomadas
 
@@ -98,7 +107,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 621 tests unitarios backend, todos pasando (`npx jest`).
+- 640 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.
