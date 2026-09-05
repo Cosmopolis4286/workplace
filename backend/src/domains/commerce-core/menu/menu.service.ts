@@ -168,7 +168,7 @@ export class MenuService {
           ? { name: { contains: search, mode: 'insensitive' as const } }
           : {}),
       },
-      select: { id: true, name: true, price: true, stock: true, image: true, unit: true },
+      select: { id: true, name: true, price: true, stock: true, image: true, unit: true, status: true },
       orderBy: { name: 'asc' },
       take: 500,
     });

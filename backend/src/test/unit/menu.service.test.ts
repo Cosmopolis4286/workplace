@@ -38,6 +38,7 @@ describe('MenuService', () => {
       delete: jest.fn(),
       count: jest.fn(),
     },
+    $queryRaw: jest.fn(),
   }
 
   const mockPlanLimitsService = {
@@ -180,6 +181,78 @@ describe('MenuService', () => {
           limit: 20,
           totalPages: 1,
         })
+      })
+
+      it('filters by search, categoryId and status server-side', async () => {
+        const userId = 'user-123'
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.product.findMany.mockResolvedValue([])
+        mockPrismaService.product.count.mockResolvedValue(0)
+
+        await service.getProducts(userId, { search: 'burger', categoryId: 'cat-1', status: 'LOW_STOCK' as any, page: '2', limit: '10' })
+
+        expect(mockPrismaService.product.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              commerceId: 'commerce-123',
+              categoryId: 'cat-1',
+              status: 'LOW_STOCK',
+              OR: [
+                { name: { contains: 'burger', mode: 'insensitive' } },
+                { brand: { contains: 'burger', mode: 'insensitive' } },
+              ],
+            }),
+            skip: 10,
+            take: 10,
+          }),
+        )
+      })
+    })
+
+    describe('getProductsStats', () => {
+      it('returns aggregated counters without loading all products into memory', async () => {
+        const userId = 'user-123'
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.product.count
+          .mockResolvedValueOnce(50) // total
+          .mockResolvedValueOnce(5)  // lowStock
+          .mockResolvedValueOnce(2)  // outOfStock
+        mockPrismaService.$queryRaw.mockResolvedValue([{ totalvalue: 1234.5, totalcost: 800.25 }])
+
+        const result = await service.getProductsStats(userId)
+
+        expect(result).toEqual({
+          total: 50,
+          lowStock: 5,
+          outOfStock: 2,
+          totalValue: 1234.5,
+          totalCost: 800.25,
+        })
+        expect(mockPrismaService.product.findMany).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('getProductsForSelector', () => {
+      it('returns a minimal, unpaginated list for the sale product picker', async () => {
+        const userId = 'user-123'
+        mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+        mockPrismaService.product.findMany.mockResolvedValue([
+          { id: 'prod-1', name: 'Hamburguesa', price: 12.99, stock: 5, image: null, unit: 'unidad', status: 'AVAILABLE' },
+        ])
+
+        const result = await service.getProductsForSelector(userId, 'burg')
+
+        expect(mockPrismaService.product.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              commerceId: 'commerce-123',
+              status: { not: 'UNAVAILABLE' },
+              name: { contains: 'burg', mode: 'insensitive' },
+            }),
+            take: 500,
+          }),
+        )
+        expect(result).toHaveLength(1)
       })
     })
 

@@ -77,6 +77,7 @@ export class PurchasesService {
       },
       include: {
         supplier: { select: { id: true, name: true } },
+        product: { select: { id: true, name: true } },
       },
     });
 
