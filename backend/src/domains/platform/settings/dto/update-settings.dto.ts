@@ -150,6 +150,20 @@ export class UpdateOperationSettingsDto {
   freeDeliveryMinimum?: number;
 }
 
+// Price Guard (Business Shield, ver WORKPLACE_VISION.md sección 6) — margen
+// objetivo/mínimo por defecto para todos los productos del comercio.
+export class UpdatePriceGuardSettingsDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  targetMarginPct?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minMarginPct?: number;
+}
+
 // Compartido por COMMERCE y FREELANCER (ver nota en UpdatePaymentSettingsDto
 // sobre por qué es un solo DTO con campos opcionales de ambos roles).
 export class UpdateNotificationSettingsDto {

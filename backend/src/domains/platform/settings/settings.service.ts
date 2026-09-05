@@ -14,6 +14,7 @@ import {
   UpdateNotificationSettingsDto,
   UpdateModuleSettingsDto,
   UpdateBusinessNameDto,
+  UpdatePriceGuardSettingsDto,
 } from './dto/update-settings.dto';
 
 /**
@@ -127,6 +128,17 @@ export class SettingsService {
     userId: string,
     dto: UpdateOperationSettingsDto
   ) {
+    const commerce = await this.commerceStrategy.getCommerce(userId);
+    await this.commerceStrategy.getOrCreateSettings(commerce.id);
+    return this.prisma.commerceSettings.update({
+      where: { commerceId: commerce.id },
+      data: dto,
+    });
+  }
+
+  // ─── Price Guard settings (solo COMMERCE) ───────────────────────────────────
+
+  async updatePriceGuardSettings(userId: string, dto: UpdatePriceGuardSettingsDto) {
     const commerce = await this.commerceStrategy.getCommerce(userId);
     await this.commerceStrategy.getOrCreateSettings(commerce.id);
     return this.prisma.commerceSettings.update({

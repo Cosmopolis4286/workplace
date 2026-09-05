@@ -13,6 +13,7 @@ import {
   UpdateNotificationSettingsDto,
   UpdateModuleSettingsDto,
   UpdateBusinessNameDto,
+  UpdatePriceGuardSettingsDto,
 } from './dto/update-settings.dto';
 import { UpdateCommerceSlugDto, UpdateFreelancerSlugDto } from './dto/update-commerce-slug.dto';
 
@@ -113,6 +114,16 @@ export class SettingsController {
     @Body() dto: UpdateOperationSettingsDto
   ) {
     return this.settingsService.updateOperationSettings(user.id, dto);
+  }
+
+  @Patch('price-guard')
+  @RequirePermission('settings:edit')
+  @RequireAccountType('COMMERCE')
+  updatePriceGuardSettings(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdatePriceGuardSettingsDto
+  ) {
+    return this.settingsService.updatePriceGuardSettings(user.id, dto);
   }
 
   @Patch('notifications')
