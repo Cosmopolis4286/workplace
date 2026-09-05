@@ -35,7 +35,10 @@
         </NavLink>
       </template>
 
-      <!-- Grouped sections (Ventas & Analytics, Operaciones, Empresa) -->
+      <!-- Separa lo fijo (Búsqueda/Dashboard/IA) de las secciones colapsables -->
+      <div v-if="!collapsed && groupSections.length > 0" class="my-2 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
+
+      <!-- Grouped sections (Mi Catálogo, Mi Actividad, Ventas & Analytics, Operaciones, Empresa) -->
       <template v-for="group in groupSections" :key="group.id">
         <SidebarNavSection
           :section-id="group.id"

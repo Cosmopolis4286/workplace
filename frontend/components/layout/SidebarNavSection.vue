@@ -2,7 +2,9 @@
   <template v-if="!collapsed">
     <button
       type="button"
-      class="mt-3 mb-1 px-2 w-full flex items-center justify-between"
+      class="mt-3 mb-1 mx-1 px-1.5 py-1 rounded-md w-[calc(100%-0.5rem)] flex items-center justify-between transition-colors"
+      :class="dark ? 'hover:bg-white/5' : 'hover:bg-gray-100'"
+      :aria-expanded="isOpen"
       @click="toggleSection(sectionId)"
     >
       <span class="text-[10px] font-bold uppercase tracking-widest" :class="dark ? 'text-gray-500' : 'text-gray-400'">{{ label }}</span>
@@ -18,20 +20,26 @@
   <template v-else>
     <div class="my-1 mx-1.5 h-px" :class="dark ? 'bg-white/10' : 'bg-gray-100'" />
   </template>
-  <div v-show="collapsed || isOpen">
-    <NavLink
-      v-for="item in items"
-      :key="item.id"
-      :to="item.to"
-      :label="item.label"
-      :dark="dark"
-      :collapsed="collapsed"
-      :unread-count="item.to === '/service-requests' ? unreadServiceRequestsCount : 0"
-      @click="$emit('navigate')"
-    >
-      <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
-    </NavLink>
-  </div>
+  <Transition
+    @enter="onEnter"
+    @after-enter="onAfterEnter"
+    @leave="onLeave"
+  >
+    <div v-show="collapsed || isOpen" class="overflow-hidden">
+      <NavLink
+        v-for="item in items"
+        :key="item.id"
+        :to="item.to"
+        :label="item.label"
+        :dark="dark"
+        :collapsed="collapsed"
+        :unread-count="item.to === '/service-requests' ? unreadServiceRequestsCount : 0"
+        @click="$emit('navigate')"
+      >
+        <template #icon><component :is="NAV_ICONS[item.icon]" class="h-5 w-5" /></template>
+      </NavLink>
+    </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
@@ -58,4 +66,31 @@ defineEmits<{
 
 const { isCollapsed, toggleSection } = useSidebarSectionState()
 const isOpen = computed(() => props.forceOpen || !isCollapsed(props.sectionId))
+
+// Transición de altura real (no solo opacidad) sin animation-library: mide
+// scrollHeight en el momento del enter/leave. v-show ya decide si el
+// elemento existe en el DOM — esto solo anima esa transición.
+function onEnter(el: Element) {
+  const node = el as HTMLElement
+  node.style.height = '0px'
+  requestAnimationFrame(() => {
+    node.style.height = `${node.scrollHeight}px`
+  })
+}
+function onAfterEnter(el: Element) {
+  (el as HTMLElement).style.height = ''
+}
+function onLeave(el: Element) {
+  const node = el as HTMLElement
+  node.style.height = `${node.scrollHeight}px`
+  requestAnimationFrame(() => {
+    node.style.height = '0px'
+  })
+}
 </script>
+
+<style scoped>
+div.overflow-hidden {
+  transition: height 150ms ease;
+}
+</style>
