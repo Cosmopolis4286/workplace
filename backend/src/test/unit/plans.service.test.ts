@@ -408,6 +408,84 @@ describe('updatePlan', () => {
     })
   })
 
+  describe('activateTrial', () => {
+    beforeEach(() => {
+      mockPrismaService.subscription.updateMany.mockReset()
+      mockPrismaService.subscription.create.mockReset()
+      mockPrismaService.subscription.findFirst.mockReset()
+      mockPrismaService.user.findUnique.mockReset()
+      mockPrismaService.user.update.mockReset()
+    })
+
+    it('activa un trial de 7 días y marca trialUsedAt cuando el usuario nunca lo usó', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123', trialUsedAt: null })
+      mockPrismaService.plan.findUnique.mockResolvedValue({ id: 'plan-pro', price: 599 })
+      mockPrismaService.subscription.findFirst.mockResolvedValue(null)
+      mockPrismaService.subscription.updateMany.mockResolvedValue({ count: 0 })
+      mockPrismaService.subscription.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'sub-1', ...data, plan: { id: 'plan-pro', price: 599 } }),
+      )
+      mockPrismaService.user.update.mockResolvedValue({ id: 'user-123', trialUsedAt: new Date() })
+
+      const result = await service.activateTrial('user-123', 'plan-pro')
+
+      expect(mockPrismaService.subscription.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'TRIAL', pricePaid: 0, planId: 'plan-pro' }),
+        }),
+      )
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
+        data: { trialUsedAt: expect.any(Date) },
+      })
+      // endAt/trialEnds deben ser ~7 días en el futuro (el scheduler expira por endAt).
+      const createCall = mockPrismaService.subscription.create.mock.calls[0][0]
+      const daysUntilEnd = (createCall.data.endAt.getTime() - createCall.data.startAt.getTime()) / 86_400_000
+      expect(daysUntilEnd).toBeCloseTo(7, 0)
+      expect(createCall.data.trialEnds).toEqual(createCall.data.endAt)
+      expect(result.status).toBe('TRIAL')
+    })
+
+    it('rechaza activar el trial si el usuario ya lo usó antes', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123', trialUsedAt: new Date('2026-01-01') })
+
+      await expect(service.activateTrial('user-123', 'plan-pro')).rejects.toThrow(ConflictException)
+      expect(mockPrismaService.subscription.create).not.toHaveBeenCalled()
+    })
+
+    it('rechaza activar el trial de un plan gratuito (no tiene sentido)', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123', trialUsedAt: null })
+      mockPrismaService.plan.findUnique.mockResolvedValue({ id: 'plan-free', price: 0 })
+
+      await expect(service.activateTrial('user-123', 'plan-free')).rejects.toThrow(ConflictException)
+      expect(mockPrismaService.subscription.create).not.toHaveBeenCalled()
+    })
+
+    it('rechaza activar el trial si ya tiene un plan pago activo', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123', trialUsedAt: null })
+      mockPrismaService.plan.findUnique.mockResolvedValue({ id: 'plan-pro', price: 599 })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        id: 'existing-sub', status: 'ACTIVE', plan: { price: 599 },
+      })
+
+      await expect(service.activateTrial('user-123', 'plan-pro')).rejects.toThrow(ConflictException)
+      expect(mockPrismaService.subscription.create).not.toHaveBeenCalled()
+    })
+
+    it('lanza NotFoundException si el plan no existe', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-123', trialUsedAt: null })
+      mockPrismaService.plan.findUnique.mockResolvedValue(null)
+
+      await expect(service.activateTrial('user-123', 'nope')).rejects.toThrow(NotFoundException)
+    })
+
+    it('lanza NotFoundException si el usuario no existe', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null)
+
+      await expect(service.activateTrial('nope', 'plan-pro')).rejects.toThrow(NotFoundException)
+    })
+  })
+
   describe('approveSubscription', () => {
     function pendingSubscription(overrides: Partial<any> = {}) {
       return {
@@ -495,7 +573,11 @@ describe('updatePlan', () => {
   })
 
   describe('getMySubscription', () => {
-    it('should return user subscription', async () => {
+    beforeEach(() => {
+      mockPrismaService.user.findUnique.mockReset()
+    })
+
+    it('should return user subscription and trialAvailable=false when the plan is paid', async () => {
       const userId = 'user-123'
 
       const mockSubscription = {
@@ -509,10 +591,11 @@ describe('updatePlan', () => {
       mockPrismaService.subscription.findFirst.mockImplementation(({ where }) =>
         where.status?.in ? Promise.resolve(mockSubscription) : Promise.resolve(null)
       )
+      mockPrismaService.user.findUnique.mockResolvedValue({ trialUsedAt: null })
 
       const result = await service.getMySubscription(userId)
 
-      expect(result).toEqual({ subscription: mockSubscription, pendingSubscription: null })
+      expect(result).toEqual({ subscription: mockSubscription, pendingSubscription: null, trialAvailable: false })
       expect(mockPrismaService.subscription.findFirst).toHaveBeenCalledWith({
         where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
         include: { plan: true },
@@ -525,14 +608,24 @@ describe('updatePlan', () => {
       })
     })
 
-    it('should return null if no subscription found', async () => {
+    it('should return null subscriptions and trialAvailable=true when nothing was found and trial unused', async () => {
       const userId = 'user-456'
 
       mockPrismaService.subscription.findFirst.mockResolvedValue(null)
+      mockPrismaService.user.findUnique.mockResolvedValue({ trialUsedAt: null })
 
       const result = await service.getMySubscription(userId)
 
-      expect(result).toEqual({ subscription: null, pendingSubscription: null })
+      expect(result).toEqual({ subscription: null, pendingSubscription: null, trialAvailable: true })
+    })
+
+    it('should return trialAvailable=false once the user already used the trial', async () => {
+      mockPrismaService.subscription.findFirst.mockResolvedValue(null)
+      mockPrismaService.user.findUnique.mockResolvedValue({ trialUsedAt: new Date('2026-01-01') })
+
+      const result = await service.getMySubscription('user-789')
+
+      expect(result.trialAvailable).toBe(false)
     })
   })
 
