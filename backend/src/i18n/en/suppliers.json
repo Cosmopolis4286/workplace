@@ -1,0 +1,7 @@
+{
+  "not_found": "Supplier not found",
+  "name_taken": "A supplier with that name already exists",
+  "deleted": "Supplier deleted successfully",
+  "product_not_found": "Product not found",
+  "invalid_exchange_rate": "No valid exchange rate found for currency {code}"
+}

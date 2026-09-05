@@ -1,0 +1,7 @@
+{
+  "not_found": "Proveedor no encontrado",
+  "name_taken": "Ya existe un proveedor con ese nombre",
+  "deleted": "Proveedor eliminado correctamente",
+  "product_not_found": "Producto no encontrado",
+  "invalid_exchange_rate": "No hay una tasa de cambio válida para la moneda {code}"
+}
