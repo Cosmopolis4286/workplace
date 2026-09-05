@@ -404,6 +404,25 @@ export class NotificationsService {
     });
   }
 
+  // Business Shield — MARGIN_DROP: el margen calculado con el costo de
+  // reposición real (última compra registrada) cayó por debajo del margen
+  // histórico (Product.cost). Ver WORKPLACE_VISION.md secciones 4/21.
+  async notifyMarginDrop(
+    commerceId: string,
+    productName: string,
+    marginHistoricalPct: number,
+    marginReplacementPct: number,
+  ) {
+    return this.create(commerceId, {
+      type: NotificationType.INVENTORY,
+      title: '⚠️ Margen de reposición en riesgo',
+      message: `"${productName}" tiene margen histórico de ${marginHistoricalPct.toFixed(1)}%, pero solo ${marginReplacementPct.toFixed(1)}% usando el costo de reposición real. Si mantienes el precio actual, podrías no cubrir el costo de reponerlo.`,
+      color: 'yellow',
+      link: '/menu',
+      metadata: { productName, marginHistoricalPct, marginReplacementPct },
+    });
+  }
+
   async notifyPlatformFeeCharged(
     userId: string,
     type: 'ORDER' | 'SERVICE_REQUEST' | 'RIDE',
