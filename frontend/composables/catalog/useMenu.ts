@@ -38,6 +38,31 @@ export interface Product {
   bundleItems?: { quantity: number; componentProduct: { id: string; name: string; price: number; image: string | null } }[]
 }
 
+export interface ProductSelectorItem {
+  id: string
+  name: string
+  price: number
+  stock: number
+  image?: string
+  unit: string
+}
+
+export interface ProductsStats {
+  total: number
+  lowStock: number
+  outOfStock: number
+  totalValue: number
+  totalCost: number
+}
+
+export interface ProductFilters {
+  search?: string
+  categoryId?: string
+  status?: ProductStatus
+  page?: number
+  limit?: number
+}
+
 export interface CreateBundlePayload {
   name: string
   description?: string
@@ -52,6 +77,16 @@ const categories = ref<Category[]>([])
 const products = ref<Product[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+const totalCount = ref(0)
+const currentPage = ref(1)
+const totalPages = ref(1)
+const stats = ref<ProductsStats>({ total: 0, lowStock: 0, outOfStock: 0, totalValue: 0, totalCost: 0 })
+const loadingStats = ref(false)
+
+// Cancela la carga de productos en vuelo cuando llega una nueva (ej. un
+// filtro con debounce disparado antes de que la respuesta anterior llegue),
+// mismo patrón que useExpenses.ts.
+let loadProductsController: AbortController | null = null
 
 export const useMenu = () => {
   const { get, post, put, patch, del } = useApi()
@@ -66,30 +101,83 @@ export const useMenu = () => {
     })),
   )
 
-  const totalProducts = computed(() => products.value.length)
-  const availableProducts = computed(() => products.value.filter((p) => p.status === 'AVAILABLE').length)
-  const lowStockProducts = computed(() => products.value.filter((p) => p.status === 'LOW_STOCK'))
-  const outOfStockProducts = computed(() => products.value.filter((p) => p.stock === 0))
-  const totalValue = computed(() => products.value.reduce((sum, p) => sum + p.price * p.stock, 0))
+  const totalProducts = computed(() => stats.value.total)
+  const lowStockCount = computed(() => stats.value.lowStock)
+  const outOfStockCount = computed(() => stats.value.outOfStock)
+  const totalValue = computed(() => stats.value.totalValue)
 
-  // ─── Load all ──────────────────────────────────────────────────────────────
+  // ─── Load categories (con conteo por categoría) ────────────────────────────
 
-  async function loadMenu() {
+  async function loadCategories() {
+    try {
+      categories.value = await get<Category[]>('/menu/categories')
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar las categorías'
+      if (err?.status === 401) router.push('/login')
+    }
+  }
+
+  async function loadStats() {
+    loadingStats.value = true
+    try {
+      stats.value = await get<ProductsStats>('/menu/products/stats')
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al cargar las estadísticas de inventario'
+    } finally {
+      loadingStats.value = false
+    }
+  }
+
+  // ─── Load products (paginado, server-side) ─────────────────────────────────
+
+  async function loadProducts(filters: ProductFilters = {}) {
+    loadProductsController?.abort()
+    const controller = new AbortController()
+    loadProductsController = controller
+
     loading.value = true
     error.value = null
     try {
-      const [cats, prods] = await Promise.all([
-        get<Category[]>('/menu/categories'),
-        get<Product[]>('/menu/products'),
-      ])
-      categories.value = cats
-      products.value = prods
+      const params = new URLSearchParams()
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+      })
+      const qs = params.toString()
+      const res = await get<{ data: Product[]; total: number; page: number; totalPages: number }>(
+        `/menu/products${qs ? '?' + qs : ''}`,
+        { signal: controller.signal },
+      )
+      if (controller.signal.aborted) return
+      products.value = res.data
+      totalCount.value = res.total
+      currentPage.value = res.page
+      totalPages.value = res.totalPages
     } catch (err: any) {
-      error.value = err?.message ?? 'Error al cargar el menú'
+      if (controller.signal.aborted) return
+      error.value = err?.message ?? 'Error al cargar los productos'
       if (err?.status === 401) router.push('/login')
     } finally {
-      loading.value = false
+      if (!controller.signal.aborted) loading.value = false
     }
+  }
+
+  // Carga inicial: primera página de productos + categorías + stats,
+  // en paralelo — reemplaza al viejo loadMenu() que traía TODO el catálogo.
+  async function init(filters: ProductFilters = {}) {
+    await Promise.all([loadProducts(filters), loadCategories(), loadStats()])
+  }
+
+  // Catálogo completo (sin paginar) para selectores de producto — ej. elegir
+  // qué vender al crear una Order. No usa el estado paginado de arriba.
+  async function fetchProductsForSelector(search?: string): Promise<ProductSelectorItem[]> {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : ''
+    return get<ProductSelectorItem[]>(`/menu/products/selector${qs}`)
+  }
+
+  // Catálogo completo con todos los campos, para exportación CSV — siempre
+  // trae TODOS los productos sin importar la página/filtro visible.
+  async function fetchProductsForExport(): Promise<Product[]> {
+    return get<Product[]>('/menu/products/export')
   }
 
   // ─── Categories ────────────────────────────────────────────────────────────
@@ -133,7 +221,7 @@ export const useMenu = () => {
   async function createProduct(data: Partial<Product>): Promise<Product | null> {
     try {
       const product = await post<Product>('/menu/products', data)
-      products.value.push(product)
+      await Promise.all([loadProducts(), loadStats()])
       return product
     } catch (err: any) {
       error.value = err?.message ?? 'Error al crear el producto'
@@ -144,7 +232,7 @@ export const useMenu = () => {
   async function createBundle(data: CreateBundlePayload): Promise<Product | null> {
     try {
       const bundle = await post<Product>('/menu/bundles', data)
-      products.value.push(bundle)
+      await Promise.all([loadProducts(), loadStats()])
       return bundle
     } catch (err: any) {
       error.value = err?.message ?? 'Error al crear el pack'
@@ -157,6 +245,7 @@ export const useMenu = () => {
       const product = await put<Product>(`/menu/products/${id}`, data)
       const idx = products.value.findIndex((p) => p.id === id)
       if (idx !== -1) products.value[idx] = product
+      await loadStats()
       return product
     } catch (err: any) {
       error.value = err?.message ?? 'Error al actualizar el producto'
@@ -168,6 +257,8 @@ export const useMenu = () => {
     try {
       await del(`/menu/products/${id}`)
       products.value = products.value.filter((p) => p.id !== id)
+      totalCount.value = Math.max(0, totalCount.value - 1)
+      await loadStats()
       return true
     } catch (err: any) {
       error.value = err?.message ?? 'Error al eliminar el producto'
@@ -180,6 +271,7 @@ export const useMenu = () => {
       const product = await patch<Product>(`/menu/products/${id}/stock`, { quantity, type })
       const idx = products.value.findIndex((p) => p.id === id)
       if (idx !== -1) products.value[idx] = product
+      await loadStats()
       return product
     } catch (err: any) {
       error.value = err?.message ?? 'Error al actualizar el stock'
@@ -219,16 +311,24 @@ export const useMenu = () => {
     products,
     loading,
     error,
+    totalCount,
+    currentPage,
+    totalPages,
+    stats,
+    loadingStats,
     // computed
     categoriesWithProducts,
     totalProducts,
-    availableProducts,
-    lowStockProducts,
-    outOfStockProducts,
+    lowStockCount,
+    outOfStockCount,
     totalValue,
     // actions
-    loadMenu,
-    init: loadMenu,
+    init,
+    loadProducts,
+    loadCategories,
+    loadStats,
+    fetchProductsForSelector,
+    fetchProductsForExport,
     createCategory,
     updateCategory,
     deleteCategory,

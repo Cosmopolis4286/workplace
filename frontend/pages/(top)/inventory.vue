@@ -8,7 +8,7 @@
       :stats="headerStats"
     >
       <template #actions>
-        <HeaderActionButton :icon="ArrowDownTrayIcon" @click="exportCSV">
+        <HeaderActionButton :icon="ArrowDownTrayIcon" :loading="exporting" @click="exportCSV">
           Exportar
         </HeaderActionButton>
         <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreateProduct">
@@ -50,11 +50,11 @@
         />
 
         <ProductsPanel
-          :products="filteredProducts"
+          :products="products"
           :loading="loading"
           :view-mode="viewMode"
           :saving-stock="savingStock"
-          :has-any-products="products.length > 0"
+          :has-any-products="stats.total > 0"
           :status-label="statusLabel"
           :status-badge-class="statusBadgeClass"
           @create="openCreateProduct"
@@ -63,14 +63,28 @@
           @toggle-status="handleToggleStatus"
           @adjust-stock="adjustStock"
         />
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="flex items-center justify-between">
+          <p class="text-sm text-gray-500">{{ totalCount }} productos totales</p>
+          <div class="flex gap-2">
+            <button class="btn-secondary text-sm px-3 py-1" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">
+              Anterior
+            </button>
+            <span class="text-sm text-gray-600 px-2 py-1">{{ currentPage }} / {{ totalPages }}</span>
+            <button class="btn-secondary text-sm px-3 py-1" :disabled="currentPage >= totalPages" @click="goToPage(currentPage + 1)">
+              Siguiente
+            </button>
+          </div>
+        </div>
       </div>
 
       <InventorySidebar
-        :out-of-stock-count="outOfStockProducts.length"
-        :low-stock-count="lowStockProducts.length"
+        :out-of-stock-count="outOfStockCount"
+        :low-stock-count="lowStockCount"
         :category-breakdown="categoryBreakdown"
         :filter-category="filterCategory"
-        :loading="loading"
+        :loading="loadingStats"
         @create-product="openCreateProduct"
         @open-categories="showCategoryModal = true"
         @open-stock-report="showStockReportModal = true"
@@ -109,7 +123,6 @@
     <!-- Stock Report Modal -->
     <StockReportModal
       :is-open="showStockReportModal"
-      :products="products"
       @close="showStockReportModal = false"
     />
   </div>
@@ -118,7 +131,7 @@
 <script setup>
 definePageMeta({ middleware: 'auth' })
 
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import {
   CubeIcon,
   ArrowDownTrayIcon,
@@ -135,14 +148,24 @@ import ProductModal from '~/components/modals/ProductModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
 import StockReportModal from '~/components/modals/StockReportModal.vue'
 import { useMenu } from '~/composables/catalog/useMenu'
+import { useDataExport } from '~/composables/core/useDataExport'
 
 const {
   products,
   categories,
   loading,
   error,
-  lowStockProducts,
-  outOfStockProducts,
+  totalCount,
+  currentPage,
+  totalPages,
+  stats,
+  loadingStats,
+  lowStockCount,
+  outOfStockCount,
+  loadProducts,
+  loadCategories,
+  loadStats,
+  fetchProductsForExport,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -151,8 +174,8 @@ const {
   deleteCategory,
   updateStock,
   toggleProductStatus,
-  init,
 } = useMenu()
+const { exportCSV: downloadCSV } = useDataExport()
 
 // ─── Local state ────────────────────────────────────────────────────────────
 
@@ -160,6 +183,7 @@ const search = ref('')
 const filterCategory = ref('')
 const filterStatus = ref('')
 const viewMode = ref('grid')
+const exporting = ref(false)
 
 const showProductModal = ref(false)
 const selectedProduct = ref(null)
@@ -177,46 +201,48 @@ const breadcrumbItems = ref([
 
 // ─── Computed ────────────────────────────────────────────────────────────────
 
-const filteredProducts = computed(() => {
-  let list = products.value
-  if (search.value.trim()) {
-    const q = search.value.trim().toLowerCase()
-    list = list.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.brand?.toLowerCase().includes(q) ||
-      p.category?.name.toLowerCase().includes(q)
-    )
-  }
-  if (filterCategory.value) {
-    list = list.filter(p => p.categoryId === filterCategory.value)
-  }
-  if (filterStatus.value) {
-    list = list.filter(p => p.status === filterStatus.value)
-  }
-  return list
-})
-
 const categoryBreakdown = computed(() =>
-  categories.value.map(cat => ({
-    ...cat,
-    count: products.value.filter(p => p.categoryId === cat.id).length,
-  })).filter(c => c.count > 0)
+  categories.value
+    .map(cat => ({ ...cat, count: cat._count?.products ?? 0 }))
+    .filter(c => c.count > 0)
 )
 
-const headerStats = computed(() => {
-  const totalValue = products.value.reduce((s, p) => s + p.price * p.stock, 0)
-  const totalCost = products.value.reduce((s, p) => s + p.cost * p.stock, 0)
-  return [
-    { label: 'Total Productos', value: products.value.length.toString(), change: '', changeType: 'neutral' },
-    { label: 'Valor Inventario', value: `$${totalValue.toFixed(2)}`, change: '', changeType: 'neutral' },
-    { label: 'Bajo Stock', value: lowStockProducts.value.length.toString(), change: '', changeType: lowStockProducts.value.length > 0 ? 'decrease' : 'neutral' },
-    { label: 'Agotados', value: outOfStockProducts.value.length.toString(), change: '', changeType: outOfStockProducts.value.length > 0 ? 'decrease' : 'neutral' },
-  ]
+const headerStats = computed(() => [
+  { label: 'Total Productos', value: stats.value.total.toString(), change: '', changeType: 'neutral' },
+  { label: 'Valor Inventario', value: `$${stats.value.totalValue.toFixed(2)}`, change: '', changeType: 'neutral' },
+  { label: 'Bajo Stock', value: stats.value.lowStock.toString(), change: '', changeType: stats.value.lowStock > 0 ? 'decrease' : 'neutral' },
+  { label: 'Agotados', value: stats.value.outOfStock.toString(), change: '', changeType: stats.value.outOfStock > 0 ? 'decrease' : 'neutral' },
+])
+
+// ─── Server-side filters (con debounce en búsqueda) ───────────────────────────
+
+let searchDebounce = null
+function fetchWithFilters(page = 1) {
+  loadProducts({
+    search: search.value.trim() || undefined,
+    categoryId: filterCategory.value || undefined,
+    status: filterStatus.value || undefined,
+    page,
+  })
+}
+
+watch(search, () => {
+  clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => fetchWithFilters(1), 300)
 })
+watch([filterCategory, filterStatus], () => fetchWithFilters(1))
+
+function goToPage(page) {
+  fetchWithFilters(page)
+}
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
-onMounted(() => init())
+onMounted(() => {
+  fetchWithFilters(1)
+  loadCategories()
+  loadStats()
+})
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -288,7 +314,10 @@ async function handleDelete() {
   deleting.value = true
   const ok = await deleteProduct(productToDelete.value.id)
   deleting.value = false
-  if (ok) showToast('Producto eliminado')
+  if (ok) {
+    showToast('Producto eliminado')
+    fetchWithFilters(currentPage.value)
+  }
   productToDelete.value = null
 }
 
@@ -315,30 +344,27 @@ async function handleDeleteCategory(category) {
 
 // ─── Export ──────────────────────────────────────────────────────────────────
 
-function exportCSV() {
-  const rows = filteredProducts.value.map(p => ({
-    Nombre: p.name,
-    Categoría: p.category?.name ?? '—',
-    Marca: p.brand ?? '—',
-    Precio: p.price.toFixed(2),
-    Costo: p.cost.toFixed(2),
-    Stock: p.stock,
-    'Stock Mín': p.minStock,
-    'Stock Máx': p.maxStock,
-    Estado: statusLabel(p.status),
-  }))
-  if (!rows.length) return
-  const csv = [
-    Object.keys(rows[0]).join(','),
-    ...rows.map(r => Object.values(r).map(v => `"${v}"`).join(',')),
-  ].join('\n')
-  const blob = new Blob([csv], { type: 'text/csv' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `inventario-${new Date().toISOString().split('T')[0]}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+async function exportCSV() {
+  exporting.value = true
+  try {
+    const all = await fetchProductsForExport()
+    const rows = all.map(p => ({
+      Nombre: p.name,
+      Categoría: p.category?.name ?? '—',
+      Marca: p.brand ?? '—',
+      Precio: p.price.toFixed(2),
+      Costo: p.cost.toFixed(2),
+      Stock: p.stock,
+      'Stock Mín': p.minStock,
+      'Stock Máx': p.maxStock,
+      Estado: statusLabel(p.status),
+    }))
+    downloadCSV('inventario', rows)
+  } catch (err) {
+    error.value = err?.message ?? 'Error al exportar el inventario'
+  } finally {
+    exporting.value = false
+  }
 }
 </script>
 
