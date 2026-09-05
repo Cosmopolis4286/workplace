@@ -339,8 +339,12 @@ import { useMenu } from '~/composables/catalog/useMenu'
 import TagsInput from '~/components/ui/TagsInput.vue'
 import ReplacementCostCard from '~/components/products/ReplacementCostCard.vue'
 import PurchaseModal from '~/components/modals/PurchaseModal.vue'
+import SupplierQuoteModal from '~/components/modals/SupplierQuoteModal.vue'
+import SupplierModal from '~/components/modals/SupplierModal.vue'
 
 const showPurchaseModal = ref(false)
+const showQuoteModal = ref(false)
+const showSupplierModal = ref(false)
 const replacementCostCardRef = ref(null)
 
 const { defaultRate, convertLabel, rateLabel, load } = useDefaultRate()
