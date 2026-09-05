@@ -80,8 +80,8 @@ describe('NavigationService', () => {
     currentAccountType = 'COMMERCE'
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
-    const topSection = result.sections.find((s) => s.id === 'top')
-    expect(topSection?.items.find((i) => i.id === 'menu')).toBeUndefined()
+    const catalogSection = result.sections.find((s) => s.id === 'catalog')
+    expect(catalogSection?.items.find((i) => i.id === 'menu')).toBeUndefined()
   })
 
   it('shows menu:view for any category whose allowedModules grants "menu"', async () => {
@@ -94,8 +94,8 @@ describe('NavigationService', () => {
     currentAccountType = 'COMMERCE'
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
-    const topSection = result.sections.find((s) => s.id === 'top')
-    expect(topSection?.items.find((i) => i.id === 'menu')).toBeDefined()
+    const catalogSection = result.sections.find((s) => s.id === 'catalog')
+    expect(catalogSection?.items.find((i) => i.id === 'menu')).toBeDefined()
   })
 
   it('excludes NORMAL from /orders but includes /my-orders (rolesOnly)', async () => {
@@ -107,9 +107,9 @@ describe('NavigationService', () => {
 
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.NORMAL })
 
-    const topSection = result.sections.find((s) => s.id === 'top')
+    const activitySection = result.sections.find((s) => s.id === 'activity')
     const operationsSection = result.sections.find((s) => s.id === 'operations')
-    expect(topSection?.items.find((i) => i.id === 'my-orders')).toBeDefined()
+    expect(activitySection?.items.find((i) => i.id === 'my-orders')).toBeDefined()
     expect(operationsSection?.items.find((i) => i.id === 'orders')).toBeUndefined()
   })
 
@@ -187,6 +187,33 @@ describe('NavigationService', () => {
 
     const salesSection = result.sections.find((s) => s.id === 'sales')
     expect(salesSection?.items.find((i) => i.id === 'sales')).toBeDefined()
+  })
+
+  it('keeps only Dashboard/Asistente IA in the flat "top" section, grouping the rest into catalog/activity', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue([
+      'dashboard:view', 'menu:view', 'inventory:view', 'services:view', 'service_requests:view',
+      'opportunities:view', 'corridas:view', 'wallets:use',
+    ])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['menu', 'inventory', 'services', 'service_requests', 'corridas', 'wallets'],
+      categoryName: null,
+    })
+
+    currentAccountType = 'COMMERCE'
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
+
+    const topSection = result.sections.find((s) => s.id === 'top')
+    const catalogSection = result.sections.find((s) => s.id === 'catalog')
+    const activitySection = result.sections.find((s) => s.id === 'activity')
+
+    expect(topSection?.items.map((i) => i.id).sort()).toEqual(['ai-assistant', 'dashboard'])
+    expect(catalogSection?.items.find((i) => i.id === 'menu')).toBeDefined()
+    expect(catalogSection?.items.find((i) => i.id === 'inventory')).toBeDefined()
+    expect(catalogSection?.items.find((i) => i.id === 'my-services')).toBeDefined()
+    expect(activitySection?.items.find((i) => i.id === 'service-requests')).toBeDefined()
+    expect(activitySection?.items.find((i) => i.id === 'opportunities')).toBeDefined()
+    expect(activitySection?.items.find((i) => i.id === 'rides')).toBeDefined()
+    expect(activitySection?.items.find((i) => i.id === 'wallet')).toBeDefined()
   })
 
   describe('getRouteMaps', () => {
