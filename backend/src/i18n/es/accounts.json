@@ -1,0 +1,13 @@
+{
+  "customer_not_found": "Cliente no encontrado",
+  "order_not_found": "Pedido no encontrado",
+  "supplier_not_found": "Proveedor no encontrado",
+  "purchase_not_found": "Compra no encontrada",
+  "receivable_not_found": "Cuenta por cobrar no encontrada",
+  "payable_not_found": "Cuenta por pagar no encontrada",
+  "receivable_deleted": "Cuenta por cobrar eliminada correctamente",
+  "payable_deleted": "Cuenta por pagar eliminada correctamente",
+  "invalid_exchange_rate": "No hay una tasa de cambio válida para la moneda {code}",
+  "no_fx_exposure_usd": "Esta cuenta está en USD, no tiene exposición cambiaria",
+  "no_current_rate": "No se pudo obtener la tasa de cambio actual para comparar"
+}

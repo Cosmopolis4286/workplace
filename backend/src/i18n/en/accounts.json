@@ -1,0 +1,13 @@
+{
+  "customer_not_found": "Customer not found",
+  "order_not_found": "Order not found",
+  "supplier_not_found": "Supplier not found",
+  "purchase_not_found": "Purchase not found",
+  "receivable_not_found": "Receivable not found",
+  "payable_not_found": "Payable not found",
+  "receivable_deleted": "Receivable deleted successfully",
+  "payable_deleted": "Payable deleted successfully",
+  "invalid_exchange_rate": "No valid exchange rate found for currency {code}",
+  "no_fx_exposure_usd": "This account is in USD, it has no FX exposure",
+  "no_current_rate": "Could not fetch the current exchange rate for comparison"
+}
