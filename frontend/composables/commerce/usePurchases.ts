@@ -6,6 +6,7 @@ import { useApi } from '../core/useApi'
 export interface Purchase {
   id: string
   productId: string
+  product?: { id: string; name: string } | null
   supplierId?: string | null
   supplier?: { id: string; name: string } | null
   quantity: number

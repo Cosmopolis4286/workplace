@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { useApi } from '../core/useApi'
 import { useUserPreferences } from '../users/useUserPreferences'
+import { useDataExport } from '../core/useDataExport'
 
 export type AnalyticsPeriod = 'today' | '7d' | 'week' | '30d' | 'quarter' | '90d' | '1y' | 'custom'
 export type CompareWith = 'previous' | 'year' | 'none'
@@ -86,6 +87,7 @@ const ANALYTICS_PERIOD_LABELS: Record<AnalyticsPeriod, string> = {
 export const useAnalytics = () => {
   const { get } = useApi()
   const router = useRouter()
+  const { exportJSON: downloadJSON } = useDataExport()
 
   // ─── Computed chart data (Chart.js ready) ──────────────────────────────────
 
@@ -228,14 +230,7 @@ export const useAnalytics = () => {
 
   function exportReport() {
     if (!overview.value) return
-    const blob = new Blob([JSON.stringify(overview.value, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const period = overview.value.period
-    a.download = `reporte-${period}-${new Date().toISOString().split('T')[0]}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadJSON(`reporte-${overview.value.period}`, overview.value)
   }
 
   // ─── Load ─────────────────────────────────────────────────────────────────

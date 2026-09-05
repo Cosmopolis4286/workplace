@@ -45,6 +45,7 @@ export interface ProductSelectorItem {
   stock: number
   image?: string
   unit: string
+  status: ProductStatus
 }
 
 export interface ProductsStats {
@@ -108,6 +109,10 @@ export const useMenu = () => {
   const lowStockCount = computed(() => stats.value.lowStock)
   const outOfStockCount = computed(() => stats.value.outOfStock)
   const totalValue = computed(() => stats.value.totalValue)
+  // Sobre el array actualmente cargado (no server-side) — válido cuando el
+  // consumidor carga el catálogo completo (ej. menu.vue), no cuando trabaja
+  // con una página parcial (ej. inventory.vue, que usa stats.* en su lugar).
+  const availableProducts = computed(() => products.value.filter((p) => p.status === 'AVAILABLE').length)
 
   // ─── Load categories (con conteo por categoría) ────────────────────────────
 
@@ -325,6 +330,7 @@ export const useMenu = () => {
     lowStockCount,
     outOfStockCount,
     totalValue,
+    availableProducts,
     // actions
     init,
     loadProducts,
