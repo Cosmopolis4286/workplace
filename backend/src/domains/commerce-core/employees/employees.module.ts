@@ -8,5 +8,6 @@ import { PlansModule } from '../../money/plans/plans.module';
   imports: [PrismaModule, PlansModule],
   controllers: [EmployeesController],
   providers: [EmployeesService],
+  exports: [EmployeesService],
 })
 export class EmployeesModule {}
