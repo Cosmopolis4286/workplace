@@ -39,7 +39,7 @@ export interface NavItemDef {
 }
 
 export type NavSectionId =
-  | 'top' | 'sales' | 'operations' | 'company'
+  | 'top' | 'catalog' | 'activity' | 'sales' | 'operations' | 'company'
   | 'administration-people' | 'administration-catalog'
   | 'administration-money' | 'administration-system'
   | 'my-account' | 'business';

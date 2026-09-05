@@ -27,20 +27,37 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     order: 0,
     flat: true,
     items: [
-      // Sin permission/módulo a propósito — cualquier usuario autenticado
-      // (incluyendo NORMAL) puede buscar un servicio por lenguaje natural,
-      // igual que ya puede hacerlo manualmente desde /search. Base sin LLM
-      // del AI Agent orquestador (WORKPLACE_VISION.md §4/§16).
+      // Únicos ítems que quedan sueltos (sin agrupar): uso diario, no tiene
+      // sentido esconderlos detrás de un acordeón. Todo lo demás que antes
+      // vivía acá se movió a 'catalog'/'activity' (ver más abajo) — la
+      // auditoría de sidebar encontró 9 ítems sueltos sin jerarquía en esta
+      // sección al ser 'flat', causando la sensación de menú "sobrecargado".
       { id: 'ai-assistant', to: '/ai-assistant', label: 'Asistente IA', icon: 'ai_assistant', order: -1,
         condition: { permission: null } },
       { id: 'dashboard', to: '/dashboard', label: 'Dashboard', icon: 'dashboard', order: 0,
         condition: { permission: 'dashboard:view' } },
+    ],
+  },
+  {
+    id: 'catalog',
+    label: 'Mi Catálogo',
+    order: 1,
+    flat: false,
+    items: [
       { id: 'menu', to: '/menu', label: 'Menú', icon: 'menu', order: 1,
         condition: { permission: 'menu:view', requiresModule: true, excludeRoles: [Role.NORMAL], excludeAccountTypes: ['FREELANCER'] } },
       { id: 'inventory', to: '/inventory', label: 'Inventario', icon: 'inventory', order: 2,
         condition: { permission: 'inventory:view', requiresModule: true, excludeRoles: [Role.NORMAL], excludeAccountTypes: ['FREELANCER'] } },
       { id: 'my-services', to: '/my-services', label: 'Servicios', icon: 'services', order: 3,
         condition: { permission: 'services:view', requiresModule: true } },
+    ],
+  },
+  {
+    id: 'activity',
+    label: 'Mi Actividad',
+    order: 2,
+    flat: false,
+    items: [
       { id: 'service-requests', to: '/service-requests', label: 'Solicitudes', icon: 'requests', order: 4,
         condition: { permission: 'service_requests:view', requiresModule: true } },
       // Sin requiresModule a propósito: el punto de esta página es invitar a
@@ -60,7 +77,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
   {
     id: 'sales',
     label: 'Ventas & Analytics',
-    order: 1,
+    order: 3,
     flat: false,
     items: [
       { id: 'sales', to: '/sales', label: 'Ventas', icon: 'sales', order: 0,
@@ -74,7 +91,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
   {
     id: 'operations',
     label: 'Operaciones',
-    order: 2,
+    order: 4,
     flat: false,
     items: [
       { id: 'orders', to: '/orders', label: 'Pedidos', icon: 'orders', order: 0,
@@ -100,7 +117,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
   {
     id: 'company',
     label: 'Empresa',
-    order: 3,
+    order: 5,
     flat: false,
     items: [
       { id: 'employees', to: '/employees', label: 'Empleados', icon: 'employees', order: 0,
@@ -122,7 +139,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
   {
     id: 'administration-people',
     label: 'Administración · Personas',
-    order: 4,
+    order: 6,
     flat: false,
     items: [
       { id: 'admin-users', to: '/users', label: 'Usuarios', icon: 'users_admin', order: 0,
@@ -134,7 +151,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
   {
     id: 'administration-catalog',
     label: 'Administración · Catálogo',
-    order: 5,
+    order: 7,
     flat: false,
     items: [
       { id: 'admin-categories', to: '/categories', label: 'Categorías', icon: 'categories', order: 0,
@@ -150,7 +167,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
   {
     id: 'administration-money',
     label: 'Administración · Dinero',
-    order: 6,
+    order: 8,
     flat: false,
     items: [
       { id: 'admin-plans', to: '/plans', label: 'Planes', icon: 'plan', order: 0,
@@ -164,7 +181,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
   {
     id: 'administration-system',
     label: 'Administración · Sistema',
-    order: 7,
+    order: 9,
     flat: false,
     items: [
       { id: 'admin-permissions', to: '/permissions', label: 'Permisos', icon: 'permissions', order: 0,
@@ -180,7 +197,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
   {
     id: 'my-account',
     label: 'Mi Cuenta',
-    order: 8,
+    order: 10,
     flat: false,
     items: [
       { id: 'profile', to: '/profile', label: 'Mi Perfil', icon: 'profile', order: 0,
@@ -194,7 +211,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
   {
     id: 'business',
     label: 'Negocio',
-    order: 9,
+    order: 11,
     flat: false,
     items: [
       { id: 'settings', to: '/settings', label: 'Configuración', icon: 'ops_group', order: 0,
