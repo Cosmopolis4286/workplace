@@ -49,7 +49,18 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2).
+
+### 5.2 Planes de siguiente nivel: trial autoservicio + Feature Grants (2026-09-05)
+
+Extiende `Plan`/`Subscription` (que ya solo manejaban "todo el plan, por mes/año") con activaciones temporales más finas — trial de plan completo por 7 días, y features individuales por tiempo limitado con 3 modos de consumo.
+
+- **Trial**: `User.trialUsedAt` (marca permanente, una vez de por vida) + `PlansService.activateTrial()` — autoservicio, activable en cualquier momento desde un plan gratuito, 7 días, reutiliza el scheduler de expiración de suscripciones ya existente. `getMySubscription()` expone `trialAvailable`.
+- **`PlanFeatureRule` + `FeatureGrant`**: qué puede activar cada plan (`featureKey` libre, duración, `SINGLE_USE | MULTI_USE | REACTIVATABLE`, límite de usos) vs. una activación concreta (con snapshot inmutable de la regla). `FeatureGrantsService.hasFeature()` es el punto único que cualquier guard/servicio debe consultar — expiración y agotamiento se evalúan al vuelo (perezoso), no solo por cron.
+- Autoservicio (`SELF_SERVICE`, sigue una regla del plan) + otorgamiento manual de admin (`ADMIN`, sin regla — cortesías puntuales) conviven en el mismo modelo.
+- Endpoints: `POST /api/plans/trial/activate`; `/api/feature-grants/*` (mine, available, activate, has, + CRUD de reglas y grant/revoke admin).
+- **Frontend**: CTA de trial + panel "Funciones de tu plan" en `my-plan.vue`, `useFeatureGrants.ts`.
+- Validado end-to-end (trial sobre plan Pro con `endAt` exacto a 7 días; regla `REACTIVATABLE` y `MULTI_USE` activadas correctamente; doble-activación rechazada).
 
 ### 5.1 Business Shield: Purchases + Supplier Intelligence + Price Guard + Accounts (Fases 2a-2f — 2026-09-04/05)
 
@@ -107,7 +118,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 640 tests unitarios backend, todos pasando (`npx jest`).
+- 676 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.

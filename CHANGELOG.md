@@ -4,6 +4,29 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Sistema de planes de siguiente nivel: trial autoservicio + Feature Grants (2026-09-05)
+
+Pedido de negocio: además de la duración mensual/anual de una suscripción completa, cada plan debía poder activar features individuales (módulos o funciones puntuales) por tiempo limitado, con tres modos de consumo — un solo uso, múltiples usos con contador, o reactivable indefinidamente.
+
+**Trial autoservicio de 7 días:**
+- **`User.trialUsedAt`**: marca permanente de que la cuenta ya usó su prueba gratuita — una sola vez de por vida, sin importar cuántas veces cambie de plan después.
+- **`PlansService.activateTrial()`**: activable en cualquier momento mientras el usuario esté en un plan gratuito (o sin suscripción). Crea una `Subscription` con `status: TRIAL`, `endAt`/`trialEnds` = +7 días — reutiliza el `SubscriptionsScheduler` ya existente (expira por `endAt`, no hizo falta un cron nuevo). Rechaza: cuenta que ya usó el trial, plan gratuito (no tiene sentido), o usuario con un plan pago ya activo.
+- **`getMySubscription()`** ahora expone `trialAvailable` (calculado, no persistido) para que el frontend sepa cuándo mostrar el CTA.
+- Endpoint: `POST /api/plans/trial/activate`.
+
+**Feature Grants — activaciones temporales de módulos/funciones:**
+- **Modelo `PlanFeatureRule`**: qué puede activar cada plan por autoservicio — `featureKey` (string libre: módulos como `"business_shield"`, límites como `"extra_branch_slot"`, consumibles como `"ai_credits_10"`), `durationDays`, `usageMode` (`SINGLE_USE | MULTI_USE | REACTIVATABLE`), `maxUses` (solo aplica a `MULTI_USE`).
+- **Modelo `FeatureGrant`**: una activación concreta, con snapshot inmutable de la regla al momento de activar (mismo criterio que el snapshot de tasa de cambio en `Purchase`) — si la regla del plan cambia después, los grants ya emitidos no se alteran. Soporta activación por autoservicio (`SELF_SERVICE`, sigue una `PlanFeatureRule`) o manual (`ADMIN`, sin regla, para cortesías/soporte puntual).
+- **`FeatureGrantsService.hasFeature()`**: consulta central que cualquier guard/servicio debe usar para saber "¿tiene esto activo ahora mismo?" — evalúa expiración y usos restantes al vuelo (expiración perezosa: si está vencido, lo marca `EXPIRED` en el momento de la consulta, no depende solo del cron).
+- **`consumeUsage()`**: decrementa `usesRemaining` en `MULTI_USE`, marca `EXHAUSTED` al llegar a 0. No-op para `SINGLE_USE`/`REACTIVATABLE` (su "consumo" es la expiración misma, no un contador).
+- Regla de reactivación: `SINGLE_USE` nunca se puede volver a activar aunque haya expirado (se busca cualquier grant histórico, no solo el activo); `REACTIVATABLE` sí, indefinidamente, una vez que el anterior expiró.
+- `FeatureGrantsScheduler`: cron diario de higiene (mismo patrón que `SubscriptionsScheduler`) — no es la fuente de verdad de expiración, solo evita que el `status` guardado quede desactualizado si nadie consulta esa feature en particular.
+- Endpoints: autoservicio `GET /feature-grants/mine`, `GET /feature-grants/available`, `POST /feature-grants/activate/:featureKey`, `GET /feature-grants/has/:featureKey`; admin `GET/POST /feature-grants/plans/:planId/rules`, `PUT/DELETE /feature-grants/rules/:id`, `POST /feature-grants/admin/grant`, `POST /feature-grants/admin/:id/revoke`.
+- Migraciones `20260905035134_add_trial_used_at` y `20260905040348_add_feature_grants`.
+- **Frontend**: CTA "Activar prueba gratis" en `my-plan.vue` (visible solo cuando `trialAvailable`, sobre el plan más popular disponible); panel "Funciones de tu plan" en el mismo sidebar, consumiendo `/feature-grants/available` — activa cada feature con un click y muestra su estado. `useFeatureGrants.ts` nuevo, `usePlans.ts` extendido con `trialAvailable`/`activateTrial()`.
+- Tests: suite completa de `PlansService.activateTrial` (7 casos) y de `FeatureGrantsService` (19 casos — cubre los 3 modos de uso, expiración/agotamiento perezosos, reactivación permitida vs. rechazada, admin bypass).
+- Validado end-to-end: trial activado sobre plan Pro (`endAt` = +7 días exacto, `enabledModules` con `purchases/suppliers/accounts` incluidos), regla `REACTIVATABLE` de 3 días activada y rechazo correcto de doble-activación, regla `MULTI_USE` con `usesRemaining` inicializado correctamente.
+
 ### Added — Business Shield, Fase 2f: Cuentas por Cobrar/Pagar + navegación (2026-09-05)
 
 Cuarto módulo del roadmap "WorkPlace Business Shield" (sección 11 del audit estratégico): detectar cuándo vender fiado en un contexto de inflación destruye valor, sin imponer decisiones — solo mostrar el riesgo real.
