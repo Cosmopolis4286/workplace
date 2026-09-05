@@ -198,6 +198,12 @@ const PERMISSIONS = [
 
 const COMMERCE_KEYS = [
   'dashboard:view',
+  // inventory:view gatea la página /inventory en el sidebar (ver
+  // navigation-tree.data.ts), pero los datos reales de esa página
+  // (GET /menu/products y derivados) están protegidos por menu:view, no por
+  // inventory:view — ambos deben concederse siempre juntos a cualquier
+  // rol/perfil con acceso a Inventario, o la página cargará vacía con un
+  // 403 silencioso. Ver auditoría de reportes que motivó este comentario.
   'menu:view', 'menu:create', 'menu:edit', 'menu:delete',
   'inventory:view', 'inventory:edit',
   'orders:view', 'orders:create', 'orders:edit', 'orders:delete', 'orders:change_status',
@@ -435,7 +441,7 @@ async function seedPlans() {
       maxOrders: 2000,
       maxStorage: 2000,
       features: ['500 productos', '10 empleados', '3 sucursales', '2,000 pedidos/mes', 'Soporte 24/7', 'Reportes avanzados', 'Múltiples usuarios', 'API access'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'services', 'jobs', 'service_requests', 'corridas', 'wallets', 'sales', 'reports'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'services', 'jobs', 'service_requests', 'corridas', 'wallets', 'sales', 'reports', 'purchases', 'suppliers', 'accounts'],
     },
     {
       name: 'Enterprise',
@@ -454,7 +460,7 @@ async function seedPlans() {
       maxOrders: -1,
       maxStorage: 10000,
       features: ['Productos ilimitados', 'Empleados ilimitados', 'Sucursales ilimitadas', 'Pedidos ilimitados', 'Soporte dedicado', 'Personalización completa', 'SLA garantizado', 'Onboarding personalizado'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'inventory', 'services', 'jobs', 'service_requests', 'corridas', 'wallets', 'reports', 'sales'],
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'inventory', 'services', 'jobs', 'service_requests', 'corridas', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
     },
   ]
 
@@ -908,7 +914,7 @@ const USER_CATEGORIES = [
   {
     name: 'Comida',
     icon: '🍔',
-    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
+    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
     subcategories: [
       'Restaurante', 'Cafetería', 'Comida Rápida', 'Food Truck', 'Catering'
     ]
@@ -1004,7 +1010,7 @@ const USER_CATEGORIES = [
   {
     name: 'Comercio',
     icon: '🛍️',
-    allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
+    allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
     subcategories: [
       'Retail', 'Mayorista', 'Importación', 'Exportación', 'E-commerce'
     ]
