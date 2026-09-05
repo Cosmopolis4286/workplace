@@ -176,12 +176,21 @@
                   </p>
                 </div>
 
-                <ReplacementCostCard
-                  v-if="isEditing"
-                  ref="replacementCostCardRef"
-                  :product-id="props.product.id"
-                  @register-purchase="showPurchaseModal = true"
-                />
+                <div v-if="isEditing" class="space-y-1">
+                  <ReplacementCostCard
+                    ref="replacementCostCardRef"
+                    :product-id="props.product.id"
+                    @register-purchase="showPurchaseModal = true"
+                    @register-quote="showQuoteModal = true"
+                  />
+                  <button
+                    type="button"
+                    class="text-xs text-gray-400 hover:text-gray-600"
+                    @click="showSupplierModal = true"
+                  >
+                    Gestionar proveedores
+                  </button>
+                </div>
 
                 <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
@@ -303,6 +312,20 @@
     :product-name="form.name"
     @close="showPurchaseModal = false"
     @saved="replacementCostCardRef?.reload()"
+  />
+
+  <SupplierQuoteModal
+    v-if="isEditing"
+    :is-open="showQuoteModal"
+    :product-id="props.product.id"
+    :product-name="form.name"
+    @close="showQuoteModal = false"
+    @saved="replacementCostCardRef?.reload()"
+  />
+
+  <SupplierModal
+    :is-open="showSupplierModal"
+    @close="showSupplierModal = false"
   />
 </template>
 
