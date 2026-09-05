@@ -5,7 +5,11 @@ export type NavIconKey =
   | 'wallet' | 'sales' | 'analytics' | 'reports' | 'ventas_group' | 'ops_group'
   | 'empresa_group' | 'orders' | 'appointments' | 'customers' | 'profile'
   | 'home' | 'delivery' | 'employees' | 'jobs' | 'branches' | 'modules' | 'cash'
-  | 'opportunities' | 'ai_assistant';
+  | 'opportunities' | 'ai_assistant'
+  // Íconos únicos por concepto (evitan compartir glifo entre conceptos no
+  // relacionados — ver auditoría de sidebar que motivó esta separación)
+  | 'users_admin' | 'kyc' | 'plan' | 'commissions' | 'categories' | 'pricing'
+  | 'search_tabs' | 'permissions' | 'report_issue' | 'locations' | 'audit' | 'logs';
 
 export type BusinessAccountType = 'COMMERCE' | 'FREELANCER';
 

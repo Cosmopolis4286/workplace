@@ -9,9 +9,9 @@ import { NavItemDef, NavSectionDef } from './navigation.types';
  * NavigationService.getRouteMaps().
  */
 export const EXTRA_PROTECTED_ROUTES: NavItemDef[] = [
-  { id: 'expenses', to: '/expenses', label: 'Gastos', icon: 'sales', order: 0,
+  { id: 'expenses', to: '/expenses', label: 'Gastos', icon: 'cash', order: 0,
     condition: { permission: 'expenses:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
-  { id: 'customer-dashboard', to: '/customer-dashboard', label: 'Mi Panel', icon: 'home', order: 0,
+  { id: 'customer-dashboard', to: '/customer-dashboard', label: 'Mi Panel', icon: 'dashboard', order: 0,
     condition: { permission: 'orders:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
 ];
 
@@ -41,21 +41,19 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         condition: { permission: 'inventory:view', requiresModule: true, excludeRoles: [Role.NORMAL], excludeAccountTypes: ['FREELANCER'] } },
       { id: 'my-services', to: '/my-services', label: 'Servicios', icon: 'services', order: 3,
         condition: { permission: 'services:view', requiresModule: true } },
-      { id: 'jobs', to: '/jobs', label: 'Empleos', icon: 'jobs', order: 4,
-        condition: { permission: 'jobs:view', requiresModule: true } },
-      { id: 'service-requests', to: '/service-requests', label: 'Solicitudes', icon: 'requests', order: 5,
+      { id: 'service-requests', to: '/service-requests', label: 'Solicitudes', icon: 'requests', order: 4,
         condition: { permission: 'service_requests:view', requiresModule: true } },
       // Sin requiresModule a propósito: el punto de esta página es invitar a
       // alguien que TODAVÍA no tiene el módulo de servicios activo a
       // convertirse en proveedor — condicionarla al módulo la escondería
       // justo de quien más le sirve.
-      { id: 'opportunities', to: '/opportunities', label: 'Oportunidades', icon: 'opportunities', order: 6,
+      { id: 'opportunities', to: '/opportunities', label: 'Oportunidades', icon: 'opportunities', order: 5,
         condition: { permission: 'opportunities:view' } },
-      { id: 'rides', to: '/rides', label: 'Corridas y Fletes', icon: 'rides', order: 7,
+      { id: 'rides', to: '/rides', label: 'Corridas y Fletes', icon: 'rides', order: 6,
         condition: { permission: 'corridas:view', requiresModule: true } },
-      { id: 'wallet', to: '/wallet', label: 'Billetera', icon: 'wallet', order: 8,
+      { id: 'wallet', to: '/wallet', label: 'Billetera', icon: 'wallet', order: 7,
         condition: { permission: 'wallets:use', requiresModule: true } },
-      { id: 'my-orders', to: '/my-orders', label: 'Mis Pedidos', icon: 'orders', order: 9,
+      { id: 'my-orders', to: '/my-orders', label: 'Mis Pedidos', icon: 'orders', order: 8,
         condition: { permission: null, rolesOnly: [Role.NORMAL] } },
     ],
   },
@@ -99,7 +97,12 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     items: [
       { id: 'employees', to: '/employees', label: 'Empleados', icon: 'employees', order: 0,
         condition: { permission: 'employees:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
-      { id: 'branches', to: '/branches', label: 'Sucursales', icon: 'branches', order: 1,
+      // Movido desde la sección "top": conceptualmente es gestión de
+      // personal (publicar/ver vacantes propias), igual que Empleados —
+      // antes vivía suelto junto a Oportunidades sin relación visual.
+      { id: 'jobs', to: '/jobs', label: 'Empleos', icon: 'jobs', order: 1,
+        condition: { permission: 'jobs:view', requiresModule: true } },
+      { id: 'branches', to: '/branches', label: 'Sucursales', icon: 'branches', order: 2,
         condition: { permission: 'branches:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
     ],
   },
@@ -114,9 +117,9 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     order: 4,
     flat: false,
     items: [
-      { id: 'admin-users', to: '/users', label: 'Usuarios', icon: 'employees', order: 0,
+      { id: 'admin-users', to: '/users', label: 'Usuarios', icon: 'users_admin', order: 0,
         condition: { permission: 'users:view' } },
-      { id: 'admin-kyc', to: '/kyc-admin', label: 'Verificaciones KYC', icon: 'employees', order: 1,
+      { id: 'admin-kyc', to: '/kyc-admin', label: 'Verificaciones KYC', icon: 'kyc', order: 1,
         condition: { permission: null, rolesOnly: [Role.SUPERADMIN, Role.ADMIN] } },
     ],
   },
@@ -126,13 +129,13 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     order: 5,
     flat: false,
     items: [
-      { id: 'admin-categories', to: '/categories', label: 'Categorías', icon: 'menu', order: 0,
+      { id: 'admin-categories', to: '/categories', label: 'Categorías', icon: 'categories', order: 0,
         condition: { permission: 'categories_global:view' } },
-      { id: 'admin-search-tabs', to: '/search-tabs', label: 'Tabs de Búsqueda', icon: 'requests', order: 1,
+      { id: 'admin-search-tabs', to: '/search-tabs', label: 'Tabs de Búsqueda', icon: 'search_tabs', order: 1,
         condition: { permission: 'search_tabs:view' } },
-      { id: 'admin-locations', to: '/locations', label: 'Ubicaciones (VE)', icon: 'branches', order: 2,
+      { id: 'admin-locations', to: '/locations', label: 'Ubicaciones (VE)', icon: 'locations', order: 2,
         condition: { permission: 'locations:view' } },
-      { id: 'admin-proposed-categories', to: '/proposed-categories-admin', label: 'Categorías Propuestas', icon: 'menu', order: 3,
+      { id: 'admin-proposed-categories', to: '/proposed-categories-admin', label: 'Categorías Propuestas', icon: 'categories', order: 3,
         condition: { permission: 'categories_user:manage' } },
     ],
   },
@@ -142,11 +145,11 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     order: 6,
     flat: false,
     items: [
-      { id: 'admin-plans', to: '/plans', label: 'Planes', icon: 'sales', order: 0,
+      { id: 'admin-plans', to: '/plans', label: 'Planes', icon: 'plan', order: 0,
         condition: { permission: 'plans:view' } },
       { id: 'admin-exchange-rates', to: '/exchange-rates', label: 'Tasas de Cambio', icon: 'analytics', order: 1,
         condition: { permission: 'exchange_rates:view' } },
-      { id: 'admin-commissions', to: '/commissions', label: 'Comisiones', icon: 'sales', order: 2,
+      { id: 'admin-commissions', to: '/commissions', label: 'Comisiones', icon: 'commissions', order: 2,
         condition: { permission: 'platform_fees:view' } },
     ],
   },
@@ -156,13 +159,13 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     order: 7,
     flat: false,
     items: [
-      { id: 'admin-permissions', to: '/permissions', label: 'Permisos', icon: 'requests', order: 0,
+      { id: 'admin-permissions', to: '/permissions', label: 'Permisos', icon: 'permissions', order: 0,
         condition: { permission: 'permissions:manage' } },
       { id: 'admin-landing', to: '/landing-admin', label: 'Landing', icon: 'home', order: 1,
         condition: { permission: null, rolesOnly: [Role.SUPERADMIN, Role.ADMIN] } },
-      { id: 'admin-audit-log', to: '/audit-log', label: 'Auditoría', icon: 'orders', order: 2,
+      { id: 'admin-audit-log', to: '/audit-log', label: 'Auditoría', icon: 'audit', order: 2,
         condition: { permission: 'audit:view' } },
-      { id: 'admin-logs', to: '/logs', label: 'Logs', icon: 'reports', order: 3,
+      { id: 'admin-logs', to: '/logs', label: 'Logs', icon: 'logs', order: 3,
         condition: { permission: 'logs:view' } },
     ],
   },
@@ -174,9 +177,9 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     items: [
       { id: 'profile', to: '/profile', label: 'Mi Perfil', icon: 'profile', order: 0,
         condition: { permission: null } },
-      { id: 'verification', to: '/verification', label: 'Verificación de Identidad', icon: 'employees', order: 1,
+      { id: 'verification', to: '/verification', label: 'Verificación de Identidad', icon: 'kyc', order: 1,
         condition: { permission: null } },
-      { id: 'report-issue', to: '/report-issue', label: 'Reportar un Problema', icon: 'requests', order: 2,
+      { id: 'report-issue', to: '/report-issue', label: 'Reportar un Problema', icon: 'report_issue', order: 2,
         condition: { permission: null } },
     ],
   },
@@ -190,9 +193,9 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         condition: { permission: 'settings:view' } },
       { id: 'modules', to: '/modules', label: 'Módulos', icon: 'modules', order: 1,
         condition: { permission: null, accountTypeOnly: ['COMMERCE', 'FREELANCER'] } },
-      { id: 'my-plan', to: '/my-plan', label: 'Mi Plan', icon: 'sales', order: 2,
+      { id: 'my-plan', to: '/my-plan', label: 'Mi Plan', icon: 'plan', order: 2,
         condition: { permission: null, accountTypeOnly: ['COMMERCE', 'FREELANCER'] } },
-      { id: 'pricing', to: '/pricing', label: 'Planes y Precios', icon: 'menu', order: 3,
+      { id: 'pricing', to: '/pricing', label: 'Planes y Precios', icon: 'pricing', order: 3,
         condition: { permission: null, excludeAccountTypes: ['COMMERCE', 'FREELANCER'] } },
     ],
   },
