@@ -40,7 +40,7 @@
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   ]"
                 >
-                  Todos ({{ products.length }})
+                  Todos ({{ stats.total }})
                 </button>
                 <button
                   @click="filterType = 'bajo'"
@@ -51,7 +51,7 @@
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   ]"
                 >
-                  Bajo Stock ({{ lowStockCount }})
+                  Bajo Stock ({{ stats.lowStock }})
                 </button>
                 <button
                   @click="filterType = 'agotado'"
@@ -62,7 +62,7 @@
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   ]"
                 >
-                  Agotados ({{ outOfStockCount }})
+                  Agotados ({{ stats.outOfStock }})
                 </button>
               </div>
 
@@ -70,24 +70,29 @@
               <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-blue-50 rounded-lg p-4">
                   <p class="text-xs text-gray-600 mb-1">Total de Productos</p>
-                  <p class="text-2xl font-bold text-blue-600">{{ products.length }}</p>
+                  <p class="text-2xl font-bold text-blue-600">{{ stats.total }}</p>
                 </div>
                 <div class="bg-yellow-50 rounded-lg p-4">
                   <p class="text-xs text-gray-600 mb-1">Bajo Stock</p>
-                  <p class="text-2xl font-bold text-yellow-600">{{ lowStockCount }}</p>
+                  <p class="text-2xl font-bold text-yellow-600">{{ stats.lowStock }}</p>
                 </div>
                 <div class="bg-red-50 rounded-lg p-4">
                   <p class="text-xs text-gray-600 mb-1">Agotados</p>
-                  <p class="text-2xl font-bold text-red-600">{{ outOfStockCount }}</p>
+                  <p class="text-2xl font-bold text-red-600">{{ stats.outOfStock }}</p>
                 </div>
                 <div class="bg-green-50 rounded-lg p-4">
                   <p class="text-xs text-gray-600 mb-1">Valor Total</p>
-                  <p class="text-2xl font-bold text-green-600">${{ totalValue.toFixed(2) }}</p>
+                  <p class="text-2xl font-bold text-green-600">${{ stats.totalValue.toFixed(2) }}</p>
                 </div>
               </div>
 
+              <!-- Loading -->
+              <div v-if="loading" class="text-center py-12 text-gray-500 text-sm">
+                Cargando…
+              </div>
+
               <!-- Table -->
-              <div class="overflow-x-auto">
+              <div v-else class="overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead class="bg-gray-50 border-b">
                     <tr>
@@ -102,7 +107,7 @@
                   </thead>
                   <tbody class="divide-y max-h-96 overflow-y-auto block">
                     <tr
-                      v-for="product in filteredProducts"
+                      v-for="product in products"
                       :key="product.id"
                       class="hover:bg-gray-50 border-b"
                     >
@@ -128,7 +133,7 @@
                       </td>
                     </tr>
 
-                    <tr v-if="filteredProducts.length === 0" class="text-center py-8">
+                    <tr v-if="!loading && products.length === 0" class="text-center py-8">
                       <td colspan="7" class="px-4 py-8 text-gray-500">
                         No hay productos en esta categoría
                       </td>
@@ -150,7 +155,7 @@
                   type="button"
                   class="btn-primary"
                 >
-                  Exportar PDF
+                  Exportar CSV
                 </button>
               </div>
             </DialogPanel>
@@ -162,67 +167,51 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, watch } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
+import { useMenu } from '~/composables/catalog/useMenu'
+import { useDataExport } from '~/composables/core/useDataExport'
 
 const props = defineProps({
   isOpen: Boolean,
-  products: Array
 })
 
 const emit = defineEmits(['close'])
 
+const { products, loading, stats, loadProducts, loadStats } = useMenu()
+const { exportCSV: downloadCSV } = useDataExport()
+
 const filterType = ref('todos')
 
-const lowStockCount = computed(() =>
-  props.products.filter(p => p.stock > 0 && p.stock <= p.minStock).length
-)
+const STATUS_BY_FILTER = { bajo: 'LOW_STOCK', agotado: 'OUT_OF_STOCK' }
 
-const outOfStockCount = computed(() =>
-  props.products.filter(p => p.stock === 0).length
-)
+function fetchForFilter() {
+  loadProducts({ status: STATUS_BY_FILTER[filterType.value], limit: 100 })
+}
 
-const totalValue = computed(() =>
-  props.products.reduce((sum, p) => sum + (p.price * p.stock), 0)
-)
-
-const filteredProducts = computed(() => {
-  switch (filterType.value) {
-    case 'bajo':
-      return props.products.filter(p => p.stock > 0 && p.stock <= p.minStock)
-    case 'agotado':
-      return props.products.filter(p => p.stock === 0)
-    default:
-      return props.products
+watch(() => props.isOpen, (open) => {
+  if (open) {
+    filterType.value = 'todos'
+    fetchForFilter()
+    loadStats()
   }
 })
+watch(filterType, fetchForFilter)
 
 const closeModal = () => {
   emit('close')
 }
 
-const exportReport = () => {
-  const data = filteredProducts.value.map(p => ({
+function exportReport() {
+  const rows = products.value.map(p => ({
     'Producto': p.name,
     'Categoría': p.category?.name ?? '—',
     'Precio': `$${p.price.toFixed(2)}`,
     'Stock': p.stock,
     'Mínimo': p.minStock,
     'Máximo': p.maxStock,
-    'Valor': `$${(p.price * p.stock).toFixed(2)}`
+    'Valor': `$${(p.price * p.stock).toFixed(2)}`,
   }))
-
-  const csv = [
-    Object.keys(data[0] || {}).join(','),
-    ...data.map(row => Object.values(row).map(v => `"${v}"`).join(','))
-  ].join('\n')
-
-  const blob = new Blob([csv], { type: 'text/csv' })
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `reporte-stock-${new Date().toISOString().split('T')[0]}.csv`
-  a.click()
-  window.URL.revokeObjectURL(url)
+  downloadCSV('reporte-stock', rows)
 }
 </script>
