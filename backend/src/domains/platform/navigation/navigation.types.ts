@@ -35,7 +35,9 @@ export interface NavItemDef {
 
 export type NavSectionId =
   | 'top' | 'sales' | 'operations' | 'company'
-  | 'administration' | 'my-account' | 'business';
+  | 'administration-people' | 'administration-catalog'
+  | 'administration-money' | 'administration-system'
+  | 'my-account' | 'business';
 
 export interface NavSectionDef {
   id: NavSectionId;

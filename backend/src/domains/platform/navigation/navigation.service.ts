@@ -23,8 +23,17 @@ export class NavigationService {
     // hasta 15min tras un cambio de perfil reciente. La query extra por
     // request es el trade-off aceptado a cambio de no depender de ese
     // espejo potencialmente obsoleto.
-    const [rolePermKeys, overrides, limits, accountType] = await Promise.all([
+    //
+    // can() replica exactamente el orden de PermissionsService.hasEffectiveP
+    // ermission (override → permisos de ROL → permisos de los UserProfile
+    // ACTIVE del usuario) — antes solo miraba el rol, y como Role.PROFESIONAL
+    // es a propósito la unión COMMERCE∪FREELANCER, el árbol dependía de
+    // exclusiones manuales (excludeAccountTypes) ítem por ítem para no
+    // mostrar de más. Usar la misma fuente que ya autoriza el acceso real
+    // evita esa divergencia.
+    const [rolePermKeys, profilePermKeys, overrides, limits, accountType] = await Promise.all([
       this.permissionsService.getRolePermissions(role),
+      this.permissionsService.getActiveProfilePermissions(user.id),
       this.permissionsService.getUserOverrides(user.id),
       this.planLimitsService.getPlanLimits(user.id),
       this.accountTypeResolver.resolve(user.id),
@@ -34,7 +43,7 @@ export class NavigationService {
       if (key === null) return true;
       if (isSuperAdmin) return true;
       if (key in overrides) return overrides[key];
-      return rolePermKeys.includes(key);
+      return rolePermKeys.includes(key) || profilePermKeys.includes(key);
     };
     const hasModule = (permissionKey: string): boolean =>
       limits.effectiveModules.includes(permissionKey.split(':')[0]);
