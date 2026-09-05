@@ -4,6 +4,19 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Business Shield, Fase 2e: Price Guard (2026-09-05)
+
+Tercer módulo del roadmap "WorkPlace Business Shield" (sección 6 del audit estratégico): calcula el precio mínimo recomendado para no perder margen frente al costo de reposición real, y simula el impacto de una devaluación antes de que ocurra.
+
+- **`CommerceSettings.targetMarginPct`/`minMarginPct`** (defaults 30%/15%): margen objetivo (informativo) y mínimo (usado en el cálculo) por defecto para todo el comercio. **`Product.minMarginPct`** (nullable): override por producto, gana sobre el default del comercio si está seteado.
+- **`PriceGuardService.getMinPrice()`**: precio mínimo = costo de reposición efectivo / (1 - margen mínimo). Usa el promedio de compras recientes si existen (`PurchasesService.getReplacementCost`), si no cae al costo histórico cargado a mano. Valida el ejemplo exacto del audit: costo $13, margen mínimo 20% → precio mínimo $16.25.
+- **`PriceGuardService.simulatePriceChange()`**: "¿qué pasa si el tipo de cambio sube X%?" — aplica el incremento sobre el costo de reposición efectivo sin tocar ningún dato real, devuelve el nuevo costo, el nuevo precio mínimo, y el margen resultante con el precio ACTUAL (para detectar si ese precio pasaría a vender a pérdida).
+- Endpoints: `GET /api/price-guard/:productId/min-price`, `POST /api/price-guard/:productId/simulate`. Settings: `PATCH /api/settings/price-guard`.
+- Migración `20260905024405_add_price_guard_margins`.
+- **Frontend**: `usePriceGuard.ts`, precio mínimo recomendado + simulador inline integrados en `ReplacementCostCard.vue` (con aviso en rojo si el precio actual está por debajo del mínimo), `PriceGuardSettingsCard.vue` en la página de Settings — visible para cualquier comercio (no restringido a la categoría "Comida" como Operaciones/Pagos, porque Price Guard aplica a cualquier negocio con inventario).
+- Tests: suite completa de `PriceGuardService` (ejemplo del audit exacto, fallback a margen default del comercio, simulación de incremento de costo, cálculo de margen resultante).
+- Validado end-to-end: compra registrada a $13 con margen mínimo 20% → precio mínimo $16.25 y detecta que el precio actual ($14) está por debajo; simulación de +10% en el costo → margen resultante -2.1% (venta a pérdida detectada antes de que ocurra).
+
 ### Added — Business Shield, Fase 2d: Supplier Intelligence (2026-09-05)
 
 Segundo módulo del roadmap "WorkPlace Business Shield": antes de esto, `Supplier` existía como modelo en la base de datos pero sin service, controller ni pantalla — ningún comerciante podía cargar proveedores. Sin proveedores comparables, la sección 12 del audit estratégico (Supplier Intelligence) no tenía dónde apoyarse.

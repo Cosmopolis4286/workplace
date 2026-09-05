@@ -49,9 +49,9 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases** y **Suppliers/SupplierQuote** (backend + frontend + primera alerta, ver sección 5.1).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote** y **Price Guard** (backend + frontend, ver sección 5.1).
 
-### 5.1 Business Shield: Purchases + Supplier Intelligence (Fases 2a-2d — 2026-09-04/05)
+### 5.1 Business Shield: Purchases + Supplier Intelligence + Price Guard (Fases 2a-2e — 2026-09-04/05)
 
 Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VISION.md` y el audit estratégico de esta misma fecha). Antes de esto, `Product.cost` era un único `Float` mutable sin historial, y `Supplier` no tenía ni CRUD ni pantalla — no existía forma de distinguir "cuánto costó" de "cuánto costaría reponerlo hoy", ni de comparar proveedores.
 
@@ -69,7 +69,14 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 - Endpoints: `GET/POST /api/suppliers`, `GET/PUT/DELETE /api/suppliers/:id`, `POST /api/suppliers/:id/quotes`, `GET /api/suppliers/:id/quotes`, `GET /api/suppliers/compare/:productId`.
 - **Frontend**: `useSuppliers.ts`, `SupplierModal.vue` (CRUD de proveedores), `SupplierQuoteModal.vue` (cargar una cotización sin comprar todavía), selector de proveedor en `PurchaseModal.vue`, comparación de cotizaciones integrada en `ReplacementCostCard.vue`.
 - `ExchangeRatesService.resolveRateToUsd()`: método compartido nuevo para resolver moneda→tasa USD con snapshot inmutable, reutilizable por cualquier módulo que registre un monto en moneda extranjera (ya usado por `Purchase` y `SupplierQuote`).
-- **Pendiente**: más tipos de alerta del Alert Engine (`REPLACEMENT_COST_RISK`, `SUPPLIER_PRICE_CHANGE`, `LOW_LIQUIDITY`), motor de reglas configurable, Business Health Score compuesto. Ver el audit estratégico para el orden completo.
+
+**Price Guard (Fase 2e):**
+- **`CommerceSettings.targetMarginPct`/`minMarginPct`** (defaults 30%/15%) + **`Product.minMarginPct`** (override opcional por producto).
+- **`PriceGuardService.getMinPrice()`**: precio mínimo recomendado = costo de reposición efectivo / (1 - margen mínimo). Reutiliza `PurchasesService.getReplacementCost` — usa el promedio de compras recientes si existen, si no cae al costo histórico. Valida el ejemplo del audit: costo $13, margen 20% → mínimo $16.25.
+- **`PriceGuardService.simulatePriceChange()`**: simula "¿qué pasa si el tipo de cambio sube X%?" sin tocar datos reales — devuelve nuevo costo, nuevo mínimo, y el margen que resultaría con el precio actual (detecta venta a pérdida antes de que ocurra).
+- Endpoints: `GET /api/price-guard/:productId/min-price`, `POST /api/price-guard/:productId/simulate`, `PATCH /api/settings/price-guard`.
+- **Frontend**: `usePriceGuard.ts`, precio mínimo + simulador inline en `ReplacementCostCard.vue`, `PriceGuardSettingsCard.vue` en Settings (visible para todo comercio, no solo categoría "Comida" como Operaciones/Pagos).
+- **Pendiente**: más tipos de alerta del Alert Engine (`REPLACEMENT_COST_RISK`, `SUPPLIER_PRICE_CHANGE`, `LOW_LIQUIDITY`), motor de reglas configurable, Business Health Score compuesto, actualización masiva de precios con Price Guard, reglas de redondeo. Ver el audit estratégico para el orden completo.
 
 ## 6. Decisiones de producto/negocio relevantes ya tomadas
 
@@ -91,7 +98,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 598 tests unitarios backend, todos pasando (`npx jest`).
+- 621 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.
