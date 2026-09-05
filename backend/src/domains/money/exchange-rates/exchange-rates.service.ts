@@ -16,6 +16,22 @@ export class ExchangeRatesService {
     private readonly bcvSyncService: BcvSyncService,
   ) {}
 
+  // Resuelve moneda -> tasa a USD para operaciones que necesitan un snapshot
+  // inmutable (Purchase, SupplierQuote): USD es la moneda base y no requiere
+  // fila en ExchangeRate. Devuelve null si la moneda no existe o su tasa es
+  // inválida — el llamador decide el mensaje de error (evita acoplar este
+  // servicio a los i18n keys de otros dominios).
+  async resolveRateToUsd(
+    currencyCode: string,
+  ): Promise<{ rateToUsd: number; source: string | null } | null> {
+    const code = currencyCode.toUpperCase();
+    if (code === 'USD') return { rateToUsd: 1, source: null };
+
+    const rate = await this.prisma.exchangeRate.findUnique({ where: { code } });
+    if (!rate || !rate.rateToUsd || rate.rateToUsd <= 0) return null;
+    return { rateToUsd: rate.rateToUsd, source: rate.syncSource ?? rate.source };
+  }
+
   async findAll(includeInactive = false) {
     const where = includeInactive ? {} : { isActive: true };
     const rates = await this.prisma.exchangeRate.findMany({
