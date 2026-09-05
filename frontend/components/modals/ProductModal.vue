@@ -176,6 +176,13 @@
                   </p>
                 </div>
 
+                <ReplacementCostCard
+                  v-if="isEditing"
+                  ref="replacementCostCardRef"
+                  :product-id="props.product.id"
+                  @register-purchase="showPurchaseModal = true"
+                />
+
                 <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
                     <label class="block text-sm font-medium text-gray-700">En Venta</label>
@@ -288,6 +295,15 @@
       </div>
     </Dialog>
   </TransitionRoot>
+
+  <PurchaseModal
+    v-if="isEditing"
+    :is-open="showPurchaseModal"
+    :product-id="props.product.id"
+    :product-name="form.name"
+    @close="showPurchaseModal = false"
+    @saved="replacementCostCardRef?.reload()"
+  />
 </template>
 
 <script setup>
@@ -298,6 +314,11 @@ import { useDefaultRate } from '~/composables/wallets/useDefaultRate'
 import { useCamera } from '~/composables/core/useCamera'
 import { useMenu } from '~/composables/catalog/useMenu'
 import TagsInput from '~/components/ui/TagsInput.vue'
+import ReplacementCostCard from '~/components/products/ReplacementCostCard.vue'
+import PurchaseModal from '~/components/modals/PurchaseModal.vue'
+
+const showPurchaseModal = ref(false)
+const replacementCostCardRef = ref(null)
 
 const { defaultRate, convertLabel, rateLabel, load } = useDefaultRate()
 onMounted(load)
