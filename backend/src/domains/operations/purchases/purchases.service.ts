@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ExchangeRatesService } from '../../money/exchange-rates/exchange-rates.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { QueryPurchasesDto } from './dto/query-purchases.dto';
 
@@ -9,11 +10,19 @@ import { QueryPurchasesDto } from './dto/query-purchases.dto';
 // promedio" — ver WORKPLACE_VISION.md (Business Shield, sección 5).
 const REPLACEMENT_COST_SAMPLE_SIZE = 5;
 
+// Umbral de la alerta MARGIN_DROP: el margen de reposición debe caer al
+// menos esta cantidad de puntos porcentuales por debajo del margen
+// histórico para justificar notificar al comerciante. Ver sección 21
+// (Alert Engine) de WORKPLACE_VISION.md — valor fijo por ahora, sin UI de
+// configuración todavía (se valida primero si esto genera valor real).
+const MARGIN_DROP_THRESHOLD_PCT = 5;
+
 @Injectable()
 export class PurchasesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly exchangeRates: ExchangeRatesService,
+    private readonly notifications: NotificationsService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -51,7 +60,7 @@ export class PurchasesService {
     const { rateToUsd, source } = await this.resolveRate(currencyCode);
     const unitCostUsd = dto.unitCost / rateToUsd;
 
-    return this.prisma.purchase.create({
+    const purchase = await this.prisma.purchase.create({
       data: {
         commerceId,
         productId: dto.productId,
@@ -70,6 +79,32 @@ export class PurchasesService {
         supplier: { select: { id: true, name: true } },
       },
     });
+
+    // Best-effort: una falla al notificar no debe hacer fallar el registro
+    // de la compra, que ya se guardó correctamente.
+    this.checkMarginDrop(commerceId, dto.productId, product.name).catch(() => {});
+
+    return purchase;
+  }
+
+  private async checkMarginDrop(commerceId: string, productId: string, productName: string) {
+    const replacement = await this.getReplacementCost(productId, commerceId);
+    if (
+      !replacement.hasPurchaseData ||
+      replacement.marginHistoricalPct === null ||
+      replacement.marginReplacementPct === null
+    ) {
+      return;
+    }
+    const drop = replacement.marginHistoricalPct - replacement.marginReplacementPct;
+    if (drop >= MARGIN_DROP_THRESHOLD_PCT) {
+      await this.notifications.notifyMarginDrop(
+        commerceId,
+        productName,
+        replacement.marginHistoricalPct,
+        replacement.marginReplacementPct,
+      );
+    }
   }
 
   async findAll(commerceId: string, query: QueryPurchasesDto) {
