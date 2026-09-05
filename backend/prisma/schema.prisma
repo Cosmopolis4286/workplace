@@ -355,6 +355,15 @@ model CommerceSettings {
   suggestedTip   Float    @default(10)
   paymentMethods String[] @default(["cash", "card", "transfer"])
 
+  // Price Guard (Business Shield, ver WORKPLACE_VISION.md sección 6) — margen
+  // objetivo y mínimo por defecto para todos los productos del comercio.
+  // targetMarginPct es informativo (referencia para el comerciante);
+  // minMarginPct es el que efectivamente calcula el precio mínimo
+  // recomendado. Product.minMarginPct puede sobreescribir este default
+  // producto por producto.
+  targetMarginPct Float @default(30)
+  minMarginPct    Float @default(15)
+
   // Operations
   avgPrepTime         Int   @default(20)
   avgDeliveryTime     Int   @default(30)
@@ -583,6 +592,10 @@ model Product {
   brand           String?
   forSale         Boolean             @default(true)
   bnplEligible    Boolean             @default(true)
+  // Override de CommerceSettings.minMarginPct para este producto específico
+  // (Price Guard, ver WORKPLACE_VISION.md sección 6). null = usa el default
+  // del comercio.
+  minMarginPct    Float?
   // Cache desnormalizado de la suma de CatalogOrder.quantity para este
   // producto. Incrementado en CatalogService.createOrder — permite ORDER BY
   // nativo en Postgres para "más vendidos" en vez de un groupBy + sort en memoria.
