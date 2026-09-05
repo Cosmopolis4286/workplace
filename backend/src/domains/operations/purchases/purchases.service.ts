@@ -199,4 +199,65 @@ export class PurchasesService {
     if (cost === null || price <= 0) return null;
     return Math.round(((price - cost) / price) * 1000) / 10;
   }
+
+  // ── Reporte de márgenes (Business Shield, agregado) ──────────────────────
+  //
+  // getReplacementCost es por-producto (usado por ReplacementCostCard en el
+  // modal de edición). Este método da la vista que faltaba: TODOS los
+  // productos con compras registradas, ordenados por mayor caída de margen
+  // (histórico vs. reposición), para que el dueño del comercio vea de un
+  // vistazo qué productos están perdiendo margen sin tener que abrirlos uno
+  // por uno. Reutiliza el mismo cálculo de marginPct, no lo duplica.
+  async getMarginReport(commerceId: string, page = 1, limit = 20) {
+    const productsWithPurchases = await this.prisma.product.findMany({
+      where: { commerceId, purchases: { some: {} } },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        cost: true,
+        purchases: {
+          orderBy: { purchasedAt: 'desc' },
+          take: REPLACEMENT_COST_SAMPLE_SIZE,
+          select: { unitCostUsd: true },
+        },
+      },
+    });
+
+    const rows = productsWithPurchases.map((p) => {
+      const averageReplacementCostUsd =
+        p.purchases.reduce((sum, pu) => sum + pu.unitCostUsd, 0) / p.purchases.length;
+      const marginHistoricalPct = this.marginPct(p.price, p.cost);
+      const marginReplacementPct = this.marginPct(p.price, averageReplacementCostUsd);
+      const marginDropPct =
+        marginHistoricalPct !== null && marginReplacementPct !== null
+          ? Math.round((marginHistoricalPct - marginReplacementPct) * 10) / 10
+          : null;
+
+      return {
+        productId: p.id,
+        productName: p.name,
+        price: p.price,
+        historicalCost: p.cost,
+        averageReplacementCostUsd,
+        marginHistoricalPct,
+        marginReplacementPct,
+        marginDropPct,
+        samplesUsed: p.purchases.length,
+      };
+    });
+
+    // Mayor caída de margen primero; nulls (sin margen calculable) al final.
+    rows.sort((a, b) => (b.marginDropPct ?? -Infinity) - (a.marginDropPct ?? -Infinity));
+
+    const total = rows.length;
+    const start = (page - 1) * limit;
+    return {
+      data: rows.slice(start, start + limit),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 }

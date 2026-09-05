@@ -12,6 +12,7 @@ describe('PurchasesService', () => {
   const mockPrismaService = {
     product: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
     },
     supplier: {
       findFirst: jest.fn(),
@@ -250,6 +251,57 @@ describe('PurchasesService', () => {
       // margen sobre reposición: (15-13)/15 = 13.3% — bien por debajo del histórico
       expect(result.marginReplacementPct).toBeCloseTo(13.3, 1)
       expect(result.marginReplacementPct!).toBeLessThan(result.marginHistoricalPct!)
+    })
+  })
+
+  describe('getMarginReport', () => {
+    it('sorts products by largest margin drop first', async () => {
+      mockPrismaService.product.findMany.mockResolvedValue([
+        {
+          id: 'prod-1', name: 'Producto A', price: 100, cost: 50, // margen histórico 50%
+          purchases: [{ unitCostUsd: 90 }], // margen reposición 10% -> caída de 40pp
+        },
+        {
+          id: 'prod-2', name: 'Producto B', price: 100, cost: 50, // margen histórico 50%
+          purchases: [{ unitCostUsd: 55 }], // margen reposición 45% -> caída de 5pp
+        },
+      ])
+
+      const result = await service.getMarginReport(commerceId)
+
+      expect(result.data).toHaveLength(2)
+      expect(result.data[0].productId).toBe('prod-1')
+      expect(result.data[0].marginDropPct).toBeCloseTo(40, 0)
+      expect(result.data[1].productId).toBe('prod-2')
+      expect(result.data[1].marginDropPct).toBeCloseTo(5, 0)
+    })
+
+    it('paginates the sorted result', async () => {
+      mockPrismaService.product.findMany.mockResolvedValue(
+        Array.from({ length: 25 }, (_, i) => ({
+          id: `prod-${i}`, name: `Producto ${i}`, price: 100, cost: 50,
+          purchases: [{ unitCostUsd: 60 + i }],
+        })),
+      )
+
+      const result = await service.getMarginReport(commerceId, 2, 10)
+
+      expect(result.total).toBe(25)
+      expect(result.page).toBe(2)
+      expect(result.totalPages).toBe(3)
+      expect(result.data).toHaveLength(10)
+    })
+
+    it('only queries products that have at least one purchase', async () => {
+      mockPrismaService.product.findMany.mockResolvedValue([])
+
+      await service.getMarginReport(commerceId)
+
+      expect(mockPrismaService.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { commerceId, purchases: { some: {} } },
+        }),
+      )
     })
   })
 })
