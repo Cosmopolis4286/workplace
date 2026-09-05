@@ -238,8 +238,9 @@ model Commerce {
   bnplTransactions  BnplTransaction[]
   driverInvitations DriverInvitation[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  SupplierQuote SupplierQuote[]
 
   @@index([avgRating])
   @@index([slug])
@@ -593,6 +594,7 @@ model Product {
   bundleItems     ProductBundleItem[] @relation("BundleComponents")
   partOfBundles   ProductBundleItem[] @relation("ComponentOf")
   purchases       Purchase[]
+  supplierQuotes  SupplierQuote[]
   categoryId      String
   category        Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   subcategoryId   String?
@@ -1491,7 +1493,7 @@ enum SupplierStatus {
 }
 
 model Supplier {
-  id          String         @id @default(uuid())
+  id          String          @id @default(uuid())
   name        String
   contactName String?
   phone       String?
@@ -1499,16 +1501,57 @@ model Supplier {
   address     String?
   category    String?
   notes       String?
-  status      SupplierStatus @default(ACTIVE)
+  status      SupplierStatus  @default(ACTIVE)
   commerceId  String
-  commerce    Commerce       @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce    Commerce        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   purchases   Purchase[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  quotes      SupplierQuote[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@unique([name, commerceId])
   @@index([commerceId])
   @@map("suppliers")
+}
+
+// Precio OFERTADO por un proveedor para un producto — a diferencia de
+// Purchase (lo que realmente se compró), esto permite comparar proveedores
+// ANTES de comprarles. Ver WORKPLACE_VISION.md sección 12 (Supplier
+// Intelligence): "Proveedor A es 4% más barato, pero tarda 6 días más" /
+// "Proveedor B aumentó este producto 12% en 14 días" requieren tener el
+// historial de cotizaciones, no solo de compras concretadas.
+model SupplierQuote {
+  id         String   @id @default(uuid())
+  commerceId String
+  commerce   Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  price        Float
+  currencyCode String
+
+  // Snapshot inmutable de la tasa usada para el equivalente en USD, mismo
+  // criterio que Purchase.exchangeRateValue — no se recalcula si la tasa
+  // cambia después.
+  exchangeRateValue Float
+  priceUsd          Float
+
+  // Días estimados de entrega desde que se confirma el pedido — permite el
+  // trade-off "más barato pero más lento" de la sección 12.
+  leadTimeDays Int?
+  available    Boolean @default(true)
+  notes        String?
+
+  quotedAt  DateTime @default(now())
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([commerceId, productId, quotedAt(sort: Desc)])
+  @@index([supplierId])
+  @@map("supplier_quotes")
 }
 
 // Compra de inventario a un proveedor. Es la fuente de datos para el costo
