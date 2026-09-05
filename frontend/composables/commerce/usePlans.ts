@@ -91,6 +91,7 @@ const subscriptions = ref<Subscription[]>([])
 const stats = ref<PlanStats | null>(null)
 const mySubscription = ref<Subscription | null>(null)
 const pendingSubscription = ref<Subscription | null>(null)
+const trialAvailable = ref(false)
 const myPlan = ref<Plan | null>(null)
 const usage = ref<PlanUsage | null>(null)
 const loading = ref(false)
@@ -234,11 +235,25 @@ export function usePlans() {
       const data = await apiFetch('/plans/my-subscription')
       mySubscription.value = data.subscription
       pendingSubscription.value = data.pendingSubscription ?? null
+      trialAvailable.value = data.trialAvailable ?? false
       myPlan.value = data.subscription?.plan ?? null
     } catch (e: any) {
       error.value = e.message
     } finally {
       loading.value = false
+    }
+  }
+
+  // Prueba gratuita de 7 días, autoservicio y de una sola vez por cuenta
+  // (ver PlansService.activateTrial en el backend).
+  async function activateTrial(planId: string): Promise<boolean> {
+    try {
+      await apiFetch('/plans/trial/activate', { method: 'POST', body: JSON.stringify({ planId }) })
+      await fetchMySubscription()
+      return true
+    } catch (e: any) {
+      error.value = e.message
+      return false
     }
   }
 
@@ -271,6 +286,7 @@ export function usePlans() {
     stats,
     mySubscription,
     pendingSubscription,
+    trialAvailable,
     myPlan,
     usage,
     loading,
@@ -294,6 +310,7 @@ export function usePlans() {
     fetchMySubscription,
     fetchPublicPlans,
     fetchUsage,
+    activateTrial,
     formatLimit,
     formatPrice,
     daysRemaining,

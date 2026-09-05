@@ -104,6 +104,35 @@
           <p class="text-sm text-gray-400">No tienes ningún plan activo. Contacta al administrador para adquirir uno.</p>
         </div>
 
+        <!-- CTA de prueba gratuita: una sola vez por cuenta, activable en
+             cualquier momento mientras estés en un plan gratuito -->
+        <div
+          v-if="trialAvailable && trialTargetPlan && !loading"
+          class="card p-6 border-2 border-dashed"
+          :style="{ borderColor: trialTargetPlan.color }"
+        >
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider mb-1" :style="{ color: trialTargetPlan.color }">
+                Prueba gratuita · 7 días
+              </p>
+              <h3 class="text-lg font-bold text-gray-900">Probá {{ trialTargetPlan.name }} sin costo</h3>
+              <p class="text-sm text-gray-500 mt-1 max-w-md">
+                Activá tu prueba de 7 días cuando quieras — sin tarjeta, sin compromiso.
+                Solo se puede activar una vez por cuenta.
+              </p>
+            </div>
+            <button
+              class="btn-primary text-sm px-5 py-2.5 flex-shrink-0"
+              :disabled="activatingTrial"
+              @click="onActivateTrial"
+            >
+              {{ activatingTrial ? 'Activando…' : 'Activar prueba gratis' }}
+            </button>
+          </div>
+          <p v-if="trialError" class="text-xs text-red-600 mt-3">{{ trialError }}</p>
+        </div>
+
         <!-- Planes disponibles -->
         <div>
           <h2 class="text-base font-semibold text-gray-900 mb-4">Planes disponibles</h2>
@@ -192,6 +221,33 @@
       <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
       <div class="space-y-4">
 
+        <!-- Features temporales del plan (activables por tiempo limitado) -->
+        <div v-if="availableFeatures.length > 0" class="card p-5">
+          <h3 class="text-sm font-semibold text-gray-700 mb-4">Funciones de tu plan</h3>
+          <div class="space-y-3">
+            <div v-for="feat in availableFeatures" :key="feat.id" class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-gray-800 truncate">{{ feat.label ?? feat.featureKey }}</p>
+                <p class="text-xs text-gray-400">
+                  {{ feat.durationDays }} días
+                  <span v-if="feat.usageMode === 'MULTI_USE'">· {{ feat.maxUses }} usos</span>
+                  <span v-else-if="feat.usageMode === 'REACTIVATABLE'">· reactivable</span>
+                </p>
+              </div>
+              <span v-if="feat.currentlyActive" class="badge bg-green-100 text-green-800 flex-shrink-0">Activa</span>
+              <button
+                v-else
+                class="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex-shrink-0"
+                :disabled="activatingFeatureKey === feat.featureKey"
+                @click="onActivateFeature(feat.featureKey)"
+              >
+                {{ activatingFeatureKey === feat.featureKey ? 'Activando…' : 'Activar' }}
+              </button>
+            </div>
+          </div>
+          <p v-if="featureGrantsError" class="text-xs text-red-600 mt-3">{{ featureGrantsError }}</p>
+        </div>
+
         <!-- Uso del plan: oculto para cuentas sin Commerce (ej. FREELANCER),
              donde estos contadores no aplican -->
         <div v-if="myPlan && !loading && usageItems.length > 0" class="card p-5">
@@ -261,21 +317,39 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { CreditCardIcon, CalendarIcon, CheckIcon, EnvelopeIcon, ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import { usePlans, SUB_STATUS_LABELS, SUB_STATUS_CLASSES, INTERVAL_LABELS } from '~/composables/commerce/usePlans'
+import { useFeatureGrants } from '~/composables/commerce/useFeatureGrants'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
 const {
-  plans, mySubscription, myPlan, loading, usage,
-  fetchMySubscription, fetchPublicPlans, fetchUsage,
+  plans, mySubscription, myPlan, loading, usage, trialAvailable,
+  fetchMySubscription, fetchPublicPlans, fetchUsage, activateTrial,
   formatLimit, formatPrice, daysRemaining,
 } = usePlans()
 const { formatDateLong, formatDate } = useDateFormat()
+
+const {
+  availableFeatures, error: featureGrantsError,
+  loadAvailableFeatures, activateFeature,
+} = useFeatureGrants()
+
+const activatingFeatureKey = ref<string | null>(null)
+
+async function onActivateFeature(featureKey: string) {
+  if (activatingFeatureKey.value) return
+  activatingFeatureKey.value = featureKey
+  try {
+    await activateFeature(featureKey)
+  } finally {
+    activatingFeatureKey.value = null
+  }
+}
 
 // ─── Stats header ─────────────────────────────────────────────────────────────
 const headerStats = computed(() => {
@@ -333,5 +407,32 @@ const usageItems = computed(() => {
   }))
 })
 
-onMounted(() => Promise.all([fetchMySubscription(), fetchPublicPlans(), fetchUsage()]))
+// ─── Prueba gratuita ────────────────────────────────────────────────────────
+// Ofrece el trial sobre el plan más popular (o el primero pago si ninguno
+// está marcado) — no tiene sentido probar el plan gratis en el que ya está.
+const trialTargetPlan = computed(() => {
+  const paidPlans = plans.value.filter(p => p.price > 0)
+  return paidPlans.find(p => p.isPopular) ?? paidPlans[0] ?? null
+})
+
+const activatingTrial = ref(false)
+const trialError = ref<string | null>(null)
+
+async function onActivateTrial() {
+  if (!trialTargetPlan.value || activatingTrial.value) return
+  activatingTrial.value = true
+  trialError.value = null
+  try {
+    const ok = await activateTrial(trialTargetPlan.value.id)
+    if (!ok) trialError.value = 'No se pudo activar la prueba gratuita. Intentá de nuevo.'
+  } finally {
+    activatingTrial.value = false
+  }
+}
+
+onMounted(() => Promise.all([fetchMySubscription(), fetchPublicPlans(), fetchUsage(), loadAvailableFeatures()]))
 </script>
+
+<style scoped>
+.badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+</style>
