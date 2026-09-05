@@ -49,9 +49,9 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases** (backend, ver sección 5.1 — sin frontend todavía).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases** (backend + frontend + primera alerta, ver sección 5.1).
 
-### 5.1 Purchases + costo de reposición (Business Shield, Fase 2a — 2026-09-04)
+### 5.1 Purchases + costo de reposición (Business Shield, Fases 2a/2b/2c — 2026-09-04)
 
 Primer módulo del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VISION.md` y el audit estratégico de esta misma fecha). Antes de esto, `Product.cost` era un único `Float` mutable sin historial — no existía forma de distinguir "cuánto costó" de "cuánto costaría reponerlo hoy".
 
@@ -59,7 +59,9 @@ Primer módulo del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VISION.md
 - **`PurchasesService.getReplacementCost(productId, commerceId)`**: compara el costo histórico (`Product.cost`, cargado a mano) contra el costo de reposición real (última compra y promedio de las últimas 5), devolviendo margen histórico vs. margen de reposición. `Product.cost` no se sobreescribe automáticamente al registrar una compra — el análisis se muestra aparte para no sorprender al comerciante.
 - Multimoneda: USD es la moneda base (tasa=1, no requiere fila en `ExchangeRate`); cualquier otra moneda (ej. VES) resuelve la tasa vía `ExchangeRatesService.findByCode()` ya existente.
 - Endpoints: `POST /api/purchases`, `GET /api/purchases`, `GET /api/purchases/replacement-cost/:productId`, `DELETE /api/purchases/:id` — protegidos por `purchases:view/create/delete` (nuevos permisos) + `RequireAccountType('COMMERCE')`.
-- **Pendiente (Fase 2b/2c)**: UI de captura de compras en el frontend, alertas del Alert Engine (`MARGIN_DROP`, `REPLACEMENT_COST_RISK`) sobre el canal de notificaciones ya existente, `SupplierQuote` para comparar proveedores. Ver el audit estratégico para el orden completo.
+- **Frontend**: `usePurchases.ts`, `ReplacementCostCard.vue` (margen histórico vs. reposición, con aviso visual si la caída supera 5pp) integrado en `ProductModal.vue`, `PurchaseModal.vue` para registrar una compra desde ahí. Solo visible al editar un producto existente (necesita su `id`).
+- **Primera alerta real del Alert Engine — `MARGIN_DROP`**: al registrar una compra, si el margen de reposición cae ≥5 puntos porcentuales por debajo del histórico, se dispara una notificación (WebSocket, canal ya existente) explicando el riesgo sin prescribir una acción — umbral fijo en código a propósito, no hay UI de configuración ni motor de reglas genérico todavía (se valida primero si esto genera valor real antes de generalizar).
+- **Pendiente**: `SupplierQuote` para comparar proveedores, más tipos de alerta (`REPLACEMENT_COST_RISK`, `LOW_LIQUIDITY`), motor de reglas configurable. Ver el audit estratégico para el orden completo.
 
 ## 6. Decisiones de producto/negocio relevantes ya tomadas
 

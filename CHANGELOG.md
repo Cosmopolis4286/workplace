@@ -26,9 +26,16 @@ Al corregir eso se encontró un problema más profundo: `seed.js` **nunca** escr
 - Nueva función `seedProfilePermissions()`, llamada desde `main()`: puebla `ProfilePermission` con la distinción fina real — `BUSINESS` (69 permisos, el set completo de comercio), `PROFESSIONAL/FREELANCER` y `PROFESSIONAL/SERVICE_PROVIDER` (23 permisos cada uno, el set reducido de servicios).
 - Verificado corriendo el seed contra la base de datos real: los conteos de permisos por rol/perfil coinciden con lo esperado y los 598 tests backend siguen pasando.
 
+### Added — Business Shield, Fase 2b/2c: UI de compras + primera alerta del Alert Engine (2026-09-04)
+
+- **Frontend**: `usePurchases.ts` (composable, mismo patrón que `useExpenses.ts`), `ReplacementCostCard.vue` (widget que muestra margen histórico vs. margen de reposición, con aviso visual si la caída supera 5 puntos porcentuales) integrado en `ProductModal.vue` — solo visible al editar un producto existente. `PurchaseModal.vue`: formulario compacto para registrar una compra (cantidad, costo unitario, moneda USD o la moneda por defecto del comercio, notas), reutiliza `useDefaultRate()` ya existente para mostrar el equivalente en USD sin depender del endpoint `/exchange-rates` (que requiere permiso de admin).
+- **Backend — primera alerta real del Alert Engine (`MARGIN_DROP`)**: `PurchasesService.create()` ahora recalcula el costo de reposición después de registrar una compra y, si el margen de reposición cae 5 puntos porcentuales o más por debajo del margen histórico, dispara `NotificationsService.notifyMarginDrop()` sobre el canal de notificaciones (WebSocket) ya existente — sin motor de reglas genérico todavía, umbral fijo en código a propósito (ver sección 21 del audit estratégico: validar valor real antes de generalizar). Falla de notificación no bloquea el registro de la compra (fire-and-forget con `.catch()`).
+- Validado end-to-end: compra con erosión de margen menor al umbral no genera notificación; compra que hace caer el margen de 33.3% a 22.7% (promedio de 2 compras) sí genera la notificación con el mensaje explicando qué pasa, por qué y el riesgo — sin prescribir una acción, tal como pide la sección 11 del audit ("no imponer decisiones, mostrar riesgo/costo/exposición/recomendación").
+- Tests nuevos en `purchases.service.test.ts`: dispara la alerta cuando corresponde, no la dispara si el margen apenas se mueve, y una notificación fallida no rompe la creación de la compra.
+
 ### Changed
 
-- `WORKPLACE_STATUS_FEEDBACK.md` actualizado: sección 5.1 nueva (Purchases), sección 7 con el hallazgo de RBAC y la advertencia de `Float` vs `Decimal` en campos monetarios (71 campos, cero `Decimal` en todo el schema), conteo de tests actualizado (453 → 598).
+- `WORKPLACE_STATUS_FEEDBACK.md` actualizado: sección 5.1 nueva (Purchases + UI + alerta), sección 7 con el hallazgo de RBAC y la advertencia de `Float` vs `Decimal` en campos monetarios (71 campos, cero `Decimal` en todo el schema), conteo de tests actualizado (453 → 602).
 
 ---
 
