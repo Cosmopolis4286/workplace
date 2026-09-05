@@ -258,6 +258,65 @@ export class PlansService {
     });
   }
 
+  // Trial autoservicio de 7 días: una sola vez en la vida de la cuenta,
+  // activable en cualquier momento mientras el usuario esté en un plan
+  // gratuito (o sin suscripción activa todavía). A diferencia de
+  // selfSubscribe() con un plan pago, esto NO queda pendiente de aprobación
+  // — es autoservicio real, pero autolimitado por trialUsedAt para que no se
+  // pueda repetir cancelando y reactivando.
+  async activateTrial(userId: string, planId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (user.trialUsedAt) {
+      throw new ConflictException('Ya usaste tu prueba gratuita — cada cuenta solo puede activarla una vez');
+    }
+
+    const plan = await this.prisma.plan.findUnique({ where: { id: planId } });
+    if (!plan) throw new NotFoundException('Plan no encontrado');
+    if (plan.price <= 0) {
+      throw new ConflictException('No tiene sentido activar una prueba gratuita de un plan gratuito');
+    }
+
+    const currentSubscription = await this.prisma.subscription.findFirst({
+      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+      include: { plan: true },
+    });
+    if (currentSubscription && currentSubscription.plan.price > 0) {
+      throw new ConflictException('Ya tienes un plan pago activo — la prueba gratuita es solo para cuentas en el plan gratuito');
+    }
+
+    const startAt = new Date();
+    const endAt = new Date(startAt);
+    endAt.setDate(endAt.getDate() + 7);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.subscription.updateMany({
+        where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+        data: { status: 'CANCELLED' },
+      });
+
+      const subscription = await tx.subscription.create({
+        data: {
+          userId,
+          planId,
+          status: 'TRIAL',
+          interval: 'MONTHLY',
+          startAt,
+          endAt,
+          trialEnds: endAt,
+          pricePaid: 0,
+          assignedBy: userId,
+          notes: 'Prueba gratuita autoservicio de 7 días',
+        },
+        include: { plan: true },
+      });
+
+      await tx.user.update({ where: { id: userId }, data: { trialUsedAt: startAt } });
+
+      return subscription;
+    });
+  }
+
   async cancelSubscription(id: string) {
     const sub = await this.prisma.subscription.findUnique({ where: { id } });
     if (!sub) throw new NotFoundException('Suscripción no encontrada');
@@ -309,7 +368,7 @@ export class PlansService {
   }
 
   async getMySubscription(userId: string) {
-    const [subscription, pendingSubscription] = await Promise.all([
+    const [subscription, pendingSubscription, user] = await Promise.all([
       this.prisma.subscription.findFirst({
         where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
         include: { plan: true },
@@ -320,8 +379,13 @@ export class PlansService {
         include: { plan: true },
         orderBy: { createdAt: 'desc' },
       }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { trialUsedAt: true } }),
     ]);
-    return { subscription, pendingSubscription };
+    return {
+      subscription,
+      pendingSubscription,
+      trialAvailable: !user?.trialUsedAt && (!subscription || subscription.plan.price === 0),
+    };
   }
 
   async getPublicPlans(userId?: string, role?: string, categoryId?: string) {

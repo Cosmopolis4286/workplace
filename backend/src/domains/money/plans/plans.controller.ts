@@ -85,6 +85,19 @@ export class PlansController {
     return this.plansService.selfSubscribe(user.id, dto);
   }
 
+  // Prueba gratuita de 7 días, autoservicio y activable en cualquier momento
+  // desde un plan gratuito — una sola vez por cuenta (ver
+  // PlansService.activateTrial).
+  @Post('trial/activate')
+  @UseGuards(JwtAuthGuard)
+  activateTrial(
+    @Body() dto: { planId: string },
+    @CurrentUser() user: { id: string }
+  ) {
+    if (!dto.planId) throw new BadRequestException('Datos inválidos para activar la prueba gratuita');
+    return this.plansService.activateTrial(user.id, dto.planId);
+  }
+
   // ─── Admin endpoints ──────────────────────────────────────────────────────
 
   @Get('stats')
