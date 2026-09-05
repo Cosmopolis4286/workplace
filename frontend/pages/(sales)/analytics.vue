@@ -8,7 +8,7 @@
       :stats="headerStats"
     >
       <template #actions>
-        <HeaderActionButton :icon="AnalyticsArrowDownIcon" @click="exportData">
+        <HeaderActionButton :icon="AnalyticsArrowDownIcon" @click="exportReport">
           Exportar
         </HeaderActionButton>
         <HeaderActionButton variant="primary" :icon="ChartBarIcon" @click="showConfigModal = true">
@@ -321,6 +321,7 @@ const {
   headerStats,
   formatCurrency,
   formatChange,
+  exportReport,
   loadOverview,
 } = useAnalytics()
 
@@ -347,18 +348,6 @@ function formatDateRange(from: string, to: string): string {
 
 function reload() {
   loadOverview(selectedPeriod.value, compareWith.value)
-}
-
-function exportData() {
-  if (!overview.value) return
-  const json = JSON.stringify(overview.value, null, 2)
-  const blob = new Blob([json], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `analytics-${selectedPeriod.value}-${new Date().toISOString().slice(0, 10)}.json`
-  a.click()
-  URL.revokeObjectURL(url)
 }
 
 function saveAnalyticsConfig(config: unknown) {

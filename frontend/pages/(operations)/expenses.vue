@@ -134,6 +134,7 @@ import {
   type Expense,
 } from '~/composables/commerce/useExpenses'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import { useDataExport } from '~/composables/core/useDataExport'
 
 const {
   expenses, categories, stats,
@@ -272,14 +273,10 @@ async function handleDeleteCategory(id: string) {
 
 const { formatDate } = useDateFormat()
 
+const { exportJSON: downloadJSON } = useDataExport()
+
 function exportJSON() {
-  const blob = new Blob([JSON.stringify(expenses.value, null, 2)], { type: 'application/json' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = `gastos-${new Date().toISOString().slice(0, 10)}.json`
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadJSON('gastos', expenses.value)
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
