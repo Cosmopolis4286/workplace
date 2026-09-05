@@ -50,6 +50,8 @@ export interface CommerceSettings {
   notifyLowStock: boolean
   notifyDailyReports: boolean
   notifyCustomerReviews: boolean
+  targetMarginPct: number
+  minMarginPct: number
 }
 
 // Settings de un FREELANCER (proveedor de servicios): sin campos de comercio
@@ -214,6 +216,24 @@ export const useSettings = () => {
     }
   }
 
+  // ─── Update Price Guard settings ────────────────────────────────────────────
+
+  async function savePriceGuardSettings(data: { targetMarginPct?: number; minMarginPct?: number }): Promise<boolean> {
+    saving.value = 'priceGuard'
+    error.value = null
+    try {
+      const updated = await patch<CommerceSettings>('/settings/price-guard', data)
+      settings.value = { ...settings.value!, ...updated }
+      showSuccess('Configuración de Price Guard guardada')
+      return true
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar configuración de Price Guard'
+      return false
+    } finally {
+      saving.value = null
+    }
+  }
+
   // ─── Update notification settings ───────────────────────────────────────────
 
   async function saveNotificationSettings(data: Record<string, boolean>): Promise<boolean> {
@@ -275,6 +295,7 @@ export const useSettings = () => {
     saveFreelancerSlug,
     savePaymentSettings,
     saveOperationSettings,
+    savePriceGuardSettings,
     saveNotificationSettings,
     loadModuleSettings,
     saveModuleSettings,

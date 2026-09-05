@@ -121,6 +121,13 @@
           @save="saveOperationSettings"
         />
 
+        <PriceGuardSettingsCard
+          v-if="isCommerce"
+          :settings="commerceSettings"
+          :saving="saving === 'priceGuard'"
+          @save="savePriceGuardSettings"
+        />
+
         <!-- Financiamiento (Cashea / Krece) -->
         <BnplSettingsSection />
       </div>
@@ -163,6 +170,7 @@ import StoreSlugCard from '~/components/settings/StoreSlugCard.vue'
 import BusinessNotificationsCard from '~/components/settings/BusinessNotificationsCard.vue'
 import PaymentSettingsCard from '~/components/settings/PaymentSettingsCard.vue'
 import OperationsSettingsCard from '~/components/settings/OperationsSettingsCard.vue'
+import PriceGuardSettingsCard from '~/components/settings/PriceGuardSettingsCard.vue'
 import AppLockCard from '~/components/settings/AppLockCard.vue'
 import { useSettings, type CommerceSettings, type FreelancerSettingsData } from '~/composables/commerce/useSettings'
 import { useAuth } from '~/composables/auth/useAuth'
@@ -207,6 +215,7 @@ const {
   saveFreelancerSlug: saveFreelancerSlugApi,
   savePaymentSettings: savePaymentSettingsApi,
   saveOperationSettings: saveOperationSettingsApi,
+  savePriceGuardSettings: savePriceGuardSettingsApi,
   saveNotificationSettings: saveNotificationSettingsApi,
 } = useSettings()
 
@@ -222,6 +231,7 @@ async function saveCommerceSlug(slug: string) { await saveCommerceSlugApi(slug) 
 async function saveFreelancerSlug(slug: string) { await saveFreelancerSlugApi(slug) }
 async function savePaymentSettings(form: Record<string, unknown>) { await savePaymentSettingsApi(form) }
 async function saveOperationSettings(form: Record<string, unknown>) { await saveOperationSettingsApi(form) }
+async function savePriceGuardSettings(form: { targetMarginPct: number; minMarginPct: number }) { await savePriceGuardSettingsApi(form) }
 async function saveNotificationSettings(form: Record<string, boolean>) { await saveNotificationSettingsApi(form) }
 
 // ─── Toast (preferencias locales / app lock) ──────────────────────────────────
