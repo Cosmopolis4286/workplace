@@ -4,6 +4,19 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Business Shield, Fase 2d: Supplier Intelligence (2026-09-05)
+
+Segundo módulo del roadmap "WorkPlace Business Shield": antes de esto, `Supplier` existía como modelo en la base de datos pero sin service, controller ni pantalla — ningún comerciante podía cargar proveedores. Sin proveedores comparables, la sección 12 del audit estratégico (Supplier Intelligence) no tenía dónde apoyarse.
+
+- **Backend**: CRUD completo de `Supplier` (`SuppliersService`/`SuppliersController`). Modelo nuevo `SupplierQuote` — precio *ofertado* por un proveedor para un producto, distinto de `Purchase` (lo que ya se compró): permite comparar proveedores antes de comprarles, no solo después. Mismo criterio de snapshot inmutable de tasa de cambio que `Purchase`.
+- **`SuppliersService.compareForProduct()`**: compara la última cotización de cada proveedor para un producto, ordenadas por precio, con variación % respecto a la cotización anterior del mismo proveedor en los últimos 30 días. Valida el ejemplo exacto del brief original: proveedor más barato pero con mayor tiempo de entrega queda visible en la misma respuesta.
+- **`ExchangeRatesService.resolveRateToUsd()`**: extraído como método compartido (antes esta lógica de conversión con snapshot vivía solo dentro de `PurchasesService`) — evita duplicar la resolución de moneda→tasa USD en cada módulo nuevo que registre montos en moneda extranjera.
+- Endpoints nuevos: `GET/POST /api/suppliers`, `GET/PUT/DELETE /api/suppliers/:id`, `POST/GET /api/suppliers/:id/quotes`, `GET /api/suppliers/compare/:productId`. Los permisos `suppliers:view/create/edit/delete` ya existían huérfanos en el seed desde antes — ahora tienen endpoints reales detrás.
+- Migración `20260905022607_add_supplier_quote`.
+- **Frontend**: `useSuppliers.ts`, `SupplierModal.vue` (CRUD de proveedores con formulario embebido, mismo patrón que `ExpenseCategoryModal.vue`), `SupplierQuoteModal.vue` (cargar una cotización sin haber comprado todavía), selector de proveedor opcional agregado a `PurchaseModal.vue`, comparación de cotizaciones (proveedor más barato resaltado, variación de precio) integrada en `ReplacementCostCard.vue`.
+- Tests: suite completa de `SuppliersService` (CRUD scoped por comercio, conversión de moneda en cotizaciones, ordenamiento por precio, cálculo de variación %, caso sin cotización previa que comparar).
+- Validado end-to-end contra el backend real: dos proveedores cotizando el mismo producto ($10/6 días vs. $9.60/2 días) → comparación correcta con el más barato marcado.
+
 ### Added — Business Shield, Fase 2a: Purchases + costo de reposición (2026-09-04)
 
 Primer paso del roadmap "WorkPlace Business Shield" (ver audit estratégico de esta fecha): sin un registro real de compras a proveedores, no había forma de distinguir el costo histórico de un producto de lo que realmente costaría reponerlo hoy — condición necesaria para Price Guard, Purchasing Power y cualquier alerta de margen en un contexto de inflación/devaluación.
