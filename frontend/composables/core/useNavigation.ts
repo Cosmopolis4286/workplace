@@ -60,12 +60,22 @@ export function useNavigation() {
     sections.value = []
   }
 
+  // "Administración" son 4 secciones hermanas (personas/catálogo/dinero/
+  // sistema) en vez de una sola lista de 13 ítems — cada una colapsable por
+  // separado (ver SidebarNavSection.vue). ADMIN_SECTION_IDS fija su orden de
+  // presentación porque no viene garantizado por el orden de llegada del array.
+  const ADMIN_SECTION_IDS = ['administration-people', 'administration-catalog', 'administration-money', 'administration-system']
+
   const topSection      = computed(() => sections.value.find((s) => s.id === 'top'))
-  const adminSection    = computed(() => sections.value.find((s) => s.id === 'administration'))
+  const adminSections   = computed(() =>
+    ADMIN_SECTION_IDS
+      .map((id) => sections.value.find((s) => s.id === id))
+      .filter((s): s is NavSection => !!s)
+  )
   const miCuentaSection = computed(() => sections.value.find((s) => s.id === 'my-account'))
   const negocioSection  = computed(() => sections.value.find((s) => s.id === 'business'))
   const groupSections   = computed(() =>
-    sections.value.filter((s) => !['top', 'administration', 'my-account', 'business'].includes(s.id))
+    sections.value.filter((s) => !['top', ...ADMIN_SECTION_IDS, 'my-account', 'business'].includes(s.id))
   )
 
   return {
@@ -77,7 +87,7 @@ export function useNavigation() {
     loadNavigation,
     invalidate,
     topSection,
-    adminSection,
+    adminSections,
     miCuentaSection,
     negocioSection,
     groupSections,

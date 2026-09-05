@@ -38,33 +38,41 @@
       <!-- Grouped sections (Ventas & Analytics, Operaciones, Empresa) -->
       <template v-for="group in groupSections" :key="group.id">
         <SidebarNavSection
+          :section-id="group.id"
           :label="group.label"
           :items="group.items"
           :dark="dark"
           :collapsed="collapsed"
+          :force-open="sectionHasActiveRoute(group)"
           :unread-service-requests-count="unreadServiceRequestsCount"
           @navigate="$emit('navigate')"
         />
       </template>
 
-      <!-- Administración: el backend ya omite la sección si no hay items visibles -->
-      <SidebarNavSection
-        v-if="adminSection"
-        :label="adminSection.label"
-        :items="adminSection.items"
-        :dark="dark"
-        :collapsed="collapsed"
-        :unread-service-requests-count="unreadServiceRequestsCount"
-        @navigate="$emit('navigate')"
-      />
+      <!-- Administración: 4 sub-secciones (personas/catálogo/dinero/sistema),
+           el backend ya omite cada una si no tiene items visibles -->
+      <template v-for="admin in adminSections" :key="admin.id">
+        <SidebarNavSection
+          :section-id="admin.id"
+          :label="admin.label"
+          :items="admin.items"
+          :dark="dark"
+          :collapsed="collapsed"
+          :force-open="sectionHasActiveRoute(admin)"
+          :unread-service-requests-count="unreadServiceRequestsCount"
+          @navigate="$emit('navigate')"
+        />
+      </template>
 
       <!-- ── Mi Cuenta ───────────────────────────────────────────────────── -->
       <SidebarNavSection
         v-if="miCuentaSection"
+        section-id="my-account"
         :label="miCuentaSection.label"
         :items="miCuentaSection.items"
         :dark="dark"
         :collapsed="collapsed"
+        :force-open="true"
         :unread-service-requests-count="unreadServiceRequestsCount"
         @navigate="$emit('navigate')"
       />
@@ -72,10 +80,12 @@
       <!-- ── Negocio: solo si hay algo que mostrar para este rol ───────────── -->
       <SidebarNavSection
         v-if="negocioSection"
+        section-id="business"
         :label="negocioSection.label"
         :items="negocioSection.items"
         :dark="dark"
         :collapsed="collapsed"
+        :force-open="sectionHasActiveRoute(negocioSection)"
         :unread-service-requests-count="unreadServiceRequestsCount"
         @navigate="$emit('navigate')"
       />
@@ -111,7 +121,7 @@ const { can, initialized: permissionsInitialized, fetchPermissions } = usePermis
 const { loadModules } = useModules()
 const {
   loaded: navigationLoaded, loadNavigation,
-  topSection, adminSection, miCuentaSection, negocioSection, groupSections,
+  topSection, adminSections, miCuentaSection, negocioSection, groupSections,
 } = useNavigation()
 const { savedIds: savedQuickAccessIds, availableFor: availableQuickAccess } = useQuickAccess()
 const { unreadCount: unreadServiceRequestsCount, refresh: refreshUnreadBadge } = useServiceRequestsUnreadBadge()
@@ -129,6 +139,12 @@ onMounted(() => {
 watch(notifications, () => { refreshUnreadBadge() })
 
 const role = computed(() => user.value?.role ?? 'NORMAL')
+
+// Auto-expande la sección que contiene la ruta activa, aunque el usuario la
+// haya colapsado antes — evita que navegar a un ítem lo deje "escondido".
+function sectionHasActiveRoute(section: { items: { to: string }[] }): boolean {
+  return section.items.some((item) => item.to === route.path)
+}
 
 // El árbol de navegación ya viene filtrado por el backend (permisos, rol,
 // módulos, categoría) — el frontend solo espera a que cargue y pinta.
@@ -148,7 +164,7 @@ const props = withDefaults(
 )
 defineEmits(['navigate'])
 
-// ─── Nav data: el árbol completo (topSection, groupSections, adminSection,
+// ─── Nav data: el árbol completo (topSection, groupSections, adminSections,
 // miCuentaSection, negocioSection) viene de useNavigation() — ver arriba.
 
 // El catálogo de candidatos, MAX_QUICK_ACCESS y su propio chequeo de
