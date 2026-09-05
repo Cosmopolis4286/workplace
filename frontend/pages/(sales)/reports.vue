@@ -205,49 +205,37 @@ function exportAll() {
 }
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
-function isForbidden(e: any) {
-  const status = e?.status ?? e?.statusCode ?? e?.response?.status
-  return status === 403 || status === 401
-}
-
-async function loadOrderStats() {
-  loadingOrders.value = true
-  try {
-    orderStats.value = await get(isFreelancer.value ? '/services/requests/stats' : '/orders/stats')
-  }
-  catch (e: any) {
-    if (!isForbidden(e)) globalError.value = getApiErrorMessage(e, 'Error al cargar las estadísticas')
-  }
-  finally { loadingOrders.value = false }
-}
-
-async function loadExpenseStats() {
-  loadingExpenses.value = true
-  try { expenseStats.value = await get('/expenses/stats') }
-  catch (e: any) {
-    if (!isForbidden(e)) globalError.value = getApiErrorMessage(e, 'Error al cargar los gastos')
-  }
-  finally { loadingExpenses.value = false }
-}
-
-async function loadEmployeeStats() {
-  loadingEmployees.value = true
-  employeeForbidden.value = false
-  try { employeeStats.value = await get('/employees/stats') }
-  catch (e: any) {
-    if (isForbidden(e)) employeeForbidden.value = true
-    // error 403 no se muestra como error global
-  }
-  finally { loadingEmployees.value = false }
+// Un solo endpoint agregador (GET /reports/summary, protegido por
+// reports:view) reemplaza las 3 llamadas separadas que antes orquestaba
+// este componente — el backend decide qué incluir según isFreelancer y
+// omite "employees" en vez de fallar si el usuario no tiene employees:view,
+// mismo comportamiento que antes vivía acá (employeeForbidden).
+interface ReportsSummary {
+  isFreelancer: boolean
+  orders: any
+  expenses: any
+  employees: any
 }
 
 async function refreshAll() {
   globalError.value = null
-  if (isFreelancer.value) {
-    await loadOrderStats()
-    return
+  employeeForbidden.value = false
+  loadingOrders.value = true
+  loadingExpenses.value = true
+  loadingEmployees.value = true
+  try {
+    const summary = await get<ReportsSummary>('/reports/summary')
+    orderStats.value = summary.orders
+    expenseStats.value = summary.expenses
+    employeeStats.value = summary.employees
+    if (!summary.isFreelancer && summary.employees === null) employeeForbidden.value = true
+  } catch (e: any) {
+    globalError.value = getApiErrorMessage(e, 'Error al cargar el reporte')
+  } finally {
+    loadingOrders.value = false
+    loadingExpenses.value = false
+    loadingEmployees.value = false
   }
-  await Promise.all([loadOrderStats(), loadExpenseStats(), loadEmployeeStats()])
 }
 
 onMounted(refreshAll)
