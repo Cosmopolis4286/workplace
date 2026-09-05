@@ -2,13 +2,22 @@
   <div class="rounded-lg border p-4" :class="borderClass">
     <div class="flex items-center justify-between mb-3">
       <h4 class="text-sm font-semibold text-gray-800">Costo de reposición</h4>
-      <button
-        type="button"
-        class="text-xs font-medium text-indigo-600 hover:text-indigo-800"
-        @click="$emit('register-purchase')"
-      >
-        + Registrar compra
-      </button>
+      <div class="flex gap-3">
+        <button
+          type="button"
+          class="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+          @click="$emit('register-quote')"
+        >
+          + Cotización
+        </button>
+        <button
+          type="button"
+          class="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+          @click="$emit('register-purchase')"
+        >
+          + Registrar compra
+        </button>
+      </div>
     </div>
 
     <p v-if="loading" class="text-xs text-gray-400">Calculando…</p>
@@ -43,25 +52,57 @@
         </p>
       </div>
     </template>
+
+    <div v-if="comparison && comparison.quotes.length >= 2" class="mt-3 pt-3 border-t border-gray-100">
+      <p class="text-xs font-semibold text-gray-600 mb-2">Cotizaciones de proveedores</p>
+      <ul class="space-y-1">
+        <li
+          v-for="quote in comparison.quotes"
+          :key="quote.supplierId"
+          class="flex items-center justify-between text-xs"
+          :class="quote.supplierId === comparison.cheapestSupplierId ? 'text-green-700 font-medium' : 'text-gray-600'"
+        >
+          <span>
+            {{ quote.supplierName }}
+            <span v-if="quote.supplierId === comparison.cheapestSupplierId">✓ más barato</span>
+          </span>
+          <span>
+            ${{ quote.priceUsd.toFixed(2) }}
+            <span v-if="quote.leadTimeDays !== null" class="text-gray-400">· {{ quote.leadTimeDays }}d entrega</span>
+            <span v-if="quote.priceChangePct !== null" :class="quote.priceChangePct > 0 ? 'text-red-500' : 'text-gray-400'">
+              ({{ quote.priceChangePct > 0 ? '+' : '' }}{{ quote.priceChangePct }}% en {{ quote.priceChangeLookbackDays }}d)
+            </span>
+          </span>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { usePurchases, type ReplacementCost } from '~/composables/commerce/usePurchases'
+import { useSuppliers, type SupplierQuoteComparison } from '~/composables/commerce/useSuppliers'
 
 const props = defineProps<{ productId: string }>()
-defineEmits(['register-purchase'])
+defineEmits(['register-purchase', 'register-quote'])
 
 const { getReplacementCost } = usePurchases()
+const { compareForProduct } = useSuppliers()
 
 const data = ref<ReplacementCost | null>(null)
+const comparison = ref<SupplierQuoteComparison | null>(null)
 const loading = ref(false)
 
 async function load() {
   if (!props.productId) return
   loading.value = true
-  data.value = await getReplacementCost(props.productId)
+  const [replacementCost, quoteComparison] = await Promise.all([
+    getReplacementCost(props.productId),
+    compareForProduct(props.productId),
+  ])
+  data.value = replacementCost
+  comparison.value = quoteComparison
   loading.value = false
 }
 

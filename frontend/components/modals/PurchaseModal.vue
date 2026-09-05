@@ -31,6 +31,16 @@
               <p class="text-xs text-gray-400 mb-4">{{ productName }}</p>
 
               <form @submit.prevent="handleSubmit" class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Proveedor (opcional)</label>
+                  <select v-model="form.supplierId" class="input-field">
+                    <option value="">Sin especificar</option>
+                    <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
+                      {{ supplier.name }}
+                    </option>
+                  </select>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
@@ -86,6 +96,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { useDefaultRate } from '~/composables/wallets/useDefaultRate'
 import { usePurchases } from '~/composables/commerce/usePurchases'
+import { useSuppliers } from '~/composables/commerce/useSuppliers'
 
 const props = defineProps<{
   isOpen: boolean
@@ -96,13 +107,18 @@ const props = defineProps<{
 const emit = defineEmits<{ close: []; saved: [] }>()
 
 const { defaultRate, load: loadDefaultRate } = useDefaultRate()
-onMounted(loadDefaultRate)
+const { suppliers, loadSuppliers } = useSuppliers()
+onMounted(() => {
+  loadDefaultRate()
+  loadSuppliers()
+})
 
 const { createPurchase, error } = usePurchases()
 
 const saving = ref(false)
 
 const form = ref({
+  supplierId: '',
   quantity: 1,
   unitCost: 0,
   currencyCode: 'USD',
@@ -110,7 +126,7 @@ const form = ref({
 })
 
 function resetForm() {
-  form.value = { quantity: 1, unitCost: 0, currencyCode: 'USD', notes: '' }
+  form.value = { supplierId: '', quantity: 1, unitCost: 0, currencyCode: 'USD', notes: '' }
 }
 
 watch(() => props.isOpen, (open) => { if (open) resetForm() })
@@ -131,6 +147,7 @@ async function handleSubmit() {
   try {
     const purchase = await createPurchase({
       productId: props.productId,
+      supplierId: form.value.supplierId || undefined,
       quantity: form.value.quantity,
       unitCost: form.value.unitCost,
       currencyCode: form.value.currencyCode,
