@@ -7,7 +7,11 @@ import { AccountTypeResolver } from '../../common/account-type/account-type.reso
 
 describe('NavigationService', () => {
   let service: NavigationService
-  let permissionsService: { getRolePermissions: jest.Mock; getUserOverrides: jest.Mock }
+  let permissionsService: {
+    getRolePermissions: jest.Mock
+    getUserOverrides: jest.Mock
+    getActiveProfilePermissions: jest.Mock
+  }
   let planLimitsService: { getPlanLimits: jest.Mock }
   // role='PROFESIONAL' ya no distingue COMMERCE de FREELANCER — cada test
   // fija explícitamente qué debe devolver AccountTypeResolver (la única
@@ -18,6 +22,7 @@ describe('NavigationService', () => {
     permissionsService = {
       getRolePermissions: jest.fn().mockResolvedValue([]),
       getUserOverrides: jest.fn().mockResolvedValue({}),
+      getActiveProfilePermissions: jest.fn().mockResolvedValue([]),
     }
     planLimitsService = {
       getPlanLimits: jest.fn().mockResolvedValue({
@@ -53,7 +58,10 @@ describe('NavigationService', () => {
 
     const sectionIds = result.sections.map((s) => s.id)
     expect(sectionIds).not.toContain('company')
-    expect(sectionIds).not.toContain('administration')
+    expect(sectionIds).not.toContain('administration-people')
+    expect(sectionIds).not.toContain('administration-catalog')
+    expect(sectionIds).not.toContain('administration-money')
+    expect(sectionIds).not.toContain('administration-system')
     // "my-account" siempre tiene items sin condición de permiso -> siempre visible
     expect(sectionIds).toContain('my-account')
   })
@@ -149,15 +157,36 @@ describe('NavigationService', () => {
 
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.ADMIN })
 
-    const adminSection = result.sections.find((s) => s.id === 'administration')
+    const adminSection = result.sections.find((s) => s.id === 'administration-people')
     expect(adminSection?.items.find((i) => i.id === 'admin-users')).toBeDefined()
   })
 
   it('SUPERADMIN sees every permission-gated item regardless of role permissions', async () => {
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.SUPERADMIN })
 
-    const adminSection = result.sections.find((s) => s.id === 'administration')
-    expect(adminSection?.items.length).toBeGreaterThan(0)
+    const adminSections = result.sections.filter((s) => s.id.startsWith('administration-'))
+    const totalAdminItems = adminSections.reduce((sum, s) => sum + s.items.length, 0)
+    expect(totalAdminItems).toBeGreaterThan(0)
+  })
+
+  it('grants a permission via an active UserProfile even when the role does not include it', async () => {
+    // Caso central del fix: Role.PROFESIONAL es la unión COMMERCE∪FREELANCER
+    // a nivel de rol, pero el ítem debe reflejar el/los UserProfile ACTIVE
+    // reales del usuario, igual que hasEffectivePermission ya hace para
+    // autorizar el endpoint. Sin este fix, un permiso ausente del rol pero
+    // concedido solo vía ProfilePermission nunca aparecería en el sidebar.
+    permissionsService.getRolePermissions.mockResolvedValue([])
+    permissionsService.getActiveProfilePermissions.mockResolvedValue(['sales:view'])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['sales'],
+      categoryName: null,
+    })
+
+    currentAccountType = 'COMMERCE'
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
+
+    const salesSection = result.sections.find((s) => s.id === 'sales')
+    expect(salesSection?.items.find((i) => i.id === 'sales')).toBeDefined()
   })
 
   describe('getRouteMaps', () => {

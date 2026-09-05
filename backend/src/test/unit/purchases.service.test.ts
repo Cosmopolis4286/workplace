@@ -4,6 +4,7 @@ import { I18nService } from 'nestjs-i18n'
 import { PurchasesService } from '../../domains/operations/purchases/purchases.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service'
+import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 
 describe('PurchasesService', () => {
   let service: PurchasesService
@@ -28,6 +29,10 @@ describe('PurchasesService', () => {
     findByCode: jest.fn(),
   }
 
+  const mockNotificationsService = {
+    notifyMarginDrop: jest.fn(),
+  }
+
   const mockI18nService = {
     t: jest.fn((key: string) => key),
   }
@@ -37,12 +42,17 @@ describe('PurchasesService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks()
+    mockNotificationsService.notifyMarginDrop.mockResolvedValue(undefined)
+    // checkMarginDrop() vuelve a consultar compras recientes tras crear una
+    // — default a "sin historial" salvo que un test lo sobreescriba.
+    mockPrismaService.purchase.findMany.mockResolvedValue([])
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PurchasesService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ExchangeRatesService, useValue: mockExchangeRatesService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: I18nService, useValue: mockI18nService },
       ],
     }).compile()
@@ -132,6 +142,66 @@ describe('PurchasesService', () => {
         service.create(commerceId, userId, { ...dto, currencyCode: 'ves' } as any),
       ).rejects.toThrow(BadRequestException)
       expect(mockPrismaService.purchase.create).not.toHaveBeenCalled()
+    })
+
+    it('fires the MARGIN_DROP notification when replacement margin erodes past the threshold', async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        commerceId,
+        name: 'Aceite 1L',
+        cost: 10,
+        price: 15,
+      })
+      mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
+      // Post-create recompute: compra reciente a $13 -> margen reposición 13.3%,
+      // muy por debajo del histórico 33.3% (caída de 20pp, supera el umbral de 5pp).
+      mockPrismaService.purchase.findMany.mockResolvedValue([{ unitCostUsd: 13 }])
+
+      await service.create(commerceId, userId, dto as any)
+      await new Promise(process.nextTick) // deja correr el .catch(() => {}) fire-and-forget
+
+      expect(mockNotificationsService.notifyMarginDrop).toHaveBeenCalledWith(
+        commerceId,
+        'Aceite 1L',
+        expect.closeTo(33.3, 1),
+        expect.closeTo(13.3, 1),
+      )
+    })
+
+    it('does not fire the notification when the margin barely moves', async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        commerceId,
+        name: 'Aceite 1L',
+        cost: 10,
+        price: 15,
+      })
+      mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
+      // Compra reciente a $10.20 -> margen reposición ~32%, caída de ~1.3pp: no cruza el umbral.
+      mockPrismaService.purchase.findMany.mockResolvedValue([{ unitCostUsd: 10.2 }])
+
+      await service.create(commerceId, userId, dto as any)
+      await new Promise(process.nextTick)
+
+      expect(mockNotificationsService.notifyMarginDrop).not.toHaveBeenCalled()
+    })
+
+    it('does not let a notification failure break purchase creation', async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        commerceId,
+        name: 'Aceite 1L',
+        cost: 10,
+        price: 15,
+      })
+      mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
+      mockPrismaService.purchase.findMany.mockResolvedValue([{ unitCostUsd: 13 }])
+      mockNotificationsService.notifyMarginDrop.mockRejectedValue(new Error('gateway down'))
+
+      const result = await service.create(commerceId, userId, dto as any)
+      await new Promise(process.nextTick)
+
+      expect(result).toEqual({ id: 'purchase-1' })
     })
   })
 
