@@ -74,6 +74,7 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   subscriptions           Subscription[]
+  featureGrants           FeatureGrant[]
   feeOverrides            PlatformFeeOverride[]
   posts                   Post[]
   postLikes               PostLike[]               @relation("PostLikes")
@@ -2424,6 +2425,7 @@ model Plan {
   subscriptions      Subscription[]
   feeOverrides       PlatformFeeOverride[]
   pendingForProfiles UserProfile[]
+  featureRules       PlanFeatureRule[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2459,6 +2461,99 @@ model Subscription {
   @@index([planId])
   @@index([status])
   @@map("subscriptions")
+}
+
+enum FeatureUsageMode {
+  // Se consume una sola vez: al usarla (o al expirar) queda agotada para
+  // siempre, no se puede volver a activar.
+  SINGLE_USE
+  // Se activa una vez y otorga N usos consumibles dentro de su ventana de
+  // tiempo (ej. "10 créditos de IA en 30 días"). Al agotar los usos O expirar
+  // la ventana (lo que ocurra primero), queda agotada.
+  MULTI_USE
+  // Al expirar (o agotarse), el usuario puede volver a activarla desde cero
+  // — sin límite de veces. Distinto del trial (que es una sola vez de por
+  // vida): esto es para features que se pueden "reprobar" repetidamente.
+  REACTIVATABLE
+}
+
+enum FeatureGrantStatus {
+  ACTIVE
+  EXPIRED
+  EXHAUSTED
+  REVOKED
+}
+
+enum FeatureGrantSource {
+  SELF_SERVICE
+  ADMIN
+}
+
+// Qué features puede activar un plan por autoservicio, y con qué reglas —
+// separado de FeatureGrant (la activación real) igual que Plan está separado
+// de Subscription. featureKey es un string libre (no solo módulos del
+// sidebar): puede ser un módulo temporal ("business_shield"), un límite
+// puntual ("extra_branch_slot") o un consumible ("ai_credits_10"). Ver
+// pedido de negocio: "cada plan pueda activar X módulos/funciones por X
+// tiempo, de uso único, múltiple o reactivable" (2026-09-05).
+model PlanFeatureRule {
+  id         String @id @default(uuid())
+  planId     String
+  plan       Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  featureKey String
+
+  durationDays Int
+  usageMode    FeatureUsageMode
+  // Solo tiene sentido con usageMode=MULTI_USE — cuántos usos otorga cada
+  // activación. null en SINGLE_USE (implícitamente 1) y REACTIVATABLE
+  // (ilimitado dentro de la ventana, lo que expira es el tiempo, no los usos).
+  maxUses      Int?
+
+  active Boolean @default(true)
+  label  String? // nombre human-readable para mostrar en el panel de admin/usuario
+
+  grants FeatureGrant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, featureKey])
+  @@map("plan_feature_rules")
+}
+
+// Una activación concreta de una feature — por autoservicio (siguiendo una
+// PlanFeatureRule) o otorgada manualmente por un admin sin regla de plan
+// (cortesía, soporte puntual a un cliente). Snapshot de usageMode/duración al
+// momento de activar: si la regla del plan cambia después, los grants ya
+// emitidos no se alteran retroactivamente (mismo criterio que el snapshot de
+// tasa de cambio en Purchase/SupplierQuote).
+model FeatureGrant {
+  id         String           @id @default(uuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  featureKey String
+  ruleId     String?
+  rule       PlanFeatureRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  source    FeatureGrantSource
+  grantedBy String? // userId del admin si source=ADMIN; null si SELF_SERVICE
+
+  usageMode     FeatureUsageMode
+  // null = no aplica (SINGLE_USE ya consumido al usar, REACTIVATABLE no lleva contador).
+  usesRemaining Int?
+
+  activatedAt DateTime           @default(now())
+  expiresAt   DateTime?
+  status      FeatureGrantStatus @default(ACTIVE)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, featureKey, status])
+  @@index([expiresAt])
+  @@map("feature_grants")
 }
 
 // ─── Platform Fees ────────────────────────────────────────────────────────────
