@@ -28,6 +28,7 @@ import { ExpensesModule } from './domains/operations/expenses/expenses.module';
 import { PurchasesModule } from './domains/operations/purchases/purchases.module';
 import { SuppliersModule } from './domains/operations/suppliers/suppliers.module';
 import { PricingModule } from './domains/operations/pricing/pricing.module';
+import { AccountsModule } from './domains/money/accounts/accounts.module';
 import { CashModule } from './domains/operations/cash/cash.module';
 import { ReceiptsModule } from './domains/operations/receipts/receipts.module';
 import { NotificationsModule } from './domains/engagement/notifications/notifications.module';
@@ -106,6 +107,7 @@ import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orch
     PurchasesModule,
     SuppliersModule,
     PricingModule,
+    AccountsModule,
     CashModule,
     ReceiptsModule,
     NotificationsModule,

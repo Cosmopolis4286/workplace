@@ -205,38 +205,40 @@ model Commerce {
   // tabla nueva para algo que no se consulta ni se filtra, solo se muestra.
   socialLinks Json?
 
-  userId            String                 @unique
-  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String                 @unique
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Vínculo al perfil BUSINESS del dueño (ver UserProfile). Nullable y
   // desacoplado de `userId` a propósito: `userId` sigue siendo la FK real que
   // usan ~15 servicios vía `commerce.findUnique({ where: { userId } })` — no
   // se toca para no romper esos call sites. `profileId` es aditivo, para que
   // el modelo de "perfiles múltiples" (ver WORKPLACE_VISION.md) pueda
   // construirse encima sin migrar esa FK todavía.
-  profileId         String?                @unique
-  profile           UserProfile?           @relation(fields: [profileId], references: [id], onDelete: SetNull)
-  categories        Category[]
-  products          Product[]
-  customers         Customer[]
-  appointments      Appointment[]
-  settings          CommerceSettings?
-  drivers           Driver[]
-  deliveries        Delivery[]
-  orders            Order[]
-  expenseCategories ExpenseCategory[]
-  expenses          Expense[]
-  notifications     Notification[]
-  employees         Employee[]
-  branches          Branch[]
-  suppliers         Supplier[]
-  purchases         Purchase[]
-  stockSnapshots    ProductStockSnapshot[]
-  cashSessions      CashSession[]
-  cashMovements     CashMovement[]
-  receipts          Receipt[]
-  bnplSettings      BnplSettings[]
-  bnplTransactions  BnplTransaction[]
-  driverInvitations DriverInvitation[]
+  profileId          String?                @unique
+  profile            UserProfile?           @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  categories         Category[]
+  products           Product[]
+  customers          Customer[]
+  appointments       Appointment[]
+  settings           CommerceSettings?
+  drivers            Driver[]
+  deliveries         Delivery[]
+  orders             Order[]
+  expenseCategories  ExpenseCategory[]
+  expenses           Expense[]
+  notifications      Notification[]
+  employees          Employee[]
+  branches           Branch[]
+  suppliers          Supplier[]
+  purchases          Purchase[]
+  accountReceivables AccountReceivable[]
+  accountPayables    AccountPayable[]
+  stockSnapshots     ProductStockSnapshot[]
+  cashSessions       CashSession[]
+  cashMovements      CashMovement[]
+  receipts           Receipt[]
+  bnplSettings       BnplSettings[]
+  bnplTransactions   BnplTransaction[]
+  driverInvitations  DriverInvitation[]
 
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
@@ -428,23 +430,24 @@ model FreelancerSettings {
 }
 
 model Customer {
-  id             String          @id @default(uuid())
-  name           String
-  email          String?
-  phone          String?
-  address        String?
-  notes          String?
-  segment        CustomerSegment @default(NEW)
-  totalOrders    Int             @default(0)
-  totalSpent     Float           @default(0)
-  isActive       Boolean         @default(true)
-  telegramChatId String?
-  commerceId     String
-  commerce       Commerce        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  appointments   Appointment[]
-  orders         Order[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id                 String              @id @default(uuid())
+  name               String
+  email              String?
+  phone              String?
+  address            String?
+  notes              String?
+  segment            CustomerSegment     @default(NEW)
+  totalOrders        Int                 @default(0)
+  totalSpent         Float               @default(0)
+  isActive           Boolean             @default(true)
+  telegramChatId     String?
+  commerceId         String
+  commerce           Commerce            @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  appointments       Appointment[]
+  orders             Order[]
+  accountReceivables AccountReceivable[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@unique([email, commerceId])
   @@index([commerceId])
@@ -891,21 +894,21 @@ enum PaymentStatus {
 }
 
 model Order {
-  id                String           @id @default(uuid())
-  orderNumber       String           @unique
+  id                String             @id @default(uuid())
+  orderNumber       String             @unique
   customerName      String
   customerPhone     String?
   customerEmail     String?
   deliveryAddress   String?
   notes             String?
-  status            OrderStatus      @default(PENDING)
-  orderType         OrderType        @default(IMMEDIATE)
-  paymentMethod     PaymentMethod    @default(CASH)
-  paymentStatus     PaymentStatus    @default(PENDING)
-  subtotal          Float            @default(0)
-  tax               Float            @default(0)
-  deliveryFee       Float            @default(0)
-  discount          Float            @default(0)
+  status            OrderStatus        @default(PENDING)
+  orderType         OrderType          @default(IMMEDIATE)
+  paymentMethod     PaymentMethod      @default(CASH)
+  paymentStatus     PaymentStatus      @default(PENDING)
+  subtotal          Float              @default(0)
+  tax               Float              @default(0)
+  deliveryFee       Float              @default(0)
+  discount          Float              @default(0)
   total             Float
   platformFeeRate   Float?
   platformFeeAmount Float?
@@ -915,14 +918,15 @@ model Order {
   cancelledAt       DateTime?
   cancelReason      String?
   customerId        String?
-  customer          Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer          Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
   commerceId        String
-  commerce          Commerce         @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  commerce          Commerce           @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   items             OrderItem[]
   receipt           Receipt?
   bnplTransaction   BnplTransaction?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  accountReceivable AccountReceivable?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([commerceId])
   @@index([customerId])
@@ -1506,21 +1510,22 @@ enum SupplierStatus {
 }
 
 model Supplier {
-  id          String          @id @default(uuid())
-  name        String
-  contactName String?
-  phone       String?
-  email       String?
-  address     String?
-  category    String?
-  notes       String?
-  status      SupplierStatus  @default(ACTIVE)
-  commerceId  String
-  commerce    Commerce        @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  purchases   Purchase[]
-  quotes      SupplierQuote[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id              String           @id @default(uuid())
+  name            String
+  contactName     String?
+  phone           String?
+  email           String?
+  address         String?
+  category        String?
+  notes           String?
+  status          SupplierStatus   @default(ACTIVE)
+  commerceId      String
+  commerce        Commerce         @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  purchases       Purchase[]
+  quotes          SupplierQuote[]
+  accountPayables AccountPayable[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@unique([name, commerceId])
   @@index([commerceId])
@@ -1600,6 +1605,8 @@ model Purchase {
   purchasedAt DateTime @default(now())
   notes       String?
 
+  accountPayable AccountPayable?
+
   createdBy String? // userId de quien registró la compra
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1607,6 +1614,82 @@ model Purchase {
   @@index([commerceId, productId, purchasedAt(sort: Desc)])
   @@index([supplierId])
   @@map("purchases")
+}
+
+enum AccountStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// Dinero que el comercio TIENE que cobrar (venta fiado/a crédito a un
+// cliente). Ver WORKPLACE_VISION.md sección 11: vender fiado en un contexto
+// de inflación puede destruir valor si el cobro se demora — este modelo
+// guarda el snapshot de tasa al momento de la venta para poder comparar
+// contra la tasa actual al momento de cobrar (ver
+// AccountsService.getReplacementRisk). No reemplaza Order.paymentStatus
+// (que es "¿ya procesé el pago de esta orden?", operativo) — esto es
+// crédito explícito con vencimiento y riesgo de poder adquisitivo.
+model AccountReceivable {
+  id         String    @id @default(uuid())
+  commerceId String
+  commerce   Commerce  @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  orderId    String?   @unique
+  order      Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  description       String
+  amount            Float
+  currencyCode      String
+  // Snapshot inmutable de la tasa a USD en el momento de LA VENTA — se
+  // compara contra la tasa actual al cobrar para medir exposición cambiaria.
+  exchangeRateValue Float
+  amountUsd         Float
+
+  dueDate DateTime?
+  status  AccountStatus @default(PENDING)
+  paidAt  DateTime?
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([commerceId, status, dueDate])
+  @@index([customerId])
+  @@map("account_receivables")
+}
+
+// Dinero que el comercio TIENE que pagar (compra a crédito a un
+// proveedor) — el espejo de AccountReceivable. Mismo criterio de snapshot
+// de tasa de cambio.
+model AccountPayable {
+  id         String    @id @default(uuid())
+  commerceId String
+  commerce   Commerce  @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseId String?   @unique
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+
+  description       String
+  amount            Float
+  currencyCode      String
+  exchangeRateValue Float
+  amountUsd         Float
+
+  dueDate DateTime?
+  status  AccountStatus @default(PENDING)
+  paidAt  DateTime?
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([commerceId, status, dueDate])
+  @@index([supplierId])
+  @@map("account_payables")
 }
 
 // ─── Social / Profiles ────────────────────────────────────────────────────────
