@@ -3,19 +3,14 @@ import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ExchangeRatesService } from '../../money/exchange-rates/exchange-rates.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { AlertEngineService } from '../alert-engine/alert-engine.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { QueryPurchasesDto } from './dto/query-purchases.dto';
+import { AlertType } from '@prisma/client';
 
 // Cuántas compras recientes se promedian para el "costo de reposición
 // promedio" — ver WORKPLACE_VISION.md (Business Shield, sección 5).
 const REPLACEMENT_COST_SAMPLE_SIZE = 5;
-
-// Umbral de la alerta MARGIN_DROP: el margen de reposición debe caer al
-// menos esta cantidad de puntos porcentuales por debajo del margen
-// histórico para justificar notificar al comerciante. Ver sección 21
-// (Alert Engine) de WORKPLACE_VISION.md — valor fijo por ahora, sin UI de
-// configuración todavía (se valida primero si esto genera valor real).
-const MARGIN_DROP_THRESHOLD_PCT = 5;
 
 @Injectable()
 export class PurchasesService {
@@ -23,6 +18,7 @@ export class PurchasesService {
     private readonly prisma: PrismaService,
     private readonly exchangeRates: ExchangeRatesService,
     private readonly notifications: NotificationsService,
+    private readonly alertEngine: AlertEngineService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -98,7 +94,9 @@ export class PurchasesService {
       return;
     }
     const drop = replacement.marginHistoricalPct - replacement.marginReplacementPct;
-    if (drop >= MARGIN_DROP_THRESHOLD_PCT) {
+    // Threshold configurable por comercio (Alert Engine, ver
+    // WORKPLACE_VISION.md sección 21) — antes era un valor fijo en código.
+    if (await this.alertEngine.shouldFire(commerceId, AlertType.MARGIN_DROP, drop)) {
       await this.notifications.notifyMarginDrop(
         commerceId,
         productName,

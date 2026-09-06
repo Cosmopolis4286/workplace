@@ -2,9 +2,12 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ExchangeRatesService } from '../../money/exchange-rates/exchange-rates.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { AlertEngineService } from '../alert-engine/alert-engine.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { CreateSupplierQuoteDto } from './dto/create-supplier-quote.dto';
+import { AlertType } from '@prisma/client';
 
 // Cuántas cotizaciones anteriores del mismo proveedor+producto se miran para
 // calcular "cuánto subió el precio en los últimos N días" (sección 12 de
@@ -16,6 +19,8 @@ export class SuppliersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly exchangeRates: ExchangeRatesService,
+    private readonly notifications: NotificationsService,
+    private readonly alertEngine: AlertEngineService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -65,7 +70,7 @@ export class SuppliersService {
   // ── Quotes ─────────────────────────────────────────────────────────────────
 
   async createQuote(supplierId: string, commerceId: string, dto: CreateSupplierQuoteDto) {
-    await this.findOne(supplierId, commerceId);
+    const supplier = await this.findOne(supplierId, commerceId);
 
     const product = await this.prisma.product.findFirst({
       where: { id: dto.productId, commerceId },
@@ -80,7 +85,9 @@ export class SuppliersService {
       );
     }
 
-    return this.prisma.supplierQuote.create({
+    const priceUsd = dto.price / resolved.rateToUsd;
+
+    const quote = await this.prisma.supplierQuote.create({
       data: {
         commerceId,
         supplierId,
@@ -88,13 +95,52 @@ export class SuppliersService {
         price: dto.price,
         currencyCode,
         exchangeRateValue: resolved.rateToUsd,
-        priceUsd: dto.price / resolved.rateToUsd,
+        priceUsd,
         leadTimeDays: dto.leadTimeDays,
         available: dto.available ?? true,
         notes: dto.notes,
         quotedAt: dto.quotedAt ? new Date(dto.quotedAt) : undefined,
       },
     });
+
+    // Best-effort: una falla al notificar no debe hacer fallar el registro
+    // de la cotización, que ya se guardó correctamente.
+    this.checkSupplierPriceChange(commerceId, supplierId, supplier.name, dto.productId, product.name, priceUsd, quote.id)
+      .catch(() => {});
+
+    return quote;
+  }
+
+  // Alert Engine — SUPPLIER_PRICE_CHANGE: compara la cotización recién creada
+  // contra la anterior del mismo proveedor+producto dentro de la ventana de
+  // lookback; si subió más del threshold configurado, notifica. Ver
+  // WORKPLACE_VISION.md sección 12/21.
+  private async checkSupplierPriceChange(
+    commerceId: string,
+    supplierId: string,
+    supplierName: string,
+    productId: string,
+    productName: string,
+    newPriceUsd: number,
+    newQuoteId: string,
+  ) {
+    const lookbackDate = new Date(Date.now() - PRICE_TREND_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+    const previous = await this.prisma.supplierQuote.findFirst({
+      where: { supplierId, productId, commerceId, id: { not: newQuoteId }, quotedAt: { gte: lookbackDate } },
+      orderBy: { quotedAt: 'desc' },
+    });
+    if (!previous || previous.priceUsd <= 0) return;
+
+    const priceChangePct = ((newPriceUsd - previous.priceUsd) / previous.priceUsd) * 100;
+    if (await this.alertEngine.shouldFire(commerceId, AlertType.SUPPLIER_PRICE_CHANGE, priceChangePct)) {
+      await this.notifications.notifySupplierPriceChange(
+        commerceId,
+        supplierName,
+        productName,
+        priceChangePct,
+        PRICE_TREND_LOOKBACK_DAYS,
+      );
+    }
   }
 
   async listQuotesForSupplier(supplierId: string, commerceId: string) {
