@@ -238,6 +238,7 @@ model Commerce {
   purchases          Purchase[]
   accountReceivables AccountReceivable[]
   accountPayables    AccountPayable[]
+  alertRules         AlertRule[]
   stockSnapshots     ProductStockSnapshot[]
   cashSessions       CashSession[]
   cashMovements      CashMovement[]
@@ -1696,6 +1697,38 @@ model AccountPayable {
   @@index([commerceId, status, dueDate])
   @@index([supplierId])
   @@map("account_payables")
+}
+
+// Tipos de alerta del Alert Engine (WORKPLACE_VISION.md sección 21). Cada
+// valor nuevo requiere lógica propia en el servicio de negocio que la
+// dispara (ej. PurchasesService para MARGIN_DROP) — este enum no vuelve el
+// motor genérico "sin código", solo centraliza el threshold configurable y
+// el on/off por comercio.
+enum AlertType {
+  MARGIN_DROP
+  REPLACEMENT_COST_RISK
+  SUPPLIER_PRICE_CHANGE
+  LOW_LIQUIDITY
+}
+
+// Configuración por comercio de cuándo debe dispararse cada tipo de alerta.
+// Si un comercio no tiene fila para un AlertType, AlertEngineService usa un
+// default de fábrica (ver ALERT_DEFAULTS) — no hace falta seedear filas para
+// que las alertas funcionen, solo para que un comercio las personalice.
+model AlertRule {
+  id         String    @id @default(uuid())
+  commerceId String
+  commerce   Commerce  @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  alertType  AlertType
+
+  thresholdValue Float
+  enabled        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([commerceId, alertType])
+  @@map("alert_rules")
 }
 
 // ─── Social / Profiles ────────────────────────────────────────────────────────
