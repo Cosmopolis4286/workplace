@@ -6,7 +6,7 @@ import { NotificationsService } from '../../engagement/notifications/notificatio
 import { AlertEngineService } from '../alert-engine/alert-engine.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { QueryPurchasesDto } from './dto/query-purchases.dto';
-import { AlertType } from '@prisma/client';
+import { AlertType, ProductStatus } from '@prisma/client';
 
 // Cuántas compras recientes se promedian para el "costo de reposición
 // promedio" — ver WORKPLACE_VISION.md (Business Shield, sección 5).
@@ -56,25 +56,44 @@ export class PurchasesService {
     const { rateToUsd, source } = await this.resolveRate(currencyCode);
     const unitCostUsd = dto.unitCost / rateToUsd;
 
-    const purchase = await this.prisma.purchase.create({
-      data: {
-        commerceId,
-        productId: dto.productId,
-        supplierId: dto.supplierId,
-        quantity: dto.quantity,
-        unitCost: dto.unitCost,
-        currencyCode,
-        exchangeRateValue: rateToUsd,
-        exchangeRateSource: source,
-        unitCostUsd,
-        purchasedAt: dto.purchasedAt ? new Date(dto.purchasedAt) : undefined,
-        notes: dto.notes,
-        createdBy: userId,
-      },
-      include: {
-        supplier: { select: { id: true, name: true } },
-        product: { select: { id: true, name: true } },
-      },
+    // Reponer stock y registrar la compra en una sola transacción: sin esto,
+    // comprarle a un proveedor no aumentaba el inventario disponible y había
+    // que ir aparte a ajustar stock a mano (flujo compra→stock desconectado).
+    const purchase = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.purchase.create({
+        data: {
+          commerceId,
+          productId: dto.productId,
+          supplierId: dto.supplierId,
+          quantity: dto.quantity,
+          unitCost: dto.unitCost,
+          currencyCode,
+          exchangeRateValue: rateToUsd,
+          exchangeRateSource: source,
+          unitCostUsd,
+          purchasedAt: dto.purchasedAt ? new Date(dto.purchasedAt) : undefined,
+          notes: dto.notes,
+          createdBy: userId,
+        },
+        include: {
+          supplier: { select: { id: true, name: true } },
+          product: { select: { id: true, name: true } },
+        },
+      });
+
+      const newStock = product.stock + dto.quantity;
+      const newStatus =
+        newStock === 0
+          ? ProductStatus.OUT_OF_STOCK
+          : newStock <= product.minStock
+            ? ProductStatus.LOW_STOCK
+            : ProductStatus.AVAILABLE;
+      await tx.product.update({
+        where: { id: product.id },
+        data: { stock: newStock, status: newStatus },
+      });
+
+      return created;
     });
 
     // Best-effort: una falla al notificar no debe hacer fallar el registro
