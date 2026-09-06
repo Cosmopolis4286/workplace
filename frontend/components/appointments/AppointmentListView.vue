@@ -69,7 +69,7 @@
                   :disabled="updatingApptId === appt.id"
                   @change="$emit('status-change', appt, ($event.target as HTMLSelectElement).value as AppointmentStatus)"
                 >
-                  <option v-for="(label, key) in STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
+                  <option v-for="key in availableStatuses(appt.status)" :key="key" :value="key">{{ STATUS_LABELS[key] }}</option>
                 </select>
                 <button
                   class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -152,11 +152,17 @@ import { TableCellsIcon } from '@heroicons/vue/24/solid'
 import {
   STATUS_LABELS,
   STATUS_CLASSES,
+  STATUS_TRANSITIONS,
   type AppointmentStatus,
   type Appointment,
   type AppointmentStats,
 } from '~/composables/commerce/useAppointments'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+
+// Estado actual + solo las transiciones que el backend permite desde ahí.
+function availableStatuses(current: AppointmentStatus): AppointmentStatus[] {
+  return [current, ...STATUS_TRANSITIONS[current]]
+}
 
 const props = defineProps<{
   appointments: Appointment[]

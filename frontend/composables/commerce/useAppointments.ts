@@ -102,6 +102,17 @@ export const STATUS_CLASSES: Record<AppointmentStatus, string> = {
   NO_SHOW: 'bg-orange-100 text-orange-800',
 }
 
+// Espejo de STATUS_TRANSITIONS en appointments.service.ts — mantiene el
+// selector de estado consistente con lo que el backend realmente acepta.
+export const STATUS_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['SEATED', 'CANCELLED', 'NO_SHOW'],
+  SEATED: ['COMPLETED', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
+  NO_SHOW: [],
+}
+
 export const useAppointments = () => {
   const { get, post, put, patch, del } = useApi()
   const router = useRouter()
