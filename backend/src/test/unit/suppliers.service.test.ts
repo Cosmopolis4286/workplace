@@ -4,6 +4,8 @@ import { I18nService } from 'nestjs-i18n'
 import { SuppliersService } from '../../domains/operations/suppliers/suppliers.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service'
+import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
+import { AlertEngineService } from '../../domains/operations/alert-engine/alert-engine.service'
 
 describe('SuppliersService', () => {
   let service: SuppliersService
@@ -22,11 +24,20 @@ describe('SuppliersService', () => {
     supplierQuote: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findFirst: jest.fn(),
     },
   }
 
   const mockExchangeRatesService = {
     resolveRateToUsd: jest.fn(),
+  }
+
+  const mockNotificationsService = {
+    notifySupplierPriceChange: jest.fn(),
+  }
+
+  const mockAlertEngineService = {
+    shouldFire: jest.fn(),
   }
 
   const mockI18nService = {
@@ -37,12 +48,19 @@ describe('SuppliersService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks()
+    mockNotificationsService.notifySupplierPriceChange.mockResolvedValue(undefined)
+    mockAlertEngineService.shouldFire.mockResolvedValue(false)
+    // checkSupplierPriceChange() vuelve a consultar la cotización anterior
+    // tras crear una — default a "sin cotización previa" salvo que un test lo sobreescriba.
+    mockPrismaService.supplierQuote.findFirst.mockResolvedValue(null)
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SuppliersService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ExchangeRatesService, useValue: mockExchangeRatesService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: AlertEngineService, useValue: mockAlertEngineService },
         { provide: I18nService, useValue: mockI18nService },
       ],
     }).compile()
@@ -84,7 +102,7 @@ describe('SuppliersService', () => {
     })
 
     it('deletes only after confirming ownership', async () => {
-      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId })
+      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId, name: 'Distribuidora ABC' })
 
       await service.remove('sup-1', commerceId)
 
@@ -104,7 +122,7 @@ describe('SuppliersService', () => {
     })
 
     it('throws NotFoundException when product does not belong to commerce', async () => {
-      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId })
+      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId, name: 'Distribuidora ABC' })
       mockPrismaService.product.findFirst.mockResolvedValue(null)
 
       await expect(service.createQuote('sup-1', commerceId, dto as any)).rejects.toThrow(
@@ -113,7 +131,7 @@ describe('SuppliersService', () => {
     })
 
     it('throws BadRequestException when the exchange rate cannot be resolved', async () => {
-      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId })
+      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId, name: 'Distribuidora ABC' })
       mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId })
       mockExchangeRatesService.resolveRateToUsd.mockResolvedValue(null)
 
@@ -124,7 +142,7 @@ describe('SuppliersService', () => {
     })
 
     it('converts price to USD using the resolved rate and stores an immutable snapshot', async () => {
-      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId })
+      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId, name: 'Distribuidora ABC' })
       mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId })
       mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({ rateToUsd: 40, source: 'BCV_SCRAPING' })
       mockPrismaService.supplierQuote.create.mockResolvedValue({ id: 'quote-1' })
@@ -140,6 +158,61 @@ describe('SuppliersService', () => {
           }),
         }),
       )
+    })
+
+    it('fires SUPPLIER_PRICE_CHANGE when the Alert Engine says the increase crosses the threshold', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId, name: 'Distribuidora ABC' })
+      mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId, name: 'Aceite 1L' })
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({ rateToUsd: 1 })
+      mockPrismaService.supplierQuote.create.mockResolvedValue({ id: 'quote-new' })
+      // Cotización anterior a $100, la nueva es $112 -> +12%.
+      mockPrismaService.supplierQuote.findFirst.mockResolvedValue({ id: 'quote-old', priceUsd: 100 })
+      mockAlertEngineService.shouldFire.mockResolvedValue(true)
+
+      await service.createQuote('sup-1', commerceId, { ...dto, price: 112 } as any)
+      await new Promise(process.nextTick) // deja correr el .catch(() => {}) fire-and-forget
+
+      expect(mockAlertEngineService.shouldFire).toHaveBeenCalledWith(
+        commerceId,
+        'SUPPLIER_PRICE_CHANGE',
+        expect.closeTo(12, 1),
+      )
+      expect(mockNotificationsService.notifySupplierPriceChange).toHaveBeenCalledWith(
+        commerceId,
+        'Distribuidora ABC',
+        'Aceite 1L',
+        expect.closeTo(12, 1),
+        30,
+      )
+    })
+
+    it('does not fire SUPPLIER_PRICE_CHANGE when there is no previous quote to compare against', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId, name: 'Distribuidora ABC' })
+      mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId, name: 'Aceite 1L' })
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({ rateToUsd: 1 })
+      mockPrismaService.supplierQuote.create.mockResolvedValue({ id: 'quote-new' })
+      mockPrismaService.supplierQuote.findFirst.mockResolvedValue(null)
+
+      await service.createQuote('sup-1', commerceId, dto as any)
+      await new Promise(process.nextTick)
+
+      expect(mockAlertEngineService.shouldFire).not.toHaveBeenCalled()
+      expect(mockNotificationsService.notifySupplierPriceChange).not.toHaveBeenCalled()
+    })
+
+    it('does not let a notification failure break quote creation', async () => {
+      mockPrismaService.supplier.findFirst.mockResolvedValue({ id: 'sup-1', commerceId, name: 'Distribuidora ABC' })
+      mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId, name: 'Aceite 1L' })
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({ rateToUsd: 1 })
+      mockPrismaService.supplierQuote.create.mockResolvedValue({ id: 'quote-new' })
+      mockPrismaService.supplierQuote.findFirst.mockResolvedValue({ id: 'quote-old', priceUsd: 100 })
+      mockAlertEngineService.shouldFire.mockResolvedValue(true)
+      mockNotificationsService.notifySupplierPriceChange.mockRejectedValue(new Error('gateway down'))
+
+      const result = await service.createQuote('sup-1', commerceId, { ...dto, price: 112 } as any)
+      await new Promise(process.nextTick)
+
+      expect(result).toEqual({ id: 'quote-new' })
     })
   })
 

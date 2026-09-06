@@ -5,6 +5,7 @@ import { PurchasesService } from '../../domains/operations/purchases/purchases.s
 import { PrismaService } from '../../prisma/prisma.service'
 import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
+import { AlertEngineService } from '../../domains/operations/alert-engine/alert-engine.service'
 
 describe('PurchasesService', () => {
   let service: PurchasesService
@@ -34,6 +35,10 @@ describe('PurchasesService', () => {
     notifyMarginDrop: jest.fn(),
   }
 
+  const mockAlertEngineService = {
+    shouldFire: jest.fn(),
+  }
+
   const mockI18nService = {
     t: jest.fn((key: string) => key),
   }
@@ -44,6 +49,7 @@ describe('PurchasesService', () => {
   beforeEach(async () => {
     jest.clearAllMocks()
     mockNotificationsService.notifyMarginDrop.mockResolvedValue(undefined)
+    mockAlertEngineService.shouldFire.mockResolvedValue(false)
     // checkMarginDrop() vuelve a consultar compras recientes tras crear una
     // — default a "sin historial" salvo que un test lo sobreescriba.
     mockPrismaService.purchase.findMany.mockResolvedValue([])
@@ -54,6 +60,7 @@ describe('PurchasesService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ExchangeRatesService, useValue: mockExchangeRatesService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: AlertEngineService, useValue: mockAlertEngineService },
         { provide: I18nService, useValue: mockI18nService },
       ],
     }).compile()
@@ -145,7 +152,7 @@ describe('PurchasesService', () => {
       expect(mockPrismaService.purchase.create).not.toHaveBeenCalled()
     })
 
-    it('fires the MARGIN_DROP notification when replacement margin erodes past the threshold', async () => {
+    it('fires the MARGIN_DROP notification when the Alert Engine says the threshold was crossed', async () => {
       mockPrismaService.product.findFirst.mockResolvedValue({
         id: 'prod-1',
         commerceId,
@@ -155,12 +162,18 @@ describe('PurchasesService', () => {
       })
       mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
       // Post-create recompute: compra reciente a $13 -> margen reposición 13.3%,
-      // muy por debajo del histórico 33.3% (caída de 20pp, supera el umbral de 5pp).
+      // muy por debajo del histórico 33.3% (caída de 20pp).
       mockPrismaService.purchase.findMany.mockResolvedValue([{ unitCostUsd: 13 }])
+      mockAlertEngineService.shouldFire.mockResolvedValue(true)
 
       await service.create(commerceId, userId, dto as any)
       await new Promise(process.nextTick) // deja correr el .catch(() => {}) fire-and-forget
 
+      expect(mockAlertEngineService.shouldFire).toHaveBeenCalledWith(
+        commerceId,
+        'MARGIN_DROP',
+        expect.closeTo(20, 1), // caída de margen: 33.3% - 13.3%
+      )
       expect(mockNotificationsService.notifyMarginDrop).toHaveBeenCalledWith(
         commerceId,
         'Aceite 1L',
@@ -169,7 +182,7 @@ describe('PurchasesService', () => {
       )
     })
 
-    it('does not fire the notification when the margin barely moves', async () => {
+    it('does not fire the notification when the Alert Engine says the drop does not cross the threshold', async () => {
       mockPrismaService.product.findFirst.mockResolvedValue({
         id: 'prod-1',
         commerceId,
@@ -178,8 +191,8 @@ describe('PurchasesService', () => {
         price: 15,
       })
       mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
-      // Compra reciente a $10.20 -> margen reposición ~32%, caída de ~1.3pp: no cruza el umbral.
       mockPrismaService.purchase.findMany.mockResolvedValue([{ unitCostUsd: 10.2 }])
+      mockAlertEngineService.shouldFire.mockResolvedValue(false)
 
       await service.create(commerceId, userId, dto as any)
       await new Promise(process.nextTick)
@@ -197,6 +210,7 @@ describe('PurchasesService', () => {
       })
       mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
       mockPrismaService.purchase.findMany.mockResolvedValue([{ unitCostUsd: 13 }])
+      mockAlertEngineService.shouldFire.mockResolvedValue(true)
       mockNotificationsService.notifyMarginDrop.mockRejectedValue(new Error('gateway down'))
 
       const result = await service.create(commerceId, userId, dto as any)
