@@ -49,9 +49,17 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4).
 
-### 5.3 Business Health Score compuesto (2026-09-06)
+### 5.4 Alert Engine generalizado (2026-09-06)
+
+Antes de esto, `MARGIN_DROP` era la única alerta real y su umbral (5pp) estaba fijo en código, sin forma de ajustarlo por comercio ni de agregar un segundo tipo de alerta sin duplicar la lógica de "leer threshold, comparar, notificar".
+
+- **`AlertRule`** (por comercio + tipo) + **`AlertEngineService.shouldFire()`**: punto único que cualquier servicio consulta — regla personalizada si existe y está habilitada, si no default de fábrica. `enabled: false` nunca dispara.
+- `PurchasesService.checkMarginDrop()` refactorizado para usar el motor (mismo comportamiento default, ahora configurable). Nueva alerta real: `SuppliersService` dispara `SUPPLIER_PRICE_CHANGE` al registrar una cotización que sube más del threshold respecto a la anterior del mismo proveedor.
+- Endpoints: `GET/PUT/DELETE /api/alert-rules/:alertType`. Frontend: `AlertRulesSettingsCard.vue` en Settings (toggle + threshold editable + reset a default).
+- Validado end-to-end: umbral personalizado (3%) disparó con un aumento de 5% que el default (8%) no habría disparado — confirma que lee la regla real, no el hardcode.
+- **La sesión que trabajó en paralelo extendió el mismo motor**: `ExpenseOverdueScheduler` (cron diario, marca gastos vencidos y dispara `LOW_LIQUIDITY`) y una alerta de margen al vender en `catalog.service.ts` — los 4 tipos de `AlertType` ya tienen al menos un disparador real.
 
 Con Purchases + Price Guard + Accounts ya construidos, primer momento en que el score podía apoyarse en datos reales sin ser "una puntuación arbitraria" (audit estratégico sección 10) — pospuesto deliberadamente hasta este punto.
 
@@ -127,7 +135,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 685 tests unitarios backend, todos pasando (`npx jest`).
+- 709 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.
