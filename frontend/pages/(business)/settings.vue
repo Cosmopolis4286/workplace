@@ -128,6 +128,8 @@
           @save="savePriceGuardSettings"
         />
 
+        <AlertRulesSettingsCard v-if="isCommerce" />
+
         <!-- Financiamiento (Cashea / Krece) -->
         <BnplSettingsSection />
       </div>
@@ -171,6 +173,7 @@ import BusinessNotificationsCard from '~/components/settings/BusinessNotificatio
 import PaymentSettingsCard from '~/components/settings/PaymentSettingsCard.vue'
 import OperationsSettingsCard from '~/components/settings/OperationsSettingsCard.vue'
 import PriceGuardSettingsCard from '~/components/settings/PriceGuardSettingsCard.vue'
+import AlertRulesSettingsCard from '~/components/settings/AlertRulesSettingsCard.vue'
 import AppLockCard from '~/components/settings/AppLockCard.vue'
 import { useSettings, type CommerceSettings, type FreelancerSettingsData } from '~/composables/commerce/useSettings'
 import { useAuth } from '~/composables/auth/useAuth'
