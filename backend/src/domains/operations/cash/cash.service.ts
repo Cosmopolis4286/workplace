@@ -28,6 +28,14 @@ export class CashService {
 
   // ── Sesión activa ──────────────────────────────────────────────────────────
 
+  async hasOpenSession(commerceId: string): Promise<boolean> {
+    const session = await this.prisma.cashSession.findFirst({
+      where: { commerceId, status: 'OPEN' },
+      select: { id: true },
+    });
+    return !!session;
+  }
+
   async getCurrent(commerceId: string) {
     const session = await this.prisma.cashSession.findFirst({
       where: { commerceId, status: 'OPEN' },
