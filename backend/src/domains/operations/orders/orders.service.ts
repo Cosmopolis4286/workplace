@@ -15,6 +15,8 @@ import { OrderStatus } from '@prisma/client';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
 import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
+import { ReceiptsService } from '../receipts/receipts.service';
+import { CashService } from '../cash/cash.service';
 
 // Valid status transitions for business logic enforcement
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -37,6 +39,8 @@ export class OrdersService {
     private readonly telegram: TelegramService,
     @Inject(PLATFORM_FEES_FACADE) private readonly platformFees: PlatformFeesFacade,
     @Inject(REPUTATION_FACADE) private readonly reputation: ReputationFacade,
+    private readonly receipts: ReceiptsService,
+    private readonly cash: CashService,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -285,6 +289,22 @@ export class OrdersService {
       }
     }
 
+    // Sin esto, una venta en efectivo podía cerrarse con la caja cerrada: el
+    // dinero nunca entraba a ninguna sesión real y "aparecía" retroactivamente
+    // en el arqueo de la próxima apertura (ver getSummary en cash.service.ts).
+    if (
+      dto.status === 'DELIVERED' &&
+      existing.status !== 'DELIVERED' &&
+      existing.paymentMethod === 'CASH'
+    ) {
+      const hasOpenSession = await this.cash.hasOpenSession(commerceId);
+      if (!hasOpenSession) {
+        throw new BadRequestException(
+          'No se puede completar una venta en efectivo sin una caja abierta'
+        );
+      }
+    }
+
     const data: any = { ...dto };
 
     if (dto.status === 'DELIVERED') {
@@ -360,6 +380,13 @@ export class OrdersService {
     if (dto.status && dto.status !== existing.status) {
       if (dto.status === 'DELIVERED' || dto.status === 'CANCELLED') {
         this.reputation.recalculate('COMMERCE', commerceId).catch(() => {});
+      }
+
+      if (dto.status === 'DELIVERED') {
+        // Antes había que emitirlo a mano en un paso aparte después de
+        // cerrar la venta — fácil de olvidar y dejaba ventas sin comprobante.
+        // create() ya es idempotente (ConflictException si ya existe uno).
+        this.receipts.create(commerceId, id).catch(() => {});
       }
 
       this.notifications
