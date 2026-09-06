@@ -460,6 +460,23 @@ export class CatalogService {
     });
     const byId = new Map(products.map((p) => [p.id, p]));
 
+    // minStock de los componentes reales a descontar (no de los items del pedido,
+    // que pueden ser bundles): necesario para recalcular status tras el decrement.
+    const componentIds = new Set<string>();
+    for (const item of dto.items) {
+      const product = byId.get(item.productId);
+      if (product?.isBundle) {
+        for (const c of product.bundleItems) componentIds.add(c.componentProductId);
+      } else if (product) {
+        componentIds.add(item.productId);
+      }
+    }
+    const componentMinStocks = await this.prisma.product.findMany({
+      where: { id: { in: [...componentIds] } },
+      select: { id: true, minStock: true, name: true },
+    });
+    const minStockById = new Map(componentMinStocks.map((p) => [p.id, p]));
+
     for (const item of dto.items) {
       const product = byId.get(item.productId);
       if (!product || !product.forSale || product.status !== ProductStatus.AVAILABLE) {
@@ -495,6 +512,8 @@ export class CatalogService {
       dto.items.reduce((sum, item) => sum + byId.get(item.productId)!.price * item.quantity, 0) * 100
     ) / 100;
 
+    const lowStockAlerts: { name: string; stock: number }[] = [];
+
     const order = await this.prisma.$transaction(async (tx) => {
       // Descuenta stock de todos los componentes de forma atómica. Un
       // updateMany condicionado a stock >= needed es la forma de hacer un
@@ -509,6 +528,26 @@ export class CatalogService {
         });
         if (result.count === 0) {
           throw new BadRequestException('Stock insuficiente para completar el pedido');
+        }
+
+        // Recalcula status igual que el ajuste manual (menu.service.ts updateStock):
+        // sin esto el producto puede quedar en stock 0 mostrándose como AVAILABLE.
+        const updated = await tx.product.findUnique({
+          where: { id: componentId },
+          select: { stock: true },
+        });
+        const meta = minStockById.get(componentId);
+        if (updated && meta) {
+          const newStatus =
+            updated.stock === 0
+              ? ProductStatus.OUT_OF_STOCK
+              : updated.stock <= meta.minStock
+                ? ProductStatus.LOW_STOCK
+                : ProductStatus.AVAILABLE;
+          await tx.product.update({ where: { id: componentId }, data: { status: newStatus } });
+          if (newStatus !== ProductStatus.AVAILABLE) {
+            lowStockAlerts.push({ name: meta.name, stock: updated.stock });
+          }
         }
       }
 
@@ -565,6 +604,11 @@ export class CatalogService {
         order.totalEstimate ?? undefined
       )
       .catch(() => {});
+    for (const alert of lowStockAlerts) {
+      this.notifications
+        .notifyLowStock(order.commerceId, alert.name, alert.stock)
+        .catch(() => {});
+    }
     return { data: order };
   }
 

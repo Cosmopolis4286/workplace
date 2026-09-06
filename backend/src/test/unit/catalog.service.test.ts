@@ -27,6 +27,8 @@ describe('CatalogService', () => {
       commerceId: COMMERCE_ID,
       commerce: { name: 'Pastelería Ana' },
       bundleItems: [],
+      minStock: 5,
+      stock: 100,
       ...overrides,
     }
   }
@@ -44,13 +46,19 @@ describe('CatalogService', () => {
 
   beforeEach(async () => {
     mockPrismaService = {
-      product: { findMany: jest.fn(), updateMany: jest.fn() },
+      product: {
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue({ stock: 98 }),
+        update: jest.fn(),
+      },
       catalogOrder: { create: jest.fn() },
       commerce: { findUnique: jest.fn() },
       $transaction: jest.fn((callback: (tx: any) => unknown) => callback(mockPrismaService)),
     }
     mockNotificationsService = {
       notifyNewCatalogOrder: jest.fn().mockResolvedValue(undefined),
+      notifyLowStock: jest.fn().mockResolvedValue(undefined),
     }
 
     const module: TestingModule = await Test.createTestingModule({
@@ -92,7 +100,9 @@ describe('CatalogService', () => {
     })
 
     it('deriva productName/commerceName/unitPrice/totalEstimate del producto real, no del body', async () => {
-      mockPrismaService.product.findMany.mockResolvedValue([baseProduct()])
+      mockPrismaService.product.findMany.mockImplementation(({ select }: any) =>
+        Promise.resolve(select?.minStock ? [{ id: PRODUCT_ID, minStock: 5, name: 'Torta de chocolate' }] : [baseProduct()])
+      )
       mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
       mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) =>
         Promise.resolve({ id: 'order-1', ...data, items: data.items.create })
@@ -123,7 +133,9 @@ describe('CatalogService', () => {
         isBundle: true,
         bundleItems: [{ componentProductId: COMPONENT_ID, quantity: 2 }],
       })
-      mockPrismaService.product.findMany.mockResolvedValue([bundle])
+      mockPrismaService.product.findMany.mockImplementation(({ select }: any) =>
+        Promise.resolve(select?.minStock ? [{ id: COMPONENT_ID, minStock: 5, name: 'Componente' }] : [bundle])
+      )
       mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
       mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) =>
         Promise.resolve({ id: 'order-1', ...data, items: data.items.create })
@@ -143,7 +155,9 @@ describe('CatalogService', () => {
     })
 
     it('incrementa salesCount y notifica al comercio con los datos reales', async () => {
-      mockPrismaService.product.findMany.mockResolvedValue([baseProduct()])
+      mockPrismaService.product.findMany.mockImplementation(({ select }: any) =>
+        Promise.resolve(select?.minStock ? [{ id: PRODUCT_ID, minStock: 5, name: 'Torta de chocolate' }] : [baseProduct()])
+      )
       mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
       mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) =>
         Promise.resolve({ id: 'order-1', ...data, items: data.items.create })
@@ -158,6 +172,40 @@ describe('CatalogService', () => {
       expect(mockNotificationsService.notifyNewCatalogOrder).toHaveBeenCalledWith(
         COMMERCE_ID, 'Cliente Uno', 'Torta de chocolate', 2, 50,
       )
+    })
+
+    it('recalcula status a OUT_OF_STOCK y notifica stock bajo cuando el stock queda en 0', async () => {
+      mockPrismaService.product.findMany.mockImplementation(({ select }: any) =>
+        Promise.resolve(select?.minStock ? [{ id: PRODUCT_ID, minStock: 5, name: 'Torta de chocolate' }] : [baseProduct()])
+      )
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
+      mockPrismaService.product.findUnique.mockResolvedValue({ stock: 0 })
+      mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'order-1', ...data, items: data.items.create })
+      )
+
+      await service.createOrder(baseDto() as any, REQUESTER_ID)
+
+      expect(mockPrismaService.product.update).toHaveBeenCalledWith({
+        where: { id: PRODUCT_ID },
+        data: { status: 'OUT_OF_STOCK' },
+      })
+      expect(mockNotificationsService.notifyLowStock).toHaveBeenCalledWith(COMMERCE_ID, 'Torta de chocolate', 0)
+    })
+
+    it('no notifica stock bajo si el stock restante sigue por encima de minStock', async () => {
+      mockPrismaService.product.findMany.mockImplementation(({ select }: any) =>
+        Promise.resolve(select?.minStock ? [{ id: PRODUCT_ID, minStock: 5, name: 'Torta de chocolate' }] : [baseProduct()])
+      )
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
+      mockPrismaService.product.findUnique.mockResolvedValue({ stock: 98 })
+      mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'order-1', ...data, items: data.items.create })
+      )
+
+      await service.createOrder(baseDto() as any, REQUESTER_ID)
+
+      expect(mockNotificationsService.notifyLowStock).not.toHaveBeenCalled()
     })
   })
 
