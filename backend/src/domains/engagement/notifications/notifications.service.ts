@@ -423,6 +423,26 @@ export class NotificationsService {
     });
   }
 
+  // Business Shield — SUPPLIER_PRICE_CHANGE: un proveedor subió su precio más
+  // allá del umbral configurado en un periodo reciente (ver
+  // SuppliersService.compareForProduct — mismo cálculo de variación %).
+  async notifySupplierPriceChange(
+    commerceId: string,
+    supplierName: string,
+    productName: string,
+    priceChangePct: number,
+    lookbackDays: number,
+  ) {
+    return this.create(commerceId, {
+      type: NotificationType.INVENTORY,
+      title: '📈 Proveedor subió de precio',
+      message: `${supplierName} aumentó el precio de "${productName}" un ${priceChangePct.toFixed(1)}% en los últimos ${lookbackDays} días.`,
+      color: 'yellow',
+      link: '/suppliers',
+      metadata: { supplierName, productName, priceChangePct, lookbackDays },
+    });
+  }
+
   async notifyPlatformFeeCharged(
     userId: string,
     type: 'ORDER' | 'SERVICE_REQUEST' | 'RIDE',
