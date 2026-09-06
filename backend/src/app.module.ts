@@ -32,6 +32,7 @@ import { AccountsModule } from './domains/money/accounts/accounts.module';
 import { FeatureGrantsModule } from './domains/money/feature-grants/feature-grants.module';
 import { BusinessHealthModule } from './domains/money/business-health/business-health.module';
 import { AlertEngineModule } from './domains/operations/alert-engine/alert-engine.module';
+import { PurchasingPowerModule } from './domains/money/purchasing-power/purchasing-power.module';
 import { CashModule } from './domains/operations/cash/cash.module';
 import { ReceiptsModule } from './domains/operations/receipts/receipts.module';
 import { NotificationsModule } from './domains/engagement/notifications/notifications.module';
@@ -115,6 +116,7 @@ import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orch
     FeatureGrantsModule,
     BusinessHealthModule,
     AlertEngineModule,
+    PurchasingPowerModule,
     CashModule,
     ReceiptsModule,
     NotificationsModule,
