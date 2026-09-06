@@ -1,5 +1,6 @@
 {
   "not_found": "Appointment not found",
   "customer_not_found": "Customer not found in this commerce",
-  "table_overlap": "There is already another booking for this table at that time"
+  "table_overlap": "There is already another booking for this table at that time",
+  "invalid_status_transition": "This status change is not allowed from the current status"
 }

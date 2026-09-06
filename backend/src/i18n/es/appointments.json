@@ -1,5 +1,6 @@
 {
   "not_found": "Agendamiento no encontrado",
   "customer_not_found": "Cliente no encontrado en este comercio",
-  "table_overlap": "Ya existe otra reserva para esta mesa en ese horario"
+  "table_overlap": "Ya existe otra reserva para esta mesa en ese horario",
+  "invalid_status_transition": "Ese cambio de estado no está permitido desde el estado actual"
 }

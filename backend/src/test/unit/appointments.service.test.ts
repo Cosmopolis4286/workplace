@@ -164,4 +164,43 @@ describe('AppointmentsService', () => {
       await expect(service.update(USER_ID, APPOINTMENT_ID, { notes: 'x' } as any)).rejects.toBeInstanceOf(NotFoundException)
     })
   })
+
+  describe('updateStatus', () => {
+    it('permite una transición válida (PENDING -> CONFIRMED)', async () => {
+      mockPrismaService.appointment.findUnique.mockResolvedValue(baseAppointment({ status: AppointmentStatus.PENDING }))
+      mockPrismaService.appointment.update.mockResolvedValue(baseAppointment({ status: AppointmentStatus.CONFIRMED }))
+
+      await service.updateStatus(USER_ID, APPOINTMENT_ID, AppointmentStatus.CONFIRMED)
+
+      expect(mockPrismaService.appointment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: AppointmentStatus.CONFIRMED } }),
+      )
+    })
+
+    it('rechaza reabrir una cita CANCELLED', async () => {
+      mockPrismaService.appointment.findUnique.mockResolvedValue(baseAppointment({ status: AppointmentStatus.CANCELLED }))
+
+      await expect(
+        service.updateStatus(USER_ID, APPOINTMENT_ID, AppointmentStatus.CONFIRMED),
+      ).rejects.toBeInstanceOf(BadRequestException)
+      expect(mockPrismaService.appointment.update).not.toHaveBeenCalled()
+    })
+
+    it('rechaza completar una cita que nunca fue confirmada ni sentada (PENDING -> COMPLETED)', async () => {
+      mockPrismaService.appointment.findUnique.mockResolvedValue(baseAppointment({ status: AppointmentStatus.PENDING }))
+
+      await expect(
+        service.updateStatus(USER_ID, APPOINTMENT_ID, AppointmentStatus.COMPLETED),
+      ).rejects.toBeInstanceOf(BadRequestException)
+    })
+
+    it('permite marcar NO_SHOW desde CONFIRMED', async () => {
+      mockPrismaService.appointment.findUnique.mockResolvedValue(baseAppointment({ status: AppointmentStatus.CONFIRMED }))
+      mockPrismaService.appointment.update.mockResolvedValue(baseAppointment({ status: AppointmentStatus.NO_SHOW }))
+
+      await service.updateStatus(USER_ID, APPOINTMENT_ID, AppointmentStatus.NO_SHOW)
+
+      expect(mockPrismaService.appointment.update).toHaveBeenCalled()
+    })
+  })
 })

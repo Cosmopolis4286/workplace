@@ -29,6 +29,17 @@ const TABLE_BLOCKING_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.SEATED,
 ];
 
+// Transiciones válidas, mismo criterio que OrdersService/ServicesService:
+// evita reabrir una cita cancelada o completar una que nunca fue confirmada.
+const STATUS_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
+  PENDING: [AppointmentStatus.CONFIRMED, AppointmentStatus.CANCELLED],
+  CONFIRMED: [AppointmentStatus.SEATED, AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW],
+  SEATED: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED],
+  COMPLETED: [],
+  CANCELLED: [],
+  NO_SHOW: [],
+};
+
 @Injectable()
 export class AppointmentsService {
   constructor(
@@ -235,7 +246,12 @@ export class AppointmentsService {
     status: AppointmentStatus
   ) {
     const commerceId = await this.getCommerceId(userId);
-    await this.assertOwnership(appointmentId, commerceId);
+    const existing = await this.assertOwnership(appointmentId, commerceId);
+
+    if (existing.status !== status && !STATUS_TRANSITIONS[existing.status].includes(status)) {
+      throw new BadRequestException(this.i18n.t('appointments.invalid_status_transition'));
+    }
+
     return this.prisma.appointment.update({
       where: { id: appointmentId },
       data: { status },
