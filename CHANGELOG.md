@@ -4,6 +4,21 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Business Shield: Alert Engine generalizado (2026-09-06)
+
+Hasta esta fase, `MARGIN_DROP` era la única alerta real y su umbral estaba fijo en código (5 puntos porcentuales, sin forma de ajustarlo por comercio). Se generalizó el motor siguiendo la sección 21 del audit estratégico: reglas configurables por comercio y tipo de alerta, con default de fábrica si el comercio no personalizó nada.
+
+- **Modelo `AlertRule`**: `commerceId` + `alertType` (enum `MARGIN_DROP | REPLACEMENT_COST_RISK | SUPPLIER_PRICE_CHANGE | LOW_LIQUIDITY`) + `thresholdValue` + `enabled`. Único por comercio+tipo.
+- **`AlertEngineService.shouldFire(commerceId, alertType, observedValue)`**: punto único que cualquier servicio de negocio consulta — lee la regla personalizada si existe y está habilitada, si no cae al default de fábrica (mismos valores que antes estaban hardcodeados). Una regla `enabled: false` nunca dispara, sin importar el valor observado.
+- **`PurchasesService.checkMarginDrop()` refactorizado** para usar el motor en vez de su umbral hardcodeado — mismo comportamiento por defecto, ahora configurable.
+- **`SuppliersService` — nueva alerta `SUPPLIER_PRICE_CHANGE`**: al registrar una cotización, compara contra la anterior del mismo proveedor+producto (mismo cálculo que `compareForProduct`) y notifica si el aumento supera el threshold configurado. `NotificationsService.notifySupplierPriceChange()` nuevo.
+- Endpoints de autoservicio: `GET /api/alert-rules` (los 4 tipos siempre, con su threshold y si es default), `PUT /api/alert-rules/:alertType`, `DELETE /api/alert-rules/:alertType` (restablece al default).
+- Migración `20260906032558_add_alert_rules`.
+- **Frontend**: `AlertRulesSettingsCard.vue` en Settings — toggle on/off y threshold editable por tipo de alerta, con indicador de "(default)" o botón "Restablecer default". `useAlertRules.ts`.
+- Tests: suite completa de `AlertEngineService` (defaults, override, disabled-siempre-false, listRules combinando reglas propias y defaults, upsert, reset) + tests actualizados de `PurchasesService`/`SuppliersService` verificando que consultan el motor con el valor observado correcto.
+- Validado end-to-end: umbral de `SUPPLIER_PRICE_CHANGE` personalizado a 3% (default 8%), aumento de precio de 5% disparó la alerta (por encima del umbral personalizado, por debajo del default — confirma que lee la regla real, no el hardcode); reset volvió al default de fábrica correctamente.
+- La sesión que trabajó en paralelo sobre esta misma base extendió el motor con `ExpenseOverdueScheduler` (cron diario que marca gastos vencidos y dispara `LOW_LIQUIDITY`) y una alerta de margen al vender en `catalog.service.ts` — quedaron integrados en la misma suite verde (709/709).
+
 ### Added — Business Shield: Business Health Score compuesto (2026-09-06)
 
 Con Purchases + Price Guard + Accounts (Receivable/Payable) ya construidos, este era el primer momento en que un Business Health Score podía apoyarse en datos reales sin caer en "una puntuación arbitraria" (sección 10 del audit estratégico) — se pospuso deliberadamente hasta este punto.
