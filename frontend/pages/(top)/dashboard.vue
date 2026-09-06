@@ -46,6 +46,9 @@
       :loading="loadingMyOrders || loadingMyServiceRequests"
     />
 
+    <!-- Business Health Score: salud general del negocio (Business Shield) -->
+    <BusinessHealthWidget v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
+
     <!-- Alertas dinámicas (bajo stock, gastos vencidos, etc.) -->
     <DashboardAlerts v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
 
@@ -228,6 +231,7 @@ import { useDashboardLayout } from '~/composables/dashboard/useDashboardLayout'
 import { type Order, type OrderStatus } from '~/composables/catalog/useMerchantOrders'
 import DashboardHero from '~/components/dashboard/DashboardHero.vue'
 import DashboardAlerts from '~/components/dashboard/DashboardAlerts.vue'
+import BusinessHealthWidget from '~/components/dashboard/BusinessHealthWidget.vue'
 import DashboardCustomizePanel from '~/components/dashboard/DashboardCustomizePanel.vue'
 import DraggableWidget from '~/components/dashboard/DraggableWidget.vue'
 import QuickActions from '~/components/dashboard/QuickActions.vue'

@@ -1,0 +1,26 @@
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { BusinessHealthService } from './business-health.service';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
+
+@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
+@RequireAccountType('COMMERCE')
+@Controller('business-health')
+export class BusinessHealthController {
+  constructor(
+    private readonly businessHealthService: BusinessHealthService,
+    private readonly commerceResolver: CommerceResolverService,
+  ) {}
+
+  @Get('score')
+  @RequirePermission('dashboard:view')
+  async getScore(@CurrentUser() user: any) {
+    const commerceId = await this.commerceResolver.resolve(user.id);
+    return this.businessHealthService.getScore(commerceId);
+  }
+}
