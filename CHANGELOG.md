@@ -4,6 +4,18 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Business Shield: Business Health Score compuesto (2026-09-06)
+
+Con Purchases + Price Guard + Accounts (Receivable/Payable) ya construidos, este era el primer momento en que un Business Health Score podía apoyarse en datos reales sin caer en "una puntuación arbitraria" (sección 10 del audit estratégico) — se pospuso deliberadamente hasta este punto.
+
+- **`BusinessHealthService.getScore(commerceId)`**: score 0-100, promedio de 4 componentes con peso igual — margen de reposición promedio (de `Purchase`, normalizado 0-40% de margen → 0-100), cumplimiento de Price Guard (% de productos vendiendo en o por encima del precio mínimo recomendado), salud de cuentas por cobrar y por pagar (% de cuentas `PENDING` que no están vencidas).
+- **Cada componente se excluye del promedio si no hay datos** (ej. sin compras registradas) en vez de asumir un valor arbitrario — el score sigue siendo honesto con información parcial. **`confidence`** expone qué % de los 4 indicadores tienen datos reales, para que el número no aparente más precisión de la que realmente tiene.
+- Rating derivado del score: `SALUDABLE` (≥80) / `ACEPTABLE` (≥60) / `EN_RIESGO` (≥40) / `CRITICO` (<40) / `SIN_DATOS` (score null).
+- Endpoint: `GET /api/business-health/score`.
+- **Frontend**: `BusinessHealthWidget.vue` en el dashboard principal — semáforo de color (🟢🟡🟠🔴⚪) con el score, aviso de confianza cuando hay datos parciales, y detalle expandible por componente. `useBusinessHealth.ts`.
+- Tests: 9 casos (sin datos, cobertura parcial con 1-2 componentes, promedio completo con las 4 señales, límites/piso de los componentes numéricos, los 4 umbrales de rating).
+- Validado end-to-end: producto con compra registrada (margen real 50%, capado a 100), cumpliendo Price Guard, más una cuenta por cobrar vencida → score 67, confidence 75% (3 de 4 componentes con datos), rating `ACEPTABLE`.
+
 ### Added — Sistema de planes de siguiente nivel: trial autoservicio + Feature Grants (2026-09-05)
 
 Pedido de negocio: además de la duración mensual/anual de una suscripción completa, cada plan debía poder activar features individuales (módulos o funciones puntuales) por tiempo limitado, con tres modos de consumo — un solo uso, múltiples usos con contador, o reactivable indefinidamente.

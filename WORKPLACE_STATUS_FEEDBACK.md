@@ -49,7 +49,16 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3).
+
+### 5.3 Business Health Score compuesto (2026-09-06)
+
+Con Purchases + Price Guard + Accounts ya construidos, primer momento en que el score podía apoyarse en datos reales sin ser "una puntuación arbitraria" (audit estratégico sección 10) — pospuesto deliberadamente hasta este punto.
+
+- **`BusinessHealthService.getScore()`**: promedio de 4 componentes con datos reales (margen de reposición, cumplimiento de Price Guard, salud de cuentas por cobrar/pagar) — cada uno se excluye del promedio si no hay datos suficientes, en vez de asumir un valor. `confidence` expone qué % de indicadores tienen datos reales.
+- Rating: `SALUDABLE`/`ACEPTABLE`/`EN_RIESGO`/`CRITICO`/`SIN_DATOS`. Endpoint `GET /api/business-health/score`.
+- **Frontend**: `BusinessHealthWidget.vue` en el dashboard principal (semáforo de color + detalle expandible), `useBusinessHealth.ts`.
+- Validado end-to-end (score 67, confidence 75%, ACEPTABLE con 3/4 componentes con datos reales).
 
 ### 5.2 Planes de siguiente nivel: trial autoservicio + Feature Grants (2026-09-05)
 
@@ -118,7 +127,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 676 tests unitarios backend, todos pasando (`npx jest`).
+- 685 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.
