@@ -7,6 +7,8 @@ import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade
 import { TelegramService } from '../../domains/engagement/telegram/telegram.service'
 import { PLATFORM_FEES_FACADE } from '../../domains/money/platform-fees/platform-fees.facade'
 import { REPUTATION_FACADE } from '../../domains/reputation/reputation.facade'
+import { ReceiptsService } from '../../domains/operations/receipts/receipts.service'
+import { CashService } from '../../domains/operations/cash/cash.service'
 import { OrderStatus } from '@prisma/client'
 import { CreateOrderDto } from '../../domains/operations/orders/dto/create-order.dto'
 import { UpdateOrderDto } from '../../domains/operations/orders/dto/update-order.dto'
@@ -41,6 +43,9 @@ describe('OrdersService', () => {
     customer: {
       update: jest.fn(),
     },
+    commerce: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
     $transaction: jest.fn((callback: (tx: any) => unknown) =>
       callback(mockPrismaService)
     ),
@@ -70,6 +75,14 @@ describe('OrdersService', () => {
   const mockReputationService = {
     recalculate: jest.fn().mockResolvedValue(undefined),
     getScore: jest.fn().mockResolvedValue(null),
+  }
+
+  const mockReceiptsService = {
+    create: jest.fn().mockResolvedValue(undefined),
+  }
+
+  const mockCashService = {
+    hasOpenSession: jest.fn().mockResolvedValue(true),
   }
 
   beforeEach(async () => {
@@ -105,6 +118,14 @@ describe('OrdersService', () => {
         {
           provide: REPUTATION_FACADE,
           useValue: mockReputationService,
+        },
+        {
+          provide: ReceiptsService,
+          useValue: mockReceiptsService,
+        },
+        {
+          provide: CashService,
+          useValue: mockCashService,
         },
       ],
     }).compile()
@@ -358,6 +379,79 @@ describe('OrdersService', () => {
       await expect(service.updateStatus(orderId, commerceId, newStatus)).rejects.toThrow(
         NotFoundException
       )
+    })
+
+    it('rechaza completar una venta en efectivo si no hay caja abierta', async () => {
+      const orderId = 'order-123'
+      const commerceId = 'commerce-123'
+
+      const existingOrder = {
+        id: orderId,
+        orderNumber: 'ORD-2026-0001',
+        status: 'READY',
+        commerceId,
+        customerId: null,
+        total: 40,
+        paymentMethod: 'CASH',
+        items: [],
+      }
+
+      mockPrismaService.order.findFirst.mockResolvedValue(existingOrder)
+      mockCashService.hasOpenSession.mockResolvedValue(false)
+
+      await expect(service.updateStatus(orderId, commerceId, 'DELIVERED')).rejects.toThrow(
+        BadRequestException
+      )
+      expect(mockPrismaService.order.update).not.toHaveBeenCalled()
+    })
+
+    it('permite completar una venta en efectivo si hay caja abierta, y emite el comprobante', async () => {
+      const orderId = 'order-123'
+      const commerceId = 'commerce-123'
+
+      const existingOrder = {
+        id: orderId,
+        orderNumber: 'ORD-2026-0001',
+        status: 'READY',
+        commerceId,
+        customerId: null,
+        total: 40,
+        paymentMethod: 'CASH',
+        items: [],
+      }
+
+      mockPrismaService.order.findFirst.mockResolvedValue(existingOrder)
+      mockPrismaService.order.update.mockResolvedValue({ ...existingOrder, status: 'DELIVERED' })
+      mockCashService.hasOpenSession.mockResolvedValue(true)
+
+      await service.updateStatus(orderId, commerceId, 'DELIVERED')
+
+      expect(mockPrismaService.order.update).toHaveBeenCalled()
+      expect(mockReceiptsService.create).toHaveBeenCalledWith(commerceId, orderId)
+    })
+
+    it('no valida caja abierta para métodos de pago distintos de efectivo', async () => {
+      const orderId = 'order-123'
+      const commerceId = 'commerce-123'
+
+      const existingOrder = {
+        id: orderId,
+        orderNumber: 'ORD-2026-0001',
+        status: 'READY',
+        commerceId,
+        customerId: null,
+        total: 40,
+        paymentMethod: 'CARD',
+        items: [],
+      }
+
+      mockPrismaService.order.findFirst.mockResolvedValue(existingOrder)
+      mockPrismaService.order.update.mockResolvedValue({ ...existingOrder, status: 'DELIVERED' })
+      mockCashService.hasOpenSession.mockResolvedValue(false)
+
+      await service.updateStatus(orderId, commerceId, 'DELIVERED')
+
+      expect(mockPrismaService.order.update).toHaveBeenCalled()
     })
   })
 

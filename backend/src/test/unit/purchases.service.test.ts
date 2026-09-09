@@ -10,10 +10,11 @@ import { AlertEngineService } from '../../domains/operations/alert-engine/alert-
 describe('PurchasesService', () => {
   let service: PurchasesService
 
-  const mockPrismaService = {
+  const mockPrismaService: any = {
     product: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
     },
     supplier: {
       findFirst: jest.fn(),
@@ -25,6 +26,7 @@ describe('PurchasesService', () => {
       delete: jest.fn(),
       count: jest.fn(),
     },
+    $transaction: jest.fn((callback: (tx: any) => unknown) => callback(mockPrismaService)),
   }
 
   const mockExchangeRatesService = {
@@ -99,7 +101,7 @@ describe('PurchasesService', () => {
     })
 
     it('uses rate 1 and skips exchange-rate lookup for USD purchases', async () => {
-      mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId })
+      mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId, stock: 20, minStock: 5 })
       mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
 
       await service.create(commerceId, userId, dto as any)
@@ -119,7 +121,7 @@ describe('PurchasesService', () => {
     })
 
     it('converts unitCost to USD using the resolved exchange rate for non-USD currencies', async () => {
-      mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId })
+      mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId, stock: 20, minStock: 5 })
       mockExchangeRatesService.findByCode.mockResolvedValue({
         rateToUsd: 40,
         source: 'BCV',
@@ -142,6 +144,31 @@ describe('PurchasesService', () => {
       )
     })
 
+    it('repone stock del producto y recalcula status tras registrar la compra', async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId, stock: 2, minStock: 5 })
+      mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
+
+      await service.create(commerceId, userId, { ...dto, quantity: 10 } as any)
+
+      // stock 2 + 10 comprados = 12, por encima de minStock=5 -> AVAILABLE
+      expect(mockPrismaService.product.update).toHaveBeenCalledWith({
+        where: { id: 'prod-1' },
+        data: { stock: 12, status: 'AVAILABLE' },
+      })
+    })
+
+    it('deja el producto en LOW_STOCK si la reposición no alcanza el mínimo', async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId, stock: 0, minStock: 10 })
+      mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
+
+      await service.create(commerceId, userId, { ...dto, quantity: 3 } as any)
+
+      expect(mockPrismaService.product.update).toHaveBeenCalledWith({
+        where: { id: 'prod-1' },
+        data: { stock: 3, status: 'LOW_STOCK' },
+      })
+    })
+
     it('throws BadRequestException when the resolved exchange rate is invalid', async () => {
       mockPrismaService.product.findFirst.mockResolvedValue({ id: 'prod-1', commerceId })
       mockExchangeRatesService.findByCode.mockResolvedValue({ rateToUsd: 0 })
@@ -159,6 +186,8 @@ describe('PurchasesService', () => {
         name: 'Aceite 1L',
         cost: 10,
         price: 15,
+        stock: 20,
+        minStock: 5,
       })
       mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
       // Post-create recompute: compra reciente a $13 -> margen reposición 13.3%,
@@ -189,6 +218,8 @@ describe('PurchasesService', () => {
         name: 'Aceite 1L',
         cost: 10,
         price: 15,
+        stock: 20,
+        minStock: 5,
       })
       mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
       mockPrismaService.purchase.findMany.mockResolvedValue([{ unitCostUsd: 10.2 }])
@@ -207,6 +238,8 @@ describe('PurchasesService', () => {
         name: 'Aceite 1L',
         cost: 10,
         price: 15,
+        stock: 20,
+        minStock: 5,
       })
       mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' })
       mockPrismaService.purchase.findMany.mockResolvedValue([{ unitCostUsd: 13 }])
