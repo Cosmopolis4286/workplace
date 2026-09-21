@@ -49,6 +49,9 @@
     <!-- Business Health Score: salud general del negocio (Business Shield) -->
     <BusinessHealthWidget v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
 
+    <!-- Purchasing Power: poder adquisitivo operativo (Business Shield) -->
+    <PurchasingPowerWidget v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
+
     <!-- Alertas dinámicas (bajo stock, gastos vencidos, etc.) -->
     <DashboardAlerts v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
 
@@ -232,6 +235,7 @@ import { type Order, type OrderStatus } from '~/composables/catalog/useMerchantO
 import DashboardHero from '~/components/dashboard/DashboardHero.vue'
 import DashboardAlerts from '~/components/dashboard/DashboardAlerts.vue'
 import BusinessHealthWidget from '~/components/dashboard/BusinessHealthWidget.vue'
+import PurchasingPowerWidget from '~/components/dashboard/PurchasingPowerWidget.vue'
 import DashboardCustomizePanel from '~/components/dashboard/DashboardCustomizePanel.vue'
 import DraggableWidget from '~/components/dashboard/DraggableWidget.vue'
 import QuickActions from '~/components/dashboard/QuickActions.vue'
