@@ -49,7 +49,16 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5).
+
+### 5.5 Purchasing Power (2026-09-21)
+
+Última pieza del núcleo de Business Shield (audit estratégico sección 7): poder adquisitivo operativo, no un índice de inflación oficial.
+
+- **`PurchasingPowerService.getPurchasingPower()`**: compara el costo de reponer la misma cesta de productos (los comprados en los últimos 30 días, cantidades fijas) a precios de hace 30-60 días vs. precios actuales — 100% basado en `Purchase` real. Productos sin compra comparable en la ventana anterior se excluyen, no se inventan.
+- Endpoint `GET /api/purchasing-power`. Frontend: `PurchasingPowerWidget.vue` en el dashboard (semáforo + detalle expandible).
+- Validado end-to-end: cesta de 100 unidades ($10 hace 45 días → $11.80 hace 5 días) → `purchasingPowerChangePct: 18`, coincide exactamente con el ejemplo del audit.
+- **Con esto, los 7 pilares del núcleo de Business Shield quedan implementados y validados end-to-end**: Purchases, Supplier Intelligence, Price Guard, Accounts (Receivable/Payable), Business Health Score, Alert Engine, Purchasing Power. Lo que sigue en el roadmap original (Fase 3 en adelante: Network/Marketplace, Delivery, Procurement, Payments, Financing, AI) queda fuera del núcleo de Business Shield.
 
 ### 5.4 Alert Engine generalizado (2026-09-06)
 
@@ -135,7 +144,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 709 tests unitarios backend, todos pasando (`npx jest`).
+- 724 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.

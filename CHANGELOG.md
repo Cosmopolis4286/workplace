@@ -4,6 +4,19 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Business Shield: Purchasing Power (2026-09-21)
+
+Última pieza del núcleo del roadmap "WorkPlace Business Shield" (sección 7 del audit estratégico): "no debe pretender ser un índice oficial de inflación... debe representar el poder adquisitivo operativo del negocio."
+
+- **`PurchasingPowerService.getPurchasingPower(commerceId)`**: compara el costo de reponer la MISMA cesta de productos (los que el comercio compró en los últimos 30 días, ponderados por esa cantidad) usando los precios de la ventana anterior (30-60 días atrás) vs. los precios actuales — 100% basado en `Purchase` real, sin depender de ningún índice externo. La cesta se fija con las cantidades de la ventana ACTUAL para que un cambio de volumen de compra no distorsione la señal de precio.
+- Productos sin una compra comparable en la ventana anterior se excluyen de la cesta — no se inventa un "antes" que no existe. Sin compras en absoluto, responde `hasData: false` con la razón.
+- Endpoint: `GET /api/purchasing-power`.
+- **Frontend**: `PurchasingPowerWidget.vue` en el dashboard principal — semáforo de color, mensaje "tu capital nominal se mantuvo, pero el costo de reponer tu cesta subió X%", detalle expandible por producto. `usePurchasingPower.ts`.
+- Tests: 8 casos (sin datos, cesta sin comparación previa, el ejemplo exacto del audit, cesta fijada a cantidad actual para aislar el efecto de volumen, exclusión de productos no comparables, promedio ponderado con múltiples compras en la misma ventana, orden por peor variación).
+- Validado end-to-end: cesta de 100 unidades a $10 (hace 45 días) vs. $11.80 (hace 5 días) → `valueAtPreviousPrices: 1000`, `valueAtCurrentPrices: 1180`, `purchasingPowerChangePct: 18` — coincide exactamente con el ejemplo del audit estratégico.
+
+Con esto, los 6 pilares originales de Business Shield (Purchases, Supplier Intelligence, Price Guard, Accounts, Business Health Score, Alert Engine, Purchasing Power) quedan implementados y validados end-to-end.
+
 ### Added — Business Shield: Alert Engine generalizado (2026-09-06)
 
 Hasta esta fase, `MARGIN_DROP` era la única alerta real y su umbral estaba fijo en código (5 puntos porcentuales, sin forma de ajustarlo por comercio). Se generalizó el motor siguiendo la sección 21 del audit estratégico: reglas configurables por comercio y tipo de alerta, con default de fábrica si el comercio no personalizó nada.
