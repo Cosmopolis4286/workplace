@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CatalogService } from '../catalog/catalog.service';
 import { ServicesService } from '../services/services.service';
 import { JobsService } from '../../platform/jobs/jobs.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { MATCHING_FACADE, MatchingFacade } from '../matching/matching.facade';
 
 export interface SearchSuggestion {
   id: string;
@@ -21,6 +22,10 @@ export interface SearchSuggestion {
   salaryCurrency?: string | null;
   lowStock?: boolean;
   nearYou?: boolean;
+  /** Distancia real en metros al comprador — solo si ambos tienen ubicación fijada. Interno, no confundir con nearYou (proxy de texto ciudad/estado) */
+  distanceMeters?: number | null;
+  /** Score combinado de MatchingService (precio+distancia+reputación+disponibilidad) — usado para reordenar, no se expone si no hubo origin */
+  matchScore?: number | null;
 }
 
 export interface SearchTabCount {
@@ -31,6 +36,8 @@ export interface SearchTabCount {
 export interface SearchLocationHint {
   city?: string | null;
   state?: string | null;
+  /** Coordenadas del comprador (User.latitude/longitude) — sin esto, el reordenamiento por distancia no se aplica */
+  origin?: { lat: number; lng: number } | null;
 }
 
 export type NeedCategory = 'comida' | 'hogar' | 'ocio';
@@ -77,6 +84,7 @@ export class SearchService {
     private readonly servicesService: ServicesService,
     private readonly jobsService: JobsService,
     private readonly prisma: PrismaService,
+    @Inject(MATCHING_FACADE) private readonly matching: MatchingFacade,
   ) {}
 
   async suggest(
@@ -182,7 +190,95 @@ export class SearchService {
       this.recordUnmetSearch(query, location?.city ?? null);
     }
 
-    return { query, suggestions, counts, detectedBudget, needCategory };
+    const ranked = location?.origin
+      ? await this.rankByMatching(suggestions, products, services, location.origin)
+      : suggestions;
+
+    return { query, suggestions: ranked, counts, detectedBudget, needCategory };
+  }
+
+  // Reordena productos/servicios (no empleos: MatchingService solo conoce
+  // COMMERCE/PROFESSIONAL) combinando precio+distancia+reputación+
+  // disponibilidad. Best-effort: si algo falla, devuelve el orden original
+  // sin romper la búsqueda — el ranking es una mejora, no un requisito.
+  private async rankByMatching(
+    suggestions: SearchSuggestion[],
+    products: PromiseSettledResult<{ data: any[] }>,
+    services: PromiseSettledResult<{ data: any[] }>,
+    origin: { lat: number; lng: number },
+  ): Promise<SearchSuggestion[]> {
+    try {
+      const productList = products.status === 'fulfilled' ? products.value.data : [];
+      const serviceList = services.status === 'fulfilled' ? services.value.data : [];
+
+      const commerceIds = [...new Set(productList.map((p: any) => p.commerce?.id).filter(Boolean))];
+      const commerces = commerceIds.length
+        ? await this.prisma.commerce.findMany({
+            where: { id: { in: commerceIds } },
+            select: { id: true, userId: true },
+          })
+        : [];
+      const commerceUserIdById = new Map(commerces.map((c) => [c.id, c.userId]));
+
+      const candidates: import('../matching/matching.facade').MatchCandidateInput[] = [];
+      const candidateKeyByIndex = new Map<number, string>(); // 'productos:<id>' | 'servicios:<id>'
+
+      productList.forEach((p: any) => {
+        const userId = commerceUserIdById.get(p.commerce?.id);
+        if (!userId) return;
+        candidates.push({
+          entityType: 'COMMERCE',
+          entityId: p.commerce.id,
+          userId,
+          price: p.price ?? null,
+          isAvailable: p.status !== 'OUT_OF_STOCK' && p.status !== 'UNAVAILABLE',
+        });
+        candidateKeyByIndex.set(candidates.length - 1, `productos:${p.id}`);
+      });
+
+      serviceList.forEach((s: any) => {
+        if (!s.user?.id) return;
+        candidates.push({
+          entityType: 'PROFESSIONAL',
+          entityId: s.userId ?? s.user.id,
+          userId: s.user.id,
+          price: s.price ?? null,
+          isAvailable: s.status === 'ACTIVE',
+        });
+        candidateKeyByIndex.set(candidates.length - 1, `servicios:${s.id}`);
+      });
+
+      if (candidates.length === 0) return suggestions;
+
+      const results = await this.matching.rankCandidates(candidates, { origin });
+
+      // rankCandidates devuelve ordenado pero sin el índice original — se
+      // reconstruye el mapeo por (entityType, entityId) ya que puede repetirse
+      // un mismo comercio/profesional en varios productos/servicios.
+      const scoreByCandidateKey = new Map<string, { score: number; distanceMeters: number | null }>();
+      candidates.forEach((c, idx) => {
+        const suggestionKey = candidateKeyByIndex.get(idx);
+        if (!suggestionKey) return;
+        const result = results.find((r) => r.entityType === c.entityType && r.entityId === c.entityId);
+        if (result) scoreByCandidateKey.set(suggestionKey, { score: result.score, distanceMeters: result.distanceMeters });
+      });
+
+      const annotated = suggestions.map((s) => {
+        const key = `${s.tab}:${s.id}`;
+        const match = scoreByCandidateKey.get(key);
+        return match ? { ...s, matchScore: match.score, distanceMeters: match.distanceMeters } : s;
+      });
+
+      // Solo reordena productos/servicios entre sí (mismo tab) — empleos
+      // mantienen su orden original al no tener matchScore.
+      return annotated.sort((a, b) => {
+        if (a.tab !== b.tab) return 0;
+        return (b.matchScore ?? -1) - (a.matchScore ?? -1);
+      });
+    } catch (err: any) {
+      this.logger.warn(`Matching ranking failed, falling back to default order: ${err.message}`);
+      return suggestions;
+    }
   }
 
   // Fire-and-forget: una búsqueda sin resultado es señal de demanda para el

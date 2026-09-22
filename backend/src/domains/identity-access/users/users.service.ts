@@ -711,6 +711,8 @@ export class UsersService {
           ...(dto.city !== undefined && { city: dto.city || null }),
           ...(dto.municipality !== undefined && { municipality: dto.municipality || null }),
           ...(dto.parish !== undefined && { parish: dto.parish || null }),
+          ...(dto.latitude !== undefined && { latitude: dto.latitude ?? null }),
+          ...(dto.longitude !== undefined && { longitude: dto.longitude ?? null }),
         },
         include: { commerce: true, profileSettings: true },
       });

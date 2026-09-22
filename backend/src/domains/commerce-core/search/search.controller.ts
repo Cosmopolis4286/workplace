@@ -19,6 +19,10 @@ export class SearchController {
     return this.searchService.suggest(q, {
       city: user?.city ?? null,
       state: user?.state ?? null,
+      origin:
+        user?.latitude != null && user?.longitude != null
+          ? { lat: user.latitude, lng: user.longitude }
+          : null,
     });
   }
 }

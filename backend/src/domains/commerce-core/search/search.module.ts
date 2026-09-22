@@ -4,9 +4,10 @@ import { SearchService } from './search.service';
 import { CatalogModule } from '../catalog/catalog.module';
 import { ServicesModule } from '../services/services.module';
 import { JobsModule } from '../../platform/jobs/jobs.module';
+import { MatchingModule } from '../matching/matching.module';
 
 @Module({
-  imports: [CatalogModule, ServicesModule, JobsModule],
+  imports: [CatalogModule, ServicesModule, JobsModule, MatchingModule],
   controllers: [SearchController],
   providers: [SearchService],
 })
