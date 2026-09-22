@@ -42,7 +42,19 @@
       <div class="p-6">
 
         <!-- Step 0: Categoría -->
-        <template v-if="upgradeStep === 0">
+        <template v-if="upgradeStep === 0 && categoryProposed">
+          <div class="text-center py-6">
+            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <PencilSquareIcon class="w-8 h-8 text-blue-600" />
+            </div>
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Propuesta enviada</h2>
+            <p class="text-sm text-gray-500 max-w-xs mx-auto">
+              Un administrador revisará tu propuesta de sector. Cuando la aprueben, vuelve aquí para completar tu solicitud de upgrade.
+            </p>
+          </div>
+        </template>
+
+        <template v-if="upgradeStep === 0 && !categoryProposed">
           <h2 class="text-base font-bold text-gray-900 mb-0.5">¿En qué sector está tu negocio?</h2>
           <p class="text-sm text-gray-500 mb-5">Esto define qué módulos estarán disponibles para ti.</p>
 
@@ -61,9 +73,38 @@
               <span class="text-xl leading-none">{{ cat.icon || '🏢' }}</span>
               <span class="text-sm font-medium text-gray-700 leading-tight">{{ cat.name }}</span>
             </button>
+
+            <!-- Otro: el usuario no encontró su rubro, propone uno nuevo para revisión del admin -->
+            <button
+              type="button"
+              class="flex items-center gap-2.5 px-3 py-3 rounded-xl border-2 border-dashed text-left transition-all hover:border-red-400/50"
+              :class="selectedCategory === OTHER ? 'border-red-600 bg-red-50' : 'border-gray-300'"
+              @click="selectCategory(OTHER)"
+            >
+              <span class="text-xl leading-none">✏️</span>
+              <span class="text-sm font-medium text-gray-700 leading-tight">Otro</span>
+            </button>
           </div>
 
-          <div v-if="selectedCategory && subcategories.length > 0" class="mt-4">
+          <Transition
+            enter-active-class="transition-all duration-150 ease-out"
+            enter-from-class="opacity-0 -translate-y-1"
+            enter-to-class="opacity-100 translate-y-0"
+          >
+            <div v-if="selectedCategory === OTHER" class="mt-4">
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">¿A qué se dedica tu negocio?</label>
+              <textarea
+                v-model="otherCategoryText"
+                rows="2"
+                maxlength="200"
+                placeholder="Cuéntanos a qué se dedica, así lo agregamos al catálogo"
+                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
+              />
+              <p class="mt-1.5 text-xs text-gray-400">Un administrador revisará tu propuesta. Podrás continuar tu solicitud cuando la aprueben.</p>
+            </div>
+          </Transition>
+
+          <div v-if="selectedCategory && selectedCategory !== OTHER && subcategories.length > 0" class="mt-4">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Subcategoría (opcional)</p>
             <div class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
               <button
@@ -72,11 +113,36 @@
                 type="button"
                 class="flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all hover:border-red-400/50"
                 :class="selectedSubcategory === sub.id ? 'border-red-600 bg-red-50' : 'border-gray-200'"
-                @click="selectedSubcategory = sub.id"
+                @click="selectedSubcategory = selectedSubcategory === sub.id ? '' : sub.id"
               >
-                <span class="text-sm font-medium text-gray-700">{{ sub.name }}</span>
+                <span class="text-sm font-medium text-gray-700">{{ sub.icon || '📄' }} {{ sub.name }}</span>
+              </button>
+
+              <!-- Otro: propone una subcategoría nueva bajo la categoría ya elegida -->
+              <button
+                type="button"
+                class="flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 border-dashed text-left transition-all hover:border-red-400/50"
+                :class="selectedSubcategory === OTHER ? 'border-red-600 bg-red-50' : 'border-gray-300'"
+                @click="selectedSubcategory = selectedSubcategory === OTHER ? '' : OTHER"
+              >
+                <span class="text-sm font-medium text-gray-700">✏️ Otro</span>
               </button>
             </div>
+
+            <Transition
+              enter-active-class="transition-all duration-150 ease-out"
+              enter-from-class="opacity-0 -translate-y-1"
+              enter-to-class="opacity-100 translate-y-0"
+            >
+              <input
+                v-if="selectedSubcategory === OTHER"
+                v-model="otherSubcategoryText"
+                type="text"
+                maxlength="80"
+                placeholder="Nombre de la subcategoría"
+                class="w-full mt-2.5 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
+              />
+            </Transition>
           </div>
           <p v-if="catError" class="text-xs text-red-600 mt-3 flex items-center gap-1">
             <ExclamationCircleIcon class="w-3.5 h-3.5" />{{ catError }}
@@ -187,7 +253,7 @@
       </div>
 
       <!-- Acciones -->
-      <div v-if="upgradeStep < 3" class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+      <div v-if="upgradeStep < 3 && !categoryProposed" class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-3">
         <button
           v-if="upgradeStep > 0"
           type="button"
@@ -198,9 +264,13 @@
         <button
           v-if="upgradeStep < 2"
           type="button"
-          class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold transition-colors"
+          :disabled="proposingCategory"
+          class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
           @click="nextUpgradeStep"
-        >Continuar →</button>
+        >
+          <span v-if="proposingCategory" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          {{ proposingCategory ? 'Enviando…' : 'Continuar →' }}
+        </button>
         <button
           v-if="upgradeStep === 2"
           type="button"
@@ -218,13 +288,14 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { BoltIcon, CheckIcon, ExclamationCircleIcon, ClockIcon } from '@heroicons/vue/24/outline'
+import { BoltIcon, CheckIcon, ExclamationCircleIcon, ClockIcon, PencilSquareIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import { useKyc } from '~/composables/kyc/useKyc'
 import { usePlans } from '~/composables/commerce/usePlans'
 import { useMoneyFormat } from '~/composables/core/useMoneyFormat'
 import { useProfileActivations } from '~/composables/users/useProfileActivations'
+import { useProposedCategories } from '~/composables/admin/useProposedCategories'
 
 export interface PricingPlan {
   id: string
@@ -246,7 +317,7 @@ export interface PricingPlan {
 }
 
 interface Category { id: string; name: string; icon?: string }
-interface Subcategory { id: string; name: string }
+interface Subcategory { id: string; name: string; icon?: string }
 
 const props = defineProps<{
   plans: PricingPlan[]
@@ -259,11 +330,17 @@ const emit = defineEmits<{
   'update:step': [step: number]
 }>()
 
+// Sentinel para "Otro" — mismo patrón que OnboardingSectorStep.vue y
+// ProfileActivationsCard.vue, para consistencia entre los 3 puntos de
+// entrada a profile-activations.
+const OTHER = '__OTHER__'
+
 const { fetchProfile } = useAuth()
 const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
 const { pendingSubscription, fetchMySubscription } = usePlans()
 const { formatPrice } = useMoneyFormat()
 const { create: createProfileActivation } = useProfileActivations()
+const { propose } = useProposedCategories()
 
 const categories    = ref<Category[]>([])
 const subcategories = ref<Subcategory[]>([])
@@ -275,9 +352,13 @@ const selectedCategory    = ref('')
 const selectedSubcategory = ref('')
 const selectedPlan    = ref('')
 const commerceName    = ref('')
+const otherCategoryText    = ref('')
+const otherSubcategoryText = ref('')
 const catError        = ref('')
 const upgradeError     = ref('')
 const upgrading        = ref(false)
+const proposingCategory = ref(false)
+const categoryProposed  = ref(false)
 
 const selectedPlanObj    = computed(() => props.plans.find(p => p.id === selectedPlan.value) ?? null)
 const selectedCategoryObj = computed(() => categories.value.find(c => c.id === selectedCategory.value) ?? null)
@@ -317,7 +398,51 @@ async function nextUpgradeStep() {
   upgradeError.value = ''
   if (upgradeStep.value === 0) {
     if (!selectedCategory.value) { catError.value = 'Selecciona un sector para continuar'; return }
+    if (selectedCategory.value === OTHER && !otherCategoryText.value.trim()) {
+      catError.value = 'Cuéntanos a qué se dedica tu negocio'
+      return
+    }
+    if (selectedSubcategory.value === OTHER && !otherSubcategoryText.value.trim()) {
+      catError.value = 'Escribe el nombre de la subcategoría'
+      return
+    }
     catError.value = ''
+
+    if (selectedCategory.value === OTHER) {
+      // Sin categoría real todavía no hay categoryId que llevar a los pasos
+      // siguientes (plan filtrado por sector, confirmación) — se propone y
+      // se corta el wizard acá, igual trade-off que ProfileActivationsCard.
+      proposingCategory.value = true
+      try {
+        await propose({ name: otherCategoryText.value.trim(), target: 'USER_CATEGORY' })
+        categoryProposed.value = true
+      } catch (e: any) {
+        catError.value = getApiErrorMessage(e, 'Error al enviar la propuesta. Intenta de nuevo.')
+      } finally {
+        proposingCategory.value = false
+      }
+      return
+    }
+
+    if (selectedSubcategory.value === OTHER) {
+      proposingCategory.value = true
+      try {
+        await propose({
+          name: otherSubcategoryText.value.trim(),
+          target: 'USER_CATEGORY',
+          parentCategoryId: selectedCategory.value,
+        })
+      } catch (e: any) {
+        catError.value = getApiErrorMessage(e, 'Error al enviar la propuesta. Intenta de nuevo.')
+        proposingCategory.value = false
+        return
+      }
+      proposingCategory.value = false
+      // La subcategoría propuesta no existe todavía — se sigue sin ella
+      // (mismo trade-off que onboarding.vue), el sector sí es real.
+      selectedSubcategory.value = ''
+    }
+
     upgradeStep.value = 1
   } else if (upgradeStep.value === 1) {
     upgradeStep.value = 2
@@ -331,7 +456,7 @@ async function nextUpgradeStep() {
 // (ver ProfileActivationsService.review()). Reemplaza POST /plans/upgrade,
 // que creaba una segunda solicitud paralela sin relación con UserProfile.
 async function confirmUpgrade() {
-  if (!selectedPlan.value || !selectedCategory.value) return
+  if (!selectedPlan.value || !selectedCategory.value || selectedCategory.value === OTHER) return
   const targetRole = selectedPlanObj.value ? planTargetRole(selectedPlanObj.value) : null
   if (!targetRole) return
   if (targetRole === 'COMMERCE' && !commerceName.value.trim()) return
@@ -343,7 +468,7 @@ async function confirmUpgrade() {
       type: targetRole === 'COMMERCE' ? 'BUSINESS' : 'PROFESSIONAL',
       subtype: targetRole === 'FREELANCER' ? 'FREELANCER' : undefined,
       categoryId: selectedCategory.value,
-      subcategoryId: selectedSubcategory.value || undefined,
+      subcategoryId: selectedSubcategory.value && selectedSubcategory.value !== OTHER ? selectedSubcategory.value : undefined,
       commerceName: targetRole === 'COMMERCE' ? commerceName.value.trim() : undefined,
       planId: selectedPlan.value,
       planInterval: props.annual ? 'ANNUAL' : 'MONTHLY',
