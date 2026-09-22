@@ -41,6 +41,8 @@ import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
+import { CategoryScopeGuard } from '../../../common/guards/category-scope.guard';
+import { RequireCategoryScope } from '../../../common/decorators/require-category-scope.decorator';
 import { extensionForMimetype } from '../../../common/utils/upload-extension.util';
 
 const ALLOWED_MEDIA_MIMETYPES = [
@@ -114,15 +116,17 @@ export class ServicesController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CategoryScopeGuard)
   @RequirePermission('services:create')
+  @RequireCategoryScope({ model: 'serviceCategory', bodyField: 'categoryId' })
   create(@CurrentUser() user: any, @Body() dto: CreateServiceDto) {
     return this.servicesService.createService(user.id, dto);
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CategoryScopeGuard)
   @RequirePermission('services:edit')
+  @RequireCategoryScope({ model: 'serviceCategory', bodyField: 'categoryId' })
   update(
     @Param('id') id: string,
     @CurrentUser() user: any,
