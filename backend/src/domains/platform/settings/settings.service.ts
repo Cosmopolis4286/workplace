@@ -15,6 +15,7 @@ import {
   UpdateModuleSettingsDto,
   UpdateBusinessNameDto,
   UpdatePriceGuardSettingsDto,
+  UpdateLocationDto,
 } from './dto/update-settings.dto';
 
 /**
@@ -81,6 +82,13 @@ export class SettingsService {
       return this.freelancerStrategy.updateProfessionalName(userId, dto.name);
     }
     return this.updateCommerceInfo(userId, { name: dto.name });
+  }
+
+  // ─── Ubicación base para matching por distancia (ambos tipos) ───────────────
+
+  async updateLocation(userId: string, dto: UpdateLocationDto) {
+    const strategy = await this.resolveStrategy(userId);
+    return strategy.updateLocation(userId, dto);
   }
 
   // ─── Store slug (/loja/:slug) — solo COMMERCE ───────────────────────────────

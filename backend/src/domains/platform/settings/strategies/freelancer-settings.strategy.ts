@@ -5,6 +5,7 @@ import {
   UpdatePaymentSettingsDto,
   UpdateNotificationSettingsDto,
   UpdateModuleSettingsDto,
+  UpdateLocationDto,
 } from '../dto/update-settings.dto';
 import { SettingsAccountStrategy } from './settings-account.strategy.interface';
 import { COMMERCE_SLUG_COOLDOWN_DAYS, RESERVED_SLUGS } from './commerce-settings.strategy';
@@ -63,6 +64,14 @@ export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
     return this.prisma.freelancerSettings.update({
       where: { userId },
       data: { disabledModules: dto.disabledModules },
+    });
+  }
+
+  async updateLocation(userId: string, dto: UpdateLocationDto) {
+    await this.getOrCreateFreelancerSettings(userId);
+    return this.prisma.freelancerSettings.update({
+      where: { userId },
+      data: { latitude: dto.latitude, longitude: dto.longitude },
     });
   }
 

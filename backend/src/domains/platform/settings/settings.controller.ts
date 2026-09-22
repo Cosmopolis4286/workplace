@@ -14,6 +14,7 @@ import {
   UpdateModuleSettingsDto,
   UpdateBusinessNameDto,
   UpdatePriceGuardSettingsDto,
+  UpdateLocationDto,
 } from './dto/update-settings.dto';
 import { UpdateCommerceSlugDto, UpdateFreelancerSlugDto } from './dto/update-commerce-slug.dto';
 
@@ -49,6 +50,17 @@ export class SettingsController {
     @Body() dto: UpdateBusinessNameDto
   ) {
     return this.settingsService.updateBusinessName(user.id, dto);
+  }
+
+  // Sin @RequireAccountType, mismo criterio que 'business-name': ambos tipos
+  // de cuenta fijan su ubicación base para MatchingService.
+  @Patch('location')
+  @RequirePermission('settings:edit')
+  updateLocation(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateLocationDto
+  ) {
+    return this.settingsService.updateLocation(user.id, dto);
   }
 
   @Patch('payment')

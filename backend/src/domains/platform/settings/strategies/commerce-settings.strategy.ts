@@ -7,6 +7,7 @@ import {
   UpdatePaymentSettingsDto,
   UpdateNotificationSettingsDto,
   UpdateModuleSettingsDto,
+  UpdateLocationDto,
 } from '../dto/update-settings.dto';
 import { SettingsAccountStrategy } from './settings-account.strategy.interface';
 
@@ -97,6 +98,14 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
     return this.prisma.commerceSettings.update({
       where: { commerceId: commerce.id },
       data: { disabledModules: dto.disabledModules },
+    });
+  }
+
+  async updateLocation(userId: string, dto: UpdateLocationDto) {
+    const commerce = await this.getCommerce(userId);
+    return this.prisma.commerce.update({
+      where: { id: commerce.id },
+      data: { latitude: dto.latitude, longitude: dto.longitude },
     });
   }
 

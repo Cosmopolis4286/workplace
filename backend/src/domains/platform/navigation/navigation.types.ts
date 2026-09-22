@@ -19,6 +19,14 @@ export interface NavNodeCondition {
   permission: string | null;
   /** Además de can(permission), exige hasModule(permission.split(':')[0]) */
   requiresModule?: boolean;
+  /**
+   * Exige que al menos uno de estos módulos (nombres, no "modulo:accion")
+   * esté en effectiveModules — a diferencia de requiresModule (que mira el
+   * módulo del propio `permission` del ítem), esto chequea el módulo de
+   * OTRO concepto. Uso: /jobs solo debe verse si el usuario tiene 'employees'
+   * habilitado (gestiona personal), no solo por ser FREELANCER/COMMERCE.
+   */
+  requiresAnyModule?: string[];
   /** RBAC puro (SUPERADMIN/ADMIN/NORMAL) — no usar para COMMERCE/FREELANCER, ver accountTypeOnly */
   rolesOnly?: Role[];
   /** RBAC puro — ver excludeAccountTypes para excluir por tipo de cuenta de negocio */

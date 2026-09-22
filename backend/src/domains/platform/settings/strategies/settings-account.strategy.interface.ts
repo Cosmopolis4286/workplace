@@ -2,6 +2,7 @@ import {
   UpdatePaymentSettingsDto,
   UpdateNotificationSettingsDto,
   UpdateModuleSettingsDto,
+  UpdateLocationDto,
 } from '../dto/update-settings.dto';
 
 /**
@@ -18,4 +19,5 @@ export interface SettingsAccountStrategy {
   updateNotificationSettings(userId: string, dto: UpdateNotificationSettingsDto): Promise<unknown>;
   getModuleSettings(userId: string, availableModules: string[]): Promise<{ availableModules: string[]; disabledModules: string[] }>;
   updateModuleSettings(userId: string, dto: UpdateModuleSettingsDto): Promise<unknown>;
+  updateLocation(userId: string, dto: UpdateLocationDto): Promise<unknown>;
 }

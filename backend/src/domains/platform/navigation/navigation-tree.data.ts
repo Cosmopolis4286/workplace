@@ -129,13 +129,14 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
       // Movido desde la sección "top": conceptualmente es gestión de
       // personal (publicar/ver vacantes propias), igual que Empleados —
       // antes vivía suelto junto a Oportunidades sin relación visual.
-      // accountTypeOnly: Role.NORMAL tiene jobs:view/jobs:create en su matriz
-      // de permisos por diseño (ver seed.js) para casos de alta directa, pero
-      // /jobs es "Mis Empleos — gestiona las vacantes que publicas", no
-      // búsqueda de empleo — sin esto, un NORMAL sin perfil de negocio veía
-      // el ítem aunque no tenga nada que publicar.
+      // requiresAnyModule: ['employees'] (no accountTypeOnly) — Role.NORMAL
+      // tiene jobs:view en su matriz por diseño (ver seed.js, alta directa),
+      // pero /jobs es "gestiona las vacantes que publicas": un freelancer
+      // individual sin equipo (ej. un repartidor) tampoco tiene nada que
+      // publicar ahí, aunque sea FREELANCER — se condiciona a que el plan
+      // realmente incluya gestión de personal, igual criterio que Empleados.
       { id: 'jobs', to: '/jobs', label: 'Empleos', icon: 'jobs', order: 1,
-        condition: { permission: 'jobs:view', requiresModule: true, accountTypeOnly: ['COMMERCE', 'FREELANCER'] } },
+        condition: { permission: 'jobs:view', requiresModule: true, requiresAnyModule: ['employees'] } },
       { id: 'branches', to: '/branches', label: 'Sucursales', icon: 'branches', order: 2,
         condition: { permission: 'branches:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
     ],

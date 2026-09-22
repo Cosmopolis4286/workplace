@@ -101,7 +101,7 @@ describe('NavigationService', () => {
   it('hides /jobs for a NORMAL user even though jobs:view is granted at the role level', async () => {
     // Role.NORMAL tiene jobs:view/jobs:create en su matriz de permisos por
     // diseño (ver seed.js — alta directa), pero /jobs es "gestiona las
-    // vacantes que publicas": sin accountTypeOnly, un NORMAL sin ningún
+    // vacantes que publicas": sin este gating, un NORMAL sin ningún
     // UserProfile de negocio veía el ítem "Empleos" en la sección "Empresa"
     // sin tener nada que publicar (bug reportado en el sidebar real).
     permissionsService.getRolePermissions.mockResolvedValue(['jobs:view'])
@@ -116,10 +116,28 @@ describe('NavigationService', () => {
     expect(companySection).toBeUndefined()
   })
 
-  it('shows /jobs for a PROFESIONAL user with an active COMMERCE/FREELANCER profile', async () => {
+  it('hides /jobs for a FREELANCER without the employees module (solo individual, sin equipo)', async () => {
+    // Caso real reportado: un FREELANCER individual (ej. repartidor) veía
+    // "Empleos" en la sección "Empresa" aunque no gestiona personal — el
+    // primer fix solo distinguía NORMAL de PROFESIONAL vía accountTypeOnly,
+    // sin mirar si el plan realmente incluye el módulo 'employees'.
     permissionsService.getRolePermissions.mockResolvedValue(['jobs:view'])
     planLimitsService.getPlanLimits.mockResolvedValue({
-      effectiveModules: ['jobs'],
+      effectiveModules: ['jobs', 'corridas', 'delivery'], // sin 'employees'
+      categoryName: null,
+    })
+
+    currentAccountType = 'FREELANCER'
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
+
+    const companySection = result.sections.find((s) => s.id === 'company')
+    expect(companySection?.items.find((i) => i.id === 'jobs')).toBeUndefined()
+  })
+
+  it('shows /jobs for a PROFESIONAL user whose plan includes the employees module', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue(['jobs:view', 'employees:view'])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['jobs', 'employees'],
       categoryName: null,
     })
 

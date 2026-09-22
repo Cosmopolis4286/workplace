@@ -204,3 +204,18 @@ export class UpdateBusinessNameDto {
   @IsString()
   name: string;
 }
+
+// Ubicación base fijada en el selector de mapa (COMMERCE o FREELANCER) —
+// mismo endpoint para ambos, ver SettingsService.updateLocation. Usada por
+// MatchingService para el componente de distancia.
+export class UpdateLocationDto {
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude: number;
+
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude: number;
+}

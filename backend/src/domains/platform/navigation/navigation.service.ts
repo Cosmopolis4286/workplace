@@ -56,6 +56,7 @@ export class NavigationService {
       if (c.excludeAccountTypes && accountType && c.excludeAccountTypes.includes(accountType)) return false;
       if (!can(c.permission)) return false;
       if (c.requiresModule && c.permission && !hasModule(c.permission)) return false;
+      if (c.requiresAnyModule && !c.requiresAnyModule.some((m) => limits.effectiveModules.includes(m))) return false;
       return true;
     };
 
