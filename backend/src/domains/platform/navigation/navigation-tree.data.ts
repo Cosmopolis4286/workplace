@@ -112,6 +112,10 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         condition: { permission: 'purchases:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
       { id: 'accounts', to: '/accounts', label: 'Cuentas por Cobrar/Pagar', icon: 'accounts', order: 7,
         condition: { permission: 'accounts:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+      // Fase 3 (Network): reutiliza el permiso purchases:view — mismo modulo
+      // habilitado por plan/categoria, sin agregar un tercer "techo" nuevo.
+      { id: 'group-buying', to: '/group-buying', label: 'Compra Agrupada', icon: 'purchases', order: 8,
+        condition: { permission: 'purchases:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
     ],
   },
   {
