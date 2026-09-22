@@ -33,7 +33,8 @@
       >
         <div class="px-6 py-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100">
           <div class="flex items-center gap-3">
-            <span class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: item.color || '#6b7280' }" />
+            <span v-if="item.icon" class="text-xl leading-none flex-shrink-0">{{ item.icon }}</span>
+            <span v-else class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: item.color || '#6b7280' }" />
             <div>
               <p class="text-sm font-bold text-gray-900">{{ item.name }}</p>
               <p class="text-xs text-gray-400">{{ item.proposer?.firstName }} {{ item.proposer?.lastName }} · {{ item.proposer?.email }}</p>
