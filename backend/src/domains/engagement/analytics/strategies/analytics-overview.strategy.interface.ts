@@ -53,6 +53,8 @@ export interface AnalyticsOverview {
       totalRevenue: number;
       totalOrders: number;
     };
+    /** Solo presente en la vista de plataforma (PlatformAnalyticsStrategy). */
+    activeCommerces?: number;
   };
 }
 

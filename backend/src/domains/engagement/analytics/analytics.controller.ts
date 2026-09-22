@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
@@ -14,10 +15,10 @@ export class AnalyticsController {
   @Get('overview')
   @RequirePermission('analytics:view')
   getOverview(
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: { id: string; role: Role },
     @Query() query: QueryAnalyticsDto
   ) {
-    return this.analyticsService.getOverview(user.id, query);
+    return this.analyticsService.getOverview(user.id, user.role, query);
   }
 
   // Sparklines de 7 días para los widgets KPI del dashboard: pedidos/
@@ -26,7 +27,7 @@ export class AnalyticsController {
   // para freelancers — no en el proxy de citas que usa /overview).
   @Get('dashboard-trends')
   @RequirePermission('analytics:view')
-  getDashboardTrends(@CurrentUser() user: { id: string }) {
-    return this.analyticsService.getDashboardTrends(user.id);
+  getDashboardTrends(@CurrentUser() user: { id: string; role: Role }) {
+    return this.analyticsService.getDashboardTrends(user.id, user.role);
   }
 }
