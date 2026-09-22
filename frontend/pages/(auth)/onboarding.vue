@@ -161,7 +161,7 @@ const businessError = ref('')
 const OTHER = '__OTHER__'
 
 const categories      = ref<{ id: string; name: string; icon?: string }[]>([])
-const subcategories   = ref<{ id: string; name: string }[]>([])
+const subcategories   = ref<{ id: string; name: string; icon?: string }[]>([])
 const plans           = ref<{ id: string; name: string; description?: string; price: number; color: string; isPopular: boolean; features?: string[]; forCommerce?: boolean; forFreelancer?: boolean }[]>([])
 const selectedCategory    = ref('')
 const selectedSubcategory = ref('')

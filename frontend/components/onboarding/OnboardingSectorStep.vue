@@ -85,7 +85,7 @@
               : 'border-gray-200'"
             @click="$emit('update:selectedSubcategory', selectedSubcategory === sub.id ? '' : sub.id)"
           >
-            <span class="text-sm font-medium text-gray-700">{{ sub.name }}</span>
+            <span class="text-sm font-medium text-gray-700">{{ sub.icon || '📄' }} {{ sub.name }}</span>
             <CheckCircleIcon v-if="selectedSubcategory === sub.id" class="h-4 w-4 text-red-600 flex-shrink-0" />
           </button>
 
@@ -137,7 +137,7 @@ const OTHER = '__OTHER__'
 defineProps<{
   loading: boolean
   categories: { id: string; name: string; icon?: string }[]
-  subcategories: { id: string; name: string }[]
+  subcategories: { id: string; name: string; icon?: string }[]
   selectedCategory: string
   selectedSubcategory: string
   otherCategoryText: string
