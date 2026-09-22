@@ -9,17 +9,20 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common'
-import { JobsService, type CreateJobDto, type UpdateJobDto, type JobQuery } from './jobs.service'
+import { JobsService, type CreateJobDto, type UpdateJobDto, type JobQuery, type CreateJobCategoryDto } from './jobs.service'
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../../common/guards/permissions.guard'
+import { RolesGuard } from '../../../common/guards/roles.guard'
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard'
 import { CategoryScopeGuard } from '../../../common/guards/category-scope.guard'
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard'
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator'
 import { RequireCategoryScope } from '../../../common/decorators/require-category-scope.decorator'
+import { Roles } from '../../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
 import { RateLimit } from '../../../common/guards/rate-limit.guard'
-import type { JobApplicationStatus, Role } from '@prisma/client'
+import { Role } from '@prisma/client'
+import type { JobApplicationStatus } from '@prisma/client'
 
 @Controller('jobs')
 export class JobsController {
@@ -36,6 +39,37 @@ export class JobsController {
     @Query('scoped') scoped?: string,
   ) {
     return { data: await this.jobsService.getCategories(user, scoped === 'true') }
+  }
+
+  // ─── Categories (Admin CRUD) ──────────────────────────────────────────────────
+
+  @Get('admin/categories')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async getAdminCategories() {
+    return { data: await this.jobsService.getAdminCategories() }
+  }
+
+  @Post('admin/categories')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async createCategory(@Body() dto: CreateJobCategoryDto) {
+    return { data: await this.jobsService.createCategory(dto) }
+  }
+
+  @Patch('admin/categories/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async updateCategory(@Param('id') id: string, @Body() dto: Partial<CreateJobCategoryDto>) {
+    return { data: await this.jobsService.updateCategory(id, dto) }
+  }
+
+  @Delete('admin/categories/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async deleteCategory(@Param('id') id: string) {
+    await this.jobsService.deleteCategory(id)
+    return { success: true }
   }
 
   // ─── Catalog (Public) ───────────────────────────────────────────────────────

@@ -48,6 +48,16 @@ export interface CreateJobDto {
   expiresAt?: string
 }
 
+export interface CreateJobCategoryDto {
+  name: string
+  color?: string
+  icon?: string
+  description?: string
+  // Rubros (UserCategory.id) a los que aplica — ver CategoryScopeService.
+  // Vacío/omitido = visible para cualquier rubro.
+  userCategoryIds?: string[]
+}
+
 export interface UpdateJobDto extends Partial<CreateJobDto> {
   status?: JobStatus
 }
@@ -118,6 +128,26 @@ export class JobsService {
       description: c.description,
       jobCount: c._count.jobs,
     }))
+  }
+
+  // ─── Categories (Admin CRUD) ──────────────────────────────────────────────────
+
+  // Sin scope de rubro — el admin necesita ver/editar toda categoría,
+  // incluidas las que aún no tienen ningún empleo activo.
+  async getAdminCategories() {
+    return this.prisma.jobCategory.findMany({ orderBy: { name: 'asc' } })
+  }
+
+  async createCategory(dto: CreateJobCategoryDto) {
+    return this.prisma.jobCategory.create({ data: dto })
+  }
+
+  async updateCategory(id: string, dto: Partial<CreateJobCategoryDto>) {
+    return this.prisma.jobCategory.update({ where: { id }, data: dto })
+  }
+
+  async deleteCategory(id: string) {
+    await this.prisma.jobCategory.delete({ where: { id } })
   }
 
   // ─── Tags (Public) ──────────────────────────────────────────────────────────

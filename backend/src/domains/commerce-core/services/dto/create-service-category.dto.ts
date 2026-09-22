@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MaxLength, IsArray, IsUUID } from 'class-validator';
 
 export class CreateServiceCategoryDto {
   @IsString()
@@ -12,4 +12,11 @@ export class CreateServiceCategoryDto {
   @IsOptional()
   @IsString()
   icon?: string;
+
+  // Rubros (UserCategory.id) a los que aplica — ver CategoryScopeService.
+  // Vacío/omitido = visible para cualquier rubro.
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  userCategoryIds?: string[];
 }
