@@ -550,7 +550,7 @@ export class UsersService {
     });
   }
 
-  async createSubcategory(categoryId: string, data: { name: string }) {
+  async createSubcategory(categoryId: string, data: { name: string; icon?: string; description?: string }) {
     const cat = await this.prisma.userCategory.findUnique({
       where: { id: categoryId },
     });
@@ -561,18 +561,20 @@ export class UsersService {
     if (existing)
       throw new ConflictException(this.i18n.t('users.subcategory.name_taken'));
     return this.prisma.userSubcategory.create({
-      data: { name: data.name, categoryId },
+      data: { name: data.name, icon: data.icon, description: data.description, categoryId },
     });
   }
 
-  async updateSubcategory(id: string, data: { name: string }) {
+  async updateSubcategory(id: string, data: { name?: string; icon?: string; description?: string }) {
     const sub = await this.prisma.userSubcategory.findUnique({ where: { id } });
     if (!sub) throw new NotFoundException(this.i18n.t('users.subcategory.not_found'));
-    const existing = await this.prisma.userSubcategory.findFirst({
-      where: { name: data.name, categoryId: sub.categoryId, NOT: { id } },
-    });
-    if (existing)
-      throw new ConflictException(this.i18n.t('users.subcategory.name_taken'));
+    if (data.name) {
+      const existing = await this.prisma.userSubcategory.findFirst({
+        where: { name: data.name, categoryId: sub.categoryId, NOT: { id } },
+      });
+      if (existing)
+        throw new ConflictException(this.i18n.t('users.subcategory.name_taken'));
+    }
     return this.prisma.userSubcategory.update({ where: { id }, data });
   }
 
