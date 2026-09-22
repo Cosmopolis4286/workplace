@@ -215,7 +215,7 @@ export class ProposedCategoriesService {
     // USER_CATEGORY
     if (data.parentCategoryId) {
       const created = await this.prisma.userSubcategory.create({
-        data: { name: data.name, categoryId: data.parentCategoryId },
+        data: { name: data.name, icon: data.icon, description: data.description, categoryId: data.parentCategoryId },
       });
       return created.id;
     }
