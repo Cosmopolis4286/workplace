@@ -49,9 +49,9 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend, ver sección 5.6 — frontend pendiente).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend + frontend, ver sección 5.6).
 
-### 5.6 Group Buying B2B (2026-09-22) — backend only
+### 5.6 Group Buying B2B (2026-09-22)
 
 Primera pieza de la Fase 3 del roadmap ("Network"), fuera del núcleo de Business Shield.
 
@@ -60,7 +60,7 @@ Primera pieza de la Fase 3 del roadmap ("Network"), fuera del núcleo de Busines
 - Endpoints bajo `/api/group-buying/campaigns`. Migración `20260922115044_add_group_buying`. 19 tests unitarios.
 - Validado end-to-end en Docker: tramos 100→$5/500→$4/1000→$3, dos comercios comprometen 300+250 → tramo de $4 correctamente resuelto (550 ≥ 500 < 1000), cierre exitoso.
 - **Nota de proceso** (por si se repite): el commit que agregó el módulo no incluyó el registro en `app.module.ts` ni los modelos en `schema.prisma` (la migración SQL sí quedó y se aplicó, dejando la tabla física sin que Prisma la conociera) — causaba 404 en las rutas y luego 500 en runtime. Se detectó y corrigió en la validación end-to-end de esta misma fase, reconstruyendo el schema desde el DDL real ya aplicado (`prisma migrate diff` confirmó cero drift antes de regenerar el cliente). Al cerrar cualquier fase de aquí en más, confirmar explícitamente que el módulo aparece en los logs de arranque (`InstanceLoader ... dependencies initialized`) antes de darla por terminada, no solo que compile.
-- **Frontend pendiente**: no se construyó composable ni páginas todavía.
+- **Frontend**: `useGroupBuying.ts` (composable), `GroupBuyingCampaignModal.vue` (crear campaña, tramos de precio dinámicos), `GroupBuyingPledgeModal.vue` (comprometer cantidad), página `/group-buying` (tarjetas con progreso; cerrar/cancelar solo el organizador). Ítem de sidebar reutiliza el permiso `purchases:view` (mismo módulo de plan/categoría que Compras). Validado: `/api/navigation` devuelve el ítem, ruta responde 200.
 
 ### 5.5 Purchasing Power (2026-09-21)
 
