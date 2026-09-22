@@ -95,10 +95,11 @@
 
         <div v-else class="divide-y divide-gray-50 max-h-[60vh] overflow-y-auto">
           <div v-for="sub in uSelectedCat.subcategories" :key="sub.id" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
-            <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-            <span class="flex-1 text-sm text-gray-700">{{ sub.name }}</span>
+            <span class="text-lg flex-shrink-0 w-6 text-center">{{ sub.icon || '📄' }}</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm text-gray-700">{{ sub.name }}</div>
+              <div v-if="sub.description" class="text-xs text-gray-400 truncate">{{ sub.description }}</div>
+            </div>
             <div class="flex gap-1">
               <button @click="openSubForm(sub)" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,6 +175,23 @@
                 <input v-model="subModal.name" required type="text" autofocus
                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
               </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Ícono (emoji)</label>
+                <div class="flex gap-2">
+                  <input v-model="subModal.icon" type="text" placeholder="📄" maxlength="4"
+                    class="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-xl focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red"/>
+                  <div class="flex flex-wrap gap-1.5 items-center">
+                    <button v-for="e in EMOJI_SUGGESTIONS" :key="e" type="button" @click="subModal.icon = e"
+                      class="text-xl hover:scale-125 transition-transform"
+                      :class="subModal.icon === e ? 'ring-2 ring-workplace-red rounded' : ''">{{ e }}</button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Descripción <span class="text-gray-400 font-normal">(opcional)</span></label>
+                <textarea v-model="subModal.description" rows="2" maxlength="300"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-workplace-red/30 focus:border-workplace-red resize-none"/>
+              </div>
               <div v-if="subModal.error" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">{{ subModal.error }}</div>
               <div class="flex gap-3">
                 <button type="button" @click="subModal.show = false" class="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
@@ -193,7 +211,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 
-interface USub { id: string; name: string }
+interface USub { id: string; name: string; icon?: string; description?: string }
 interface UCat { id: string; name: string; icon?: string; subcategories: USub[]; _count: { users: number } }
 
 const { get, post, put, del } = useApi()
@@ -262,14 +280,16 @@ async function saveCat() {
 // Subcategory modal
 const subModal = reactive({
   show: false, editing: null as USub | null,
-  name: '', saving: false, error: null as string | null,
+  name: '', icon: '', description: '', saving: false, error: null as string | null,
 })
 
 function openSubForm(sub?: USub) {
-  subModal.editing = sub ?? null
-  subModal.name    = sub?.name ?? ''
-  subModal.error   = null
-  subModal.show    = true
+  subModal.editing      = sub ?? null
+  subModal.name         = sub?.name ?? ''
+  subModal.icon         = sub?.icon ?? ''
+  subModal.description  = sub?.description ?? ''
+  subModal.error        = null
+  subModal.show         = true
 }
 
 async function saveSub() {
@@ -277,7 +297,11 @@ async function saveSub() {
   subModal.saving = true
   subModal.error  = null
   try {
-    const body = { name: subModal.name.trim() }
+    const body = {
+      name: subModal.name.trim(),
+      icon: subModal.icon.trim() || undefined,
+      description: subModal.description.trim() || undefined,
+    }
     if (subModal.editing) {
       await put(`/users/subcategories/${subModal.editing.id}`, body)
     } else {
