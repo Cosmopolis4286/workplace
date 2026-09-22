@@ -157,6 +157,13 @@ model UserCategory {
 model UserSubcategory {
   id                     String                  @id @default(uuid())
   name                   String
+  // Antes solo la UserCategory padre tenía icono/contexto — todas sus
+  // subcategorías se veían idénticas en selects/grids (onboarding, pricing,
+  // ProfileActivationsCard). icon es opcional: cae al emoji del padre si no
+  // se define uno propio (ver navegación/onboarding, patrón `sub.icon ||
+  // category.icon`).
+  icon                   String?
+  description            String?
   categoryId             String
   category               UserCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   users                  User[]

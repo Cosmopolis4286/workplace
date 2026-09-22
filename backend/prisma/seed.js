@@ -83,6 +83,20 @@ const DEMO_USERS = [
     country: 'Venezuela', state: 'Lara', municipality: 'Iribarren', city: 'Barquisimeto', parish: 'Catedral',
   },
   {
+    // SERVICE_PROVIDER (no FREELANCER): repara máquinas a domicilio/taller,
+    // trabajo presencial — mismo criterio que delivery@demo.com.
+    role: Role.PROFESIONAL,
+    profileType: ProfileType.PROFESSIONAL,
+    subtype: ProfessionalSubtype.SERVICE_PROVIDER,
+    email: 'costura@demo.com',
+    password: 'C0stur4T3c!#2026',
+    firstName: 'Ana',
+    lastName: 'Rivas',
+    categoryName: 'Reparación y Oficios Técnicos',
+    subcategoryName: 'Máquinas de Coser',
+    country: 'Venezuela', state: 'Táchira', municipality: 'San Cristóbal', city: 'San Cristóbal', parish: 'La Concordia',
+  },
+  {
     role: Role.NORMAL,
     email: 'normal@demo.com',
     password: 'N0rm4lUs3r!#2026',
@@ -916,7 +930,11 @@ const USER_CATEGORIES = [
     icon: '🍔',
     allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
     subcategories: [
-      'Restaurante', 'Cafetería', 'Comida Rápida', 'Food Truck', 'Catering'
+      { name: 'Restaurante', icon: '🍽️', description: 'Servicio de comidas en mesa, con carta o menú fijo.' },
+      { name: 'Cafetería', icon: '☕', description: 'Café, meriendas y repostería para consumir o llevar.' },
+      { name: 'Comida Rápida', icon: '🍟', description: 'Hamburguesas, pizzas, comida para llevar y delivery.' },
+      { name: 'Food Truck', icon: '🚚', description: 'Venta de comida ambulante o en puntos móviles.' },
+      { name: 'Catering', icon: '🥘', description: 'Comida preparada para eventos y reuniones.' },
     ]
   },
   {
@@ -924,7 +942,11 @@ const USER_CATEGORIES = [
     icon: '💻',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Desarrollo Web', 'Apps Móviles', 'Soporte IT', 'Ciberseguridad', 'Data Science'
+      { name: 'Desarrollo Web', icon: '🌐', description: 'Sitios web, tiendas online y aplicaciones web a medida.' },
+      { name: 'Apps Móviles', icon: '📱', description: 'Aplicaciones para Android e iOS.' },
+      { name: 'Soporte IT', icon: '🖥️', description: 'Mantenimiento, redes y soporte técnico de equipos.' },
+      { name: 'Ciberseguridad', icon: '🔒', description: 'Auditorías, protección de datos y seguridad informática.' },
+      { name: 'Data Science', icon: '📊', description: 'Análisis de datos, IA y modelos predictivos.' },
     ]
   },
   {
@@ -932,7 +954,11 @@ const USER_CATEGORIES = [
     icon: '🎨',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Diseño Gráfico', 'UI/UX', 'Branding', 'Ilustración', 'Motion Graphics'
+      { name: 'Diseño Gráfico', icon: '🖌️', description: 'Piezas gráficas, flyers, empaques y material impreso.' },
+      { name: 'UI/UX', icon: '📐', description: 'Diseño de interfaces y experiencia de usuario para apps y webs.' },
+      { name: 'Branding', icon: '🏷️', description: 'Identidad visual, logotipos y manuales de marca.' },
+      { name: 'Ilustración', icon: '✏️', description: 'Ilustración digital o tradicional por encargo.' },
+      { name: 'Motion Graphics', icon: '🎬', description: 'Animación gráfica para video y redes sociales.' },
     ]
   },
   {
@@ -940,7 +966,11 @@ const USER_CATEGORIES = [
     icon: '📢',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Marketing Digital', 'SEO/SEM', 'Redes Sociales', 'Email Marketing', 'Content Manager'
+      { name: 'Marketing Digital', icon: '📈', description: 'Estrategia y campañas de marketing en medios digitales.' },
+      { name: 'SEO/SEM', icon: '🔍', description: 'Posicionamiento en buscadores y campañas de pauta.' },
+      { name: 'Redes Sociales', icon: '📱', description: 'Gestión de contenido y comunidad en redes sociales.' },
+      { name: 'Email Marketing', icon: '📧', description: 'Campañas y automatización de correo electrónico.' },
+      { name: 'Content Manager', icon: '📝', description: 'Creación y gestión de contenido para marcas.' },
     ]
   },
   {
@@ -948,7 +978,11 @@ const USER_CATEGORIES = [
     icon: '💼',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Consultoría', 'Contabilidad', 'Legal', 'Recursos Humanos', 'Asesoría Financiera'
+      { name: 'Consultoría', icon: '🧭', description: 'Asesoría estratégica y de negocio para empresas.' },
+      { name: 'Contabilidad', icon: '🧮', description: 'Contabilidad, declaraciones y cierre de estados financieros.' },
+      { name: 'Legal', icon: '⚖️', description: 'Asesoría y representación legal.' },
+      { name: 'Recursos Humanos', icon: '🧑‍🤝‍🧑', description: 'Reclutamiento, nómina y gestión de personal.' },
+      { name: 'Asesoría Financiera', icon: '💹', description: 'Planificación financiera e inversiones.' },
     ]
   },
   {
@@ -956,7 +990,11 @@ const USER_CATEGORIES = [
     icon: '🏥',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Medicina General', 'Nutrición', 'Psicología', 'Fisioterapia', 'Entrenamiento Personal'
+      { name: 'Medicina General', icon: '🩺', description: 'Consulta médica general y chequeos.' },
+      { name: 'Nutrición', icon: '🥗', description: 'Planes alimenticios y asesoría nutricional.' },
+      { name: 'Psicología', icon: '🧠', description: 'Terapia y acompañamiento psicológico.' },
+      { name: 'Fisioterapia', icon: '🦵', description: 'Rehabilitación física y terapias de movimiento.' },
+      { name: 'Entrenamiento Personal', icon: '🏋️', description: 'Rutinas de ejercicio y acompañamiento fitness.' },
     ]
   },
   {
@@ -964,7 +1002,11 @@ const USER_CATEGORIES = [
     icon: '💅',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Peluquería', 'Estética', 'Maquillaje', 'Manicura', 'Spa'
+      { name: 'Peluquería', icon: '💇', description: 'Cortes, tintes y tratamientos capilares.' },
+      { name: 'Estética', icon: '✨', description: 'Tratamientos faciales y corporales.' },
+      { name: 'Maquillaje', icon: '💄', description: 'Maquillaje social, artístico y para eventos.' },
+      { name: 'Manicura', icon: '💅', description: 'Uñas, manicura y pedicura.' },
+      { name: 'Spa', icon: '🧖', description: 'Masajes y paquetes de relajación.' },
     ]
   },
   {
@@ -972,7 +1014,11 @@ const USER_CATEGORIES = [
     icon: '📚',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Clases Particulares', 'Idiomas', 'Preparación Exámenes', 'Talleres', 'Coaching'
+      { name: 'Clases Particulares', icon: '📖', description: 'Refuerzo escolar y clases personalizadas.' },
+      { name: 'Idiomas', icon: '🗣️', description: 'Enseñanza de idiomas para todos los niveles.' },
+      { name: 'Preparación Exámenes', icon: '📝', description: 'Preparación para admisión y exámenes estandarizados.' },
+      { name: 'Talleres', icon: '🧩', description: 'Talleres prácticos y cursos cortos.' },
+      { name: 'Coaching', icon: '🎯', description: 'Acompañamiento personal o profesional por objetivos.' },
     ]
   },
   {
@@ -980,7 +1026,30 @@ const USER_CATEGORIES = [
     icon: '🏠',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Limpieza', 'Plomería', 'Electricidad', 'Carpintería', 'Jardinería'
+      { name: 'Limpieza', icon: '🧹', description: 'Limpieza doméstica regular o profunda.' },
+      { name: 'Plomería', icon: '🚰', description: 'Instalación y reparación de tuberías y grifería.' },
+      { name: 'Electricidad', icon: '💡', description: 'Instalaciones y reparaciones eléctricas del hogar.' },
+      { name: 'Carpintería', icon: '🪚', description: 'Muebles y trabajos en madera a medida.' },
+      { name: 'Jardinería', icon: '🌳', description: 'Mantenimiento de jardines y áreas verdes.' },
+    ]
+  },
+  // Oficios de reparación que hasta ahora no tenían un hogar propio: no son
+  // "Hogar" (el cliente lleva el equipo, no es trabajo en su domicilio) ni
+  // "Automotriz" (no son vehículos) — quedaban repartidos entre categorías
+  // que no encajaban.
+  {
+    name: 'Reparación y Oficios Técnicos',
+    icon: '🛠️',
+    allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
+    subcategories: [
+      { name: 'Máquinas de Coser', icon: '🧵', description: 'Mantenimiento y reparación de máquinas de coser domésticas e industriales.' },
+      { name: 'Electrodomésticos', icon: '🔌', description: 'Reparación de neveras, lavadoras, cocinas y línea blanca.' },
+      { name: 'Electrónica y Equipos', icon: '📺', description: 'Reparación de televisores, audio y equipos electrónicos.' },
+      { name: 'Celulares y Computadoras', icon: '🔧', description: 'Reparación de celulares, laptops y computadoras.' },
+      { name: 'Relojería y Joyería', icon: '⌚', description: 'Reparación de relojes y arreglo de joyas.' },
+      { name: 'Bicicletas', icon: '🚲', description: 'Mantenimiento y reparación de bicicletas.' },
+      { name: 'Tapicería', icon: '🛋️', description: 'Reparación y forrado de muebles y tapicería.' },
+      { name: 'Calzado y Marroquinería', icon: '👞', description: 'Reparación de zapatos, carteras y artículos de cuero.' },
     ]
   },
   {
@@ -988,7 +1057,11 @@ const USER_CATEGORIES = [
     icon: '🚗',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'delivery', 'customers', 'corridas', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Taxi/Remis', 'Mudanzas', 'Delivery', 'Transporte Escolar', 'Logística'
+      { name: 'Taxi/Remis', icon: '🚕', description: 'Traslados urbanos con conductor.' },
+      { name: 'Mudanzas', icon: '📦', description: 'Traslado de muebles y pertenencias.' },
+      { name: 'Delivery', icon: '🛵', description: 'Entrega de pedidos y paquetería.' },
+      { name: 'Transporte Escolar', icon: '🚌', description: 'Traslado de estudiantes a instituciones educativas.' },
+      { name: 'Logística', icon: '🚛', description: 'Transporte de carga y distribución.' },
     ]
   },
   {
@@ -996,7 +1069,11 @@ const USER_CATEGORIES = [
     icon: '🎉',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Organización', 'Fotografía', 'Video', 'DJ/Música', 'Catering Eventos'
+      { name: 'Organización', icon: '🗓️', description: 'Planificación integral de eventos.' },
+      { name: 'Fotografía', icon: '📷', description: 'Cobertura fotográfica de eventos.' },
+      { name: 'Video', icon: '🎥', description: 'Filmación y edición de video para eventos.' },
+      { name: 'DJ/Música', icon: '🎧', description: 'Animación musical y sonido para eventos.' },
+      { name: 'Catering Eventos', icon: '🍾', description: 'Comida y bebida para celebraciones y reuniones.' },
     ]
   },
   {
@@ -1004,7 +1081,11 @@ const USER_CATEGORIES = [
     icon: '✈️',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Agencia de Viajes', 'Guía Turístico', 'Alojamiento', 'Tours', 'Excursiones'
+      { name: 'Agencia de Viajes', icon: '🧳', description: 'Venta de paquetes y planificación de viajes.' },
+      { name: 'Guía Turístico', icon: '🗺️', description: 'Acompañamiento y recorridos guiados.' },
+      { name: 'Alojamiento', icon: '🏨', description: 'Hospedaje temporal para viajeros.' },
+      { name: 'Tours', icon: '🚐', description: 'Recorridos organizados a destinos turísticos.' },
+      { name: 'Excursiones', icon: '⛰️', description: 'Actividades y salidas de un día.' },
     ]
   },
   {
@@ -1012,7 +1093,11 @@ const USER_CATEGORIES = [
     icon: '🛍️',
     allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
     subcategories: [
-      'Retail', 'Mayorista', 'Importación', 'Exportación', 'E-commerce'
+      { name: 'Retail', icon: '🏬', description: 'Venta al detal en tienda física u online.' },
+      { name: 'Mayorista', icon: '📦', description: 'Venta al por mayor a otros comercios.' },
+      { name: 'Importación', icon: '🛬', description: 'Compra e ingreso de mercancía del exterior.' },
+      { name: 'Exportación', icon: '🛫', description: 'Venta de mercancía hacia otros países.' },
+      { name: 'E-commerce', icon: '🛒', description: 'Venta exclusivamente por canales digitales.' },
     ]
   },
   {
@@ -1020,7 +1105,11 @@ const USER_CATEGORIES = [
     icon: '🔧',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Taller', 'Venta de Autos', 'Lavado', 'Accesorios', 'Neumáticos'
+      { name: 'Taller', icon: '🔩', description: 'Mantenimiento y reparación mecánica de vehículos.' },
+      { name: 'Venta de Autos', icon: '🚙', description: 'Compra y venta de vehículos nuevos o usados.' },
+      { name: 'Lavado', icon: '🧼', description: 'Lavado y detallado de vehículos.' },
+      { name: 'Accesorios', icon: '🧰', description: 'Venta e instalación de accesorios automotrices.' },
+      { name: 'Neumáticos', icon: '🛞', description: 'Venta, montaje y balanceo de neumáticos.' },
     ]
   },
   {
@@ -1028,7 +1117,11 @@ const USER_CATEGORIES = [
     icon: '🐾',
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
-      'Veterinaria', 'Grooming', 'Tienda de Mascotas', 'Adiestramiento', 'Paseadores'
+      { name: 'Veterinaria', icon: '🐶', description: 'Consulta y atención médica para mascotas.' },
+      { name: 'Grooming', icon: '✂️', description: 'Baño y estética para mascotas.' },
+      { name: 'Tienda de Mascotas', icon: '🐾', description: 'Venta de alimento y accesorios para mascotas.' },
+      { name: 'Adiestramiento', icon: '🦴', description: 'Entrenamiento y educación canina.' },
+      { name: 'Paseadores', icon: '🐕', description: 'Paseo y cuidado diario de mascotas.' },
     ]
   }
 ]
@@ -1091,8 +1184,14 @@ async function seedUserCategories() {
 
     console.log(`  🏷️ ${category.icon} ${category.name}`)
 
-    // Crear subcategorías
-    for (const subName of category.subcategories) {
+    // Crear subcategorías — cada entrada puede ser un string plano (legado,
+    // sin icon/description propios: cae al icono de la categoría padre en la
+    // UI) o un objeto { name, icon, description } para las nuevas.
+    for (const sub of category.subcategories) {
+      const subName = typeof sub === 'string' ? sub : sub.name
+      const subIcon = typeof sub === 'string' ? null : (sub.icon ?? null)
+      const subDescription = typeof sub === 'string' ? null : (sub.description ?? null)
+
       const existingSub = await prisma.userSubcategory.findFirst({
         where: {
           name: subName,
@@ -1102,6 +1201,8 @@ async function seedUserCategories() {
 
       const subData = {
         name: subName,
+        icon: subIcon,
+        description: subDescription,
         categoryId: savedCategory.id
       }
 
@@ -1114,7 +1215,7 @@ async function seedUserCategories() {
         await prisma.userSubcategory.create({ data: subData })
       }
 
-      console.log(`    📄 ${subName}`)
+      console.log(`    ${subIcon || '📄'} ${subName}`)
     }
   }
 
@@ -1430,6 +1531,17 @@ async function upsertDemoUserProfile(userId, demo, categoryId, subcategoryId) {
 }
 
 async function main() {
+  // Debe correr ANTES del bucle de DEMO_USERS: varios usuarios demo (incluido
+  // el nuevo costura@demo.com) resuelven su categoryName/subcategoryName por
+  // búsqueda en DB (líneas más abajo) — si UserCategory/UserSubcategory
+  // todavía no existen, esa búsqueda no encuentra nada y el usuario demo
+  // queda sin categoría. Antes esto quedaba oculto porque las categorías ya
+  // existían de una corrida anterior del seed; con una categoría nueva se
+  // vuelve visible en la primera corrida.
+  await seedCategories()
+  await seedServiceModalities()
+  await seedUserCategories()
+
   console.log('🌱 Seeding demo users...\n')
 
   for (const demo of DEMO_USERS) {
@@ -1565,9 +1677,6 @@ async function main() {
   await seedPermissions()
   await seedProfilePermissions()
   await seedPlans()
-  await seedCategories()
-  await seedServiceModalities()
-  await seedUserCategories()
   await seedSearchTabs()
   await seedVeLocations()
   await seedDemoSubscriptions()
