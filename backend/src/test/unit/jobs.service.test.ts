@@ -5,6 +5,7 @@ import { JobsService } from '../../domains/platform/jobs/jobs.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { PLAN_LIMITS_FACADE, PlanLimitsFacade } from '../../domains/money/plans/plan-limits.facade'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
+import { CategoryScopeService } from '../../common/category-scope/category-scope.service'
 
 describe('JobsService', () => {
   let service: JobsService
@@ -47,6 +48,7 @@ describe('JobsService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: PLAN_LIMITS_FACADE, useValue: mockPlanLimits },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: CategoryScopeService, useValue: { isVisibleForCategory: jest.fn(), filterByCategory: jest.fn(), getUserCategoryId: jest.fn() } },
       ],
     }).compile()
 

@@ -7,6 +7,7 @@ import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../domains/money/pl
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade';
 import { ReputationFacade, REPUTATION_FACADE } from '../../domains/reputation/reputation.facade';
 import { WalletsService, InsufficientEscrowFundsError } from '../../domains/money/wallets/wallets.service';
+import { CategoryScopeService } from '../../common/category-scope/category-scope.service';
 
 describe('ServicesService — service request status transitions', () => {
   let service: ServicesService;
@@ -103,6 +104,7 @@ describe('ServicesService — service request status transitions', () => {
         { provide: PLAN_LIMITS_FACADE, useValue: mockPlanLimitsService },
         { provide: WalletsService, useValue: mockWalletsService },
         { provide: REPUTATION_FACADE, useValue: mockReputationService },
+        { provide: CategoryScopeService, useValue: { isVisibleForCategory: jest.fn(), filterByCategory: jest.fn(), getUserCategoryId: jest.fn() } },
       ],
     }).compile();
 
