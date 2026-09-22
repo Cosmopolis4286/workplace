@@ -1,6 +1,6 @@
 <template>
-  <div class="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col h-[600px]">
-    <div class="flex items-center justify-between mb-5 flex-shrink-0">
+  <div class="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 flex flex-col h-[420px] sm:h-[600px]">
+    <div class="flex items-center justify-between mb-4 sm:mb-5 flex-shrink-0">
       <div class="flex items-center gap-2.5">
         <h3 class="text-sm font-semibold text-gray-900 tracking-tight">Pedidos activos</h3>
         <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-semibold">

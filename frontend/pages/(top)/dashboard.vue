@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-8">
+  <div class="space-y-5 sm:space-y-8">
     <!-- Hero Section - Personalizado por Rol -->
     <DashboardHero :config="personalizedHeroConfig" />
 
@@ -58,16 +58,16 @@
     <!-- Sección de Indicadores: header + panel de personalización + grid de KPIs -->
     <div v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')">
       <!-- KPIs Header: título + selector de período + botón personalizar -->
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-base font-semibold text-gray-600">Indicadores</h2>
-        <div class="flex items-center gap-2">
+      <div class="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+        <h2 class="text-sm sm:text-base font-semibold text-gray-600 flex-shrink-0">Indicadores</h2>
+        <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none">
           <!-- Selector de período -->
-          <div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
+          <div class="flex gap-1 bg-gray-100 p-1 rounded-lg flex-shrink-0">
             <button
               v-for="p in (['7d', '30d', '90d'] as DashboardPeriod[])"
               :key="p"
               @click="handlePeriodChange(p)"
-              class="px-3 py-1 text-xs font-semibold rounded-md transition-colors"
+              class="px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap"
               :class="selectedPeriod === p
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'"
@@ -78,13 +78,13 @@
           <!-- Botón personalizar -->
           <button
             @click="showCustomizePanel = !showCustomizePanel"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
+            class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex-shrink-0 whitespace-nowrap"
             :class="showCustomizePanel
               ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
               : 'bg-white border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300'"
           >
             <AdjustmentsHorizontalIcon class="h-3.5 w-3.5" />
-            Personalizar
+            <span class="hidden sm:inline">Personalizar</span>
           </button>
         </div>
       </div>
@@ -98,12 +98,13 @@
         @reset="resetLayout"
       />
 
-      <!-- KPIs Grid - Dinámico con drag & drop -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <!-- KPIs: scroll horizontal en mobile, grid desde md -->
+      <div class="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
         <template v-for="item in kpiLayout" :key="item.id">
           <DraggableWidget
             v-if="item.visible && canViewWidget(item.id)"
             :widget-id="item.id"
+            class="w-[75%] sm:w-[45%] md:w-auto flex-shrink-0 snap-start md:flex-shrink"
             @drag-swap="reorder"
           >
             <SalesTodayWidget
@@ -404,3 +405,8 @@ onUnmounted(() => {
   clearTimeout(toastTimer)
 })
 </script>
+
+<style scoped>
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+</style>

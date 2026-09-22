@@ -1,6 +1,6 @@
 <template>
-  <div class="bg-white rounded-2xl border border-gray-100 p-5">
-    <div class="flex items-center justify-between mb-4">
+  <div class="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5">
+    <div class="flex items-center justify-between mb-3 sm:mb-4">
       <h3 class="text-sm font-semibold text-gray-900 tracking-tight">Acciones rápidas</h3>
       <NuxtLink
         to="/profile?tab=quick-actions"
@@ -10,12 +10,13 @@
         <Cog6ToothIcon class="h-4 w-4" />
       </NuxtLink>
     </div>
-    <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+    <!-- Mobile: carrusel horizontal de iconos (estilo iFood). Desktop: grid -->
+    <div class="flex sm:grid sm:grid-cols-6 gap-3 sm:gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
       <div
         v-for="action in orderedActions"
         :key="action.id"
         draggable="true"
-        class="relative"
+        class="relative flex-shrink-0 sm:flex-shrink"
         :class="dragOverId === action.id ? 'z-10' : ''"
         @dragstart="onDragStart(action.id, $event)"
         @dragover.prevent="onDragOver(action.id)"
@@ -23,9 +24,26 @@
         @drop.prevent="onDrop(action.id)"
         @dragend="onDragEnd"
       >
+        <!-- Mobile: icono circular + etiqueta debajo -->
         <NuxtLink
           :to="action.route"
-          class="group flex items-center gap-2.5 py-2.5 px-3 rounded-xl border transition-all duration-150 cursor-grab active:cursor-grabbing"
+          class="group flex sm:hidden flex-col items-center gap-1.5 w-16 cursor-grab active:cursor-grabbing"
+          :style="draggingId === action.id ? 'opacity: 0.4' : ''"
+          @click="onLinkClick"
+        >
+          <div
+            class="flex items-center justify-center w-12 h-12 rounded-2xl flex-shrink-0 transition-transform duration-150 active:scale-95"
+            :class="[iconBgClasses[action.color], dragOverId === action.id ? 'ring-2 ring-indigo-300' : '']"
+          >
+            <component :is="getIcon(action.icon)" class="h-5 w-5" :class="iconColorClasses[action.color]" />
+          </div>
+          <span class="text-[11px] font-medium text-gray-600 leading-tight text-center line-clamp-2">{{ action.name }}</span>
+        </NuxtLink>
+
+        <!-- Desktop: fila con icono + texto -->
+        <NuxtLink
+          :to="action.route"
+          class="group hidden sm:flex items-center gap-2.5 py-2.5 px-3 rounded-xl border transition-all duration-150 cursor-grab active:cursor-grabbing"
           :class="dragOverId === action.id
             ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-indigo-200'
             : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50/80'"
@@ -170,3 +188,8 @@ function getIcon(iconName: string) {
   return iconMap[iconName] || CogIcon
 }
 </script>
+
+<style scoped>
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+</style>

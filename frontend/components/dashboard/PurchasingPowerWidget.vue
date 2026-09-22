@@ -1,13 +1,13 @@
 <template>
-  <div v-if="!loading && purchasingPower && purchasingPower.hasData" class="card p-5 mb-6" :class="borderClass">
-    <div class="flex items-center justify-between gap-4 flex-wrap">
-      <div class="flex items-center gap-3">
-        <span class="text-2xl">{{ emoji }}</span>
+  <div v-if="!loading && purchasingPower && purchasingPower.hasData" class="card p-4 sm:p-5 mb-5 sm:mb-6" :class="borderClass">
+    <div class="flex items-center justify-between gap-3 sm:gap-4 flex-wrap">
+      <div class="flex items-center gap-2.5 sm:gap-3">
+        <span class="text-xl sm:text-2xl">{{ emoji }}</span>
         <div>
-          <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Poder adquisitivo (30 días)</p>
-          <p class="text-lg font-bold" :class="textClass">
+          <p class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wider font-semibold">Poder adquisitivo (30 días)</p>
+          <p class="text-base sm:text-lg font-bold" :class="textClass">
             {{ changeLabel }}
-            <span class="text-sm font-medium text-gray-400 ml-1">para reponer lo que solés comprar</span>
+            <span class="text-xs sm:text-sm font-medium text-gray-400 ml-1">para reponer lo que solés comprar</span>
           </p>
         </div>
       </div>
