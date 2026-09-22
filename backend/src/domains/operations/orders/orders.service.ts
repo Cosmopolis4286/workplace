@@ -105,6 +105,96 @@ export class OrdersService {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // Platform stats (SUPERADMIN/ADMIN) — igual que getStats() pero agregado
+  // sobre TODOS los comercios, sin filtrar por commerceId. Un admin no tiene
+  // un Commerce propio, así que getStats(commerceId) no le sirve: antes de
+  // esto, el widget "Pedidos Activos" del dashboard de admin quedaba
+  // dependiendo de un commerceId inexistente.
+  // ──────────────────────────────────────────────────────────────────────────
+  async getPlatformStats() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [total, byStatus, monthlyRevenue, avgTicket] = await Promise.all([
+      this.prisma.order.count(),
+      this.prisma.order.groupBy({
+        by: ['status'],
+        _count: true,
+      }),
+      this.prisma.order.aggregate({
+        where: { status: 'DELIVERED', completedAt: { gte: startOfMonth } },
+        _sum: { total: true },
+      }),
+      this.prisma.order.aggregate({
+        where: { status: 'DELIVERED' },
+        _avg: { total: true },
+      }),
+    ]);
+
+    const statusMap = Object.fromEntries(
+      byStatus.map((s) => [s.status, s._count])
+    );
+    const activeStatuses: OrderStatus[] = [
+      'PENDING',
+      'CONFIRMED',
+      'PREPARING',
+      'READY',
+      'OUT_FOR_DELIVERY',
+    ];
+    const activeOrders = activeStatuses.reduce(
+      (sum, s) => sum + (statusMap[s] ?? 0),
+      0
+    );
+
+    return {
+      totalOrders: total,
+      activeOrders,
+      pendingOrders: statusMap['PENDING'] ?? 0,
+      completedOrders: statusMap['DELIVERED'] ?? 0,
+      cancelledOrders: statusMap['CANCELLED'] ?? 0,
+      monthlyRevenue: monthlyRevenue._sum.total ?? 0,
+      avgTicket: Math.round((avgTicket._avg.total ?? 0) * 100) / 100,
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Platform recent orders (SUPERADMIN/ADMIN) — feed de los pedidos activos
+  // más recientes de TODA la plataforma, para el widget "Lista de Pedidos"
+  // del dashboard de admin. Incluye el nombre del comercio (ausente en el
+  // findAll() por-comercio porque ahí es implícito) para que el admin sepa
+  // de quién es cada pedido.
+  // ──────────────────────────────────────────────────────────────────────────
+  async getPlatformRecent(limit = 20) {
+    const activeStatuses: OrderStatus[] = [
+      'PENDING',
+      'CONFIRMED',
+      'PREPARING',
+      'READY',
+      'OUT_FOR_DELIVERY',
+    ];
+    const take = Math.min(50, Math.max(1, limit));
+
+    const [data, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { status: { in: activeStatuses } },
+        take,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          items: true,
+          commerce: { select: { id: true, name: true } },
+          customer: { select: { id: true, name: true, segment: true } },
+        },
+      }),
+      this.prisma.order.count({ where: { status: { in: activeStatuses } } }),
+    ]);
+
+    return {
+      data: data.map((o) => ({ ...o, itemCount: o.items.length })),
+      total,
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // List
   // ──────────────────────────────────────────────────────────────────────────
   async findAll(commerceId: string, query: QueryOrdersDto) {

@@ -68,6 +68,25 @@ export class OrdersController {
     return this.ordersService.getStats(commerceId);
   }
 
+  // platform:monitor (no orders:view): SUPERADMIN/ADMIN no tienen un Commerce
+  // propio y deliberadamente no reciben orders:view (ver ROLE_DEFAULTS en
+  // seed.js) — estas dos rutas son de solo lectura, agregadas sobre TODOS
+  // los comercios, y viven detrás de un permiso separado en vez de reabrir
+  // el resto del módulo "orders" (create/edit/delete de un comercio) a
+  // roles de plataforma. Sin @RequireAccountType tampoco: no hay un
+  // commerceId que resolver acá.
+  @Get('platform-stats')
+  @RequirePermission('platform:monitor')
+  getPlatformStats() {
+    return this.ordersService.getPlatformStats();
+  }
+
+  @Get('platform-recent')
+  @RequirePermission('platform:monitor')
+  getPlatformRecent(@Query('limit') limit?: string) {
+    return this.ordersService.getPlatformRecent(limit ? parseInt(limit) : undefined);
+  }
+
   @Get()
   @RequirePermission('orders:view')
   @RequireAccountType('COMMERCE')
