@@ -59,6 +59,7 @@
 
         <ProductsSidebar
           v-if="activeTab === 'productos'"
+          ref="pSidebarRef"
           :commerces="pCommerces"
           :active-commerce-id="pActiveCommerceId"
           :active-category="pActiveCategory"
@@ -76,6 +77,7 @@
         />
         <ServicesSidebar
           v-else-if="activeTab === 'servicios'"
+          ref="sSidebarRef"
           :providers="sProviders"
           :active-provider-id="sActiveProviderId"
           :active-category-id="sActiveCategoryId"
@@ -90,6 +92,7 @@
         />
         <JobsSidebar
           v-else-if="activeTab === 'empleos'"
+          ref="jSidebarRef"
           :active-category-id="jActiveCategoryId"
           :active-type="jActiveType"
           :active-modality="jActiveModality"
@@ -138,6 +141,7 @@
           @toggle-product-status="onToggleProductStatus"
           @edit-product="onEditProduct"
           @delete-product="onDeleteProduct"
+          @open-filters="openFilters('productos')"
         />
         <ServicesResults
           v-else-if="activeTab === 'servicios'"
@@ -170,6 +174,7 @@
           @view-service-metrics="onViewServiceMetrics"
           @edit-service="onEditService"
           @delete-service="onDeleteService"
+          @open-filters="openFilters('servicios')"
         />
         <JobsResults
           v-else-if="activeTab === 'empleos'"
@@ -200,6 +205,7 @@
           @toggle-job-status="onToggleJobStatus"
           @edit-job="onEditJob"
           @delete-job="onDeleteJob"
+          @open-filters="openFilters('empleos')"
         />
 
       </div>
@@ -421,6 +427,15 @@ const selectedService = ref<CatalogService | null>(null)
 const reportingService = ref<CatalogService | null>(null)
 const selectedJob = ref<Job | null>(null)
 const showScrollTop = ref(false)
+const pSidebarRef = ref<{ open: boolean } | null>(null)
+const sSidebarRef = ref<{ open: boolean } | null>(null)
+const jSidebarRef = ref<{ open: boolean } | null>(null)
+
+function openFilters(tab: 'productos' | 'servicios' | 'empleos') {
+  if (tab === 'productos' && pSidebarRef.value) pSidebarRef.value.open = true
+  else if (tab === 'servicios' && sSidebarRef.value) sSidebarRef.value.open = true
+  else if (jSidebarRef.value) jSidebarRef.value.open = true
+}
 const showOrderModal = ref(false)
 const orderProduct = ref<CatalogProduct | null>(null)
 const orderToast = ref(false)

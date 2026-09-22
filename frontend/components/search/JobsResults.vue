@@ -13,7 +13,16 @@
           <span v-if="activeModality"> · Modalidad: <strong>{{ activeModality }}</strong></span>
         </p>
       </div>
-      <div class="lg:hidden">
+      <div class="flex items-center gap-2 lg:hidden flex-shrink-0">
+        <button
+          class="flex items-center gap-1.5 text-xs font-bold border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-700 whitespace-nowrap"
+          @click="$emit('open-filters')"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M6 8h12M9 12h6M11 16h2"/>
+          </svg>
+          Filtros
+        </button>
         <select :value="selectedSort" class="text-xs font-medium border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-700 outline-none" @change="$emit('apply-sort', ($event.target as HTMLSelectElement).value)">
           <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
@@ -182,6 +191,7 @@ defineEmits<{
   'toggle-job-status': [job: Job]
   'edit-job': [job: Job]
   'delete-job': [job: Job]
+  'open-filters': []
 }>()
 
 const { getAssetUrl } = useAssetUrl()

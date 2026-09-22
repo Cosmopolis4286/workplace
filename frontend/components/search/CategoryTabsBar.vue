@@ -1,12 +1,12 @@
 <template>
-  <div class="bg-white border-b border-gray-100 sticky top-16 z-30 shadow-sm">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6">
-      <div class="flex items-center gap-2 overflow-x-auto py-3 scrollbar-none">
+  <div class="bg-white border-b border-gray-100 sticky top-14 sm:top-16 z-30 shadow-sm">
+    <div class="max-w-6xl mx-auto px-3 sm:px-6">
+      <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-2.5 sm:py-3 scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0">
 
         <!-- Tab Productos -->
         <template v-if="activeTab === 'productos'">
           <button
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            class="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
             :class="!pActiveCategory ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             @click="$emit('p-clear-category')"
           >
@@ -17,7 +17,7 @@
           </button>
           <button
             v-if="pFavorites.length > 0"
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            class="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
             :class="pShowFavoritesOnly ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             @click="$emit('update:p-show-favorites-only', !pShowFavoritesOnly)"
           >
@@ -33,7 +33,7 @@
           <button
             v-for="cat in pCategories"
             :key="cat.id"
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            class="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
             :class="pActiveCategory === cat.name ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             :style="pActiveCategory === cat.name ? { backgroundColor: cat.color } : {}"
             @click="$emit('p-filter-by-category', cat.name)"
@@ -47,7 +47,7 @@
         <!-- Tab Servicios -->
         <template v-else-if="activeTab === 'servicios'">
           <button
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            class="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
             :class="!sActiveCategoryId ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             @click="$emit('s-clear-category')"
           >
@@ -62,7 +62,7 @@
           <button
             v-for="cat in sCategories"
             :key="cat.id"
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            class="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
             :class="sActiveCategoryId === cat.id ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             :style="sActiveCategoryId === cat.id ? { backgroundColor: cat.color || '#3B82F6' } : {}"
             @click="$emit('s-filter-by-category', cat.id)"
@@ -76,7 +76,7 @@
         <!-- Tab Empleos -->
         <template v-else-if="activeTab === 'empleos'">
           <button
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            class="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
             :class="!jActiveCategoryId ? 'bg-emerald-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             @click="$emit('j-clear-category')"
           >
@@ -87,7 +87,7 @@
           </button>
           <button
             v-if="suggestedJobCategory && jActiveCategoryId !== suggestedJobCategory.id"
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+            class="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
             :title="`Basado en tu rubro: ${userCategoryName}`"
             @click="$emit('j-filter-by-category', suggestedJobCategory.id)"
           >
@@ -102,7 +102,7 @@
           <button
             v-for="cat in jCategories"
             :key="cat.id"
-            class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            class="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
             :class="jActiveCategoryId === cat.id ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             :style="jActiveCategoryId === cat.id ? { backgroundColor: cat.color || '#10B981' } : {}"
             @click="$emit('j-filter-by-category', cat.id)"
@@ -115,7 +115,7 @@
 
         <button
           v-if="canProposeCategory"
-          class="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+          class="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700"
           @click="$emit('open-propose-category')"
         >
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,7 +129,7 @@
         <!-- Botón zona (abre selector país/estado/ciudad) -->
         <div ref="locationFilterRef" class="relative flex-shrink-0">
           <button
-            class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
+            class="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap"
             :class="hasActiveLocationFilter
               ? (activeTab === 'productos' ? 'bg-red-600 text-white shadow-sm' : activeTab === 'servicios' ? 'bg-blue-600 text-white shadow-sm' : 'bg-emerald-600 text-white shadow-sm')
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
