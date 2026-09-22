@@ -54,15 +54,41 @@
               {{ activatingType === type.value ? 'Completando…' : (profileFor(type.value)?.status === 'REJECTED' ? 'Reintentar' : 'Activar') }}
             </span>
           </button>
-          <span v-else class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full shrink-0" :class="statusBadge(profileFor(type.value)?.status)">
-            <component :is="statusIcon(profileFor(type.value)?.status)" class="h-3.5 w-3.5" />
-            {{ statusLabel(profileFor(type.value)?.status) }}
-          </span>
+
+          <div v-else class="flex items-center gap-2 shrink-0">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full" :class="statusBadge(profileFor(type.value)?.status)">
+              <component :is="statusIcon(profileFor(type.value)?.status)" class="h-3.5 w-3.5" />
+              {{ statusLabel(profileFor(type.value)?.status) }}
+            </span>
+
+            <button
+              v-if="profileFor(type.value)?.status === 'ACTIVE'"
+              type="button"
+              :disabled="deactivatingId === profileFor(type.value)?.id"
+              class="px-2.5 py-1 text-xs font-semibold text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+              @click="confirmDeactivate(type)"
+            >Desactivar</button>
+
+            <button
+              v-if="profileFor(type.value)?.status === 'SUSPENDED' && profileFor(type.value)?.suspendedBySelf"
+              type="button"
+              :disabled="reactivatingId === profileFor(type.value)?.id"
+              class="px-2.5 py-1 text-xs font-semibold border rounded-lg transition-colors disabled:opacity-50"
+              :class="[type.outlineBorder, type.outlineText, type.outlineHoverBg, 'hover:text-white']"
+              @click="confirmReactivate(type)"
+            >Reactivar</button>
+          </div>
         </div>
 
         <div v-if="profileFor(type.value)?.status === 'REJECTED' && profileFor(type.value)?.rejectionReason" class="px-4 pb-3 -mt-1">
           <p class="text-xs text-red-700 bg-red-100/60 rounded-lg px-2.5 py-1.5">
             <span class="font-semibold">Motivo del rechazo:</span> {{ profileFor(type.value)?.rejectionReason }}
+          </p>
+        </div>
+
+        <div v-if="profileFor(type.value)?.status === 'SUSPENDED' && !profileFor(type.value)?.suspendedBySelf" class="px-4 pb-3 -mt-1">
+          <p class="text-xs text-gray-500 bg-gray-100/60 rounded-lg px-2.5 py-1.5">
+            Este perfil fue suspendido por un administrador. Contacta a soporte para reactivarlo.
           </p>
         </div>
 
@@ -235,6 +261,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { useProfileActivations, type ProfileActivation, type ProfileActivationType, type ProfileActivationStatus } from '~/composables/users/useProfileActivations'
 import { useProposedCategories } from '~/composables/admin/useProposedCategories'
+import { useConfirm } from '~/composables/ui/useConfirm'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 const emit = defineEmits<{
@@ -248,14 +275,17 @@ const emit = defineEmits<{
 // a profile-activations: onboarding, pricing y este).
 const OTHER = '__OTHER__'
 
-const { mine: profiles, fetchMine, create } = useProfileActivations()
+const { mine: profiles, fetchMine, create, deactivate, reactivate } = useProfileActivations()
 const { propose } = useProposedCategories()
+const { confirm } = useConfirm()
 const { get: apiGet } = useApi()
 
 const loading = ref(true)
 const activatingType = ref<ProfileActivationType | null>(null)
 const submitting = ref(false)
 const submitError = ref('')
+const deactivatingId = ref<string | null>(null)
+const reactivatingId = ref<string | null>(null)
 const categories = ref<{ id: string; name: string; icon?: string }[]>([])
 const subcategories = ref<{ id: string; name: string; icon?: string }[]>([])
 const plans = ref<{ id: string; name: string; price: number; forCommerce?: boolean; forFreelancer?: boolean }[]>([])
@@ -441,6 +471,55 @@ async function submit(type: ProfileActivationType) {
   } finally {
     submitting.value = false
   }
+}
+
+async function confirmDeactivate(type: (typeof PROFILE_TYPES)[number]) {
+  const profile = profileFor(type.value)
+  if (!profile) return
+  const isBusinessRole = type.value === 'PROFESSIONAL' || type.value === 'BUSINESS'
+  await confirm({
+    title: `¿Desactivar ${type.label}?`,
+    message: isBusinessRole
+      ? `Dejarás de operar como ${type.label.toLowerCase()} en WorkPlace. Puedes reactivarlo cuando quieras.`
+      : `Puedes reactivarlo cuando quieras.`,
+    confirmText: 'Desactivar',
+    variant: 'danger',
+    onConfirm: async () => {
+      deactivatingId.value = profile.id
+      try {
+        await deactivate(profile.id)
+        emit('success', `${type.label} desactivado.`)
+      } catch (e: any) {
+        emit('error', e)
+        return getApiErrorMessage(e, 'Error al desactivar el perfil')
+      } finally {
+        deactivatingId.value = null
+      }
+    },
+  })
+}
+
+async function confirmReactivate(type: (typeof PROFILE_TYPES)[number]) {
+  const profile = profileFor(type.value)
+  if (!profile) return
+  await confirm({
+    title: `¿Reactivar ${type.label}?`,
+    message: `Volverás a operar como ${type.label.toLowerCase()} con los mismos datos de antes.`,
+    confirmText: 'Reactivar',
+    variant: 'primary',
+    onConfirm: async () => {
+      reactivatingId.value = profile.id
+      try {
+        await reactivate(profile.id)
+        emit('success', `${type.label} reactivado.`)
+      } catch (e: any) {
+        emit('error', e)
+        return getApiErrorMessage(e, 'Error al reactivar el perfil')
+      } finally {
+        reactivatingId.value = null
+      }
+    },
+  })
 }
 
 loadCategories()

@@ -16,6 +16,9 @@ export interface ProfileActivation {
   pendingPlan?: { id: string; name: string; price: number; color?: string } | null
   pendingPlanInterval: 'MONTHLY' | 'ANNUAL' | null
   status: ProfileActivationStatus
+  // true si el propio usuario se auto-desactivó (puede reactivarse sin
+  // aprobación); false/undefined si un admin lo suspendió.
+  suspendedBySelf?: boolean
   rejectionReason: string | null
   reviewedBy: string | null
   reviewedAt: string | null
@@ -79,6 +82,25 @@ export function useProfileActivations() {
     return result
   }
 
+  // Desactiva un perfil propio ACTIVE (pasa a SUSPENDED, conserva historial).
+  // Si era PROFESSIONAL/BUSINESS, el rol se recalcula automáticamente en el
+  // backend (RoleResolverService) — puede volver a NORMAL.
+  async function deactivate(profileId: string): Promise<ProfileActivation> {
+    const { patch } = useApi()
+    const result = await patch<ProfileActivation>(`/profile-activations/${profileId}/deactivate`, {})
+    await fetchMine()
+    return result
+  }
+
+  // Solo funciona si suspendedBySelf es true (validado en el backend) —
+  // reactivación directa sin volver a pasar por aprobación admin.
+  async function reactivate(profileId: string): Promise<ProfileActivation> {
+    const { patch } = useApi()
+    const result = await patch<ProfileActivation>(`/profile-activations/${profileId}/reactivate`, {})
+    await fetchMine()
+    return result
+  }
+
   return {
     mine,
     loading,
@@ -87,5 +109,7 @@ export function useProfileActivations() {
     fetchPending,
     review,
     setActiveProfile,
+    deactivate,
+    reactivate,
   }
 }
