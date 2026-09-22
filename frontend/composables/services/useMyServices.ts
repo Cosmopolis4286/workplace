@@ -91,9 +91,13 @@ export function useMyServices() {
     }
   }
 
-  async function fetchCatalogCategories() {
+  // forCreation=true: selector del formulario "Nuevo Servicio" — filtra al
+  // rubro (UserCategory) del usuario en sesión y no exige que la categoría
+  // ya tenga servicios activos (ver ServicesService.getCatalogCategories).
+  // false (default): catálogo de búsqueda pública, sin scope por usuario.
+  async function fetchCatalogCategories(forCreation = false) {
     try {
-      const res = await get<{ data: MyServiceCategory[] }>('/services/catalog/categories')
+      const res = await get<{ data: MyServiceCategory[] }>(`/services/catalog/categories?forCreation=${forCreation}`)
       catalogCategories.value = res.data
     } catch {
       // non-blocking

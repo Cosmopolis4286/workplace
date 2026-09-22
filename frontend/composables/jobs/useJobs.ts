@@ -182,10 +182,13 @@ export const useJobs = () => {
 
   // ─── Fetch helpers (catálogo público) ────────────────────────────────────
 
-  async function loadCategories() {
+  // scoped=true: selector del formulario "Nueva Vacante" — filtra al rubro
+  // (UserCategory) del usuario en sesión (ver JobsService.getCategories).
+  // false (default): catálogo público de búsqueda de empleos, sin scope.
+  async function loadCategories(scoped = false) {
     loadingCategories.value = true
     try {
-      const res = await get<{ data: JobCategory[] }>('/jobs/categories')
+      const res = await get<{ data: JobCategory[] }>(`/jobs/categories?scoped=${scoped}`)
       categories.value = res.data
     } catch {
       // silently fail

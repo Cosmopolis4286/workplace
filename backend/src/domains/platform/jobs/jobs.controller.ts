@@ -13,10 +13,13 @@ import { JobsService, type CreateJobDto, type UpdateJobDto, type JobQuery } from
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
 import { PermissionsGuard } from '../../../common/guards/permissions.guard'
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard'
+import { CategoryScopeGuard } from '../../../common/guards/category-scope.guard'
+import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard'
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator'
+import { RequireCategoryScope } from '../../../common/decorators/require-category-scope.decorator'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
 import { RateLimit } from '../../../common/guards/rate-limit.guard'
-import type { JobApplicationStatus } from '@prisma/client'
+import type { JobApplicationStatus, Role } from '@prisma/client'
 
 @Controller('jobs')
 export class JobsController {
@@ -24,9 +27,15 @@ export class JobsController {
 
   // ─── Categories (Public) ──────────────────────────────────────────────────────
 
+  // scoped=true: usado por el selector del formulario "Nueva Vacante", no
+  // por la búsqueda pública de empleos — ver JobsService.getCategories().
   @Get('categories')
-  async getCategories() {
-    return { data: await this.jobsService.getCategories() }
+  @UseGuards(OptionalJwtAuthGuard)
+  async getCategories(
+    @CurrentUser() user?: { id: string; role: Role },
+    @Query('scoped') scoped?: string,
+  ) {
+    return { data: await this.jobsService.getCategories(user, scoped === 'true') }
   }
 
   // ─── Catalog (Public) ───────────────────────────────────────────────────────
@@ -73,16 +82,18 @@ export class JobsController {
 
   // ─── CRUD (Authenticated) ───────────────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard, KycApprovedGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, KycApprovedGuard, CategoryScopeGuard)
   @RequirePermission('jobs:create')
+  @RequireCategoryScope({ model: 'jobCategory', bodyField: 'categoryId' })
   @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `jobs:create:${(req as any).user?.id}` })
   @Post()
   async createJob(@Body() dto: CreateJobDto, @CurrentUser() user: { id: string }) {
     return { data: await this.jobsService.createJob(user.id, dto) }
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CategoryScopeGuard)
   @RequirePermission('jobs:edit')
+  @RequireCategoryScope({ model: 'jobCategory', bodyField: 'categoryId' })
   @Patch(':id')
   async updateJob(
     @Param('id') id: string,

@@ -287,7 +287,7 @@ const route = useRoute()
 const router = useRouter()
 
 onMounted(async () => {
-  await Promise.all([fetchMyJobs(), loadCategories(), fetchMyJobsStats(), fetchMyKycStatus()])
+  await Promise.all([fetchMyJobs(), loadCategories(true), fetchMyJobsStats(), fetchMyKycStatus()])
 
   const editId = typeof route.query.edit === 'string' ? route.query.edit : null
   if (editId) {

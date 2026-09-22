@@ -5,6 +5,7 @@ import type { Job, JobType, JobModality, JobStatus, JobApplication, JobApplicati
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util'
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade'
 import { NotificationsService } from '../../engagement/notifications/notifications.service'
+import { CategoryScopeService } from '../../../common/category-scope/category-scope.service'
 
 export interface JobWithEmployer extends Job {
   employer: {
@@ -82,11 +83,19 @@ export class JobsService {
     private readonly prisma: PrismaService,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly notifications: NotificationsService,
+    private readonly categoryScope: CategoryScopeService,
   ) {}
 
   // ─── Categories ─────────────────────────────────────────────────────────────
 
-  async getCategories() {
+  // Sin usuario (búsqueda pública de empleos) o SUPERADMIN/ADMIN: todas las
+  // categorías, sin filtrar — un candidato debe poder ver ofertas de
+  // cualquier rubro. Con usuario y `scoped=true` (selector del formulario
+  // "Nueva Vacante"), se filtra a las categorías cuyo userCategoryIds
+  // incluye el rubro de quien publica (o no tiene scope configurado) — un
+  // proveedor de Transporte no debería poder publicar una vacante bajo
+  // "Contabilidad".
+  async getCategories(user?: { id: string; role: string }, scoped = false) {
     const categories = await this.prisma.jobCategory.findMany({
       include: {
         _count: {
@@ -96,7 +105,12 @@ export class JobsService {
       orderBy: { name: 'asc' },
     })
 
-    return categories.map(c => ({
+    const filtered =
+      scoped && user && user.role !== 'SUPERADMIN' && user.role !== 'ADMIN'
+        ? this.categoryScope.filterByCategory(categories, await this.categoryScope.getUserCategoryId(user.id))
+        : categories
+
+    return filtered.map(c => ({
       id: c.id,
       name: c.name,
       color: c.color,

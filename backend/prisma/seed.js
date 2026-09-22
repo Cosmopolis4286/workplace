@@ -1223,6 +1223,117 @@ async function seedUserCategories() {
   console.log('\n✨ User categories seeded.')
 }
 
+// Cada ServiceCategory/JobCategory se vincula a la(s) UserCategory bajo cuyo
+// rubro tiene sentido ofrecerla — resuelto por NOMBRE de UserCategory acá y
+// convertido a id real en seedServiceAndJobCategories() (corre después de
+// seedUserCategories, que ya garantiza que esos nombres existen). Ver
+// CategoryScopeService: userCategoryIds vacío = visible para cualquier rubro
+// (no se usa acá a propósito — cada categoría de servicio/empleo SÍ tiene un
+// rubro de origen claro, dejarlo vacío sería repetir el catálogo genérico
+// que causaba el bug original).
+const SERVICE_CATEGORIES = [
+  { name: 'Desarrollo Web', icon: '🌐', userCategories: ['Tecnología'] },
+  { name: 'Apps Móviles', icon: '📱', userCategories: ['Tecnología'] },
+  { name: 'Soporte IT', icon: '🖥️', userCategories: ['Tecnología'] },
+  { name: 'Diseño Gráfico', icon: '🖌️', userCategories: ['Diseño'] },
+  { name: 'UI/UX', icon: '📐', userCategories: ['Diseño'] },
+  { name: 'Branding', icon: '🏷️', userCategories: ['Diseño'] },
+  { name: 'Marketing Digital', icon: '📈', userCategories: ['Marketing'] },
+  { name: 'Redes Sociales', icon: '📱', userCategories: ['Marketing'] },
+  { name: 'Consultoría', icon: '🧭', userCategories: ['Servicios Profesionales'] },
+  { name: 'Contabilidad', icon: '🧮', userCategories: ['Servicios Profesionales'] },
+  { name: 'Legal', icon: '⚖️', userCategories: ['Servicios Profesionales'] },
+  { name: 'Medicina General', icon: '🩺', userCategories: ['Salud y Bienestar'] },
+  { name: 'Nutrición', icon: '🥗', userCategories: ['Salud y Bienestar'] },
+  { name: 'Psicología', icon: '🧠', userCategories: ['Salud y Bienestar'] },
+  { name: 'Fisioterapia', icon: '🦵', userCategories: ['Salud y Bienestar'] },
+  { name: 'Peluquería', icon: '💇', userCategories: ['Belleza'] },
+  { name: 'Estética', icon: '✨', userCategories: ['Belleza'] },
+  { name: 'Maquillaje', icon: '💄', userCategories: ['Belleza'] },
+  { name: 'Clases Particulares', icon: '📖', userCategories: ['Educación'] },
+  { name: 'Idiomas', icon: '🗣️', userCategories: ['Educación'] },
+  { name: 'Coaching', icon: '🎯', userCategories: ['Educación'] },
+  { name: 'Limpieza', icon: '🧹', userCategories: ['Hogar'] },
+  { name: 'Plomería', icon: '🚰', userCategories: ['Hogar'] },
+  { name: 'Electricidad', icon: '💡', userCategories: ['Hogar'] },
+  { name: 'Carpintería', icon: '🪚', userCategories: ['Hogar'] },
+  { name: 'Jardinería', icon: '🌳', userCategories: ['Hogar'] },
+  { name: 'Reparación de Electrodomésticos', icon: '🔌', userCategories: ['Reparación y Oficios Técnicos'] },
+  { name: 'Reparación de Máquinas de Coser', icon: '🧵', userCategories: ['Reparación y Oficios Técnicos'] },
+  { name: 'Reparación de Electrónica', icon: '📺', userCategories: ['Reparación y Oficios Técnicos'] },
+  { name: 'Reparación de Celulares y Computadoras', icon: '🔧', userCategories: ['Reparación y Oficios Técnicos'] },
+  // Delivery/mensajería como SERVICIO (oferta fija, distinto de Ride —
+  // corridas puntuales bajo demanda): un repartidor puede tener ambos.
+  { name: 'Delivery y Mensajería', icon: '🛵', userCategories: ['Transporte'] },
+  { name: 'Mudanzas', icon: '📦', userCategories: ['Transporte'] },
+  { name: 'Fotografía', icon: '📷', userCategories: ['Eventos'] },
+  { name: 'Video', icon: '🎥', userCategories: ['Eventos'] },
+  { name: 'Organización de Eventos', icon: '🗓️', userCategories: ['Eventos'] },
+  { name: 'Guía Turístico', icon: '🗺️', userCategories: ['Turismo'] },
+  { name: 'Taller Mecánico', icon: '🔩', userCategories: ['Automotriz'] },
+  { name: 'Lavado de Autos', icon: '🧼', userCategories: ['Automotriz'] },
+  { name: 'Veterinaria', icon: '🐶', userCategories: ['Mascotas'] },
+  { name: 'Grooming', icon: '✂️', userCategories: ['Mascotas'] },
+  { name: 'Adiestramiento', icon: '🦴', userCategories: ['Mascotas'] },
+]
+
+// Empleos aplica a cualquier rubro que contrate personal, incluidos Comida
+// y Comercio (sin módulo 'services' pero sí 'employees') — a diferencia de
+// SERVICE_CATEGORIES, esta lista cubre las 15 UserCategory.
+const JOB_CATEGORIES = [
+  { name: 'Cocina y Servicio', icon: '🍽️', userCategories: ['Comida'] },
+  { name: 'Desarrollo de Software', icon: '💻', userCategories: ['Tecnología'] },
+  { name: 'Soporte Técnico', icon: '🖥️', userCategories: ['Tecnología'] },
+  { name: 'Diseño', icon: '🎨', userCategories: ['Diseño'] },
+  { name: 'Marketing', icon: '📢', userCategories: ['Marketing'] },
+  { name: 'Administración y Contabilidad', icon: '🧮', userCategories: ['Servicios Profesionales'] },
+  { name: 'Legal', icon: '⚖️', userCategories: ['Servicios Profesionales'] },
+  { name: 'Salud', icon: '🏥', userCategories: ['Salud y Bienestar'] },
+  { name: 'Belleza y Estética', icon: '💅', userCategories: ['Belleza'] },
+  { name: 'Educación', icon: '📚', userCategories: ['Educación'] },
+  { name: 'Oficios del Hogar', icon: '🏠', userCategories: ['Hogar'] },
+  { name: 'Técnico de Reparación', icon: '🛠️', userCategories: ['Reparación y Oficios Técnicos'] },
+  { name: 'Conductores y Repartidores', icon: '🚗', userCategories: ['Transporte'] },
+  { name: 'Producción de Eventos', icon: '🎉', userCategories: ['Eventos'] },
+  { name: 'Turismo y Hospitalidad', icon: '✈️', userCategories: ['Turismo'] },
+  { name: 'Ventas y Atención al Cliente', icon: '🛍️', userCategories: ['Comercio'] },
+  { name: 'Automotriz', icon: '🔧', userCategories: ['Automotriz'] },
+  { name: 'Cuidado de Mascotas', icon: '🐾', userCategories: ['Mascotas'] },
+]
+
+async function seedServiceAndJobCategories() {
+  console.log('\n🧰 Seeding service & job categories (scoped by rubro)...\n')
+
+  const userCategories = await prisma.userCategory.findMany({ select: { id: true, name: true } })
+  const idByName = new Map(userCategories.map(c => [c.name, c.id]))
+
+  for (const cat of SERVICE_CATEGORIES) {
+    const userCategoryIds = cat.userCategories.map(n => idByName.get(n)).filter(Boolean)
+    const existing = await prisma.serviceCategory.findFirst({ where: { name: cat.name } })
+    const data = { name: cat.name, icon: cat.icon, userCategoryIds }
+    if (existing) {
+      await prisma.serviceCategory.update({ where: { id: existing.id }, data })
+    } else {
+      await prisma.serviceCategory.create({ data })
+    }
+    console.log(`  ${cat.icon} ${cat.name} → ${cat.userCategories.join(', ')}`)
+  }
+
+  for (const cat of JOB_CATEGORIES) {
+    const userCategoryIds = cat.userCategories.map(n => idByName.get(n)).filter(Boolean)
+    const existing = await prisma.jobCategory.findFirst({ where: { name: cat.name } })
+    const data = { name: cat.name, icon: cat.icon, userCategoryIds }
+    if (existing) {
+      await prisma.jobCategory.update({ where: { id: existing.id }, data })
+    } else {
+      await prisma.jobCategory.create({ data })
+    }
+    console.log(`  ${cat.icon} ${cat.name} → ${cat.userCategories.join(', ')}`)
+  }
+
+  console.log('\n✨ Service & job categories seeded.')
+}
+
 async function seedCategories() {
   console.log('\n📂 Seeding global categories and subcategories...\n')
 
@@ -1542,6 +1653,7 @@ async function main() {
   await seedCategories()
   await seedServiceModalities()
   await seedUserCategories()
+  await seedServiceAndJobCategories()
 
   console.log('🌱 Seeding demo users...\n')
 

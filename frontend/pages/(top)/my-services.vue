@@ -356,7 +356,7 @@ const route = useRoute()
 const router = useRouter()
 
 onMounted(async () => {
-  await Promise.all([fetchServices(), fetchCatalogCategories(), fetchStats()])
+  await Promise.all([fetchServices(), fetchCatalogCategories(true), fetchStats()])
 
   const editId = typeof route.query.edit === 'string' ? route.query.edit : null
   const metricsId = typeof route.query.metrics === 'string' ? route.query.metrics : null
