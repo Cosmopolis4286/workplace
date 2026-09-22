@@ -98,6 +98,38 @@ describe('NavigationService', () => {
     expect(catalogSection?.items.find((i) => i.id === 'menu')).toBeDefined()
   })
 
+  it('hides /jobs for a NORMAL user even though jobs:view is granted at the role level', async () => {
+    // Role.NORMAL tiene jobs:view/jobs:create en su matriz de permisos por
+    // diseño (ver seed.js — alta directa), pero /jobs es "gestiona las
+    // vacantes que publicas": sin accountTypeOnly, un NORMAL sin ningún
+    // UserProfile de negocio veía el ítem "Empleos" en la sección "Empresa"
+    // sin tener nada que publicar (bug reportado en el sidebar real).
+    permissionsService.getRolePermissions.mockResolvedValue(['jobs:view'])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['jobs'],
+      categoryName: null,
+    })
+
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.NORMAL })
+
+    const companySection = result.sections.find((s) => s.id === 'company')
+    expect(companySection).toBeUndefined()
+  })
+
+  it('shows /jobs for a PROFESIONAL user with an active COMMERCE/FREELANCER profile', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue(['jobs:view'])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['jobs'],
+      categoryName: null,
+    })
+
+    currentAccountType = 'COMMERCE'
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
+
+    const companySection = result.sections.find((s) => s.id === 'company')
+    expect(companySection?.items.find((i) => i.id === 'jobs')).toBeDefined()
+  })
+
   it('excludes NORMAL from /orders but includes /my-orders (rolesOnly)', async () => {
     permissionsService.getRolePermissions.mockResolvedValue(['orders:view'])
     planLimitsService.getPlanLimits.mockResolvedValue({
