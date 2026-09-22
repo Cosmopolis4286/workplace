@@ -35,7 +35,7 @@ describe('ProfileActivationsService', () => {
 
   beforeEach(async () => {
     mockPrismaService = {
-      user: { update: jest.fn(), findUnique: jest.fn().mockResolvedValue({ role: Role.NORMAL }) },
+      user: { update: jest.fn(), updateMany: jest.fn(), findUnique: jest.fn().mockResolvedValue({ role: Role.NORMAL }) },
       userCategory: { findUnique: jest.fn() },
       userSubcategory: { findUnique: jest.fn() },
       plan: { findUnique: jest.fn() },
@@ -185,6 +185,40 @@ describe('ProfileActivationsService', () => {
 
       expect(result.pendingPlanId).toBe(PLAN_ID)
       expect(result.pendingPlanInterval).toBe(BillingInterval.ANNUAL)
+    })
+
+    it('rechaza solicitar BUSINESS si ya tiene PROFESSIONAL activo (exclusión mutua)', async () => {
+      mockPrismaService.userProfile.findFirst
+        .mockResolvedValueOnce(null) // sin duplicado del mismo tipo (BUSINESS)
+        .mockResolvedValueOnce(pendingProfile({ type: ProfileType.PROFESSIONAL, status: ProfileStatus.ACTIVE })) // conflicto cruzado
+
+      await expect(
+        service.create(USER_ID, { type: ProfileType.BUSINESS, categoryId: CATEGORY_ID, commerceName: 'Mi Negocio' } as any),
+      ).rejects.toBeInstanceOf(ConflictException)
+    })
+
+    it('rechaza solicitar PROFESSIONAL si ya tiene BUSINESS pendiente (exclusión mutua)', async () => {
+      mockPrismaService.userProfile.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(pendingProfile({ type: ProfileType.BUSINESS, status: ProfileStatus.PENDING }))
+
+      await expect(
+        service.create(USER_ID, {
+          type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER, categoryId: CATEGORY_ID,
+        } as any),
+      ).rejects.toBeInstanceOf(ConflictException)
+    })
+
+    it('la exclusión mutua no aplica a CUSTOMER/JOB_SEEKER', async () => {
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(null)
+      mockPrismaService.userProfile.create.mockImplementation(({ data }: any) => Promise.resolve(data))
+
+      const result = await service.create(USER_ID, { type: ProfileType.CUSTOMER } as any)
+
+      expect(result.status).toBe(ProfileStatus.ACTIVE)
+      // Solo 1 findFirst (chequeo de duplicado propio) — CUSTOMER no dispara
+      // el segundo chequeo cruzado.
+      expect(mockPrismaService.userProfile.findFirst).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -443,6 +477,125 @@ describe('ProfileActivationsService', () => {
       )
 
       await expect(service.setActive(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(BadRequestException)
+    })
+  })
+
+  describe('deactivate', () => {
+    it('pasa un perfil ACTIVE a SUSPENDED con suspendedBySelf=true', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.ACTIVE }),
+      )
+      mockPrismaService.userProfile.findMany.mockResolvedValue([]) // nada queda ACTIVE tras suspender
+
+      const result = await service.deactivate(USER_ID, PROFILE_ID)
+
+      expect(mockPrismaService.userProfile.update).toHaveBeenCalledWith({
+        where: { id: PROFILE_ID },
+        data: { status: ProfileStatus.SUSPENDED, suspendedBySelf: true },
+      })
+      expect(result.status).toBe(ProfileStatus.SUSPENDED)
+    })
+
+    it('limpia activeProfileId si era el perfil activo de contexto', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.ACTIVE }),
+      )
+      mockPrismaService.userProfile.findMany.mockResolvedValue([])
+
+      await service.deactivate(USER_ID, PROFILE_ID)
+
+      expect(mockPrismaService.user.updateMany).toHaveBeenCalledWith({
+        where: { id: USER_ID, activeProfileId: PROFILE_ID },
+        data: { activeProfileId: null },
+      })
+    })
+
+    it('recalcula el rol si el tipo es PROFESSIONAL/BUSINESS', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL })
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ type: ProfileType.PROFESSIONAL, status: ProfileStatus.ACTIVE }),
+      )
+      mockPrismaService.userProfile.findMany.mockResolvedValue([]) // sin perfiles ACTIVE restantes -> vuelve a NORMAL
+      mockPrismaService.userProfile.count.mockResolvedValue(1) // sí tuvo un UserProfile de negocio -> degrada a NORMAL
+
+      await service.deactivate(USER_ID, PROFILE_ID)
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        data: { role: Role.NORMAL },
+      })
+    })
+
+    it('rechaza desactivar un perfil que no está ACTIVE', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.PENDING }),
+      )
+
+      await expect(service.deactivate(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(BadRequestException)
+    })
+
+    it('lanza NotFoundException si el perfil pertenece a otro usuario', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.ACTIVE, userId: 'other-user' }),
+      )
+
+      await expect(service.deactivate(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(NotFoundException)
+    })
+  })
+
+  describe('reactivate', () => {
+    it('reactiva un perfil SUSPENDED por el propio usuario, sin volver a pedir aprobación', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.SUSPENDED, suspendedBySelf: true }),
+      )
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(null) // sin conflicto cruzado
+      mockPrismaService.userProfile.findMany.mockResolvedValue([
+        { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+      ])
+
+      const result = await service.reactivate(USER_ID, PROFILE_ID)
+
+      expect(mockPrismaService.userProfile.update).toHaveBeenCalledWith({
+        where: { id: PROFILE_ID },
+        data: { status: ProfileStatus.ACTIVE, suspendedBySelf: false },
+      })
+      expect(result.status).toBe(ProfileStatus.ACTIVE)
+    })
+
+    it('rechaza reactivar un perfil suspendido por un admin (suspendedBySelf=false)', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.SUSPENDED, suspendedBySelf: false }),
+      )
+
+      await expect(service.reactivate(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(BadRequestException)
+      expect(mockPrismaService.userProfile.update).not.toHaveBeenCalled()
+    })
+
+    it('rechaza reactivar si el tipo opuesto (BUSINESS/PROFESSIONAL) ya está activo', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ type: ProfileType.PROFESSIONAL, status: ProfileStatus.SUSPENDED, suspendedBySelf: true }),
+      )
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(
+        pendingProfile({ type: ProfileType.BUSINESS, status: ProfileStatus.ACTIVE }),
+      )
+
+      await expect(service.reactivate(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(ConflictException)
+    })
+
+    it('rechaza reactivar un perfil que no está SUSPENDED', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.ACTIVE, suspendedBySelf: true }),
+      )
+
+      await expect(service.reactivate(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(BadRequestException)
+    })
+
+    it('lanza NotFoundException si el perfil pertenece a otro usuario', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.SUSPENDED, suspendedBySelf: true, userId: 'other-user' }),
+      )
+
+      await expect(service.reactivate(USER_ID, PROFILE_ID)).rejects.toBeInstanceOf(NotFoundException)
     })
   })
 })

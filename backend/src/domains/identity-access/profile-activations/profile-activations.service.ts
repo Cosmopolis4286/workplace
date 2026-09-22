@@ -55,6 +55,23 @@ export class ProfileActivationsService {
       );
     }
 
+    // PROFESSIONAL y BUSINESS son mutuamente excluyentes — un usuario opera
+    // como freelancer/proveedor de servicios O como negocio, no ambos a la
+    // vez (decisión de producto explícita, no técnica: evita mezclar planes,
+    // KYC de negocio y la semántica de "mi rol" en el resto de la app).
+    // CUSTOMER y JOB_SEEKER no entran en esta exclusión.
+    if (REQUIRES_APPROVAL.includes(dto.type)) {
+      const otherType = dto.type === ProfileType.BUSINESS ? ProfileType.PROFESSIONAL : ProfileType.BUSINESS;
+      const conflicting = await this.prisma.userProfile.findFirst({
+        where: { userId, type: otherType, status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] } },
+      });
+      if (conflicting) {
+        throw new ConflictException(
+          `Ya tienes un perfil de ${TYPE_LABEL[otherType]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Desactívalo antes de solicitar ${TYPE_LABEL[dto.type]}.`
+        );
+      }
+    }
+
     if (dto.categoryId) {
       const category = await this.prisma.userCategory.findUnique({ where: { id: dto.categoryId } });
       if (!category) throw new BadRequestException('Categoría inválida');
@@ -115,6 +132,88 @@ export class ProfileActivationsService {
     await this.redis.del(userFindByIdCacheKey(userId));
 
     return profile;
+  }
+
+  // Desactivación por el propio usuario — mismo efecto que
+  // UsersService.applyBusinessProfileType(null) (el camino admin), pero
+  // disparado por el dueño del perfil desde /profile. Se conserva la fila
+  // (histórico de categoría/reviewedBy) como SUSPENDED, nunca se borra.
+  // Solo PENDING/REJECTED no tiene sentido "desactivar" — ya no está ACTIVE.
+  async deactivate(userId: string, profileId: string) {
+    const profile = await this.prisma.userProfile.findUnique({ where: { id: profileId } });
+    if (!profile || profile.userId !== userId) {
+      throw new NotFoundException('Perfil no encontrado');
+    }
+    if (profile.status !== ProfileStatus.ACTIVE) {
+      throw new BadRequestException('Solo se puede desactivar un perfil que está ACTIVE');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.userProfile.update({
+        where: { id: profileId },
+        data: { status: ProfileStatus.SUSPENDED, suspendedBySelf: true },
+      });
+
+      // Si era el perfil "activo" de contexto de UX, limpiarlo — no tiene
+      // sentido dejar activeProfileId apuntando a un perfil SUSPENDED.
+      await tx.user.updateMany({ where: { id: userId, activeProfileId: profileId }, data: { activeProfileId: null } });
+
+      if (profile.type === ProfileType.BUSINESS || profile.type === ProfileType.PROFESSIONAL) {
+        await this.roleResolver.syncRoleForUser(userId, tx);
+      }
+
+      return result;
+    });
+
+    await this.redis.del(userFindByIdCacheKey(userId));
+    return updated;
+  }
+
+  // Reactivación directa (sin volver a pasar por aprobación) — solo cuando
+  // el propio usuario fue quien lo desactivó (suspendedBySelf). Si un admin
+  // lo suspendió, este método rechaza: debe solicitarse desde cero (mismo
+  // criterio que REJECTED), para no poder evadir una suspensión disciplinaria
+  // con un clic. Respeta la exclusión mutua PROFESSIONAL/BUSINESS igual que
+  // create() — reactivar uno mientras el otro está ACTIVE/PENDING no aplica.
+  async reactivate(userId: string, profileId: string) {
+    const profile = await this.prisma.userProfile.findUnique({ where: { id: profileId } });
+    if (!profile || profile.userId !== userId) {
+      throw new NotFoundException('Perfil no encontrado');
+    }
+    if (profile.status !== ProfileStatus.SUSPENDED) {
+      throw new BadRequestException('Solo se puede reactivar un perfil que está SUSPENDED');
+    }
+    if (!profile.suspendedBySelf) {
+      throw new BadRequestException('Este perfil fue suspendido por un administrador — contacta a soporte para reactivarlo');
+    }
+
+    if (REQUIRES_APPROVAL.includes(profile.type)) {
+      const otherType = profile.type === ProfileType.BUSINESS ? ProfileType.PROFESSIONAL : ProfileType.BUSINESS;
+      const conflicting = await this.prisma.userProfile.findFirst({
+        where: { userId, type: otherType, status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] } },
+      });
+      if (conflicting) {
+        throw new ConflictException(
+          `Ya tienes un perfil de ${TYPE_LABEL[otherType]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Desactívalo antes de reactivar ${TYPE_LABEL[profile.type]}.`
+        );
+      }
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.userProfile.update({
+        where: { id: profileId },
+        data: { status: ProfileStatus.ACTIVE, suspendedBySelf: false },
+      });
+
+      if (profile.type === ProfileType.BUSINESS || profile.type === ProfileType.PROFESSIONAL) {
+        await this.roleResolver.syncRoleForUser(userId, tx);
+      }
+
+      return result;
+    });
+
+    await this.redis.del(userFindByIdCacheKey(userId));
+    return updated;
   }
 
   // ─── Admin ────────────────────────────────────────────────────────────────────

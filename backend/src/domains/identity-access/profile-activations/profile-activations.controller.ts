@@ -33,6 +33,18 @@ export class ProfileActivationsController {
     return this.service.setActive(user.id, dto.profileId);
   }
 
+  @Patch(':id/deactivate')
+  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `profile-activation:deactivate:${(req as any).user?.id}` })
+  deactivate(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.deactivate(user.id, id);
+  }
+
+  @Patch(':id/reactivate')
+  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `profile-activation:reactivate:${(req as any).user?.id}` })
+  reactivate(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.reactivate(user.id, id);
+  }
+
   // ─── Admin ────────────────────────────────────────────────────────────────────
 
   @Get('admin/pending')
