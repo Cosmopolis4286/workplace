@@ -69,6 +69,7 @@ import { LocationsModule } from './domains/platform/locations/locations.module';
 import { BnplModule } from './domains/money/bnpl/bnpl.module';
 import { NavigationModule } from './domains/platform/navigation/navigation.module';
 import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orchestrator.module';
+import { GroupBuyingModule } from './domains/commerce-core/group-buying/group-buying.module';
 
 @Module({
   imports: [
@@ -152,6 +153,7 @@ import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orch
     LocationsModule,
     AiOrchestratorModule,
     ReputationModule,
+    GroupBuyingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },

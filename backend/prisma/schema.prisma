@@ -114,6 +114,8 @@ model User {
   jobsPosted      Job[]            @relation("UserJobs")
   jobApplications JobApplication[]
 
+  groupBuyingCampaigns GroupBuyingCampaign[]
+
   @@index([categoryId])
   @@index([subcategoryId])
   @@map("users")
@@ -257,6 +259,7 @@ model Commerce {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   SupplierQuote SupplierQuote[]
+  groupBuyingPledges Pledge[]
 
   @@index([avgRating])
   @@index([slug])
@@ -317,6 +320,14 @@ model UserProfile {
   reviewedBy      String?
   reviewer        User?     @relation("UserProfileReviewer", fields: [reviewedBy], references: [id])
   reviewedAt      DateTime?
+
+  // true si fue el propio dueño quien pasó este perfil a SUSPENDED (ver
+  // ProfileActivationsService.deactivate) — puede reactivarlo él mismo sin
+  // pasar de nuevo por aprobación. false/null si fue un admin quien lo
+  // suspendió (UsersService.applyBusinessProfileType) — ahí sí debe volver
+  // a solicitarse desde cero, para no permitir evadir una suspensión
+  // disciplinaria con un clic.
+  suspendedBySelf Boolean @default(false)
 
   commerce Commerce?
 
@@ -2602,6 +2613,7 @@ enum FeeTransactionType {
   ORDER
   SERVICE_REQUEST
   RIDE
+  GROUP_BUYING
 }
 
 enum FeePayer {
@@ -3060,6 +3072,69 @@ model ReputationScore {
   @@unique([entityType, entityId])
   @@index([entityType, score])
   @@map("reputation_scores")
+}
+
+// ─── Group Buying (compra agrupada B2B) ────────────────────────────────────────
+
+enum GroupBuyingCampaignStatus {
+  OPEN
+  CLOSED
+  FULFILLED
+  CANCELLED
+}
+
+model GroupBuyingCampaign {
+  id          String @id @default(uuid())
+  organizerId String
+  organizer   User   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  unit        String
+  currencyCode String
+
+  // Tramos de precio por volumen mínimo acumulado: [{ minQuantity, unitPrice }].
+  // El mejor tramo alcanzado por la suma de pledges activos aplica a todos —
+  // más volumen agregado nunca empeora el precio de nadie.
+  priceTiers Json
+
+  deadline DateTime
+  status   GroupBuyingCampaignStatus @default(OPEN)
+
+  pledges Pledge[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, deadline])
+  @@map("group_buying_campaigns")
+}
+
+model Pledge {
+  id String @id @default(uuid())
+
+  campaignId String
+  campaign   GroupBuyingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  commerceId String
+  commerce   Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+
+  quantity  Int
+  // Soft-cancel: nunca se borra, para no perder el historial ni romper la
+  // agregación de totalQuantity al reabrir/reactivar un pledge.
+  cancelled Boolean @default(false)
+
+  // Snapshot inmutable de la comisión cobrada al cerrar la campaña — nunca
+  // se recalcula si la config de fees cambia después.
+  platformFeeRate   Float?
+  platformFeeAmount Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, commerceId])
+  @@index([campaignId])
+  @@map("group_buying_pledges")
 }
 
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────

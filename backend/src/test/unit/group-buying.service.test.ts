@@ -212,6 +212,7 @@ describe('GroupBuyingService', () => {
         .mockResolvedValueOnce({
           id: 'campaign-1',
           organizer: { id: organizerId },
+          priceTiers,
           pledges: [],
         })
       mockPlatformFeesFacade.resolveFeeConfig.mockResolvedValue({ rate: 5, payer: 'PROVIDER' })
@@ -239,7 +240,7 @@ describe('GroupBuyingService', () => {
           id: 'campaign-1', organizerId, status: GroupBuyingCampaignStatus.OPEN, priceTiers,
           pledges: [{ id: 'pledge-1', quantity: 300, cancelled: false }],
         })
-        .mockResolvedValueOnce({ id: 'campaign-1', organizer: { id: organizerId }, pledges: [] })
+        .mockResolvedValueOnce({ id: 'campaign-1', organizer: { id: organizerId }, priceTiers, pledges: [] })
       mockPlatformFeesFacade.resolveFeeConfig.mockResolvedValue(null)
 
       await service.close('campaign-1', organizerId)
