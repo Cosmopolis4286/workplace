@@ -16,6 +16,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { RecaptchaModule } from './common/recaptcha/recaptcha.module';
 import { AccountTypeModule } from './common/account-type/account-type.module';
+import { CategoryScopeModule } from './common/category-scope/category-scope.module';
 import { CommerceResolverModule } from './common/commerce-resolver/commerce-resolver.module';
 import { MenuModule } from './domains/commerce-core/menu/menu.module';
 import { CustomersModule } from './domains/operations/customers/customers.module';
@@ -70,6 +71,7 @@ import { BnplModule } from './domains/money/bnpl/bnpl.module';
 import { NavigationModule } from './domains/platform/navigation/navigation.module';
 import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orchestrator.module';
 import { GroupBuyingModule } from './domains/commerce-core/group-buying/group-buying.module';
+import { MatchingModule } from './domains/commerce-core/matching/matching.module';
 
 @Module({
   imports: [
@@ -98,6 +100,7 @@ import { GroupBuyingModule } from './domains/commerce-core/group-buying/group-bu
     RedisModule,
     RecaptchaModule,
     AccountTypeModule,
+    CategoryScopeModule,
     CommerceResolverModule,
     UsersModule,
     AuthModule,
@@ -154,6 +157,7 @@ import { GroupBuyingModule } from './domains/commerce-core/group-buying/group-bu
     AiOrchestratorModule,
     ReputationModule,
     GroupBuyingModule,
+    MatchingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },

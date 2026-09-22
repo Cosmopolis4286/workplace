@@ -1,5 +1,6 @@
 const { PrismaClient, Role, VeLocationType, ProfileType, ProfessionalSubtype, ProfileStatus } = require('@prisma/client')
 const bcrypt = require('bcrypt')
+const Redis = require('ioredis')
 const veLocationsData = require('./data/ve-locations.json')
 
 const prisma = new PrismaClient()
@@ -1724,7 +1725,58 @@ async function seedDemoSubscriptions() {
   console.log('\n✨ Demo subscriptions seeded.')
 }
 
+// El seed escribe RolePermission/ProfilePermission/User directo con Prisma
+// Client, sin pasar por PermissionsService — así que nunca dispara
+// invalidateRoleVersion() ni borra las claves que ese servicio cachea en
+// Redis (TTL 5min, ver permissions.service.ts). Sin esto, un cambio de
+// permisos por seed (ej. agregar settings:view a PROFESIONAL) puede quedar
+// invisible para usuarios ya cacheados hasta que expire el TTL — el sidebar
+// "Negocio" vacío de un usuario demo fue exactamente este caso. Se usa SCAN
+// (no KEYS) para no bloquear Redis, aunque en este script de un solo uso el
+// volumen es trivial. Falla en silencio si Redis no está disponible: el
+// seed no debe abortar por esto, es un best-effort de higiene de caché.
+async function invalidatePermissionCaches() {
+  console.log('\n🧹 Invalidando cachés de permisos en Redis...\n')
+
+  const redis = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || undefined,
+    retryStrategy: () => null, // no reintentar indefinidamente si Redis no está arriba
+    lazyConnect: true,
+  })
+  // El error real ya se captura en el catch de abajo — sin este listener,
+  // ioredis además imprime un "Unhandled error event" ruidoso por su cuenta.
+  redis.on('error', () => {})
+
+  try {
+    await redis.connect()
+
+    const patterns = ['permissions:role:*', 'permissions:profile:*', 'permissions:user:*', 'permissions:overrides:user:*', 'user:find-by-id:*']
+    let totalDeleted = 0
+    for (const pattern of patterns) {
+      let cursor = '0'
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 200)
+        cursor = nextCursor
+        if (keys.length > 0) {
+          await redis.del(...keys)
+          totalDeleted += keys.length
+        }
+      } while (cursor !== '0')
+    }
+    console.log(`  ✅ ${totalDeleted} claves de caché invalidadas.`)
+  } catch (err) {
+    console.log(`  ⚠️  No se pudo invalidar el caché de Redis (${err.message}). Los permisos/datos actualizados pueden tardar hasta 5 min en reflejarse.`)
+  } finally {
+    redis.disconnect()
+  }
+
+  console.log('\n✨ Cache invalidation done.')
+}
+
 main()
+  .then(() => invalidatePermissionCaches())
   .catch((e) => {
     console.error('❌ Seed failed:', e)
     process.exit(1)

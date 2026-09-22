@@ -32,6 +32,13 @@ model User {
   municipality String?
   parish       String?
 
+  // Ubicación del comprador para MatchingService (distanceScore en
+  // /search/suggest) — mismo criterio que Commerce/FreelancerSettings.lat/lng:
+  // fijada manualmente en un selector de mapa, sin geocoding automático.
+  // Todo usuario puede tenerla, no solo cuentas de negocio.
+  latitude  Float?
+  longitude Float?
+
   categoryId    String?
   subcategoryId String?
   category      UserCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -196,6 +203,13 @@ model Commerce {
   city         String?
   municipality String?
   parish       String?
+
+  // Ubicación base para matching por distancia (ver MatchingService). Fijada
+  // manualmente por el comercio en un selector de mapa — no hay geocoding
+  // automático desde country/state/city todavía. Nullable: comercios
+  // existentes no tienen coordenadas hasta que las fijan.
+  latitude  Float?
+  longitude Float?
 
   // Cache desnormalizado de reviews.aggregate(targetId: user.id, isHidden: false).
   // Recalculado en ProfilesService cada vez que una review del dueño del
@@ -435,6 +449,12 @@ model FreelancerSettings {
   // profesional distinta de su username de red social.
   slug          String?   @unique
   slugUpdatedAt DateTime?
+
+  // Ubicación base para matching por distancia (ver MatchingService), mismo
+  // criterio que Commerce.latitude/longitude — fijada manualmente en un
+  // selector de mapa, sin geocoding automático.
+  latitude  Float?
+  longitude Float?
 
   // Payment
   currency String @default("USD")
@@ -2092,6 +2112,14 @@ model ServiceCategory {
   updatedAt DateTime  @updatedAt
   services  Service[]
 
+  // Rubros de negocio (UserCategory.id) a los que aplica esta categoría de
+  // servicio — mismo patrón que Plan.categoryIds (array suelto, filtrado en
+  // memoria por el service, sin FK formal). Vacío = visible para cualquier
+  // rubro. Sin esto, un proveedor de Transporte/Delivery veía el mismo
+  // catálogo genérico (Diseño Gráfico, Contabilidad, etc.) que un freelancer
+  // creativo, sin relación con lo que realmente ofrece.
+  userCategoryIds String[] @default([])
+
   @@map("service_categories")
 }
 
@@ -2843,6 +2871,10 @@ model JobCategory {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   jobs        Job[]
+
+  // Ver ServiceCategory.userCategoryIds — mismo patrón (CategoryScopeService,
+  // vacío = visible para cualquier rubro).
+  userCategoryIds String[] @default([])
 
   @@map("job_categories")
 }
