@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { VehicleType } from '@prisma/client';
 import { OsrmProvider } from './providers/osrm.provider';
 import { RoutePoint, RouteResult, RoutingProvider } from './routing.types';
+import { haversineDistanceMeters } from '../../../../common/utils/geo.util';
 
 // Velocidad promedio asumida por vehículo para el fallback en línea recta
 // (m/s) — solo se usa si el proveedor de ruteo configurado falla, para que
@@ -82,4 +83,4 @@ export class RoutingService {
 // Re-exportado desde el util común (ver common/utils/geo.util.ts) — mismo
 // símbolo que ya importaba tracking.service.ts, ahora sin duplicar la
 // fórmula (MatchingService también la usa desde el util directamente).
-export { haversineDistanceMeters } from '../../../../common/utils/geo.util';
+export { haversineDistanceMeters };

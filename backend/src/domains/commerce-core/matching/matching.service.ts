@@ -64,10 +64,21 @@ export class MatchingService implements MatchingFacade {
       ];
       const available = signals.filter((s) => s.value != null);
       const totalWeight = available.reduce((sum, s) => sum + s.weight, 0);
+      const confidence = available.length / signals.length;
+      // Promedio ponderado de las señales disponibles, PENALIZADO por
+      // confidence: sin este factor, un candidato con una sola señal
+      // perfecta (ej. solo "disponible") podría superar a otro con más
+      // señales pero ninguna perfecta, porque el promedio normaliza por peso
+      // disponible sin penalizar cuántas faltan. Multiplicar por confidence
+      // asegura que menos datos nunca puede ganarle a más datos con score
+      // comparable — la falta de información pesa en el ranking, no solo se
+      // reporta aparte (a diferencia de BusinessHealthService, donde el
+      // score es informativo y no compite contra otros).
       const score =
         totalWeight > 0
           ? Math.round(
-              available.reduce((sum, s) => sum + s.weight * (s.value as number), 0) / totalWeight,
+              (available.reduce((sum, s) => sum + s.weight * (s.value as number), 0) / totalWeight) *
+                confidence,
             )
           : 0;
 
@@ -76,7 +87,7 @@ export class MatchingService implements MatchingFacade {
         distanceScore,
         reputationScore,
         availabilityScore,
-        confidence: available.length / signals.length,
+        confidence,
       };
 
       const result: MatchResult = {
