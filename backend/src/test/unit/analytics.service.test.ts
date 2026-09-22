@@ -1,11 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing'
+import { Role } from '@prisma/client'
 import { AnalyticsService } from '../../domains/engagement/analytics/analytics.service'
 import { CommerceAnalyticsStrategy } from '../../domains/engagement/analytics/strategies/commerce-analytics.strategy'
 import { FreelancerAnalyticsStrategy } from '../../domains/engagement/analytics/strategies/freelancer-analytics.strategy'
+import { PlatformAnalyticsStrategy } from '../../domains/engagement/analytics/strategies/platform-analytics.strategy'
 import { PrismaService } from '../../prisma/prisma.service'
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
 import { AnalyticsPeriod } from '../../domains/engagement/analytics/dto/query-analytics.dto'
+
+const ROLE = Role.PROFESIONAL
 
 describe('AnalyticsService', () => {
   let service: AnalyticsService
@@ -14,9 +18,11 @@ describe('AnalyticsService', () => {
   const mockPrismaService = {
     commerce: {
       findUnique: jest.fn(),
+      count: jest.fn(),
     },
     commerceSettings: {
       findUnique: jest.fn(),
+      aggregate: jest.fn(),
     },
     order: {
       findMany: jest.fn(),
@@ -43,12 +49,18 @@ describe('AnalyticsService', () => {
       count: jest.fn(),
       groupBy: jest.fn(),
     },
+    user: {
+      count: jest.fn(),
+      findMany: jest.fn(),
+    },
     $queryRaw: jest.fn(),
   }
 
   const defaultMocks = () => {
     mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+    mockPrismaService.commerce.count.mockResolvedValue(0)
     mockPrismaService.commerceSettings.findUnique.mockResolvedValue(null)
+    mockPrismaService.commerceSettings.aggregate.mockResolvedValue({ _avg: { avgPrepTime: 0, avgDeliveryTime: 0 } })
     mockPrismaService.order.findMany.mockResolvedValue([])
     mockPrismaService.order.aggregate.mockResolvedValue({ _sum: { total: 0 }, _avg: { total: 0 }, _count: { id: 0 } })
     mockPrismaService.order.count.mockResolvedValue(0)
@@ -68,6 +80,8 @@ describe('AnalyticsService', () => {
     mockPrismaService.appointment.findMany.mockResolvedValue([])
     mockPrismaService.appointment.count.mockResolvedValue(0)
     mockPrismaService.appointment.groupBy.mockResolvedValue([])
+    mockPrismaService.user.count.mockResolvedValue(0)
+    mockPrismaService.user.findMany.mockResolvedValue([])
   }
 
   beforeEach(async () => {
@@ -78,6 +92,7 @@ describe('AnalyticsService', () => {
         AnalyticsService,
         CommerceAnalyticsStrategy,
         FreelancerAnalyticsStrategy,
+        PlatformAnalyticsStrategy,
         {
           provide: PrismaService,
           useValue: mockPrismaService,
@@ -155,7 +170,7 @@ describe('AnalyticsService', () => {
         { date: new Date() },
       ])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, ROLE, queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('today')
@@ -191,7 +206,7 @@ describe('AnalyticsService', () => {
       mockPrismaService.product.findMany.mockResolvedValue([])
       mockPrismaService.appointment.findMany.mockResolvedValue([])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, ROLE, queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('custom')
@@ -203,7 +218,7 @@ describe('AnalyticsService', () => {
       const queryDto = { period: 'invalid' as AnalyticsPeriod }
 
       // Service does not throw for unknown period — it falls through to the default (30d) range
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, ROLE, queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('invalid')
@@ -217,7 +232,7 @@ describe('AnalyticsService', () => {
       // the overview still resolves (with empty/zeroed metrics) instead of throwing.
       mockPrismaService.commerce.findUnique.mockResolvedValue(null)
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, ROLE, queryDto)
 
       expect(result).toBeDefined()
       expect(result.kpis.totalRevenue).toBe(0)
@@ -244,7 +259,7 @@ describe('AnalyticsService', () => {
       mockPrismaService.product.findMany.mockResolvedValue([])
       mockPrismaService.appointment.findMany.mockResolvedValue([])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, ROLE, queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('week')
@@ -272,7 +287,7 @@ describe('AnalyticsService', () => {
       mockPrismaService.product.findMany.mockResolvedValue([])
       mockPrismaService.appointment.findMany.mockResolvedValue([])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, ROLE, queryDto)
 
       expect(result).toBeDefined()
       expect(result.period).toBe('quarter')
@@ -310,7 +325,7 @@ describe('AnalyticsService', () => {
         { date: new Date() },
       ])
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, ROLE, queryDto)
 
       expect(result).toBeDefined()
       expect(result.performance).toBeDefined()
@@ -327,7 +342,7 @@ describe('AnalyticsService', () => {
 
       mockPrismaService.commerce.findUnique.mockRejectedValue(new Error('Database error'))
 
-      await expect(service.getOverview(userId, queryDto)).rejects.toThrow(
+      await expect(service.getOverview(userId, ROLE, queryDto)).rejects.toThrow(
         'Database error'
       )
     })
@@ -338,7 +353,7 @@ describe('AnalyticsService', () => {
 
       mockPrismaService.commerce.findUnique.mockResolvedValue(null)
 
-      const result = await service.getOverview(userId, queryDto)
+      const result = await service.getOverview(userId, ROLE, queryDto)
 
       expect(result).toBeDefined()
     })
@@ -357,7 +372,46 @@ describe('AnalyticsService', () => {
         role: 'OWNER',
       })
 
-      await expect(service.getOverview(userId, queryDto)).rejects.toThrow()
+      await expect(service.getOverview(userId, ROLE, queryDto)).rejects.toThrow()
+    })
+  })
+
+  describe('platform strategy routing (SUPERADMIN/ADMIN)', () => {
+    it('routes SUPERADMIN to platform-wide data instead of a zeroed-out commerce view', async () => {
+      const userId = 'superadmin-1'
+      const queryDto = { period: 'today' as AnalyticsPeriod }
+
+      // Un admin no tiene Commerce propio — si cayera en CommerceAnalyticsStrategy
+      // (el bug original), commerce.findUnique resolvería null y todo saldría en 0
+      // aunque haya actividad real en la plataforma.
+      mockPrismaService.commerce.findUnique.mockResolvedValue(null)
+      mockPrismaService.order.aggregate.mockResolvedValue({
+        _sum: { total: 500 },
+        _count: { id: 3 },
+      })
+      mockPrismaService.order.count.mockResolvedValue(3)
+      mockPrismaService.user.count.mockResolvedValue(7)
+
+      const result = await service.getOverview(userId, Role.SUPERADMIN, queryDto)
+
+      expect(result.kpis.totalRevenue).toBe(500)
+      expect(result.kpis.totalOrders).toBe(3)
+      expect(result.kpis.newCustomers).toBe(7)
+      // No debe haber intentado resolver un Commerce para este usuario.
+      expect(mockPrismaService.commerce.findUnique).not.toHaveBeenCalled()
+      // Las queries de plataforma no deben filtrar por commerceId.
+      const orderAggregateArgs = mockPrismaService.order.aggregate.mock.calls[0][0]
+      expect(orderAggregateArgs.where).not.toHaveProperty('commerceId')
+    })
+
+    it('routes ADMIN to the platform strategy the same way as SUPERADMIN', async () => {
+      const userId = 'admin-1'
+      const queryDto = { period: '30d' as AnalyticsPeriod }
+
+      const result = await service.getOverview(userId, Role.ADMIN, queryDto)
+
+      expect(result).toBeDefined()
+      expect(mockPrismaService.commerce.findUnique).not.toHaveBeenCalled()
     })
   })
 })

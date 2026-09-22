@@ -114,10 +114,10 @@ describe('AnalyticsController', () => {
 
       mockAnalyticsService.getOverview.mockResolvedValue(expectedResult)
 
-      const result = await controller.getOverview({ id: userId } as any, queryDto)
+      const result = await controller.getOverview({ id: userId, role: 'PROFESIONAL' } as any, queryDto)
 
       expect(result).toEqual(expectedResult)
-      expect(service.getOverview).toHaveBeenCalledWith(userId, queryDto)
+      expect(service.getOverview).toHaveBeenCalledWith(userId, 'PROFESIONAL', queryDto)
     })
   })
 })
