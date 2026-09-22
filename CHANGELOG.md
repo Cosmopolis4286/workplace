@@ -4,6 +4,20 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Fase 3 (Network): Group Buying B2B (2026-09-22)
+
+Primera pieza de la Fase 3 del roadmap ("Network"), fuera del núcleo de Business Shield: compra agrupada entre comercios para acceder a mejores precios por volumen.
+
+- **`GroupBuyingCampaign`**: un organizador crea una campaña con `priceTiers` (tramos de precio por cantidad mínima acumulada), `deadline` y unidad. Comercios hacen `Pledge` (compromiso de cantidad). El tramo aplicable es el de mayor `minQuantity` alcanzado por la SUMA de pledges activos — más volumen agregado nunca empeora el precio de nadie, y todos pagan el mismo precio final.
+- Pledge reactivable si estaba cancelado (UPDATE en vez de duplicar; `@@unique([campaignId, commerceId])` lo garantiza a nivel de DB). Cancelar un pledge o una campaña siempre es lógico (soft-cancel), nunca borra historial.
+- Al cerrar la campaña (`POST /campaigns/:id/close`, solo el organizador), se resuelve el tramo final y se registra la comisión de plataforma por pledge vía `PlatformFeesFacade` (`FeeTransactionType.GROUP_BUYING`) — snapshot inmutable (`platformFeeRate`/`platformFeeAmount` en el momento del cierre, nunca recalculado después).
+- Campos computados por la API (no persistidos): `totalQuantity`, `currentUnitPrice`, `nextTier` (con `unitsToUnlock`, para mostrar cuánto falta para desbloquear el siguiente precio).
+- Endpoints: `GET /api/group-buying/campaigns` (abiertas), `GET /api/group-buying/campaigns/:id`, `POST /api/group-buying/campaigns`, `POST /api/group-buying/campaigns/:id/close`, `POST /api/group-buying/campaigns/:id/cancel`, `POST` y `DELETE /api/group-buying/campaigns/:id/pledges`.
+- Migración `20260922115044_add_group_buying`.
+- Tests: 19 casos (`createCampaign` validaciones de tramos/deadline, `pledge` nuevo/reactivado/duplicado/deadline vencido/campaña cerrada, `cancelPledge`, `close` con fee por pledge y sin config de fee, `withComputedFields` en sus tres estados).
+- Validado end-to-end contra el backend en Docker: campaña con tramos 100→$5 / 500→$4 / 1000→$3, pledge de 300 + pledge de 250 de dos comercios distintos → `totalQuantity: 550`, `currentUnitPrice: 4`, `nextTier` correcto a 450 unidades del tramo de $3; cierre exitoso.
+- **Nota de proceso**: el commit original (`8889a3eb`) agregó service/controller/DTOs/migración pero el registro en `app.module.ts` y los modelos en `schema.prisma` no llegaron a persistirse en ese commit (la tabla ya existía en la DB por la migración, pero Prisma Client no la conocía) — causaba 404 y luego un 500 en runtime. Corregido reconstruyendo el schema a partir del DDL real ya aplicado, confirmando cero drift con `prisma migrate diff` antes de regenerar el cliente.
+
 ### Added — Business Shield: Purchasing Power (2026-09-21)
 
 Última pieza del núcleo del roadmap "WorkPlace Business Shield" (sección 7 del audit estratégico): "no debe pretender ser un índice oficial de inflación... debe representar el poder adquisitivo operativo del negocio."
