@@ -18,6 +18,7 @@ import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-f
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { WalletsService, InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
 import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
+import { CategoryScopeService } from '../../../common/category-scope/category-scope.service';
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util';
 import { fetchImageFromUrlSafely } from '../../../common/utils/safe-url-image-fetch.util';
 import { writeFile, mkdir } from 'fs/promises';
@@ -74,30 +75,53 @@ export class ServicesService {
     @Inject(PLATFORM_FEES_FACADE) private platformFees: PlatformFeesFacade,
     @Inject(PLAN_LIMITS_FACADE) private planLimits: PlanLimitsFacade,
     private wallets: WalletsService,
-    @Inject(REPUTATION_FACADE) private reputation: ReputationFacade
+    @Inject(REPUTATION_FACADE) private reputation: ReputationFacade,
+    private readonly categoryScope: CategoryScopeService
   ) {}
 
   // ─── Catalog (public) ─────────────────────────────────────────────────────
 
-  async getCatalogCategories() {
+  // `forCreation`: dos casos de uso distintos comparten este endpoint.
+  // - false (default, catálogo de búsqueda pública): solo categorías con al
+  //   menos un servicio ACTIVE — no tiene sentido ofrecer un filtro vacío.
+  // - true (selector del formulario "Nuevo Servicio"): sin ese filtro, para
+  //   no atraparse en un cold-start (una categoría recién habilitada para un
+  //   rubro nunca aparecería hasta que alguien publicara el primer servicio
+  //   ahí) — en su lugar se filtra por CategoryScopeService al rubro del
+  //   usuario, que es la restricción que sí aplica al publicar.
+  async getCatalogCategories(user?: { id: string; role: Role }, forCreation = false) {
+    const userCategoryId =
+      forCreation && user && user.role !== Role.SUPERADMIN && user.role !== Role.ADMIN
+        ? await this.categoryScope.getUserCategoryId(user.id)
+        : null;
+
     const cats = await this.prisma.serviceCategory.findMany({
-      where: { services: { some: { status: ServiceStatus.ACTIVE } } },
+      where: forCreation ? undefined : { services: { some: { status: ServiceStatus.ACTIVE } } },
       select: {
         id: true,
         name: true,
         color: true,
         icon: true,
+        userCategoryIds: true,
         _count: {
           select: { services: { where: { status: ServiceStatus.ACTIVE } } },
         },
       },
       orderBy: { name: 'asc' },
     });
+
+    const scoped =
+      forCreation && user && user.role !== Role.SUPERADMIN && user.role !== Role.ADMIN
+        ? this.categoryScope.filterByCategory(cats, userCategoryId)
+        : cats;
+
     return {
-      data: cats.map((c) => ({
-        ...c,
+      data: scoped.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        icon: c.icon,
         serviceCount: c._count.services,
-        _count: undefined,
       })),
     };
   }

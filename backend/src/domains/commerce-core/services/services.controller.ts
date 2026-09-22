@@ -59,10 +59,16 @@ export class ServicesController {
 
   // ─── Catalog (public) ─────────────────────────────────────────────────────
 
+  // forCreation=true: usado por el selector del formulario "Nuevo Servicio",
+  // no por la búsqueda pública — ver ServicesService.getCatalogCategories()
+  // para la diferencia entre ambos modos.
   @Get('catalog/categories')
   @UseGuards(OptionalJwtAuthGuard)
-  getCatalogCategories() {
-    return this.servicesService.getCatalogCategories();
+  getCatalogCategories(
+    @CurrentUser() user?: { id: string; role: Role },
+    @Query('forCreation') forCreation?: string
+  ) {
+    return this.servicesService.getCatalogCategories(user, forCreation === 'true');
   }
 
   @Get('catalog/tags')
