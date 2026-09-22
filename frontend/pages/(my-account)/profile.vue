@@ -73,7 +73,7 @@
 
         <ProfilePasswordCard @success="showSuccess" @error="showError" />
 
-        <ProfileActivationsCard />
+        <ProfileActivationsCard @success="showSuccess" @error="showError" />
 
         <ProfileSessionsCard @success="showSuccess" @error="showError" />
 
