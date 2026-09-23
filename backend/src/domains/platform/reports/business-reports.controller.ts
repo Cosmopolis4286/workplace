@@ -16,9 +16,17 @@ import { Role } from '@prisma/client';
 export class BusinessReportsController {
   constructor(private readonly reportsService: BusinessReportsService) {}
 
+  // SUPERADMIN/ADMIN siguen teniendo reports:view (a diferencia de orders:/
+  // customers:/etc., no se les quitó — ver ROLE_DEFAULTS en seed.js), pero no
+  // tienen un Commerce propio que resolver: se les devuelve el agregado de
+  // plataforma en el mismo endpoint en vez de duplicar la ruta para el
+  // frontend (mismo criterio que AnalyticsService.resolveStrategy).
   @Get('summary')
   @RequirePermission('reports:view')
   getSummary(@CurrentUser() user: { id: string; role: Role }) {
+    if (user.role === Role.SUPERADMIN || user.role === Role.ADMIN) {
+      return this.reportsService.getPlatformSummary();
+    }
     return this.reportsService.getSummary(user.id, user.role);
   }
 }

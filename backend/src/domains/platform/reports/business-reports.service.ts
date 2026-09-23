@@ -53,4 +53,18 @@ export class BusinessReportsService {
 
     return { isFreelancer: false, orders, expenses, employees };
   }
+
+  // SUPERADMIN/ADMIN: mismo reporte pero agregado sobre TODA la plataforma
+  // (todos los comercios) en vez de resolver un Commerce propio que no
+  // tienen. Gateado por platform:monitor, no por reports:view — ver
+  // ROLE_DEFAULTS en seed.js, que ya no concede reports:view a estos roles.
+  async getPlatformSummary() {
+    const [orders, expenses, employees] = await Promise.all([
+      this.ordersService.getPlatformStats(),
+      this.expensesService.getPlatformStats(),
+      this.employeesService.getPlatformStats(),
+    ]);
+
+    return { isFreelancer: false, orders, expenses, employees };
+  }
 }

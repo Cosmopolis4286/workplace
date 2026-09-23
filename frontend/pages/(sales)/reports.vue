@@ -2,7 +2,9 @@
   <div>
     <PageHeader
       title="Reportes del Negocio"
-      :description="isFreelancer ? 'Resumen ejecutivo de tus solicitudes de servicio' : 'Resumen ejecutivo de ventas, gastos y equipo'"
+      :description="isPlatformAdmin
+        ? 'Resumen ejecutivo agregado de toda la plataforma: ventas, gastos y equipo de todos los comercios'
+        : isFreelancer ? 'Resumen ejecutivo de tus solicitudes de servicio' : 'Resumen ejecutivo de ventas, gastos y equipo'"
       :icon="DocumentChartBarIcon"
       :breadcrumb="[{ label: 'Reportes' }]"
       :stats="headerStats"
@@ -101,6 +103,12 @@ const { user } = useAuth()
 // role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
 // (resuelto por el backend) es la fuente real.
 const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
+
+// SUPERADMIN/ADMIN no tienen un Commerce propio — GET /reports/summary ya
+// les devuelve el mismo contrato pero agregado sobre TODA la plataforma
+// (ver BusinessReportsService.getPlatformSummary). Acá solo se ajustan los
+// textos para reflejar que son cifras de toda la plataforma, no de "tu negocio".
+const isPlatformAdmin = computed(() => user.value?.role === 'SUPERADMIN' || user.value?.role === 'ADMIN')
 
 const loadingOrders    = ref(false)
 const loadingExpenses  = ref(false)

@@ -107,6 +107,51 @@ export class ExpensesService {
     };
   }
 
+  // Igual que getStats() pero agregado sobre TODOS los comercios, sin
+  // commerceId — para BusinessReportsService.getPlatformSummary() (SUPERADMIN/
+  // ADMIN, ver ese servicio para el porqué de esta versión separada).
+  async getPlatformStats() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    const [currentMonth, prevMonth, byStatus] = await Promise.all([
+      this.prisma.expense.aggregate({
+        where: { date: { gte: startOfMonth } },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      this.prisma.expense.aggregate({
+        where: { date: { gte: startOfPrevMonth, lte: endOfPrevMonth } },
+        _sum: { amount: true },
+      }),
+      this.prisma.expense.groupBy({
+        by: ['status'],
+        _sum: { amount: true },
+        _count: true,
+      }),
+    ]);
+
+    const statusMap = Object.fromEntries(
+      byStatus.map((s) => [s.status, { amount: s._sum.amount ?? 0, count: s._count }]),
+    );
+
+    const totalMonthly = currentMonth._sum.amount ?? 0;
+    const totalPrev = prevMonth._sum.amount ?? 0;
+    const changeVsPrev = totalPrev > 0 ? ((totalMonthly - totalPrev) / totalPrev) * 100 : 0;
+
+    return {
+      totalMonthly,
+      totalPrevMonth: totalPrev,
+      changeVsPrev: Math.round(changeVsPrev * 10) / 10,
+      pendingAmount: statusMap['PENDING']?.amount ?? 0,
+      paidAmount: statusMap['PAID']?.amount ?? 0,
+      overdueAmount: statusMap['OVERDUE']?.amount ?? 0,
+      totalCount: currentMonth._count,
+    };
+  }
+
   // ── Expenses CRUD ──────────────────────────────────────────────────────────
 
   async findAll(commerceId: string, query: QueryExpensesDto) {

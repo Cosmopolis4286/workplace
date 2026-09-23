@@ -60,6 +60,25 @@ export class EmployeesService {
     return { total, active, byRole };
   }
 
+  // Igual que getStats() pero agregado sobre TODOS los comercios — para
+  // BusinessReportsService.getPlatformSummary() (SUPERADMIN/ADMIN).
+  async getPlatformStats() {
+    const [total, active, byRoleRaw] = await Promise.all([
+      this.prisma.employee.count(),
+      this.prisma.employee.count({ where: { isActive: true } }),
+      this.prisma.employee.groupBy({
+        by: ['role'],
+        _count: { role: true },
+      }),
+    ]);
+
+    const byRole = Object.fromEntries(
+      byRoleRaw.map((r) => [r.role, r._count.role])
+    ) as Record<EmployeeRole, number>;
+
+    return { total, active, byRole };
+  }
+
   // ─── CRUD ───────────────────────────────────────────────────────────────────
 
   // Listado sin campos sensibles (salario, fecha de nacimiento, dirección,
