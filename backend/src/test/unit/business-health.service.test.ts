@@ -11,6 +11,7 @@ describe('BusinessHealthService', () => {
     commerceSettings: { findUnique: jest.fn() },
     accountReceivable: { findMany: jest.fn() },
     accountPayable: { findMany: jest.fn() },
+    commerce: { findMany: jest.fn() },
   }
 
   const commerceId = 'commerce-1'
@@ -23,6 +24,7 @@ describe('BusinessHealthService', () => {
     mockPrismaService.commerceSettings.findUnique.mockResolvedValue(null)
     mockPrismaService.accountReceivable.findMany.mockResolvedValue([])
     mockPrismaService.accountPayable.findMany.mockResolvedValue([])
+    mockPrismaService.commerce.findMany.mockResolvedValue([])
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -168,6 +170,69 @@ describe('BusinessHealthService', () => {
         const result = await service.getScore(commerceId)
         expect(result.rating).toBe(expectedRating)
       }
+    })
+  })
+
+  describe('getPlatformSummary (SUPERADMIN/ADMIN)', () => {
+    it('returns SIN_DATOS counts with zero commerces registered', async () => {
+      mockPrismaService.commerce.findMany.mockResolvedValue([])
+
+      const result = await service.getPlatformSummary()
+
+      expect(result.totalCommerces).toBe(0)
+      expect(result.counts).toEqual({
+        SALUDABLE: 0, ACEPTABLE: 0, EN_RIESGO: 0, CRITICO: 0, SIN_DATOS: 0,
+      })
+      expect(result.atRiskCommerces).toEqual([])
+      expect(result.truncated).toBe(false)
+    })
+
+    it('counts every commerce as SIN_DATOS when none has any recorded activity', async () => {
+      mockPrismaService.commerce.findMany.mockResolvedValue([
+        { id: 'c1', name: 'Comercio 1' },
+        { id: 'c2', name: 'Comercio 2' },
+      ])
+      // Sin compras/cuentas para ninguno -> getScore() por comercio da SIN_DATOS.
+      mockPrismaService.product.findMany.mockResolvedValue([])
+      mockPrismaService.accountReceivable.findMany.mockResolvedValue([])
+      mockPrismaService.accountPayable.findMany.mockResolvedValue([])
+
+      const result = await service.getPlatformSummary()
+
+      expect(result.totalCommerces).toBe(2)
+      expect(result.counts.SIN_DATOS).toBe(2)
+      expect(result.atRiskCommerces).toEqual([])
+    })
+
+    it('flags commerces with overdue payables as at-risk, sorted worst-first', async () => {
+      mockPrismaService.commerce.findMany.mockResolvedValue([
+        { id: 'c1', name: 'Comercio Sano' },
+        { id: 'c2', name: 'Comercio Crítico' },
+      ])
+      mockPrismaService.product.findMany.mockResolvedValue([])
+      mockPrismaService.accountReceivable.findMany.mockResolvedValue([])
+      // Mismo mock aplica a ambos comercios (no diferencia por commerceId) —
+      // representa el caso "ambos con cuentas por pagar 100% vencidas".
+      mockPrismaService.accountPayable.findMany.mockResolvedValue([
+        { dueDate: new Date(Date.now() - 86_400_000) },
+      ])
+
+      const result = await service.getPlatformSummary()
+
+      expect(result.totalCommerces).toBe(2)
+      expect(result.counts.CRITICO).toBe(2)
+      expect(result.atRiskCommerces).toHaveLength(2)
+      expect(result.atRiskCommerces.every((c) => c.rating === 'CRITICO')).toBe(true)
+    })
+
+    it('marks the result as truncated when hitting the commerce limit', async () => {
+      const many = Array.from({ length: 200 }, (_, i) => ({ id: `c${i}`, name: `Comercio ${i}` }))
+      mockPrismaService.commerce.findMany.mockResolvedValue(many)
+
+      const result = await service.getPlatformSummary()
+
+      expect(result.truncated).toBe(true)
+      expect(result.totalCommerces).toBe(200)
     })
   })
 })

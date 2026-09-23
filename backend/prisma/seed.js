@@ -209,6 +209,14 @@ const PERMISSIONS = [
   { key: 'reviews:moderate',         module: 'reviews',        action: 'moderate',      label: 'Moderar Reseñas Reportadas',   isSystem: true },
   { key: 'locations:view',           module: 'locations',      action: 'view',          label: 'Ver Catálogo de Ubicaciones (VE)', isSystem: true },
   { key: 'locations:manage',         module: 'locations',      action: 'manage',        label: 'Gestionar Catálogo de Ubicaciones (VE)', isSystem: true },
+  // Vistas agregadas de TODA la plataforma (todos los comercios/usuarios) —
+  // ej. /orders/platform-stats, /orders/platform-recent. Deliberadamente
+  // separado de orders:view/menu:view/etc: esos permisos siguen significando
+  // "gestiono MI comercio" y SUPERADMIN/ADMIN no tienen uno propio (ver
+  // ROLE_DEFAULTS más abajo, que los excluye a propósito). platform:monitor
+  // es de solo lectura y agregado, nunca gatea escritura sobre datos de un
+  // comercio específico.
+  { key: 'platform:monitor',         module: 'platform',       action: 'monitor',       label: 'Monitorear flujo agregado de la plataforma', isSystem: true },
 ]
 
 const COMMERCE_KEYS = [
@@ -271,6 +279,7 @@ const ROLE_DEFAULTS = {
     'reviews:moderate',
     'categories_user:manage',
     'locations:view', 'locations:manage',
+    'platform:monitor',
   ],
   // FREELANCER_KEYS es un proveedor de servicios independiente (Service/ServiceRequest),
   // no un comercio físico: NO hereda de COMMERCE_KEYS porque ese set trae

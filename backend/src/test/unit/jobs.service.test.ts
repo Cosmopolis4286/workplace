@@ -32,6 +32,7 @@ describe('JobsService', () => {
     mockPrismaService = {
       job: { create: jest.fn(), findUnique: jest.fn() },
       jobApplication: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+      jobCategory: { findMany: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() },
       user: { findUnique: jest.fn() },
     }
     mockPlanLimits = {
@@ -170,6 +171,46 @@ describe('JobsService', () => {
       await service.updateApplicationStatus(APPLICATION_ID, EMPLOYER_ID, 'SEEN' as any)
 
       expect(mockNotificationsService.notifyJobApplicationStatusChanged).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('admin categories CRUD', () => {
+    it('getAdminCategories devuelve todas las categorías sin filtrar por rubro', async () => {
+      mockPrismaService.jobCategory.findMany.mockResolvedValue([{ id: 'c1', name: 'Tecnología', userCategoryIds: [] }])
+
+      const result = await service.getAdminCategories()
+
+      expect(result).toEqual([{ id: 'c1', name: 'Tecnología', userCategoryIds: [] }])
+      expect(mockPrismaService.jobCategory.findMany).toHaveBeenCalledWith({ orderBy: { name: 'asc' } })
+    })
+
+    it('createCategory pasa el dto (incluido userCategoryIds) directo a Prisma', async () => {
+      const dto = { name: 'Tecnología', icon: '💻', userCategoryIds: ['uc-1'] }
+      mockPrismaService.jobCategory.create.mockResolvedValue({ id: 'c1', ...dto })
+
+      const result = await service.createCategory(dto)
+
+      expect(mockPrismaService.jobCategory.create).toHaveBeenCalledWith({ data: dto })
+      expect(result).toEqual({ id: 'c1', ...dto })
+    })
+
+    it('updateCategory permite actualizar solo userCategoryIds sin tocar el resto', async () => {
+      mockPrismaService.jobCategory.update.mockResolvedValue({ id: 'c1', userCategoryIds: ['uc-2'] })
+
+      await service.updateCategory('c1', { userCategoryIds: ['uc-2'] })
+
+      expect(mockPrismaService.jobCategory.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: { userCategoryIds: ['uc-2'] },
+      })
+    })
+
+    it('deleteCategory elimina por id', async () => {
+      mockPrismaService.jobCategory.delete.mockResolvedValue({ id: 'c1' })
+
+      await service.deleteCategory('c1')
+
+      expect(mockPrismaService.jobCategory.delete).toHaveBeenCalledWith({ where: { id: 'c1' } })
     })
   })
 })
