@@ -21,12 +21,20 @@ export interface BusinessHealthScore {
   components: BusinessHealthComponent[]
 }
 
+export interface PlatformHealthSummary {
+  totalCommerces: number
+  counts: Record<BusinessHealthRating, number>
+  atRiskCommerces: { commerceId: string; name: string; score: number | null; rating: BusinessHealthRating }[]
+  truncated: boolean
+}
+
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export function useBusinessHealth() {
   const { get } = useApi()
 
   const health = ref<BusinessHealthScore | null>(null)
+  const platformSummary = ref<PlatformHealthSummary | null>(null)
   const loading = ref(false)
 
   async function loadHealth() {
@@ -40,5 +48,18 @@ export function useBusinessHealth() {
     }
   }
 
-  return { health, loading, loadHealth }
+  // SUPERADMIN/ADMIN: resumen agregado (cuántos comercios por rating) en vez
+  // del score de un comercio propio, que no tienen.
+  async function loadPlatformSummary() {
+    loading.value = true
+    try {
+      platformSummary.value = await get<PlatformHealthSummary>('/business-health/platform-summary')
+    } catch {
+      platformSummary.value = null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  return { health, platformSummary, loading, loadHealth, loadPlatformSummary }
 }

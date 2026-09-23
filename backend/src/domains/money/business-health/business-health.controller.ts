@@ -9,7 +9,6 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
-@RequireAccountType('COMMERCE')
 @Controller('business-health')
 export class BusinessHealthController {
   constructor(
@@ -19,8 +18,17 @@ export class BusinessHealthController {
 
   @Get('score')
   @RequirePermission('dashboard:view')
+  @RequireAccountType('COMMERCE')
   async getScore(@CurrentUser() user: any) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.businessHealthService.getScore(commerceId);
+  }
+
+  // platform:monitor (no COMMERCE): resumen agregado para SUPERADMIN/ADMIN,
+  // ver comentario en BusinessHealthService.getPlatformSummary.
+  @Get('platform-summary')
+  @RequirePermission('platform:monitor')
+  getPlatformSummary() {
+    return this.businessHealthService.getPlatformSummary();
   }
 }

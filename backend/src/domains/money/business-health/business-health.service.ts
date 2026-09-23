@@ -65,6 +65,57 @@ export class BusinessHealthService {
     return 'CRITICO';
   }
 
+  // Vista de plataforma para SUPERADMIN/ADMIN: un admin no gestiona la salud
+  // financiera de UN comercio (eso es del dueño), pero sí necesita saber
+  // cuántos comercios están en riesgo para poder actuar (contactarlos,
+  // priorizar soporte, etc.) — un promedio único de "salud de la plataforma"
+  // no sería accionable. Reusa getScore() por comercio (misma lógica
+  // validada, sin duplicar los 4 componentes) en vez de recalcular
+  // agregados batch — aceptable mientras la cantidad de comercios sea
+  // moderada (tope de PLATFORM_SUMMARY_COMMERCE_LIMIT); si la plataforma
+  // crece a miles de comercios activos, esto debería migrar a queries
+  // agregadas nativas de Prisma en vez de N llamadas a getScore().
+  async getPlatformSummary() {
+    const PLATFORM_SUMMARY_COMMERCE_LIMIT = 200;
+
+    const commerces = await this.prisma.commerce.findMany({
+      select: { id: true, name: true },
+      take: PLATFORM_SUMMARY_COMMERCE_LIMIT,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const scores = await Promise.all(
+      commerces.map((c) => this.getScore(c.id)),
+    );
+
+    const counts: Record<string, number> = {
+      SALUDABLE: 0,
+      ACEPTABLE: 0,
+      EN_RIESGO: 0,
+      CRITICO: 0,
+      SIN_DATOS: 0,
+    };
+    const atRisk: { commerceId: string; name: string; score: number | null; rating: string }[] = [];
+
+    scores.forEach((s, i) => {
+      counts[s.rating] = (counts[s.rating] ?? 0) + 1;
+      if (s.rating === 'CRITICO' || s.rating === 'EN_RIESGO') {
+        atRisk.push({ commerceId: commerces[i].id, name: commerces[i].name, score: s.score, rating: s.rating });
+      }
+    });
+
+    return {
+      totalCommerces: commerces.length,
+      counts,
+      // Los primeros 10 en riesgo/crítico, ordenados por score ascendente
+      // (peor primero) para que el admin priorice a quién contactar.
+      atRiskCommerces: atRisk
+        .sort((a, b) => (a.score ?? 0) - (b.score ?? 0))
+        .slice(0, 10),
+      truncated: commerces.length === PLATFORM_SUMMARY_COMMERCE_LIMIT,
+    };
+  }
+
   // ── Margen de reposición promedio del comercio ──────────────────────────────
   // Compara, para cada producto con compras registradas, el margen sobre
   // costo de reposición (promedio de las últimas compras) contra su precio
