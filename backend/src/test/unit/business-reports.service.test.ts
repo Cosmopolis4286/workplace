@@ -11,17 +11,26 @@ import { PERMISSIONS_FACADE } from '../../domains/identity-access/permissions/pe
 
 describe('BusinessReportsService', () => {
   let service: BusinessReportsService
-  let ordersService: { getStats: jest.Mock }
-  let expensesService: { getStats: jest.Mock }
-  let employeesService: { getStats: jest.Mock }
+  let ordersService: { getStats: jest.Mock; getPlatformStats: jest.Mock }
+  let expensesService: { getStats: jest.Mock; getPlatformStats: jest.Mock }
+  let employeesService: { getStats: jest.Mock; getPlatformStats: jest.Mock }
   let servicesService: { getMyServiceRequestsStats: jest.Mock }
   let permissionsFacade: { hasEffectivePermission: jest.Mock }
   let accountTypeResolver: { resolve: jest.Mock }
 
   beforeEach(async () => {
-    ordersService = { getStats: jest.fn().mockResolvedValue({ totalOrders: 10 }) }
-    expensesService = { getStats: jest.fn().mockResolvedValue({ totalMonthly: 500 }) }
-    employeesService = { getStats: jest.fn().mockResolvedValue({ total: 3 }) }
+    ordersService = {
+      getStats: jest.fn().mockResolvedValue({ totalOrders: 10 }),
+      getPlatformStats: jest.fn().mockResolvedValue({ totalOrders: 1000 }),
+    }
+    expensesService = {
+      getStats: jest.fn().mockResolvedValue({ totalMonthly: 500 }),
+      getPlatformStats: jest.fn().mockResolvedValue({ totalMonthly: 50000 }),
+    }
+    employeesService = {
+      getStats: jest.fn().mockResolvedValue({ total: 3 }),
+      getPlatformStats: jest.fn().mockResolvedValue({ total: 300 }),
+    }
     servicesService = { getMyServiceRequestsStats: jest.fn().mockResolvedValue({ total: 7 }) }
     permissionsFacade = { hasEffectivePermission: jest.fn().mockResolvedValue(true) }
     accountTypeResolver = { resolve: jest.fn().mockResolvedValue('COMMERCE') }
@@ -72,5 +81,23 @@ describe('BusinessReportsService', () => {
     expect(result.orders).toEqual({ totalOrders: 10 })
     expect(result.expenses).toEqual({ totalMonthly: 500 })
     expect(employeesService.getStats).not.toHaveBeenCalled()
+  })
+
+  describe('getPlatformSummary (SUPERADMIN/ADMIN)', () => {
+    it('aggregates orders/expenses/employees across the whole platform, not a single commerce', async () => {
+      const result = await service.getPlatformSummary()
+
+      expect(result.isFreelancer).toBe(false)
+      expect(result.orders).toEqual({ totalOrders: 1000 })
+      expect(result.expenses).toEqual({ totalMonthly: 50000 })
+      expect(result.employees).toEqual({ total: 300 })
+      expect(ordersService.getPlatformStats).toHaveBeenCalled()
+      expect(expensesService.getPlatformStats).toHaveBeenCalled()
+      expect(employeesService.getPlatformStats).toHaveBeenCalled()
+      // No debe intentar resolver un Commerce propio para el admin.
+      expect(ordersService.getStats).not.toHaveBeenCalled()
+      expect(expensesService.getStats).not.toHaveBeenCalled()
+      expect(employeesService.getStats).not.toHaveBeenCalled()
+    })
   })
 })
