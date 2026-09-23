@@ -13,6 +13,7 @@ import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
 import { Prisma, SubscriptionStatus, KycStatus, BillingInterval, ProfileType, ProfessionalSubtype, ProfileStatus } from '@prisma/client';
 import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
+import { CategoryScopeService } from '../../../common/category-scope/category-scope.service';
 
 @Injectable()
 export class PlansService {
@@ -21,6 +22,7 @@ export class PlansService {
     private redis: RedisService,
     private readonly roleResolver: RoleResolverService,
     private readonly accountTypeResolver: AccountTypeResolver,
+    private readonly categoryScope: CategoryScopeService,
   ) {}
 
   // ─── Plans CRUD ──────────────────────────────────────────────────────────────
@@ -413,12 +415,10 @@ export class PlansService {
       orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],
     });
 
-    // Filter by business category when provided: a plan with no categoryIds
-    // is available to every category; otherwise the category must be listed.
+    // Filter by business category when provided — ver CategoryScopeService
+    // (única fuente de verdad de "vacío = visible para cualquier rubro").
     if (!categoryId) return plans;
-    return plans.filter(
-      (plan) => plan.categoryIds.length === 0 || plan.categoryIds.includes(categoryId)
-    );
+    return this.categoryScope.filterByField(plans, (plan) => plan.categoryIds, categoryId);
   }
 
   // Deriva el rol destino a partir de las banderas del plan

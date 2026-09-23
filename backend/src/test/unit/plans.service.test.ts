@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
 import { RoleResolverService } from '../../common/account-type/role-resolver.service'
 import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
+import { CategoryScopeService } from '../../common/category-scope/category-scope.service'
 import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common'
 
 describe('PlansService', () => {
@@ -63,6 +64,7 @@ describe('PlansService', () => {
         PlansService,
         RoleResolverService,
         AccountTypeResolver,
+        CategoryScopeService,
         {
           provide: PrismaService,
           useValue: mockPrismaService,
@@ -722,6 +724,44 @@ describe('updatePlan', () => {
       mockPrismaService.plan.create.mockRejectedValue(new Error('Invalid plan data'))
 
       await expect(service.createPlan(invalidPlanDto)).rejects.toThrow('Invalid plan data')
+    })
+  })
+
+  describe('getPublicPlans', () => {
+    function plan(overrides: Partial<any> = {}) {
+      return { id: 'p1', name: 'Pro', categoryIds: [], forFreelancer: true, forCommerce: true, forNormal: false, ...overrides }
+    }
+
+    it('returns a plan with no categoryIds regardless of the categoryId filter (visible to every rubro)', async () => {
+      mockPrismaService.plan.findMany.mockResolvedValue([plan({ categoryIds: [] })])
+
+      const result = await service.getPublicPlans(undefined, undefined, 'rubro-1')
+
+      expect(result).toHaveLength(1)
+    })
+
+    it('keeps a plan whose categoryIds includes the given categoryId', async () => {
+      mockPrismaService.plan.findMany.mockResolvedValue([plan({ categoryIds: ['rubro-1', 'rubro-2'] })])
+
+      const result = await service.getPublicPlans(undefined, undefined, 'rubro-1')
+
+      expect(result).toHaveLength(1)
+    })
+
+    it('drops a plan whose categoryIds does not include the given categoryId (CategoryScopeService.filterByField)', async () => {
+      mockPrismaService.plan.findMany.mockResolvedValue([plan({ categoryIds: ['rubro-2'] })])
+
+      const result = await service.getPublicPlans(undefined, undefined, 'rubro-1')
+
+      expect(result).toHaveLength(0)
+    })
+
+    it('returns all plans unfiltered when no categoryId is given', async () => {
+      mockPrismaService.plan.findMany.mockResolvedValue([plan({ categoryIds: ['rubro-2'] }), plan({ categoryIds: [] })])
+
+      const result = await service.getPublicPlans()
+
+      expect(result).toHaveLength(2)
     })
   })
 })

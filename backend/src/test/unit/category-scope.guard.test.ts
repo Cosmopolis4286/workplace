@@ -65,6 +65,29 @@ describe('CategoryScopeGuard', () => {
     expect(mockPrisma.serviceCategory.findUnique).not.toHaveBeenCalled()
   })
 
+  it('allows a partial update (PUT/PATCH) that omits categoryId, without validating scope', async () => {
+    // Caso real: UpdateServiceDto/UpdateJobDto son parciales (PartialType) —
+    // editar solo el precio de un servicio no debe disparar la validación
+    // de categoría solo porque el body trae otros campos.
+    reflector.getAllAndOverride.mockReturnValue(OPTIONS)
+
+    const result = await guard.canActivate(
+      buildContext({ price: 150, description: 'Actualizado' }, { id: 'u1', role: 'PROFESIONAL' }),
+    )
+
+    expect(result).toBe(true)
+    expect(mockPrisma.serviceCategory.findUnique).not.toHaveBeenCalled()
+  })
+
+  it('allows the request when categoryId is explicitly null (no intenta validar scope contra un id inexistente)', async () => {
+    reflector.getAllAndOverride.mockReturnValue(OPTIONS)
+
+    const result = await guard.canActivate(buildContext({ categoryId: null }, { id: 'u1', role: 'PROFESIONAL' }))
+
+    expect(result).toBe(true)
+    expect(mockPrisma.serviceCategory.findUnique).not.toHaveBeenCalled()
+  })
+
   it('rejects with false when there is no authenticated user', async () => {
     reflector.getAllAndOverride.mockReturnValue(OPTIONS)
 

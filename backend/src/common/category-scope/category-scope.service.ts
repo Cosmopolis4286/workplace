@@ -43,6 +43,16 @@ export class CategoryScopeService {
     return items.filter((item) => this.isVisibleForCategory(item.userCategoryIds, userCategoryId));
   }
 
+  /**
+   * Igual que `filterByCategory`, pero para modelos cuyo campo de scope no
+   * se llama `userCategoryIds` (ej. Plan.categoryIds, ya en producción antes
+   * de esta clase — no se renombró para evitar una migración de datos
+   * innecesaria). `getField` extrae el array de scope de cada ítem.
+   */
+  filterByField<T>(items: T[], getField: (item: T) => string[], userCategoryId: string | null | undefined): T[] {
+    return items.filter((item) => this.isVisibleForCategory(getField(item), userCategoryId));
+  }
+
   /** Resuelve el categoryId de negocio del usuario — punto único de lectura para no repetir `prisma.user.findUnique` en cada consumidor. */
   async getUserCategoryId(userId: string): Promise<string | null> {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { categoryId: true } });
