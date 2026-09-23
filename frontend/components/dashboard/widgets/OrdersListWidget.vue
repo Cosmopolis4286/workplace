@@ -35,6 +35,7 @@
         v-for="order in orders"
         :key="order.id"
         :order="order"
+        :readonly="readonly"
         @view-details="$emit('view-details', $event)"
         @status-change="$emit('status-change', $event)"
       />
@@ -56,11 +57,14 @@ interface Props {
   orders: Order[]
   loading?: boolean
   lastUpdated?: Date | null
+  /** Vista de plataforma (SUPERADMIN/ADMIN): oculta acciones de cambio de estado. */
+  readonly?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
   loading: false,
   lastUpdated: null,
+  readonly: false,
 })
 
 defineEmits<{

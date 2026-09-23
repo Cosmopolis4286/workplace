@@ -49,8 +49,8 @@
     <!-- Business Health Score: salud general del negocio (Business Shield) -->
     <BusinessHealthWidget v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
 
-    <!-- Purchasing Power: poder adquisitivo operativo (Business Shield) -->
-    <PurchasingPowerWidget v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
+    <!-- Purchasing Power: poder adquisitivo operativo (Business Shield) — no aplica a SUPERADMIN/ADMIN, que no tienen Commerce propio -->
+    <PurchasingPowerWidget v-if="!isPlatformAdmin && (canViewWidget('salesToday') || canViewWidget('activeOrders'))" />
 
     <!-- Alertas dinámicas (bajo stock, gastos vencidos, etc.) -->
     <DashboardAlerts v-if="canViewWidget('salesToday') || canViewWidget('activeOrders')" />
@@ -111,7 +111,7 @@
               v-if="item.id === 'salesToday'"
               :sales="kpis.salesToday"
               :change="kpis.salesTodayChange"
-              :label="PERIOD_SALES_LABELS[selectedPeriod]"
+              :label="isPlatformAdmin ? 'GMV Plataforma' : PERIOD_SALES_LABELS[selectedPeriod]"
               :loading="loading"
               :trend="trends?.salesToday ?? []"
             />
@@ -119,6 +119,7 @@
               v-else-if="item.id === 'activeOrders'"
               :count="kpis.activeOrders"
               :change="kpis.activeOrdersChange"
+              :label="isPlatformAdmin ? 'Pedidos activos (todos)' : 'Pedidos activos'"
               :loading="loading"
               :trend="trends?.activeOrders ?? []"
             />
@@ -141,7 +142,7 @@
               v-else-if="item.id === 'newCustomers'"
               :count="kpis.newCustomers"
               :change="kpis.newCustomersChange"
-              :label="PERIOD_CUSTOMERS_LABELS[selectedPeriod]"
+              :label="isPlatformAdmin ? 'Usuarios nuevos' : PERIOD_CUSTOMERS_LABELS[selectedPeriod]"
               :trend="trends?.newCustomers ?? []"
               :loading="loading"
             />
@@ -158,6 +159,7 @@
         :orders="activeOrders"
         :loading="loading"
         :last-updated="lastUpdated"
+        :readonly="isPlatformAdmin"
         @refresh="loadDashboard"
         @view-details="openDetail"
         @status-change="handleStatusChange"
@@ -199,13 +201,33 @@
 
     <!-- System Health - Solo SUPERADMIN -->
     <div v-if="canViewWidget('systemHealth')" class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6">
-      <div class="flex items-center gap-2.5 mb-3">
+      <div class="flex items-center gap-2.5 mb-4">
         <div class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-50">
           <ServerIcon class="h-4 w-4 text-purple-600" />
         </div>
         <h3 class="text-sm font-semibold text-gray-900 tracking-tight">Estado del sistema</h3>
       </div>
-      <p class="text-sm text-gray-400">Vista de administrador del sistema</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="text-center">
+          <p class="text-lg font-bold text-gray-900">{{ orderStats?.totalOrders ?? '—' }}</p>
+          <p class="text-[11px] text-gray-400 font-medium">Pedidos totales</p>
+        </div>
+        <div class="text-center">
+          <p class="text-lg font-bold text-gray-900">{{ kpis.activeOrders }}</p>
+          <p class="text-[11px] text-gray-400 font-medium">Pedidos activos</p>
+        </div>
+        <div class="text-center">
+          <p class="text-lg font-bold text-gray-900">{{ orderStats?.cancelledOrders ?? '—' }}</p>
+          <p class="text-[11px] text-gray-400 font-medium">Cancelados</p>
+        </div>
+        <div class="text-center">
+          <p class="text-lg font-bold text-gray-900">{{ kpis.newCustomers }}</p>
+          <p class="text-[11px] text-gray-400 font-medium">Usuarios nuevos</p>
+        </div>
+      </div>
+      <p class="text-xs text-gray-400 mt-4">
+        Actividad agregada de toda la plataforma · {{ lastUpdated ? formatLastUpdated() : 'cargando…' }}
+      </p>
     </div>
 
     <!-- Order Detail Modal -->
@@ -256,6 +278,7 @@ import OrderDetailModal from '~/components/modals/OrderDetailModal.vue'
 const {
   kpis,
   activeOrders,
+  orderStats,
   trends,
   loading,
   error,
@@ -263,6 +286,7 @@ const {
   loadDashboard,
   updateOrderStatus,
   markOrderPaid,
+  formatLastUpdated,
 } = useDashboard()
 
 // Selector de período
@@ -377,6 +401,13 @@ let refreshTimer: ReturnType<typeof setInterval>
 // role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
 // (resuelto por el backend) es la fuente real para esta distinción.
 const isFreelancerAccount = computed(() => user.value?.accountType === 'FREELANCER')
+
+// SUPERADMIN/ADMIN no tienen un Commerce propio: widgets como Poder
+// Adquisitivo (cesta de compras de UN comercio) no tienen un agregado de
+// plataforma con sentido de negocio, así que se ocultan directamente en vez
+// de mostrar datos vacíos/erróneos (ver BusinessHealthWidget para el caso
+// que sí tiene una vista de plataforma propia).
+const isPlatformAdmin = computed(() => userRole.value === 'SUPERADMIN' || userRole.value === 'ADMIN')
 
 onMounted(async () => {
   loadLayout()

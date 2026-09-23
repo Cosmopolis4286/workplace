@@ -385,10 +385,22 @@ export function getHeroConfig(role: UserRole, accountType?: AccountType | null):
   )
 }
 
+// Widgets con accountTypes: ['COMMERCE'] cuyo backend ahora también resuelve
+// datos agregados de TODA la plataforma para SUPERADMIN/ADMIN (ver
+// /orders/platform-stats, /orders/platform-recent y useDashboard.ts) — un
+// admin nunca tiene accountType COMMERCE/FREELANCER, así que sin esta
+// excepción matchesAccountType() los ocultaría siempre, aunque sí tengan
+// datos reales que mostrarle. lowStock queda afuera a propósito: es
+// puramente por-comercio, sin agregado de plataforma con sentido de negocio.
+const PLATFORM_AGGREGATED_WIDGET_IDS = new Set(['activeOrders', 'ordersList'])
+
 // Helper para verificar si un rol tiene acceso a un widget
 export function canAccessWidget(widgetId: string, role: UserRole, accountType?: AccountType | null): boolean {
   const widget = DASHBOARD_WIDGETS.find(w => w.id === widgetId)
-  return widget ? widget.roles.includes(role) && matchesAccountType(widget.accountTypes, accountType) : false
+  if (!widget) return false
+  if (!widget.roles.includes(role)) return false
+  if ((role === 'SUPERADMIN' || role === 'ADMIN') && PLATFORM_AGGREGATED_WIDGET_IDS.has(widgetId)) return true
+  return matchesAccountType(widget.accountTypes, accountType)
 }
 
 // Helper para verificar si un rol tiene acceso a una acción

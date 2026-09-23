@@ -4,7 +4,10 @@
     <div class="flex justify-between items-start mb-3">
       <div>
         <h3 class="text-sm font-semibold text-gray-900">{{ order.customerName }}</h3>
-        <p class="text-xs text-gray-400 mt-0.5">#{{ order.orderNumber }} · {{ formatTime(order.createdAt) }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">
+          #{{ order.orderNumber }} · {{ formatTime(order.createdAt) }}
+          <span v-if="order.commerce?.name"> · {{ order.commerce.name }}</span>
+        </p>
       </div>
       <span
         class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
@@ -53,7 +56,10 @@
 
     <!-- Actions -->
     <div class="flex items-center justify-between">
-      <div class="flex gap-1.5 flex-wrap">
+      <!-- readonly: vista de plataforma (SUPERADMIN/ADMIN) — un admin no
+           gestiona pedidos de un comercio ajeno, solo los monitorea. -->
+      <span v-if="readonly" class="text-[11px] text-gray-300">Solo lectura</span>
+      <div v-else class="flex gap-1.5 flex-wrap">
         <button
           v-for="next in (NEXT_STATUS[order.status] ?? [])"
           :key="next"
@@ -90,7 +96,7 @@ import {
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useUserPreferences } from '~/composables/users/useUserPreferences'
 
-const props = defineProps<{ order: Order }>()
+const props = defineProps<{ order: Order; readonly?: boolean }>()
 const { defaultRate } = useExchangeRates()
 const { formatCurrency: _fmt } = useUserPreferences()
 

@@ -70,6 +70,10 @@ export function useDashboard() {
     // role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
     // (resuelto por el backend, ver AccountTypeResolver) es la fuente real.
     const isFreelancer = user.value?.accountType === 'FREELANCER'
+    // SUPERADMIN/ADMIN no tienen Commerce propio — /orders, /orders/stats y
+    // /menu/products (por-comercio) no aplican. Usan las rutas de plataforma
+    // (platform:monitor) y /analytics/* ya agregado por PlatformAnalyticsStrategy.
+    const isPlatformAdmin = user.value?.role === 'SUPERADMIN' || user.value?.role === 'ADMIN'
 
     try {
       // Usuarios NORMAL no tienen commerceId — solo cargan sus propios pedidos via /orders/mine
@@ -81,6 +85,50 @@ export function useDashboard() {
           lowStockProducts: 0, lowStockChange: null,
           newCustomers: 0, newCustomersChange: null,
         }
+        lastUpdated.value = new Date()
+        return
+      }
+
+      if (isPlatformAdmin) {
+        const [recentRes, statsRes, analyticsRes, trendsRes] = await Promise.allSettled([
+          get<{ data: Order[]; total: number }>('/orders/platform-recent?limit=100'),
+          get<OrderStats>('/orders/platform-stats'),
+          get<any>(`/analytics/overview?period=${period}&compareWith=previous`),
+          get<DashboardTrends>('/analytics/dashboard-trends'),
+        ])
+
+        trends.value = trendsRes.status === 'fulfilled' ? trendsRes.value : null
+
+        const allActive: Order[] = recentRes.status === 'fulfilled' ? (recentRes.value?.data ?? []) : []
+        activeOrders.value = allActive.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+
+        if (statsRes.status === 'fulfilled') {
+          orderStats.value = statsRes.value
+        }
+
+        const analyticsData: any = analyticsRes.status === 'fulfilled' ? analyticsRes.value : null
+
+        kpis.value = {
+          salesToday:          analyticsData?.kpis?.totalRevenue ?? 0,
+          salesTodayChange:    analyticsData?.kpis?.totalRevenueChange ?? null,
+          activeOrders:        statsRes.status === 'fulfilled' ? (statsRes.value?.activeOrders ?? 0) : activeOrders.value.length,
+          activeOrdersChange:  analyticsData?.kpis?.totalOrdersChange ?? null,
+          // Bajo stock es por-comercio: no hay un agregado con sentido de
+          // negocio a nivel plataforma (ver dashboard.config.ts, que oculta
+          // este widget para SUPERADMIN/ADMIN).
+          lowStockProducts:    0,
+          lowStockChange:      null,
+          newCustomers:        analyticsData?.kpis?.newCustomers ?? 0,
+          newCustomersChange:  analyticsData?.kpis?.newCustomersChange ?? null,
+          avgPrepTime:         analyticsData?.performance?.operational?.avgPrepTime ?? 0,
+          avgDeliveryTime:     analyticsData?.performance?.operational?.avgDeliveryTime ?? 0,
+          customerSatisfaction: analyticsData?.performance?.operational?.cancellationRate != null
+            ? Math.max(0, 100 - analyticsData.performance.operational.cancellationRate)
+            : 0,
+        }
+
         lastUpdated.value = new Date()
         return
       }
