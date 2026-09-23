@@ -26,6 +26,8 @@ export interface CommerceInfo {
   description?: string | null
   isPublic?: boolean
   socialLinks?: SocialLinks | null
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface SlugAvailability {
@@ -67,6 +69,8 @@ export interface FreelancerSettingsData {
   disabledModules: string[]
   slug?: string | null
   slugUpdatedAt?: string | null
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface FullSettings {
@@ -252,6 +256,28 @@ export const useSettings = () => {
     }
   }
 
+  // ─── Ubicación base para MatchingService (distanceScore) ───────────────────
+
+  async function saveLocation(data: { latitude: number; longitude: number }): Promise<boolean> {
+    saving.value = 'location'
+    error.value = null
+    try {
+      const updated = await patch<CommerceInfo | FreelancerSettingsData>('/settings/location', data)
+      if (commerce.value) {
+        commerce.value = { ...commerce.value, ...updated }
+      } else {
+        settings.value = { ...settings.value!, ...updated }
+      }
+      showSuccess('Ubicación guardada')
+      return true
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar la ubicación'
+      return false
+    } finally {
+      saving.value = null
+    }
+  }
+
   // ─── Module settings (self-service opt-out) ─────────────────────────────────
 
   async function loadModuleSettings(): Promise<{ availableModules: string[]; disabledModules: string[] } | null> {
@@ -297,6 +323,7 @@ export const useSettings = () => {
     saveOperationSettings,
     savePriceGuardSettings,
     saveNotificationSettings,
+    saveLocation,
     loadModuleSettings,
     saveModuleSettings,
   }

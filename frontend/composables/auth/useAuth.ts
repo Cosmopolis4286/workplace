@@ -47,6 +47,10 @@ export interface User {
   city?: string
   municipality?: string
   parish?: string
+  // Ubicación fijada en un selector de mapa, para MatchingService
+  // (distanceScore en /search/suggest) — ver LocationPickerMap.vue.
+  latitude?: number | null
+  longitude?: number | null
   twoFactorEnabled?: boolean
   profileSettings?: {
     showCatalog: boolean
@@ -96,6 +100,10 @@ interface UpdateProfilePayload {
   city?: string
   municipality?: string
   parish?: string
+  // Ubicación fijada en un selector de mapa, para MatchingService
+  // (distanceScore en /search/suggest) — ver LocationPickerMap.vue.
+  latitude?: number
+  longitude?: number
 }
 
 interface ChangePasswordPayload {

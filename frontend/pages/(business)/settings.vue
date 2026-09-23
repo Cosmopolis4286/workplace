@@ -27,6 +27,7 @@
         <UserPreferencesCard @saved="showUserToast" />
         <UserNotificationsCard />
         <UserPrivacyCard />
+        <LocationPreferenceCard @saved="showUserToast" />
         <LocalDataCard @cleared="showUserToast" />
         <AboutCard :email="user?.email" :role-label="roleLabel" />
       </div>
@@ -130,6 +131,13 @@
 
         <AlertRulesSettingsCard v-if="isCommerce" />
 
+        <LocationSettingsCard
+          :latitude="locationOwner?.latitude"
+          :longitude="locationOwner?.longitude"
+          :saving="saving === 'location'"
+          @save="saveLocation"
+        />
+
         <!-- Financiamiento (Cashea / Krece) -->
         <BnplSettingsSection />
       </div>
@@ -165,6 +173,7 @@ import BnplSettingsSection from '~/components/settings/BnplSettingsSection.vue'
 import UserPreferencesCard from '~/components/settings/UserPreferencesCard.vue'
 import UserNotificationsCard from '~/components/settings/UserNotificationsCard.vue'
 import UserPrivacyCard from '~/components/settings/UserPrivacyCard.vue'
+import LocationPreferenceCard from '~/components/settings/LocationPreferenceCard.vue'
 import LocalDataCard from '~/components/settings/LocalDataCard.vue'
 import AboutCard from '~/components/settings/AboutCard.vue'
 import CommerceInfoCard from '~/components/settings/CommerceInfoCard.vue'
@@ -173,6 +182,7 @@ import BusinessNotificationsCard from '~/components/settings/BusinessNotificatio
 import PaymentSettingsCard from '~/components/settings/PaymentSettingsCard.vue'
 import OperationsSettingsCard from '~/components/settings/OperationsSettingsCard.vue'
 import PriceGuardSettingsCard from '~/components/settings/PriceGuardSettingsCard.vue'
+import LocationSettingsCard from '~/components/settings/LocationSettingsCard.vue'
 import AlertRulesSettingsCard from '~/components/settings/AlertRulesSettingsCard.vue'
 import AppLockCard from '~/components/settings/AppLockCard.vue'
 import { useSettings, type CommerceSettings, type FreelancerSettingsData } from '~/composables/commerce/useSettings'
@@ -220,7 +230,13 @@ const {
   saveOperationSettings: saveOperationSettingsApi,
   savePriceGuardSettings: savePriceGuardSettingsApi,
   saveNotificationSettings: saveNotificationSettingsApi,
+  saveLocation: saveLocationApi,
 } = useSettings()
+
+// Ubicación base para MatchingService — vive en Commerce (COMMERCE) o
+// FreelancerSettings (FREELANCER), mismo endpoint PATCH /settings/location
+// resuelve cuál de los dos según el tipo de cuenta.
+const locationOwner = computed(() => (isFreelancer.value ? freelancerSettings.value : commerce.value))
 
 // OperationsSettingsCard solo se muestra cuando isComidaCategory, y esa categoría
 // implica accountType COMMERCE (no FREELANCER) — settings siempre es CommerceSettings ahí.
@@ -232,6 +248,7 @@ const freelancerSettings = computed(() => settings.value as FreelancerSettingsDa
 async function saveCommerceInfo(form: Record<string, unknown>) { await saveCommerceInfoApi(form) }
 async function saveCommerceSlug(slug: string) { await saveCommerceSlugApi(slug) }
 async function saveFreelancerSlug(slug: string) { await saveFreelancerSlugApi(slug) }
+async function saveLocation(data: { latitude: number; longitude: number }) { await saveLocationApi(data) }
 async function savePaymentSettings(form: Record<string, unknown>) { await savePaymentSettingsApi(form) }
 async function saveOperationSettings(form: Record<string, unknown>) { await saveOperationSettingsApi(form) }
 async function savePriceGuardSettings(form: { targetMarginPct: number; minMarginPct: number }) { await savePriceGuardSettingsApi(form) }

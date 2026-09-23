@@ -2,7 +2,9 @@
   <div>
     <PageHeader
       title="Analytics Dashboard"
-      :description="isFreelancer ? 'Análisis profundo del rendimiento de tus servicios' : 'Análisis profundo del rendimiento de tu negocio'"
+      :description="isPlatformAdmin
+        ? 'Análisis agregado de toda la plataforma (todos los comercios y usuarios)'
+        : isFreelancer ? 'Análisis profundo del rendimiento de tus servicios' : 'Análisis profundo del rendimiento de tu negocio'"
       :icon="ChartBarIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
@@ -61,7 +63,7 @@
     <!-- KPI Cards -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       <StatsCard
-        title="Ingresos Totales"
+        :title="isPlatformAdmin ? 'GMV Plataforma' : 'Ingresos Totales'"
         :value="overview ? formatCurrency(overview.kpis.totalRevenue) : '—'"
         :icon="CurrencyDollarIcon"
         variant="success"
@@ -69,7 +71,7 @@
         :period="compareWith !== 'none' ? 'vs anterior' : undefined"
       />
       <StatsCard
-        :title="isFreelancer ? 'Solicitudes' : 'Pedidos'"
+        :title="isPlatformAdmin ? 'Pedidos (todos)' : isFreelancer ? 'Solicitudes' : 'Pedidos'"
         :value="overview ? formatNumber(overview.kpis.totalOrders) : '—'"
         :icon="ShoppingCartIcon"
         variant="info"
@@ -83,7 +85,7 @@
         :change="overview?.kpis.avgTicketChange ?? null"
       />
       <StatsCard
-        title="Nuevos Clientes"
+        :title="isPlatformAdmin ? 'Nuevos Usuarios' : 'Nuevos Clientes'"
         :value="overview ? formatNumber(overview.kpis.newCustomers) : '—'"
         :icon="UsersIcon"
         variant="purple"
@@ -127,7 +129,7 @@
       <!-- Top Products/Services -->
       <div class="card p-4 sm:p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-medium text-gray-900">{{ isFreelancer ? 'Servicios Más Solicitados' : 'Productos Más Vendidos' }}</h3>
+          <h3 class="text-lg font-medium text-gray-900">{{ isPlatformAdmin ? 'Productos Más Vendidos (plataforma)' : isFreelancer ? 'Servicios Más Solicitados' : 'Productos Más Vendidos' }}</h3>
         </div>
         <div class="h-64 sm:h-80">
           <BarChart v-if="topProductsChartData" :data="topProductsChartData" />
@@ -138,7 +140,7 @@
       <!-- Customer Segments: no aplica a freelancers (no hay modelo Customer con segmentación) -->
       <div v-if="!isFreelancer" class="card p-4 sm:p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-medium text-gray-900">Segmentos de Clientes</h3>
+          <h3 class="text-lg font-medium text-gray-900">{{ isPlatformAdmin ? 'Segmentos de Clientes (plataforma)' : 'Segmentos de Clientes' }}</h3>
         </div>
         <div class="h-64 sm:h-80">
           <DoughnutChart v-if="customerSegmentsChartData" :data="customerSegmentsChartData" />
@@ -215,8 +217,13 @@
         <h3 class="text-lg font-medium text-gray-900 mb-4">Salud Financiera</h3>
         <div class="space-y-4">
           <MetricRow
+            v-if="isPlatformAdmin"
+            label="Comercios Activos"
+            :value="formatNumber(overview.performance.financial.activeCommerces ?? 0)"
+          />
+          <MetricRow
             v-if="!isFreelancer"
-            label="Margen Bruto (promedio)"
+            :label="isPlatformAdmin ? 'Margen Bruto (promedio plataforma)' : 'Margen Bruto (promedio)'"
             :value="`${overview.performance.financial.grossMargin}%`"
             :value-class="overview.performance.financial.grossMargin >= 50 ? 'text-green-600' : 'text-yellow-600'"
           />
@@ -332,6 +339,12 @@ const {
 // (resuelto por el backend) es la fuente real.
 const { user } = useAuth()
 const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
+
+// SUPERADMIN/ADMIN no tienen un comercio propio: el backend
+// (PlatformAnalyticsStrategy) les agrega los mismos campos del contrato
+// pero sobre TODA la plataforma (todos los comercios/usuarios), no "mi
+// negocio" — acá solo se ajustan los textos para reflejar eso.
+const isPlatformAdmin = computed(() => user.value?.role === 'SUPERADMIN' || user.value?.role === 'ADMIN')
 
 const { formatDate, formatNumber } = useDateFormat()
 

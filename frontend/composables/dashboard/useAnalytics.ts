@@ -47,6 +47,8 @@ export interface FinancialMetrics {
   avgTicket: number
   totalRevenue: number
   totalOrders: number
+  /** Solo presente cuando el usuario es SUPERADMIN/ADMIN (vista de plataforma). */
+  activeCommerces?: number
 }
 
 export interface PerformanceMetrics {
