@@ -49,7 +49,16 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend + frontend, ver sección 5.6).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend + frontend, ver sección 5.6), **Matching Inteligente** (backend + frontend, ver sección 5.7).
+
+### 5.7 Matching Inteligente (2026-09-22)
+
+Segunda pieza de la Fase 3 ("Network"): ranking de comercios/profesionales combinando 4 señales en vez de solo precio/rating.
+
+- **`MatchingService.rankCandidates()`**: precio (más barato=100) + distancia real (Haversine, satura a 0 más allá de 30km) + reputación (reutiliza `ReputationService`, no la recalcula) + disponibilidad, con el score final **penalizado por confidence** para que menos señales nunca gane a más señales con score comparable.
+- Ubicación real nueva (no existía): `Commerce`/`FreelancerSettings`/`User.latitude/longitude`, fijada en un mapa interactivo (Leaflet), sin geocoding automático.
+- `SearchService.suggest()` reordena productos/servicios por `matchScore` cuando el comprador tiene ubicación fijada (best-effort, nunca rompe la búsqueda si falla). Endpoint standalone `POST /api/matching/rank` para el futuro AI Orchestrator.
+- 11 tests unitarios. Validado end-to-end: mismo producto/precio en 2 comercios, el que está a 400m del comprador salió primero (`matchScore 75`) sobre el que está a 505km (`matchScore 46`).
 
 ### 5.6 Group Buying B2B (2026-09-22)
 
@@ -155,7 +164,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 743 tests unitarios backend, todos pasando (`npx jest`).
+- 795 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.
@@ -169,6 +178,6 @@ Ver `WORKPLACE_VISION.md` para el detalle completo. Resumen de las piezas más g
 - **Presupuesto inteligente + "Mi mes"**: análisis de gasto, predicción de necesidades recurrentes, alertas de exceso de presupuesto, oportunidades de ahorro.
 - **WorkPlace Score**: reputación más profunda que estrellas (puntualidad, finalización, cancelaciones, clientes recurrentes), usada para matching y confianza.
 - **Pago protegido**: retención de pago hasta confirmación del cliente, con sistema de disputas.
-- **Matching inteligente**: no solo por precio — distancia, disponibilidad, reputación, historial, especialidad.
+- ~~Matching inteligente~~: primera versión implementada 2026-09-22, ver sección 5.7 (precio+distancia+reputación+disponibilidad). Pendiente: historial/tasa de cancelación como señal propia (hoy solo se usa indirectamente vía reputación) y especialidad/preferencias explícitas del usuario.
 - **Modelo de negocio objetivo**: combinación de suscripciones (comercios, profesionales, usuarios finales) + tasas por operación, apuntando a ~$500/mes iniciales sin depender solo de SaaS.
 - **Diferencial estratégico**: no competir como un vertical más (Uber, iFood, Fiverr, portal de empleo) sino integrar las categorías bajo una sola experiencia de "decime qué necesitás y cuánto podés gastar".

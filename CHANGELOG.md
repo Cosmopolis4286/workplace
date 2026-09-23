@@ -4,6 +4,20 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Fase 3 (Network): Matching Inteligente (2026-09-22)
+
+Segunda pieza de la Fase 3 del roadmap ("Network"): ranking de comercios/profesionales por precio + distancia + reputación + disponibilidad, en vez de solo texto/rating (sección 12 del audit estratégico).
+
+- **`MatchingService.rankCandidates(candidates, { origin })`**: recibe candidatos `COMMERCE`/`PROFESSIONAL` ya resueltos por el caller y devuelve un ranking 0-100 combinando 4 señales — reputación (`ReputationService.getScore`, ya existente, solo se consume), precio (más barato = 100, el doble del mínimo = 0), distancia (Haversine real, satura a 0 más allá de 30km) y disponibilidad (producto en stock / servicio `ACTIVE`).
+- **El score final se penaliza por `confidence`** (fracción de señales realmente disponibles): sin este factor, un candidato con una sola señal perfecta (ej. solo "disponible") podía superar a otro con más señales pero ninguna perfecta, porque el promedio ponderado normaliza por peso disponible sin considerar cuántas faltan. Con la penalización, menos datos nunca gana a más datos con score comparable.
+- **Ubicación real agregada** (no existía): `Commerce.latitude/longitude`, `FreelancerSettings.latitude/longitude`, `User.latitude/longitude` — fijadas manualmente en un selector de mapa (Leaflet + OpenStreetMap, sin geocoding automático), no derivadas de país/ciudad/estado.
+- **`SearchService.suggest()`** ahora reordena productos/servicios por `matchScore` cuando el comprador tiene coordenadas fijadas — best-effort: si el ranking falla, devuelve el orden original sin romper la búsqueda. Empleos mantienen su orden (MatchingService solo conoce COMMERCE/PROFESSIONAL).
+- Fórmula Haversine deduplicada: extraída a `common/utils/geo.util.ts`, reutilizada tanto por `MatchingService` como por `routing.service.ts` (antes duplicada).
+- Endpoint standalone `POST /api/matching/rank`, pensado para el futuro AI Orchestrator (recibe candidatos + origin, devuelve el ranking) — no depende de productos/servicios, reutilizable desde cualquier dominio.
+- **Frontend**: `LocationPickerMap.vue` (mapa interactivo, clic o arrastre de marcador, botón "usar mi ubicación actual"), `LocationSettingsCard.vue` (Commerce/FreelancerSettings, en Settings de negocio) y `LocationPreferenceCard.vue` (User, en preferencias personales).
+- Tests: 11 casos de `MatchingService` (precio, distancia con saturación a 30km, reputación, disponibilidad, confidence, penalización del score, ordenamiento).
+- Validado end-to-end en Docker: dos comercios con el mismo producto al mismo precio, uno a 400m del comprador y otro a 505km — el cercano resultó primero (`matchScore: 75` vs `46`) en `/search/suggest`.
+
 ### Added — Fase 3 (Network): Group Buying B2B (2026-09-22)
 
 Primera pieza de la Fase 3 del roadmap ("Network"), fuera del núcleo de Business Shield: compra agrupada entre comercios para acceder a mejores precios por volumen.
