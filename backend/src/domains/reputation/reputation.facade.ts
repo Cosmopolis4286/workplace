@@ -3,7 +3,7 @@ import { ReputationEntityType } from '@prisma/client';
 export interface ReputationScoreView {
   score: number;
   sampleSize: number;
-  breakdown: Record<string, number>;
+  breakdown: Record<string, number | null>;
   calculatedAt: Date;
 }
 
