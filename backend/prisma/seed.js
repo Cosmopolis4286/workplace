@@ -253,13 +253,32 @@ const COMMERCE_KEYS = [
   'catalog:view', 'catalog:manage_orders',
 ]
 
+// customers:/sales: se excluyen acá también (mismo criterio: un admin no
+// tiene Commerce propio) pero ADMIN sigue recibiendo *:view de ambos más
+// abajo — el resto de sus acciones (create/edit/delete) sí quedan afuera,
+// porque la vista de plataforma es de solo lectura/monitoreo, nunca
+// gestión de datos de un comercio ajeno (ver PlatformCustomersService /
+// PlatformSalesService, gateados por platform:monitor, no por
+// customers:view/sales:view).
 const ADMIN_KEYS = COMMERCE_KEYS.filter(
   k => !k.startsWith('menu:') && !k.startsWith('inventory:') && !k.startsWith('services:') && !k.startsWith('service_requests:') && !k.startsWith('orders:') && !k.startsWith('jobs:')
+    && !k.startsWith('appointments:') && !k.startsWith('delivery:') && !k.startsWith('cash:')
+    && !k.startsWith('suppliers:') && !k.startsWith('purchases:') && !k.startsWith('accounts:')
+    && !k.startsWith('employees:') && !k.startsWith('branches:') && !k.startsWith('expenses:')
+    && !k.startsWith('customers:') && !k.startsWith('sales:')
 )
 
 const ROLE_DEFAULTS = {
+  // Mismo criterio que ADMIN_KEYS: SUPERADMIN tampoco tiene un Commerce
+  // propio. customers:/sales: quedan afuera también — SUPERADMIN monitorea
+  // esos datos vía platform:monitor (PlatformCustomersService/
+  // PlatformSalesService), no vía los permisos por-comercio.
   SUPERADMIN: PERMISSIONS.map(p => p.key).filter(k =>
     !k.startsWith('services:') && !k.startsWith('service_requests:') && !k.startsWith('orders:') && !k.startsWith('jobs:')
+    && !k.startsWith('appointments:') && !k.startsWith('delivery:') && !k.startsWith('cash:')
+    && !k.startsWith('suppliers:') && !k.startsWith('purchases:') && !k.startsWith('accounts:')
+    && !k.startsWith('employees:') && !k.startsWith('branches:') && !k.startsWith('expenses:')
+    && !k.startsWith('customers:') && !k.startsWith('sales:')
   ),
   ADMIN: [
     ...ADMIN_KEYS, 

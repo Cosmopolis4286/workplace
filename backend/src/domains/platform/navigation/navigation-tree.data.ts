@@ -9,8 +9,11 @@ import { NavItemDef, NavSectionDef } from './navigation.types';
  * NavigationService.getRouteMaps().
  */
 export const EXTRA_PROTECTED_ROUTES: NavItemDef[] = [
+  // excludeRoles SUPERADMIN/ADMIN: Gastos es de UN comercio (Commerce.id
+  // real) — un admin no tiene Commerce propio, ver el mismo comentario en
+  // la sección 'operations' más abajo para el detalle del bug que esto evita.
   { id: 'expenses', to: '/expenses', label: 'Gastos', icon: 'cash', order: 0,
-    condition: { permission: 'expenses:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+    condition: { permission: 'expenses:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
   { id: 'customer-dashboard', to: '/customer-dashboard', label: 'Mi Panel', icon: 'dashboard', order: 0,
     condition: { permission: 'orders:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
 ];
@@ -96,26 +99,35 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     items: [
       { id: 'orders', to: '/orders', label: 'Pedidos', icon: 'orders', order: 0,
         condition: { permission: 'orders:view', requiresModule: true, excludeRoles: [Role.NORMAL], excludeAccountTypes: ['FREELANCER'] } },
+      // excludeRoles SUPERADMIN/ADMIN en appointments/delivery/cash-register/
+      // suppliers/purchases/accounts/group-buying: son módulos de UN comercio
+      // (Commerce.id real). Un admin no tiene Commerce propio — antes de este
+      // fix, commerceResolver.resolve(adminUserId) hacía fallback silencioso a
+      // adminUserId como "commerceId" (ver CommerceResolverService.resolve) y
+      // estas páginas cargaban siempre vacías para un admin, sin error visible.
+      // 'customers' y 'sales' se excluyen igual por ahora: tendrán una vista
+      // agregada de plataforma propia (ver PlatformCustomersService/
+      // PlatformSalesService) en vez de ocultarse permanentemente.
       { id: 'appointments', to: '/appointments', label: 'Agendamientos', icon: 'appointments', order: 1,
-        condition: { permission: 'appointments:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'appointments:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       { id: 'customers', to: '/customers', label: 'Clientes', icon: 'customers', order: 2,
-        condition: { permission: 'customers:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'customers:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       { id: 'delivery', to: '/delivery', label: 'Delivery', icon: 'delivery', order: 3,
-        condition: { permission: 'delivery:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'delivery:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       { id: 'cash-register', to: '/cash-register', label: 'Caja', icon: 'cash', order: 4,
-        condition: { permission: 'cash:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'cash:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       // Business Shield (WORKPLACE_VISION.md §4-12): costo de reposición,
       // comparación de proveedores y riesgo de reposición sobre fiado.
       { id: 'suppliers', to: '/suppliers', label: 'Proveedores', icon: 'suppliers', order: 5,
-        condition: { permission: 'suppliers:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'suppliers:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       { id: 'purchases', to: '/purchases', label: 'Compras', icon: 'purchases', order: 6,
-        condition: { permission: 'purchases:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'purchases:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       { id: 'accounts', to: '/accounts', label: 'Cuentas por Cobrar/Pagar', icon: 'accounts', order: 7,
-        condition: { permission: 'accounts:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'accounts:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       // Fase 3 (Network): reutiliza el permiso purchases:view — mismo modulo
       // habilitado por plan/categoria, sin agregar un tercer "techo" nuevo.
       { id: 'group-buying', to: '/group-buying', label: 'Compra Agrupada', icon: 'purchases', order: 8,
-        condition: { permission: 'purchases:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'purchases:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
     ],
   },
   {
@@ -125,7 +137,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     flat: false,
     items: [
       { id: 'employees', to: '/employees', label: 'Empleados', icon: 'employees', order: 0,
-        condition: { permission: 'employees:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'employees:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       // Movido desde la sección "top": conceptualmente es gestión de
       // personal (publicar/ver vacantes propias), igual que Empleados —
       // antes vivía suelto junto a Oportunidades sin relación visual.
@@ -138,7 +150,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
       { id: 'jobs', to: '/jobs', label: 'Empleos', icon: 'jobs', order: 1,
         condition: { permission: 'jobs:view', requiresModule: true, requiresAnyModule: ['employees'] } },
       { id: 'branches', to: '/branches', label: 'Sucursales', icon: 'branches', order: 2,
-        condition: { permission: 'branches:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'] } },
+        condition: { permission: 'branches:view', requiresModule: true, excludeAccountTypes: ['FREELANCER'], excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
     ],
   },
   // "Administración" se dividió en 4 secciones hermanas (antes 13 ítems
