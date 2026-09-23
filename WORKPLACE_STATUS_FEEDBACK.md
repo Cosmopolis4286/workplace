@@ -49,7 +49,18 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend + frontend, ver sección 5.6), **Matching Inteligente** (backend + frontend, ver sección 5.7).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend + frontend, ver sección 5.6), **Matching Inteligente** (backend + frontend, ver sección 5.7), **WorkPlace Score — satisfacción + recurrencia** (backend, ver sección 5.8 — pendiente de validar end-to-end).
+
+### 5.8 WorkPlace Score: satisfacción + clientes recurrentes (2026-09-23)
+
+Tercera pieza de la Fase 3, extiende `ReputationService` (que hasta ahora solo medía cumplimiento operacional) hacia el "WorkPlace Score" completo de la sección 10 del audit.
+
+- **`satisfactionRate`** (Review.rating normalizado 0-1) y **`repeatCustomerRate`** (% de clientes/solicitantes con ≥2 transacciones) agregados como señales nuevas, con exclusión honesta (`null`) cuando faltan — no se aproximan con otra señal.
+- Pesos redistribuidos: completion 30%, no-cancelación 20%, puntualidad 15%, no-disputa 15%, satisfacción 15%, recurrencia 5%.
+- `confidenceMultiplier` ahora penaliza también señales faltantes (no solo volumen bajo), mismo criterio que `MatchingService` — evita que una entidad sin reviews aparente la misma confianza que una con las 6 señales.
+- `DRIVER` sin `satisfactionRate`/`repeatCustomerRate` reales todavía (Review no referencia Driver; las asignaciones son del comercio, no clientes propios).
+- 18 tests unitarios nuevos (`ReputationService` no tenía ninguno).
+- **⚠️ Pendiente**: no se validó end-to-end contra el backend real (Docker Desktop no estaba disponible al cerrar esta fase). Antes de dar la fase por cerrada, correr un caso real: comercio con reviews + clientes recurrentes debe mostrar un score consistentemente mayor que uno idéntico sin esos datos.
 
 ### 5.7 Matching Inteligente (2026-09-22)
 
@@ -164,7 +175,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 795 tests unitarios backend, todos pasando (`npx jest`).
+- 819 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.
@@ -176,7 +187,7 @@ Ver `WORKPLACE_VISION.md` para el detalle completo. Resumen de las piezas más g
 - **AI Agent orquestador**: interpretar necesidades del usuario en lenguaje natural y coordinar automáticamente búsqueda, selección, operación y pago entre comercios/profesionales del ecosistema. Arquitectura propuesta: Nuxt → NestJS → AI Orchestrator (TypeScript, no Python para el MVP) → LLM → herramientas que llaman a la API de NestJS (el agente no escribe directo a la DB).
 - **Compra/servicio compuesto**: una necesidad del usuario resuelta por múltiples proveedores a la vez (ej. organizar un evento), sentido como una sola experiencia aunque sean varias órdenes internamente.
 - **Presupuesto inteligente + "Mi mes"**: análisis de gasto, predicción de necesidades recurrentes, alertas de exceso de presupuesto, oportunidades de ahorro.
-- **WorkPlace Score**: reputación más profunda que estrellas (puntualidad, finalización, cancelaciones, clientes recurrentes), usada para matching y confianza.
+- ~~WorkPlace Score~~: satisfacción + clientes recurrentes implementados 2026-09-23 (ver sección 5.8), sin validar end-to-end todavía. Pendiente real: puntualidad (hoy sigue siendo un proxy de completion, no un dato temporal real — requeriría SLA/hora esperada vs. real en Order/ServiceRequest/Delivery).
 - **Pago protegido**: retención de pago hasta confirmación del cliente, con sistema de disputas.
 - ~~Matching inteligente~~: primera versión implementada 2026-09-22, ver sección 5.7 (precio+distancia+reputación+disponibilidad). Pendiente: historial/tasa de cancelación como señal propia (hoy solo se usa indirectamente vía reputación) y especialidad/preferencias explícitas del usuario.
 - **Modelo de negocio objetivo**: combinación de suscripciones (comercios, profesionales, usuarios finales) + tasas por operación, apuntando a ~$500/mes iniciales sin depender solo de SaaS.

@@ -4,6 +4,18 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Fase 3 (Network): WorkPlace Score — satisfacción + clientes recurrentes (2026-09-23)
+
+Tercera pieza de la Fase 3 del roadmap ("Network"): el `ReputationService` (sección 10 del audit estratégico) medía solo cumplimiento operacional (completion/cancellation/dispute rate) — nunca si al cliente le gustó ni si vuelve. Se agregaron las dos señales que le faltaban para acercarse al "WorkPlace Score" de la visión.
+
+- **`satisfactionRate`**: promedio de `Review.rating` (1-5, no ocultas) del dueño de la entidad, normalizado a 0-1, calculado directo desde `Review` en vez de depender de `Commerce.avgRating` (que es no-op para `PROFESSIONAL`, sin Commerce propio).
+- **`repeatCustomerRate`**: % de clientes/solicitantes con ≥2 transacciones — `Customer` con ≥2 `Order` para `COMMERCE`, `User` (`ServiceRequest.requesterId`) con ≥2 solicitudes para `PROFESSIONAL`. Reemplaza la ausencia total de cálculo automático (`CustomerSegment` VIP/PREMIUM/REGULAR/NEW seguía siendo 100% manual, sin relación con este número).
+- **Pesos redistribuidos**: completion 30% (antes 40%), no-cancelación 20% (antes 25%), puntualidad 15% (antes 20%), no-disputa 15% (sin cambio), satisfacción 15% (nuevo), clientes recurrentes 5% (nuevo).
+- **`confidenceMultiplier` ahora también penaliza señales faltantes**, no solo volumen bajo: antes solo dependía de `sampleSize/CONFIDENCE_FLOOR`; ahora se multiplica además por la fracción de señales realmente disponibles (`dataConfidence`) — mismo criterio ya validado en `MatchingService` esta misma fase, para que una entidad sin reviews/clientes recurrentes no aparente la misma confianza que una con las 6 señales.
+- `DRIVER` no tiene `satisfactionRate` (Review no lo referencia, solo referencia `User.id`) ni `repeatCustomerRate` (las asignaciones son del comercio, no "clientes propios" del driver) — ambos quedan `null`, excluidos honestamente del promedio.
+- Tests: 18 casos nuevos (`ReputationService` no tenía ninguno hasta ahora) cubriendo los 3 `entityType`, normalización de rating, exclusión de clientes sin `requesterId`/`customerId`, y el caso explícito de que más señales reales nunca pierde contra una sola señal perfecta.
+- **Pendiente de validar end-to-end** contra el backend real en Docker (Docker Desktop no estaba disponible al cerrar esta fase) — próxima sesión debe confirmar con datos reales antes de dar por cerrada la fase.
+
 ### Added — Fase 3 (Network): Matching Inteligente (2026-09-22)
 
 Segunda pieza de la Fase 3 del roadmap ("Network"): ranking de comercios/profesionales por precio + distancia + reputación + disponibilidad, en vez de solo texto/rating (sección 12 del audit estratégico).
