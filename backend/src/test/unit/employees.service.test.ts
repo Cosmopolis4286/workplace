@@ -323,4 +323,27 @@ describe('EmployeesService', () => {
       })
     })
   })
+
+  describe('getPlatformStats (SUPERADMIN/ADMIN)', () => {
+    it('aggregates employee counts across ALL commerces, without a commerceId filter', async () => {
+      mockPrismaService.employee.count
+        .mockResolvedValueOnce(1000)
+        .mockResolvedValueOnce(850)
+      mockPrismaService.employee.groupBy.mockResolvedValue([
+        { role: 'CASHIER', _count: { role: 500 } },
+        { role: 'MANAGER', _count: { role: 150 } },
+      ])
+
+      const result = await service.getPlatformStats()
+
+      expect(result).toEqual({
+        total: 1000,
+        active: 850,
+        byRole: { CASHIER: 500, MANAGER: 150 },
+      })
+      expect(mockPrismaService.employee.count).toHaveBeenCalledWith()
+      const groupByArgs = mockPrismaService.employee.groupBy.mock.calls[0][0]
+      expect(groupByArgs.where).toBeUndefined()
+    })
+  })
 })
