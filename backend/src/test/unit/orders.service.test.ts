@@ -193,6 +193,63 @@ describe('OrdersService', () => {
     })
   })
 
+  describe('getPlatformStats (SUPERADMIN/ADMIN)', () => {
+    it('aggregates order statistics across ALL commerces, without a commerceId filter', async () => {
+      mockPrismaService.order.count.mockResolvedValue(500)
+      mockPrismaService.order.groupBy.mockResolvedValue([
+        { status: 'PENDING', _count: 40 },
+        { status: 'DELIVERED', _count: 400 },
+        { status: 'CANCELLED', _count: 60 },
+      ])
+      mockPrismaService.order.aggregate
+        .mockResolvedValueOnce({ _sum: { total: 100000 } })
+        .mockResolvedValueOnce({ _avg: { total: 250 } })
+
+      const result = await service.getPlatformStats()
+
+      expect(result).toEqual({
+        totalOrders: 500,
+        activeOrders: 40,
+        pendingOrders: 40,
+        completedOrders: 400,
+        cancelledOrders: 60,
+        monthlyRevenue: 100000,
+        avgTicket: 250,
+      })
+      expect(mockPrismaService.order.count).toHaveBeenCalledWith()
+      const groupByArgs = mockPrismaService.order.groupBy.mock.calls[0][0]
+      expect(groupByArgs.where).toBeUndefined()
+    })
+  })
+
+  describe('getPlatformRecent (SUPERADMIN/ADMIN)', () => {
+    it('returns active orders across the platform with the commerce name attached', async () => {
+      mockPrismaService.order.findMany.mockResolvedValue([
+        { id: 'o1', status: 'PENDING', items: [{ id: 'i1' }], commerce: { id: 'c1', name: 'Comercio Uno' } },
+      ])
+      mockPrismaService.order.count.mockResolvedValue(1)
+
+      const result = await service.getPlatformRecent(10)
+
+      expect(result.total).toBe(1)
+      expect(result.data[0]).toMatchObject({ id: 'o1', itemCount: 1, commerce: { name: 'Comercio Uno' } })
+      const findManyArgs = mockPrismaService.order.findMany.mock.calls[0][0]
+      expect(findManyArgs.where).not.toHaveProperty('commerceId')
+      expect(findManyArgs.take).toBe(10)
+    })
+
+    it('clamps the limit to the [1, 50] range', async () => {
+      mockPrismaService.order.findMany.mockResolvedValue([])
+      mockPrismaService.order.count.mockResolvedValue(0)
+
+      await service.getPlatformRecent(500)
+      expect(mockPrismaService.order.findMany.mock.calls[0][0].take).toBe(50)
+
+      await service.getPlatformRecent(-5)
+      expect(mockPrismaService.order.findMany.mock.calls[1][0].take).toBe(1)
+    })
+  })
+
   describe('create', () => {
     it('should create a new order successfully', async () => {
       const commerceId = 'commerce-123'
