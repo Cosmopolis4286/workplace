@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { SYSTEM_MODULES_FACADE } from '../../domains/platform/system-modules/system-modules.facade'
+import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
 import { ForbiddenException } from '@nestjs/common'
 import { Role } from '@prisma/client'
 
@@ -17,6 +18,10 @@ describe('PlanLimitsService', () => {
     employee: { count: jest.fn() },
     branch: { count: jest.fn() },
     order: { count: jest.fn() },
+    // AccountTypeResolver.resolve() — por defecto sin perfiles ACTIVE de
+    // negocio (accountType null), los tests que necesiten FREELANCER lo
+    // sobreescriben explícitamente.
+    userProfile: { findMany: jest.fn().mockResolvedValue([]) },
   }
 
   const mockSystemModulesService = {
@@ -45,6 +50,7 @@ describe('PlanLimitsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PlanLimitsService,
+        AccountTypeResolver,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: SYSTEM_MODULES_FACADE, useValue: mockSystemModulesService },
       ],
@@ -139,6 +145,53 @@ describe('PlanLimitsService', () => {
       // incluya orders/delivery.
       expect(limits.effectiveModules).toEqual(['dashboard', 'menu'])
       expect(limits.categoryName).toBe('Servicios')
+    })
+
+    it('widens a "comercio" category (no services) with the service-provider base modules for a FREELANCER/SERVICE_PROVIDER user', async () => {
+      // Caso real: comidarapida@demo.com — categoría "Comida" (techo 100%
+      // comercio, sin services/jobs) pero el usuario es SERVICE_PROVIDER, sin
+      // Commerce. Sin este ensanchado, su plan "Pro" (que sí incluye
+      // services) nunca se lo otorgaba porque la categoría lo filtraba.
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: 'cat-comida' })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Pro',
+          maxProducts: 50, maxEmployees: 5, maxBranches: 2, maxOrders: 500, maxStorage: 1000,
+          enabledModules: ['dashboard', 'menu', 'services', 'jobs'],
+        },
+      })
+      mockPrismaService.userCategory.findUnique
+        .mockResolvedValueOnce({ allowedModules: ['dashboard', 'menu'] }) // Comida: sin services/jobs
+        .mockResolvedValueOnce({ name: 'Comida' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
+      // Un UserProfile PROFESSIONAL ACTIVE => AccountTypeResolver.resolve() = 'FREELANCER'
+      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'PROFESSIONAL' }])
+
+      const limits = await service.getPlanLimits(userId)
+
+      expect(limits.effectiveModules).toEqual(expect.arrayContaining(['dashboard', 'menu', 'services', 'jobs']))
+    })
+
+    it('does NOT widen the category for a COMMERCE user in the same category (no gana módulos extra)', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: 'cat-comida' })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Pro',
+          maxProducts: 50, maxEmployees: 5, maxBranches: 2, maxOrders: 500, maxStorage: 1000,
+          enabledModules: ['dashboard', 'menu', 'services', 'jobs'],
+        },
+      })
+      mockPrismaService.userCategory.findUnique
+        .mockResolvedValueOnce({ allowedModules: ['dashboard', 'menu'] })
+        .mockResolvedValueOnce({ name: 'Comida' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
+      // Un UserProfile BUSINESS ACTIVE => AccountTypeResolver.resolve() = 'COMMERCE'
+      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'BUSINESS' }])
+
+      const limits = await service.getPlanLimits(userId)
+
+      expect(limits.effectiveModules).toEqual(['dashboard', 'menu'])
+      expect(limits.effectiveModules).not.toContain('services')
     })
   })
 

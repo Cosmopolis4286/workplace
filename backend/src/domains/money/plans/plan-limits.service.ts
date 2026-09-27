@@ -3,6 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { Role, ServiceStatus, JobStatus } from '@prisma/client';
 import { SystemModulesFacade, SYSTEM_MODULES_FACADE } from '../../platform/system-modules/system-modules.facade';
 import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
+import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 
 // AppModule ya no es un union type cerrado — el catálogo de módulos de
 // negocio ahora es dinámico (tabla SystemModule, isBusinessModule=true),
@@ -39,6 +40,20 @@ const FREE_MODULES = [
   'service_requests',
   'wallets',
 ];
+// "Techo" mínimo de un FREELANCER/SERVICE_PROVIDER, sin importar qué
+// UserCategory eligió — la categoría describe QUÉ vende (comida, diseño,
+// plomería...), no CÓMO opera (con o sin Commerce físico). Categorías como
+// "Comida"/"Comercio" tienen un allowedModules pensado 100% para comercio
+// físico (menu/inventory/orders), porque nacieron asumiendo que todo usuario
+// ahí es COMMERCE — pero un freelancer que vende comida a domicilio sin
+// local también puede elegir esa categoría (ver seed.js, comidarapida@demo.com).
+// Sin esto, ese caso quedaba con un sidebar vacío de "services" aunque su
+// plan sí lo incluyera, porque intersectWithCategory() nunca se lo otorgaba.
+// Unión (no reemplazo) con category.allowedModules: un COMMERCE en la misma
+// categoría no gana nada nuevo, solo se amplía el techo para quien no tiene
+// Commerce.
+const SERVICE_PROVIDER_BASE_MODULES = ['services', 'service_requests', 'jobs', 'appointments'];
+
 const FREE_LIMITS: PlanLimits = {
   maxProducts: 10,
   maxEmployees: 1,
@@ -58,7 +73,8 @@ const FREE_LIMITS: PlanLimits = {
 export class PlanLimitsService implements PlanLimitsFacade {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(SYSTEM_MODULES_FACADE) private readonly systemModulesService: SystemModulesFacade
+    @Inject(SYSTEM_MODULES_FACADE) private readonly systemModulesService: SystemModulesFacade,
+    private readonly accountTypeResolver: AccountTypeResolver,
   ) {}
 
   // ─── Core: plan limits + effective modules ──────────────────────────────────
@@ -124,7 +140,8 @@ export class PlanLimitsService implements PlanLimitsFacade {
     // Intersect with category allowed modules
     const categoryFiltered = await this.intersectWithCategory(
       planModules,
-      user?.categoryId ?? null
+      user?.categoryId ?? null,
+      userId,
     );
 
     // Intersect with the commerce's own self-service opt-outs
@@ -180,15 +197,18 @@ export class PlanLimitsService implements PlanLimitsFacade {
       orderBy: { createdAt: 'desc' },
     });
     const planModules = sub?.plan.enabledModules ?? FREE_MODULES;
-    const categoryFiltered = await this.intersectWithCategory(planModules, user?.categoryId ?? null);
+    const categoryFiltered = await this.intersectWithCategory(planModules, user?.categoryId ?? null, userId);
     return categoryFiltered.filter((m) => !globallyDisabled.includes(m));
   }
 
-  // Returns plan.enabledModules ∩ category.allowedModules
-  // If user has no category, returns plan modules unchanged (no restriction)
+  // Returns plan.enabledModules ∩ (category.allowedModules ∪ techo de
+  // servicios si el usuario es FREELANCER/SERVICE_PROVIDER — ver
+  // SERVICE_PROVIDER_BASE_MODULES). Si el usuario no tiene categoría,
+  // devuelve los módulos del plan sin restricción.
   private async intersectWithCategory(
     planModules: string[],
-    categoryId: string | null
+    categoryId: string | null,
+    userId: string,
   ): Promise<string[]> {
     if (!categoryId) return planModules;
 
@@ -200,7 +220,12 @@ export class PlanLimitsService implements PlanLimitsFacade {
     // If category has no allowedModules defined, no restriction
     if (!category || category.allowedModules.length === 0) return planModules;
 
-    return planModules.filter((m) => category.allowedModules.includes(m));
+    const accountType = await this.accountTypeResolver.resolve(userId);
+    const categoryModules = accountType === 'FREELANCER'
+      ? [...new Set([...category.allowedModules, ...SERVICE_PROVIDER_BASE_MODULES])]
+      : category.allowedModules;
+
+    return planModules.filter((m) => categoryModules.includes(m));
   }
 
   // Removes modules the commerce itself chose to hide from its own sidebar.

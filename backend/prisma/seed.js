@@ -72,9 +72,12 @@ const DEMO_USERS = [
     country: 'Venezuela', state: 'Zulia', municipality: 'Maracaibo', city: 'Maracaibo', parish: 'Bolívar',
   },
   {
+    // SERVICE_PROVIDER (no FREELANCER): prepara y entrega comida — trabajo
+    // presencial, no remoto. Mismo criterio que costura@demo.com/
+    // delivery@demo.com (ver esos registros).
     role: Role.PROFESIONAL,
     profileType: ProfileType.PROFESSIONAL,
-    subtype: ProfessionalSubtype.FREELANCER,
+    subtype: ProfessionalSubtype.SERVICE_PROVIDER,
     email: 'comidarapida@demo.com',
     password: 'C0m1d4R4p!d4#26',
     firstName: 'María',
@@ -1260,6 +1263,13 @@ async function seedUserCategories() {
 // rubro de origen claro, dejarlo vacío sería repetir el catálogo genérico
 // que causaba el bug original).
 const SERVICE_CATEGORIES = [
+  // "Comida" es techo-de-comercio por defecto (menu/inventory/orders), pero
+  // PlanLimitsService.intersectWithCategory() lo amplía con el techo de
+  // servicios para todo FREELANCER/SERVICE_PROVIDER sin Commerce (ver
+  // comidarapida@demo.com) — sin estas dos entradas, ese caso veía el
+  // módulo 'services' habilitado pero el selector de categoría vacío.
+  { name: 'Comida por Encargo', icon: '🍱', userCategories: ['Comida'] },
+  { name: 'Catering a Domicilio', icon: '🥡', userCategories: ['Comida'] },
   { name: 'Desarrollo Web', icon: '🌐', userCategories: ['Tecnología'] },
   { name: 'Apps Móviles', icon: '📱', userCategories: ['Tecnología'] },
   { name: 'Soporte IT', icon: '🖥️', userCategories: ['Tecnología'] },
@@ -1306,8 +1316,10 @@ const SERVICE_CATEGORIES = [
 ]
 
 // Empleos aplica a cualquier rubro que contrate personal, incluidos Comida
-// y Comercio (sin módulo 'services' pero sí 'employees') — a diferencia de
-// SERVICE_CATEGORIES, esta lista cubre las 15 UserCategory.
+// y Comercio (siempre tienen 'employees'; 'services' ahora también puede
+// aplicarles vía el ensanchado por accountType — ver SERVICE_CATEGORIES) —
+// a diferencia de SERVICE_CATEGORIES (antes solo 13/15 rubros, ahora las 15),
+// esta lista siempre cubrió las 15 UserCategory.
 const JOB_CATEGORIES = [
   { name: 'Cocina y Servicio', icon: '🍽️', userCategories: ['Comida'] },
   { name: 'Desarrollo de Software', icon: '💻', userCategories: ['Tecnología'] },
