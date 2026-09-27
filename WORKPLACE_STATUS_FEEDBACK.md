@@ -49,7 +49,18 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend + frontend, ver sección 5.6), **Matching Inteligente** (backend + frontend, ver sección 5.7), **WorkPlace Score — satisfacción + recurrencia** (backend, ver sección 5.8 — pendiente de validar end-to-end).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend + frontend, ver sección 5.6), **Matching Inteligente** (backend + frontend, ver sección 5.7), **WorkPlace Score — satisfacción + recurrencia** (backend, ver sección 5.8 — pendiente de validar end-to-end), **Pago Protegido / Escrow genérico** (backend, ver sección 5.9).
+
+### 5.9 Pago Protegido / Escrow genérico (2026-09-27)
+
+Cuarta pieza de la Fase 3: generaliza el escrow de `ServiceRequest` a un modelo reutilizable (`Escrow`) y lo activa en `CatalogOrder`.
+
+- **`EscrowService`** envuelve `WalletsService.holdEscrow/releaseEscrow/refundEscrow` sin tocar su lógica atómica — agrega la proyección `Escrow` consultable por `entityType`/`entityId`. `ServicesService` migrado a usarlo en sus 6 puntos de escrow, comportamiento 100% preservado (mismos tests en verde).
+- **`CatalogOrder` ahora procesa el primer pago real de ese flujo**: `CommerceSettings.requiresEscrowForCatalogOrders` (opt-in del comercio). Retiene al crear (falla si no hay saldo, antes de tocar stock), libera al confirmar (con comisión), reembolsa al cancelar (nuevo `CatalogOrderStatus.CANCELLED`).
+- **Bug crítico preexistente encontrado y corregido**: `WalletsService` usaba `UPDATE "Wallet"` en SQL crudo (nombre del modelo, no de la tabla real `wallets`) — Postgres case-sensitive lo rechazaba con error 42P01. **Todas** las operaciones de wallet vía SQL crudo (deposit, withdraw, transfer, payment, adjust, escrow) estaban rotas en runtime, nunca detectado porque nunca se habían ejercitado con datos reales en este ambiente. Corregido en las 13 ocurrencias.
+- 18 tests nuevos (`EscrowService` + `CatalogService`). Validado end-to-end en Docker con dinero real: retención, liberación al comercio y reembolso al comprador, saldos verificados en Postgres.
+- `ServiceRequest` sigue leyendo sus propios campos de escrow (no migrado a leer desde `Escrow`) — decisión deliberada por el riesgo de su flujo con 15 puntos y edge cases finos ya probados; sí escribe en `Escrow` como proyección.
+- `Order` (POS interno) queda fuera de escrow a propósito: usa `Customer` sin cuenta ni wallet.
 
 ### 5.8 WorkPlace Score: satisfacción + clientes recurrentes (2026-09-23)
 
@@ -175,7 +186,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 819 tests unitarios backend, todos pasando (`npx jest`).
+- 849 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.
@@ -188,7 +199,7 @@ Ver `WORKPLACE_VISION.md` para el detalle completo. Resumen de las piezas más g
 - **Compra/servicio compuesto**: una necesidad del usuario resuelta por múltiples proveedores a la vez (ej. organizar un evento), sentido como una sola experiencia aunque sean varias órdenes internamente.
 - **Presupuesto inteligente + "Mi mes"**: análisis de gasto, predicción de necesidades recurrentes, alertas de exceso de presupuesto, oportunidades de ahorro.
 - ~~WorkPlace Score~~: satisfacción + clientes recurrentes implementados 2026-09-23 (ver sección 5.8), sin validar end-to-end todavía. Pendiente real: puntualidad (hoy sigue siendo un proxy de completion, no un dato temporal real — requeriría SLA/hora esperada vs. real en Order/ServiceRequest/Delivery).
-- **Pago protegido**: retención de pago hasta confirmación del cliente, con sistema de disputas.
+- ~~Pago protegido~~: implementado 2026-09-27 para CatalogOrder (ver sección 5.9), validado end-to-end con dinero real. Pendiente real: sistema de disputas (hoy solo hay reembolso/liberación binarios, sin mediación cuando comprador y comercio no acuerdan) y extender a Group Buying si el negocio lo pide.
 - ~~Matching inteligente~~: primera versión implementada 2026-09-22, ver sección 5.7 (precio+distancia+reputación+disponibilidad). Pendiente: historial/tasa de cancelación como señal propia (hoy solo se usa indirectamente vía reputación) y especialidad/preferencias explícitas del usuario.
 - **Modelo de negocio objetivo**: combinación de suscripciones (comercios, profesionales, usuarios finales) + tasas por operación, apuntando a ~$500/mes iniciales sin depender solo de SaaS.
 - **Diferencial estratégico**: no competir como un vertical más (Uber, iFood, Fiverr, portal de empleo) sino integrar las categorías bajo una sola experiencia de "decime qué necesitás y cuánto podés gastar".
