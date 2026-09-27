@@ -4,11 +4,16 @@ import { ProductStatus } from '@prisma/client'
 import { CatalogService } from '../../domains/commerce-core/catalog/catalog.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
+import { EscrowFacade, ESCROW_FACADE } from '../../domains/money/escrow/escrow.facade'
+import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../domains/money/platform-fees/platform-fees.facade'
+import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallets.service'
 
 describe('CatalogService', () => {
   let service: CatalogService
   let mockPrismaService: any
   let mockNotificationsService: Partial<NotificationsService>
+  let mockEscrowService: Partial<EscrowFacade>
+  let mockPlatformFeesService: Partial<PlatformFeesFacade>
 
   const REQUESTER_ID = 'requester-1'
   const PRODUCT_ID = 'product-1'
@@ -60,12 +65,24 @@ describe('CatalogService', () => {
       notifyNewCatalogOrder: jest.fn().mockResolvedValue(undefined),
       notifyLowStock: jest.fn().mockResolvedValue(undefined),
     }
+    mockEscrowService = {
+      hold: jest.fn().mockResolvedValue({}),
+      release: jest.fn().mockResolvedValue({}),
+      refund: jest.fn().mockResolvedValue({}),
+    }
+    mockPlatformFeesService = {
+      resolveFeeConfig: jest.fn().mockResolvedValue(null),
+      calculateFee: jest.fn(),
+      chargeProviderFee: jest.fn().mockResolvedValue(null),
+    }
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CatalogService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: ESCROW_FACADE, useValue: mockEscrowService },
+        { provide: PLATFORM_FEES_FACADE, useValue: mockPlatformFeesService },
       ],
     }).compile()
 
@@ -206,6 +223,197 @@ describe('CatalogService', () => {
       await service.createOrder(baseDto() as any, REQUESTER_ID)
 
       expect(mockNotificationsService.notifyLowStock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('createOrder — Pago Protegido (escrow)', () => {
+    function setupHappyPath() {
+      mockPrismaService.product.findMany.mockImplementation(({ select }: any) =>
+        Promise.resolve(select?.minStock ? [{ id: PRODUCT_ID, minStock: 5, name: 'Torta de chocolate' }] : [baseProduct()])
+      )
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
+      mockPrismaService.catalogOrder.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: data.id, ...data, items: data.items.create })
+      )
+    }
+
+    it('does nothing with escrow when the commerce did not activate requiresEscrowForCatalogOrders', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1', settings: { requiresEscrowForCatalogOrders: false } })
+      setupHappyPath()
+
+      await service.createOrder(baseDto() as any, REQUESTER_ID)
+
+      expect(mockEscrowService.hold).not.toHaveBeenCalled()
+    })
+
+    it('holds the escrow before touching stock when the commerce requires it', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1', settings: { requiresEscrowForCatalogOrders: true } })
+      setupHappyPath()
+
+      const result = await service.createOrder(baseDto() as any, REQUESTER_ID)
+
+      expect(mockEscrowService.hold).toHaveBeenCalledWith(
+        expect.objectContaining({ entityType: 'CATALOG_ORDER', payerId: REQUESTER_ID, payeeId: 'owner-1', deltaAmount: 50 }),
+      )
+      expect(result.data.escrowStatus).toBe('HELD')
+      expect(result.data.escrowAmount).toBe(50)
+    })
+
+    it('rejects with BadRequestException (not the raw wallet error) when the buyer has insufficient funds', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1', settings: { requiresEscrowForCatalogOrders: true } })
+      mockPrismaService.product.findMany.mockResolvedValue([baseProduct()])
+      ;(mockEscrowService.hold as jest.Mock).mockRejectedValue(new InsufficientEscrowFundsError('no funds'))
+
+      await expect(service.createOrder(baseDto() as any, REQUESTER_ID)).rejects.toBeInstanceOf(BadRequestException)
+      expect(mockPrismaService.catalogOrder.create).not.toHaveBeenCalled()
+    })
+
+    it('never creates an order for an anonymous buyer when the commerce requires escrow', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1', settings: { requiresEscrowForCatalogOrders: true } })
+      mockPrismaService.product.findMany.mockResolvedValue([baseProduct()])
+
+      await expect(service.createOrder(baseDto() as any, undefined as any)).rejects.toBeInstanceOf(BadRequestException)
+      expect(mockEscrowService.hold).not.toHaveBeenCalled()
+    })
+
+    it('refunds the escrow if the stock transaction fails after the hold already succeeded', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1', settings: { requiresEscrowForCatalogOrders: true } })
+      mockPrismaService.product.findMany.mockResolvedValue([baseProduct()])
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 0 }) // stock insuficiente, detectado DESPUÉS del hold
+
+      await expect(service.createOrder(baseDto() as any, REQUESTER_ID)).rejects.toBeInstanceOf(BadRequestException)
+
+      expect(mockEscrowService.hold).toHaveBeenCalled()
+      expect(mockEscrowService.refund).toHaveBeenCalledWith(
+        expect.objectContaining({ entityType: 'CATALOG_ORDER', payerId: REQUESTER_ID, amount: 50 }),
+      )
+    })
+
+    it('adds the platform fee on top of the escrow amount when the fee payer is CLIENT', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1', settings: { requiresEscrowForCatalogOrders: true } })
+      mockPlatformFeesService.resolveFeeConfig = jest.fn().mockResolvedValue({ rate: 10, payer: 'CLIENT' })
+      mockPlatformFeesService.calculateFee = jest.fn().mockReturnValue({ feeAmount: 5 })
+      setupHappyPath()
+
+      const result = await service.createOrder(baseDto() as any, REQUESTER_ID)
+
+      expect(mockEscrowService.hold).toHaveBeenCalledWith(expect.objectContaining({ deltaAmount: 55 }))
+      expect(result.data.escrowAmount).toBe(55)
+      expect(result.data.platformFeeRate).toBe(10)
+    })
+  })
+
+  describe('updateOrderStatus — Pago Protegido (escrow)', () => {
+    function baseOrder(overrides: Partial<any> = {}) {
+      return {
+        id: 'order-1', commerceId: COMMERCE_ID, status: 'PENDING',
+        requesterId: REQUESTER_ID, escrowStatus: 'NONE', escrowAmount: null,
+        ...overrides,
+      }
+    }
+
+    beforeEach(() => {
+      mockPrismaService.catalogOrder = { ...mockPrismaService.catalogOrder, findUnique: jest.fn(), update: jest.fn() }
+    })
+
+    it('rejects any transition once the order is terminal (CLOSED/CANCELLED)', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(baseOrder({ status: 'CANCELLED' }))
+
+      await expect(service.updateOrderStatus('order-1', COMMERCE_ID, 'SEEN' as any)).rejects.toThrow(
+        'No puedes cambiar el estado de un pedido CANCELLED',
+      )
+    })
+
+    it('rejects the commerce trying to set CLOSED directly (only the buyer can via confirmOrderCompletion)', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(baseOrder({ status: 'CONTACTED' }))
+
+      await expect(service.updateOrderStatus('order-1', COMMERCE_ID, 'CLOSED' as any)).rejects.toThrow(
+        'Solo el comprador puede confirmar la finalización de un pedido',
+      )
+    })
+
+    it('refunds the held escrow when the commerce cancels the order', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(
+        baseOrder({ status: 'CONTACTED', escrowStatus: 'HELD', escrowAmount: 50 }),
+      )
+      mockPrismaService.catalogOrder.update.mockImplementation(({ data }: any) => Promise.resolve({ ...data }))
+
+      const result = await service.updateOrderStatus('order-1', COMMERCE_ID, 'CANCELLED' as any)
+
+      expect(mockEscrowService.refund).toHaveBeenCalledWith({
+        entityType: 'CATALOG_ORDER', entityId: 'order-1', payerId: REQUESTER_ID, amount: 50,
+      })
+      expect(result.data.escrowStatus).toBe('REFUNDED')
+    })
+
+    it('does not touch escrow when cancelling an order with no escrow retained', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(baseOrder({ status: 'PENDING' }))
+      mockPrismaService.catalogOrder.update.mockImplementation(({ data }: any) => Promise.resolve({ ...data }))
+
+      await service.updateOrderStatus('order-1', COMMERCE_ID, 'CANCELLED' as any)
+
+      expect(mockEscrowService.refund).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('confirmOrderCompletion — Pago Protegido (escrow)', () => {
+    function baseOrder(overrides: Partial<any> = {}) {
+      return {
+        id: 'order-1', commerceId: COMMERCE_ID, status: 'CONTACTED',
+        requesterId: REQUESTER_ID, escrowStatus: 'NONE', escrowAmount: null,
+        platformFeeRate: null, platformFeeAmount: null,
+        ...overrides,
+      }
+    }
+
+    beforeEach(() => {
+      mockPrismaService.catalogOrder = { ...mockPrismaService.catalogOrder, findUnique: jest.fn(), update: jest.fn() }
+    })
+
+    it('releases the full escrow to the commerce when the fee was already charged to the buyer at creation', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(
+        baseOrder({ escrowStatus: 'HELD', escrowAmount: 55, platformFeeRate: 10, platformFeeAmount: 5 }),
+      )
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1' })
+      mockPrismaService.catalogOrder.update.mockImplementation(({ data }: any) => Promise.resolve({ ...data }))
+
+      const result = await service.confirmOrderCompletion('order-1', REQUESTER_ID)
+
+      expect(mockPlatformFeesService.chargeProviderFee).not.toHaveBeenCalled()
+      expect(mockEscrowService.release).toHaveBeenCalledWith({
+        entityType: 'CATALOG_ORDER', entityId: 'order-1', payeeId: 'owner-1', amount: 55,
+      })
+      expect(result.data.status).toBe('CLOSED')
+      expect(result.data.escrowStatus).toBe('RELEASED')
+    })
+
+    it('charges the provider fee now and releases the net amount when the fee was not charged at creation', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(
+        baseOrder({ escrowStatus: 'HELD', escrowAmount: 100 }),
+      )
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1' })
+      mockPlatformFeesService.resolveFeeConfig = jest.fn().mockResolvedValue({ rate: 8, payer: 'PROVIDER' })
+      mockPlatformFeesService.calculateFee = jest.fn().mockReturnValue({ feeAmount: 8 })
+      mockPrismaService.catalogOrder.update.mockImplementation(({ data }: any) => Promise.resolve({ ...data }))
+
+      const result = await service.confirmOrderCompletion('order-1', REQUESTER_ID)
+
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'CATALOG_ORDER', 'owner-1', 8, 'FEE-CATALOG-order-1', { catalogOrderId: 'order-1' },
+      )
+      expect(mockEscrowService.release).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 92 }),
+      )
+      expect(result.data.platformFeeAmount).toBe(8)
+    })
+
+    it('does not touch escrow when confirming an order with no escrow retained', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(baseOrder())
+      mockPrismaService.catalogOrder.update.mockImplementation(({ data }: any) => Promise.resolve({ ...data }))
+
+      await service.confirmOrderCompletion('order-1', REQUESTER_ID)
+
+      expect(mockEscrowService.release).not.toHaveBeenCalled()
     })
   })
 

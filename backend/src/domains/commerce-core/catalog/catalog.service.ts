@@ -750,6 +750,8 @@ export class CatalogService {
     };
   }
 
+  private static readonly CATALOG_ORDER_TERMINAL_STATUSES = ['CLOSED', 'CANCELLED'];
+
   async updateOrderStatus(
     id: string,
     commerceId: string,
@@ -758,15 +760,40 @@ export class CatalogService {
     const order = await this.prisma.catalogOrder.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('Pedido no encontrado');
     if (order.commerceId !== commerceId) throw new ForbiddenException();
-    const updated = await this.prisma.catalogOrder.update({
-      where: { id },
-      data: { status },
-    });
+    if (CatalogService.CATALOG_ORDER_TERMINAL_STATUSES.includes(order.status)) {
+      throw new ForbiddenException(`No puedes cambiar el estado de un pedido ${order.status}`);
+    }
+    // CLOSED es exclusivo del comprador vía confirmOrderCompletion (ahí se
+    // libera el escrow y se cobra la comisión) — mismo criterio que
+    // ServiceRequest, para que la comisión siempre se cobre al cerrar.
+    if (status === 'CLOSED') {
+      throw new ForbiddenException('Solo el comprador puede confirmar la finalización de un pedido');
+    }
+
+    const update: any = { status };
+    // El comercio cancela: si había pago protegido retenido, se reembolsa al
+    // comprador — un pedido cancelado nunca debe dejar dinero retenido sin
+    // motivo. defensa en profundidad: hoy CANCELLED solo es alcanzable desde
+    // PENDING/SEEN/CONTACTED (no terminal), así que esto siempre aplica
+    // cuando corresponde.
+    if (status === 'CANCELLED' && order.escrowStatus === 'HELD' && order.escrowAmount && order.requesterId) {
+      await this.escrow.refund({
+        entityType: 'CATALOG_ORDER',
+        entityId: id,
+        payerId: order.requesterId,
+        amount: order.escrowAmount,
+      });
+      update.escrowStatus = 'REFUNDED';
+    }
+
+    const updated = await this.prisma.catalogOrder.update({ where: { id }, data: update });
     return { data: updated };
   }
 
   // El comprador (requester) confirma que recibió el pedido. Solo desde
-  // CONTACTED, y habilita la reseña verificada del comercio.
+  // CONTACTED, y habilita la reseña verificada del comercio. Libera el
+  // escrow al comercio (menos la comisión de plataforma si la paga el
+  // comercio) — mismo patrón que ServicesService.confirmServiceRequestCompletion.
   async confirmOrderCompletion(id: string, requesterId: string) {
     const order = await this.prisma.catalogOrder.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('Pedido no encontrado');
@@ -775,10 +802,49 @@ export class CatalogService {
       throw new ForbiddenException(
         'Solo puedes confirmar un pedido que ya fue contactado por el comercio',
       );
-    const updated = await this.prisma.catalogOrder.update({
-      where: { id },
-      data: { status: 'CLOSED' },
-    });
+
+    const update: any = { status: 'CLOSED' };
+
+    if (order.escrowStatus === 'HELD' && order.escrowAmount) {
+      const commerce = await this.prisma.commerce.findUnique({
+        where: { id: order.commerceId },
+        select: { userId: true },
+      });
+      let releaseAmount = order.escrowAmount;
+
+      // Si el fee no se cobró al comprador al crear el pedido (platformFeeRate
+      // null), lo paga el comercio ahora, descontado de lo liberado — mismo
+      // criterio que ServiceRequest: el fee se cobra siempre, nunca se
+      // duplica ni se omite.
+      if (commerce && !order.platformFeeRate) {
+        const feeConfig = await this.platformFees.resolveFeeConfig('CATALOG_ORDER', commerce.userId);
+        if (feeConfig?.payer === 'PROVIDER') {
+          const { feeAmount } = this.platformFees.calculateFee(order.escrowAmount, feeConfig);
+          await this.platformFees.chargeProviderFee(
+            'CATALOG_ORDER',
+            commerce.userId,
+            feeAmount,
+            `FEE-CATALOG-${id}`,
+            { catalogOrderId: id },
+          );
+          releaseAmount = order.escrowAmount - feeAmount;
+          update.platformFeeRate = feeConfig.rate;
+          update.platformFeeAmount = feeAmount;
+        }
+      }
+
+      if (commerce && releaseAmount > 0) {
+        await this.escrow.release({
+          entityType: 'CATALOG_ORDER',
+          entityId: id,
+          payeeId: commerce.userId,
+          amount: releaseAmount,
+        });
+      }
+      update.escrowStatus = 'RELEASED';
+    }
+
+    const updated = await this.prisma.catalogOrder.update({ where: { id }, data: update });
     return { data: updated };
   }
 }
