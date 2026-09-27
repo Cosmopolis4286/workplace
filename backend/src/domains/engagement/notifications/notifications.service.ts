@@ -445,7 +445,7 @@ export class NotificationsService {
 
   async notifyPlatformFeeCharged(
     userId: string,
-    type: 'ORDER' | 'SERVICE_REQUEST' | 'RIDE' | 'GROUP_BUYING',
+    type: 'ORDER' | 'SERVICE_REQUEST' | 'RIDE' | 'GROUP_BUYING' | 'CATALOG_ORDER',
     feeAmount: number
   ) {
     const labels: Record<string, string> = {
@@ -453,6 +453,7 @@ export class NotificationsService {
       SERVICE_REQUEST: 'servicio',
       RIDE: 'viaje',
       GROUP_BUYING: 'compra agrupada',
+      CATALOG_ORDER: 'pedido del catálogo',
     };
     return this.createForUser(userId, {
       type: NotificationType.SYSTEM,

@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -10,6 +11,10 @@ import { QueryCatalogDto, CatalogSortBy } from './dto/query-catalog.dto';
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { tagSearchCondition } from '../../../common/utils/tags.util';
+import { EscrowFacade, ESCROW_FACADE } from '../../money/escrow/escrow.facade';
+import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
+import { InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
+import { v4 as uuidv4 } from 'uuid';
 
 function attachProductRating<T extends { commerce: { user: { reviewsReceived: { rating: number }[], [k: string]: any }, [k: string]: any }, [k: string]: any }>(product: T) {
   const reviews = product.commerce.user.reviewsReceived;
@@ -28,7 +33,9 @@ function attachProductRating<T extends { commerce: { user: { reviewsReceived: { 
 export class CatalogService {
   constructor(
     private prisma: PrismaService,
-    private notifications: NotificationsService
+    private notifications: NotificationsService,
+    @Inject(ESCROW_FACADE) private escrow: EscrowFacade,
+    @Inject(PLATFORM_FEES_FACADE) private platformFees: PlatformFeesFacade
   ) {}
 
   async getCategories() {
@@ -512,84 +519,156 @@ export class CatalogService {
       dto.items.reduce((sum, item) => sum + byId.get(item.productId)!.price * item.quantity, 0) * 100
     ) / 100;
 
+    // Pago Protegido (escrow) — solo si el comercio lo activó en Settings
+    // (CommerceSettings.requiresEscrowForCatalogOrders). A diferencia de
+    // ServiceRequest (donde el precio se fija después y puede quedar
+    // PENDING_FUNDS con reintento), acá el monto ya se conoce al crear el
+    // pedido: se retiene ANTES de tocar stock, y si no hay saldo el pedido
+    // simplemente no se crea — no tiene sentido un pedido de catálogo sin
+    // garantizar el pago primero, a diferencia de una negociación de servicio.
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { id: dto.commerceId },
+      select: { userId: true, settings: { select: { requiresEscrowForCatalogOrders: true } } },
+    });
+    const requiresEscrow = commerce?.settings?.requiresEscrowForCatalogOrders ?? false;
+    if (requiresEscrow && !requesterId) {
+      throw new BadRequestException(
+        'Este comercio requiere pago protegido; debes estar autenticado con una billetera para completar el pedido.'
+      );
+    }
+
+    // El id se genera acá (en vez de dejar que Prisma lo asigne en el
+    // create) para poder retener el escrow ANTES de tocar stock, usando ya
+    // el id real como Escrow.entityId — evita cualquier id provisorio que
+    // después haya que re-vincular.
+    const orderId = uuidv4();
+
+    let escrowAmount: number | null = null;
+    let platformFeeRate: number | null = null;
+    let platformFeeAmount: number | null = null;
+    if (requiresEscrow && commerce) {
+      const feeConfig = await this.platformFees.resolveFeeConfig('CATALOG_ORDER', commerce.userId);
+      escrowAmount = totalEstimate;
+      if (feeConfig?.payer === 'CLIENT') {
+        const { feeAmount } = this.platformFees.calculateFee(totalEstimate, feeConfig);
+        escrowAmount = totalEstimate + feeAmount;
+        platformFeeRate = feeConfig.rate;
+        platformFeeAmount = feeAmount;
+      }
+      try {
+        await this.escrow.hold({
+          entityType: 'CATALOG_ORDER',
+          entityId: orderId,
+          payerId: requesterId,
+          payeeId: commerce.userId,
+          deltaAmount: escrowAmount,
+        });
+      } catch (err) {
+        if (err instanceof InsufficientEscrowFundsError) {
+          throw new BadRequestException('No tienes saldo suficiente en tu billetera para este pedido con pago protegido.');
+        }
+        throw err;
+      }
+    }
+
     const lowStockAlerts: { name: string; stock: number }[] = [];
 
-    const order = await this.prisma.$transaction(async (tx) => {
-      // Descuenta stock de todos los componentes de forma atómica. Un
-      // updateMany condicionado a stock >= needed es la forma de hacer un
-      // "decrement con guard" en Postgres sin SELECT ... FOR UPDATE
-      // explícito: si count queda en 0, alguien más se adelantó o no
-      // alcanza — se aborta la transacción completa (rollback de todo lo
-      // ya descontado en este mismo loop).
-      for (const [componentId, needed] of stockDeductions) {
-        const result = await tx.product.updateMany({
-          where: { id: componentId, stock: { gte: needed } },
-          data: { stock: { decrement: needed } },
-        });
-        if (result.count === 0) {
-          throw new BadRequestException('Stock insuficiente para completar el pedido');
-        }
+    let order;
+    try {
+      order = await this.prisma.$transaction(async (tx) => {
+        // Descuenta stock de todos los componentes de forma atómica. Un
+        // updateMany condicionado a stock >= needed es la forma de hacer un
+        // "decrement con guard" en Postgres sin SELECT ... FOR UPDATE
+        // explícito: si count queda en 0, alguien más se adelantó o no
+        // alcanza — se aborta la transacción completa (rollback de todo lo
+        // ya descontado en este mismo loop).
+        for (const [componentId, needed] of stockDeductions) {
+          const result = await tx.product.updateMany({
+            where: { id: componentId, stock: { gte: needed } },
+            data: { stock: { decrement: needed } },
+          });
+          if (result.count === 0) {
+            throw new BadRequestException('Stock insuficiente para completar el pedido');
+          }
 
-        // Recalcula status igual que el ajuste manual (menu.service.ts updateStock):
-        // sin esto el producto puede quedar en stock 0 mostrándose como AVAILABLE.
-        const updated = await tx.product.findUnique({
-          where: { id: componentId },
-          select: { stock: true },
-        });
-        const meta = minStockById.get(componentId);
-        if (updated && meta) {
-          const newStatus =
-            updated.stock === 0
-              ? ProductStatus.OUT_OF_STOCK
-              : updated.stock <= meta.minStock
-                ? ProductStatus.LOW_STOCK
-                : ProductStatus.AVAILABLE;
-          await tx.product.update({ where: { id: componentId }, data: { status: newStatus } });
-          if (newStatus !== ProductStatus.AVAILABLE) {
-            lowStockAlerts.push({ name: meta.name, stock: updated.stock });
+          // Recalcula status igual que el ajuste manual (menu.service.ts updateStock):
+          // sin esto el producto puede quedar en stock 0 mostrándose como AVAILABLE.
+          const updated = await tx.product.findUnique({
+            where: { id: componentId },
+            select: { stock: true },
+          });
+          const meta = minStockById.get(componentId);
+          if (updated && meta) {
+            const newStatus =
+              updated.stock === 0
+                ? ProductStatus.OUT_OF_STOCK
+                : updated.stock <= meta.minStock
+                  ? ProductStatus.LOW_STOCK
+                  : ProductStatus.AVAILABLE;
+            await tx.product.update({ where: { id: componentId }, data: { status: newStatus } });
+            if (newStatus !== ProductStatus.AVAILABLE) {
+              lowStockAlerts.push({ name: meta.name, stock: updated.stock });
+            }
           }
         }
-      }
 
-      const created = await tx.catalogOrder.create({
-        data: {
-          commerceId: dto.commerceId,
-          commerceName,
-          deliveryType: dto.deliveryType,
-          address: dto.address,
-          city: dto.city,
-          buyerName: dto.buyerName,
-          buyerPhone: dto.buyerPhone,
-          buyerEmail: dto.buyerEmail,
-          notes: dto.notes,
-          totalEstimate,
-          requesterId,
-          items: {
-            create: dto.items.map((item) => {
-              const product = byId.get(item.productId)!;
-              return {
-                productId: item.productId,
-                productName: product.name,
-                unitPrice: product.price,
-                quantity: item.quantity,
-                isBundle: product.isBundle,
-              };
-            }),
+        const created = await tx.catalogOrder.create({
+          data: {
+            id: orderId,
+            commerceId: dto.commerceId,
+            commerceName,
+            deliveryType: dto.deliveryType,
+            address: dto.address,
+            city: dto.city,
+            buyerName: dto.buyerName,
+            buyerPhone: dto.buyerPhone,
+            buyerEmail: dto.buyerEmail,
+            notes: dto.notes,
+            totalEstimate,
+            requesterId,
+            ...(requiresEscrow
+              ? { escrowStatus: 'HELD' as const, escrowAmount, platformFeeRate, platformFeeAmount }
+              : {}),
+            items: {
+              create: dto.items.map((item) => {
+                const product = byId.get(item.productId)!;
+                return {
+                  productId: item.productId,
+                  productName: product.name,
+                  unitPrice: product.price,
+                  quantity: item.quantity,
+                  isBundle: product.isBundle,
+                };
+              }),
+            },
           },
-        },
-        include: { items: true },
-      });
-
-      // Cache desnormalizado para "más vendidos" (ver getProductsSortedByBestSeller).
-      for (const item of dto.items) {
-        await tx.product.updateMany({
-          where: { id: item.productId },
-          data: { salesCount: { increment: item.quantity } },
+          include: { items: true },
         });
-      }
 
-      return created;
-    });
+        // Cache desnormalizado para "más vendidos" (ver getProductsSortedByBestSeller).
+        for (const item of dto.items) {
+          await tx.product.updateMany({
+            where: { id: item.productId },
+            data: { salesCount: { increment: item.quantity } },
+          });
+        }
+
+        return created;
+      });
+    } catch (err) {
+      // El escrow ya se retuvo ANTES de esta transacción (para no descontar
+      // stock sin garantía de pago) — si la transacción de stock/creación
+      // falla por cualquier motivo (ej. otro comprador se adelantó y agotó
+      // el stock entre el hold y acá), hay que devolver el dinero: el
+      // comprador no debe quedar con una garantía retenida por un pedido
+      // que nunca se creó.
+      if (requiresEscrow && commerce) {
+        await this.escrow
+          .refund({ entityType: 'CATALOG_ORDER', entityId: orderId, payerId: requesterId, amount: escrowAmount! })
+          .catch(() => {});
+      }
+      throw err;
+    }
 
     // Notificar al comercio (fire-and-forget)
     const summary = order.items.length === 1
