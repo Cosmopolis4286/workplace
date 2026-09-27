@@ -16,7 +16,8 @@ import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
-import { WalletsService, InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
+import { InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
+import { EscrowFacade, ESCROW_FACADE } from '../../money/escrow/escrow.facade';
 import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
 import { CategoryScopeService } from '../../../common/category-scope/category-scope.service';
 import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util';
@@ -74,7 +75,7 @@ export class ServicesService {
     private notifications: NotificationsService,
     @Inject(PLATFORM_FEES_FACADE) private platformFees: PlatformFeesFacade,
     @Inject(PLAN_LIMITS_FACADE) private planLimits: PlanLimitsFacade,
-    private wallets: WalletsService,
+    @Inject(ESCROW_FACADE) private escrow: EscrowFacade,
     @Inject(REPUTATION_FACADE) private reputation: ReputationFacade,
     private readonly categoryScope: CategoryScopeService
   ) {}
@@ -777,7 +778,13 @@ export class ServicesService {
             );
           }
           try {
-            await this.wallets.holdEscrow(req.requesterId, update.price, id);
+            await this.escrow.hold({
+              entityType: 'SERVICE_REQUEST',
+              entityId: id,
+              payerId: req.requesterId,
+              payeeId: req.providerId,
+              deltaAmount: update.price,
+            });
             update.escrowStatus = 'HELD';
             update.escrowAmount = update.price;
             update.escrowHeldAt = new Date();
@@ -806,7 +813,12 @@ export class ServicesService {
     // defensa en profundidad, no-op si no hay escrow que devolver.
     if (data.status === 'REJECTED' && req.requesterId) {
       if (update.escrowStatus === 'HELD' && update.escrowAmount) {
-        await this.wallets.refundEscrow(id, req.requesterId, update.escrowAmount);
+        await this.escrow.refund({
+          entityType: 'SERVICE_REQUEST',
+          entityId: id,
+          payerId: req.requesterId,
+          amount: update.escrowAmount,
+        });
         update.escrowStatus = 'REFUNDED';
       } else if (update.escrowStatus === 'PENDING_FUNDS') {
         update.escrowStatus = 'NONE';
@@ -912,7 +924,12 @@ export class ServicesService {
     if (req.escrowStatus === 'HELD' && req.escrowAmount) {
       const releaseAmount = feeData ? req.escrowAmount - feeData.feeAmount : req.escrowAmount;
       if (releaseAmount > 0) {
-        await this.wallets.releaseEscrow(id, req.providerId, releaseAmount);
+        await this.escrow.release({
+          entityType: 'SERVICE_REQUEST',
+          entityId: id,
+          payeeId: req.providerId,
+          amount: releaseAmount,
+        });
       }
     }
 
@@ -968,7 +985,12 @@ export class ServicesService {
 
     const escrowUpdate: any = {};
     if (req.escrowStatus === 'HELD' && req.escrowAmount) {
-      await this.wallets.refundEscrow(id, userId, req.escrowAmount);
+      await this.escrow.refund({
+        entityType: 'SERVICE_REQUEST',
+        entityId: id,
+        payerId: userId,
+        amount: req.escrowAmount,
+      });
       escrowUpdate.escrowStatus = 'REFUNDED';
     } else if (req.escrowStatus === 'PENDING_FUNDS') {
       escrowUpdate.escrowStatus = 'NONE';
@@ -1022,12 +1044,14 @@ export class ServicesService {
 
     if (pendingProposal) {
       try {
-        await this.wallets.holdEscrow(
-          req.requesterId,
-          pendingProposal.deltaAmount,
-          req.id,
-          pendingProposal.escrowReference ?? `ESCROW-HOLD-INCREASE-${pendingProposal.id}`
-        );
+        await this.escrow.hold({
+          entityType: 'SERVICE_REQUEST',
+          entityId: req.id,
+          payerId: req.requesterId,
+          payeeId: req.providerId,
+          deltaAmount: pendingProposal.deltaAmount,
+          referenceOverride: pendingProposal.escrowReference ?? `ESCROW-HOLD-INCREASE-${pendingProposal.id}`,
+        });
       } catch {
         return false;
       }
@@ -1053,7 +1077,13 @@ export class ServicesService {
 
     if (!req.escrowAmount) return false;
     try {
-      await this.wallets.holdEscrow(req.requesterId, req.escrowAmount, req.id);
+      await this.escrow.hold({
+        entityType: 'SERVICE_REQUEST',
+        entityId: req.id,
+        payerId: req.requesterId,
+        payeeId: req.providerId,
+        deltaAmount: req.escrowAmount,
+      });
     } catch {
       return false;
     }
@@ -1204,7 +1234,14 @@ export class ServicesService {
     const escrowReference = `ESCROW-HOLD-INCREASE-${proposal.id}`;
 
     try {
-      await this.wallets.holdEscrow(clientUserId, deltaWithFee, req.id, escrowReference);
+      await this.escrow.hold({
+        entityType: 'SERVICE_REQUEST',
+        entityId: req.id,
+        payerId: clientUserId,
+        payeeId: req.providerId,
+        deltaAmount: deltaWithFee,
+        referenceOverride: escrowReference,
+      });
     } catch (err) {
       if (!(err instanceof InsufficientEscrowFundsError)) throw err;
 

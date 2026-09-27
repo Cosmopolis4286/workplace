@@ -6,7 +6,8 @@ import { NotificationsService } from '../../domains/engagement/notifications/not
 import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../domains/money/platform-fees/platform-fees.facade';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade';
 import { ReputationFacade, REPUTATION_FACADE } from '../../domains/reputation/reputation.facade';
-import { WalletsService, InsufficientEscrowFundsError } from '../../domains/money/wallets/wallets.service';
+import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallets.service';
+import { EscrowFacade, ESCROW_FACADE } from '../../domains/money/escrow/escrow.facade';
 import { CategoryScopeService } from '../../common/category-scope/category-scope.service';
 
 describe('ServicesService — service request status transitions', () => {
@@ -15,7 +16,7 @@ describe('ServicesService — service request status transitions', () => {
   let mockNotificationsService: Partial<NotificationsService>;
   let mockPlatformFeesService: Partial<PlatformFeesFacade>;
   let mockPlanLimitsService: Partial<PlanLimitsFacade>;
-  let mockWalletsService: Partial<WalletsService>;
+  let mockEscrowService: Partial<EscrowFacade>;
   let mockReputationService: Partial<ReputationFacade>;
 
   function baseRequest(overrides: Partial<any> = {}) {
@@ -84,10 +85,10 @@ describe('ServicesService — service request status transitions', () => {
       assertServiceRequestLimit: jest.fn().mockResolvedValue(undefined),
     };
 
-    mockWalletsService = {
-      holdEscrow: jest.fn().mockResolvedValue({ transaction: {} }),
-      releaseEscrow: jest.fn().mockResolvedValue({ transaction: {} }),
-      refundEscrow: jest.fn().mockResolvedValue({ transaction: {} }),
+    mockEscrowService = {
+      hold: jest.fn().mockResolvedValue({}),
+      release: jest.fn().mockResolvedValue({}),
+      refund: jest.fn().mockResolvedValue({}),
     };
 
     mockReputationService = {
@@ -102,7 +103,7 @@ describe('ServicesService — service request status transitions', () => {
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: PLATFORM_FEES_FACADE, useValue: mockPlatformFeesService },
         { provide: PLAN_LIMITS_FACADE, useValue: mockPlanLimitsService },
-        { provide: WalletsService, useValue: mockWalletsService },
+        { provide: ESCROW_FACADE, useValue: mockEscrowService },
         { provide: REPUTATION_FACADE, useValue: mockReputationService },
         { provide: CategoryScopeService, useValue: { isVisibleForCategory: jest.fn(), filterByCategory: jest.fn(), getUserCategoryId: jest.fn() } },
       ],
@@ -358,7 +359,14 @@ describe('ServicesService — service request status transitions', () => {
 
       await service.approvePriceChangeProposal('proposal-1', 'client-1');
 
-      expect(mockWalletsService.holdEscrow).toHaveBeenCalledWith('client-1', 50, 'req-1', 'ESCROW-HOLD-INCREASE-proposal-1');
+      expect(mockEscrowService.hold).toHaveBeenCalledWith({
+        entityType: 'SERVICE_REQUEST',
+        entityId: 'req-1',
+        payerId: 'client-1',
+        payeeId: 'provider-1',
+        deltaAmount: 50,
+        referenceOverride: 'ESCROW-HOLD-INCREASE-proposal-1',
+      });
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
       expect(mockPrismaService.serviceRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -373,7 +381,7 @@ describe('ServicesService — service request status transitions', () => {
 
     it('marks APPROVED_PENDING_FUNDS on insufficient funds, without touching price/escrowAmount yet', async () => {
       mockPrismaService.serviceRequestPriceChangeProposal.findUnique.mockResolvedValue(baseProposal());
-      (mockWalletsService.holdEscrow as jest.Mock).mockRejectedValueOnce(new InsufficientEscrowFundsError('no funds'));
+      (mockEscrowService.hold as jest.Mock).mockRejectedValueOnce(new InsufficientEscrowFundsError('no funds'));
 
       await service.approvePriceChangeProposal('proposal-1', 'client-1');
 
