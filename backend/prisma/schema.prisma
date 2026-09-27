@@ -422,6 +422,13 @@ model CommerceSettings {
   // beyond the plan, only restricts further).
   disabledModules String[] @default([])
 
+  // Pago Protegido (escrow) para pedidos del catálogo público (CatalogOrder)
+  // — análogo a Service.hasEscrow, pero a nivel de comercio en vez de por
+  // producto: un CatalogOrder agrupa productos de un solo comercio, así que
+  // no tiene sentido activarlo producto por producto. Default false: los
+  // pedidos existentes/nuevos sin activar siguen sin cargo real, como hoy.
+  requiresEscrowForCatalogOrders Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1346,6 +1353,50 @@ model WalletTransaction {
   @@map("wallet_transactions")
 }
 
+// Tipos de entidad que pueden tener un Escrow — extensible sin migrar el
+// modelo Escrow en sí (ver Pago Protegido, WORKPLACE_VISION.md §11).
+enum EscrowEntityType {
+  SERVICE_REQUEST
+  CATALOG_ORDER
+}
+
+// Proyección genérica y consultable de TODO escrow del sistema — fuente
+// única para reconciliación/auditoría admin, independiente de qué dominio
+// lo originó. No reemplaza la lógica de negocio de cada dominio (que sigue
+// viviendo en ServicesService/CatalogService, cada una con sus propias
+// reglas de transición de estado): esta tabla es la proyección que
+// EscrowService escribe cada vez que WalletsService.holdEscrow/
+// releaseEscrow/refundEscrow se ejecuta, igual patrón que ReputationScore
+// es una proyección derivada de Order/ServiceRequest/Delivery. Ver
+// EscrowService en domains/money/escrow — WalletsService sigue siendo la
+// única fuente de movimiento de dinero real (Wallet/WalletTransaction);
+// Escrow solo registra el estado de la garantía por transacción de negocio.
+model Escrow {
+  id String @id @default(uuid())
+
+  entityType EscrowEntityType
+  entityId   String
+
+  payerId String // User.id de quien deposita la garantía (comprador/cliente)
+  payeeId String // User.id de quien la recibe al liberarse (proveedor/comercio)
+
+  status EscrowStatus @default(NONE)
+  amount Float
+
+  heldAt      DateTime?
+  releasedAt  DateTime?
+  refundedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([status])
+  @@index([payerId])
+  @@index([payeeId])
+  @@map("escrows")
+}
+
 enum ExpenseType {
   FIXED
   OPERATIONAL
@@ -2050,6 +2101,10 @@ enum CatalogOrderStatus {
   SEEN
   CONTACTED
   CLOSED
+  // Agregado junto con Pago Protegido (ver CatalogOrder.escrowStatus): antes
+  // no existía forma de cancelar un pedido del catálogo público — con dinero
+  // real de por medio, el comercio necesita poder cancelar y reembolsar.
+  CANCELLED
 }
 
 model CatalogOrder {
@@ -2068,7 +2123,18 @@ model CatalogOrder {
   requesterId   String?
   requester     User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   items         CatalogOrderItem[]
-  createdAt     DateTime            @default(now())
+
+  // Pago Protegido (Escrow genérico, ver model Escrow) — solo se activa si
+  // CommerceSettings.requiresEscrowForCatalogOrders está en true al crear el
+  // pedido. Cache desnormalizado del status/monto para queries directas sin
+  // join, igual patrón que ServiceRequest.escrowStatus/escrowAmount, aunque
+  // la fuente de verdad real es la fila Escrow (entityType=CATALOG_ORDER).
+  escrowStatus      EscrowStatus @default(NONE)
+  escrowAmount      Float?
+  platformFeeRate   Float?
+  platformFeeAmount Float?
+
+  createdAt DateTime @default(now())
 
   @@index([commerceId])
   @@index([status])
@@ -2642,6 +2708,7 @@ enum FeeTransactionType {
   SERVICE_REQUEST
   RIDE
   GROUP_BUYING
+  CATALOG_ORDER
 }
 
 enum FeePayer {

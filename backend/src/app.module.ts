@@ -72,6 +72,7 @@ import { NavigationModule } from './domains/platform/navigation/navigation.modul
 import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orchestrator.module';
 import { GroupBuyingModule } from './domains/commerce-core/group-buying/group-buying.module';
 import { MatchingModule } from './domains/commerce-core/matching/matching.module';
+import { EscrowModule } from './domains/money/escrow/escrow.module';
 
 @Module({
   imports: [
@@ -158,6 +159,7 @@ import { MatchingModule } from './domains/commerce-core/matching/matching.module
     ReputationModule,
     GroupBuyingModule,
     MatchingModule,
+    EscrowModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },
