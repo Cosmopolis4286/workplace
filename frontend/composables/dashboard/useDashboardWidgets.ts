@@ -11,6 +11,7 @@ import {
   type QuickActionConfig,
 } from '~/config/dashboard.config'
 import { useDashboardQuickActions } from '~/composables/dashboard/useDashboardQuickActions'
+import { useModules } from '~/composables/commerce/useModules'
 
 export interface DashboardWidget extends WidgetConfig {
   visible: boolean
@@ -23,6 +24,13 @@ export interface DashboardAction extends QuickActionConfig {
 export const useDashboardWidgets = () => {
   const { user } = useAuth()
   const { selectedItems: selectedQuickActions } = useDashboardQuickActions()
+  const { hasModule, loadModules } = useModules()
+
+  // Idempotente (loadModules ya no repite el fetch si loaded=true) — no
+  // depende de que SidebarContent.vue haya montado primero. effectiveModules/
+  // loaded son estado de módulo compartido, así que en cuanto resuelva,
+  // visibleWidgets/availableActions (computed) se re-evalúan solos.
+  loadModules()
 
   const userRole = computed<UserRole | null>(() => user.value?.role || null)
   // role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
@@ -36,7 +44,7 @@ export const useDashboardWidgets = () => {
     if (!role) return []
 
     return DASHBOARD_WIDGETS.filter(
-      widget => canAccessWidget(widget.id, role, accountType.value) && widget.defaultVisible
+      widget => canAccessWidget(widget.id, role, accountType.value, hasModule) && widget.defaultVisible
     ).sort((a, b) => a.priority - b.priority)
   })
 
@@ -45,7 +53,7 @@ export const useDashboardWidgets = () => {
     const role = userRole.value
     if (!role) return []
 
-    return QUICK_ACTIONS.filter(action => canAccessAction(action.id, role, accountType.value))
+    return QUICK_ACTIONS.filter(action => canAccessAction(action.id, role, accountType.value, hasModule))
   })
 
   // Acciones elegidas por el usuario (o las primeras 6 si no ha configurado nada)
@@ -62,14 +70,14 @@ export const useDashboardWidgets = () => {
   const canViewWidget = (widgetId: string): boolean => {
     const role = userRole.value
     if (!role) return false
-    return canAccessWidget(widgetId, role, accountType.value)
+    return canAccessWidget(widgetId, role, accountType.value, hasModule)
   }
 
   // Verificar si el usuario puede ver una acción específica
   const canViewAction = (actionId: string): boolean => {
     const role = userRole.value
     if (!role) return false
-    return canAccessAction(actionId, role, accountType.value)
+    return canAccessAction(actionId, role, accountType.value, hasModule)
   }
 
   // Obtener widgets por sección

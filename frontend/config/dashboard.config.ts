@@ -20,6 +20,12 @@ export interface WidgetConfig {
   // también debe tener uno de estos accountType (ver AccountTypeResolver).
   // No aplica a SUPERADMIN/ADMIN/NORMAL.
   accountTypes?: AccountType[]
+  // Filtro adicional: módulo real (useModules().hasModule) requerido para
+  // ver este widget — accountType=FREELANCER no implica tener 'services'
+  // habilitado (depende de UserCategory.allowedModules × plan; ej. la
+  // categoría "Comida" no lo incluye). Sin esto, un freelancer de un rubro
+  // sin ese módulo veía un widget que apunta a una feature inaccesible.
+  requiresModule?: string
   permissions?: string[]
   priority: number
   defaultVisible: boolean
@@ -35,6 +41,8 @@ export interface QuickActionConfig {
   route: string
   roles: UserRole[]
   accountTypes?: AccountType[]
+  // Ver WidgetConfig.requiresModule — mismo motivo.
+  requiresModule?: string
   permissions?: string[]
   color: 'blue' | 'green' | 'purple' | 'yellow' | 'red' | 'teal' | 'indigo' | 'orange'
   description?: string
@@ -115,6 +123,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     component: 'ActiveOrdersWidget',
     roles: ['PROFESIONAL'],
     accountTypes: ['FREELANCER'],
+    requiresModule: 'services',
     priority: 2,
     defaultVisible: true,
     gridCols: 1,
@@ -126,6 +135,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     component: 'ProviderServiceRequestsWidget',
     roles: ['PROFESIONAL'],
     accountTypes: ['FREELANCER'],
+    requiresModule: 'services',
     priority: 5,
     defaultVisible: true,
     gridCols: 2,
@@ -192,6 +202,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     route: '/customer-dashboard',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     accountTypes: ['COMMERCE'],
+    requiresModule: 'orders',
     color: 'blue',
     description: 'Gestión de pedidos',
   },
@@ -202,6 +213,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     route: '/my-services',
     roles: ['PROFESIONAL'],
     accountTypes: ['FREELANCER'],
+    requiresModule: 'services',
     color: 'blue',
     description: 'Gestionar los servicios que ofreces',
   },
@@ -212,6 +224,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     route: '/jobs',
     roles: ['PROFESIONAL'],
     accountTypes: ['FREELANCER'],
+    requiresModule: 'jobs',
     color: 'purple',
     description: 'Gestionar las vacantes que publicas',
   },
@@ -222,6 +235,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     route: '/menu',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     accountTypes: ['COMMERCE'],
+    requiresModule: 'menu',
     color: 'green',
     description: 'Administrar productos',
   },
@@ -232,6 +246,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     route: '/inventory',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     accountTypes: ['COMMERCE'],
+    requiresModule: 'inventory',
     color: 'purple',
     description: 'Control de stock',
   },
@@ -260,6 +275,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     route: '/delivery',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
     accountTypes: ['COMMERCE'],
+    requiresModule: 'delivery',
     color: 'teal',
     description: 'Gestión de entregas',
   },
@@ -394,17 +410,33 @@ export function getHeroConfig(role: UserRole, accountType?: AccountType | null):
 // puramente por-comercio, sin agregado de plataforma con sentido de negocio.
 const PLATFORM_AGGREGATED_WIDGET_IDS = new Set(['activeOrders', 'ordersList'])
 
-// Helper para verificar si un rol tiene acceso a un widget
-export function canAccessWidget(widgetId: string, role: UserRole, accountType?: AccountType | null): boolean {
+// Helper para verificar si un rol tiene acceso a un widget. `hasModule` es
+// opcional: los llamadores que todavía no cargaron useModules() (o no
+// necesitan ese nivel de precisión) pueden omitirlo, y requiresModule se
+// ignora — mejor mostrar de más brevemente que romper un caller existente.
+export function canAccessWidget(
+  widgetId: string,
+  role: UserRole,
+  accountType?: AccountType | null,
+  hasModule?: (module: string) => boolean,
+): boolean {
   const widget = DASHBOARD_WIDGETS.find(w => w.id === widgetId)
   if (!widget) return false
   if (!widget.roles.includes(role)) return false
+  if (widget.requiresModule && hasModule && !hasModule(widget.requiresModule)) return false
   if ((role === 'SUPERADMIN' || role === 'ADMIN') && PLATFORM_AGGREGATED_WIDGET_IDS.has(widgetId)) return true
   return matchesAccountType(widget.accountTypes, accountType)
 }
 
 // Helper para verificar si un rol tiene acceso a una acción
-export function canAccessAction(actionId: string, role: UserRole, accountType?: AccountType | null): boolean {
+export function canAccessAction(
+  actionId: string,
+  role: UserRole,
+  accountType?: AccountType | null,
+  hasModule?: (module: string) => boolean,
+): boolean {
   const action = QUICK_ACTIONS.find(a => a.id === actionId)
-  return action ? action.roles.includes(role) && matchesAccountType(action.accountTypes, accountType) : false
+  if (!action) return false
+  if (action.requiresModule && hasModule && !hasModule(action.requiresModule)) return false
+  return action.roles.includes(role) && matchesAccountType(action.accountTypes, accountType)
 }
