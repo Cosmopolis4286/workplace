@@ -183,7 +183,7 @@ export class WalletsService {
     const result = await this.prisma.$transaction(async (tx) => {
       // Atomic UPDATE: enforce ceiling inside the transaction to prevent race
       const [row] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = balance + ${dto.amount}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${wallet.id}
@@ -249,7 +249,7 @@ export class WalletsService {
     const result = await this.prisma.$transaction(async (tx) => {
       // Atomic debit: WHERE balance >= amount prevents double-spend race
       const [row] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = balance - ${dto.amount}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${wallet.id}
@@ -319,7 +319,7 @@ export class WalletsService {
     const result = await this.prisma.$transaction(async (tx) => {
       // Atomic debit of sender: WHERE balance >= amount prevents double-spend race
       const [senderRow] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = balance - ${dto.amount}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${senderWallet.id}
@@ -330,7 +330,7 @@ export class WalletsService {
 
       // Atomic credit of recipient
       const [recipientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = balance + ${dto.amount}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${recipientWallet.id}
@@ -407,7 +407,7 @@ export class WalletsService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       const [row] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = balance - ${dto.amount}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${wallet.id}
@@ -450,8 +450,8 @@ export class WalletsService {
     return this.prisma.$transaction(async (tx) => {
       // CTE captures balance BEFORE the update so prev_balance is always correct
       const [row] = await tx.$queryRaw<{ new_balance: number; prev_balance: number }[]>`
-        WITH prev AS (SELECT balance FROM "Wallet" WHERE id = ${wallet.id})
-        UPDATE "Wallet"
+        WITH prev AS (SELECT balance FROM "wallets" WHERE id = ${wallet.id})
+        UPDATE "wallets"
         SET balance = GREATEST(balance - ${amount}::numeric, 0),
             "updatedAt" = NOW()
         WHERE id = ${wallet.id}
@@ -576,7 +576,7 @@ export class WalletsService {
 
     return this.prisma.$transaction(async (tx) => {
       const [clientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = balance - ${amount}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${clientWallet.id}
@@ -586,7 +586,7 @@ export class WalletsService {
       if (!clientRow) throw new InsufficientEscrowFundsError('Saldo insuficiente para retener la garantía');
 
       const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = balance + ${amount}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${systemWallet.id}
@@ -633,14 +633,14 @@ export class WalletsService {
 
     return this.prisma.$transaction(async (tx) => {
       const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = GREATEST(balance - ${amount}::numeric, 0),
             "updatedAt" = NOW()
         WHERE id = ${systemWallet.id}
         RETURNING balance AS new_balance
       `;
       const [providerRow] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = balance + ${amount}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${providerWallet.id}
@@ -684,14 +684,14 @@ export class WalletsService {
 
     return this.prisma.$transaction(async (tx) => {
       const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = GREATEST(balance - ${amount}::numeric, 0),
             "updatedAt" = NOW()
         WHERE id = ${systemWallet.id}
         RETURNING balance AS new_balance
       `;
       const [clientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
-        UPDATE "Wallet"
+        UPDATE "wallets"
         SET balance = balance + ${amount}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${clientWallet.id}
