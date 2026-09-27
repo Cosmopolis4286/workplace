@@ -53,6 +53,22 @@ const NEEDS_AUTH_ONLY: string[] = [
   '/report-issue', '/verification', '/modules', '/my-orders', '/rides',
 ]
 
+// ─── Rutas exclusivas de comercios (Order/Customer/Employee/etc. por-comercio) ─
+// Un FREELANCER no debería poder entrar aunque escriba la URL a mano. El
+// sidebar ya oculta el link (excludeAccountTypes: ['FREELANCER'] en
+// navigation-tree.data.ts), pero eso solo esconde el ítem — no bloquea la
+// ruta. El permiso de rol tampoco alcanza para bloquearla acá (bloque 4e):
+// Role.PROFESIONAL concede estos permisos a nivel de ROL como la unión
+// comercio∪freelancer (ver ROLE_DEFAULTS.PROFESIONAL en seed.js), así que
+// `can(requiredPerm)` da true para cualquier PROFESIONAL sea cual sea su
+// accountType real. Sin esta lista, la página igual renderiza (vacía, con
+// el 403 de AccountTypeGuard en un banner) en vez de redirigir.
+const COMMERCE_ONLY_ROUTES: string[] = [
+  '/customer-dashboard', '/expenses', '/orders', '/appointments', '/customers',
+  '/delivery', '/cash-register', '/suppliers', '/purchases', '/accounts',
+  '/employees', '/branches', '/group-buying',
+]
+
 // ─── Excluidas del chequeo de onboarding ─────────────────────────────────────
 const ONBOARDING_EXCLUDED: string[] = [
   '/onboarding', '/login', '/register', '/recover-password',
@@ -152,6 +168,13 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
   // ── 4c-2. /orders es exclusivo de comercios → NORMAL usa /my-orders ───
   if (path.startsWith('/orders') && role === 'NORMAL') {
     return navigateTo('/my-orders')
+  }
+
+  // ── 4c-3. Rutas exclusivas de comercios → bloquear a FREELANCER ──────────
+  // Ver comentario en COMMERCE_ONLY_ROUTES para el porqué: el chequeo
+  // genérico de permiso de 4e no alcanza a bloquear esto.
+  if (COMMERCE_ONLY_ROUTES.some(r => path.startsWith(r)) && user.value.accountType === 'FREELANCER') {
+    return navigateTo(defaultDest(role))
   }
 
   // ── 4d. Rutas SUPERADMIN/ADMIN sin permission matrix propia ───────────────
