@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { useApi } from '../core/useApi'
+import { getApiErrorKind, type ApiErrorKind } from '../core/useApiErrors'
 
 export interface ExchangeRate {
   id: string
@@ -52,6 +53,18 @@ export interface ExchangeRateHistoryEntry {
   createdAt: string
 }
 
+export interface UsageCount {
+  code: string
+  total: number
+  breakdown: {
+    purchases: number
+    supplierQuotes: number
+    receivables: number
+    payables: number
+    groupBuying: number
+  }
+}
+
 // ─── Singleton state ──────────────────────────────────────────────────────────
 
 const rates = ref<ExchangeRate[]>([])
@@ -59,6 +72,11 @@ const stats = ref<ExchangeRateStats | null>(null)
 const loading = ref(false)
 const loadingStats = ref(false)
 const error = ref<string | null>(null)
+// Categoría del último error de fetchRates (offline/forbidden/server/...) —
+// separado de `error` (que sigue siendo solo el string legible, usado por
+// consumidores existentes) para que la UI pueda diferenciar mensaje/acción
+// por caso sin romper la forma que ya usan otros componentes.
+const errorKind = ref<ApiErrorKind | null>(null)
 
 export function useExchangeRates() {
   const { get, post, put, patch, del } = useApi()
@@ -68,12 +86,14 @@ export function useExchangeRates() {
   async function fetchRates(includeInactive = true, publicOnly = false) {
     loading.value = true
     error.value = null
+    errorKind.value = null
     try {
       const url = publicOnly ? '/exchange-rates/active' : `/exchange-rates?includeInactive=${includeInactive}`
       const data = await get<ExchangeRate[]>(url)
       rates.value = data
     } catch (e: any) {
       error.value = e?.message
+      errorKind.value = getApiErrorKind(e)
     } finally {
       loading.value = false
     }
@@ -155,6 +175,10 @@ export function useExchangeRates() {
     return await get<ExchangeRateHistoryEntry[]>(`/exchange-rates/${id}/history?limit=${limit}`)
   }
 
+  async function fetchUsageCount(id: string): Promise<UsageCount> {
+    return await get<UsageCount>(`/exchange-rates/${id}/usage`)
+  }
+
   // ─── Public utils ─────────────────────────────────────────────────────────────
 
   async function fetchPublicRates() {
@@ -193,6 +217,7 @@ export function useExchangeRates() {
     loading,
     loadingStats,
     error,
+    errorKind,
     activeRates,
     defaultRate,
     fetchRates,
@@ -208,6 +233,7 @@ export function useExchangeRates() {
     getSyncStatus,
     getAllSyncStatuses,
     fetchHistory,
+    fetchUsageCount,
     fetchPublicRates,
     convertAmount,
     formatRate,

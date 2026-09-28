@@ -15,9 +15,21 @@
     </PageHeader>
 
     <!-- Error -->
-    <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
-      <p class="text-red-700 text-sm">{{ error }}</p>
-      <button class="text-red-500 hover:text-red-700" @click="error = null"><XMarkIcon class="h-4 w-4" /></button>
+    <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-3">
+      <div class="flex items-start gap-2">
+        <ExclamationTriangleIcon class="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+        <p class="text-red-700 text-sm">{{ errorDisplayMessage }}</p>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button
+          v-if="errorKind === 'offline' || errorKind === 'server'"
+          class="text-xs font-semibold text-red-700 hover:text-red-800 px-2 py-1 rounded-lg hover:bg-red-100"
+          @click="retryFetch"
+        >
+          Reintentar
+        </button>
+        <button class="text-red-500 hover:text-red-700" @click="error = null"><XMarkIcon class="h-4 w-4" /></button>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -30,6 +42,7 @@
           :preview-amount="previewAmount"
           :can-manage="canManage"
           :syncing-code="syncingCode"
+          :sync-statuses="syncStatuses"
           :format-number="formatNumber"
           @update:show-inactive="onToggleShowInactive"
           @update:search="search = $event"
@@ -86,7 +99,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { CurrencyDollarIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { CurrencyDollarIcon, PlusIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import ExchangeRatesTable from '~/components/admin/exchange-rates/ExchangeRatesTable.vue'
@@ -104,7 +117,24 @@ definePageMeta({ layout: 'default', middleware: ['auth'] })
 const { can } = usePermissions()
 const canManage = computed(() => can('exchange_rates:manage'))
 
-const { rates, stats, loading, error, activeRates, fetchRates, fetchStats, createRate, updateRate, setDefault, toggleStatus, deleteRate, manualSync, syncAll, getAllSyncStatuses, formatConversion, fetchHistory } = useExchangeRates()
+const { rates, stats, loading, error, errorKind, activeRates, fetchRates, fetchStats, createRate, updateRate, setDefault, toggleStatus, deleteRate, manualSync, syncAll, getAllSyncStatuses, formatConversion, fetchHistory, fetchUsageCount } = useExchangeRates()
+
+// Mensaje amigable por categoría de error — el mensaje crudo del backend
+// (`error`) sigue disponible para debug/toasts existentes, pero el banner
+// principal usa uno accionable: "sin conexión" y "servidor caído" ofrecen
+// reintentar, "sin permiso" no (reintentar no cambiaría el resultado).
+const errorDisplayMessage = computed(() => {
+  switch (errorKind.value) {
+    case 'offline': return 'No hay conexión con el servidor. Verifica tu red.'
+    case 'server': return 'El servidor tuvo un problema al cargar las tasas. Intenta de nuevo en unos segundos.'
+    case 'forbidden': return 'No tienes permiso para ver esta información.'
+    default: return error.value ?? 'Ocurrió un error al cargar las tasas de cambio.'
+  }
+})
+
+function retryFetch() {
+  fetchRates(showInactive.value)
+}
 const { formatDateTime, formatNumber } = useDateFormat()
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
@@ -220,9 +250,25 @@ async function handleManualSyncFromTable(rate: ExchangeRate) {
 const { confirm } = useConfirm()
 
 async function handleDelete(rate: ExchangeRate) {
+  // Consulta el impacto real antes de armar el mensaje — ninguna FK se rompe
+  // al eliminar (Purchase/SupplierQuote/etc. guardan un snapshot inmutable de
+  // la tasa), pero el admin debe saber si hay historial en esa moneda antes
+  // de confirmar: esos registros seguirán siendo legibles, pero la moneda ya
+  // no podrá elegirse para compras/cotizaciones nuevas.
+  let impactMessage = `¿Eliminar ${rate.code} — ${rate.name}? Esta acción no se puede deshacer.`
+  try {
+    const usage = await fetchUsageCount(rate.id)
+    if (usage.total > 0) {
+      impactMessage = `${rate.code} — ${rate.name} tiene ${usage.total} registro(s) histórico(s) en esta moneda (compras, cotizaciones, cuentas por cobrar/pagar). `
+        + `Seguirán siendo legibles, pero ya no podrás elegir ${rate.code} para operaciones nuevas tras eliminarla. Esta acción no se puede deshacer.`
+    }
+  } catch {
+    // Best-effort: si falla la consulta de uso, se sigue con el mensaje genérico.
+  }
+
   const ok = await confirm({
     title: 'Eliminar moneda',
-    message: `¿Eliminar ${rate.code} — ${rate.name}? Esta acción no se puede deshacer.`,
+    message: impactMessage,
     confirmText: 'Eliminar',
     variant: 'danger',
     onConfirm: async () => {

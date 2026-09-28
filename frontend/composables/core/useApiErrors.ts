@@ -77,3 +77,32 @@ export function getRateLimitSeconds(err: unknown): number | null {
   const e = err as ApiErrorLike
   return typeof e?.data?.retryAfterSeconds === 'number' ? e.data.retryAfterSeconds : null
 }
+
+export type ApiErrorKind = 'offline' | 'forbidden' | 'notFound' | 'server' | 'unknown'
+
+/**
+ * Categoriza un error de fetch/API para que la UI pueda mostrar un mensaje y
+ * una acción distintos por caso (ej. "reintentar" solo tiene sentido para
+ * offline/server, no para forbidden). `useApi.ts` usa `fetch()` nativo: una
+ * falla de red real (sin conexión, DNS, CORS bloqueado) nunca llega a
+ * `res.status` — el navegador lanza un TypeError plano ("Failed to fetch")
+ * ANTES de que exista una respuesta HTTP, así que se distingue por ausencia
+ * de `status` (ApiError siempre lo trae) más el nombre del error nativo.
+ */
+export function getApiErrorKind(err: unknown): ApiErrorKind {
+  const e = err as { status?: number; name?: string; message?: string }
+
+  if (typeof e?.status === 'number') {
+    if (e.status === 403) return 'forbidden'
+    if (e.status === 404) return 'notFound'
+    if (e.status >= 500) return 'server'
+    return 'unknown'
+  }
+
+  // Sin `status` → nunca llegó a tener una respuesta HTTP real.
+  if (e?.name === 'TypeError' || /failed to fetch|network/i.test(e?.message ?? '')) {
+    return 'offline'
+  }
+
+  return 'unknown'
+}
