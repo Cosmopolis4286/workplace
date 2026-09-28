@@ -5,6 +5,7 @@ import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CreateFreelancerApplicationDto } from './dto/create-freelancer-application.dto';
 import { ReviewFreelancerApplicationDto } from './dto/review-freelancer-application.dto';
 
@@ -15,6 +16,7 @@ export class FreelancerApplicationsService {
     private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
     private readonly roleResolver: RoleResolverService,
+    private readonly commerceResolver: CommerceResolverService,
   ) {}
 
   async getMine(userId: string) {
@@ -191,6 +193,12 @@ export class FreelancerApplicationsService {
       // ProfileActivationsService.review(), y respeta si el usuario además
       // tiene un perfil BUSINESS activo (BUSINESS gana sobre PROFESSIONAL).
       await this.roleResolver.syncRoleForUser(application.userId, tx);
+
+      // Misma regla que ProfileActivationsService.review(): un profesional
+      // cuya categoría vende producto recibe su Commerce al ser aprobado.
+      if (dto.status === ProposalStatus.APPROVED) {
+        await this.commerceResolver.ensureForUser(tx, application.userId);
+      }
 
       return result;
     });

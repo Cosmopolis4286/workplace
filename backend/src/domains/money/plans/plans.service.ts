@@ -14,6 +14,7 @@ import { Prisma, SubscriptionStatus, KycStatus, BillingInterval, ProfileType, Pr
 import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { CategoryScopeService } from '../../../common/category-scope/category-scope.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
 @Injectable()
 export class PlansService {
@@ -23,6 +24,7 @@ export class PlansService {
     private readonly roleResolver: RoleResolverService,
     private readonly accountTypeResolver: AccountTypeResolver,
     private readonly categoryScope: CategoryScopeService,
+    private readonly commerceResolver: CommerceResolverService,
   ) {}
 
   // ─── Plans CRUD ──────────────────────────────────────────────────────────────
@@ -510,6 +512,9 @@ export class PlansService {
       }
 
       await this.roleResolver.syncRoleForUser(subscription.userId, tx);
+      // Antes este camino activaba un perfil BUSINESS sin crear su Commerce
+      // (ProfileActivationsService sí lo hacía) — misma regla única ahora.
+      await this.commerceResolver.ensureForUser(tx, subscription.userId);
 
       return result;
     });

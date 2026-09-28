@@ -6,6 +6,7 @@ import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
 import { PlansService } from '../../money/plans/plans.service';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CreateProfileActivationDto } from './dto/create-profile-activation.dto';
 import { ReviewProfileActivationDto } from './dto/review-profile-activation.dto';
 
@@ -29,6 +30,7 @@ export class ProfileActivationsService {
     private readonly notifications: NotificationsService,
     private readonly roleResolver: RoleResolverService,
     private readonly plansService: PlansService,
+    private readonly commerceResolver: CommerceResolverService,
   ) {}
 
   async getMine(userId: string) {
@@ -207,6 +209,10 @@ export class ProfileActivationsService {
 
       if (profile.type === ProfileType.BUSINESS || profile.type === ProfileType.PROFESSIONAL) {
         await this.roleResolver.syncRoleForUser(userId, tx);
+        // Un perfil aprobado antes de que existiera la provisión de Commerce
+        // para PROFESSIONAL (o cuya categoría cambió mientras estaba
+        // suspendido) lo recibe al reactivarse.
+        await this.commerceResolver.ensureForUser(tx, userId);
       }
 
       return result;
@@ -301,29 +307,11 @@ export class ProfileActivationsService {
         );
       }
 
-      // Crea el Commerce real al aprobar — sin esto, el usuario quedaba con
-      // UserProfile BUSINESS ACTIVE pero SIN Commerce hasta que por
-      // casualidad tocara /menu (el único call site con auto-creación vía
-      // CommerceResolverService.resolveOrCreate); los otros 12+ servicios
-      // usan resolve() (sin auto-crear) y habrían operado sobre `userId`
-      // como fallback, huérfano de cualquier vista basada en Commerce.
-      // UsersService.create() ya hace esto mismo al crear un usuario
-      // BUSINESS directo (con commerceName) — este es el mismo requisito
-      // para el camino de auto-solicitud.
-      if (dto.status === ProfileStatus.ACTIVE && profile.type === ProfileType.BUSINESS) {
-        const existingCommerce = await tx.commerce.findUnique({
-          where: { userId: profile.userId },
-          select: { id: true },
-        });
-        if (!existingCommerce) {
-          await tx.commerce.create({
-            data: {
-              userId: profile.userId,
-              profileId: profile.id,
-              name: profile.pendingCommerceName ?? 'Mi Negocio',
-            },
-          });
-        }
+      // Crea el Commerce al aprobar si el perfil lo exige (BUSINESS siempre;
+      // PROFESSIONAL si su categoría vende producto — shouldProvisionCommerce).
+      // Ya no existe otro camino: ni /menu ni Configuración lo auto-crean.
+      if (dto.status === ProfileStatus.ACTIVE) {
+        await this.commerceResolver.ensureForUser(tx, profile.userId);
       }
 
       return result;

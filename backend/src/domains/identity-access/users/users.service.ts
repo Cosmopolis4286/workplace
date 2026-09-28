@@ -21,6 +21,7 @@ import { CommerceProfileCompletionStrategy } from './strategies/commerce-profile
 import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-profile-completion.strategy';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
+import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
 export const CURRENT_TERMS_VERSION = '2.0';
 
@@ -49,6 +50,7 @@ export class UsersService {
     private commerceProfileCompletion: CommerceProfileCompletionStrategy,
     private freelancerProfileCompletion: FreelancerProfileCompletionStrategy,
     private accountTypeResolver: AccountTypeResolver,
+    private commerceResolver: CommerceResolverService,
   ) {}
 
   // Invalida el caché de findById para un usuario. Llamar después de
@@ -144,6 +146,15 @@ export class UsersService {
               status: ProfileStatus.ACTIVE,
             },
           });
+
+          // Un PROFESSIONAL creado directo por admin en una categoría que
+          // vende producto también necesita su Commerce (shouldProvisionCommerce).
+          if (!created.commerce && (await this.commerceResolver.ensureForUser(tx, created.id))) {
+            return tx.user.findUniqueOrThrow({
+              where: { id: created.id },
+              include: { commerce: true, category: true, subcategory: true },
+            });
+          }
         }
 
         return created;
@@ -354,6 +365,18 @@ export class UsersService {
           await this.applyBusinessProfileType(tx, updated.id, dto.businessProfileType, dto.professionalSubtype);
         }
 
+        // Cambio de perfil o de categoría puede volver obligatorio el Commerce.
+        if (
+          !updated.commerce &&
+          (dto.businessProfileType !== undefined || dto.categoryId !== undefined) &&
+          (await this.commerceResolver.ensureForUser(tx, updated.id))
+        ) {
+          return tx.user.findUniqueOrThrow({
+            where: { id: updated.id },
+            include: { commerce: true, category: true, subcategory: true },
+          });
+        }
+
         return updated;
       });
     } catch (e) {
@@ -412,17 +435,28 @@ export class UsersService {
   }
 
   async updateOwnProfile(id: string, dto: UpdateOwnProfileDto) {
-    const user = await this.prisma.user.update({
-      where: { id },
-      data: {
-        ...(dto.categoryId !== undefined && {
-          categoryId: dto.categoryId || null,
-        }),
-        ...(dto.subcategoryId !== undefined && {
-          subcategoryId: dto.subcategoryId || null,
-        }),
-      },
-      include: { commerce: true, category: true, subcategory: true },
+    const user = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id },
+        data: {
+          ...(dto.categoryId !== undefined && {
+            categoryId: dto.categoryId || null,
+          }),
+          ...(dto.subcategoryId !== undefined && {
+            subcategoryId: dto.subcategoryId || null,
+          }),
+        },
+        include: { commerce: true, category: true, subcategory: true },
+      });
+      // Un profesional que se pasa a una categoría que vende producto recibe
+      // su Commerce (misma regla que al aprobar el perfil).
+      if (!updated.commerce && dto.categoryId && (await this.commerceResolver.ensureForUser(tx, id))) {
+        return tx.user.findUniqueOrThrow({
+          where: { id },
+          include: { commerce: true, category: true, subcategory: true },
+        });
+      }
+      return updated;
     });
 
     const { password, twoFactorSecret, ...result } = user;

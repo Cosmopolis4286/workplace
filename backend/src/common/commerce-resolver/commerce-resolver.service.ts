@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { Prisma, ProfileType } from '@prisma/client';
+import { Prisma, ProfileStatus, ProfileType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { userFindByIdCacheKey } from '../utils/cache-keys.util';
@@ -92,6 +92,40 @@ export class CommerceResolverService {
       select: { id: true },
     });
     return created.id;
+  }
+
+  /**
+   * Punto único que TODOS los caminos que cambian perfiles o categoría llaman
+   * dentro de su transacción: si el estado actual del usuario exige un
+   * Commerce (shouldProvisionCommerce sobre sus perfiles ACTIVE y la
+   * categoría que realmente gobierna sus módulos, User.categoryId — la misma
+   * que usa PlanLimitsService) y no lo tiene, lo crea. Solo crea, nunca
+   * borra: desactivar un perfil no destruye el historial del comercio.
+   * Devuelve el commerceId resultante, o null si no corresponde tener uno.
+   */
+  async ensureForUser(tx: Prisma.TransactionClient, userId: string): Promise<string | null> {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        commerce: { select: { id: true } },
+        category: { select: { allowedModules: true } },
+        profiles: {
+          where: { status: ProfileStatus.ACTIVE, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
+          select: { id: true, type: true, pendingCommerceName: true },
+        },
+      },
+    });
+    if (!user) return null;
+    if (user.commerce) return user.commerce.id;
+
+    const allowedModules = user.category?.allowedModules ?? [];
+    // BUSINESS primero: si tiene ambos perfiles, el Commerce se vincula al de negocio.
+    const eligible = [...user.profiles]
+      .sort((a, b) => Number(b.type === ProfileType.BUSINESS) - Number(a.type === ProfileType.BUSINESS))
+      .find((p) => shouldProvisionCommerce(p.type, allowedModules));
+    if (!eligible) return null;
+
+    return this.provision(tx, { userId, profileId: eligible.id, name: eligible.pendingCommerceName });
   }
 
   async invalidateUserCache(userId: string): Promise<void> {
