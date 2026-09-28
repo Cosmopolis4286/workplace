@@ -4,6 +4,17 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Fase 3 (Network): Sistema de disputas para Pago Protegido (2026-09-28)
+
+Cierra el hueco que quedó explícito al lanzar Pago Protegido: hasta ahora un escrow retenido solo tenía dos salidas binarias (liberar todo, reembolsar todo) sin mediación cuando comprador y comercio/proveedor no se ponían de acuerdo.
+
+- **Modelo `EscrowDispute`** (separado de `Report`, que es moderación de contenido/reputación sin campos de dinero): `raisedByRole` (`PAYER`/`PAYEE`, cualquiera puede abrir), `status` (`OPEN`/`RESOLVED`), `resolution` (`RELEASE_FULL`/`REFUND_FULL`/`SPLIT`), montos de liberación/reembolso. Nuevo estado `EscrowStatus.DISPUTED`.
+- **`EscrowService.openDispute()`**: valida que el escrow esté `HELD`, que quien la abre sea el payer o el payee, y que no haya otra disputa `OPEN` — congela la liberación/reembolso automáticos y sincroniza el espejo desnormalizado en `ServiceRequest`/`CatalogOrder`.
+- **`EscrowService.resolveDispute()`**: ejecuta los movimientos de dinero reales vía `WalletsService` según la resolución. `SPLIT` valida que `releaseAmount + refundAmount` sea exactamente el monto total retenido (tolerancia 0.01) — no puede aparecer ni desaparecer dinero al resolver, solo redistribuirse. El `Escrow.status` final siempre queda `RELEASED` (representa "ya no queda nada retenido"); el desglose real de cuánto fue a cada parte vive en `EscrowDispute`.
+- Endpoints: `PATCH /services/requests/:id/dispute` y `PATCH /catalog/orders/:id/dispute` (comprador o comercio/proveedor, solo desde estado en curso), `GET /escrow/disputes/open` y `PATCH /escrow/disputes/:id/resolve` (admin, mismo patrón `@Roles(SUPERADMIN, ADMIN)` que el resto de operaciones de wallet con impacto real de dinero).
+- Tests: 32 casos nuevos (`EscrowService`, `ServicesService`, `CatalogService`) cubriendo apertura, permisos, disputa duplicada, las 3 resoluciones, validación de montos en split, sincronización del espejo y notificaciones a ambas partes.
+- Validado end-to-end en Docker con dinero real: comprador abre disputa sobre un pedido con $100 retenidos, admin resuelve con split 60/40 → comercio recibe $60, comprador reembolsado $40 (saldo final $440, matemáticamente correcto), `Escrow.status` y `CatalogOrder.escrowStatus` sincronizados en `RELEASED`, disputa ya resuelta no aparece en el listado de abiertas y no se puede volver a resolver.
+
 ### Added — Fase 3 (Network): Pago Protegido / Escrow genérico (2026-09-27)
 
 Cuarta pieza de la Fase 3 ("Network", sección 11 del audit estratégico): generaliza el escrow que ya existía solo para `ServiceRequest` a un modelo reutilizable, y lo activa por primera vez en `CatalogOrder` (pedidos del marketplace público).

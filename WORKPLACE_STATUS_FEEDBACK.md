@@ -49,7 +49,16 @@ Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario
 
 ## 5. Módulos implementados (backend + frontend, con CRUD y tests)
 
-Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend + frontend, ver sección 5.6), **Matching Inteligente** (backend + frontend, ver sección 5.7), **WorkPlace Score — satisfacción + recurrencia** (backend, ver sección 5.8 — pendiente de validar end-to-end), **Pago Protegido / Escrow genérico** (backend, ver sección 5.9).
+Menu, Customers, Settings, Appointments, Analytics, Delivery, Orders, Expenses, Dashboard, Notifications (WebSocket), Employees, Branches, RBAC/Roles, Permission Matrix, Plans & Subscriptions, Plan Limits, Cash (caja/arqueo), Receipts (comprobantes no-fiscales), KYC, Wallets, Wallet Deposit Requests, BNPL, Exchange Rates, Rides, Jobs, Reports, Proposed Categories, Telegram (notificaciones), Locations, Landing, Search, 2FA, Auditoría (interceptor global que registra operaciones), **Purchases**, **Suppliers/SupplierQuote**, **Price Guard** y **Accounts (Receivable/Payable)** (backend + frontend, ver sección 5.1), **Trial autoservicio + Feature Grants** (backend + frontend, ver sección 5.2), **Business Health Score** (backend + frontend, ver sección 5.3), **Alert Engine generalizado** (backend + frontend, ver sección 5.4), **Purchasing Power** (backend + frontend, ver sección 5.5), **Group Buying** (backend + frontend, ver sección 5.6), **Matching Inteligente** (backend + frontend, ver sección 5.7), **WorkPlace Score — satisfacción + recurrencia** (backend, ver sección 5.8 — pendiente de validar end-to-end), **Pago Protegido / Escrow genérico + disputas** (backend, ver secciones 5.9 y 5.10).
+
+### 5.10 Sistema de disputas para Pago Protegido (2026-09-28)
+
+Cierra el hueco de Pago Protegido: antes solo había liberar-todo o reembolsar-todo, sin mediación.
+
+- **`EscrowDispute`** (separado de `Report`, que es moderación de contenido sin campos de dinero): cualquiera de las dos partes (payer o payee) puede abrir una disputa sobre un escrow `HELD`, que pasa a `DISPUTED` y congela la liberación/reembolso automáticos.
+- **Resolución admin** con 3 modos: liberar todo, reembolsar todo, o dividir el monto (`SPLIT`, validado para que `releaseAmount + refundAmount` sea exactamente el total retenido). `Escrow.status` final siempre `RELEASED`; el desglose real vive en `EscrowDispute`.
+- Endpoints: abrir disputa desde `ServiceRequest`/`CatalogOrder` (dueños de la transacción), `GET/PATCH /escrow/disputes` para admin.
+- 32 tests nuevos. Validado end-to-end en Docker: disputa sobre $100 resuelta con split 60/40 → comercio recibe $60, comprador reembolsado $40, saldos y estados verificados en Postgres.
 
 ### 5.9 Pago Protegido / Escrow genérico (2026-09-27)
 
@@ -186,7 +195,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 849 tests unitarios backend, todos pasando (`npx jest`).
+- 889 tests unitarios backend, todos pasando (`npx jest`).
 - `tsc --noEmit` limpio en backend.
 - No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
 - Exception filter global de errores implementado.
@@ -199,7 +208,7 @@ Ver `WORKPLACE_VISION.md` para el detalle completo. Resumen de las piezas más g
 - **Compra/servicio compuesto**: una necesidad del usuario resuelta por múltiples proveedores a la vez (ej. organizar un evento), sentido como una sola experiencia aunque sean varias órdenes internamente.
 - **Presupuesto inteligente + "Mi mes"**: análisis de gasto, predicción de necesidades recurrentes, alertas de exceso de presupuesto, oportunidades de ahorro.
 - ~~WorkPlace Score~~: satisfacción + clientes recurrentes implementados 2026-09-23 (ver sección 5.8), sin validar end-to-end todavía. Pendiente real: puntualidad (hoy sigue siendo un proxy de completion, no un dato temporal real — requeriría SLA/hora esperada vs. real en Order/ServiceRequest/Delivery).
-- ~~Pago protegido~~: implementado 2026-09-27 para CatalogOrder (ver sección 5.9), validado end-to-end con dinero real. Pendiente real: sistema de disputas (hoy solo hay reembolso/liberación binarios, sin mediación cuando comprador y comercio no acuerdan) y extender a Group Buying si el negocio lo pide.
+- ~~Pago protegido~~: implementado 2026-09-27 para CatalogOrder (ver sección 5.9); sistema de disputas con split de monto implementado 2026-09-28 (ver sección 5.10), ambos validados end-to-end con dinero real. Pendiente real: extender a Group Buying si el negocio lo pide.
 - ~~Matching inteligente~~: primera versión implementada 2026-09-22, ver sección 5.7 (precio+distancia+reputación+disponibilidad). Pendiente: historial/tasa de cancelación como señal propia (hoy solo se usa indirectamente vía reputación) y especialidad/preferencias explícitas del usuario.
 - **Modelo de negocio objetivo**: combinación de suscripciones (comercios, profesionales, usuarios finales) + tasas por operación, apuntando a ~$500/mes iniciales sin depender solo de SaaS.
 - **Diferencial estratégico**: no competir como un vertical más (Uber, iFood, Fiverr, portal de empleo) sino integrar las categorías bajo una sola experiencia de "decime qué necesitás y cuánto podés gastar".
