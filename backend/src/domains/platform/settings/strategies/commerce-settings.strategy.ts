@@ -1,8 +1,9 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisService } from '../../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../../common/utils/cache-keys.util';
+import { NO_COMMERCE_MESSAGE } from '../../../../common/commerce-resolver/commerce-resolver.service';
 import {
   UpdatePaymentSettingsDto,
   UpdateNotificationSettingsDto,
@@ -34,23 +35,16 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
     private readonly redis: RedisService
   ) {}
 
+  // Ya no auto-crea: antes cualquier cuenta sin Commerce que tocara settings
+  // (incluido un SUPERADMIN abriendo Configuración) terminaba con un Commerce
+  // fantasma. El Commerce se crea solo al aprobar el perfil
+  // (CommerceResolverService.provision / shouldProvisionCommerce).
   async getCommerce(userId: string) {
     const commerce = await this.prisma.commerce.findUnique({
       where: { userId },
     });
-    if (commerce) return commerce;
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { firstName: true, lastName: true },
-    });
-    const created = await this.prisma.commerce.create({
-      data: { userId, name: `${user?.firstName ?? 'Mi'} ${user?.lastName ?? 'Negocio'}`.trim() },
-    });
-    // findById cachea `commerce` (Commerce) — sin esto un findById previo a
-    // la creación del commerce (commerce: null) queda stale hasta el TTL.
-    await this.redis.del(userFindByIdCacheKey(userId));
-    return created;
+    if (!commerce) throw new ForbiddenException(NO_COMMERCE_MESSAGE);
+    return commerce;
   }
 
   async getOrCreateSettings(commerceId: string) {
@@ -61,8 +55,12 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
     return this.prisma.commerceSettings.create({ data: { commerceId } });
   }
 
+  // Lectura null-safe: una cuenta sin Commerce (ej. ADMIN, que tiene
+  // settings:view) recibe { commerce: null, settings: null } en vez de un 403
+  // o de que se le cree uno.
   async getSettings(userId: string) {
-    const commerce = await this.getCommerce(userId);
+    const commerce = await this.prisma.commerce.findUnique({ where: { userId } });
+    if (!commerce) return { commerce: null, settings: null };
     const settings = await this.getOrCreateSettings(commerce.id);
     return { commerce, settings };
   }

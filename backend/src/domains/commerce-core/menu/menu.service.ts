@@ -32,12 +32,13 @@ export class MenuService {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  // Un freelancer no tiene (ni debe tener) un Commerce: vende vía
-  // Service/ServiceRequest, no Product/Order. La defensa en profundidad
-  // vive en AccountTypeGuard (@RequireAccountType('COMMERCE') en
-  // MenuController) — este método ya no necesita conocer Role.
+  // Ya no auto-crea el Commerce (antes resolveOrCreate): abrir el menú le
+  // creaba uno a cualquiera, incluido SUPERADMIN (que bypassea permisos). El
+  // Commerce se crea al aprobar el perfil — ver shouldProvisionCommerce. El
+  // acceso lo cortan antes ModuleAccessGuard (menu ∈ COMMERCE_BOUND_MODULES
+  // → HAS_COMMERCE) y la matriz de permisos.
   private async getCommerceId(userId: string): Promise<string> {
-    return this.commerceResolver.resolveOrCreate(userId);
+    return this.commerceResolver.resolve(userId);
   }
 
   private async assertCategoryOwnership(

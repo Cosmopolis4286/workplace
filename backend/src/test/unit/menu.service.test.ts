@@ -46,11 +46,9 @@ describe('MenuService', () => {
   }
 
   const mockCommerceResolverService = {
+    // MenuService ya no auto-crea (resolveOrCreate eliminado): los tests
+    // simulan un usuario que ya tiene su Commerce 'commerce-123'.
     resolve: jest.fn(async (userId: string) => {
-      const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
-      return commerce?.id ?? userId
-    }),
-    resolveOrCreate: jest.fn(async (userId: string) => {
       const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
       return commerce?.id ?? 'commerce-123'
     }),
