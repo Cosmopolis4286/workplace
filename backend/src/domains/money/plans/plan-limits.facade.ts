@@ -18,12 +18,15 @@ export interface PlanLimits {
  * dominios (orders, menu, employees, branches en Operations/Commerce Core;
  * settings, navigation en Platform). No expone los helpers internos de
  * intersección de módulos (intersectWithCategory/intersectWithCommercePreference)
- * ni assertModuleAccess/hasModule, que hoy no tienen consumidores fuera de
- * este módulo — si llegan a necesitarse, se agregan acá explícitamente.
+ * ni hasModule, que hoy no tienen consumidores fuera de este módulo — si
+ * llegan a necesitarse, se agregan acá explícitamente. assertModuleAccess SÍ
+ * se expone — lo consume ModuleAccessGuard (common/guards) para el
+ * enforcement real de @RequireModule() en los controllers.
  */
 export interface PlanLimitsFacade {
   getPlanLimits(userId: string): Promise<PlanLimits>;
   getSelectableModules(userId: string): Promise<string[]>;
+  assertModuleAccess(userId: string, module: string): Promise<void>;
   assertProductLimit(userId: string, commerceId: string): Promise<void>;
   assertEmployeeLimit(userId: string, commerceId: string): Promise<void>;
   assertBranchLimit(userId: string, commerceId: string): Promise<void>;
