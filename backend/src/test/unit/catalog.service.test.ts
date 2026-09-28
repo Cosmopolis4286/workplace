@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common'
 import { ProductStatus } from '@prisma/client'
 import { CatalogService } from '../../domains/commerce-core/catalog/catalog.service'
 import { PrismaService } from '../../prisma/prisma.service'
@@ -64,11 +64,13 @@ describe('CatalogService', () => {
     mockNotificationsService = {
       notifyNewCatalogOrder: jest.fn().mockResolvedValue(undefined),
       notifyLowStock: jest.fn().mockResolvedValue(undefined),
+      notifyEscrowDisputeOpened: jest.fn().mockResolvedValue(undefined),
     }
     mockEscrowService = {
       hold: jest.fn().mockResolvedValue({}),
       release: jest.fn().mockResolvedValue({}),
       refund: jest.fn().mockResolvedValue({}),
+      openDispute: jest.fn().mockResolvedValue({}),
     }
     mockPlatformFeesService = {
       resolveFeeConfig: jest.fn().mockResolvedValue(null),
@@ -414,6 +416,58 @@ describe('CatalogService', () => {
       await service.confirmOrderCompletion('order-1', REQUESTER_ID)
 
       expect(mockEscrowService.release).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('disputeOrder — Pago Protegido (escrow)', () => {
+    function baseOrder(overrides: Partial<any> = {}) {
+      return {
+        id: 'order-1', commerceId: COMMERCE_ID, commerceName: 'Pastelería Ana', status: 'CONTACTED',
+        requesterId: REQUESTER_ID, escrowStatus: 'HELD', escrowAmount: 100,
+        ...overrides,
+      }
+    }
+
+    beforeEach(() => {
+      mockPrismaService.catalogOrder = { ...mockPrismaService.catalogOrder, findUnique: jest.fn() }
+    })
+
+    it('rejects if the caller is neither the buyer nor the commerce owner', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(baseOrder())
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1' })
+
+      await expect(service.disputeOrder('order-1', 'stranger', 'No llegó')).rejects.toBeInstanceOf(ForbiddenException)
+      expect(mockEscrowService.openDispute).not.toHaveBeenCalled()
+    })
+
+    it('rejects disputing an order that is not CONTACTED', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(baseOrder({ status: 'PENDING' }))
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1' })
+
+      await expect(service.disputeOrder('order-1', REQUESTER_ID, 'No llegó')).rejects.toThrow(
+        'Solo se puede disputar un pedido en curso (contactado)',
+      )
+    })
+
+    it('opens the dispute and notifies the commerce owner when the buyer disputes', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(baseOrder())
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1' })
+
+      await service.disputeOrder('order-1', REQUESTER_ID, 'Llegó incompleto')
+
+      expect(mockEscrowService.openDispute).toHaveBeenCalledWith({
+        entityType: 'CATALOG_ORDER', entityId: 'order-1', raisedById: REQUESTER_ID, reason: 'Llegó incompleto',
+      })
+      expect(mockNotificationsService.notifyEscrowDisputeOpened).toHaveBeenCalledWith('owner-1', 'Pastelería Ana')
+    })
+
+    it('notifies the buyer when the commerce owner disputes', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(baseOrder())
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1' })
+
+      await service.disputeOrder('order-1', 'owner-1', 'El comprador no confirma')
+
+      expect(mockNotificationsService.notifyEscrowDisputeOpened).toHaveBeenCalledWith(REQUESTER_ID, 'Pastelería Ana')
     })
   })
 

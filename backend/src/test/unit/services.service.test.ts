@@ -72,6 +72,7 @@ describe('ServicesService — service request status transitions', () => {
       notifyPriceChangeRejected: jest.fn().mockResolvedValue(undefined),
       notifyPriceChangeApprovedPendingFunds: jest.fn().mockResolvedValue(undefined),
       notifyPriceChangeProposalInvalidated: jest.fn().mockResolvedValue(undefined),
+      notifyEscrowDisputeOpened: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockPlatformFeesService = {
@@ -89,6 +90,7 @@ describe('ServicesService — service request status transitions', () => {
       hold: jest.fn().mockResolvedValue({}),
       release: jest.fn().mockResolvedValue({}),
       refund: jest.fn().mockResolvedValue({}),
+      openDispute: jest.fn().mockResolvedValue({}),
     };
 
     mockReputationService = {
@@ -258,6 +260,42 @@ describe('ServicesService — service request status transitions', () => {
         },
       });
       expect(mockNotificationsService.notifyServiceRequestCancelled).toHaveBeenCalled();
+    });
+  });
+
+  describe('disputeServiceRequest', () => {
+    it('rejects if the caller is neither the provider nor the requester', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTED' }));
+      await expect(
+        service.disputeServiceRequest('req-1', 'stranger', 'No llegó'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockEscrowService.openDispute).not.toHaveBeenCalled();
+    });
+
+    it('rejects disputing a request that is not CONTACTED', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'PENDING' }));
+      await expect(
+        service.disputeServiceRequest('req-1', 'client-1', 'No llegó'),
+      ).rejects.toThrow('Solo se puede disputar una solicitud en curso (contactada)');
+    });
+
+    it('opens the dispute via EscrowFacade and notifies the counterparty (provider) when the client disputes', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTED' }));
+
+      await service.disputeServiceRequest('req-1', 'client-1', 'No llegó el pedido');
+
+      expect(mockEscrowService.openDispute).toHaveBeenCalledWith({
+        entityType: 'SERVICE_REQUEST', entityId: 'req-1', raisedById: 'client-1', reason: 'No llegó el pedido',
+      });
+      expect(mockNotificationsService.notifyEscrowDisputeOpened).toHaveBeenCalledWith('provider-1', 'Servicio Uno');
+    });
+
+    it('notifies the counterparty (client) when the provider disputes', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(baseRequest({ status: 'CONTACTED' }));
+
+      await service.disputeServiceRequest('req-1', 'provider-1', 'Cliente no confirma');
+
+      expect(mockNotificationsService.notifyEscrowDisputeOpened).toHaveBeenCalledWith('client-1', 'Servicio Uno');
     });
   });
 
