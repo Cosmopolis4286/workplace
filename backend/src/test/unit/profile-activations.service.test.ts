@@ -7,11 +7,13 @@ import { RedisService } from '../../redis/redis.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { RoleResolverService } from '../../common/account-type/role-resolver.service'
 import { PlansService } from '../../domains/money/plans/plans.service'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 
 describe('ProfileActivationsService', () => {
   let service: ProfileActivationsService
   let mockPrismaService: any
   let mockPlansService: any
+  let mockCommerceResolver: { ensureForUser: jest.Mock }
 
   const USER_ID = 'user-1'
   const ADMIN_ID = 'admin-1'
@@ -59,11 +61,13 @@ describe('ProfileActivationsService', () => {
     const mockRedisService = { del: jest.fn() }
     const mockNotificationsService = { notifyProfileActivationReviewed: jest.fn().mockResolvedValue(undefined) }
     mockPlansService = { activateSubscriptionForPlan: jest.fn().mockResolvedValue({ id: 'sub-1' }) }
+    mockCommerceResolver = { ensureForUser: jest.fn().mockResolvedValue(null) }
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProfileActivationsService,
         RoleResolverService,
+        { provide: CommerceResolverService, useValue: mockCommerceResolver },
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisService, useValue: mockRedisService },
         { provide: NotificationsService, useValue: mockNotificationsService },
@@ -292,56 +296,23 @@ describe('ProfileActivationsService', () => {
       })
     })
 
-    it('crea un Commerce real con el pendingCommerceName al activar un perfil BUSINESS', async () => {
+    // La regla "¿este perfil debe tener Commerce?" (BUSINESS siempre;
+    // PROFESSIONAL si su categoría vende producto), el nombre y la
+    // idempotencia viven en CommerceResolverService.ensureForUser — ver
+    // commerce-resolver.service.test.ts. Acá solo se verifica que la
+    // aprobación delega en ese punto único, dentro de la transacción.
+    it('delega en ensureForUser (dentro de la tx) al activar un perfil BUSINESS', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
-        pendingProfile({
-          type: ProfileType.BUSINESS,
-          subtype: null,
-          categoryId: null,
-          pendingCommerceName: 'Panadería El Trigal',
-        }),
+        pendingProfile({ type: ProfileType.BUSINESS, subtype: null, categoryId: null, pendingCommerceName: 'Panadería El Trigal' }),
       )
-      mockPrismaService.userProfile.findMany.mockResolvedValue([
-        { type: ProfileType.BUSINESS, subtype: null },
-      ])
+      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: ProfileType.BUSINESS, subtype: null }])
 
       await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.ACTIVE } as any)
 
-      expect(mockPrismaService.commerce.create).toHaveBeenCalledWith({
-        data: { userId: USER_ID, profileId: PROFILE_ID, name: 'Panadería El Trigal' },
-      })
+      expect(mockCommerceResolver.ensureForUser).toHaveBeenCalledWith(mockPrismaService, USER_ID)
     })
 
-    it('usa un nombre por defecto si pendingCommerceName quedó vacío', async () => {
-      mockPrismaService.userProfile.findUnique.mockResolvedValue(
-        pendingProfile({ type: ProfileType.BUSINESS, subtype: null, categoryId: null, pendingCommerceName: null }),
-      )
-      mockPrismaService.userProfile.findMany.mockResolvedValue([
-        { type: ProfileType.BUSINESS, subtype: null },
-      ])
-
-      await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.ACTIVE } as any)
-
-      expect(mockPrismaService.commerce.create).toHaveBeenCalledWith({
-        data: { userId: USER_ID, profileId: PROFILE_ID, name: 'Mi Negocio' },
-      })
-    })
-
-    it('no crea un Commerce duplicado si el usuario ya tiene uno', async () => {
-      mockPrismaService.userProfile.findUnique.mockResolvedValue(
-        pendingProfile({ type: ProfileType.BUSINESS, subtype: null, categoryId: null }),
-      )
-      mockPrismaService.userProfile.findMany.mockResolvedValue([
-        { type: ProfileType.BUSINESS, subtype: null },
-      ])
-      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'existing-commerce' })
-
-      await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.ACTIVE } as any)
-
-      expect(mockPrismaService.commerce.create).not.toHaveBeenCalled()
-    })
-
-    it('no crea un Commerce al activar un perfil que no es BUSINESS', async () => {
+    it('también delega al activar un perfil PROFESSIONAL (opción 2: puede vender producto según su categoría)', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(pendingProfile())
       mockPrismaService.userProfile.findMany.mockResolvedValue([
         { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
@@ -349,10 +320,10 @@ describe('ProfileActivationsService', () => {
 
       await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.ACTIVE } as any)
 
-      expect(mockPrismaService.commerce.create).not.toHaveBeenCalled()
+      expect(mockCommerceResolver.ensureForUser).toHaveBeenCalledWith(mockPrismaService, USER_ID)
     })
 
-    it('no crea un Commerce al rechazar un perfil BUSINESS', async () => {
+    it('no intenta crear un Commerce al rechazar un perfil BUSINESS', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
         pendingProfile({ type: ProfileType.BUSINESS, subtype: null, categoryId: null }),
       )
@@ -361,6 +332,7 @@ describe('ProfileActivationsService', () => {
 
       await service.review(PROFILE_ID, ADMIN_ID, { status: ProfileStatus.REJECTED, rejectionReason: 'No aplica' } as any)
 
+      expect(mockCommerceResolver.ensureForUser).not.toHaveBeenCalled()
       expect(mockPrismaService.commerce.create).not.toHaveBeenCalled()
     })
 
