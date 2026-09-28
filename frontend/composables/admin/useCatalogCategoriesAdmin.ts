@@ -4,7 +4,9 @@ import { useApi } from '~/composables/core/useApi'
 // Shape compartido por ServiceCategory y JobCategory — ambos backends
 // exponen el mismo CRUD admin, solo cambia el path base. Ver
 // CategoryScopeService: userCategoryIds vacío = visible para cualquier rubro.
-export interface CatalogCategory {
+// Nombrada "Admin" para no chocar con CatalogCategory de useCatalog.ts
+// (catálogo público de productos/servicios) bajo el auto-import global.
+export interface CatalogAdminCategory {
   id: string
   name: string
   color?: string
@@ -32,13 +34,13 @@ export function useCatalogCategoriesAdmin(kind: CatalogKind) {
   // jobs expone PATCH, services expone PUT — misma semántica (update parcial).
   const updateFn = kind === 'jobs' ? patch : put
 
-  const categories = ref<CatalogCategory[]>([])
+  const categories = ref<CatalogAdminCategory[]>([])
   const loading = ref(false)
 
   async function fetchAll() {
     loading.value = true
     try {
-      const res = await get<CatalogCategory[] | { data: CatalogCategory[] }>(basePath)
+      const res = await get<CatalogAdminCategory[] | { data: CatalogAdminCategory[] }>(basePath)
       categories.value = unwrap(res) ?? []
     } finally {
       loading.value = false
@@ -46,13 +48,13 @@ export function useCatalogCategoriesAdmin(kind: CatalogKind) {
   }
 
   async function create(dto: { name: string; color?: string; icon?: string; description?: string; userCategoryIds?: string[] }) {
-    const res = await post<CatalogCategory | { data: CatalogCategory }>(basePath, dto)
+    const res = await post<CatalogAdminCategory | { data: CatalogAdminCategory }>(basePath, dto)
     await fetchAll()
     return unwrap(res)
   }
 
   async function update(id: string, dto: Partial<{ name: string; color: string; icon: string; description: string; userCategoryIds: string[] }>) {
-    const res = await updateFn<CatalogCategory | { data: CatalogCategory }>(`${basePath}/${id}`, dto)
+    const res = await updateFn<CatalogAdminCategory | { data: CatalogAdminCategory }>(`${basePath}/${id}`, dto)
     await fetchAll()
     return unwrap(res)
   }

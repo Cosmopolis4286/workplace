@@ -152,7 +152,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
-import { useCatalogCategoriesAdmin, type CatalogCategory, type CatalogKind } from '~/composables/admin/useCatalogCategoriesAdmin'
+import { useCatalogCategoriesAdmin, type CatalogAdminCategory, type CatalogKind } from '~/composables/admin/useCatalogCategoriesAdmin'
 import { useUsers } from '~/composables/users/useUsers'
 
 const props = defineProps<{
@@ -191,12 +191,12 @@ function userCategoryName(id: string): string {
 
 // Form
 const showForm = ref(false)
-const editing  = ref<CatalogCategory | null>(null)
+const editing  = ref<CatalogAdminCategory | null>(null)
 const saving   = ref(false)
 const formError = ref<string | null>(null)
 const form = reactive({ name: '', description: '', icon: '🏷️', color: '#6b7280', userCategoryIds: [] as string[] })
 
-function openForm(cat?: CatalogCategory) {
+function openForm(cat?: CatalogAdminCategory) {
   editing.value = cat ?? null
   form.name = cat?.name ?? ''
   form.description = cat?.description ?? ''
@@ -239,7 +239,7 @@ async function save() {
   }
 }
 
-async function confirmDelete(cat: CatalogCategory) {
+async function confirmDelete(cat: CatalogAdminCategory) {
   const ok = await confirm({
     title: `¿Eliminar ${singularLabel.value}?`,
     message: `Se eliminará "${cat.name}". Esta acción no se puede deshacer.`,
