@@ -194,12 +194,16 @@ describe('PlanLimitsService', () => {
       expect(limits.effectiveModules).not.toContain('services')
     })
 
-    it('strips COMMERCE_ONLY_MODULES for a FREELANCER/SERVICE_PROVIDER even when the plan and category both include them', async () => {
+    it('strips MODULE_ACCOUNT_TYPE COMMERCE-only modules for a FREELANCER/SERVICE_PROVIDER, but keeps menu/orders/delivery/customers when the category includes them', async () => {
       // Caso real: comidarapida@demo.com con el plan "Pro" completo (incluye
       // employees/branches/purchases/suppliers/accounts porque esos módulos
       // también sirven a un COMMERCE) — sin esta resta, una autónoma sin
       // Commerce heredaba gestión de personal/sucursales/cadena de suministro
       // solo porque su categoría "Comida" los trae para el caso COMMERCE.
+      // menu/orders/delivery/customers SÍ se conservan: no están en
+      // MODULE_ACCOUNT_TYPE (su acceso depende de categoría, no de
+      // accountType) y "Comida" los incluye — ver el test simétrico de abajo
+      // para el caso COMMERCE en una categoría que NO los incluye.
       mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: 'cat-comida' })
       mockPrismaService.subscription.findFirst.mockResolvedValue({
         plan: {
@@ -230,6 +234,36 @@ describe('PlanLimitsService', () => {
       expect(limits.effectiveModules).not.toEqual(
         expect.arrayContaining(['employees', 'branches', 'purchases', 'suppliers', 'accounts', 'inventory'])
       )
+    })
+
+    it('does NOT grant menu/orders to a COMMERCE user in a non-product category, even if the plan includes them', async () => {
+      // Caso real: tecnologia@demo.com — COMMERCE (tiene Commerce propio) en
+      // categoría "Tecnología", cuyo allowedModules NO incluye menu/orders/
+      // inventory (vende software, no productos físicos). El eje correcto acá
+      // es la categoría, no accountType — un COMMERCE no debe ganar menu solo
+      // por tener Commerce formal si su rubro no vende producto.
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: 'cat-tecnologia' })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Pro',
+          maxProducts: 50, maxEmployees: 5, maxBranches: 2, maxOrders: 500, maxStorage: 1000,
+          enabledModules: ['dashboard', 'menu', 'orders', 'services', 'jobs', 'appointments'],
+        },
+      })
+      mockPrismaService.userCategory.findUnique
+        .mockResolvedValueOnce({ allowedModules: ['dashboard', 'services', 'jobs', 'appointments'] })
+        .mockResolvedValueOnce({ name: 'Tecnología' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
+      // Un UserProfile BUSINESS ACTIVE => AccountTypeResolver.resolve() = 'COMMERCE'
+      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'BUSINESS' }])
+
+      const limits = await service.getPlanLimits(userId)
+
+      expect(limits.effectiveModules).toEqual(
+        expect.arrayContaining(['dashboard', 'services', 'jobs', 'appointments'])
+      )
+      expect(limits.effectiveModules).not.toContain('menu')
+      expect(limits.effectiveModules).not.toContain('orders')
     })
   })
 

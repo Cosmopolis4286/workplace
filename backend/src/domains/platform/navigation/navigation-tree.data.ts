@@ -67,10 +67,16 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
       // alguien que TODAVÍA no tiene el módulo de servicios activo a
       // convertirse en proveedor — condicionarla al módulo la escondería
       // justo de quien más le sirve.
+      // excludeRoles SUPERADMIN/ADMIN en opportunities/rides: son acciones de
+      // alguien que CONSUME la plataforma (buscar trabajo, pedir una
+      // corrida/flete), no de quien la administra — opportunities:view/
+      // corridas:view quedaban concedidos a estos roles solo por ser parte
+      // de la unión total de permisos (SUPERADMIN) o de COMMERCE_KEYS
+      // (ADMIN_KEYS), sin relación con su rol real de supervisión.
       { id: 'opportunities', to: '/opportunities', label: 'Oportunidades', icon: 'opportunities', order: 5,
-        condition: { permission: 'opportunities:view' } },
+        condition: { permission: 'opportunities:view', excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       { id: 'rides', to: '/rides', label: 'Corridas y Fletes', icon: 'rides', order: 6,
-        condition: { permission: 'corridas:view', requiresModule: true } },
+        condition: { permission: 'corridas:view', requiresModule: true, excludeRoles: [Role.SUPERADMIN, Role.ADMIN] } },
       { id: 'wallet', to: '/wallet', label: 'Billetera', icon: 'wallet', order: 7,
         condition: { permission: 'wallets:use', requiresModule: true } },
       { id: 'my-orders', to: '/my-orders', label: 'Mis Pedidos', icon: 'orders', order: 8,

@@ -25,9 +25,9 @@ import { CreateExpenseCategoryDto } from './dto/create-expense-category.dto';
 import { UpdateExpenseCategoryDto } from './dto/update-expense-category.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
-import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
-import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
+import { RequireModule } from '../../../common/decorators/require-module.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { IsEnum } from 'class-validator';
 import { ExpenseStatus } from '@prisma/client';
@@ -37,8 +37,8 @@ class PatchStatusDto {
   status: ExpenseStatus;
 }
 
-@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
-@RequireAccountType('COMMERCE')
+@UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+@RequireModule('expenses')
 @Controller('expenses')
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}

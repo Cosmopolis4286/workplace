@@ -15,14 +15,17 @@ export const ACCOUNT_TYPE_KEY = 'required_account_type';
 // módulo que sigue siendo usable en general, no el módulo completo, así que
 // no aplica un veto de sidebar.
 //
-// menu/orders/customers/delivery NO están acá a propósito, aunque también
-// tuvieron @RequireAccountType('COMMERCE') hasta hace poco: su eje real de
-// acceso es la categoría de negocio (¿vende producto físico?), no si el
-// usuario tiene un Commerce formal — hay COMMERCE de categoría "Tecnología"
-// que no deben verlos, y FREELANCER de categoría "Comida" que sí. Esos 4
-// controllers ahora usan @RequireModule(...) + ModuleAccessGuard, que valida
-// contra effectiveModules (plan ∩ categoría, ya correcto por categoría) en
-// vez de accountType — ver require-module.decorator.ts.
+// menu/orders/customers/delivery/expenses NO están acá a propósito, aunque
+// también tuvieron @RequireAccountType('COMMERCE') hasta hace poco: su eje
+// real de acceso es la categoría de negocio (¿vende producto físico?), no si
+// el usuario tiene un Commerce formal — hay COMMERCE de categoría
+// "Tecnología" que no deben verlos, y FREELANCER de categoría "Comida" que
+// sí. Los 5 controllers ahora usan @RequireModule(...) + ModuleAccessGuard,
+// que valida contra effectiveModules (plan ∩ categoría, ya correcto por
+// categoría) en vez de accountType — ver require-module.decorator.ts. Todos
+// comparten el mismo indicio técnico: su *.service.ts resuelve commerceId
+// vía CommerceResolverService.resolve()/resolveOrCreate() (fallback a
+// userId, o auto-crea un Commerce), nunca asume que ya existe uno.
 //
 // Al agregar @RequireAccountType(...) a nivel de CLASE en un controller
 // nuevo, sumar su módulo acá en el mismo commit — si no, el sidebar seguirá
@@ -39,7 +42,6 @@ export const MODULE_ACCOUNT_TYPE: Record<string, 'COMMERCE' | 'FREELANCER'> = {
   alert_engine: 'COMMERCE',
   appointments: 'COMMERCE',
   cash: 'COMMERCE',
-  expenses: 'COMMERCE',
   price_guard: 'COMMERCE',
   purchases: 'COMMERCE',
   receipts: 'COMMERCE',
