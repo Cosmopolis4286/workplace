@@ -393,6 +393,12 @@ export class ServicesController {
     return this.servicesService.cancelServiceRequest(id, user.id);
   }
 
+  @Patch('requests/:id/dispute')
+  @UseGuards(JwtAuthGuard)
+  disputeRequest(@Param('id') id: string, @CurrentUser() user: any, @Body('reason') reason: string) {
+    return this.servicesService.disputeServiceRequest(id, user.id, reason);
+  }
+
   // ─── Price change proposals ───────────────────────────────────────────────
 
   @Post('requests/:id/price-change-proposals')

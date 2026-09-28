@@ -1018,6 +1018,38 @@ export class ServicesService {
     return updated;
   }
 
+  // El cliente O el proveedor pueden disputar una garantía retenida (HELD)
+  // cuando no están de acuerdo con cómo terminó — congela la liberación/
+  // reembolso automáticos hasta que un admin la resuelva. Solo tiene sentido
+  // desde CONTACTED (ya hay precio fijado y trabajo en curso); antes de eso
+  // no hay nada que disputar todavía.
+  async disputeServiceRequest(id: string, userId: string, reason: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.providerId !== userId && req.requesterId !== userId) {
+      throw new ForbiddenException('No tienes permiso');
+    }
+    if (req.status !== 'CONTACTED') {
+      throw new BadRequestException('Solo se puede disputar una solicitud en curso (contactada)');
+    }
+
+    const dispute = await this.escrow.openDispute({
+      entityType: 'SERVICE_REQUEST',
+      entityId: id,
+      raisedById: userId,
+      reason,
+    });
+
+    this.notifications
+      .notifyEscrowDisputeOpened(
+        userId === req.requesterId ? req.providerId : req.requesterId!,
+        req.serviceName,
+      )
+      .catch(() => {});
+
+    return dispute;
+  }
+
   // ─── Escrow retry (3.3b) ────────────────────────────────────────────────────
 
   // Reintenta la retención de garantía para una solicitud puntual que quedó en

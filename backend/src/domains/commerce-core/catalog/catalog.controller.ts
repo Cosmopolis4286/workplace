@@ -117,6 +117,12 @@ export class CatalogController {
     return this.catalogService.confirmOrderCompletion(id, user.id);
   }
 
+  @Patch('orders/:id/dispute')
+  @UseGuards(JwtAuthGuard)
+  disputeOrder(@Param('id') id: string, @CurrentUser() user: any, @Body('reason') reason: string) {
+    return this.catalogService.disputeOrder(id, user.id, reason);
+  }
+
   @Get('orders/sent')
   @UseGuards(JwtAuthGuard)
   getOrdersSent(

@@ -847,4 +847,39 @@ export class CatalogService {
     const updated = await this.prisma.catalogOrder.update({ where: { id }, data: update });
     return { data: updated };
   }
+
+  // El comprador O el comercio pueden disputar un pedido con garantía
+  // retenida (HELD) cuando no están de acuerdo con cómo terminó — congela
+  // la liberación/reembolso automáticos hasta que un admin la resuelva.
+  async disputeOrder(id: string, userId: string, reason: string) {
+    const order = await this.prisma.catalogOrder.findUnique({ where: { id } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { id: order.commerceId },
+      select: { userId: true },
+    });
+    if (order.requesterId !== userId && commerce?.userId !== userId) {
+      throw new ForbiddenException('No tienes permiso');
+    }
+    if (order.status !== 'CONTACTED') {
+      throw new BadRequestException('Solo se puede disputar un pedido en curso (contactado)');
+    }
+
+    const dispute = await this.escrow.openDispute({
+      entityType: 'CATALOG_ORDER',
+      entityId: id,
+      raisedById: userId,
+      reason,
+    });
+
+    const counterpartyId = userId === order.requesterId ? commerce?.userId : order.requesterId;
+    if (counterpartyId) {
+      this.notifications
+        .notifyEscrowDisputeOpened(counterpartyId, order.commerceName)
+        .catch(() => {});
+    }
+
+    return dispute;
+  }
 }
