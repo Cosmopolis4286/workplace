@@ -324,6 +324,10 @@ function timeGreeting() {
   return 'Buenas noches'
 }
 
+// Subtítulo con categoría real del usuario (sin mapear textos por rubro —
+// funciona para cualquier categoría existente o nueva sin mantenimiento).
+// La categoría es ortogonal al accountType: tanto un comercio como un
+// profesional independiente pueden ser, por ej., de categoría "Comida".
 const personalizedHeroConfig = computed(() => {
   if (userRole.value === 'NORMAL') {
     const name = user.value?.firstName
@@ -333,6 +337,15 @@ const personalizedHeroConfig = computed(() => {
       subtitle: 'Aquí tienes un resumen de tu actividad reciente',
     }
   }
+
+  const categoryName = user.value?.category?.name
+  if (categoryName && user.value?.accountType === 'FREELANCER') {
+    return { ...heroConfig.value, subtitle: `Gestión de tus servicios de ${categoryName} y solicitudes de clientes` }
+  }
+  if (categoryName && user.value?.accountType === 'COMMERCE') {
+    return { ...heroConfig.value, subtitle: `Bienvenido a tu panel de ${categoryName}` }
+  }
+
   return heroConfig.value
 })
 

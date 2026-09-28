@@ -9,7 +9,7 @@
         <div class="min-w-0 text-white">
           <div class="flex items-center gap-2 mb-0.5 sm:mb-1 flex-wrap">
             <h1 class="text-lg sm:text-2xl font-bold leading-tight truncate">{{ config.title }}</h1>
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-white/15 text-[10px] sm:text-[11px] font-medium uppercase tracking-wide">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-white/15 text-[10px] sm:text-[11px] font-medium tracking-wide">
               {{ roleLabel }}
             </span>
           </div>
@@ -108,12 +108,17 @@ const iconMap: Record<string, any> = {
 
 const heroIcon = computed(() => iconMap[props.config.icon] || ChartBarIcon)
 
+// "Profesional Independiente" (no "Freelancer"/"FREELANCER"): el rol de
+// sistema (Role.PROFESIONAL) ya se muestra como "Profesional" en el dropdown
+// de usuario y en el footer del sidebar — mostrar "Freelancer" acá para el
+// mismo usuario generaba tres etiquetas distintas en pantalla para el mismo
+// concepto. Ver también SidebarUserFooter.vue y el dropdown de usuario.
 const roleLabels: Record<string, string> = {
   ShieldCheckIcon: 'Superadmin',
   BuildingOfficeIcon: 'Admin',
   BuildingStorefrontIcon: 'Comercio',
-  TruckIcon: 'Freelancer',
-  WrenchIcon: 'Freelancer',
+  TruckIcon: 'Profesional Independiente',
+  WrenchIcon: 'Profesional Independiente',
   UserIcon: 'Cliente',
 }
 
