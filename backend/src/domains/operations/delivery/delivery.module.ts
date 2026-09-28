@@ -9,6 +9,7 @@ import { TelegramModule } from '../../engagement/telegram/telegram.module';
 import { MailModule } from '../../engagement/mail/mail.module';
 import { ReputationModule } from '../../reputation/reputation.module';
 import { TrackingModule } from './tracking/tracking.module';
+import { PlansModule } from '../../money/plans/plans.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TrackingModule } from './tracking/tracking.module';
     MailModule,
     ReputationModule,
     TrackingModule,
+    PlansModule,
   ],
   controllers: [DeliveryController, DriverInvitationsController],
   providers: [DeliveryService, DriverGraceReminderScheduler],

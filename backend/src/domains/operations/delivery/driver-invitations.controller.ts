@@ -9,30 +9,31 @@ import {
 import { DeliveryService } from './delivery.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
-import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
-import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
+import { RequireModule } from '../../../common/decorators/require-module.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { InviteDriverDto } from './dto/invite-driver.dto';
 
 // Separado de DeliveryController porque `accept/:token` lo llama el
-// repartidor invitado (cualquier cuenta con userId propio), no un comercio —
-// DeliveryController exige @RequireAccountType('COMMERCE') a nivel de clase.
+// repartidor invitado (cualquier cuenta con userId propio), no quien
+// gestiona el módulo delivery — DeliveryController exige @RequireModule('delivery')
+// a nivel de clase.
 @Controller('delivery/driver-invitations')
 export class DriverInvitationsController {
   constructor(private readonly deliveryService: DeliveryService) {}
 
   @Get()
-  @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
-  @RequireAccountType('COMMERCE')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @RequireModule('delivery')
   @RequirePermission('delivery:manage_drivers')
   list(@CurrentUser() user: { id: string }) {
     return this.deliveryService.listInvitations(user.id);
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
-  @RequireAccountType('COMMERCE')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @RequireModule('delivery')
   @RequirePermission('delivery:manage_drivers')
   invite(
     @CurrentUser() user: { id: string },
@@ -42,8 +43,8 @@ export class DriverInvitationsController {
   }
 
   @Post(':id/cancel')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
-  @RequireAccountType('COMMERCE')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @RequireModule('delivery')
   @RequirePermission('delivery:manage_drivers')
   cancel(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.deliveryService.cancelInvitation(user.id, id);
