@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { PlanLimitsService } from '../../domains/money/plans/plan-limits.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { SYSTEM_MODULES_FACADE } from '../../domains/platform/system-modules/system-modules.facade'
-import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
+import { CapabilitiesService } from '../../common/capabilities/capabilities.service'
 import { ForbiddenException } from '@nestjs/common'
 import { Role } from '@prisma/client'
 
@@ -24,6 +24,10 @@ describe('PlanLimitsService', () => {
     userProfile: { findMany: jest.fn().mockResolvedValue([]) },
   }
 
+  // HAS_PROFESSIONAL_PROFILE — por defecto sin perfil PROFESSIONAL ACTIVE;
+  // los tests que lo necesitan lo sobreescriben explícitamente.
+  const mockCapabilities = { has: jest.fn().mockResolvedValue(false) }
+
   const mockSystemModulesService = {
     getDisabledModules: jest.fn().mockResolvedValue([]),
     listBusinessModules: jest.fn().mockResolvedValue([
@@ -39,6 +43,7 @@ describe('PlanLimitsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks()
+    mockCapabilities.has.mockResolvedValue(false)
     mockSystemModulesService.getDisabledModules.mockResolvedValue([])
     mockSystemModulesService.listBusinessModules.mockResolvedValue([
       'dashboard', 'menu', 'inventory', 'orders', 'customers', 'appointments',
@@ -50,7 +55,7 @@ describe('PlanLimitsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PlanLimitsService,
-        AccountTypeResolver,
+        { provide: CapabilitiesService, useValue: mockCapabilities },
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: SYSTEM_MODULES_FACADE, useValue: mockSystemModulesService },
       ],
@@ -164,12 +169,13 @@ describe('PlanLimitsService', () => {
         .mockResolvedValueOnce({ allowedModules: ['dashboard', 'menu'] }) // Comida: sin services/jobs
         .mockResolvedValueOnce({ name: 'Comida' })
       mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
-      // Un UserProfile PROFESSIONAL ACTIVE => AccountTypeResolver.resolve() = 'FREELANCER'
-      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'PROFESSIONAL' }])
+      // Un UserProfile PROFESSIONAL ACTIVE => HAS_PROFESSIONAL_PROFILE
+      mockCapabilities.has.mockResolvedValue(true)
 
       const limits = await service.getPlanLimits(userId)
 
       expect(limits.effectiveModules).toEqual(expect.arrayContaining(['dashboard', 'menu', 'services', 'jobs']))
+      expect(mockCapabilities.has).toHaveBeenCalledWith(userId, 'HAS_PROFESSIONAL_PROFILE')
     })
 
     it('does NOT widen the category for a COMMERCE user in the same category (no gana módulos extra)', async () => {
@@ -185,8 +191,7 @@ describe('PlanLimitsService', () => {
         .mockResolvedValueOnce({ allowedModules: ['dashboard', 'menu'] })
         .mockResolvedValueOnce({ name: 'Comida' })
       mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
-      // Un UserProfile BUSINESS ACTIVE => AccountTypeResolver.resolve() = 'COMMERCE'
-      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'BUSINESS' }])
+      // Solo perfil BUSINESS ACTIVE => sin HAS_PROFESSIONAL_PROFILE (default del mock)
 
       const limits = await service.getPlanLimits(userId)
 
@@ -194,16 +199,14 @@ describe('PlanLimitsService', () => {
       expect(limits.effectiveModules).not.toContain('services')
     })
 
-    it('strips MODULE_ACCOUNT_TYPE COMMERCE-only modules for a FREELANCER/SERVICE_PROVIDER, but keeps menu/orders/delivery/customers when the category includes them', async () => {
-      // Caso real: comidarapida@demo.com con el plan "Pro" completo (incluye
-      // employees/branches/purchases/suppliers/accounts porque esos módulos
-      // también sirven a un COMMERCE) — sin esta resta, una autónoma sin
-      // Commerce heredaba gestión de personal/sucursales/cadena de suministro
-      // solo porque su categoría "Comida" los trae para el caso COMMERCE.
-      // menu/orders/delivery/customers SÍ se conservan: no están en
-      // MODULE_ACCOUNT_TYPE (su acceso depende de categoría, no de
-      // accountType) y "Comida" los incluye — ver el test simétrico de abajo
-      // para el caso COMMERCE en una categoría que NO los incluye.
+    it('does not filter by papel: effectiveModules is plan ∩ category, business-only modules are gated by permissions instead', async () => {
+      // Caso real: comidarapida@demo.com (PROFESSIONAL) con el plan "Pro"
+      // completo en categoría "Comida". Antes se restaban employees/branches/
+      // purchases/... por accountType (MODULE_ACCOUNT_TYPE). Ahora el techo de
+      // rubro/plan los incluye y es la matriz de permisos la que decide: el
+      // perfil PROFESSIONAL no tiene employees:*/branches:*/... (ver
+      // permission-defaults.test.ts), así que ni el sidebar ni el guard los
+      // habilitan. Una sola capa por pregunta.
       mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: 'cat-comida' })
       mockPrismaService.subscription.findFirst.mockResolvedValue({
         plan: {
@@ -224,16 +227,39 @@ describe('PlanLimitsService', () => {
         })
         .mockResolvedValueOnce({ name: 'Comida' })
       mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
-      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'PROFESSIONAL' }])
+      mockCapabilities.has.mockResolvedValue(true)
 
       const limits = await service.getPlanLimits(userId)
 
       expect(limits.effectiveModules).toEqual(
-        expect.arrayContaining(['dashboard', 'menu', 'orders', 'delivery', 'customers', 'services', 'jobs'])
+        expect.arrayContaining([
+          'dashboard', 'menu', 'orders', 'delivery', 'customers', 'services', 'jobs',
+          'employees', 'branches', 'purchases', 'suppliers', 'accounts', 'inventory',
+        ])
       )
-      expect(limits.effectiveModules).not.toEqual(
-        expect.arrayContaining(['employees', 'branches', 'purchases', 'suppliers', 'accounts', 'inventory'])
-      )
+    })
+
+    it('widens with service modules for a user with BOTH BUSINESS and PROFESSIONAL profiles (multi-perfil)', async () => {
+      // Antes AccountTypeResolver colapsaba a 'COMMERCE' (BUSINESS gana) y
+      // este usuario perdía services/jobs aunque tuviera el perfil
+      // PROFESSIONAL activo. HAS_PROFESSIONAL_PROFILE se evalúa por perfil.
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: 'cat-comida' })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Pro',
+          maxProducts: 50, maxEmployees: 5, maxBranches: 2, maxOrders: 500, maxStorage: 1000,
+          enabledModules: ['dashboard', 'menu', 'services', 'jobs'],
+        },
+      })
+      mockPrismaService.userCategory.findUnique
+        .mockResolvedValueOnce({ allowedModules: ['dashboard', 'menu'] })
+        .mockResolvedValueOnce({ name: 'Comida' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
+      mockCapabilities.has.mockResolvedValue(true)
+
+      const limits = await service.getPlanLimits(userId)
+
+      expect(limits.effectiveModules).toEqual(expect.arrayContaining(['services', 'jobs']))
     })
 
     it('does NOT grant menu/orders to a COMMERCE user in a non-product category, even if the plan includes them', async () => {
@@ -254,8 +280,7 @@ describe('PlanLimitsService', () => {
         .mockResolvedValueOnce({ allowedModules: ['dashboard', 'services', 'jobs', 'appointments'] })
         .mockResolvedValueOnce({ name: 'Tecnología' })
       mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
-      // Un UserProfile BUSINESS ACTIVE => AccountTypeResolver.resolve() = 'COMMERCE'
-      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'BUSINESS' }])
+      // Solo perfil BUSINESS ACTIVE => sin HAS_PROFESSIONAL_PROFILE (default del mock)
 
       const limits = await service.getPlanLimits(userId)
 

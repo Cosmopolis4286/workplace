@@ -18,6 +18,7 @@ import { RecaptchaModule } from './common/recaptcha/recaptcha.module';
 import { AccountTypeModule } from './common/account-type/account-type.module';
 import { CategoryScopeModule } from './common/category-scope/category-scope.module';
 import { CommerceResolverModule } from './common/commerce-resolver/commerce-resolver.module';
+import { CapabilitiesModule } from './common/capabilities/capabilities.module';
 import { MenuModule } from './domains/commerce-core/menu/menu.module';
 import { CustomersModule } from './domains/operations/customers/customers.module';
 import { SettingsModule } from './domains/platform/settings/settings.module';
@@ -103,6 +104,7 @@ import { EscrowModule } from './domains/money/escrow/escrow.module';
     AccountTypeModule,
     CategoryScopeModule,
     CommerceResolverModule,
+    CapabilitiesModule,
     UsersModule,
     AuthModule,
     MenuModule,

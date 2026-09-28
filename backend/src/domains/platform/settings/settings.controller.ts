@@ -2,9 +2,9 @@ import { Controller, Get, Patch, Body, Query, UseGuards } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
-import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { CapabilityGuard } from '../../../common/guards/capability.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
-import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
+import { RequireCapability } from '../../../common/decorators/require-capability.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import {
   UpdateCommerceInfoDto,
@@ -19,7 +19,7 @@ import {
 import { UpdateCommerceSlugDto, UpdateFreelancerSlugDto } from './dto/update-commerce-slug.dto';
 
 @Controller('settings')
-@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
@@ -31,7 +31,7 @@ export class SettingsController {
 
   @Patch('commerce')
   @RequirePermission('settings:edit')
-  @RequireAccountType('COMMERCE')
+  @RequireCapability('HAS_COMMERCE')
   updateCommerceInfo(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateCommerceInfoDto
@@ -74,7 +74,7 @@ export class SettingsController {
 
   @Get('commerce/check-slug')
   @RequirePermission('settings:view')
-  @RequireAccountType('COMMERCE')
+  @RequireCapability('HAS_COMMERCE')
   checkCommerceSlug(
     @CurrentUser() user: { id: string },
     @Query('slug') slug: string
@@ -87,7 +87,7 @@ export class SettingsController {
 
   @Patch('commerce/slug')
   @RequirePermission('settings:edit')
-  @RequireAccountType('COMMERCE')
+  @RequireCapability('HAS_COMMERCE')
   updateCommerceSlug(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateCommerceSlugDto
@@ -97,7 +97,7 @@ export class SettingsController {
 
   @Get('freelancer/check-slug')
   @RequirePermission('settings:view')
-  @RequireAccountType('FREELANCER')
+  @RequireCapability('HAS_PROFESSIONAL_PROFILE')
   checkFreelancerSlug(
     @CurrentUser() user: { id: string },
     @Query('slug') slug: string
@@ -110,7 +110,7 @@ export class SettingsController {
 
   @Patch('freelancer/slug')
   @RequirePermission('settings:edit')
-  @RequireAccountType('FREELANCER')
+  @RequireCapability('HAS_PROFESSIONAL_PROFILE')
   updateFreelancerSlug(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateFreelancerSlugDto
@@ -120,7 +120,7 @@ export class SettingsController {
 
   @Patch('operations')
   @RequirePermission('settings:edit')
-  @RequireAccountType('COMMERCE')
+  @RequireCapability('HAS_COMMERCE')
   updateOperationSettings(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateOperationSettingsDto
@@ -130,7 +130,7 @@ export class SettingsController {
 
   @Patch('price-guard')
   @RequirePermission('settings:edit')
-  @RequireAccountType('COMMERCE')
+  @RequireCapability('HAS_COMMERCE')
   updatePriceGuardSettings(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdatePriceGuardSettingsDto

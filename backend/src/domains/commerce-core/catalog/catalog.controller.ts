@@ -14,8 +14,8 @@ import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
-import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
-import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
+import { CapabilityGuard } from '../../../common/guards/capability.guard';
+import { RequireCapability } from '../../../common/decorators/require-capability.decorator';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -95,8 +95,8 @@ export class CatalogController {
   }
 
   @Patch('orders/:id/status')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
-  @RequireAccountType('COMMERCE')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard)
+  @RequireCapability('HAS_COMMERCE')
   @RequirePermission('catalog:manage_orders')
   async updateOrderStatus(
     @Param('id') id: string,

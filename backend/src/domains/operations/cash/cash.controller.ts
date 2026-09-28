@@ -6,13 +6,13 @@ import { CreateMovementDto } from './dto/create-movement.dto';
 import { QuerySessionsDto } from './dto/query-sessions.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
-import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { CapabilityGuard } from '../../../common/guards/capability.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
-import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
+import { RequireCapability } from '../../../common/decorators/require-capability.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
-@RequireAccountType('COMMERCE')
+@UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard)
+@RequireCapability('HAS_COMMERCE')
 @Controller('cash')
 export class CashController {
   constructor(private readonly cashService: CashService) {}

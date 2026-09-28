@@ -3,8 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { Role, ServiceStatus, JobStatus } from '@prisma/client';
 import { SystemModulesFacade, SYSTEM_MODULES_FACADE } from '../../platform/system-modules/system-modules.facade';
 import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
-import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
-import { MODULE_ACCOUNT_TYPE } from '../../../common/decorators/require-account-type.decorator';
+import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
 
 // AppModule ya no es un union type cerrado — el catálogo de módulos de
 // negocio ahora es dinámico (tabla SystemModule, isBusinessModule=true),
@@ -56,7 +55,7 @@ const FREE_MODULES = [
 // "appointments" NO va acá a propósito, aunque suene a "cita de servicio
 // profesional": el modelo Appointment real es reserva de MESA de restaurante
 // (tableNumber/partySize, commerceId obligatorio) — un FREELANCER nunca
-// puede usarlo, lo rechaza AccountTypeGuard. La agenda de un FREELANCER vive
+// puede usarlo (permiso exclusivo del perfil BUSINESS). La agenda de un FREELANCER vive
 // en ServiceRequest.preferredDate, no en este módulo.
 const SERVICE_PROVIDER_BASE_MODULES = ['services', 'service_requests', 'jobs'];
 
@@ -80,7 +79,7 @@ export class PlanLimitsService implements PlanLimitsFacade {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SYSTEM_MODULES_FACADE) private readonly systemModulesService: SystemModulesFacade,
-    private readonly accountTypeResolver: AccountTypeResolver,
+    private readonly capabilities: CapabilitiesService,
   ) {}
 
   // ─── Core: plan limits + effective modules ──────────────────────────────────
@@ -207,54 +206,37 @@ export class PlanLimitsService implements PlanLimitsFacade {
     return categoryFiltered.filter((m) => !globallyDisabled.includes(m));
   }
 
-  // Returns plan.enabledModules ∩ category.allowedModules, ajustado por
-  // accountType cuando el usuario es FREELANCER/SERVICE_PROVIDER (sin
-  // Commerce): se SUMA el techo de servicios (SERVICE_PROVIDER_BASE_MODULES)
-  // y se RESTA todo módulo marcado COMMERCE en MODULE_ACCOUNT_TYPE — la misma
-  // fuente que usa AccountTypeGuard para rechazar el request real (defensa en
-  // profundidad: employees/branches/cash/expenses/etc. SIEMPRE requieren un
-  // Commerce formal, sin importar categoría). menu/orders/customers/delivery
-  // NO están en MODULE_ACCOUNT_TYPE: su acceso depende de la categoría
-  // (¿vende producto físico?), no de accountType — category.allowedModules ya
-  // decide eso correctamente para ambos (ver "Comida" vs "Tecnología"), y el
-  // enforcement real vive en ModuleAccessGuard vía @RequireModule(...), no acá.
-  // Sin la resta de MODULE_ACCOUNT_TYPE, effectiveModules podía prometer un
-  // módulo (sidebar/dashboard) que el controller real rechaza con 403 al
-  // primer uso. Aplica siempre para FREELANCER, incluso sin categoría o con
-  // category.allowedModules vacío — un plan nunca debe poder otorgar por sí
-  // solo un módulo que el guard real bloquea.
+  // plan.enabledModules ∩ category.allowedModules — el techo de RUBRO/PLAN,
+  // nada más. El PAPEL (comercio vs. profesional) ya no se filtra acá: lo
+  // decide la matriz de permisos (employees:*, cash:*... solo los concede el
+  // perfil BUSINESS), y NavigationService/ModuleAccessGuard combinan ambas
+  // capas. Antes se restaba MODULE_ACCOUNT_TYPE cuando accountType ===
+  // 'FREELANCER': una tercera fuente de "quién es comercio" que además
+  // listaba claves inexistentes en system_modules.
+  //
+  // Único ajuste por perfil: quien tiene un perfil PROFESSIONAL ACTIVE suma
+  // el techo de servicios (SERVICE_PROVIDER_BASE_MODULES) aunque su
+  // categoría no lo traiga. Se evalúa por perfil (CapabilitiesService), no
+  // por accountType colapsado: un usuario BUSINESS + PROFESSIONAL también lo
+  // recibe (antes BUSINESS "ganaba" y lo perdía).
   private async intersectWithCategory(
     planModules: string[],
     categoryId: string | null,
     userId: string,
   ): Promise<string[]> {
-    const accountType = await this.accountTypeResolver.resolve(userId);
-    const commerceOnlyModules = Object.keys(MODULE_ACCOUNT_TYPE).filter(
-      (m) => MODULE_ACCOUNT_TYPE[m] === 'COMMERCE',
-    );
-    const stripCommerceOnly = (mods: string[]) =>
-      accountType === 'FREELANCER' ? mods.filter((m) => !commerceOnlyModules.includes(m)) : mods;
-
-    if (!categoryId) {
-      const filtered = stripCommerceOnly(planModules);
-      return filtered.length === planModules.length ? planModules : filtered;
-    }
+    if (!categoryId) return planModules;
 
     const category = await this.prisma.userCategory.findUnique({
       where: { id: categoryId },
       select: { allowedModules: true },
     });
 
-    // If category has no allowedModules defined, only MODULE_ACCOUNT_TYPE
-    // (accountType) restricts — the category itself grants no restriction.
-    if (!category || category.allowedModules.length === 0) {
-      const filtered = stripCommerceOnly(planModules);
-      return filtered.length === planModules.length ? planModules : filtered;
-    }
+    // Categoría sin allowedModules definidos: no restringe nada.
+    if (!category || category.allowedModules.length === 0) return planModules;
 
     let categoryModules = category.allowedModules;
-    if (accountType === 'FREELANCER') {
-      categoryModules = stripCommerceOnly([...new Set([...categoryModules, ...SERVICE_PROVIDER_BASE_MODULES])]);
+    if (await this.capabilities.has(userId, 'HAS_PROFESSIONAL_PROFILE')) {
+      categoryModules = [...new Set([...categoryModules, ...SERVICE_PROVIDER_BASE_MODULES])];
     }
 
     return planModules.filter((m) => categoryModules.includes(m));

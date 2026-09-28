@@ -11,8 +11,8 @@ import {
 } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RequireAccountType } from '../../../common/decorators/require-account-type.decorator';
-import { AccountTypeGuard } from '../../../common/guards/account-type.guard';
+import { RequireCapability } from '../../../common/decorators/require-capability.decorator';
+import { CapabilityGuard } from '../../../common/guards/capability.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -30,8 +30,8 @@ export class TelegramController {
 
   // ─── Generate link for a customer (commerce use) ─────────────────────────────
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard, AccountTypeGuard)
-  @RequireAccountType('COMMERCE')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard)
+  @RequireCapability('HAS_COMMERCE')
   @RequirePermission('customers:edit')
   @Get('link/:customerId')
   async getLink(
