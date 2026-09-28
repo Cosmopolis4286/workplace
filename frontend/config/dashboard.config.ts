@@ -265,6 +265,12 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: 'CurrencyDollarIcon',
     route: '/expenses',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
+    // /expenses exige un Commerce real (ver COMMERCE_ONLY_ROUTES en
+    // middleware/auth.ts) — sin esto, un FREELANCER (ej. profesional
+    // autónomo de categoría Comida, sin Commerce) veía esta acción porque
+    // expenses:view está concedido a nivel de ROL como unión comercio∪
+    // freelancer (ROLE_DEFAULTS.PROFESIONAL en seed.js).
+    accountTypes: ['COMMERCE'],
     color: 'red',
     description: 'Gestión de gastos',
   },
