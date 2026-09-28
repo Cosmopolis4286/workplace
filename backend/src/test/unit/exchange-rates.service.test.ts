@@ -21,6 +21,11 @@ describe('ExchangeRatesService', () => {
     exchangeRateHistory: {
       create: jest.fn(),
     },
+    purchase: { count: jest.fn() },
+    supplierQuote: { count: jest.fn() },
+    accountReceivable: { count: jest.fn() },
+    accountPayable: { count: jest.fn() },
+    groupBuyingCampaign: { count: jest.fn() },
   }
 
   const mockBcvSyncService = {
@@ -90,6 +95,29 @@ describe('ExchangeRatesService', () => {
         orderBy: [{ isDefault: 'desc' }, { code: 'asc' }],
       })
     })
+
+    it('triggers ensureFreshRate for auto-sync currencies without awaiting it (fire-and-forget)', async () => {
+      // Antes de este fix, findAll() esperaba ensureFreshRate() antes de
+      // responder — si el BCV estaba caído, un GET normal podía tardar hasta
+      // ~40s. Ahora el sync se dispara en background y el request responde
+      // de inmediato con lo que ya había en DB.
+      const mockRates = [
+        { id: 'rate-1', code: 'USD', isActive: true, autoSync: false },
+        { id: 'rate-2', code: 'VES', isActive: true, autoSync: true },
+      ]
+      mockPrismaService.exchangeRate.findMany.mockResolvedValue(mockRates)
+      // La promesa nunca resuelve durante el test — si findAll() la esperara,
+      // este test colgaría hasta el timeout de Jest.
+      mockBcvSyncService.ensureFreshRate.mockReturnValue(undefined)
+
+      const result = await service.findAll()
+
+      expect(result).toEqual(mockRates)
+      expect(mockBcvSyncService.ensureFreshRate).toHaveBeenCalledTimes(1)
+      expect(mockBcvSyncService.ensureFreshRate).toHaveBeenCalledWith('VES')
+      // Solo un findMany — no vuelve a leer la DB tras el sync (ya no espera su resultado).
+      expect(mockPrismaService.exchangeRate.findMany).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('findOne', () => {
@@ -117,6 +145,40 @@ describe('ExchangeRatesService', () => {
       mockPrismaService.exchangeRate.findUnique.mockResolvedValue(null)
 
       await expect(service.findOne('rate-999')).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('findDefault', () => {
+    it('returns the default rate without waiting on ensureFreshRate when autoSync is on (fire-and-forget)', async () => {
+      const mockRate = { id: 'rate-1', code: 'VES', isDefault: true, isActive: true, autoSync: true }
+      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(mockRate)
+      mockBcvSyncService.ensureFreshRate.mockReturnValue(undefined)
+
+      const result = await service.findDefault()
+
+      expect(result).toEqual(mockRate)
+      expect(mockBcvSyncService.ensureFreshRate).toHaveBeenCalledWith('VES')
+      // Nunca vuelve a leer por id tras el sync — ya no espera su resultado.
+      expect(mockPrismaService.exchangeRate.findUnique).not.toHaveBeenCalled()
+    })
+
+    it('does not call ensureFreshRate when autoSync is off', async () => {
+      const mockRate = { id: 'rate-1', code: 'USD', isDefault: true, isActive: true, autoSync: false }
+      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(mockRate)
+
+      const result = await service.findDefault()
+
+      expect(result).toEqual(mockRate)
+      expect(mockBcvSyncService.ensureFreshRate).not.toHaveBeenCalled()
+    })
+
+    it('returns null when there is no default rate', async () => {
+      mockPrismaService.exchangeRate.findFirst.mockResolvedValue(null)
+
+      const result = await service.findDefault()
+
+      expect(result).toBeNull()
+      expect(mockBcvSyncService.ensureFreshRate).not.toHaveBeenCalled()
     })
   })
 
@@ -235,6 +297,49 @@ describe('ExchangeRatesService', () => {
       mockPrismaService.exchangeRate.findUnique.mockResolvedValue(null)
 
       await expect(service.remove('rate-999')).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('getUsageCount', () => {
+    it('sums usage across all 5 models that reference currencyCode', async () => {
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue({ id: 'rate-123', code: 'COP' })
+      mockPrismaService.purchase.count.mockResolvedValue(3)
+      mockPrismaService.supplierQuote.count.mockResolvedValue(2)
+      mockPrismaService.accountReceivable.count.mockResolvedValue(1)
+      mockPrismaService.accountPayable.count.mockResolvedValue(0)
+      mockPrismaService.groupBuyingCampaign.count.mockResolvedValue(4)
+
+      const result = await service.getUsageCount('rate-123')
+
+      expect(result).toEqual({
+        code: 'COP',
+        total: 10,
+        breakdown: { purchases: 3, supplierQuotes: 2, receivables: 1, payables: 0, groupBuying: 4 },
+      })
+      expect(mockPrismaService.purchase.count).toHaveBeenCalledWith({ where: { currencyCode: 'COP' } })
+      expect(mockPrismaService.supplierQuote.count).toHaveBeenCalledWith({ where: { currencyCode: 'COP' } })
+      expect(mockPrismaService.accountReceivable.count).toHaveBeenCalledWith({ where: { currencyCode: 'COP' } })
+      expect(mockPrismaService.accountPayable.count).toHaveBeenCalledWith({ where: { currencyCode: 'COP' } })
+      expect(mockPrismaService.groupBuyingCampaign.count).toHaveBeenCalledWith({ where: { currencyCode: 'COP' } })
+    })
+
+    it('returns total 0 when the currency is unused', async () => {
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue({ id: 'rate-123', code: 'EUR' })
+      mockPrismaService.purchase.count.mockResolvedValue(0)
+      mockPrismaService.supplierQuote.count.mockResolvedValue(0)
+      mockPrismaService.accountReceivable.count.mockResolvedValue(0)
+      mockPrismaService.accountPayable.count.mockResolvedValue(0)
+      mockPrismaService.groupBuyingCampaign.count.mockResolvedValue(0)
+
+      const result = await service.getUsageCount('rate-123')
+
+      expect(result.total).toBe(0)
+    })
+
+    it('should throw NotFoundException if rate not found', async () => {
+      mockPrismaService.exchangeRate.findUnique.mockResolvedValue(null)
+
+      await expect(service.getUsageCount('rate-999')).rejects.toThrow(NotFoundException)
     })
   })
 

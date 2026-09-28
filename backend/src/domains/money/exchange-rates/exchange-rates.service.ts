@@ -39,18 +39,13 @@ export class ExchangeRatesService {
       orderBy: [{ isDefault: 'desc' }, { code: 'asc' }],
     });
 
-    // Best-effort: refresh any auto-sync currency whose rate has gone stale
-    // before returning it, so a request never surfaces a rate older than the
-    // staleness threshold just because a scheduled cron didn't fire.
-    // ensureFreshRate() no-ops instantly when the rate is already fresh, so
-    // this costs nothing extra in the common case.
-    const refreshed = await Promise.allSettled(
-      rates.filter(r => r.autoSync).map(r => this.bcvSyncService.ensureFreshRate(r.code)),
-    );
-    const anyRefreshed = refreshed.some(r => r.status === 'fulfilled' && r.value === true);
-    if (anyRefreshed) {
-      return this.prisma.exchangeRate.findMany({ where, orderBy: [{ isDefault: 'desc' }, { code: 'asc' }] });
-    }
+    // Fire-and-forget: dispara el refresh de cualquier moneda auto-sync que
+    // esté stale, sin esperarlo — este request responde con lo que ya había
+    // en DB (posiblemente stale), el PRÓXIMO request ya ve la tasa fresca.
+    // ensureFreshRate() no-opea al instante si ya está fresca. Antes se
+    // esperaba el sync inline, lo que podía bloquear este GET hasta ~40s si
+    // el BCV estaba caído — el peor momento para que un endpoint cuelgue.
+    rates.filter(r => r.autoSync).forEach(r => this.bcvSyncService.ensureFreshRate(r.code));
 
     return rates;
   }
@@ -66,12 +61,10 @@ export class ExchangeRatesService {
       where: { isDefault: true, isActive: true },
     });
 
+    // Fire-and-forget, mismo criterio que findAll() — no bloquear este GET
+    // esperando una request de red al BCV.
     if (rate?.autoSync) {
-      const refreshed = await this.bcvSyncService.ensureFreshRate(rate.code);
-      // Only re-read from DB if the sync actually updated the row
-      if (refreshed) {
-        return this.prisma.exchangeRate.findUnique({ where: { id: rate.id } });
-      }
+      this.bcvSyncService.ensureFreshRate(rate.code);
     }
 
     return rate;
@@ -229,6 +222,32 @@ export class ExchangeRatesService {
       );
     }
     return this.prisma.exchangeRate.delete({ where: { id } });
+  }
+
+  // Ningún modelo tiene FK real a ExchangeRate (currencyCode es un string
+  // suelto + snapshot inmutable de exchangeRateValue en el momento de la
+  // transacción — ver comentarios en esos modelos) así que eliminar una
+  // moneda nunca deja nada huérfano a nivel técnico. Este conteo es solo
+  // para que el admin vea el impacto REAL antes de confirmar: los registros
+  // históricos siguen siendo legibles, pero esa moneda ya no podrá elegirse
+  // para compras/cotizaciones nuevas una vez eliminada.
+  async getUsageCount(id: string) {
+    const rate = await this.findOne(id);
+    const code = rate.code;
+
+    const [purchases, supplierQuotes, receivables, payables, groupBuying] = await Promise.all([
+      this.prisma.purchase.count({ where: { currencyCode: code } }),
+      this.prisma.supplierQuote.count({ where: { currencyCode: code } }),
+      this.prisma.accountReceivable.count({ where: { currencyCode: code } }),
+      this.prisma.accountPayable.count({ where: { currencyCode: code } }),
+      this.prisma.groupBuyingCampaign.count({ where: { currencyCode: code } }),
+    ]);
+
+    return {
+      code,
+      total: purchases + supplierQuotes + receivables + payables + groupBuying,
+      breakdown: { purchases, supplierQuotes, receivables, payables, groupBuying },
+    };
   }
 
   async getStats() {

@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ExchangeRatesService } from './exchange-rates.service';
 import { BcvSyncService } from './bcv-sync.service';
 import { CreateExchangeRateDto } from './dto/create-exchange-rate.dto';
@@ -27,23 +28,35 @@ export class ExchangeRatesController {
   ) {}
 
   // ─── Truly public — no auth required ─────────────────────────────────────
+  // Límite explícito (más alto que el default global de 20/60s, ver
+  // SpanishThrottlerGuard en app.module.ts) — son lecturas cacheable-friendly
+  // que el frontend público puede disparar varias veces por carga de página
+  // (tabla + sidebar de conversión), pero siguen necesitando un techo: cada
+  // hit con autoSync dispara ensureFreshRate() en background, y sin límite
+  // un loop externo podría generar presión innecesaria de requests salientes
+  // hacia el BCV/API fallback, aunque el dedup interno por moneda ya evita
+  // sincronizaciones duplicadas simultáneas.
 
   @Get('public')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   findAllPublic() {
     return this.exchangeRatesService.findAll(false);
   }
 
   @Get('active')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   findActive() {
     return this.exchangeRatesService.findAll(false);
   }
 
   @Get('default')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   findDefault() {
     return this.exchangeRatesService.findDefault();
   }
 
   @Get('convert')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   convert(@Query('amount') amount: string) {
     const usd = parseFloat(amount) || 1;
     return this.exchangeRatesService.convertAmount(usd);
@@ -55,15 +68,29 @@ export class ExchangeRatesController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermission('exchange_rates:manage')
   async syncCurrency(@Param('code') code: string) {
-    const result = await this.bcvSyncService.syncCurrency(code.toUpperCase());
-    return {
-      success: true,
-      code: code.toUpperCase(),
-      rate: result.rate,
-      source: result.source,
-      date: result.date,
-      confidence: result.confidence,
-    };
+    // Mismo shape { success, message } que syncAll() ya devuelve por moneda
+    // — sin este try/catch, si BCV scraping + API fallback fallan ambos, la
+    // excepción de bcvSyncService.syncCurrency() subía sin capturar y NestJS
+    // la convertía en un 500 genérico sin mensaje útil para el admin. El
+    // frontend (handleManualSync/handleManualSyncFromTable) ya esperaba
+    // `res.message` en el caso de fallo, pero nunca lo recibía.
+    try {
+      const result = await this.bcvSyncService.syncCurrency(code.toUpperCase());
+      return {
+        success: true,
+        code: code.toUpperCase(),
+        rate: result.rate,
+        source: result.source,
+        date: result.date,
+        confidence: result.confidence,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        code: code.toUpperCase(),
+        message: error.message ?? 'No se pudo sincronizar: todas las fuentes fallaron',
+      };
+    }
   }
 
   @Post('sync-all')
@@ -155,6 +182,16 @@ export class ExchangeRatesController {
   @RequirePermission('exchange_rates:view')
   getHistory(@Param('id') id: string, @Query('limit') limit?: string) {
     return this.exchangeRatesService.getHistory(id, limit ? parseInt(limit, 10) : undefined);
+  }
+
+  // Consultado por el modal de confirmación de eliminar en el frontend —
+  // muestra el impacto real (cuántos registros históricos usan esa moneda)
+  // antes de que el admin confirme el borrado.
+  @Get(':id/usage')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission('exchange_rates:view')
+  getUsageCount(@Param('id') id: string) {
+    return this.exchangeRatesService.getUsageCount(id);
   }
 
   @Post()
