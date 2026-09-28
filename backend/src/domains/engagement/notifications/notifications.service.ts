@@ -494,6 +494,28 @@ export class NotificationsService {
     });
   }
 
+  // Notifica a la CONTRAPARTE (no a quien abrió la disputa) que la
+  // transacción quedó congelada hasta que un admin la resuelva.
+  async notifyEscrowDisputeOpened(counterpartyId: string, entityName: string) {
+    return this.createForUser(counterpartyId, {
+      type: NotificationType.SYSTEM,
+      title: '⚠️ Disputa abierta',
+      message: `Se abrió una disputa sobre "${entityName}" — la garantía retenida queda congelada hasta que el equipo de soporte la revise.`,
+      link: '/wallet',
+      metadata: { entityName },
+    });
+  }
+
+  async notifyEscrowDisputeResolved(userId: string, entityName: string, amount: number) {
+    return this.createForUser(userId, {
+      type: NotificationType.SYSTEM,
+      title: '⚖️ Disputa resuelta',
+      message: `La disputa sobre "${entityName}" fue resuelta: se te acreditaron $${amount.toFixed(2)}.`,
+      link: '/wallet',
+      metadata: { entityName, amount },
+    });
+  }
+
   async notifyPriceChangeProposed(
     clientId: string,
     providerName: string,

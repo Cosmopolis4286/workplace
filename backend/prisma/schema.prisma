@@ -1387,6 +1387,8 @@ model Escrow {
   releasedAt  DateTime?
   refundedAt  DateTime?
 
+  disputes EscrowDispute[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1395,6 +1397,59 @@ model Escrow {
   @@index([payerId])
   @@index([payeeId])
   @@map("escrows")
+}
+
+// Quién abrió la disputa — determina de qué lado está el reclamo, sin
+// necesitar comparar raisedById contra payerId/payeeId en cada consulta.
+enum EscrowDisputeRaisedByRole {
+  PAYER
+  PAYEE
+}
+
+enum EscrowDisputeStatus {
+  OPEN
+  RESOLVED
+}
+
+// Cómo se resolvió: liberar todo al payee, reembolsar todo al payer, o
+// dividir el monto entre ambos (ej. "el pedido llegó pero incompleto").
+enum EscrowDisputeResolution {
+  RELEASE_FULL
+  REFUND_FULL
+  SPLIT
+}
+
+// Separado de Report (moderación de contenido/reputación, sin campos de
+// dinero) a propósito — mezclar la semántica económica de un escrow ahí
+// ensuciaría el disputeRate de ReputationService y el permiso
+// reviews:moderate, pensado para reseñas. Se resuelve con su propio
+// endpoint admin (permiso wallets:manage, mismo criterio que el resto de
+// operaciones de wallet con impacto real de dinero).
+model EscrowDispute {
+  id String @id @default(uuid())
+
+  escrowId String
+  escrow   Escrow @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+
+  raisedById String // User.id — debe ser escrow.payerId o escrow.payeeId
+  raisedByRole EscrowDisputeRaisedByRole
+  reason       String
+
+  status EscrowDisputeStatus @default(OPEN)
+
+  resolution     EscrowDisputeResolution?
+  releaseAmount  Float? // al payee — suma con refundAmount = escrow.amount cuando se resuelve
+  refundAmount   Float? // al payer
+  resolutionNote String?
+  resolvedById   String?
+  resolvedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([escrowId])
+  @@index([status])
+  @@map("escrow_disputes")
 }
 
 enum ExpenseType {
@@ -2264,6 +2319,10 @@ enum EscrowStatus {
   PENDING_FUNDS
   RELEASED
   REFUNDED
+  // Comprador o proveedor/comercio marcaron la transacción como en disputa
+  // mientras el escrow seguía HELD — congela la liberación/reembolso
+  // automáticos hasta que un admin la resuelva (ver EscrowDispute).
+  DISPUTED
 }
 
 model ServiceRequest {

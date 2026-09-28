@@ -1,4 +1,4 @@
-import { EscrowEntityType, EscrowStatus } from '@prisma/client';
+import { EscrowEntityType, EscrowStatus, EscrowDisputeRaisedByRole, EscrowDisputeResolution } from '@prisma/client';
 
 export interface EscrowView {
   id: string;
@@ -11,6 +11,20 @@ export interface EscrowView {
   heldAt: Date | null;
   releasedAt: Date | null;
   refundedAt: Date | null;
+}
+
+export interface EscrowDisputeView {
+  id: string;
+  escrowId: string;
+  raisedById: string;
+  raisedByRole: EscrowDisputeRaisedByRole;
+  reason: string;
+  status: 'OPEN' | 'RESOLVED';
+  resolution: EscrowDisputeResolution | null;
+  releaseAmount: number | null;
+  refundAmount: number | null;
+  resolvedById: string | null;
+  resolvedAt: Date | null;
 }
 
 /**
@@ -48,6 +62,34 @@ export interface EscrowFacade {
   }): Promise<EscrowView>;
 
   getByEntity(entityType: EscrowEntityType, entityId: string): Promise<EscrowView | null>;
+
+  /**
+   * Marca el escrow HELD como en disputa — congela la liberación/reembolso
+   * automáticos hasta que un admin la resuelva. Puede abrirla el payer o el
+   * payee (ver EscrowDisputeRaisedByRole); solo uno puede tener una disputa
+   * OPEN a la vez por escrow.
+   */
+  openDispute(params: {
+    entityType: EscrowEntityType;
+    entityId: string;
+    raisedById: string;
+    reason: string;
+  }): Promise<EscrowDisputeView>;
+
+  /**
+   * Resuelve una disputa OPEN: ejecuta release/refund reales sobre
+   * WalletsService según la resolución, y deja Escrow.status en RELEASED
+   * (representa "ya no queda nada retenido", sea cual sea la combinación).
+   */
+  resolveDispute(params: {
+    disputeId: string;
+    resolvedById: string;
+    resolution: EscrowDisputeResolution;
+    /** Requerido solo cuando resolution=SPLIT; debe sumar el amount total del escrow */
+    releaseAmount?: number;
+    refundAmount?: number;
+    resolutionNote?: string;
+  }): Promise<EscrowDisputeView>;
 }
 
 export const ESCROW_FACADE = Symbol('ESCROW_FACADE');
