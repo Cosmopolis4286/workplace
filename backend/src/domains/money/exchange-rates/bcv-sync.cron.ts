@@ -1,12 +1,28 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { BcvSyncService } from './bcv-sync.service';
 
 @Injectable()
-export class BcvSyncCron {
+export class BcvSyncCron implements OnModuleInit {
   private readonly logger = new Logger(BcvSyncCron.name);
 
   constructor(private readonly bcvSyncService: BcvSyncService) {}
+
+  /**
+   * Corre una vez al arrancar el backend — garantiza que VES (BCV) exista y
+   * sea la moneda predeterminada de la app incluso en un ambiente nuevo
+   * donde nunca se creó a mano (no está en seed.js). Sin esto, la app podía
+   * quedar sin ninguna moneda default hasta que un admin entrara a
+   * /exchange-rates y la configurara manualmente. best-effort: un fallo acá
+   * no debe impedir que el resto del backend arranque.
+   */
+  async onModuleInit() {
+    try {
+      await this.bcvSyncService.ensureDefaultRate();
+    } catch (error) {
+      this.logger.error(`ensureDefaultRate on startup failed: ${error.message}`);
+    }
+  }
 
   /**
    * Main sync runs 4x/day, Monday–Friday (7 AM, 10 AM, 1 PM, 5 PM VET — the
@@ -100,6 +116,18 @@ export class BcvSyncCron {
     name: 'bcv-health-check',
   })
   async handleHealthCheck() {
+    // Refuerzo recurrente de ensureDefaultRate() (además de onModuleInit):
+    // cubre el caso de que alguien borre/desactive la fila VES o le quite el
+    // default DESPUÉS del arranque, sin esperar al próximo restart/deploy.
+    // Va ANTES del early-return de abajo a propósito — si VES no existe
+    // todavía, statuses.length sería 0 y el chequeo de staleness ni se
+    // ejecutaría sin esto.
+    try {
+      await this.bcvSyncService.ensureDefaultRate();
+    } catch (error) {
+      this.logger.error(`ensureDefaultRate in health check failed: ${error.message}`);
+    }
+
     try {
       const statuses = await this.bcvSyncService.getAllSyncStatuses();
 
