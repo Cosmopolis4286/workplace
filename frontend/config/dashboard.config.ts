@@ -362,7 +362,10 @@ export const HERO_CONFIGS: HeroConfig[] = [
   {
     roles: ['ADMIN'],
     title: 'Dashboard Administrativo',
-    subtitle: 'Gestión y supervisión de tu comercio',
+    // Un ADMIN no tiene un Commerce propio (ver PlatformAnalyticsStrategy,
+    // BusinessHealthService.getPlatformSummary, etc.) — el texto anterior
+    // ("tu comercio") era incorrecto para este rol.
+    subtitle: 'Gestión y supervisión de toda la plataforma',
     icon: 'BuildingOfficeIcon',
     gradient: 'from-workplace-red via-red-500 to-red-600',
   },

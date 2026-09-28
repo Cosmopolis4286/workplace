@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { DASHBOARD_WIDGETS, type UserRole } from '~/config/dashboard.config'
+import { DASHBOARD_WIDGETS, canAccessWidget, type UserRole, type AccountType } from '~/config/dashboard.config'
 
 const LS_KEY = 'dashboard_layout_v1'
 
@@ -11,38 +11,50 @@ export interface WidgetLayoutItem {
 
 const layout = ref<WidgetLayoutItem[]>([])
 
-function defaultLayout(role: UserRole): WidgetLayoutItem[] {
+// Filtra también por accountTypes (canAccessWidget), no solo por role — sin
+// esto, un FREELANCER (ej. profesional autónomo de categoría Comida, sin
+// Commerce) recibía en su layout ids de widgets de comercio (activeOrders,
+// lowStock, ordersList) porque esos widgets solo declaran roles:
+// ['...PROFESIONAL'] y role=PROFESIONAL es la unión comercio∪freelancer. El
+// v-if de dashboard.vue (canViewWidget) los ocultaba al renderizar, pero el
+// panel "Personalizar" igual los listaba como si aplicaran.
+function defaultLayout(role: UserRole, accountType: AccountType | null): WidgetLayoutItem[] {
   return DASHBOARD_WIDGETS
-    .filter(w => w.roles.includes(role))
+    .filter(w => canAccessWidget(w.id, role, accountType))
     .sort((a, b) => a.priority - b.priority)
     .map((w, i) => ({ id: w.id, visible: w.defaultVisible, order: i }))
 }
 
-function lsKey(role: UserRole) {
-  return `${LS_KEY}_${role}`
+// Namespaced por role + accountType: un PROFESIONAL comercio y uno
+// freelancer comparten role pero no deberían compartir layout guardado
+// (ids de widgets completamente distintos) — relevante en un dispositivo
+// compartido (ej. demo) donde ambos tipos de cuenta inician sesión.
+function lsKey(role: UserRole, accountType: AccountType | null) {
+  return `${LS_KEY}_${role}${accountType ? `_${accountType}` : ''}`
 }
 
 export function useDashboardLayout() {
   const { user } = useAuth()
   const role = computed(() => user.value?.role as UserRole | undefined)
+  const accountType = computed(() => user.value?.accountType ?? null)
 
   function load() {
     if (!process.client || !role.value) return
-    const raw = localStorage.getItem(lsKey(role.value))
+    const raw = localStorage.getItem(lsKey(role.value, accountType.value))
     if (raw) {
       try {
         layout.value = JSON.parse(raw)
       } catch {
-        layout.value = defaultLayout(role.value)
+        layout.value = defaultLayout(role.value, accountType.value)
       }
     } else {
-      layout.value = defaultLayout(role.value)
+      layout.value = defaultLayout(role.value, accountType.value)
     }
   }
 
   function save() {
     if (!process.client || !role.value) return
-    localStorage.setItem(lsKey(role.value), JSON.stringify(layout.value))
+    localStorage.setItem(lsKey(role.value, accountType.value), JSON.stringify(layout.value))
   }
 
   const orderedLayout = computed(() =>
@@ -77,7 +89,7 @@ export function useDashboardLayout() {
 
   function reset() {
     if (role.value) {
-      layout.value = defaultLayout(role.value)
+      layout.value = defaultLayout(role.value, accountType.value)
       save()
     }
   }
