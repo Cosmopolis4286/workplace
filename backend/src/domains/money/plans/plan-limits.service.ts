@@ -54,6 +54,18 @@ const FREE_MODULES = [
 // Commerce.
 const SERVICE_PROVIDER_BASE_MODULES = ['services', 'service_requests', 'jobs', 'appointments'];
 
+// Contracara de SERVICE_PROVIDER_BASE_MODULES: módulos de category.allowedModules
+// que asumen comercio físico con personal/local/cadena de suministro propia
+// — un FREELANCER/SERVICE_PROVIDER (sin Commerce) nunca los gestiona en la
+// plataforma, sin importar qué UserCategory eligió. Sin esto, un caso como
+// comidarapida@demo.com (autónoma en categoría "Comida") heredaba también
+// employees/branches/purchases/suppliers/accounts/inventory solo porque su
+// categoría los trae para el caso COMMERCE de esa misma categoría.
+// menu/orders/delivery/customers SÍ se conservan: un freelancer que vende
+// comida por encargo igual necesita listar platillos y recibir/entregar
+// pedidos, solo que sin la infraestructura de un local físico.
+const COMMERCE_ONLY_MODULES = ['employees', 'branches', 'purchases', 'suppliers', 'accounts', 'inventory'];
+
 const FREE_LIMITS: PlanLimits = {
   maxProducts: 10,
   maxEmployees: 1,
@@ -201,10 +213,14 @@ export class PlanLimitsService implements PlanLimitsFacade {
     return categoryFiltered.filter((m) => !globallyDisabled.includes(m));
   }
 
-  // Returns plan.enabledModules ∩ (category.allowedModules ∪ techo de
-  // servicios si el usuario es FREELANCER/SERVICE_PROVIDER — ver
-  // SERVICE_PROVIDER_BASE_MODULES). Si el usuario no tiene categoría,
-  // devuelve los módulos del plan sin restricción.
+  // Returns plan.enabledModules ∩ category.allowedModules, ajustado por
+  // accountType cuando el usuario es FREELANCER/SERVICE_PROVIDER (sin
+  // Commerce): se SUMA el techo de servicios (SERVICE_PROVIDER_BASE_MODULES)
+  // y se RESTA lo que asume comercio físico con personal/local propio
+  // (COMMERCE_ONLY_MODULES) — ambos ajustes existen porque una misma
+  // UserCategory (ej. "Comida") sirve tanto a un restaurante COMMERCE como a
+  // un autónomo, y su allowedModules está pensado para el primero. Si el
+  // usuario no tiene categoría, devuelve los módulos del plan sin restricción.
   private async intersectWithCategory(
     planModules: string[],
     categoryId: string | null,
@@ -221,9 +237,11 @@ export class PlanLimitsService implements PlanLimitsFacade {
     if (!category || category.allowedModules.length === 0) return planModules;
 
     const accountType = await this.accountTypeResolver.resolve(userId);
-    const categoryModules = accountType === 'FREELANCER'
-      ? [...new Set([...category.allowedModules, ...SERVICE_PROVIDER_BASE_MODULES])]
-      : category.allowedModules;
+    let categoryModules = category.allowedModules;
+    if (accountType === 'FREELANCER') {
+      categoryModules = [...new Set([...categoryModules, ...SERVICE_PROVIDER_BASE_MODULES])]
+        .filter((m) => !COMMERCE_ONLY_MODULES.includes(m));
+    }
 
     return planModules.filter((m) => categoryModules.includes(m));
   }

@@ -193,6 +193,44 @@ describe('PlanLimitsService', () => {
       expect(limits.effectiveModules).toEqual(['dashboard', 'menu'])
       expect(limits.effectiveModules).not.toContain('services')
     })
+
+    it('strips COMMERCE_ONLY_MODULES for a FREELANCER/SERVICE_PROVIDER even when the plan and category both include them', async () => {
+      // Caso real: comidarapida@demo.com con el plan "Pro" completo (incluye
+      // employees/branches/purchases/suppliers/accounts porque esos módulos
+      // también sirven a un COMMERCE) — sin esta resta, una autónoma sin
+      // Commerce heredaba gestión de personal/sucursales/cadena de suministro
+      // solo porque su categoría "Comida" los trae para el caso COMMERCE.
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL, categoryId: 'cat-comida' })
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Pro',
+          maxProducts: 50, maxEmployees: 5, maxBranches: 2, maxOrders: 500, maxStorage: 1000,
+          enabledModules: [
+            'dashboard', 'menu', 'orders', 'delivery', 'customers', 'services', 'jobs',
+            'employees', 'branches', 'purchases', 'suppliers', 'accounts', 'inventory',
+          ],
+        },
+      })
+      mockPrismaService.userCategory.findUnique
+        .mockResolvedValueOnce({
+          allowedModules: [
+            'dashboard', 'menu', 'orders', 'delivery', 'customers',
+            'employees', 'branches', 'purchases', 'suppliers', 'accounts', 'inventory',
+          ],
+        })
+        .mockResolvedValueOnce({ name: 'Comida' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ settings: null })
+      mockPrismaService.userProfile.findMany.mockResolvedValue([{ type: 'PROFESSIONAL' }])
+
+      const limits = await service.getPlanLimits(userId)
+
+      expect(limits.effectiveModules).toEqual(
+        expect.arrayContaining(['dashboard', 'menu', 'orders', 'delivery', 'customers', 'services', 'jobs'])
+      )
+      expect(limits.effectiveModules).not.toEqual(
+        expect.arrayContaining(['employees', 'branches', 'purchases', 'suppliers', 'accounts', 'inventory'])
+      )
+    })
   })
 
   describe('assertProductLimit', () => {
