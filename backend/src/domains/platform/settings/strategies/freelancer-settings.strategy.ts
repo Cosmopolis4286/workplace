@@ -22,9 +22,15 @@ export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
     return this.prisma.freelancerSettings.create({ data: { userId } });
   }
 
+  // `commerce` va poblado si el profesional tiene uno ("opción 2": vende
+  // producto según su categoría) — sin esto no podía editar el nombre ni la
+  // URL /loja/ de su tienda. Solo lectura: nunca se crea acá.
   async getSettings(userId: string) {
-    const settings = await this.getOrCreateFreelancerSettings(userId);
-    return { commerce: null, settings };
+    const [settings, commerce] = await Promise.all([
+      this.getOrCreateFreelancerSettings(userId),
+      this.prisma.commerce.findUnique({ where: { userId } }),
+    ]);
+    return { commerce, settings };
   }
 
   async updateProfessionalName(userId: string, name: string) {

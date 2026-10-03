@@ -335,10 +335,12 @@ const {
 // Un freelancer no vende productos con stock/preparación/entrega: vende
 // servicios vía solicitudes (ServiceRequest). El backend ya devuelve el
 // mismo contrato de datos remapeado; acá solo se ajustan los textos.
-// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
-// (resuelto por el backend) es la fuente real.
+// "Freelancer" acá = PROFESIONAL SIN Commerce: misma condición con la que el
+// backend elige la estrategia de datos (HAS_COMMERCE). Un profesional que
+// vende producto ("opción 2") tiene Commerce y recibe datos de pedidos.
 const { user } = useAuth()
-const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
+const { hasCapability } = useProfileContext()
+const isFreelancer = computed(() => user.value?.role === 'PROFESIONAL' && !hasCapability('HAS_COMMERCE'))
 
 // SUPERADMIN/ADMIN no tienen un comercio propio: el backend
 // (PlatformAnalyticsStrategy) les agrega los mismos campos del contrato

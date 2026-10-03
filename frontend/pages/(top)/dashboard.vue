@@ -411,9 +411,10 @@ async function handleMarkPaid(id: string) {
 // Auto-refresh every 60s
 let refreshTimer: ReturnType<typeof setInterval>
 
-// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
-// (resuelto por el backend) es la fuente real para esta distinción.
-const isFreelancerAccount = computed(() => user.value?.accountType === 'FREELANCER')
+// PROFESIONAL sin Commerce — misma condición con la que el backend elige la
+// estrategia de analytics/reportes (HAS_COMMERCE), no accountType.
+const { hasCapability } = useProfileContext()
+const isFreelancerAccount = computed(() => user.value?.role === 'PROFESIONAL' && !hasCapability('HAS_COMMERCE'))
 
 // SUPERADMIN/ADMIN no tienen un Commerce propio: widgets como Poder
 // Adquisitivo (cesta de compras de UN comercio) no tienen un agregado de

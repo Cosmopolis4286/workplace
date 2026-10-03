@@ -73,16 +73,17 @@
       </Transition>
 
       <div v-if="!loading" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Información del Comercio (solo COMMERCE: un freelancer no tiene negocio físico) -->
+        <!-- Información y URL de la tienda: quien tiene un Commerce (BUSINESS,
+             o profesional que vende producto) -->
         <CommerceInfoCard
-          v-if="!isFreelancer"
+          v-if="hasCommerce && commerce"
           :commerce="commerce"
           :saving="saving === 'commerce'"
           @save="saveCommerceInfo"
         />
 
         <StoreSlugCard
-          v-if="!isFreelancer"
+          v-if="hasCommerce && commerce"
           :slug-owner="commerce"
           :saving="saving === 'slug'"
           :check-slug-availability="checkSlugAvailability"
@@ -90,7 +91,7 @@
         />
 
         <StoreSlugCard
-          v-else
+          v-if="showProfessionalSlug"
           :slug-owner="freelancerSettings"
           :saving="saving === 'slug'"
           :check-slug-availability="checkFreelancerSlugAvailability"
@@ -115,21 +116,26 @@
           @save="savePaymentSettings"
         />
 
+        <!-- Operaciones y Price Guard leen/escriben CommerceSettings: solo con
+             Commerce Y cuando `settings` tiene esa forma (estrategia comercio).
+             Un profesional con Commerce todavía recibe FreelancerSettings acá
+             — pendiente unificar (ver resumen de la auditoría). -->
         <OperationsSettingsCard
-          v-if="isComidaCategory"
+          v-if="isComidaCategory && hasCommerce && !isFreelancer"
           :settings="commerceSettings"
           :saving="saving === 'operations'"
           @save="saveOperationSettings"
         />
 
         <PriceGuardSettingsCard
-          v-if="isCommerce"
+          v-if="hasCommerce && !isFreelancer"
           :settings="commerceSettings"
           :saving="saving === 'priceGuard'"
           @save="savePriceGuardSettings"
         />
 
-        <AlertRulesSettingsCard v-if="isCommerce" />
+        <!-- Carga sus propios datos (/alert-rules, exige HAS_COMMERCE) -->
+        <AlertRulesSettingsCard v-if="hasCommerce" />
 
         <LocationSettingsCard
           :latitude="locationOwner?.latitude"
@@ -138,8 +144,9 @@
           @save="saveLocation"
         />
 
-        <!-- Financiamiento (Cashea / Krece) -->
-        <BnplSettingsSection />
+        <!-- Financiamiento (Cashea / Krece) — /bnpl/settings exige HAS_COMMERCE;
+             antes se montaba para todos (admins y freelancers recibían 403) -->
+        <BnplSettingsSection v-if="hasCommerce" />
       </div>
     </template>
 
@@ -188,17 +195,28 @@ import AppLockCard from '~/components/settings/AppLockCard.vue'
 import { useSettings, type CommerceSettings, type FreelancerSettingsData } from '~/composables/commerce/useSettings'
 import { useAuth } from '~/composables/auth/useAuth'
 import { usePermissions } from '~/composables/users/usePermissions'
+import { useProfileContext } from '~/composables/users/useProfileContext'
 
 const { user } = useAuth()
 const { userCategory } = usePermissions()
 const role = computed(() => user.value?.role ?? 'NORMAL')
-// Solo PROFESIONAL tiene un negocio propio con configuración de backend.
+const { hasCapability } = useProfileContext()
+// Vista de negocio (configuración de backend): cualquier PROFESIONAL. El
+// nombre histórico `isCommerce` se conserva solo para el v-if de la vista;
+// lo que opera sobre un Commerce real se decide con `hasCommerce`.
 const isCommerce = computed(() => role.value === 'PROFESIONAL')
-// Un freelancer es proveedor de servicios independiente: sin Commerce, sin
-// campos de comercio físico (dirección, horario, tax, delivery, etc.)
-// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
-// (resuelto por el backend) es la fuente real.
+// HAS_COMMERCE — mismo hecho que exige el backend (CapabilityGuard) en
+// /settings/commerce, /settings/price-guard, /alert-rules... Un profesional
+// que vende producto ("opción 2") también lo tiene; antes estas tarjetas
+// se mostraban a cualquier PROFESIONAL y terminaban en 403.
+const hasCommerce = computed(() => hasCapability('HAS_COMMERCE'))
+// Refleja qué estrategia de settings eligió el backend
+// (SettingsService.resolveStrategy): define la FORMA de `settings`
+// (FreelancerSettings vs. CommerceSettings), no permisos ni acceso.
 const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
+// URL /pro/:slug: quien tiene perfil profesional (CapabilityGuard exige
+// HAS_PROFESSIONAL_PROFILE) y cuyo `settings` es FreelancerSettings.
+const showProfessionalSlug = computed(() => isFreelancer.value && hasCapability('HAS_PROFESSIONAL_PROFILE'))
 // Solo usuarios de categoría "Comida" pueden ver Operaciones y Configuración de Pagos
 const isComidaCategory = computed(() => userCategory.value === 'Comida')
 const roleLabel = computed(() => {
@@ -238,11 +256,11 @@ const {
 // resuelve cuál de los dos según el tipo de cuenta.
 const locationOwner = computed(() => (isFreelancer.value ? freelancerSettings.value : commerce.value))
 
-// OperationsSettingsCard solo se muestra cuando isComidaCategory, y esa categoría
-// implica accountType COMMERCE (no FREELANCER) — settings siempre es CommerceSettings ahí.
+// Operations/PriceGuard solo se montan cuando !isFreelancer — settings
+// siempre es CommerceSettings ahí.
 const commerceSettings = computed(() => settings.value as CommerceSettings | null)
-// StoreSlugCard (rama freelancer) solo se monta cuando isFreelancer — settings
-// siempre es FreelancerSettingsData ahí.
+// StoreSlugCard (rama profesional) solo se monta cuando isFreelancer —
+// settings siempre es FreelancerSettingsData ahí.
 const freelancerSettings = computed(() => settings.value as FreelancerSettingsData | null)
 
 async function saveCommerceInfo(form: Record<string, unknown>) { await saveCommerceInfoApi(form) }

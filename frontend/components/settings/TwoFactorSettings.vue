@@ -225,12 +225,12 @@ import { useAuth } from '~/composables/auth/useAuth'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 const { user, setupTwoFactor, enableTwoFactor, disableTwoFactor, updateLocalUser } = useAuth()
+const { hasCapability } = useProfileContext()
 
-// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
-// (resuelto por el backend) es la fuente real para excluir a FREELANCER
-// (un freelancer puro no maneja wallet de negocio como un comercio).
+// Quien opera un Commerce maneja dinero de un negocio (HAS_COMMERCE, incluye
+// al profesional que vende producto); un proveedor de servicios sin Commerce no.
 const isHighPrivilegeRole = computed(() =>
-  ['SUPERADMIN', 'ADMIN'].includes(user.value?.role ?? '') || user.value?.accountType === 'COMMERCE'
+  ['SUPERADMIN', 'ADMIN'].includes(user.value?.role ?? '') || hasCapability('HAS_COMMERCE')
 )
 
 // ─── Setup flow ───────────────────────────────────────────────────────────────

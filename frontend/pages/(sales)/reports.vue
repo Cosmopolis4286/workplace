@@ -100,9 +100,11 @@ const { exportJSON: downloadJSON } = useDataExport()
 const { user } = useAuth()
 // Un freelancer no tiene Commerce/Expense/Employee: su reporte de negocio
 // se basa en ServiceRequest (solicitudes recibidas), no en Order/Expense.
-// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
-// (resuelto por el backend) es la fuente real.
-const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
+// "Freelancer" acá = PROFESIONAL SIN Commerce: misma condición con la que el
+// backend elige la estrategia de datos (HAS_COMMERCE). Un profesional que
+// vende producto ("opción 2") tiene Commerce y recibe datos de pedidos.
+const { hasCapability } = useProfileContext()
+const isFreelancer = computed(() => user.value?.role === 'PROFESIONAL' && !hasCapability('HAS_COMMERCE'))
 
 // SUPERADMIN/ADMIN no tienen un Commerce propio — GET /reports/summary ya
 // les devuelve el mismo contrato pero agregado sobre TODA la plataforma

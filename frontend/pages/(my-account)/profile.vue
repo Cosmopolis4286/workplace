@@ -148,9 +148,11 @@ const roleStyle = computed(() => {
   }
   return ROLE_STYLES[auth.user.value?.role ?? 'NORMAL'] ?? ROLE_STYLES.NORMAL
 })
-// role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
-// (resuelto por el backend) es la fuente real.
-const isCommerce = computed(() => auth.user.value?.accountType === 'COMMERCE')
+// "Freelancer" acá = PROFESIONAL SIN Commerce: misma condición con la que el
+// backend elige la estrategia de datos (HAS_COMMERCE). Un profesional que
+// vende producto ("opción 2") tiene Commerce y recibe datos de pedidos.
+const { hasCapability } = useProfileContext()
+const isCommerce = computed(() => hasCapability('HAS_COMMERCE'))
 
 const fullName = computed(() => {
   const u = auth.user.value
