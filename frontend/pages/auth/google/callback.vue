@@ -57,6 +57,9 @@ onMounted(async () => {
     }
 
     useModules().invalidate()
+    const nav = useNavigation()
+    nav.invalidate()
+    nav.loadNavigation()
     usePermissions().reloadPermissions().catch(() => {})
 
     // New Google users need to complete commerce name in onboarding

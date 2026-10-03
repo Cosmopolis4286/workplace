@@ -257,6 +257,13 @@ export const useAuth = () => {
     })
     setSession(data)
     useModules().invalidate()
+    // invalidate() solo pone loaded=false — si el sidebar ya está montado
+    // (SPA, sin recarga de página), nadie vuelve a llamar loadNavigation()
+    // reactivamente, así que se dispara acá explícitamente (loadNavigation
+    // ya es un no-op si loaded=true, por eso es seguro encadenarlo siempre).
+    const nav = useNavigation()
+    nav.invalidate()
+    nav.loadNavigation()
     usePermissions().reloadPermissions().catch(() => {})
     return data.user
   }
@@ -275,6 +282,9 @@ export const useAuth = () => {
     if ('requiresTwoFactor' in data) return data
     setSession(data)
     useModules().invalidate()
+    const nav = useNavigation()
+    nav.invalidate()
+    nav.loadNavigation()
     usePermissions().reloadPermissions().catch(() => {})
     return data.user
   }
@@ -287,6 +297,9 @@ export const useAuth = () => {
     })
     setSession(data)
     useModules().invalidate()
+    const nav = useNavigation()
+    nav.invalidate()
+    nav.loadNavigation()
     usePermissions().reloadPermissions().catch(() => {})
     return data.user
   }
@@ -332,6 +345,7 @@ export const useAuth = () => {
       clearSession()
       usePermissions().clearPermissions()
       useModules().invalidate()
+      useNavigation().invalidate()
       resetWallets()
       // Progreso de onboarding namespaced por userId (ver pages/onboarding.vue) —
       // se limpia al cerrar sesión para no acumular basura en localStorage.

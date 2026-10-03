@@ -79,6 +79,18 @@ export function useProfileActivations() {
     const result = await patch<ProfileActivation>('/profile-activations/active', { profileId })
     const { updateLocalUser } = useAuth()
     updateLocalUser({ activeProfileId: result.id })
+    // El perfil activo cambia qué categoría/módulos aplican (ver
+    // AccountTypeResolver/PlanLimitsService). invalidate() solo pone
+    // loaded=false — si el sidebar ya está montado (sin recarga de página),
+    // nadie vuelve a llamar loadNavigation()/loadModules() reactivamente, así
+    // que se disparan acá explícitamente (son no-op si loaded ya es true, por
+    // eso es seguro encadenarlos siempre justo después de invalidar).
+    const nav = useNavigation()
+    nav.invalidate()
+    nav.loadNavigation()
+    const mods = useModules()
+    mods.invalidate()
+    mods.loadModules()
     return result
   }
 
@@ -89,6 +101,12 @@ export function useProfileActivations() {
     const { patch } = useApi()
     const result = await patch<ProfileActivation>(`/profile-activations/${profileId}/deactivate`, {})
     await fetchMine()
+    const nav = useNavigation()
+    nav.invalidate()
+    nav.loadNavigation()
+    const mods = useModules()
+    mods.invalidate()
+    mods.loadModules()
     return result
   }
 
@@ -98,6 +116,12 @@ export function useProfileActivations() {
     const { patch } = useApi()
     const result = await patch<ProfileActivation>(`/profile-activations/${profileId}/reactivate`, {})
     await fetchMine()
+    const nav = useNavigation()
+    nav.invalidate()
+    nav.loadNavigation()
+    const mods = useModules()
+    mods.invalidate()
+    mods.loadModules()
     return result
   }
 
