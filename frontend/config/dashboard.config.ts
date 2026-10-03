@@ -366,12 +366,28 @@ export const HERO_CONFIGS: HeroConfig[] = [
     gradient: 'from-workplace-red via-red-500 to-red-600',
   },
   {
+    // Comercio real: perfil BUSINESS aprobado, no solo "tiene un Commerce
+    // técnico". Va ANTES de la variante de abajo a propósito (find() toma el
+    // primer match) — un usuario BUSINESS + PROFESSIONAL ve este primero.
     roles: ['PROFESIONAL'],
-    capabilities: ['HAS_COMMERCE'],
+    capabilities: ['HAS_COMMERCE', 'HAS_BUSINESS_PROFILE'],
     title: 'Panel de Comercio',
     subtitle: 'Bienvenido a tu panel de control WorkPlace Manager',
     icon: 'BuildingStorefrontIcon',
     gradient: 'from-workplace-red via-red-500 to-red-600',
+  },
+  {
+    // "Opción 2": un PROFESSIONAL cuya categoría vende producto físico (ej.
+    // Comida) tiene un Commerce creado automáticamente para que menu/orders
+    // funcionen, pero sigue siendo autónomo — nunca aprobó un perfil BUSINESS.
+    // "Panel de Comercio" ahí sería confuso ("¿soy una empresa?"), así que usa
+    // el mismo copy neutral de "Panel de Proveedor" en vez de uno nuevo.
+    roles: ['PROFESIONAL'],
+    capabilities: ['HAS_COMMERCE', 'HAS_PROFESSIONAL_PROFILE'],
+    title: 'Panel de Proveedor',
+    subtitle: 'Gestión de tus productos, servicios y solicitudes de clientes',
+    icon: 'WrenchIcon',
+    gradient: 'from-teal-500 via-teal-600 to-emerald-600',
   },
   {
     roles: ['PROFESIONAL'],

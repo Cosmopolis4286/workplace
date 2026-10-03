@@ -69,6 +69,15 @@ import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 
 interface Props {
   config: HeroConfig
+  // Override del badge de rol derivado del ícono (ver roleLabels más abajo)
+  // — necesario para el caso híbrido "opción 2" (un PROFESIONAL con
+  // HAS_COMMERCE y HAS_PROFESSIONAL_PROFILE a la vez, ej. freelancer de
+  // categoría Comida con catálogo propio): HeroConfig.icon es un único
+  // ícono fijo por config (BuildingStorefrontIcon o WrenchIcon, nunca
+  // ambos), así que no alcanza para expresar "Comercio y Profesional
+  // Independiente" sin que el caller (dashboard.vue, que sí conoce las
+  // capacidades reales vía useProfileContext) se lo pase explícito.
+  roleLabelOverride?: string
 }
 
 const props = defineProps<Props>()
@@ -122,7 +131,7 @@ const roleLabels: Record<string, string> = {
   UserIcon: 'Cliente',
 }
 
-const roleLabel = computed(() => roleLabels[props.config.icon] ?? '')
+const roleLabel = computed(() => props.roleLabelOverride ?? roleLabels[props.config.icon] ?? '')
 
 const currentTime = ref('')
 let clockTimer: ReturnType<typeof setInterval>

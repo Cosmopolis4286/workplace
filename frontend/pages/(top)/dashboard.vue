@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-5 sm:space-y-8">
     <!-- Hero Section - Personalizado por Rol -->
-    <DashboardHero :config="personalizedHeroConfig" />
+    <DashboardHero :config="personalizedHeroConfig" :role-label-override="hybridRoleLabel" />
 
     <!-- Quick Actions - Filtradas por rol -->
     <QuickActions :actions="quickActions" />
@@ -316,6 +316,13 @@ const { heroConfig, quickActions, canViewWidget } = useDashboardWidgets()
 const { user } = useAuth()
 const userRole = computed(() => user.value?.role)
 
+// PROFESIONAL sin Commerce — misma condición con la que el backend elige la
+// estrategia de analytics/reportes (HAS_COMMERCE), no accountType. Declarado
+// acá (y no más abajo, donde ya existía isFreelancerAccount) porque
+// personalizedHeroConfig también lo necesita para el caso híbrido ("opción
+// 2": un profesional que vende producto tiene AMBAS capacidades a la vez).
+const { hasCapability } = useProfileContext()
+
 // Saludo personalizado para usuarios NORMAL
 function timeGreeting() {
   const h = new Date().getHours()
@@ -326,8 +333,13 @@ function timeGreeting() {
 
 // Subtítulo con categoría real del usuario (sin mapear textos por rubro —
 // funciona para cualquier categoría existente o nueva sin mantenimiento).
-// La categoría es ortogonal al accountType: tanto un comercio como un
-// profesional independiente pueden ser, por ej., de categoría "Comida".
+// La categoría es ortogonal a la capacidad de negocio: tanto un comercio
+// como un profesional independiente pueden ser, por ej., de categoría
+// "Comida". Se decide por capacidades (HAS_COMMERCE / HAS_PROFESSIONAL_
+// PROFILE), no por accountType — un profesional que vende producto
+// ("opción 2") tiene AMBAS a la vez (ver getHeroConfig/HERO_CONFIGS, que ya
+// le muestra el panel de Comercio primero mas pierde la mención a que
+// también recibe solicitudes de servicio si no se arma el subtítulo acá).
 const personalizedHeroConfig = computed(() => {
   if (userRole.value === 'NORMAL') {
     const name = user.value?.firstName
@@ -339,14 +351,34 @@ const personalizedHeroConfig = computed(() => {
   }
 
   const categoryName = user.value?.category?.name
-  if (categoryName && user.value?.accountType === 'FREELANCER') {
+  if (!categoryName || userRole.value !== 'PROFESIONAL') return heroConfig.value
+
+  const hasCommerce = hasCapability('HAS_COMMERCE')
+  const hasProfessionalProfile = hasCapability('HAS_PROFESSIONAL_PROFILE')
+
+  if (hasCommerce && hasProfessionalProfile) {
+    return { ...heroConfig.value, subtitle: `Gestiona tu catálogo de ${categoryName} y tus solicitudes de servicio` }
+  }
+  if (hasProfessionalProfile) {
     return { ...heroConfig.value, subtitle: `Gestión de tus servicios de ${categoryName} y solicitudes de clientes` }
   }
-  if (categoryName && user.value?.accountType === 'COMMERCE') {
+  if (hasCommerce) {
     return { ...heroConfig.value, subtitle: `Bienvenido a tu panel de ${categoryName}` }
   }
 
   return heroConfig.value
+})
+
+// Badge del hero: "Comercio y Profesional Independiente" cuando el usuario
+// tiene ambas capacidades a la vez ("opción 2") — HeroConfig.icon es un
+// único ícono fijo (BuildingStorefrontIcon o WrenchIcon), insuficiente para
+// expresar el caso híbrido. undefined deja que DashboardHero use su label
+// derivado del ícono (comportamiento sin cambios para el resto de roles).
+const hybridRoleLabel = computed(() => {
+  if (userRole.value !== 'PROFESIONAL') return undefined
+  const hasCommerce = hasCapability('HAS_COMMERCE')
+  const hasProfessionalProfile = hasCapability('HAS_PROFESSIONAL_PROFILE')
+  return hasCommerce && hasProfessionalProfile ? 'Comercio y Profesional Independiente' : undefined
 })
 
 // Toast
@@ -413,7 +445,6 @@ let refreshTimer: ReturnType<typeof setInterval>
 
 // PROFESIONAL sin Commerce — misma condición con la que el backend elige la
 // estrategia de analytics/reportes (HAS_COMMERCE), no accountType.
-const { hasCapability } = useProfileContext()
 const isFreelancerAccount = computed(() => user.value?.role === 'PROFESIONAL' && !hasCapability('HAS_COMMERCE'))
 
 // SUPERADMIN/ADMIN no tienen un Commerce propio: widgets como Poder

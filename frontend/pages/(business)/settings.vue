@@ -116,19 +116,25 @@
           @save="savePaymentSettings"
         />
 
-        <!-- Operaciones y Price Guard leen/escriben CommerceSettings: solo con
-             Commerce Y cuando `settings` tiene esa forma (estrategia comercio).
-             Un profesional con Commerce todavía recibe FreelancerSettings acá
-             — pendiente unificar (ver resumen de la auditoría). -->
+        <!-- Operaciones y Price Guard: gateadas por hasCommerce (como ya hace
+             el backend — PATCH /settings/operations y /settings/price-guard
+             exigen @RequireCapability('HAS_COMMERCE'), no accountType). Un
+             profesional con Commerce ("opción 2") también debe verlas — antes
+             el !isFreelancer se lo ocultaba aunque ya pudiera guardarlas.
+             `settings` sigue siendo FreelancerSettings para este caso
+             (SettingsService.resolveStrategy aún decide por accountType, no
+             se toca acá), así que `commerceSettings` es null — los componentes
+             ya manejan settings=null con sus defaults y crean el
+             CommerceSettings real recién al guardar (getOrCreateSettings). -->
         <OperationsSettingsCard
-          v-if="isComidaCategory && hasCommerce && !isFreelancer"
+          v-if="isComidaCategory && hasCommerce"
           :settings="commerceSettings"
           :saving="saving === 'operations'"
           @save="saveOperationSettings"
         />
 
         <PriceGuardSettingsCard
-          v-if="hasCommerce && !isFreelancer"
+          v-if="hasCommerce"
           :settings="commerceSettings"
           :saving="saving === 'priceGuard'"
           @save="savePriceGuardSettings"
@@ -256,12 +262,17 @@ const {
 // resuelve cuál de los dos según el tipo de cuenta.
 const locationOwner = computed(() => (isFreelancer.value ? freelancerSettings.value : commerce.value))
 
-// Operations/PriceGuard solo se montan cuando !isFreelancer — settings
-// siempre es CommerceSettings ahí.
-const commerceSettings = computed(() => settings.value as CommerceSettings | null)
-// StoreSlugCard (rama profesional) solo se monta cuando isFreelancer —
-// settings siempre es FreelancerSettingsData ahí.
-const freelancerSettings = computed(() => settings.value as FreelancerSettingsData | null)
+// `settings` tiene la forma que decidió SettingsService.resolveStrategy
+// (por accountType, no por hasCommerce — ver comentario arriba de
+// OperationsSettingsCard/PriceGuardSettingsCard). Para un FREELANCER con
+// Commerce ("opción 2"), sigue siendo FreelancerSettingsData: null acá a
+// propósito (no el `as` ciego de antes, que dejaba pasar un objeto con la
+// forma equivocada y sus campos en `undefined` en vez de disparar los
+// defaults seguros del watch de esas tarjetas).
+const commerceSettings = computed(() => (isFreelancer.value ? null : (settings.value as CommerceSettings | null)))
+// StoreSlugCard (rama profesional) se monta según showProfessionalSlug
+// (HAS_PROFESSIONAL_PROFILE) — settings siempre es FreelancerSettingsData ahí.
+const freelancerSettings = computed(() => (isFreelancer.value ? (settings.value as FreelancerSettingsData | null) : null))
 
 async function saveCommerceInfo(form: Record<string, unknown>) { await saveCommerceInfoApi(form) }
 async function saveCommerceSlug(slug: string) { await saveCommerceSlugApi(slug) }

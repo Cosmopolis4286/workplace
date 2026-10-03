@@ -60,6 +60,16 @@
                   </button>
                 </div>
                 <p v-if="store.type" class="text-sm text-gray-500 mt-0.5">{{ store.type }}</p>
+                <!-- Solo si el dueño activó perfil profesional con slug
+                     propio ("opción 2": también cotiza trabajos a medida,
+                     no solo vende del catálogo de precio fijo). -->
+                <NuxtLink
+                  v-if="store.professionalSlug"
+                  :to="`/pro/${store.professionalSlug}`"
+                  class="inline-block text-sm text-workplace-red font-semibold hover:underline mt-0.5"
+                >
+                  Ver perfil profesional →
+                </NuxtLink>
 
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
                   <span v-if="store.avgRating" class="flex items-center gap-1 font-semibold text-gray-700">
@@ -205,6 +215,10 @@ interface PublicStore {
   socialLinks: { instagram?: string; facebook?: string; whatsapp?: string; tiktok?: string } | null
   user: { avatar: string | null; coverImage: string | null }
   settings: { avgPrepTime: number | null; avgDeliveryTime: number | null; deliveryFee: number | null; freeDeliveryMinimum: number | null } | null
+  // Solo presente si el dueño tiene FreelancerSettings con slug propio —
+  // un Commerce puede pertenecer a un PROFESIONAL que también cotiza
+  // trabajos a medida ("opción 2"), ver ProfilesService.getStoreBySlug.
+  professionalSlug: string | null
 }
 
 const route = useRoute()
