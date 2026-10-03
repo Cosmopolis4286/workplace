@@ -6,7 +6,7 @@ import { ExpensesService } from '../../domains/operations/expenses/expenses.serv
 import { EmployeesService } from '../../domains/commerce-core/employees/employees.service'
 import { ServicesService } from '../../domains/commerce-core/services/services.service'
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
-import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
+import { CapabilitiesService } from '../../common/capabilities/capabilities.service'
 import { PERMISSIONS_FACADE } from '../../domains/identity-access/permissions/permissions.facade'
 
 describe('BusinessReportsService', () => {
@@ -16,7 +16,7 @@ describe('BusinessReportsService', () => {
   let employeesService: { getStats: jest.Mock; getPlatformStats: jest.Mock }
   let servicesService: { getMyServiceRequestsStats: jest.Mock }
   let permissionsFacade: { hasEffectivePermission: jest.Mock }
-  let accountTypeResolver: { resolve: jest.Mock }
+  let capabilities: { has: jest.Mock }
 
   beforeEach(async () => {
     ordersService = {
@@ -33,7 +33,7 @@ describe('BusinessReportsService', () => {
     }
     servicesService = { getMyServiceRequestsStats: jest.fn().mockResolvedValue({ total: 7 }) }
     permissionsFacade = { hasEffectivePermission: jest.fn().mockResolvedValue(true) }
-    accountTypeResolver = { resolve: jest.fn().mockResolvedValue('COMMERCE') }
+    capabilities = { has: jest.fn().mockResolvedValue(true) } // HAS_COMMERCE
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -43,7 +43,7 @@ describe('BusinessReportsService', () => {
         { provide: EmployeesService, useValue: employeesService },
         { provide: ServicesService, useValue: servicesService },
         { provide: CommerceResolverService, useValue: { resolve: jest.fn().mockResolvedValue('commerce-123') } },
-        { provide: AccountTypeResolver, useValue: accountTypeResolver },
+        { provide: CapabilitiesService, useValue: capabilities },
         { provide: PERMISSIONS_FACADE, useValue: permissionsFacade },
       ],
     }).compile()
@@ -51,17 +51,18 @@ describe('BusinessReportsService', () => {
     service = module.get(BusinessReportsService)
   })
 
-  it('returns orders/expenses/employees for a COMMERCE user', async () => {
+  it('returns orders/expenses/employees for a user with a Commerce (BUSINESS, or PROFESSIONAL selling product)', async () => {
     const result = await service.getSummary('user-1', Role.PROFESIONAL)
 
+    expect(capabilities.has).toHaveBeenCalledWith('user-1', 'HAS_COMMERCE')
     expect(result.isFreelancer).toBe(false)
     expect(result.orders).toEqual({ totalOrders: 10 })
     expect(result.expenses).toEqual({ totalMonthly: 500 })
     expect(result.employees).toEqual({ total: 3 })
   })
 
-  it('returns ServiceRequest stats and omits expenses/employees for a FREELANCER user', async () => {
-    accountTypeResolver.resolve.mockResolvedValue('FREELANCER')
+  it('returns ServiceRequest stats and omits expenses/employees for a user without Commerce', async () => {
+    capabilities.has.mockResolvedValue(false)
 
     const result = await service.getSummary('user-2', Role.PROFESIONAL)
 

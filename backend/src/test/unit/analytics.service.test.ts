@@ -6,7 +6,7 @@ import { FreelancerAnalyticsStrategy } from '../../domains/engagement/analytics/
 import { PlatformAnalyticsStrategy } from '../../domains/engagement/analytics/strategies/platform-analytics.strategy'
 import { PrismaService } from '../../prisma/prisma.service'
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
-import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
+import { CapabilitiesService } from '../../common/capabilities/capabilities.service'
 import { AnalyticsPeriod } from '../../domains/engagement/analytics/dto/query-analytics.dto'
 
 const ROLE = Role.PROFESIONAL
@@ -104,16 +104,14 @@ describe('AnalyticsService', () => {
               const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
               return commerce?.id ?? userId
             }),
-            resolveOrCreate: jest.fn(),
           },
         },
         {
-          // Este suite solo ejercita el pipeline COMMERCE (ver
-          // freelancer-analytics.strategy si existe un suite dedicado a
-          // FREELANCER) — el servicio ahora resuelve el tipo de cuenta vía
-          // AccountTypeResolver en vez de recibir `role` como parámetro.
-          provide: AccountTypeResolver,
-          useValue: { resolve: jest.fn().mockResolvedValue('COMMERCE') },
+          // Este suite solo ejercita el pipeline COMMERCE (usuario con
+          // Commerce → HAS_COMMERCE). La estrategia se decide por el hecho
+          // "tiene Commerce", no por accountType (ver analytics.service.ts).
+          provide: CapabilitiesService,
+          useValue: { has: jest.fn().mockResolvedValue(true) },
         },
       ],
     }).compile()

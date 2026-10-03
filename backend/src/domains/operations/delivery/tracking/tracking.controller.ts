@@ -5,8 +5,8 @@ import { TrackingService } from './tracking.service';
 import { TrackingGateway } from './tracking.gateway';
 import { UpdateLocationDto } from './dto/update-location.dto';
 
-// Sin @RequireAccountType a propósito: a diferencia de DeliveryController
-// (100% comercio), este endpoint también lo consume el cliente final y el
+// Sin @RequireModule/@RequireCapability a propósito: a diferencia de
+// DeliveryController (exige Commerce), este endpoint también lo consume el cliente final y el
 // repartidor — la autorización real es por-entrega, vía
 // TrackingService.assertCanView/publishLocation, no por tipo de cuenta.
 @Controller('delivery')

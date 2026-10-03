@@ -25,10 +25,11 @@ import {
  * `if (role === 'FREELANCER')` inline repetido en cada uno.
  *
  * `updateCommerceInfo`/`updateOperationSettings` no forman parte del
- * Strategy: son exclusivos de COMMERCE. La restricción de acceso vive en
- * AccountTypeGuard (@RequireAccountType('COMMERCE') en SettingsController,
- * mismo guard que usa MenuController) — este service ya no necesita
- * validar el tipo de cuenta él mismo.
+ * Strategy: operan sobre el Commerce del usuario. La restricción de acceso
+ * vive en CapabilityGuard (@RequireCapability('HAS_COMMERCE') en
+ * SettingsController) — un PROFESSIONAL que vende producto también tiene
+ * Commerce ("opción 2"), así que el criterio es "tiene Commerce", no el tipo
+ * de cuenta. Este service no valida nada de eso él mismo.
  */
 @Injectable()
 export class SettingsService {

@@ -5,7 +5,7 @@ import { CommerceAnalyticsStrategy } from './strategies/commerce-analytics.strat
 import { FreelancerAnalyticsStrategy } from './strategies/freelancer-analytics.strategy';
 import { PlatformAnalyticsStrategy } from './strategies/platform-analytics.strategy';
 import { AnalyticsAccountStrategy, AnalyticsOverview } from './strategies/analytics-overview.strategy.interface';
-import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
+import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
 
 /**
  * Orquestador delgado: delega a CommerceAnalyticsStrategy,
@@ -21,13 +21,13 @@ import { AccountTypeResolver } from '../../../common/account-type/account-type.r
  * resuelve por Role, no por AccountTypeResolver, porque un admin no tiene
  * UserProfile de tipo BUSINESS/PROFESSIONAL que resolver.
  *
- * El tipo de cuenta de negocio (COMMERCE vs FREELANCER) se resuelve vía
- * AccountTypeResolver (UserProfile ACTIVE, con fallback a Role) en vez de
- * leer el `role` crudo del JWT — Role es hoy un espejo derivado de
- * UserProfile (ver RoleResolverService), y un JWT de hasta 15min puede
- * quedar desactualizado tras un cambio de perfil reciente. La query extra
- * por request es el trade-off aceptado a cambio de no depender de ese
- * espejo potencialmente obsoleto.
+ * Para el resto, la estrategia la decide un HECHO de los datos — ¿tiene
+ * Commerce? (HAS_COMMERCE) — y no el tipo de cuenta colapsado: con la
+ * "opción 2" (2026-09-28) un PROFESSIONAL que vende producto tiene Commerce
+ * y sus métricas reales son Order/Product, no ServiceRequest. Antes
+ * (accountType === 'FREELANCER') ese caso recibía analytics de servicios y
+ * nunca veía sus pedidos. Se lee de la DB en cada request (no del `role`
+ * del JWT, que puede quedar desactualizado hasta 15min).
  */
 @Injectable()
 export class AnalyticsService {
@@ -35,15 +35,14 @@ export class AnalyticsService {
     private readonly commerceStrategy: CommerceAnalyticsStrategy,
     private readonly freelancerStrategy: FreelancerAnalyticsStrategy,
     private readonly platformStrategy: PlatformAnalyticsStrategy,
-    private readonly accountTypeResolver: AccountTypeResolver,
+    private readonly capabilities: CapabilitiesService,
   ) {}
 
   private async resolveStrategy(userId: string, role: Role): Promise<AnalyticsAccountStrategy> {
     if (role === Role.SUPERADMIN || role === Role.ADMIN) {
       return this.platformStrategy;
     }
-    const accountType = await this.accountTypeResolver.resolve(userId);
-    return accountType === 'FREELANCER' ? this.freelancerStrategy : this.commerceStrategy;
+    return (await this.capabilities.has(userId, 'HAS_COMMERCE')) ? this.commerceStrategy : this.freelancerStrategy;
   }
 
   async getOverview(userId: string, role: Role, dto: QueryAnalyticsDto): Promise<AnalyticsOverview> {

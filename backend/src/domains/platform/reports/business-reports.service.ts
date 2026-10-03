@@ -5,7 +5,7 @@ import { ExpensesService } from '../../operations/expenses/expenses.service';
 import { EmployeesService } from '../../commerce-core/employees/employees.service';
 import { ServicesService } from '../../commerce-core/services/services.service';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
-import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
+import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
 import { PermissionsFacade, PERMISSIONS_FACADE } from '../../identity-access/permissions/permissions.facade';
 
 /**
@@ -24,17 +24,16 @@ export class BusinessReportsService {
     private readonly employeesService: EmployeesService,
     private readonly servicesService: ServicesService,
     private readonly commerceResolver: CommerceResolverService,
-    private readonly accountTypeResolver: AccountTypeResolver,
+    private readonly capabilities: CapabilitiesService,
     @Inject(PERMISSIONS_FACADE) private readonly permissions: PermissionsFacade,
   ) {}
 
   async getSummary(userId: string, role: Role) {
-    const accountType = await this.accountTypeResolver.resolve(userId);
-
-    // Un freelancer no tiene Commerce/Expense/Employee: su reporte de
-    // negocio se basa en ServiceRequest (solicitudes recibidas), no en
-    // Order/Expense — mismo criterio que ya vivía en reports.vue.
-    if (accountType === 'FREELANCER') {
+    // Sin Commerce no hay Order/Expense/Employee: el reporte se basa en
+    // ServiceRequest (solicitudes recibidas). Se decide por el HECHO (¿tiene
+    // Commerce?) y no por accountType: un PROFESSIONAL que vende producto
+    // ("opción 2") tiene Commerce y su reporte real son sus pedidos.
+    if (!(await this.capabilities.has(userId, 'HAS_COMMERCE'))) {
       const orders = await this.servicesService.getMyServiceRequestsStats(userId);
       return { isFreelancer: true, orders, expenses: null, employees: null };
     }

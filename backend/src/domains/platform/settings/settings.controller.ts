@@ -39,7 +39,7 @@ export class SettingsController {
     return this.settingsService.updateCommerceInfo(user.id, dto);
   }
 
-  // Sin @RequireAccountType: a diferencia de 'commerce' (solo COMMERCE), este
+  // Sin @RequireCapability: a diferencia de 'commerce' (exige HAS_COMMERCE), este
   // endpoint lo usa el onboarding para ambos tipos de cuenta — el nombre se
   // guarda en Commerce.name o FreelancerSettings.professionalName según
   // corresponda (ver SettingsService.updateBusinessName).
@@ -52,7 +52,7 @@ export class SettingsController {
     return this.settingsService.updateBusinessName(user.id, dto);
   }
 
-  // Sin @RequireAccountType, mismo criterio que 'business-name': ambos tipos
+  // Sin @RequireCapability, mismo criterio que 'business-name': ambos tipos
   // de cuenta fijan su ubicación base para MatchingService.
   @Patch('location')
   @RequirePermission('settings:edit')

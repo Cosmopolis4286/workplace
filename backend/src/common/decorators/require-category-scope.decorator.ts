@@ -15,7 +15,7 @@ export interface CategoryScopeOptions {
  * (UserCategory) del propio usuario — bloquea, por ejemplo, que un
  * proveedor de Transporte publique un servicio bajo "Contabilidad".
  * Complementa a CategoryScopeService (que filtra LISTAS/lectura): esto
- * valida ESCRITURA, mismo patrón que @RequireAccountType/AccountTypeGuard.
+ * valida ESCRITURA, mismo patrón que @RequireCapability/CapabilityGuard.
  * Si el body no trae el campo (categoría opcional), no bloquea — solo actúa
  * cuando el usuario sí elige una categoría de catálogo.
  * Usage: @RequireCategoryScope({ model: 'serviceCategory', bodyField: 'categoryId' })
