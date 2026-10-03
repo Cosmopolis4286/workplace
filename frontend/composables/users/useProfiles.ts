@@ -41,7 +41,9 @@ export interface PublicProfile {
   // servicio — accountType (resuelto por el backend vía AccountTypeResolver)
   // es la fuente real para esa distinción en el perfil público.
   accountType?: 'COMMERCE' | 'FREELANCER' | null
-  commerce?: { id: string; name: string; type?: string }
+  // slug: para el link "Ver tienda" (/loja/:slug) cuando el Commerce lo
+  // tiene configurado (StoreSlugCard.vue) — null/undefined si no.
+  commerce?: { id: string; name: string; type?: string; slug?: string | null }
   profileSettings: { showCatalog: boolean; showServices: boolean }
   followersCount: number
   followingCount: number

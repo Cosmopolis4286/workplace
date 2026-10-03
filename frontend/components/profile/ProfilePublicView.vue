@@ -99,8 +99,19 @@
                 <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="roleBadge">{{ roleLabel }}</span>
               </div>
               <p v-if="profile.username" class="text-gray-400 text-sm mb-1">@{{ profile.username }}</p>
-              <p v-if="profile.commerce" class="text-gray-500 text-sm mb-3">
-                🏪 {{ profile.commerce.name }}<span v-if="profile.commerce.type"> · {{ profile.commerce.type }}</span>
+              <p v-if="profile.commerce" class="text-gray-500 text-sm mb-3 flex flex-wrap items-center gap-2">
+                <span>🏪 {{ profile.commerce.name }}<span v-if="profile.commerce.type"> · {{ profile.commerce.type }}</span></span>
+                <!-- Solo si configuró un slug de tienda (StoreSlugCard.vue) —
+                     un profesional con Commerce ("opción 2") también vende
+                     servicios cotizados acá mismo, la tienda es su catálogo
+                     de precio fijo aparte. -->
+                <NuxtLink
+                  v-if="profile.commerce.slug"
+                  :to="`/loja/${profile.commerce.slug}`"
+                  class="text-workplace-red font-semibold hover:underline"
+                >
+                  Ver tienda →
+                </NuxtLink>
               </p>
               <!-- Stats row -->
               <div class="flex flex-wrap gap-6 text-center">

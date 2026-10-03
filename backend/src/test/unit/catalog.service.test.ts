@@ -517,5 +517,24 @@ describe('CatalogService', () => {
       expect(result.data.productCount).toBe(3)
       expect((result.data as any).userId).toBeUndefined()
     })
+
+    it('expone professionalSlug cuando el dueño tiene FreelancerSettings con slug ("opción 2")', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue(
+        baseCommerce({ user: { avatar: null, coverImage: null, freelancerSettings: { slug: 'maria-cocina' } } }),
+      )
+
+      const result = await service.getStoreBySlug('mi-tienda')
+
+      expect((result.data as any).professionalSlug).toBe('maria-cocina')
+    })
+
+    it('professionalSlug es null cuando el dueño no tiene perfil profesional con slug', async () => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue(baseCommerce())
+
+      const result = await service.getStoreBySlug('mi-tienda')
+
+      expect((result.data as any).professionalSlug).toBeNull()
+      expect((result.data as any).user).toEqual({ avatar: null, coverImage: null })
+    })
   })
 })

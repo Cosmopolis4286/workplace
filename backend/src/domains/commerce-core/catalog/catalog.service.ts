@@ -148,7 +148,18 @@ export class CatalogService {
             freeDeliveryMinimum: true,
           },
         },
-        user: { select: { avatar: true, coverImage: true } },
+        // username/freelancerSettings.slug: para el link "Ver perfil
+        // profesional" en /loja/:slug — un Commerce puede pertenecer a un
+        // PROFESIONAL que también vende servicios ("opción 2"), no solo a un
+        // perfil BUSINESS puro. null si nunca activó perfil profesional.
+        user: {
+          select: {
+            avatar: true,
+            coverImage: true,
+            username: true,
+            freelancerSettings: { select: { slug: true } },
+          },
+        },
         _count: {
           select: {
             products: { where: { status: ProductStatus.AVAILABLE, forSale: true } },
@@ -164,8 +175,17 @@ export class CatalogService {
       throw new NotFoundException('Tienda no encontrada');
     }
 
-    const { _count, userId, ...rest } = commerce;
-    return { data: { ...rest, productCount: _count.products } };
+    const { _count, userId, user, ...rest } = commerce;
+    return {
+      data: {
+        ...rest,
+        user: { avatar: user.avatar, coverImage: user.coverImage },
+        productCount: _count.products,
+        // Solo se expone si el dueño tiene perfil profesional activo con
+        // slug propio — ver ProfilePublicView.vue, que arma /pro/:slug.
+        professionalSlug: user.freelancerSettings?.slug ?? null,
+      },
+    };
   }
 
   async getProducts(dto: QueryCatalogDto) {

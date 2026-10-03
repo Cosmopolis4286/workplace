@@ -70,7 +70,10 @@ export class ProfilesService {
         avatar: true,
         coverImage: true,
         role: true,
-        commerce: { select: { id: true, name: true, type: true } },
+        // slug: para el link "Ver tienda" en ProfilePublicView.vue (/loja/:slug)
+        // cuando el PROFESIONAL también tiene Commerce ("opción 2") — null si
+        // el comercio nunca eligió uno (ver StoreSlugCard.vue).
+        commerce: { select: { id: true, name: true, type: true, slug: true } },
         profileSettings: { select: { showCatalog: true, showServices: true } },
         _count: {
           select: {
