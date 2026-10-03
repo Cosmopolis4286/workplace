@@ -6,6 +6,7 @@ import { MailService } from '../../domains/engagement/mail/mail.service'
 import { CommerceProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/commerce-profile-completion.strategy'
 import { FreelancerProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/freelancer-profile-completion.strategy'
 import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { Role } from '@prisma/client'
 import { I18nService } from 'nestjs-i18n'
 
@@ -54,6 +55,8 @@ describe('UsersService', () => {
     isCommerce: jest.fn((accountType: string | null) => accountType === 'COMMERCE'),
   }
 
+  const mockCommerceResolver = { ensureForUser: jest.fn().mockResolvedValue(null) }
+
   beforeEach(async () => {
     redisStore.clear()
 
@@ -81,6 +84,10 @@ describe('UsersService', () => {
         {
           provide: AccountTypeResolver,
           useValue: mockAccountTypeResolver,
+        },
+        {
+          provide: CommerceResolverService,
+          useValue: mockCommerceResolver,
         },
       ],
     }).compile()

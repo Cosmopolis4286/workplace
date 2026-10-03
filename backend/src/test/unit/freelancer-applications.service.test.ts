@@ -6,6 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service'
 import { RoleResolverService } from '../../common/account-type/role-resolver.service'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 
 describe('FreelancerApplicationsService', () => {
   let service: FreelancerApplicationsService
@@ -59,6 +60,7 @@ describe('FreelancerApplicationsService', () => {
       providers: [
         FreelancerApplicationsService,
         RoleResolverService,
+        { provide: CommerceResolverService, useValue: { ensureForUser: jest.fn().mockResolvedValue(null) } },
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisService, useValue: mockRedisService },
         { provide: NotificationsService, useValue: mockNotificationsService },

@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
 import { RoleResolverService } from '../../common/account-type/role-resolver.service'
 import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
 import { CategoryScopeService } from '../../common/category-scope/category-scope.service'
 import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common'
 
@@ -49,6 +50,8 @@ describe('PlansService', () => {
     $transaction: jest.fn((fn: any) => fn(mockPrismaService)),
   }
 
+  const mockCommerceResolver = { ensureForUser: jest.fn().mockResolvedValue(null) }
+
   const redisStore = new Map<string, string>()
   const mockRedisService = {
     get: jest.fn((key: string) => Promise.resolve(redisStore.get(key) ?? null)),
@@ -64,6 +67,7 @@ describe('PlansService', () => {
         PlansService,
         RoleResolverService,
         AccountTypeResolver,
+        { provide: CommerceResolverService, useValue: mockCommerceResolver },
         CategoryScopeService,
         {
           provide: PrismaService,
@@ -540,6 +544,8 @@ describe('updatePlan', () => {
         }),
       )
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { role: 'PROFESIONAL' } })
+      // Antes este camino activaba BUSINESS sin crear su Commerce.
+      expect(mockCommerceResolver.ensureForUser).toHaveBeenCalledWith(mockPrismaService, 'user-1')
     })
 
     it('un plan forFreelancer crea/activa un UserProfile PROFESSIONAL/FREELANCER y otorga role PROFESIONAL', async () => {
