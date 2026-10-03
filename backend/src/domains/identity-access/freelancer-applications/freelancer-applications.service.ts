@@ -27,6 +27,11 @@ export class FreelancerApplicationsService {
     });
   }
 
+  /**
+   * @deprecated (2026-10-03) — sin llamadores HTTP: el endpoint responde 410
+   * y el alta va por ProfileActivationsService.create(). Se conserva (con sus
+   * tests) mientras exista el módulo; se elimina junto con él.
+   */
   async create(userId: string, dto: CreateFreelancerApplicationDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
