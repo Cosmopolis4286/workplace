@@ -2,6 +2,15 @@
 
 > Fecha: 2026-08-29. Entregable de **Fase 1 (Auditoría) + Fase 2/3 (Arquitectura objetivo y plan de migración)**, sin cambios de código todavía. Ver [[workplace-vision]], [[multi-profile-system]], [[rbac-security-hardening]] en memoria para el historial que llevó hasta acá.
 
+> **Estado al 2026-10-03 — implementado.** Los pasos 1-7 de §10 están hechos, y la capa `Capability` (§3) existe como servicio derivado (`common/capabilities/`), no como tabla, tal como se recomendaba. Diferencias respecto a este plan, decididas durante la implementación:
+> - **`role=PROFESIONAL` pasó de unión a base común** (intersección de los perfiles de negocio). Sin eso `ProfilePermission` no podía restringir nada y `can()` no distinguía comercio de profesional. Migración `invert_profesional_role_permissions`.
+> - **`AccountTypeGuard`/`@RequireAccountType` y `MODULE_ACCOUNT_TYPE` se eliminaron**, reemplazados por `CapabilityGuard` (`HAS_COMMERCE`, `HAS_PROFESSIONAL_PROFILE`, `HAS_BUSINESS_PROFILE`) más la matriz de permisos. `effectiveModules` volvió a ser solo plan ∩ categoría.
+> - **"Opción 2"**: un `PROFESSIONAL` puede vender producto con su propio `Commerce` (creado al aprobar si su categoría incluye `menu`/`inventory`/`orders`), sin perfil `BUSINESS`.
+> - **`FreelancerApplication` quedó deprecado** (alta → 410), sin borrar la tabla.
+> - El frontend ya no decide acceso con `accountType`: usa `can()`, módulos y `capabilities` (de `GET /auth/me` y `GET /navigation → routeCapabilities`).
+>
+> Resumen vigente del modelo: `WORKPLACE_STATUS_FEEDBACK.md` §3.
+
 ---
 
 ## 1. Current Architecture

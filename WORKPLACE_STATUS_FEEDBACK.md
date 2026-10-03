@@ -201,7 +201,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 ## 8. Testing y calidad
 
-- 934 tests unitarios backend, todos pasando (`npx jest`, 2026-10-03), incluidos tests de contrato de la matriz de permisos (`permission-defaults.test.ts`) y de capacidades.
+- 937 tests unitarios backend (70 suites), todos pasando (`npx jest`, 2026-10-03), incluidos tests de contrato de la matriz de permisos (`permission-defaults.test.ts`) y de capacidades.
 - `tsc --noEmit` limpio en backend.
 - Frontend: `npx nuxi typecheck` corre, pero reporta **224 errores de tipos previos** (los más antiguos de febrero de 2026; ninguno introducido por el refactor de acceso). `vitest`: 25 tests, todos pasando.
 - Exception filter global de errores implementado.
