@@ -1,6 +1,6 @@
 # WorkPlace Manager — Estado actual y flujo (para feedback externo)
 
-> Generado 2026-08-24, actualizado 2026-09-04. Pensado como input para pedir feedback (ej. a ChatGPT) sobre arquitectura, producto o próximos pasos. Refleja el estado real del código en este momento, no aspiracional. Ver `CHANGELOG.md` para el detalle cronológico de cambios recientes.
+> Generado 2026-08-24, actualizado 2026-10-03 (§3, §4, §7, §8: modelo de acceso por capas). Pensado como input para pedir feedback (ej. a ChatGPT) sobre arquitectura, producto o próximos pasos. Refleja el estado real del código en este momento, no aspiracional. Ver `CHANGELOG.md` para el detalle cronológico de cambios recientes.
 
 ## 1. Qué es
 
@@ -16,32 +16,35 @@ Hay un documento de visión de largo plazo (`WORKPLACE_VISION.md`) que describe 
 - **Auth**: JWT (access 15min / refresh 7d, o 1d + cookie de sesión si no se marca "mantener sesión"), blacklist de tokens en Redis, 2FA (TOTP) opcional, reCAPTCHA v3 en login/register, OAuth con Google.
 - **Infra dev**: Docker Compose (`docker-compose.lite.dev.yml`), Traefik como router, contenedores separados para backend/frontend/postgres/redis/mailhog/adminer. El backend en modo dev **no** corre sin Docker (depende de que Compose inyecte las variables de entorno; no hay carga de `.env` en el script npm).
 
-## 3. Modelo de identidad y RBAC actual
+## 3. Modelo de identidad y control de acceso (actualizado 2026-10-03)
 
-- `User.role`: `SUPERADMIN | ADMIN | COMMERCE | FREELANCER | NORMAL`. Es el nivel de acceso (RBAC) — controla permisos vía `RolesGuard` + matriz de permisos (`PermissionsGuard`).
-- `User.accountType`: `COMMERCE | FREELANCER | null`. Históricamente separado de `role` por una migración incremental; hoy es la fuente de verdad preferida para "tipo de cuenta de negocio", resuelta vía `AccountTypeResolver` (con fallback a `role` para compatibilidad).
-- **Es un enum mutuamente excluyente**: un usuario es COMMERCE *o* FREELANCER, nunca ambos, y no puede ser cliente + profesional a la vez sin "convertirse" de un tipo a otro.
-- `Commerce` es 1:1 con `User` (un usuario tiene como máximo un comercio).
-- KYC (`kycStatus`) es por usuario, no por rol — bloquea operaciones de negocio (publicar empleo, pedido, corrida, envío, solicitud de servicio) hasta que la identidad esté verificada.
+Cada pregunta de acceso tiene **una sola capa** que la responde, y backend (guards), sidebar (`GET /navigation`) y frontend (middleware, dashboard) evalúan las mismas capas en el mismo orden:
 
-### Cambio recién implementado: perfiles múltiples (paso 1)
+| Pregunta | Capa | Dónde vive |
+|---|---|---|
+| ¿Qué nivel de acceso tiene? | `User.role`: `SUPERADMIN \| ADMIN \| PROFESIONAL \| NORMAL` | `RolesGuard` |
+| ¿Qué papel cumple? | `UserProfile` (varios ACTIVE a la vez): `CUSTOMER`, `PROFESSIONAL` (`FREELANCER`/`SERVICE_PROVIDER`), `JOB_SEEKER`, `BUSINESS` | Tabla `user_profiles` |
+| ¿Qué puede hacer ese papel? | Matriz de permisos: `RolePermission` (base del rol) ∪ `ProfilePermission` (por perfil ACTIVE); `UserPermission` como override individual | `PermissionsGuard` (`@RequirePermission`) |
+| ¿Su rubro y su plan lo incluyen? | `effectiveModules` = `Plan.enabledModules` ∩ `UserCategory.allowedModules` | `ModuleAccessGuard` (`@RequireModule`) |
+| ¿Existe lo que la operación necesita? | Capacidades derivadas, sin tabla: `HAS_COMMERCE`, `HAS_PROFESSIONAL_PROFILE`, `HAS_BUSINESS_PROFILE` | `CapabilityGuard` (`@RequireCapability`); expuestas en `GET /auth/me → capabilities` |
+| ¿Identidad verificada? | `kycStatus` | `KycApprovedGuard` |
 
-Se agregó un modelo `UserProfile` en paralelo, que permite que un mismo usuario tenga **varios perfiles activos simultáneamente** (`CUSTOMER`, `PROFESSIONAL` con subtipo `FREELANCER`/`SERVICE_PROVIDER`, `JOB_SEEKER`, `BUSINESS`), sin romper el modelo `accountType`/`role` existente:
-
-- Tabla nueva `user_profiles`, N filas por usuario.
-- `AccountTypeResolver` ahora lee `UserProfile` primero, con fallback a `accountType` → `role` (mismo patrón de cascada que ya existía).
-- Endpoint `POST /api/profile-activations` (+ `GET mine`, admin `pending`/`review`): activación instantánea para CUSTOMER/JOB_SEEKER, con aprobación de admin + KYC para PROFESSIONAL/BUSINESS — mismo flujo que ya existía para "convertirme en freelancer" (`FreelancerApplication`), que ahora también escribe en `UserProfile` en paralelo (dual-write, sin romper el flujo real que usa el frontend hoy).
-- UI nueva en `/profile` (card "Mis perfiles") y `/profile-activations-admin` (revisión de solicitudes).
-- **Deliberadamente no se tocó** la FK real `Commerce.userId` (1:1 con User): se encontró que la resolución "userId → commerceId" estaba duplicada (copy-pasted) en 12 servicios distintos del backend. Se consolidó primero ese código en un `CommerceResolverService` compartido — trabajo previo necesario antes de poder migrar la FK real en el futuro sin romper 12 archivos a la vez.
+- **`role=PROFESIONAL` concede solo la base común** de todos los perfiles de negocio (intersección calculada en `prisma/permission-defaults.js`). Lo exclusivo de comercio (empleados, sucursales, caja, compras, proveedores, cuentas, citas) solo lo concede el perfil `BUSINESS`. Antes el rol era la *unión*, así que los perfiles no podían restringir nada y cada capa del frontend parcheaba con listas de `accountType`.
+- **Opción 2 (decisión de producto 2026-09-28): un `PROFESSIONAL` puede vender producto físico sin perfil `BUSINESS`.** Su perfil incluye el kit de venta (menú, inventario, pedidos, clientes, delivery, gastos); quién lo usa de verdad lo decide la categoría. `BUSINESS` y `PROFESSIONAL` son mutuamente excluyentes al activarse por autoservicio.
+- **El `Commerce` se crea solo de forma explícita** (`CommerceResolverService.ensureForUser`), en cada camino que activa un perfil o cambia la categoría: `BUSINESS` siempre; `PROFESSIONAL` si su categoría incluye `menu`, `inventory` u `orders`. Nunca como efecto secundario de abrir una pantalla (antes `/menu` y Configuración lo auto-creaban, incluso para SUPERADMIN). `resolve()` responde 403 si no hay Commerce, en vez de usar el `userId` como `commerceId`.
+- `accountType` (`COMMERCE \| FREELANCER \| null`) **sigue existiendo solo como etiqueta derivada** de `UserProfile` (colapsa perfiles: `BUSINESS` gana). No se usa para decidir acceso. Lo usan las etiquetas de UI y la elección de forma de `/settings` (`FreelancerSettings` vs `CommerceSettings`).
+- `Commerce.userId` sigue siendo 1:1 con `User`. `Commerce.profileId` vincula el comercio al perfil que lo originó.
+- La activación de perfiles va solo por `POST /api/profile-activations` (UI en `/profile` y `/profile-activations-admin`). El camino legacy `POST /freelancer-applications` responde **410 Gone** desde 2026-10-03; su lectura y revisión admin se conservan para solicitudes PENDING históricas.
+- Detalle del diseño y de la migración: `IDENTITY_ARCHITECTURE_PLAN.md`.
 
 ## 4. Flujo de uso actual (usuario final)
 
 1. **Registro**: email+password o Google OAuth. Usuario nace con `role=NORMAL` (cliente).
 2. **Verificación de identidad (KYC)**: requerida antes de poder publicar/contratar/vender — no antes de solo navegar o comprar como invitado limitado.
 3. **Como cliente (NORMAL)**: navega comercios/profesionales por categoría, compra en catálogo, contrata servicios, agenda citas, pide delivery, pide rides, postula a empleos.
-4. **Convertirse en negocio o profesional**: hoy es un cambio de `role`/`accountType` (excluyente) vía solicitud + aprobación de admin (`FreelancerApplication` para freelancer; alta directa por admin para `COMMERCE`). Con el cambio reciente, en paralelo ya existe la infraestructura para que esto sea "activar un perfil adicional" en vez de "convertir la cuenta", pero el frontend real (lo que ve el usuario) todavía usa el flujo viejo — el nuevo es aditivo, no reemplaza al viejo todavía.
+4. **Convertirse en negocio o profesional**: el usuario activa un perfil `BUSINESS` o `PROFESSIONAL` (onboarding, `/pricing` o `/profile`, todos vía `POST /api/profile-activations`), opcionalmente con un plan. Un admin lo aprueba (requiere KYC aprobado); al aprobar se sincroniza `role=PROFESIONAL`, se activa el plan elegido y, si corresponde, se crea el `Commerce`. `CUSTOMER`/`JOB_SEEKER` se activan al instante.
 5. **Como comercio**: gestiona catálogo/menú, categorías, empleados, sucursales, caja (apertura/cierre de turno con arqueo), gastos, pedidos, delivery (con repartidores propios o invitados con cuenta propia), citas, clientes, analytics, notificaciones en tiempo real (WebSocket), comprobantes de venta (no fiscales — ver sección 6), planes/suscripciones con límites por plan.
-6. **Como profesional/freelancer**: publica servicios, recibe y gestiona solicitudes de servicio (con mensajería), analytics propios.
+6. **Como profesional/freelancer**: publica servicios, recibe y gestiona solicitudes de servicio (con mensajería), analytics propios. Si su categoría vende producto (ej. "Comida"), además tiene un `Commerce` y opera menú, pedidos, clientes, delivery y gastos; sus analytics y reportes pasan a ser de comercio. No accede a empleados, sucursales, caja, compras, proveedores ni cuentas (exclusivos de `BUSINESS`).
 7. **Empleos**: cualquier usuario puede publicar una oferta o postular, sin necesidad de un perfil "Job Seeker" separado hoy (aunque el modelo `UserProfile` ya contempla ese tipo para el futuro).
 8. **Delivery**: comercios asignan pedidos a repartidores (`Driver`); un repartidor puede tener cuenta propia vinculada (con su propio KYC) vía invitación, con periodo de gracia de 30 días para los repartidores "legado" sin cuenta.
 9. **Wallets / pagos**: sistema de wallet interno con solicitudes de depósito (con comprobante), y BNPL (compra ahora paga después) con adaptadores por proveedor (Cashea, Krece, simulado para dev).
@@ -188,16 +191,19 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 - Archivos `.env` trackeados en git (riesgo de secretos versionados).
 - Sin Sentry/logging estructurado en backend.
 - Sin backup de base de datos automatizado.
-- La FK real `Commerce.userId` sigue siendo 1:1 estricta — bloquea que un mismo usuario tenga comercio + otro perfil de negocio simultáneo hasta que se complete la migración (ver sección 3).
-- El flujo de "convertirse en freelancer" (`FreelancerApplication`) y el nuevo sistema de `UserProfile` coexisten sin estar unificados en el frontend todavía — riesgo de confusión de producto si no se decide cuál es la fuente de verdad a mediano plazo.
-- **71 campos monetarios en `Float`, cero uso de `Decimal`** en todo el schema (confirmado 2026-09-04) — riesgo real de precisión de redondeo para cálculos de margen. Los modelos nuevos de Business Shield (`Purchase` en adelante) deberían evaluar `Decimal` desde el inicio; migrar los 71 campos existentes es un trabajo aparte, más caro, que no se ha hecho.
-- **Bug de RBAC encontrado y corregido (2026-09-04)**: desde la fusión de `Role.COMMERCE`+`Role.FREELANCER` en `Role.PROFESIONAL` (2026-08-25/29), `prisma/seed.js` nunca sembró la tabla `ProfilePermission` — `getActiveProfilePermissions()` devolvía `[]` siempre, así que **todo usuario `PROFESIONAL` tenía el mismo set de permisos sin importar si era comercio o freelancer** (incluyendo módulos irrelevantes como `menu`/`inventory`/`cash` para un freelancer). Corregido: `RolePermission.PROFESIONAL` ahora es la unión de ambos sets (nivel de acceso), y `ProfilePermission` distingue `BUSINESS` (69 permisos) de `PROFESSIONAL/FREELANCER` y `PROFESSIONAL/SERVICE_PROVIDER` (23 permisos cada uno) — la distinción fina real, resuelta en runtime por `hasEffectivePermission()`.
+- La FK real `Commerce.userId` sigue siendo 1:1 estricta (un usuario tiene como máximo un comercio). No se migra sin un caso de uso real de multi-ownership.
+- `FreelancerApplication` está deprecado (alta en 410). Pendiente eliminar el módulo, después de verificar en prod que no haya solicitudes `PENDING`.
+- **101 campos monetarios en `Float`, cero uso de `Decimal`** en todo el schema (eran 71 al 2026-09-04; crece con cada módulo nuevo) — riesgo real de precisión de redondeo para cálculos de margen. Migrarlos es un trabajo aparte que no se ha hecho.
+- **`/settings` de un profesional con Commerce**: recibe `FreelancerSettings` (la estrategia del backend se elige por `accountType`), así que las tarjetas de Operaciones y Price Guard no muestran sus valores guardados de `CommerceSettings`. Pendiente unificar la respuesta.
+- **Comercios "fantasma" de admins**: hasta 2026-10-03, abrir `/menu` o Configuración le creaba un `Commerce` a cualquier cuenta, incluidos SUPERADMIN/ADMIN (en local, `superadmin@demo.com` tiene uno). Con eso, SUPERADMIN opera endpoints de comercio sobre ese Commerce vacío. El bug está corregido pero esos registros no se borraron: decisión pendiente (revisar en prod cuáles existen y si tienen datos).
+- **Seed y matriz de permisos**: `seed.js` ya no pisa la matriz (solo crea filas faltantes; `SEED_RESET_PERMISSIONS=1` la reimpone en dev). Cambiar un default existente se hace con una migración de datos, simulando antes con `node scripts/simulate-permission-defaults.js`.
+- **Historial — bug de RBAC (2026-09-04, superado 2026-09-28)**: `ProfilePermission` no se sembraba, y luego `RolePermission.PROFESIONAL` pasó a ser la unión comercio ∪ profesional. Desde la migración `invert_profesional_role_permissions` el rol es la base común y la distinción vive solo en los perfiles (ver §3).
 
 ## 8. Testing y calidad
 
-- 889 tests unitarios backend, todos pasando (`npx jest`).
+- 934 tests unitarios backend, todos pasando (`npx jest`, 2026-10-03), incluidos tests de contrato de la matriz de permisos (`permission-defaults.test.ts`) y de capacidades.
 - `tsc --noEmit` limpio en backend.
-- No hay `vue-tsc`/type-check configurado para el frontend en este entorno (falla por incompatibilidad de versión al invocarlo vía npx; no está declarado como dependencia del proyecto).
+- Frontend: `npx nuxi typecheck` corre, pero reporta **224 errores de tipos previos** (los más antiguos de febrero de 2026; ninguno introducido por el refactor de acceso). `vitest`: 25 tests, todos pasando.
 - Exception filter global de errores implementado.
 
 ## 9. Roadmap de producto (visión, no implementado aún)
