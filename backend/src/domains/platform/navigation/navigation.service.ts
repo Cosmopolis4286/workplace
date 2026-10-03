@@ -51,7 +51,12 @@ export class NavigationService {
       if (c.excludeAnyCapability && c.excludeAnyCapability.some(has)) return false;
       if (!can(c.permission)) return false;
       if (c.requiresModule && c.permission && !hasModule(c.permission)) return false;
-      if (c.requiresAnyModule && !c.requiresAnyModule.some((m) => limits.effectiveModules.includes(m))) return false;
+      // El módulo cuenta solo si además el papel puede verlo (`${m}:view`):
+      // effectiveModules es plan ∩ categoría y ya no filtra por papel, así
+      // que un profesional de "Comida" tiene 'employees' por su categoría
+      // aunque su perfil no conceda employees:view — y /jobs ("gestiona
+      // personal") no debe aparecerle por eso.
+      if (c.requiresAnyModule && !c.requiresAnyModule.some((m) => limits.effectiveModules.includes(m) && can(`${m}:view`))) return false;
       return true;
     };
 

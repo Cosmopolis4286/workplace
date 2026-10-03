@@ -226,6 +226,22 @@ describe('NavigationService', () => {
     expect(result.sections.find((s) => s.id === 'company')).toBeUndefined()
   })
 
+  it('hides /jobs when the employees module comes from the category but the profile lacks employees:view', async () => {
+    // comidarapida@demo.com: "Comida" trae 'employees' en allowedModules,
+    // pero el perfil PROFESSIONAL no concede employees:view (exclusivo de
+    // BUSINESS). /jobs usa 'employees' como señal de "gestiona personal".
+    permissionsService.getRolePermissions.mockResolvedValue(['jobs:view'])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['jobs', 'employees'],
+      categoryName: 'Comida',
+    })
+
+    currentCapabilities = PROFESSIONAL_WITH_COMMERCE
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
+
+    expect(result.sections.find((s) => s.id === 'company')).toBeUndefined()
+  })
+
   it('hides commerce-bound items when the user has permission and module but NO Commerce', async () => {
     // Diseñador: su categoría trae customers/expenses y su perfil tiene el
     // permiso (kit de venta de producto), pero sin Commerce no hay sobre qué
