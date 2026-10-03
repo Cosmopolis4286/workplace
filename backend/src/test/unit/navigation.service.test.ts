@@ -3,7 +3,7 @@ import { Role } from '@prisma/client'
 import { NavigationService } from '../../domains/platform/navigation/navigation.service'
 import { PERMISSIONS_FACADE } from '../../domains/identity-access/permissions/permissions.facade'
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
-import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
+import { CapabilitiesService, CapabilityMap } from '../../common/capabilities/capabilities.service'
 
 describe('NavigationService', () => {
   let service: NavigationService
@@ -13,10 +13,14 @@ describe('NavigationService', () => {
     getActiveProfilePermissions: jest.Mock
   }
   let planLimitsService: { getPlanLimits: jest.Mock }
-  // role='PROFESIONAL' ya no distingue COMMERCE de FREELANCER — cada test
-  // fija explícitamente qué debe devolver AccountTypeResolver (la única
-  // fuente real de esa distinción), independiente de `role`.
-  let currentAccountType: 'COMMERCE' | 'FREELANCER' | null
+  // Cada test fija las capacidades reales del usuario (¿tiene Commerce?
+  // ¿qué perfiles ACTIVE?), independiente de `role`. El papel lo deciden los
+  // permisos mockeados; esto solo decide los prerrequisitos.
+  const NONE: CapabilityMap = { HAS_COMMERCE: false, HAS_PROFESSIONAL_PROFILE: false, HAS_BUSINESS_PROFILE: false }
+  const BUSINESS_WITH_COMMERCE: CapabilityMap = { HAS_COMMERCE: true, HAS_PROFESSIONAL_PROFILE: false, HAS_BUSINESS_PROFILE: true }
+  const PROFESSIONAL_WITHOUT_COMMERCE: CapabilityMap = { HAS_COMMERCE: false, HAS_PROFESSIONAL_PROFILE: true, HAS_BUSINESS_PROFILE: false }
+  const PROFESSIONAL_WITH_COMMERCE: CapabilityMap = { HAS_COMMERCE: true, HAS_PROFESSIONAL_PROFILE: true, HAS_BUSINESS_PROFILE: false }
+  let currentCapabilities: CapabilityMap
 
   beforeEach(async () => {
     permissionsService = {
@@ -30,9 +34,9 @@ describe('NavigationService', () => {
         categoryName: null,
       }),
     }
-    currentAccountType = null
-    const accountTypeResolver = {
-      resolve: jest.fn().mockImplementation(async () => currentAccountType),
+    currentCapabilities = NONE
+    const capabilitiesService = {
+      resolve: jest.fn().mockImplementation(async () => currentCapabilities),
     }
 
     const module: TestingModule = await Test.createTestingModule({
@@ -40,7 +44,7 @@ describe('NavigationService', () => {
         NavigationService,
         { provide: PERMISSIONS_FACADE, useValue: permissionsService },
         { provide: PLAN_LIMITS_FACADE, useValue: planLimitsService },
-        { provide: AccountTypeResolver, useValue: accountTypeResolver },
+        { provide: CapabilitiesService, useValue: capabilitiesService },
       ],
     }).compile()
 
@@ -77,7 +81,7 @@ describe('NavigationService', () => {
       categoryName: 'Servicios',
     })
 
-    currentAccountType = 'COMMERCE'
+    currentCapabilities = BUSINESS_WITH_COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
     const catalogSection = result.sections.find((s) => s.id === 'catalog')
@@ -91,7 +95,7 @@ describe('NavigationService', () => {
       categoryName: 'Comida',
     })
 
-    currentAccountType = 'COMMERCE'
+    currentCapabilities = BUSINESS_WITH_COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
     const catalogSection = result.sections.find((s) => s.id === 'catalog')
@@ -127,7 +131,7 @@ describe('NavigationService', () => {
       categoryName: null,
     })
 
-    currentAccountType = 'FREELANCER'
+    currentCapabilities = PROFESSIONAL_WITHOUT_COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
     const companySection = result.sections.find((s) => s.id === 'company')
@@ -141,7 +145,7 @@ describe('NavigationService', () => {
       categoryName: null,
     })
 
-    currentAccountType = 'COMMERCE'
+    currentCapabilities = BUSINESS_WITH_COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
     const companySection = result.sections.find((s) => s.id === 'company')
@@ -163,14 +167,14 @@ describe('NavigationService', () => {
     expect(operationsSection?.items.find((i) => i.id === 'orders')).toBeUndefined()
   })
 
-  it('excludes FREELANCER from /orders, /employees but includes /modules, /my-plan (accountType)', async () => {
+  it('excludes a PROFESSIONAL without Commerce from /orders, /employees but includes /modules, /my-plan (capabilities)', async () => {
     permissionsService.getRolePermissions.mockResolvedValue(['orders:view', 'employees:view'])
     planLimitsService.getPlanLimits.mockResolvedValue({
       effectiveModules: ['orders', 'employees'],
       categoryName: null,
     })
 
-    currentAccountType = 'FREELANCER'
+    currentCapabilities = PROFESSIONAL_WITHOUT_COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
     const operationsSection = result.sections.find((s) => s.id === 'operations')
@@ -183,14 +187,14 @@ describe('NavigationService', () => {
     expect(businessSection?.items.find((i) => i.id === 'pricing')).toBeUndefined()
   })
 
-  it('shows /orders, /employees for COMMERCE and excludes /pricing (accountType)', async () => {
+  it('shows /orders, /employees for COMMERCE and excludes /pricing (capabilities)', async () => {
     permissionsService.getRolePermissions.mockResolvedValue(['orders:view', 'employees:view'])
     planLimitsService.getPlanLimits.mockResolvedValue({
       effectiveModules: ['orders', 'employees'],
       categoryName: null,
     })
 
-    currentAccountType = 'COMMERCE'
+    currentCapabilities = BUSINESS_WITH_COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
     const operationsSection = result.sections.find((s) => s.id === 'operations')
@@ -199,6 +203,44 @@ describe('NavigationService', () => {
     expect(operationsSection?.items.find((i) => i.id === 'orders')).toBeDefined()
     expect(companySection?.items.find((i) => i.id === 'employees')).toBeDefined()
     expect(businessSection?.items.find((i) => i.id === 'pricing')).toBeUndefined()
+  })
+
+  it('PROFESSIONAL selling product (opción 2): sees /orders and /menu via Commerce, but not /employees (permission is BUSINESS-only)', async () => {
+    // comidarapida@demo.com: perfil PROFESSIONAL con Commerce en "Comida".
+    // El módulo employees está en su effectiveModules (la categoría lo trae),
+    // pero el perfil PROFESSIONAL no concede employees:view — una sola capa
+    // decide cada cosa, sin listas de accountType.
+    permissionsService.getRolePermissions.mockResolvedValue(['orders:view', 'menu:view'])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['orders', 'menu', 'employees'],
+      categoryName: 'Comida',
+    })
+
+    currentCapabilities = PROFESSIONAL_WITH_COMMERCE
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
+
+    const operationsSection = result.sections.find((s) => s.id === 'operations')
+    const catalogSection = result.sections.find((s) => s.id === 'catalog')
+    expect(operationsSection?.items.find((i) => i.id === 'orders')).toBeDefined()
+    expect(catalogSection?.items.find((i) => i.id === 'menu')).toBeDefined()
+    expect(result.sections.find((s) => s.id === 'company')).toBeUndefined()
+  })
+
+  it('hides commerce-bound items when the user has permission and module but NO Commerce', async () => {
+    // Diseñador: su categoría trae customers/expenses y su perfil tiene el
+    // permiso (kit de venta de producto), pero sin Commerce no hay sobre qué
+    // operar — el mismo 403 que daría ModuleAccessGuard.
+    permissionsService.getRolePermissions.mockResolvedValue(['customers:view'])
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['customers'],
+      categoryName: 'Diseño',
+    })
+
+    currentCapabilities = PROFESSIONAL_WITHOUT_COMMERCE
+    const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
+
+    const operationsSection = result.sections.find((s) => s.id === 'operations')
+    expect(operationsSection?.items.find((i) => i.id === 'customers')).toBeUndefined()
   })
 
   it('a user override grants a permission the role does not have', async () => {
@@ -232,7 +274,7 @@ describe('NavigationService', () => {
       categoryName: null,
     })
 
-    currentAccountType = 'COMMERCE'
+    currentCapabilities = BUSINESS_WITH_COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
     const salesSection = result.sections.find((s) => s.id === 'sales')
@@ -249,7 +291,7 @@ describe('NavigationService', () => {
       categoryName: null,
     })
 
-    currentAccountType = 'COMMERCE'
+    currentCapabilities = BUSINESS_WITH_COMMERCE
     const result = await service.buildNavigationForUser({ id: 'u1', role: Role.PROFESIONAL })
 
     const topSection = result.sections.find((s) => s.id === 'top')
@@ -274,6 +316,15 @@ describe('NavigationService', () => {
       expect(first).toEqual(second)
       expect(first.routePermissions['/dashboard']).toBe('dashboard:view')
       expect(first.routeModules['/orders']).toBe('orders')
+    })
+
+    it('exposes routeCapabilities so the frontend middleware stops hardcoding COMMERCE_ONLY_ROUTES', () => {
+      const { routeCapabilities } = service.getRouteMaps()
+
+      for (const route of ['/orders', '/customers', '/menu', '/expenses', '/employees', '/cash-register']) {
+        expect(routeCapabilities[route]).toBe('HAS_COMMERCE')
+      }
+      expect(routeCapabilities['/my-services']).toBeUndefined()
     })
   })
 })

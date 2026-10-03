@@ -2,6 +2,7 @@ import { navigateTo, defineNuxtRouteMiddleware } from 'nuxt/app'
 import { useAuth } from '~/composables/auth/useAuth'
 import { usePermissions } from '~/composables/users/usePermissions'
 import { useNavigation } from '~/composables/core/useNavigation'
+import { useProfileContext } from '~/composables/users/useProfileContext'
 import { isPublicRoute } from '~/utils/publicRoutes'
 
 type Role = 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
@@ -19,23 +20,10 @@ const GUEST_ONLY_ROUTES: string[] = [
   '/login', '/register', '/recover-password', '/reset-password', '/auth/google/callback', '/auth/2fa-verify',
 ]
 
-// El mapa ruta→permiso requerido ahora viene de GET /navigation (backend),
-// vía useNavigation().routePermissions — fuente única compartida con
-// SidebarContent.vue y middleware/modules.global.ts. Si el usuario NO tiene
-// el permiso → se le redirige según su rol (ver bloque 4e más abajo).
-//
-// GET /navigation requiere sesión, así que para decidir si una ruta
-// necesita login (bloque 4, usuario SIN autenticar) no podemos depender de
-// esa respuesta — se mantiene esta lista estática de paths conocidos
-// (sin el permiso asociado, solo "esta ruta existe y está protegida").
-const KNOWN_PROTECTED_ROUTES: string[] = [
-  '/users', '/categories', '/permissions', '/audit-log', '/logs', '/plans', '/exchange-rates',
-  '/menu', '/inventory', '/my-services', '/jobs', '/customer-dashboard',
-  '/employees', '/branches', '/cash-register',
-  '/expenses', '/sales', '/analytics', '/reports', '/appointments', '/customers', '/delivery', '/orders',
-  '/service-requests', '/wallet',
-  '/commissions', '/search-tabs', '/locations',
-]
+// Los mapas ruta→permiso / ruta→módulo / ruta→capacidad vienen de GET
+// /navigation (backend), vía useNavigation() — fuente única compartida con
+// SidebarContent.vue y middleware/modules.global.ts. El backend evalúa ahí
+// las mismas capas que sus guards; este middleware solo redirige.
 
 // ─── Rutas restringidas a SUPERADMIN/ADMIN sin permission matrix propia ───────
 // (el backend las protege con @Roles(SUPERADMIN, ADMIN) fijo, no con
@@ -45,28 +33,6 @@ const ADMIN_ONLY_ROUTES: string[] = [
   '/kyc-admin', '/landing-admin', '/proposed-categories-admin', '/service-requests-admin',
   '/wallet-deposit-requests-admin', '/reports-admin',
   '/wallets-admin', '/service-categories-admin', '/profile-activations-admin',
-]
-
-// Rutas que no necesitan permiso específico pero sí autenticación
-const NEEDS_AUTH_ONLY: string[] = [
-  '/dashboard', '/profile', '/settings', '/my-plan', '/onboarding', '/search',
-  '/report-issue', '/verification', '/modules', '/my-orders', '/rides',
-]
-
-// ─── Rutas exclusivas de comercios (Order/Customer/Employee/etc. por-comercio) ─
-// Un FREELANCER no debería poder entrar aunque escriba la URL a mano. El
-// sidebar ya oculta el link (excludeAccountTypes: ['FREELANCER'] en
-// navigation-tree.data.ts), pero eso solo esconde el ítem — no bloquea la
-// ruta. El permiso de rol tampoco alcanza para bloquearla acá (bloque 4e):
-// Role.PROFESIONAL concede estos permisos a nivel de ROL como la unión
-// comercio∪freelancer (ver ROLE_DEFAULTS.PROFESIONAL en seed.js), así que
-// `can(requiredPerm)` da true para cualquier PROFESIONAL sea cual sea su
-// accountType real. Sin esta lista, la página igual renderiza (vacía, con
-// el 403 de AccountTypeGuard en un banner) en vez de redirigir.
-const COMMERCE_ONLY_ROUTES: string[] = [
-  '/customer-dashboard', '/expenses', '/orders', '/appointments', '/customers',
-  '/delivery', '/cash-register', '/suppliers', '/purchases', '/accounts',
-  '/employees', '/branches', '/group-buying',
 ]
 
 // ─── Excluidas del chequeo de onboarding ─────────────────────────────────────
@@ -86,7 +52,8 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
   const auth = useAuth()
   const { isAuthenticated, user } = auth
   const { can, initialized } = usePermissions()
-  const { routePermissions, loadNavigation } = useNavigation()
+  const { routePermissions, routeCapabilities, loadNavigation } = useNavigation()
+  const { hasCapability } = useProfileContext()
 
   const path  = to.path as string
 
@@ -113,16 +80,13 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
   }
 
   // ── 4. No autenticado → login ─────────────────────────────────────────────
+  // Este middleware solo corre en páginas que lo declaran
+  // (definePageMeta({ middleware: 'auth' })) y las públicas ya salieron en
+  // el bloque 1: cualquier otra ruta que llega acá exige sesión. Fail-closed
+  // por construcción — antes dependía de que cada ruta nueva se agregara a
+  // una lista estática (KNOWN_PROTECTED_ROUTES), que ya estaba desactualizada.
   if (!authed) {
-    // Cualquier ruta mapeada (por permiso, admin-only, o auth-only) requiere sesión.
-    // Sin este chequeo, una ruta nueva que no se agregue a ninguna lista queda
-    // accesible sin login por defecto — el "fail open" que causó este bug.
-    const needsAuth =
-      KNOWN_PROTECTED_ROUTES.some(r => path.startsWith(r)) ||
-      ADMIN_ONLY_ROUTES.some(r => path.startsWith(r)) ||
-      NEEDS_AUTH_ONLY.some(r => path.startsWith(r))
-    if (needsAuth) return navigateTo(`/login?redirect=${encodeURIComponent(path)}`)
-    return
+    return navigateTo(`/login?redirect=${encodeURIComponent(path)}`)
   }
 
   // ── 5. Usuario autenticado ────────────────────────────────────────────────
@@ -170,10 +134,13 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
     return navigateTo('/my-orders')
   }
 
-  // ── 4c-3. Rutas exclusivas de comercios → bloquear a FREELANCER ──────────
-  // Ver comentario en COMMERCE_ONLY_ROUTES para el porqué: el chequeo
-  // genérico de permiso de 4e no alcanza a bloquear esto.
-  if (COMMERCE_ONLY_ROUTES.some(r => path.startsWith(r)) && user.value.accountType === 'FREELANCER') {
+  // ── 4c-3. Rutas que operan sobre un Commerce → exigir HAS_COMMERCE ───────
+  // Mismo requisito que el backend (ModuleAccessGuard/CapabilityGuard),
+  // servido por /navigation (routeCapabilities). Un profesional que vende
+  // producto SÍ tiene Commerce ("opción 2"); uno de servicios no. Admins
+  // quedan fuera por 4d/4e y por excludeRoles en el árbol del backend.
+  const requiredCapability = Object.entries(routeCapabilities.value).find(([r]) => path.startsWith(r))?.[1]
+  if (requiredCapability && !ADMIN_ROLES.includes(role) && !hasCapability(requiredCapability)) {
     return navigateTo(defaultDest(role))
   }
 

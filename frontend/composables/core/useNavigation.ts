@@ -6,6 +6,7 @@
  */
 import { ref, computed } from 'vue'
 import { useApi } from './useApi'
+import type { Capability } from '../auth/useAuth'
 
 export interface NavItem {
   id: string
@@ -26,12 +27,16 @@ export interface NavigationResponse {
   sections: NavSection[]
   routePermissions: Record<string, string | null>
   routeModules: Record<string, string>
+  // Ruta → capacidad requerida (ej. '/orders' → 'HAS_COMMERCE'). Reemplaza
+  // la lista COMMERCE_ONLY_ROUTES que vivía hardcoded en middleware/auth.ts.
+  routeCapabilities: Record<string, Capability>
   generatedAt: string
 }
 
 const sections = ref<NavSection[]>([])
 const routePermissions = ref<Record<string, string | null>>({})
 const routeModules = ref<Record<string, string>>({})
+const routeCapabilities = ref<Record<string, Capability>>({})
 const loaded = ref(false)
 const loading = ref(false)
 
@@ -47,6 +52,7 @@ export function useNavigation() {
       sections.value = data.sections
       routePermissions.value = data.routePermissions
       routeModules.value = data.routeModules
+      routeCapabilities.value = data.routeCapabilities ?? {}
       loaded.value = true
     } catch {
       // Degradación: sections vacío, el sidebar no muestra items restringidos.
@@ -82,6 +88,7 @@ export function useNavigation() {
     sections: computed(() => sections.value),
     routePermissions: computed(() => routePermissions.value),
     routeModules: computed(() => routeModules.value),
+    routeCapabilities: computed(() => routeCapabilities.value),
     loaded: computed(() => loaded.value),
     loading: computed(() => loading.value),
     loadNavigation,

@@ -1,4 +1,5 @@
 import { Role } from '@prisma/client';
+import type { Capability } from '../../../common/capabilities/capabilities.service';
 
 export type NavIconKey =
   | 'dashboard' | 'menu' | 'inventory' | 'services' | 'requests' | 'rides'
@@ -11,8 +12,6 @@ export type NavIconKey =
   | 'users_admin' | 'kyc' | 'plan' | 'commissions' | 'categories' | 'pricing'
   | 'search_tabs' | 'permissions' | 'report_issue' | 'locations' | 'audit' | 'logs'
   | 'purchases' | 'suppliers' | 'accounts';
-
-export type BusinessAccountType = 'COMMERCE' | 'FREELANCER';
 
 export interface NavNodeCondition {
   /** Permission key requerida (formato "modulo:accion"); null = sin requisito */
@@ -27,14 +26,22 @@ export interface NavNodeCondition {
    * habilitado (gestiona personal), no solo por ser FREELANCER/COMMERCE.
    */
   requiresAnyModule?: string[];
-  /** RBAC puro (SUPERADMIN/ADMIN/NORMAL) — no usar para COMMERCE/FREELANCER, ver accountTypeOnly */
+  /** RBAC puro (SUPERADMIN/ADMIN/NORMAL) */
   rolesOnly?: Role[];
-  /** RBAC puro — ver excludeAccountTypes para excluir por tipo de cuenta de negocio */
+  /** RBAC puro */
   excludeRoles?: Role[];
-  /** Tipo de cuenta de negocio requerido (COMMERCE/FREELANCER) */
-  accountTypeOnly?: BusinessAccountType[];
-  /** Tipo(s) de cuenta de negocio excluido(s) */
-  excludeAccountTypes?: BusinessAccountType[];
+  /**
+   * Prerrequisito operativo (CapabilitiesService) — mismo que exige el
+   * controller real. Reemplaza excludeAccountTypes: ['FREELANCER']: "solo
+   * comercio" mezclaba el papel (eso ya lo dice `permission`, desde que los
+   * permisos de comercio son exclusivos del perfil BUSINESS) con "tiene
+   * Commerce" (esto).
+   */
+  requiresCapability?: Capability;
+  /** Al menos una de estas capacidades (ej. "tiene algún perfil de negocio"). */
+  requiresAnyCapability?: Capability[];
+  /** Se oculta si tiene cualquiera de estas capacidades. */
+  excludeAnyCapability?: Capability[];
 }
 
 export interface NavItemDef {
@@ -81,5 +88,7 @@ export interface NavigationResponse {
   sections: NavSectionResponse[];
   routePermissions: Record<string, string | null>;
   routeModules: Record<string, string>;
+  /** Ruta → capacidad requerida (ej. '/orders' → 'HAS_COMMERCE'), para los middlewares. */
+  routeCapabilities: Record<string, Capability>;
   generatedAt: string;
 }
