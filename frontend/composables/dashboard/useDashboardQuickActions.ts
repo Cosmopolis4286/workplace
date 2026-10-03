@@ -10,6 +10,7 @@
 import { QUICK_ACTIONS, canAccessAction, type QuickActionConfig } from '~/config/dashboard.config'
 import { useApi } from '../core/useApi'
 import { useModules } from '../commerce/useModules'
+import { useProfileContext } from '../users/useProfileContext'
 
 export const MAX_DASHBOARD_QUICK_ACTIONS = 6
 
@@ -19,19 +20,16 @@ export function useDashboardQuickActions() {
   const { hasModule } = useModules()
 
   const role = computed(() => user.value?.role ?? 'NORMAL')
-  const accountType = computed(() => user.value?.accountType ?? null)
+  const { hasCapability } = useProfileContext()
   const savedIds = computed<string[]>(() => user.value?.profileSettings?.dashboardQuickActionIds ?? [])
 
-  // canAccessAction (no solo action.roles.includes): sin el filtro de
-  // accountType, un FREELANCER (ej. profesional autónomo de categoría
-  // Comida, sin Commerce) veía "Ver Pedidos"/"Gestionar Menú"/"Ver
-  // Inventario" en Acciones Rápidas — esas acciones solo declaran
-  // roles: ['...PROFESIONAL'] y role=PROFESIONAL es la unión comercio∪
-  // freelancer (ROLE_DEFAULTS.PROFESIONAL en seed.js). effectiveModules es
-  // estado module-level compartido con useDashboardWidgets.ts (que sí llama
-  // loadModules()) — no hace falta duplicar esa llamada acá.
+  // canAccessAction (no solo action.roles.includes): exige las capacidades
+  // de cada acción (ej. "Ver Pedidos"/"Gestionar Menú" → HAS_COMMERCE), las
+  // mismas que el backend. effectiveModules es estado module-level
+  // compartido con useDashboardWidgets.ts (que sí llama loadModules()) — no
+  // hace falta duplicar esa llamada acá.
   const availableItems = computed<QuickActionConfig[]>(() =>
-    QUICK_ACTIONS.filter(action => canAccessAction(action.id, role.value as any, accountType.value, hasModule))
+    QUICK_ACTIONS.filter(action => canAccessAction(action.id, role.value as any, hasCapability, hasModule))
   )
 
   const selectedItems = computed<QuickActionConfig[]>(() => {

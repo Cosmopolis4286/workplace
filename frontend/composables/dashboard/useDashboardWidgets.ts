@@ -6,12 +6,12 @@ import {
   canAccessWidget,
   canAccessAction,
   type UserRole,
-  type AccountType,
   type WidgetConfig,
   type QuickActionConfig,
 } from '~/config/dashboard.config'
 import { useDashboardQuickActions } from '~/composables/dashboard/useDashboardQuickActions'
 import { useModules } from '~/composables/commerce/useModules'
+import { useProfileContext } from '~/composables/users/useProfileContext'
 
 export interface DashboardWidget extends WidgetConfig {
   visible: boolean
@@ -33,10 +33,10 @@ export const useDashboardWidgets = () => {
   loadModules()
 
   const userRole = computed<UserRole | null>(() => user.value?.role || null)
-  // role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
-  // (resuelto por el backend, ver useAuth().User.accountType) es la fuente
-  // real para los widgets/acciones/hero que sí necesitan esa distinción.
-  const accountType = computed<AccountType | null>(() => user.value?.accountType ?? null)
+  // Capacidades reales (GET /auth/me → capabilities, las mismas que exigen
+  // los guards del backend) en vez de accountType: un profesional que vende
+  // producto tiene Commerce y ve los widgets de pedidos Y los de servicios.
+  const { hasCapability } = useProfileContext()
 
   // Widgets visibles según el rol del usuario
   const visibleWidgets = computed<WidgetConfig[]>(() => {
@@ -44,7 +44,7 @@ export const useDashboardWidgets = () => {
     if (!role) return []
 
     return DASHBOARD_WIDGETS.filter(
-      widget => canAccessWidget(widget.id, role, accountType.value, hasModule) && widget.defaultVisible
+      widget => canAccessWidget(widget.id, role, hasCapability, hasModule) && widget.defaultVisible
     ).sort((a, b) => a.priority - b.priority)
   })
 
@@ -53,7 +53,7 @@ export const useDashboardWidgets = () => {
     const role = userRole.value
     if (!role) return []
 
-    return QUICK_ACTIONS.filter(action => canAccessAction(action.id, role, accountType.value, hasModule))
+    return QUICK_ACTIONS.filter(action => canAccessAction(action.id, role, hasCapability, hasModule))
   })
 
   // Acciones elegidas por el usuario (o las primeras 6 si no ha configurado nada)
@@ -63,21 +63,21 @@ export const useDashboardWidgets = () => {
   const heroConfig = computed(() => {
     const role = userRole.value
     if (!role) return getHeroConfig('NORMAL')
-    return getHeroConfig(role, accountType.value)
+    return getHeroConfig(role, hasCapability)
   })
 
   // Verificar si el usuario puede ver un widget específico
   const canViewWidget = (widgetId: string): boolean => {
     const role = userRole.value
     if (!role) return false
-    return canAccessWidget(widgetId, role, accountType.value, hasModule)
+    return canAccessWidget(widgetId, role, hasCapability, hasModule)
   }
 
   // Verificar si el usuario puede ver una acción específica
   const canViewAction = (actionId: string): boolean => {
     const role = userRole.value
     if (!role) return false
-    return canAccessAction(actionId, role, accountType.value, hasModule)
+    return canAccessAction(actionId, role, hasCapability, hasModule)
   }
 
   // Obtener widgets por sección

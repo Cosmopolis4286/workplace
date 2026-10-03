@@ -60,6 +60,7 @@ const lastUpdated  = ref<Date | null>(null)
 export function useDashboard() {
   const { user } = useAuth()
   const { get, put, patch } = useApi()
+  const { hasCapability } = useProfileContext()
 
   // ── Load all dashboard data in parallel ─────────────────────────────────────
   async function loadDashboard(period: DashboardPeriod = '30d') {
@@ -67,9 +68,9 @@ export function useDashboard() {
     error.value   = null
 
     const isNormal = user.value?.role === 'NORMAL'
-    // role=PROFESIONAL ya no distingue COMMERCE de FREELANCER — accountType
-    // (resuelto por el backend, ver AccountTypeResolver) es la fuente real.
-    const isFreelancer = user.value?.accountType === 'FREELANCER'
+    // PROFESIONAL sin Commerce → datos de ServiceRequest; con Commerce (incluido
+    // un profesional que vende producto) → pedidos. Misma regla que el backend.
+    const isFreelancer = user.value?.role === 'PROFESIONAL' && !hasCapability('HAS_COMMERCE')
     // SUPERADMIN/ADMIN no tienen Commerce propio — /orders, /orders/stats y
     // /menu/products (por-comercio) no aplican. Usan las rutas de plataforma
     // (platform:monitor) y /analytics/* ya agregado por PlatformAnalyticsStrategy.

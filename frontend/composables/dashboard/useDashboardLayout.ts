@@ -1,5 +1,8 @@
 import { ref, computed } from 'vue'
-import { DASHBOARD_WIDGETS, canAccessWidget, type UserRole, type AccountType } from '~/config/dashboard.config'
+import { DASHBOARD_WIDGETS, canAccessWidget, type UserRole, type HasCapability } from '~/config/dashboard.config'
+import { useProfileContext } from '~/composables/users/useProfileContext'
+
+type AccountType = 'COMMERCE' | 'FREELANCER'
 
 const LS_KEY = 'dashboard_layout_v1'
 
@@ -11,16 +14,14 @@ export interface WidgetLayoutItem {
 
 const layout = ref<WidgetLayoutItem[]>([])
 
-// Filtra también por accountTypes (canAccessWidget), no solo por role — sin
-// esto, un FREELANCER (ej. profesional autónomo de categoría Comida, sin
-// Commerce) recibía en su layout ids de widgets de comercio (activeOrders,
-// lowStock, ordersList) porque esos widgets solo declaran roles:
-// ['...PROFESIONAL'] y role=PROFESIONAL es la unión comercio∪freelancer. El
-// v-if de dashboard.vue (canViewWidget) los ocultaba al renderizar, pero el
-// panel "Personalizar" igual los listaba como si aplicaran.
-function defaultLayout(role: UserRole, accountType: AccountType | null): WidgetLayoutItem[] {
+// Filtra también por capacidades (canAccessWidget), no solo por role — sin
+// esto, un profesional sin Commerce recibía en su layout ids de widgets de
+// comercio (activeOrders, lowStock, ordersList). El v-if de dashboard.vue
+// (canViewWidget) los ocultaba al renderizar, pero el panel "Personalizar"
+// igual los listaba como si aplicaran.
+function defaultLayout(role: UserRole, has: HasCapability): WidgetLayoutItem[] {
   return DASHBOARD_WIDGETS
-    .filter(w => canAccessWidget(w.id, role, accountType))
+    .filter(w => canAccessWidget(w.id, role, has))
     .sort((a, b) => a.priority - b.priority)
     .map((w, i) => ({ id: w.id, visible: w.defaultVisible, order: i }))
 }
@@ -37,6 +38,7 @@ export function useDashboardLayout() {
   const { user } = useAuth()
   const role = computed(() => user.value?.role as UserRole | undefined)
   const accountType = computed(() => user.value?.accountType ?? null)
+  const { hasCapability } = useProfileContext()
 
   function load() {
     if (!process.client || !role.value) return
@@ -45,10 +47,10 @@ export function useDashboardLayout() {
       try {
         layout.value = JSON.parse(raw)
       } catch {
-        layout.value = defaultLayout(role.value, accountType.value)
+        layout.value = defaultLayout(role.value, hasCapability)
       }
     } else {
-      layout.value = defaultLayout(role.value, accountType.value)
+      layout.value = defaultLayout(role.value, hasCapability)
     }
   }
 
@@ -89,7 +91,7 @@ export function useDashboardLayout() {
 
   function reset() {
     if (role.value) {
-      layout.value = defaultLayout(role.value, accountType.value)
+      layout.value = defaultLayout(role.value, hasCapability)
       save()
     }
   }

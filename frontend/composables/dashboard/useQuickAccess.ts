@@ -15,28 +15,24 @@ export interface QuickAccessCandidate {
   icon: string
   gradient: string
   normalOnly?: boolean
-  // Igual que WidgetConfig.accountTypes (dashboard.config.ts): filtro
-  // adicional para cuando `permission` está concedido a nivel de ROL como
-  // unión comercio∪freelancer (Role.PROFESIONAL, ver ROLE_DEFAULTS en
-  // seed.js) pero la ruta real requiere un Commerce (ej. orders:view lo
-  // tiene cualquier PROFESIONAL, pero /orders exige un Commerce real —
-  // mismas rutas que COMMERCE_ONLY_ROUTES en middleware/auth.ts).
-  accountTypes?: ('COMMERCE' | 'FREELANCER')[]
+  // Sin campo de "solo comercio": la capacidad que exige cada ruta (ej.
+  // /orders → HAS_COMMERCE) viene de GET /navigation (routeCapabilities), la
+  // misma fuente que usan el sidebar y middleware/auth.ts.
 }
 
 export const QUICK_ACCESS_CANDIDATES: QuickAccessCandidate[] = [
-  { id: 'orders',               to: '/orders',               label: 'Pedidos',     permission: 'orders:view',           icon: 'orders',    gradient: 'bg-gradient-to-br from-workplace-red to-red-700',   normalOnly: false, accountTypes: ['COMMERCE'] },
+  { id: 'orders',               to: '/orders',               label: 'Pedidos',     permission: 'orders:view',           icon: 'orders',    gradient: 'bg-gradient-to-br from-workplace-red to-red-700',   normalOnly: false },
   { id: 'my-orders',            to: '/my-orders',            label: 'Pedidos',     permission: null,                    icon: 'orders',    gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',   normalOnly: true  },
   { id: 'service-requests',     to: '/service-requests',     label: 'Solicitudes', permission: 'service_requests:view', icon: 'requests',  gradient: 'bg-gradient-to-br from-red-400 to-rose-600',         normalOnly: false },
-  { id: 'expenses',             to: '/expenses',              label: 'Gastos',      permission: 'expenses:view',         icon: 'sales',     gradient: 'bg-gradient-to-br from-red-600 to-rose-800',         normalOnly: false, accountTypes: ['COMMERCE'] },
+  { id: 'expenses',             to: '/expenses',              label: 'Gastos',      permission: 'expenses:view',         icon: 'sales',     gradient: 'bg-gradient-to-br from-red-600 to-rose-800',         normalOnly: false },
   { id: 'my-services',          to: '/my-services',          label: 'Servicios',   permission: 'services:view',         icon: 'services',  gradient: 'bg-gradient-to-br from-gray-700 to-gray-900',        normalOnly: false },
   { id: 'jobs',                 to: '/jobs',                 label: 'Empleos',     permission: 'jobs:view',             icon: 'jobs',      gradient: 'bg-gradient-to-br from-slate-600 to-slate-800',      normalOnly: false },
-  { id: 'customer-dashboard',   to: '/customer-dashboard',   label: 'Mi Panel',    permission: 'orders:view',           icon: 'home',      gradient: 'bg-gradient-to-br from-rose-500 to-workplace-red',  normalOnly: false, accountTypes: ['COMMERCE'] },
+  { id: 'customer-dashboard',   to: '/customer-dashboard',   label: 'Mi Panel',    permission: 'orders:view',           icon: 'home',      gradient: 'bg-gradient-to-br from-rose-500 to-workplace-red',  normalOnly: false },
   { id: 'dashboard',            to: '/dashboard',            label: 'Dashboard',   permission: 'dashboard:view',        icon: 'dashboard', gradient: 'bg-gradient-to-br from-workplace-red to-red-800',   normalOnly: false },
   { id: 'analytics',            to: '/analytics',            label: 'Analytics',   permission: 'analytics:view',        icon: 'analytics', gradient: 'bg-gradient-to-br from-rose-600 to-red-900',        normalOnly: false },
-  { id: 'customers',            to: '/customers',            label: 'Clientes',    permission: 'customers:view',        icon: 'customers', gradient: 'bg-gradient-to-br from-red-500 to-rose-700',        normalOnly: false, accountTypes: ['COMMERCE'] },
-  { id: 'delivery',             to: '/delivery',             label: 'Delivery',    permission: 'delivery:view',         icon: 'delivery',  gradient: 'bg-gradient-to-br from-gray-600 to-gray-800',       normalOnly: false, accountTypes: ['COMMERCE'] },
-  { id: 'appointments',         to: '/appointments',         label: 'Agendas',     permission: 'appointments:view',     icon: 'appointments', gradient: 'bg-gradient-to-br from-rose-400 to-red-600',     normalOnly: false, accountTypes: ['COMMERCE'] },
+  { id: 'customers',            to: '/customers',            label: 'Clientes',    permission: 'customers:view',        icon: 'customers', gradient: 'bg-gradient-to-br from-red-500 to-rose-700',        normalOnly: false },
+  { id: 'delivery',             to: '/delivery',             label: 'Delivery',    permission: 'delivery:view',         icon: 'delivery',  gradient: 'bg-gradient-to-br from-gray-600 to-gray-800',       normalOnly: false },
+  { id: 'appointments',         to: '/appointments',         label: 'Agendas',     permission: 'appointments:view',     icon: 'appointments', gradient: 'bg-gradient-to-br from-rose-400 to-red-600',     normalOnly: false },
 ]
 
 export const MAX_QUICK_ACCESS = 3
@@ -47,16 +43,20 @@ export function useQuickAccess() {
   const { hasModule } = useModules()
   const { patch } = useApi()
 
+  const { routeCapabilities } = useNavigation()
+  const { hasCapability } = useProfileContext()
+
   const savedIds = computed<string[]>(() => user.value?.profileSettings?.quickAccessIds ?? [])
   const role = computed(() => user.value?.role ?? 'NORMAL')
-  const accountType = computed(() => user.value?.accountType ?? null)
 
+  // Mismas capas que el backend: permiso (rol base + perfiles) → módulo
+  // (plan ∩ categoría) → capacidad de la ruta (¿tiene Commerce?).
   function canSee(permission: string | null, to?: string): boolean {
     if (permission === null) return true
     const module = permission.split(':')[0]
-    // hasModule ya refleja plan ∩ categoría.allowedModules (admin-gerenciable,
-    // ver useModules.ts) — no hace falta un chequeo de categoría aparte aquí.
     if (to === '/orders' && role.value === 'NORMAL') return false
+    const capability = to ? routeCapabilities.value[to] : undefined
+    if (capability && !hasCapability(capability)) return false
     return can(permission) && hasModule(module)
   }
 
@@ -64,11 +64,6 @@ export function useQuickAccess() {
     return QUICK_ACCESS_CANDIDATES.filter(i => {
       if (i.normalOnly && forRole !== 'NORMAL') return false
       if (!i.normalOnly && forRole === 'NORMAL') return false
-      // Ver comentario en QuickAccessCandidate.accountTypes: permission solo
-      // no alcanza para candidatos cuya ruta exige un accountType específico
-      // (ej. orders:view lo tiene cualquier PROFESIONAL a nivel de rol, pero
-      // /orders exige accountType COMMERCE real).
-      if (i.accountTypes && (!accountType.value || !i.accountTypes.includes(accountType.value))) return false
       return canSeeFn(i.permission, i.to)
     })
   }

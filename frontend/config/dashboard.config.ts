@@ -1,14 +1,15 @@
 // @ts-nocheck - Este archivo es de configuración, no necesita imports de Vue
 import type { Component } from 'vue'
+import type { Capability } from '~/composables/auth/useAuth'
 
-// Tipos de roles disponibles en el sistema. COMMERCE/FREELANCER se
-// fusionaron en PROFESIONAL (backend, 2026-08-25) — role ya no distingue
-// "tiene Commerce" de "es freelancer/service provider". Los widgets/
-// acciones/hero que SÍ necesitan esa distinción real (inventario, pedidos
-// vs. solicitudes de servicio) usan el campo accountTypes opcional además
-// de roles — ver AccountTypeResolver / useAuth().user.value.accountType.
+// Tipos de roles disponibles en el sistema. role solo dice NIVEL de acceso;
+// lo que distingue "opera un Commerce" de "ofrece servicios" son las
+// capacidades (GET /auth/me → capabilities, mismas que exigen los guards del
+// backend). Antes era accountType (COMMERCE|FREELANCER), que colapsaba
+// perfiles y no sabía si existía el Commerce: un profesional que vende
+// producto ("opción 2") tiene Commerce sin ser BUSINESS.
 export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
-export type AccountType = 'COMMERCE' | 'FREELANCER'
+export type HasCapability = (capability: Capability) => boolean
 
 // Configuración de widgets del dashboard
 export interface WidgetConfig {
@@ -16,15 +17,13 @@ export interface WidgetConfig {
   name: string
   component: string
   roles: UserRole[]
-  // Filtro adicional: si se especifica, el usuario con role=PROFESIONAL
-  // también debe tener uno de estos accountType (ver AccountTypeResolver).
-  // No aplica a SUPERADMIN/ADMIN/NORMAL.
-  accountTypes?: AccountType[]
+  // Filtro adicional para role=PROFESIONAL: debe tener TODAS estas
+  // capacidades. No aplica a SUPERADMIN/ADMIN/NORMAL.
+  capabilities?: Capability[]
   // Filtro adicional: módulo real (useModules().hasModule) requerido para
-  // ver este widget — accountType=FREELANCER no implica tener 'services'
-  // habilitado (depende de UserCategory.allowedModules × plan; ej. la
-  // categoría "Comida" no lo incluye). Sin esto, un freelancer de un rubro
-  // sin ese módulo veía un widget que apunta a una feature inaccesible.
+  // ver este widget — tener perfil profesional no implica tener 'services'
+  // habilitado (depende de UserCategory.allowedModules × plan). Sin esto, un
+  // profesional de un rubro sin ese módulo veía un widget inaccesible.
   requiresModule?: string
   permissions?: string[]
   priority: number
@@ -40,7 +39,7 @@ export interface QuickActionConfig {
   icon: string
   route: string
   roles: UserRole[]
-  accountTypes?: AccountType[]
+  capabilities?: Capability[]
   // Ver WidgetConfig.requiresModule — mismo motivo.
   requiresModule?: string
   permissions?: string[]
@@ -51,7 +50,7 @@ export interface QuickActionConfig {
 // Mensajes de bienvenida por rol
 export interface HeroConfig {
   roles: UserRole[]
-  accountTypes?: AccountType[]
+  capabilities?: Capability[]
   title: string
   subtitle: string
   icon: string
@@ -76,7 +75,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     name: 'Pedidos Activos',
     component: 'ActiveOrdersWidget',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
-    accountTypes: ['COMMERCE'],
+    capabilities: ['HAS_COMMERCE'],
     priority: 2,
     defaultVisible: true,
     gridCols: 1,
@@ -87,7 +86,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     name: 'Bajo Stock',
     component: 'LowStockWidget',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
-    accountTypes: ['COMMERCE'],
+    capabilities: ['HAS_COMMERCE'],
     priority: 3,
     defaultVisible: true,
     gridCols: 1,
@@ -108,7 +107,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     name: 'Lista de Pedidos',
     component: 'OrdersListWidget',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
-    accountTypes: ['COMMERCE'],
+    capabilities: ['HAS_COMMERCE'],
     priority: 5,
     defaultVisible: true,
     gridCols: 2,
@@ -122,7 +121,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     name: 'Solicitudes Activas',
     component: 'ActiveOrdersWidget',
     roles: ['PROFESIONAL'],
-    accountTypes: ['FREELANCER'],
+    capabilities: ['HAS_PROFESSIONAL_PROFILE'],
     requiresModule: 'services',
     priority: 2,
     defaultVisible: true,
@@ -134,7 +133,7 @@ export const DASHBOARD_WIDGETS: WidgetConfig[] = [
     name: 'Solicitudes Recibidas',
     component: 'ProviderServiceRequestsWidget',
     roles: ['PROFESIONAL'],
-    accountTypes: ['FREELANCER'],
+    capabilities: ['HAS_PROFESSIONAL_PROFILE'],
     requiresModule: 'services',
     priority: 5,
     defaultVisible: true,
@@ -201,7 +200,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: 'ShoppingCartIcon',
     route: '/customer-dashboard',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
-    accountTypes: ['COMMERCE'],
+    capabilities: ['HAS_COMMERCE'],
     requiresModule: 'orders',
     color: 'blue',
     description: 'Gestión de pedidos',
@@ -212,7 +211,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: 'WrenchIcon',
     route: '/my-services',
     roles: ['PROFESIONAL'],
-    accountTypes: ['FREELANCER'],
+    capabilities: ['HAS_PROFESSIONAL_PROFILE'],
     requiresModule: 'services',
     color: 'blue',
     description: 'Gestionar los servicios que ofreces',
@@ -223,7 +222,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: 'BriefcaseIcon',
     route: '/jobs',
     roles: ['PROFESIONAL'],
-    accountTypes: ['FREELANCER'],
+    capabilities: ['HAS_PROFESSIONAL_PROFILE'],
     requiresModule: 'jobs',
     color: 'purple',
     description: 'Gestionar las vacantes que publicas',
@@ -234,7 +233,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: 'DocumentTextIcon',
     route: '/menu',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
-    accountTypes: ['COMMERCE'],
+    capabilities: ['HAS_COMMERCE'],
     requiresModule: 'menu',
     color: 'green',
     description: 'Administrar productos',
@@ -245,7 +244,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: 'CubeIcon',
     route: '/inventory',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
-    accountTypes: ['COMMERCE'],
+    capabilities: ['HAS_COMMERCE'],
     requiresModule: 'inventory',
     color: 'purple',
     description: 'Control de stock',
@@ -265,12 +264,9 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: 'CurrencyDollarIcon',
     route: '/expenses',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
-    // /expenses exige un Commerce real (ver COMMERCE_ONLY_ROUTES en
-    // middleware/auth.ts) — sin esto, un FREELANCER (ej. profesional
-    // autónomo de categoría Comida, sin Commerce) veía esta acción porque
-    // expenses:view está concedido a nivel de ROL como unión comercio∪
-    // freelancer (ROLE_DEFAULTS.PROFESIONAL en seed.js).
-    accountTypes: ['COMMERCE'],
+    // /expenses opera sobre un Commerce (Expense.commerceId) — mismo
+    // HAS_COMMERCE que exige ModuleAccessGuard en el backend.
+    capabilities: ['HAS_COMMERCE'],
     color: 'red',
     description: 'Gestión de gastos',
   },
@@ -280,7 +276,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: 'TruckIcon',
     route: '/delivery',
     roles: ['SUPERADMIN', 'ADMIN', 'PROFESIONAL'],
-    accountTypes: ['COMMERCE'],
+    capabilities: ['HAS_COMMERCE'],
     requiresModule: 'delivery',
     color: 'teal',
     description: 'Gestión de entregas',
@@ -371,7 +367,7 @@ export const HERO_CONFIGS: HeroConfig[] = [
   },
   {
     roles: ['PROFESIONAL'],
-    accountTypes: ['COMMERCE'],
+    capabilities: ['HAS_COMMERCE'],
     title: 'Panel de Comercio',
     subtitle: 'Bienvenido a tu panel de control WorkPlace Manager',
     icon: 'BuildingStorefrontIcon',
@@ -379,7 +375,7 @@ export const HERO_CONFIGS: HeroConfig[] = [
   },
   {
     roles: ['PROFESIONAL'],
-    accountTypes: ['FREELANCER'],
+    capabilities: ['HAS_PROFESSIONAL_PROFILE'],
     title: 'Panel de Proveedor',
     subtitle: 'Gestión de tus servicios y solicitudes de clientes',
     icon: 'WrenchIcon',
@@ -394,29 +390,29 @@ export const HERO_CONFIGS: HeroConfig[] = [
   },
 ]
 
-// Coincide roles siempre; accountTypes solo se exige si la config lo define
-// (widgets/acciones/hero sin accountTypes son visibles a cualquier
-// accountType, incluido null/undefined — ej. mientras aún no carga).
-function matchesAccountType(configTypes: AccountType[] | undefined, accountType?: AccountType | null): boolean {
-  if (!configTypes || configTypes.length === 0) return true
-  return !!accountType && configTypes.includes(accountType)
+// Las capacidades solo se exigen si la config las define (widgets/acciones/
+// hero sin `capabilities` son visibles para cualquiera de sus roles).
+function matchesCapabilities(required: Capability[] | undefined, has: HasCapability): boolean {
+  if (!required || required.length === 0) return true
+  return required.every(has)
 }
 
-// Helper para obtener hero según rol
-export function getHeroConfig(role: UserRole, accountType?: AccountType | null): HeroConfig {
+// Helper para obtener hero según rol. Orden de HERO_CONFIGS: un profesional
+// que también tiene Commerce ("opción 2") ve el panel de comercio primero.
+export function getHeroConfig(role: UserRole, has: HasCapability = () => false): HeroConfig {
   return (
-    HERO_CONFIGS.find(config => config.roles.includes(role) && matchesAccountType(config.accountTypes, accountType)) ||
+    HERO_CONFIGS.find(config => config.roles.includes(role) && matchesCapabilities(config.capabilities, has)) ||
     HERO_CONFIGS[HERO_CONFIGS.length - 1]
   )
 }
 
-// Widgets con accountTypes: ['COMMERCE'] cuyo backend ahora también resuelve
+// Widgets con capabilities: ['HAS_COMMERCE'] cuyo backend también resuelve
 // datos agregados de TODA la plataforma para SUPERADMIN/ADMIN (ver
 // /orders/platform-stats, /orders/platform-recent y useDashboard.ts) — un
-// admin nunca tiene accountType COMMERCE/FREELANCER, así que sin esta
-// excepción matchesAccountType() los ocultaría siempre, aunque sí tengan
-// datos reales que mostrarle. lowStock queda afuera a propósito: es
-// puramente por-comercio, sin agregado de plataforma con sentido de negocio.
+// admin no tiene Commerce propio, así que sin esta excepción
+// matchesCapabilities() los ocultaría siempre, aunque sí tengan datos reales
+// que mostrarle. lowStock queda afuera a propósito: es puramente
+// por-comercio, sin agregado de plataforma con sentido de negocio.
 const PLATFORM_AGGREGATED_WIDGET_IDS = new Set(['activeOrders', 'ordersList'])
 
 // Helper para verificar si un rol tiene acceso a un widget. `hasModule` es
@@ -426,7 +422,7 @@ const PLATFORM_AGGREGATED_WIDGET_IDS = new Set(['activeOrders', 'ordersList'])
 export function canAccessWidget(
   widgetId: string,
   role: UserRole,
-  accountType?: AccountType | null,
+  has: HasCapability,
   hasModule?: (module: string) => boolean,
 ): boolean {
   const widget = DASHBOARD_WIDGETS.find(w => w.id === widgetId)
@@ -434,18 +430,21 @@ export function canAccessWidget(
   if (!widget.roles.includes(role)) return false
   if (widget.requiresModule && hasModule && !hasModule(widget.requiresModule)) return false
   if ((role === 'SUPERADMIN' || role === 'ADMIN') && PLATFORM_AGGREGATED_WIDGET_IDS.has(widgetId)) return true
-  return matchesAccountType(widget.accountTypes, accountType)
+  if (role === 'SUPERADMIN' || role === 'ADMIN') return !widget.capabilities?.length
+  return matchesCapabilities(widget.capabilities, has)
 }
 
 // Helper para verificar si un rol tiene acceso a una acción
 export function canAccessAction(
   actionId: string,
   role: UserRole,
-  accountType?: AccountType | null,
+  has: HasCapability,
   hasModule?: (module: string) => boolean,
 ): boolean {
   const action = QUICK_ACTIONS.find(a => a.id === actionId)
   if (!action) return false
+  if (!action.roles.includes(role)) return false
   if (action.requiresModule && hasModule && !hasModule(action.requiresModule)) return false
-  return action.roles.includes(role) && matchesAccountType(action.accountTypes, accountType)
+  if (role === 'SUPERADMIN' || role === 'ADMIN') return !action.capabilities?.length
+  return matchesCapabilities(action.capabilities, has)
 }
