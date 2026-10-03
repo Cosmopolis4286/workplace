@@ -26,6 +26,23 @@ export const CAPABILITIES = ['HAS_COMMERCE', 'HAS_PROFESSIONAL_PROFILE', 'HAS_BU
 export type Capability = (typeof CAPABILITIES)[number];
 export type CapabilityMap = Record<Capability, boolean>;
 
+/**
+ * Cálculo puro, compartido por CapabilitiesService (guards) y por quien ya
+ * tiene los datos cargados (ej. AuthService.getProfile → /auth/me) — así el
+ * frontend y los guards nunca pueden divergir en qué significa cada capacidad.
+ */
+export function capabilitiesFrom(data: {
+  hasCommerce: boolean;
+  activeProfileTypes: Iterable<ProfileType>;
+}): CapabilityMap {
+  const types = new Set(data.activeProfileTypes);
+  return {
+    HAS_COMMERCE: data.hasCommerce,
+    HAS_PROFESSIONAL_PROFILE: types.has(ProfileType.PROFESSIONAL),
+    HAS_BUSINESS_PROFILE: types.has(ProfileType.BUSINESS),
+  };
+}
+
 @Injectable()
 export class CapabilitiesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -38,12 +55,10 @@ export class CapabilitiesService {
         profiles: { where: { status: ProfileStatus.ACTIVE }, select: { type: true } },
       },
     });
-    const types = new Set(user?.profiles.map((p) => p.type) ?? []);
-    return {
-      HAS_COMMERCE: !!user?.commerce,
-      HAS_PROFESSIONAL_PROFILE: types.has(ProfileType.PROFESSIONAL),
-      HAS_BUSINESS_PROFILE: types.has(ProfileType.BUSINESS),
-    };
+    return capabilitiesFrom({
+      hasCommerce: !!user?.commerce,
+      activeProfileTypes: user?.profiles.map((p) => p.type) ?? [],
+    });
   }
 
   async has(userId: string, capability: Capability): Promise<boolean> {

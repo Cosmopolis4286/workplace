@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { useAuth } from '../auth/useAuth'
+import { useAuth, type Capability } from '../auth/useAuth'
 import type { ProfileActivation, ProfileActivationType, ProfessionalSubtype } from './useProfileActivations'
 
 // Orden de prioridad para inferir el perfil activo por defecto cuando el
@@ -50,6 +50,18 @@ export const useProfileContext = () => {
 
   const hasMultipleProfiles = computed(() => profiles.value.length > 1)
 
+  // Prerrequisitos operativos que calcula el backend (GET /auth/me →
+  // capabilities), los mismos que exigen sus guards. Fallback seguro cuando
+  // todavía no se cargó /auth/me: HAS_COMMERCE cae a "tiene user.commerce" y
+  // los perfiles a `profiles` — nunca a accountType.
+  function hasCapability(capability: Capability): boolean {
+    const caps = user.value?.capabilities
+    if (caps) return caps[capability]
+    if (capability === 'HAS_COMMERCE') return !!user.value?.commerce
+    if (capability === 'HAS_PROFESSIONAL_PROFILE') return hasProfile('PROFESSIONAL')
+    return hasProfile('BUSINESS')
+  }
+
   return {
     profiles,
     hasProfile,
@@ -57,5 +69,6 @@ export const useProfileContext = () => {
     getProfile,
     defaultProfile,
     hasMultipleProfiles,
+    hasCapability,
   }
 }

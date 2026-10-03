@@ -29,6 +29,7 @@ import { TwoFactorService } from './two-factor.service';
 import { RecaptchaService } from '../../../common/recaptcha/recaptcha.service';
 import { encryptSecret, decryptSecret, hashToken } from '../../../common/utils/crypto.util';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
+import { capabilitiesFrom } from '../../../common/capabilities/capabilities.service';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 // Duración del refresh token cuando el usuario NO marca "mantener sesión
@@ -581,7 +582,15 @@ export class AuthService {
     // solo el accountType colapsado — para que el frontend pueda construir
     // un selector de contexto sin una llamada aparte a /profiles.
     const { accountType, activeProfiles } = await this.accountTypeResolver.resolveDetailed(userId);
-    return { ...user, accountType, profiles: activeProfiles };
+    // `capabilities`: mismos hechos que usan CapabilityGuard/ModuleAccessGuard
+    // (misma función, capabilitiesFrom) — el frontend decide "¿muestro la
+    // sección de comercio?" con HAS_COMMERCE en vez de inferirlo de
+    // accountType, que colapsa perfiles y no sabe si existe el Commerce.
+    const capabilities = capabilitiesFrom({
+      hasCommerce: !!user.commerce,
+      activeProfileTypes: activeProfiles.map((p) => p.type),
+    });
+    return { ...user, accountType, profiles: activeProfiles, capabilities };
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {

@@ -11,6 +11,13 @@ interface Commerce {
   phone?: string
 }
 
+// Prerrequisitos operativos — mismos hechos que exigen los guards del backend
+// (CapabilitiesService / capabilitiesFrom). Usar esto, no accountType, para
+// "¿muestro algo que opera sobre un Commerce?": con la "opción 2" un
+// profesional que vende producto tiene Commerce sin ser BUSINESS.
+export type Capability = 'HAS_COMMERCE' | 'HAS_PROFESSIONAL_PROFILE' | 'HAS_BUSINESS_PROFILE'
+export type CapabilityMap = Record<Capability, boolean>
+
 export interface User {
   id: string
   email: string
@@ -33,6 +40,9 @@ export interface User {
   // useProfileContext() para helpers de consulta. Mismo caveat que
   // accountType: solo viene en GET /auth/me, undefined en login/register.
   profiles?: ProfileActivation[]
+  // Solo viene en GET /auth/me (mismo caveat que accountType). Ver
+  // hasCapability() en useProfileContext.
+  capabilities?: CapabilityMap
   // Contexto de UX activo ("estoy usando WorkPlace como..."), ver
   // useProfileContext(). Puramente presentacional — null hasta que el
   // usuario elige uno explícitamente vía PATCH /profile-activations/active.
