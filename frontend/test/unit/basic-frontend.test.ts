@@ -1,4 +1,6 @@
 // Tests básicos para frontend sin dependencias externas
+import { describe, it, expect } from 'vitest'
+
 describe('Basic Frontend Logic', () => {
   describe('Form Validation', () => {
     it('should validate email format', () => {
