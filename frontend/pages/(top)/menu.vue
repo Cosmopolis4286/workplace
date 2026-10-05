@@ -8,6 +8,13 @@
       :stats="headerStats"
     >
       <template #actions>
+        <HeaderActionButton
+          v-if="storeSlug"
+          :icon="ArrowTopRightOnSquareIcon"
+          @click="openPublicCatalog"
+        >
+          Ver catálogo público
+        </HeaderActionButton>
         <HeaderActionButton :icon="PlusIcon" @click="showCategoryModal = true">
           Nueva Categoría
         </HeaderActionButton>
@@ -22,6 +29,60 @@
 
     <!-- Plan usage banner -->
     <PlanUsageBanner :usage="usage" :show="['products']" />
+
+    <!-- Búsqueda y filtro por estado -->
+    <div v-if="!loading && categoriesWithProducts.length > 0" class="card p-4 flex flex-wrap gap-3 items-center mb-4">
+      <div class="relative flex-1 min-w-48">
+        <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          v-model="search"
+          type="text"
+          placeholder="Buscar producto o marca..."
+          class="input-field pl-9 py-2 text-sm"
+        />
+      </div>
+      <select v-model="filterStatus" class="input-field py-2 text-sm min-w-40">
+        <option value="">Todos los estados</option>
+        <option value="AVAILABLE">Disponible</option>
+        <option value="LOW_STOCK">Bajo Stock</option>
+        <option value="OUT_OF_STOCK">Agotado</option>
+        <option value="UNAVAILABLE">No disponible</option>
+      </select>
+      <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+        <input v-model="selectMode" type="checkbox" class="rounded border-gray-300 text-workplace-red" />
+        Selección múltiple
+      </label>
+    </div>
+
+    <!-- Barra de acciones masivas -->
+    <div
+      v-if="selectMode && selectedIds.size > 0"
+      class="sticky top-0 z-10 mb-4 card p-3 flex flex-wrap items-center gap-3 border-workplace-red/30 bg-red-50/60"
+    >
+      <span class="text-sm font-medium text-gray-700">{{ selectedIds.size }} seleccionado(s)</span>
+      <div class="flex flex-wrap gap-2 ml-auto">
+        <button class="btn-secondary text-sm px-3 py-1.5" :disabled="bulkBusy" @click="handleBulkActivate">
+          Activar
+        </button>
+        <button class="btn-secondary text-sm px-3 py-1.5" :disabled="bulkBusy" @click="handleBulkDeactivate">
+          Desactivar
+        </button>
+        <select
+          class="input-field text-sm py-1.5 min-w-40"
+          :disabled="bulkBusy"
+          @change="handleBulkMoveCategory(($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">Mover a categoría…</option>
+          <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+        </select>
+        <button class="btn-secondary text-sm px-3 py-1.5 text-red-600 hover:bg-red-100" :disabled="bulkBusy" @click="handleBulkDelete">
+          Eliminar
+        </button>
+        <button class="text-sm text-gray-500 hover:text-gray-700 px-2" @click="clearSelection">
+          Cancelar
+        </button>
+      </div>
+    </div>
 
     <!-- Toolbar: ordenamiento y productos por página -->
     <div v-if="!loading && categoriesWithProducts.length > 0" class="flex flex-wrap items-center justify-end gap-3 mb-4">
@@ -99,9 +160,12 @@
             v-for="product in category.visibleProducts"
             :key="product.id"
             :product="product"
+            :selectable="selectMode"
+            :selected="selectedIds.has(product.id)"
             @edit="openEditProduct"
             @delete="confirmDeleteProduct"
             @toggle-status="handleToggleStatus"
+            @toggle-select="toggleSelect"
           />
         </div>
 
@@ -112,7 +176,7 @@
         </div>
       </div>
 
-      <!-- Empty state -->
+      <!-- Empty state: sin productos en absoluto -->
       <div v-if="categoriesWithProducts.length === 0" class="text-center py-12">
         <CubeIcon class="mx-auto h-12 w-12 text-gray-400" />
         <h3 class="mt-2 text-sm font-medium text-gray-900">No hay productos</h3>
@@ -126,6 +190,14 @@
             Agregar Producto
           </button>
         </div>
+      </div>
+
+      <!-- Empty state: hay productos, pero el filtro no encontró nada -->
+      <div v-else-if="displayCategories.length === 0" class="text-center py-12">
+        <MagnifyingGlassIcon class="mx-auto h-12 w-12 text-gray-400" />
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Sin resultados</h3>
+        <p class="mt-1 text-sm text-gray-500">Ningún producto coincide con "{{ search }}"{{ filterStatus ? ' y el estado seleccionado' : '' }}.</p>
+        <button class="mt-4 btn-secondary" @click="clearFilters">Limpiar filtros</button>
       </div>
     </div>
 
@@ -180,11 +252,14 @@ import {
   CubeIcon,
   DocumentTextIcon,
   XMarkIcon,
+  MagnifyingGlassIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/vue/24/outline'
 import { useMenu } from '~/composables/catalog/useMenu'
 import type { Category, Product, CreateBundlePayload } from '~/composables/catalog/useMenu'
 import { usePlans } from '~/composables/commerce/usePlans'
 import { useUserPreferences } from '~/composables/users/useUserPreferences'
+import { useSettings } from '~/composables/commerce/useSettings'
 import MenuProductCard from '~/components/catalog/MenuProductCard.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import BundleModal from '~/components/modals/BundleModal.vue'
@@ -215,7 +290,19 @@ const {
   updateProduct,
   deleteProduct,
   toggleProductStatus,
+  bulkActivate,
+  bulkDeactivate,
+  bulkDeleteProducts,
+  bulkMoveCategory,
 } = useMenu()
+
+const { commerce: settingsCommerce, loadSettings } = useSettings()
+const storeSlug = computed(() => settingsCommerce.value?.slug ?? null)
+
+function openPublicCatalog() {
+  if (!storeSlug.value) return
+  window.open(`/loja/${storeSlug.value}`, '_blank', 'noopener')
+}
 
 // ─── Modals state ────────────────────────────────────────────────────────────
 
@@ -257,21 +344,104 @@ function sortProducts(items: Product[]): Product[] {
   }
 }
 
+// ─── Búsqueda y filtro (client-side: el catálogo completo ya está cargado
+// con limit:1000, ver init() en onMounted — un round-trip al backend por
+// cada tecleo no aporta nada aquí, a diferencia de /inventory que sí pagina
+// server-side de verdad) ──────────────────────────────────────────────────
+
+const search = ref('')
+const filterStatus = ref('')
+
+function clearFilters() {
+  search.value = ''
+  filterStatus.value = ''
+}
+
+function matchesFilters(product: Product): boolean {
+  if (filterStatus.value && product.status !== filterStatus.value) return false
+  if (search.value.trim()) {
+    const q = search.value.trim().toLowerCase()
+    const inName = product.name.toLowerCase().includes(q)
+    const inBrand = product.brand?.toLowerCase().includes(q) ?? false
+    if (!inName && !inBrand) return false
+  }
+  return true
+}
+
 const displayCategories = computed(() =>
-  categoriesWithProducts.value.map((category) => {
-    const sortedProducts = sortProducts(category.products)
-    const showCount = categoryShowCount.value[category.id] ?? pageSize.value
-    return {
-      ...category,
-      products: sortedProducts,
-      visibleProducts: sortedProducts.slice(0, showCount),
-    }
-  }),
+  categoriesWithProducts.value
+    .map((category) => {
+      const filtered = category.products.filter(matchesFilters)
+      const sortedProducts = sortProducts(filtered)
+      const showCount = categoryShowCount.value[category.id] ?? pageSize.value
+      return {
+        ...category,
+        products: sortedProducts,
+        visibleProducts: sortedProducts.slice(0, showCount),
+      }
+    })
+    .filter((category) => category.products.length > 0),
 )
 
 function showMore(categoryId: string) {
   const current = categoryShowCount.value[categoryId] ?? pageSize.value
   categoryShowCount.value = { ...categoryShowCount.value, [categoryId]: current + pageSize.value }
+}
+
+// ─── Selección múltiple y acciones masivas ──────────────────────────────────
+
+const selectMode = ref(false)
+const selectedIds = ref<Set<string>>(new Set())
+const bulkBusy = ref(false)
+
+watch(selectMode, (enabled) => { if (!enabled) selectedIds.value = new Set() })
+
+function toggleSelect(productId: string) {
+  const next = new Set(selectedIds.value)
+  if (next.has(productId)) next.delete(productId)
+  else next.add(productId)
+  selectedIds.value = next
+}
+
+function clearSelection() {
+  selectedIds.value = new Set()
+}
+
+async function handleBulkActivate() {
+  bulkBusy.value = true
+  const count = await bulkActivate([...selectedIds.value])
+  bulkBusy.value = false
+  if (count > 0) { toast.success(`${count} producto(s) activado(s)`); clearSelection() }
+}
+
+async function handleBulkDeactivate() {
+  bulkBusy.value = true
+  const count = await bulkDeactivate([...selectedIds.value])
+  bulkBusy.value = false
+  if (count > 0) { toast.success(`${count} producto(s) desactivado(s)`); clearSelection() }
+}
+
+async function handleBulkMoveCategory(categoryId: string) {
+  if (!categoryId) return
+  bulkBusy.value = true
+  const count = await bulkMoveCategory([...selectedIds.value], categoryId)
+  bulkBusy.value = false
+  if (count > 0) { toast.success(`${count} producto(s) movido(s) de categoría`); clearSelection() }
+}
+
+async function handleBulkDelete() {
+  const n = selectedIds.value.size
+  const ok = await confirm({
+    title: 'Eliminar productos',
+    message: `¿Eliminar ${n} producto(s) seleccionado(s)? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    variant: 'danger',
+  })
+  if (!ok) return
+  bulkBusy.value = true
+  const count = await bulkDeleteProducts([...selectedIds.value])
+  bulkBusy.value = false
+  if (count > 0) { toast.success(`${count} producto(s) eliminado(s)`); clearSelection() }
 }
 
 // ─── Header stats ────────────────────────────────────────────────────────────
@@ -387,7 +557,8 @@ onMounted(async () => {
   // limit alto: esta página agrupa y pagina por categoría client-side (ver
   // displayCategories/showMore más arriba), necesita el catálogo completo —
   // a diferencia de /inventory, que sí pagina server-side de verdad.
-  await Promise.all([init({ limit: 1000 }), fetchUsage()])
+  // loadSettings() trae commerce.slug para el botón "Ver catálogo público".
+  await Promise.all([init({ limit: 1000 }), fetchUsage(), loadSettings()])
 
   const editId = typeof route.query.edit === 'string' ? route.query.edit : null
   if (editId) {

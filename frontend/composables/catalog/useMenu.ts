@@ -274,6 +274,57 @@ export const useMenu = () => {
     }
   }
 
+  // ─── Bulk actions ──────────────────────────────────────────────────────────
+  // Todas recargan products/stats tras la mutación en vez de actualizar el
+  // array localmente (como las acciones individuales de arriba) — el backend
+  // es la fuente de verdad de cuántos items realmente matchearon (un id ya
+  // borrado por otra pestaña simplemente no cuenta), y re-sincronizar evita
+  // que el estado local divergiera del real.
+
+  async function bulkActivate(ids: string[]): Promise<number> {
+    try {
+      const res = await post<{ updated: number }>('/menu/products/bulk-activate', { productIds: ids })
+      await Promise.all([loadProducts(), loadStats()])
+      return res.updated
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al activar los productos'
+      return 0
+    }
+  }
+
+  async function bulkDeactivate(ids: string[]): Promise<number> {
+    try {
+      const res = await post<{ updated: number }>('/menu/products/bulk-deactivate', { productIds: ids })
+      await Promise.all([loadProducts(), loadStats()])
+      return res.updated
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al desactivar los productos'
+      return 0
+    }
+  }
+
+  async function bulkDeleteProducts(ids: string[]): Promise<number> {
+    try {
+      const res = await post<{ deleted: number }>('/menu/products/bulk-delete', { productIds: ids })
+      await Promise.all([loadProducts(), loadStats()])
+      return res.deleted
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al eliminar los productos'
+      return 0
+    }
+  }
+
+  async function bulkMoveCategory(ids: string[], categoryId: string): Promise<number> {
+    try {
+      const res = await post<{ updated: number }>('/menu/products/bulk-move-category', { productIds: ids, categoryId })
+      await Promise.all([loadProducts(), loadStats()])
+      return res.updated
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al mover los productos de categoría'
+      return 0
+    }
+  }
+
   async function updateStock(id: string, quantity: number, type: 'set' | 'add' | 'subtract' = 'set'): Promise<Product | null> {
     try {
       const product = await patch<Product>(`/menu/products/${id}/stock`, { quantity, type })
@@ -348,5 +399,9 @@ export const useMenu = () => {
     updateStock,
     toggleProductStatus,
     uploadProductImage,
+    bulkActivate,
+    bulkDeactivate,
+    bulkDeleteProducts,
+    bulkMoveCategory,
   }
 }

@@ -262,6 +262,41 @@ export class MenuService {
     await this.prisma.product.delete({ where: { id: productId } });
   }
 
+  // ─── Bulk actions ───────────────────────────────────────────────────────────
+  // Todas filtran por `commerceId` directo en el `where` en vez de validar
+  // ownership uno por uno (como el resto del service) — con updateMany/
+  // deleteMany, cualquier id que no sea del comercio simplemente no matchea
+  // ninguna fila, sin necesidad de un loop de asserts. `count` en la
+  // respuesta permite al frontend avisar si algún id fue ignorado (ej. ya
+  // borrado por otra pestaña).
+
+  async bulkToggleStatus(userId: string, productIds: string[], makeAvailable: boolean) {
+    const commerceId = await this.getCommerceId(userId);
+    const result = await this.prisma.product.updateMany({
+      where: { id: { in: productIds }, commerceId },
+      data: { status: makeAvailable ? ProductStatus.AVAILABLE : ProductStatus.UNAVAILABLE },
+    });
+    return { updated: result.count };
+  }
+
+  async bulkDelete(userId: string, productIds: string[]) {
+    const commerceId = await this.getCommerceId(userId);
+    const result = await this.prisma.product.deleteMany({
+      where: { id: { in: productIds }, commerceId },
+    });
+    return { deleted: result.count };
+  }
+
+  async bulkMoveCategory(userId: string, productIds: string[], categoryId: string) {
+    const commerceId = await this.getCommerceId(userId);
+    await this.assertCategoryOwnership(categoryId, commerceId);
+    const result = await this.prisma.product.updateMany({
+      where: { id: { in: productIds }, commerceId },
+      data: { categoryId },
+    });
+    return { updated: result.count };
+  }
+
   // ─── Bundles (packs) ────────────────────────────────────────────────────────
 
   async createBundle(userId: string, dto: CreateBundleDto) {

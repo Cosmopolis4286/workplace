@@ -33,6 +33,7 @@ import { CreateBundleDto } from './dto/create-bundle.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { QueryProductsDto } from './dto/query-products.dto';
+import { BulkProductIdsDto, BulkMoveCategoryDto } from './dto/bulk-products.dto';
 
 @Controller('menu')
 @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
@@ -156,6 +157,33 @@ export class MenuController {
   @RequirePermission('menu:delete')
   deleteProduct(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.menuService.deleteProduct(user.id, id);
+  }
+
+  // ─── Bulk actions ────────────────────────────────────────────────────────────
+
+  @Post('products/bulk-activate')
+  @RequirePermission('menu:edit')
+  bulkActivate(@CurrentUser() user: { id: string }, @Body() dto: BulkProductIdsDto) {
+    return this.menuService.bulkToggleStatus(user.id, dto.productIds, true);
+  }
+
+  @Post('products/bulk-deactivate')
+  @RequirePermission('menu:edit')
+  bulkDeactivate(@CurrentUser() user: { id: string }, @Body() dto: BulkProductIdsDto) {
+    return this.menuService.bulkToggleStatus(user.id, dto.productIds, false);
+  }
+
+  @Post('products/bulk-delete')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('menu:delete')
+  bulkDelete(@CurrentUser() user: { id: string }, @Body() dto: BulkProductIdsDto) {
+    return this.menuService.bulkDelete(user.id, dto.productIds);
+  }
+
+  @Post('products/bulk-move-category')
+  @RequirePermission('menu:edit')
+  bulkMoveCategory(@CurrentUser() user: { id: string }, @Body() dto: BulkMoveCategoryDto) {
+    return this.menuService.bulkMoveCategory(user.id, dto.productIds, dto.categoryId);
   }
 
   @Patch('products/:id/stock')

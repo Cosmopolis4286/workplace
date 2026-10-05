@@ -35,7 +35,9 @@ describe('MenuService', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
       count: jest.fn(),
     },
     $queryRaw: jest.fn(),
@@ -405,6 +407,96 @@ describe('MenuService', () => {
 
         await expect(service.createBundle(userId, bundleDto)).rejects.toBeInstanceOf(Error)
         expect(mockPrismaService.product.create).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('Bulk actions', () => {
+    const userId = 'user-123'
+    const productIds = ['prod-1', 'prod-2', 'prod-3']
+
+    beforeEach(() => {
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+    })
+
+    describe('bulkToggleStatus', () => {
+      it('sets AVAILABLE for all matching products when activating', async () => {
+        mockPrismaService.product.updateMany.mockResolvedValue({ count: 3 })
+
+        const result = await service.bulkToggleStatus(userId, productIds, true)
+
+        expect(mockPrismaService.product.updateMany).toHaveBeenCalledWith({
+          where: { id: { in: productIds }, commerceId: 'commerce-123' },
+          data: { status: 'AVAILABLE' },
+        })
+        expect(result).toEqual({ updated: 3 })
+      })
+
+      it('sets UNAVAILABLE for all matching products when deactivating', async () => {
+        mockPrismaService.product.updateMany.mockResolvedValue({ count: 2 })
+
+        const result = await service.bulkToggleStatus(userId, productIds, false)
+
+        expect(mockPrismaService.product.updateMany).toHaveBeenCalledWith({
+          where: { id: { in: productIds }, commerceId: 'commerce-123' },
+          data: { status: 'UNAVAILABLE' },
+        })
+        expect(result).toEqual({ updated: 2 })
+      })
+
+      it('scopes the update to commerceId — ids from another commerce are silently ignored by the where clause', async () => {
+        // No se valida ownership uno por uno a propósito (ver comentario en
+        // el service): updateMany con commerceId en el where ya garantiza
+        // que un id ajeno nunca matchea ninguna fila. count refleja cuántos
+        // de los ids enviados realmente pertenecían al comercio.
+        mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 })
+
+        const result = await service.bulkToggleStatus(userId, ['prod-1', 'prod-ajeno'], true)
+
+        expect(result).toEqual({ updated: 1 })
+      })
+    })
+
+    describe('bulkDelete', () => {
+      it('deletes all matching products scoped to the commerce', async () => {
+        mockPrismaService.product.deleteMany.mockResolvedValue({ count: 3 })
+
+        const result = await service.bulkDelete(userId, productIds)
+
+        expect(mockPrismaService.product.deleteMany).toHaveBeenCalledWith({
+          where: { id: { in: productIds }, commerceId: 'commerce-123' },
+        })
+        expect(result).toEqual({ deleted: 3 })
+      })
+    })
+
+    describe('bulkMoveCategory', () => {
+      it('moves all matching products to the target category after verifying its ownership', async () => {
+        mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-456', commerceId: 'commerce-123' })
+        mockPrismaService.product.updateMany.mockResolvedValue({ count: 3 })
+
+        const result = await service.bulkMoveCategory(userId, productIds, 'cat-456')
+
+        expect(mockPrismaService.category.findUnique).toHaveBeenCalledWith({ where: { id: 'cat-456' } })
+        expect(mockPrismaService.product.updateMany).toHaveBeenCalledWith({
+          where: { id: { in: productIds }, commerceId: 'commerce-123' },
+          data: { categoryId: 'cat-456' },
+        })
+        expect(result).toEqual({ updated: 3 })
+      })
+
+      it('rejects moving products into a category owned by another commerce', async () => {
+        mockPrismaService.category.findUnique.mockResolvedValue({ id: 'cat-456', commerceId: 'other-commerce' })
+
+        await expect(service.bulkMoveCategory(userId, productIds, 'cat-456')).rejects.toBeInstanceOf(Error)
+        expect(mockPrismaService.product.updateMany).not.toHaveBeenCalled()
+      })
+
+      it('rejects moving products into a category that does not exist', async () => {
+        mockPrismaService.category.findUnique.mockResolvedValue(null)
+
+        await expect(service.bulkMoveCategory(userId, productIds, 'missing-cat')).rejects.toBeInstanceOf(Error)
+        expect(mockPrismaService.product.updateMany).not.toHaveBeenCalled()
       })
     })
   })
