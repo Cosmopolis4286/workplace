@@ -203,7 +203,7 @@ import LocalDataCard from '~/components/settings/LocalDataCard.vue'
 import AboutCard from '~/components/settings/AboutCard.vue'
 import CommerceInfoCard from '~/components/settings/CommerceInfoCard.vue'
 import StoreSlugCard from '~/components/settings/StoreSlugCard.vue'
-import FreelancerProfileCard from '~/components/settings/FreelancerProfileCard.vue'
+import FreelancerProfileCard, { type FreelancerProfileForm } from '~/components/settings/FreelancerProfileCard.vue'
 import BusinessNotificationsCard from '~/components/settings/BusinessNotificationsCard.vue'
 import PaymentSettingsCard from '~/components/settings/PaymentSettingsCard.vue'
 import OperationsSettingsCard from '~/components/settings/OperationsSettingsCard.vue'
@@ -298,7 +298,7 @@ const locationOwner = computed(() => (hasCommerce.value ? commerce.value : freel
 async function saveCommerceInfo(form: Record<string, unknown>) { await saveCommerceInfoApi(form) }
 async function saveCommerceSlug(slug: string) { await saveCommerceSlugApi(slug) }
 async function saveFreelancerSlug(slug: string) { await saveFreelancerSlugApi(slug) }
-async function saveFreelancerProfile(form: Record<string, unknown>) { await saveFreelancerProfileApi(form) }
+async function saveFreelancerProfile(form: FreelancerProfileForm) { await saveFreelancerProfileApi(form) }
 async function saveLocation(data: { latitude: number; longitude: number }) { await saveLocationApi(data) }
 async function savePaymentSettings(form: Record<string, unknown>) { await savePaymentSettingsApi(form) }
 async function saveOperationSettings(form: Record<string, unknown>) { await saveOperationSettingsApi(form) }
