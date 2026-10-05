@@ -4,6 +4,7 @@ import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
+import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
 import { CommerceSettingsStrategy } from './strategies/commerce-settings.strategy';
 import { FreelancerSettingsStrategy } from './strategies/freelancer-settings.strategy';
 import { SettingsAccountStrategy } from './strategies/settings-account.strategy.interface';
@@ -16,20 +17,32 @@ import {
   UpdateBusinessNameDto,
   UpdatePriceGuardSettingsDto,
   UpdateLocationDto,
+  UpdateFreelancerProfileDto,
 } from './dto/update-settings.dto';
 
 /**
  * Orquestador delgado: delega a CommerceSettingsStrategy o
- * FreelancerSettingsStrategy según el tipo de cuenta del usuario. Antes de
+ * FreelancerSettingsStrategy según si el usuario TIENE Commerce. Antes de
  * este Strategy pattern, este servicio tenía 6 métodos con
  * `if (role === 'FREELANCER')` inline repetido en cada uno.
  *
- * `updateCommerceInfo`/`updateOperationSettings` no forman parte del
- * Strategy: operan sobre el Commerce del usuario. La restricción de acceso
+ * `updateCommerceInfo`/`updateOperationSettings`/`updatePriceGuardSettings`
+ * no forman parte del Strategy: operan sobre el Commerce del usuario
+ * directo vía `commerceStrategy.getCommerce()`. La restricción de acceso
  * vive en CapabilityGuard (@RequireCapability('HAS_COMMERCE') en
  * SettingsController) — un PROFESSIONAL que vende producto también tiene
  * Commerce ("opción 2"), así que el criterio es "tiene Commerce", no el tipo
  * de cuenta. Este service no valida nada de eso él mismo.
+ *
+ * resolveStrategy() usaba AccountTypeResolver (COMMERCE/FREELANCER
+ * colapsado) hasta que se detectó el mismo hueco que ya se había corregido
+ * en menu/orders/customers/delivery: un PROFESSIONAL con Commerce ("opción
+ * 2", ej. categoría "Comida") resolvía accountType=FREELANCER (sin perfil
+ * BUSINESS) y caía en FreelancerSettingsStrategy — su GET /settings nunca
+ * incluía CommerceSettings (operaciones/price guard), aunque esos datos
+ * existieran en la DB y updateOperationSettings/updatePriceGuardSettings ya
+ * escribieran ahí correctamente. Ahora usa HAS_COMMERCE (CapabilitiesService,
+ * mismo criterio que ModuleAccessGuard) — "tiene Commerce" en vez de "accountType".
  */
 @Injectable()
 export class SettingsService {
@@ -38,20 +51,36 @@ export class SettingsService {
     private readonly redis: RedisService,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimitsService: PlanLimitsFacade,
     private readonly accountTypeResolver: AccountTypeResolver,
+    private readonly capabilities: CapabilitiesService,
     private readonly commerceStrategy: CommerceSettingsStrategy,
     private readonly freelancerStrategy: FreelancerSettingsStrategy
   ) {}
 
   private async resolveStrategy(userId: string): Promise<SettingsAccountStrategy> {
-    const accountType = await this.accountTypeResolver.resolve(userId);
-    return accountType === 'FREELANCER' ? this.freelancerStrategy : this.commerceStrategy;
+    const hasCommerce = await this.capabilities.has(userId, 'HAS_COMMERCE');
+    return hasCommerce ? this.commerceStrategy : this.freelancerStrategy;
   }
 
   // ─── GET all settings ───────────────────────────────────────────────────────
 
+  // Un PROFESIONAL híbrido ("opción 2": tiene Commerce Y perfil profesional
+  // activo, ej. categoría "Comida") gestiona AMBOS desde la misma pantalla
+  // de Configuración — vende del catálogo de precio fijo y también cotiza
+  // trabajos a medida. resolveStrategy() solo elige una forma para
+  // `settings` (CommerceSettings), así que acá se agrega `freelancerSettings`
+  // aparte cuando también tiene HAS_PROFESSIONAL_PROFILE, en vez de obligar
+  // al frontend a adivinar qué forma tiene `settings` con un solo booleano.
   async getSettings(userId: string) {
-    const strategy = await this.resolveStrategy(userId);
-    return strategy.getSettings(userId);
+    const capabilities = await this.capabilities.resolve(userId);
+    const strategy = capabilities.HAS_COMMERCE ? this.commerceStrategy : this.freelancerStrategy;
+    const result = await strategy.getSettings(userId);
+
+    if (capabilities.HAS_COMMERCE && capabilities.HAS_PROFESSIONAL_PROFILE) {
+      const { settings: freelancerSettings } = await this.freelancerStrategy.getSettings(userId);
+      return { ...result, freelancerSettings };
+    }
+
+    return result;
   }
 
   // ─── Commerce info (solo COMMERCE) ──────────────────────────────────────────
@@ -69,6 +98,17 @@ export class SettingsService {
         ...(socialLinks !== undefined && { socialLinks: { ...socialLinks } }),
       },
     });
+    await this.redis.del(userFindByIdCacheKey(userId));
+    return updated;
+  }
+
+  // ─── Freelancer profile info (solo FREELANCER) ─────────────────────────────
+  // Simétrico a updateCommerceInfo: no forma parte del Strategy compartido
+  // porque un COMMERCE puro no tiene FreelancerSettings — la restricción de
+  // acceso vive en @RequireCapability('HAS_PROFESSIONAL_PROFILE') en
+  // SettingsController, igual criterio que el slug profesional.
+  async updateFreelancerProfile(userId: string, dto: UpdateFreelancerProfileDto) {
+    const updated = await this.freelancerStrategy.updateProfileInfo(userId, dto);
     await this.redis.del(userFindByIdCacheKey(userId));
     return updated;
   }
@@ -158,11 +198,28 @@ export class SettingsService {
 
   // ─── Notification settings ──────────────────────────────────────────────────
 
+  // Mismo hueco que getSettings(): un PROFESIONAL híbrido resuelve a
+  // CommerceSettingsStrategy (hasCommerce), que ignora silenciosamente
+  // notifyNewRequests/notifyRequestUpdates (solo existen en
+  // FreelancerSettings) — sus notificaciones de solicitudes nunca se
+  // guardaban. Cada strategy ya destructura solo los campos que le
+  // pertenecen del mismo dto compartido, así que llamar a ambas en paralelo
+  // para el híbrido es seguro (no hay escritura cruzada de campos).
   async updateNotificationSettings(
     userId: string,
     dto: UpdateNotificationSettingsDto
   ) {
-    const strategy = await this.resolveStrategy(userId);
+    const capabilities = await this.capabilities.resolve(userId);
+
+    if (capabilities.HAS_COMMERCE && capabilities.HAS_PROFESSIONAL_PROFILE) {
+      const [updated] = await Promise.all([
+        this.commerceStrategy.updateNotificationSettings(userId, dto),
+        this.freelancerStrategy.updateNotificationSettings(userId, dto),
+      ]);
+      return updated;
+    }
+
+    const strategy = capabilities.HAS_COMMERCE ? this.commerceStrategy : this.freelancerStrategy;
     return strategy.updateNotificationSettings(userId, dto);
   }
 

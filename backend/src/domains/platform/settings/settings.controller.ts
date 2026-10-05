@@ -15,6 +15,7 @@ import {
   UpdateBusinessNameDto,
   UpdatePriceGuardSettingsDto,
   UpdateLocationDto,
+  UpdateFreelancerProfileDto,
 } from './dto/update-settings.dto';
 import { UpdateCommerceSlugDto, UpdateFreelancerSlugDto } from './dto/update-commerce-slug.dto';
 
@@ -116,6 +117,18 @@ export class SettingsController {
     @Body() dto: UpdateFreelancerSlugDto
   ) {
     return this.settingsService.updateFreelancerSlug(user.id, dto.slug);
+  }
+
+  // Simétrico a 'commerce' (HAS_COMMERCE): bio + redes del perfil público
+  // profesional (/pro/:slug) — ver SettingsService.updateFreelancerProfile.
+  @Patch('freelancer/profile')
+  @RequirePermission('settings:edit')
+  @RequireCapability('HAS_PROFESSIONAL_PROFILE')
+  updateFreelancerProfile(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateFreelancerProfileDto
+  ) {
+    return this.settingsService.updateFreelancerProfile(user.id, dto);
   }
 
   @Patch('operations')

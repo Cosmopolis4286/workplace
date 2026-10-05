@@ -463,6 +463,16 @@ model FreelancerSettings {
   latitude  Float?
   longitude Float?
 
+  // Contenido de la página pública del perfil profesional (/pro/:slug) —
+  // mismo patrón que Commerce.description/socialLinks. Sin esto un
+  // FREELANCER puro quedaba con un perfil público más pobre que un
+  // comercio (sin bio ni redes), pese a compartir la misma vista
+  // (ProfilePublicView.vue).
+  description String?
+  // Estructura libre {instagram, facebook, whatsapp, tiktok, ...}, igual
+  // que Commerce.socialLinks.
+  socialLinks Json?
+
   // Payment
   currency String @default("USD")
 

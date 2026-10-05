@@ -6,6 +6,7 @@ import {
   UpdateNotificationSettingsDto,
   UpdateModuleSettingsDto,
   UpdateLocationDto,
+  UpdateFreelancerProfileDto,
 } from '../dto/update-settings.dto';
 import { SettingsAccountStrategy } from './settings-account.strategy.interface';
 import { COMMERCE_SLUG_COOLDOWN_DAYS, RESERVED_SLUGS } from './commerce-settings.strategy';
@@ -38,6 +39,21 @@ export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
     return this.prisma.freelancerSettings.update({
       where: { userId },
       data: { professionalName: name },
+    });
+  }
+
+  // Mismo criterio que CommerceSettingsStrategy.updateCommerceInfo:
+  // socialLinks llega como instancia de SocialLinksDto, Prisma exige un
+  // plain object para el campo Json.
+  async updateProfileInfo(userId: string, dto: UpdateFreelancerProfileDto) {
+    await this.getOrCreateFreelancerSettings(userId);
+    const { socialLinks, ...rest } = dto;
+    return this.prisma.freelancerSettings.update({
+      where: { userId },
+      data: {
+        ...rest,
+        ...(socialLinks !== undefined && { socialLinks: { ...socialLinks } }),
+      },
     });
   }
 

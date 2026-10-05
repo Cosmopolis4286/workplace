@@ -102,8 +102,20 @@
           @save="saveFreelancerSlug"
         />
 
+        <!-- Bio + redes del perfil público (/pro/:slug) — mismo criterio que
+             showProfessionalSlug: HAS_PROFESSIONAL_PROFILE, no accountType. -->
+        <FreelancerProfileCard
+          v-if="showProfessionalSlug"
+          :settings="freelancerSettings"
+          :saving="saving === 'freelancerProfile'"
+          @save="saveFreelancerProfile"
+        />
+
+        <!-- isFreelancer decide qué forma de datos leer (notifyNewRequests
+             vs. notifyNewOrders), no si el componente se monta: un híbrido
+             con Commerce ve notificaciones de pedidos Y de solicitudes. -->
         <BusinessNotificationsCard
-          :settings="settings"
+          :settings="isFreelancer ? freelancerSettings : commerceSettings"
           :is-freelancer="isFreelancer"
           @save="saveNotificationSettings"
         />
@@ -191,6 +203,7 @@ import LocalDataCard from '~/components/settings/LocalDataCard.vue'
 import AboutCard from '~/components/settings/AboutCard.vue'
 import CommerceInfoCard from '~/components/settings/CommerceInfoCard.vue'
 import StoreSlugCard from '~/components/settings/StoreSlugCard.vue'
+import FreelancerProfileCard from '~/components/settings/FreelancerProfileCard.vue'
 import BusinessNotificationsCard from '~/components/settings/BusinessNotificationsCard.vue'
 import PaymentSettingsCard from '~/components/settings/PaymentSettingsCard.vue'
 import OperationsSettingsCard from '~/components/settings/OperationsSettingsCard.vue'
@@ -240,6 +253,7 @@ const roleLabel = computed(() => {
 const {
   commerce,
   settings,
+  freelancerSettings: hybridFreelancerSettings,
   loading,
   saving,
   error,
@@ -250,6 +264,7 @@ const {
   saveCommerceSlug: saveCommerceSlugApi,
   checkFreelancerSlugAvailability,
   saveFreelancerSlug: saveFreelancerSlugApi,
+  saveFreelancerProfile: saveFreelancerProfileApi,
   savePaymentSettings: savePaymentSettingsApi,
   saveOperationSettings: saveOperationSettingsApi,
   savePriceGuardSettings: savePriceGuardSettingsApi,
@@ -257,26 +272,33 @@ const {
   saveLocation: saveLocationApi,
 } = useSettings()
 
-// Ubicación base para MatchingService — vive en Commerce (COMMERCE) o
-// FreelancerSettings (FREELANCER), mismo endpoint PATCH /settings/location
-// resuelve cuál de los dos según el tipo de cuenta.
-const locationOwner = computed(() => (isFreelancer.value ? freelancerSettings.value : commerce.value))
+// `settings` tiene la forma que decidió SettingsService.resolveStrategy —
+// por hasCommerce (HAS_COMMERCE), no por accountType (ver comentario en
+// settings.service.ts: "un PROFESSIONAL con Commerce resolvía
+// accountType=FREELANCER y caía en FreelancerSettingsStrategy, su GET
+// /settings nunca incluía CommerceSettings"). Un PROFESIONAL con Commerce
+// ("opción 2") recibe CommerceSettings real en `settings`, no
+// FreelancerSettingsData.
+const commerceSettings = computed(() => (hasCommerce.value ? (settings.value as CommerceSettings | null) : null))
+// Para un freelancer puro, `settings` ya es FreelancerSettingsData. Para un
+// híbrido (Commerce + perfil profesional a la vez), el backend lo manda
+// aparte como `freelancerSettings` (ver FullSettings.freelancerSettings) —
+// StoreSlugCard (rama profesional)/BusinessNotificationsCard/
+// FreelancerProfileCard usan esta misma fuente en ambos casos.
+const freelancerSettings = computed(() =>
+  hasCommerce.value ? hybridFreelancerSettings.value : (settings.value as FreelancerSettingsData | null)
+)
 
-// `settings` tiene la forma que decidió SettingsService.resolveStrategy
-// (por accountType, no por hasCommerce — ver comentario arriba de
-// OperationsSettingsCard/PriceGuardSettingsCard). Para un FREELANCER con
-// Commerce ("opción 2"), sigue siendo FreelancerSettingsData: null acá a
-// propósito (no el `as` ciego de antes, que dejaba pasar un objeto con la
-// forma equivocada y sus campos en `undefined` en vez de disparar los
-// defaults seguros del watch de esas tarjetas).
-const commerceSettings = computed(() => (isFreelancer.value ? null : (settings.value as CommerceSettings | null)))
-// StoreSlugCard (rama profesional) se monta según showProfessionalSlug
-// (HAS_PROFESSIONAL_PROFILE) — settings siempre es FreelancerSettingsData ahí.
-const freelancerSettings = computed(() => (isFreelancer.value ? (settings.value as FreelancerSettingsData | null) : null))
+// Ubicación base para MatchingService — PATCH /settings/location resuelve
+// por resolveStrategy (hasCommerce), igual que el resto de settings
+// compartidos: un híbrido con Commerce guarda su ubicación ahí, no en su
+// FreelancerSettings (aunque también tenga uno).
+const locationOwner = computed(() => (hasCommerce.value ? commerce.value : freelancerSettings.value))
 
 async function saveCommerceInfo(form: Record<string, unknown>) { await saveCommerceInfoApi(form) }
 async function saveCommerceSlug(slug: string) { await saveCommerceSlugApi(slug) }
 async function saveFreelancerSlug(slug: string) { await saveFreelancerSlugApi(slug) }
+async function saveFreelancerProfile(form: Record<string, unknown>) { await saveFreelancerProfileApi(form) }
 async function saveLocation(data: { latitude: number; longitude: number }) { await saveLocationApi(data) }
 async function savePaymentSettings(form: Record<string, unknown>) { await savePaymentSettingsApi(form) }
 async function saveOperationSettings(form: Record<string, unknown>) { await saveOperationSettingsApi(form) }

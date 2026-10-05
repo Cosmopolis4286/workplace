@@ -98,6 +98,22 @@ export class UpdateCommerceInfoDto {
   socialLinks?: SocialLinksDto;
 }
 
+// Contenido del perfil público profesional (/pro/:slug) — mismo patrón que
+// UpdateCommerceInfoDto.description/socialLinks, campo propio porque
+// FreelancerSettings no comparte el resto de columnas de Commerce
+// (nombre/dirección/horario no aplican a un profesional independiente).
+export class UpdateFreelancerProfileDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SocialLinksDto)
+  socialLinks?: SocialLinksDto;
+}
+
 // Compartido por COMMERCE y FREELANCER en el mismo endpoint (PATCH /settings/payment).
 // Un tipo unión de dos clases no es viable aquí: con emitDecoratorMetadata,
 // TypeScript emite el metatype de un parámetro `A | B` como Object genérico,

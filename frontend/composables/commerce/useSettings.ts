@@ -71,16 +71,27 @@ export interface FreelancerSettingsData {
   slugUpdatedAt?: string | null
   latitude?: number | null
   longitude?: number | null
+  // Contenido del perfil público profesional (/pro/:slug) — mismo patrón
+  // que CommerceInfo.description/socialLinks.
+  description?: string | null
+  socialLinks?: SocialLinks | null
 }
 
 export interface FullSettings {
   commerce: CommerceInfo | null
   settings: CommerceSettings | FreelancerSettingsData
+  // Solo presente para un PROFESIONAL híbrido ("opción 2": Commerce + perfil
+  // profesional activo a la vez) — ver SettingsService.getSettings. `settings`
+  // ya es CommerceSettings en ese caso; esto trae además el FreelancerSettings
+  // (slug /pro/, bio, notificaciones de solicitudes) que el frontend necesita
+  // para las tarjetas de la rama profesional.
+  freelancerSettings?: FreelancerSettingsData
 }
 
 // Global reactive state
 const commerce = ref<CommerceInfo | null>(null)
 const settings = ref<CommerceSettings | FreelancerSettingsData | null>(null)
+const freelancerSettings = ref<FreelancerSettingsData | null>(null)
 const loading = ref(false)
 const saving = ref<string | null>(null)  // tracks which section is saving
 const error = ref<string | null>(null)
@@ -104,6 +115,7 @@ export const useSettings = () => {
       const data = await get<FullSettings>('/settings')
       commerce.value = data.commerce
       settings.value = data.settings
+      freelancerSettings.value = data.freelancerSettings ?? null
     } catch (err: any) {
       error.value = err?.message ?? 'Error al cargar la configuración'
       if (err?.status === 401) router.push('/login')
@@ -168,16 +180,48 @@ export const useSettings = () => {
     }
   }
 
+  // Un PROFESIONAL híbrido ("opción 2") tiene settings.value=CommerceSettings
+  // y freelancerSettings.value aparte (ver FullSettings.freelancerSettings) —
+  // la respuesta de estos dos endpoints (solo FreelancerSettings) nunca debe
+  // mezclarse con settings.value en ese caso, o lo corrompería con un spread
+  // de formas distintas. Se actualiza freelancerSettings.value si existe
+  // (híbrido), o settings.value si es un freelancer puro (sin Commerce).
+  function patchFreelancerData(updated: FreelancerSettingsData) {
+    if (freelancerSettings.value) {
+      freelancerSettings.value = { ...freelancerSettings.value, ...updated }
+    } else {
+      settings.value = { ...(settings.value as FreelancerSettingsData | null), ...updated }
+    }
+  }
+
   async function saveFreelancerSlug(slug: string): Promise<boolean> {
     saving.value = 'slug'
     error.value = null
     try {
       const updated = await patch<FreelancerSettingsData>('/settings/freelancer/slug', { slug })
-      settings.value = { ...settings.value!, ...updated }
+      patchFreelancerData(updated)
       showSuccess('URL de tu perfil guardada')
       return true
     } catch (err: any) {
       error.value = err?.message ?? 'Error al guardar la URL del perfil'
+      return false
+    } finally {
+      saving.value = null
+    }
+  }
+
+  // ─── Freelancer profile info (bio + redes del perfil público) ───────────────
+
+  async function saveFreelancerProfile(data: Partial<Pick<FreelancerSettingsData, 'description' | 'socialLinks'>>): Promise<boolean> {
+    saving.value = 'freelancerProfile'
+    error.value = null
+    try {
+      const updated = await patch<FreelancerSettingsData>('/settings/freelancer/profile', data)
+      patchFreelancerData(updated)
+      showSuccess('Información de tu perfil guardada')
+      return true
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al guardar la información del perfil'
       return false
     } finally {
       saving.value = null
@@ -244,8 +288,16 @@ export const useSettings = () => {
     saving.value = 'notifications'
     error.value = null
     try {
+      // El backend actualiza ambos lados para un PROFESIONAL híbrido (ver
+      // SettingsService.updateNotificationSettings) pero la respuesta HTTP
+      // solo trae la forma de settings.value (CommerceSettings) — se
+      // reflejan localmente también los campos de FreelancerSettings
+      // (notifyNewRequests/notifyRequestUpdates) si hay un perfil híbrido.
       const updated = await patch<CommerceSettings | FreelancerSettingsData>('/settings/notifications', data)
       settings.value = { ...settings.value!, ...updated }
+      if (freelancerSettings.value) {
+        freelancerSettings.value = { ...freelancerSettings.value, ...data }
+      }
       showSuccess('Preferencias de notificaciones guardadas')
       return true
     } catch (err: any) {
@@ -308,6 +360,7 @@ export const useSettings = () => {
     // state
     commerce,
     settings,
+    freelancerSettings,
     loading,
     saving,
     error,
@@ -319,6 +372,7 @@ export const useSettings = () => {
     saveCommerceSlug,
     checkFreelancerSlugAvailability,
     saveFreelancerSlug,
+    saveFreelancerProfile,
     savePaymentSettings,
     saveOperationSettings,
     savePriceGuardSettings,
