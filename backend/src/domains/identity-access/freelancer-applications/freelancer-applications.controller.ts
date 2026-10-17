@@ -1,10 +1,23 @@
-import { Body, Controller, Get, GoneException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  GoneException,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
-import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.guard';
+import {
+  RateLimitGuard,
+  RateLimit,
+} from '../../../common/guards/rate-limit.guard';
 import { FreelancerApplicationsService } from './freelancer-applications.service';
 import { CreateFreelancerApplicationDto } from './dto/create-freelancer-application.dto';
 import { ReviewFreelancerApplicationDto } from './dto/review-freelancer-application.dto';
@@ -31,9 +44,12 @@ export class FreelancerApplicationsController {
 
   // 410 en vez de 404: un cliente viejo recibe un mensaje claro de a dónde ir.
   @Post()
-  create(@CurrentUser() _user: any, @Body() _dto: CreateFreelancerApplicationDto) {
+  create(
+    @CurrentUser() _user: any,
+    @Body() _dto: CreateFreelancerApplicationDto
+  ) {
     throw new GoneException(
-      'Las solicitudes de freelancer se reemplazaron por la activación de perfiles: usa POST /api/profile-activations con type=PROFESSIONAL.',
+      'Las solicitudes de freelancer se reemplazaron por la activación de perfiles: usa POST /api/profile-activations con type=PROFESSIONAL.'
     );
   }
 
@@ -47,8 +63,16 @@ export class FreelancerApplicationsController {
 
   @Patch('admin/:id/review')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  @RateLimit({ windowMs: 60_000, maxRequests: 30, keyGenerator: (req) => `freelancer-app:review:${(req as any).user?.id}` })
-  review(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: ReviewFreelancerApplicationDto) {
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 30,
+    keyGenerator: (req) => `freelancer-app:review:${(req as any).user?.id}`,
+  })
+  review(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: ReviewFreelancerApplicationDto
+  ) {
     return this.service.review(id, user.id, dto);
   }
 }

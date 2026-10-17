@@ -1,57 +1,64 @@
-import { IsString, IsOptional, IsBoolean, IsInt, IsNotEmpty, Min } from 'class-validator'
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  Min,
+} from 'class-validator';
 
 export class CreateSearchTabDto {
   @IsString()
   @IsNotEmpty()
-  key: string
+  key: string;
 
   @IsString()
   @IsNotEmpty()
-  label: string
+  label: string;
 
   @IsOptional()
   @IsString()
-  icon?: string
+  icon?: string;
 
   @IsOptional()
   @IsString()
-  color?: string
+  color?: string;
 
   @IsOptional()
   @IsBoolean()
-  isEnabled?: boolean
+  isEnabled?: boolean;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  sortOrder?: number
+  sortOrder?: number;
 }
 
 export class UpdateSearchTabDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  label?: string
+  label?: string;
 
   @IsOptional()
   @IsString()
-  icon?: string
+  icon?: string;
 
   @IsOptional()
   @IsString()
-  color?: string
+  color?: string;
 
   @IsOptional()
   @IsBoolean()
-  isEnabled?: boolean
+  isEnabled?: boolean;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  sortOrder?: number
+  sortOrder?: number;
 }
 
 export class ReorderSearchTabsDto {
   @IsString({ each: true })
-  ids: string[]
+  ids: string[];
 }

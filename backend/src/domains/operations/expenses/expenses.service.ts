@@ -114,7 +114,14 @@ export class ExpensesService {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const endOfPrevMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59
+    );
 
     const [currentMonth, prevMonth, byStatus] = await Promise.all([
       this.prisma.expense.aggregate({
@@ -134,12 +141,16 @@ export class ExpensesService {
     ]);
 
     const statusMap = Object.fromEntries(
-      byStatus.map((s) => [s.status, { amount: s._sum.amount ?? 0, count: s._count }]),
+      byStatus.map((s) => [
+        s.status,
+        { amount: s._sum.amount ?? 0, count: s._count },
+      ])
     );
 
     const totalMonthly = currentMonth._sum.amount ?? 0;
     const totalPrev = prevMonth._sum.amount ?? 0;
-    const changeVsPrev = totalPrev > 0 ? ((totalMonthly - totalPrev) / totalPrev) * 100 : 0;
+    const changeVsPrev =
+      totalPrev > 0 ? ((totalMonthly - totalPrev) / totalPrev) * 100 : 0;
 
     return {
       totalMonthly,
@@ -198,7 +209,8 @@ export class ExpensesService {
       where: { id, commerceId },
       include: { category: true },
     });
-    if (!expense) throw new NotFoundException(this.i18n.t('expenses.not_found'));
+    if (!expense)
+      throw new NotFoundException(this.i18n.t('expenses.not_found'));
     return expense;
   }
 
@@ -207,7 +219,8 @@ export class ExpensesService {
       const cat = await this.prisma.expenseCategory.findFirst({
         where: { id: dto.categoryId, commerceId },
       });
-      if (!cat) throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
+      if (!cat)
+        throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
     }
 
     return this.prisma.expense.create({
@@ -227,7 +240,8 @@ export class ExpensesService {
       const cat = await this.prisma.expenseCategory.findFirst({
         where: { id: dto.categoryId, commerceId },
       });
-      if (!cat) throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
+      if (!cat)
+        throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
     }
 
     return this.prisma.expense.update({
@@ -292,14 +306,17 @@ export class ExpensesService {
     const cat = await this.prisma.expenseCategory.findFirst({
       where: { id, commerceId },
     });
-    if (!cat) throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
+    if (!cat)
+      throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
 
     if (dto.name && dto.name !== cat.name) {
       const existing = await this.prisma.expenseCategory.findFirst({
         where: { name: dto.name, commerceId },
       });
       if (existing)
-        throw new ConflictException(this.i18n.t('expenses.category.name_taken'));
+        throw new ConflictException(
+          this.i18n.t('expenses.category.name_taken')
+        );
     }
 
     return this.prisma.expenseCategory.update({ where: { id }, data: dto });
@@ -310,10 +327,13 @@ export class ExpensesService {
       where: { id, commerceId },
       include: { _count: { select: { expenses: true } } },
     });
-    if (!cat) throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
+    if (!cat)
+      throw new NotFoundException(this.i18n.t('expenses.category.not_found'));
     if (cat._count.expenses > 0) {
       throw new ConflictException(
-        this.i18n.t('expenses.category.in_use', { args: { count: cat._count.expenses } })
+        this.i18n.t('expenses.category.in_use', {
+          args: { count: cat._count.expenses },
+        })
       );
     }
     await this.prisma.expenseCategory.delete({ where: { id } });

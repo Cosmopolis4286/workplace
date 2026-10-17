@@ -12,20 +12,36 @@ import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { tagSearchCondition } from '../../../common/utils/tags.util';
 import { EscrowFacade, ESCROW_FACADE } from '../../money/escrow/escrow.facade';
-import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
+import {
+  PlatformFeesFacade,
+  PLATFORM_FEES_FACADE,
+} from '../../money/platform-fees/platform-fees.facade';
 import { InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
 import { v4 as uuidv4 } from 'uuid';
 
-function attachProductRating<T extends { commerce: { user: { reviewsReceived: { rating: number }[], [k: string]: any }, [k: string]: any }, [k: string]: any }>(product: T) {
+function attachProductRating<
+  T extends {
+    commerce: {
+      user: { reviewsReceived: { rating: number }[]; [k: string]: any };
+      [k: string]: any;
+    };
+    [k: string]: any;
+  },
+>(product: T) {
   const reviews = product.commerce.user.reviewsReceived;
   const rating = reviews.length
-    ? Number((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(2))
+    ? Number(
+        (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(2)
+      )
     : null;
   const reviewsCount = reviews.length;
   const { reviewsReceived: _, ...userWithoutReviews } = product.commerce.user;
   return {
     ...product,
-    commerce: { ...product.commerce, user: { ...userWithoutReviews, rating, reviewsCount } },
+    commerce: {
+      ...product.commerce,
+      user: { ...userWithoutReviews, rating, reviewsCount },
+    },
   };
 }
 
@@ -52,7 +68,9 @@ export class CatalogService {
         color: true,
         _count: {
           select: {
-            products: { where: { status: ProductStatus.AVAILABLE, forSale: true } },
+            products: {
+              where: { status: ProductStatus.AVAILABLE, forSale: true },
+            },
           },
         },
       },
@@ -72,7 +90,10 @@ export class CatalogService {
   // Top tags reales (por frecuencia) entre productos en venta, opcionalmente
   // filtrados por substring `q` para autocompletado. Se trae solo la columna
   // `tags` y se cuenta en memoria: evita mantener una tabla maestra aparte.
-  async getPopularTags(q?: string, limit = 20): Promise<{ tag: string; count: number }[]> {
+  async getPopularTags(
+    q?: string,
+    limit = 20
+  ): Promise<{ tag: string; count: number }[]> {
     const products = await this.prisma.product.findMany({
       where: { status: ProductStatus.AVAILABLE, forSale: true },
       select: { tags: true },
@@ -102,7 +123,9 @@ export class CatalogService {
         type: true,
         _count: {
           select: {
-            products: { where: { status: ProductStatus.AVAILABLE, forSale: true } },
+            products: {
+              where: { status: ProductStatus.AVAILABLE, forSale: true },
+            },
           },
         },
       },
@@ -162,7 +185,9 @@ export class CatalogService {
         },
         _count: {
           select: {
-            products: { where: { status: ProductStatus.AVAILABLE, forSale: true } },
+            products: {
+              where: { status: ProductStatus.AVAILABLE, forSale: true },
+            },
           },
         },
       },
@@ -171,7 +196,10 @@ export class CatalogService {
     // Mismo criterio de "no encontrado" tanto si el slug no existe como si
     // el dueño la ocultó — evita filtrar a un visitante que una tienda con
     // ese slug existe pero está oculta.
-    if (!commerce || (!commerce.isPublic && commerce.userId !== currentUserId)) {
+    if (
+      !commerce ||
+      (!commerce.isPublic && commerce.userId !== currentUserId)
+    ) {
       throw new NotFoundException('Tienda no encontrada');
     }
 
@@ -235,7 +263,13 @@ export class CatalogService {
     }
 
     if (city || state || country) {
-      return this.getProductsNearMe(where, { country, state, city }, page, limit, sort);
+      return this.getProductsNearMe(
+        where,
+        { country, state, city },
+        page,
+        limit,
+        sort
+      );
     }
 
     if (sort === CatalogSortBy.RATING_DESC) {
@@ -291,10 +325,25 @@ export class CatalogService {
     else if (sort === CatalogSortBy.PRICE_DESC) orderBy = { price: 'desc' };
     else if (sort === CatalogSortBy.NAME) orderBy = { name: 'asc' };
 
-    const tiers: { tier: 'city' | 'state' | 'country'; commerce: Record<string, unknown> }[] = [];
-    if (city) tiers.push({ tier: 'city', commerce: { city: { equals: city, mode: 'insensitive' } } });
-    if (state) tiers.push({ tier: 'state', commerce: { state: { equals: state, mode: 'insensitive' } } });
-    if (country) tiers.push({ tier: 'country', commerce: { country: { equals: country, mode: 'insensitive' } } });
+    const tiers: {
+      tier: 'city' | 'state' | 'country';
+      commerce: Record<string, unknown>;
+    }[] = [];
+    if (city)
+      tiers.push({
+        tier: 'city',
+        commerce: { city: { equals: city, mode: 'insensitive' } },
+      });
+    if (state)
+      tiers.push({
+        tier: 'state',
+        commerce: { state: { equals: state, mode: 'insensitive' } },
+      });
+    if (country)
+      tiers.push({
+        tier: 'country',
+        commerce: { country: { equals: country, mode: 'insensitive' } },
+      });
 
     for (const { tier, commerce } of tiers) {
       const where = { ...baseWhere, commerce };
@@ -305,13 +354,23 @@ export class CatalogService {
         continue;
       }
       if (sort === CatalogSortBy.BEST_SELLER) {
-        const result = await this.getProductsSortedByBestSeller(where, page, limit);
+        const result = await this.getProductsSortedByBestSeller(
+          where,
+          page,
+          limit
+        );
         if (result.total > 0) return { ...result, locationTier: tier };
         continue;
       }
 
       const [products, total] = await Promise.all([
-        this.prisma.product.findMany({ where, skip, take: limit, orderBy, select: this.productSelect }),
+        this.prisma.product.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy,
+          select: this.productSelect,
+        }),
         this.prisma.product.count({ where }),
       ]);
 
@@ -328,7 +387,14 @@ export class CatalogService {
     }
 
     // Sin resultados en ninguna ubicación: devolver vacío
-    return { data: [], total: 0, page, limit, totalPages: 0, locationTier: null };
+    return {
+      data: [],
+      total: 0,
+      page,
+      limit,
+      totalPages: 0,
+      locationTier: null,
+    };
   }
 
   private readonly productSelect = {
@@ -445,7 +511,9 @@ export class CatalogService {
         bundleItems: {
           select: {
             quantity: true,
-            componentProduct: { select: { id: true, name: true, price: true, image: true } },
+            componentProduct: {
+              select: { id: true, name: true, price: true, image: true },
+            },
           },
         },
         category: { select: { id: true, name: true, color: true } },
@@ -480,8 +548,14 @@ export class CatalogService {
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
       select: {
-        id: true, name: true, price: true, status: true, forSale: true,
-        isBundle: true, commerceId: true, commerce: { select: { name: true } },
+        id: true,
+        name: true,
+        price: true,
+        status: true,
+        forSale: true,
+        isBundle: true,
+        commerceId: true,
+        commerce: { select: { name: true } },
         bundleItems: { select: { componentProductId: true, quantity: true } },
       },
     });
@@ -493,7 +567,8 @@ export class CatalogService {
     for (const item of dto.items) {
       const product = byId.get(item.productId);
       if (product?.isBundle) {
-        for (const c of product.bundleItems) componentIds.add(c.componentProductId);
+        for (const c of product.bundleItems)
+          componentIds.add(c.componentProductId);
       } else if (product) {
         componentIds.add(item.productId);
       }
@@ -506,11 +581,17 @@ export class CatalogService {
 
     for (const item of dto.items) {
       const product = byId.get(item.productId);
-      if (!product || !product.forSale || product.status !== ProductStatus.AVAILABLE) {
+      if (
+        !product ||
+        !product.forSale ||
+        product.status !== ProductStatus.AVAILABLE
+      ) {
         throw new NotFoundException('Producto no disponible');
       }
       if (product.commerceId !== dto.commerceId) {
-        throw new BadRequestException('El producto no pertenece a este comercio');
+        throw new BadRequestException(
+          'El producto no pertenece a este comercio'
+        );
       }
     }
 
@@ -530,14 +611,21 @@ export class CatalogService {
           );
         }
       } else {
-        stockDeductions.set(item.productId, (stockDeductions.get(item.productId) ?? 0) + item.quantity);
+        stockDeductions.set(
+          item.productId,
+          (stockDeductions.get(item.productId) ?? 0) + item.quantity
+        );
       }
     }
 
     const commerceName = products[0].commerce.name;
-    const totalEstimate = Math.round(
-      dto.items.reduce((sum, item) => sum + byId.get(item.productId)!.price * item.quantity, 0) * 100
-    ) / 100;
+    const totalEstimate =
+      Math.round(
+        dto.items.reduce(
+          (sum, item) => sum + byId.get(item.productId)!.price * item.quantity,
+          0
+        ) * 100
+      ) / 100;
 
     // Pago Protegido (escrow) — solo si el comercio lo activó en Settings
     // (CommerceSettings.requiresEscrowForCatalogOrders). A diferencia de
@@ -548,9 +636,13 @@ export class CatalogService {
     // garantizar el pago primero, a diferencia de una negociación de servicio.
     const commerce = await this.prisma.commerce.findUnique({
       where: { id: dto.commerceId },
-      select: { userId: true, settings: { select: { requiresEscrowForCatalogOrders: true } } },
+      select: {
+        userId: true,
+        settings: { select: { requiresEscrowForCatalogOrders: true } },
+      },
     });
-    const requiresEscrow = commerce?.settings?.requiresEscrowForCatalogOrders ?? false;
+    const requiresEscrow =
+      commerce?.settings?.requiresEscrowForCatalogOrders ?? false;
     if (requiresEscrow && !requesterId) {
       throw new BadRequestException(
         'Este comercio requiere pago protegido; debes estar autenticado con una billetera para completar el pedido.'
@@ -567,10 +659,16 @@ export class CatalogService {
     let platformFeeRate: number | null = null;
     let platformFeeAmount: number | null = null;
     if (requiresEscrow && commerce) {
-      const feeConfig = await this.platformFees.resolveFeeConfig('CATALOG_ORDER', commerce.userId);
+      const feeConfig = await this.platformFees.resolveFeeConfig(
+        'CATALOG_ORDER',
+        commerce.userId
+      );
       escrowAmount = totalEstimate;
       if (feeConfig?.payer === 'CLIENT') {
-        const { feeAmount } = this.platformFees.calculateFee(totalEstimate, feeConfig);
+        const { feeAmount } = this.platformFees.calculateFee(
+          totalEstimate,
+          feeConfig
+        );
         escrowAmount = totalEstimate + feeAmount;
         platformFeeRate = feeConfig.rate;
         platformFeeAmount = feeAmount;
@@ -585,7 +683,9 @@ export class CatalogService {
         });
       } catch (err) {
         if (err instanceof InsufficientEscrowFundsError) {
-          throw new BadRequestException('No tienes saldo suficiente en tu billetera para este pedido con pago protegido.');
+          throw new BadRequestException(
+            'No tienes saldo suficiente en tu billetera para este pedido con pago protegido.'
+          );
         }
         throw err;
       }
@@ -608,7 +708,9 @@ export class CatalogService {
             data: { stock: { decrement: needed } },
           });
           if (result.count === 0) {
-            throw new BadRequestException('Stock insuficiente para completar el pedido');
+            throw new BadRequestException(
+              'Stock insuficiente para completar el pedido'
+            );
           }
 
           // Recalcula status igual que el ajuste manual (menu.service.ts updateStock):
@@ -625,7 +727,10 @@ export class CatalogService {
                 : updated.stock <= meta.minStock
                   ? ProductStatus.LOW_STOCK
                   : ProductStatus.AVAILABLE;
-            await tx.product.update({ where: { id: componentId }, data: { status: newStatus } });
+            await tx.product.update({
+              where: { id: componentId },
+              data: { status: newStatus },
+            });
             if (newStatus !== ProductStatus.AVAILABLE) {
               lowStockAlerts.push({ name: meta.name, stock: updated.stock });
             }
@@ -647,7 +752,12 @@ export class CatalogService {
             totalEstimate,
             requesterId,
             ...(requiresEscrow
-              ? { escrowStatus: 'HELD' as const, escrowAmount, platformFeeRate, platformFeeAmount }
+              ? {
+                  escrowStatus: 'HELD' as const,
+                  escrowAmount,
+                  platformFeeRate,
+                  platformFeeAmount,
+                }
               : {}),
             items: {
               create: dto.items.map((item) => {
@@ -684,16 +794,22 @@ export class CatalogService {
       // que nunca se creó.
       if (requiresEscrow && commerce) {
         await this.escrow
-          .refund({ entityType: 'CATALOG_ORDER', entityId: orderId, payerId: requesterId, amount: escrowAmount! })
+          .refund({
+            entityType: 'CATALOG_ORDER',
+            entityId: orderId,
+            payerId: requesterId,
+            amount: escrowAmount!,
+          })
           .catch(() => {});
       }
       throw err;
     }
 
     // Notificar al comercio (fire-and-forget)
-    const summary = order.items.length === 1
-      ? order.items[0].productName
-      : `${order.items.length} productos`;
+    const summary =
+      order.items.length === 1
+        ? order.items[0].productName
+        : `${order.items.length} productos`;
     this.notifications
       .notifyNewCatalogOrder(
         order.commerceId,
@@ -770,7 +886,10 @@ export class CatalogService {
     };
   }
 
-  private static readonly CATALOG_ORDER_TERMINAL_STATUSES = ['CLOSED', 'CANCELLED'];
+  private static readonly CATALOG_ORDER_TERMINAL_STATUSES = [
+    'CLOSED',
+    'CANCELLED',
+  ];
 
   async updateOrderStatus(
     id: string,
@@ -781,13 +900,17 @@ export class CatalogService {
     if (!order) throw new NotFoundException('Pedido no encontrado');
     if (order.commerceId !== commerceId) throw new ForbiddenException();
     if (CatalogService.CATALOG_ORDER_TERMINAL_STATUSES.includes(order.status)) {
-      throw new ForbiddenException(`No puedes cambiar el estado de un pedido ${order.status}`);
+      throw new ForbiddenException(
+        `No puedes cambiar el estado de un pedido ${order.status}`
+      );
     }
     // CLOSED es exclusivo del comprador vía confirmOrderCompletion (ahí se
     // libera el escrow y se cobra la comisión) — mismo criterio que
     // ServiceRequest, para que la comisión siempre se cobre al cerrar.
     if (status === 'CLOSED') {
-      throw new ForbiddenException('Solo el comprador puede confirmar la finalización de un pedido');
+      throw new ForbiddenException(
+        'Solo el comprador puede confirmar la finalización de un pedido'
+      );
     }
 
     const update: any = { status };
@@ -796,7 +919,12 @@ export class CatalogService {
     // motivo. defensa en profundidad: hoy CANCELLED solo es alcanzable desde
     // PENDING/SEEN/CONTACTED (no terminal), así que esto siempre aplica
     // cuando corresponde.
-    if (status === 'CANCELLED' && order.escrowStatus === 'HELD' && order.escrowAmount && order.requesterId) {
+    if (
+      status === 'CANCELLED' &&
+      order.escrowStatus === 'HELD' &&
+      order.escrowAmount &&
+      order.requesterId
+    ) {
       await this.escrow.refund({
         entityType: 'CATALOG_ORDER',
         entityId: id,
@@ -806,7 +934,10 @@ export class CatalogService {
       update.escrowStatus = 'REFUNDED';
     }
 
-    const updated = await this.prisma.catalogOrder.update({ where: { id }, data: update });
+    const updated = await this.prisma.catalogOrder.update({
+      where: { id },
+      data: update,
+    });
     return { data: updated };
   }
 
@@ -820,7 +951,7 @@ export class CatalogService {
     if (order.requesterId !== requesterId) throw new ForbiddenException();
     if (order.status !== 'CONTACTED')
       throw new ForbiddenException(
-        'Solo puedes confirmar un pedido que ya fue contactado por el comercio',
+        'Solo puedes confirmar un pedido que ya fue contactado por el comercio'
       );
 
     const update: any = { status: 'CLOSED' };
@@ -837,15 +968,21 @@ export class CatalogService {
       // criterio que ServiceRequest: el fee se cobra siempre, nunca se
       // duplica ni se omite.
       if (commerce && !order.platformFeeRate) {
-        const feeConfig = await this.platformFees.resolveFeeConfig('CATALOG_ORDER', commerce.userId);
+        const feeConfig = await this.platformFees.resolveFeeConfig(
+          'CATALOG_ORDER',
+          commerce.userId
+        );
         if (feeConfig?.payer === 'PROVIDER') {
-          const { feeAmount } = this.platformFees.calculateFee(order.escrowAmount, feeConfig);
+          const { feeAmount } = this.platformFees.calculateFee(
+            order.escrowAmount,
+            feeConfig
+          );
           await this.platformFees.chargeProviderFee(
             'CATALOG_ORDER',
             commerce.userId,
             feeAmount,
             `FEE-CATALOG-${id}`,
-            { catalogOrderId: id },
+            { catalogOrderId: id }
           );
           releaseAmount = order.escrowAmount - feeAmount;
           update.platformFeeRate = feeConfig.rate;
@@ -864,7 +1001,10 @@ export class CatalogService {
       update.escrowStatus = 'RELEASED';
     }
 
-    const updated = await this.prisma.catalogOrder.update({ where: { id }, data: update });
+    const updated = await this.prisma.catalogOrder.update({
+      where: { id },
+      data: update,
+    });
     return { data: updated };
   }
 
@@ -883,7 +1023,9 @@ export class CatalogService {
       throw new ForbiddenException('No tienes permiso');
     }
     if (order.status !== 'CONTACTED') {
-      throw new BadRequestException('Solo se puede disputar un pedido en curso (contactado)');
+      throw new BadRequestException(
+        'Solo se puede disputar un pedido en curso (contactado)'
+      );
     }
 
     const dispute = await this.escrow.openDispute({
@@ -893,7 +1035,8 @@ export class CatalogService {
       reason,
     });
 
-    const counterpartyId = userId === order.requesterId ? commerce?.userId : order.requesterId;
+    const counterpartyId =
+      userId === order.requesterId ? commerce?.userId : order.requesterId;
     if (counterpartyId) {
       this.notifications
         .notifyEscrowDisputeOpened(counterpartyId, order.commerceName)

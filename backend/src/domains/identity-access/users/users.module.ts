@@ -8,7 +8,11 @@ import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-pro
 @Module({
   imports: [MailModule],
   controllers: [UsersController],
-  providers: [UsersService, CommerceProfileCompletionStrategy, FreelancerProfileCompletionStrategy],
+  providers: [
+    UsersService,
+    CommerceProfileCompletionStrategy,
+    FreelancerProfileCompletionStrategy,
+  ],
   exports: [UsersService],
 })
 export class UsersModule {}

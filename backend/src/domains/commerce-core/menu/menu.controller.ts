@@ -33,7 +33,12 @@ import { CreateBundleDto } from './dto/create-bundle.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { QueryProductsDto } from './dto/query-products.dto';
-import { BulkProductIdsDto, BulkMoveCategoryDto, ReorderCategoriesDto, ReorderProductsDto } from './dto/bulk-products.dto';
+import {
+  BulkProductIdsDto,
+  BulkMoveCategoryDto,
+  ReorderCategoriesDto,
+  ReorderProductsDto,
+} from './dto/bulk-products.dto';
 
 @Controller('menu')
 @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
@@ -79,7 +84,10 @@ export class MenuController {
   // en el nuevo orden deseado.
   @Post('categories/reorder')
   @RequirePermission('menu:edit')
-  reorderCategories(@CurrentUser() user: { id: string }, @Body() dto: ReorderCategoriesDto) {
+  reorderCategories(
+    @CurrentUser() user: { id: string },
+    @Body() dto: ReorderCategoriesDto
+  ) {
     return this.menuService.reorderCategories(user.id, dto.categoryIds);
   }
 
@@ -87,7 +95,10 @@ export class MenuController {
 
   @Get('products')
   @RequirePermission('menu:view')
-  getProducts(@CurrentUser() user: { id: string }, @Query() query: QueryProductsDto) {
+  getProducts(
+    @CurrentUser() user: { id: string },
+    @Query() query: QueryProductsDto
+  ) {
     return this.menuService.getProducts(user.id, query);
   }
 
@@ -109,7 +120,7 @@ export class MenuController {
   @RequirePermission('menu:view')
   getProductsForSelector(
     @CurrentUser() user: { id: string },
-    @Query('search') search?: string,
+    @Query('search') search?: string
   ) {
     return this.menuService.getProductsForSelector(user.id, search);
   }
@@ -171,33 +182,52 @@ export class MenuController {
 
   @Post('products/bulk-activate')
   @RequirePermission('menu:edit')
-  bulkActivate(@CurrentUser() user: { id: string }, @Body() dto: BulkProductIdsDto) {
+  bulkActivate(
+    @CurrentUser() user: { id: string },
+    @Body() dto: BulkProductIdsDto
+  ) {
     return this.menuService.bulkToggleStatus(user.id, dto.productIds, true);
   }
 
   @Post('products/bulk-deactivate')
   @RequirePermission('menu:edit')
-  bulkDeactivate(@CurrentUser() user: { id: string }, @Body() dto: BulkProductIdsDto) {
+  bulkDeactivate(
+    @CurrentUser() user: { id: string },
+    @Body() dto: BulkProductIdsDto
+  ) {
     return this.menuService.bulkToggleStatus(user.id, dto.productIds, false);
   }
 
   @Post('products/bulk-delete')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('menu:delete')
-  bulkDelete(@CurrentUser() user: { id: string }, @Body() dto: BulkProductIdsDto) {
+  bulkDelete(
+    @CurrentUser() user: { id: string },
+    @Body() dto: BulkProductIdsDto
+  ) {
     return this.menuService.bulkDelete(user.id, dto.productIds);
   }
 
   @Post('products/bulk-move-category')
   @RequirePermission('menu:edit')
-  bulkMoveCategory(@CurrentUser() user: { id: string }, @Body() dto: BulkMoveCategoryDto) {
-    return this.menuService.bulkMoveCategory(user.id, dto.productIds, dto.categoryId);
+  bulkMoveCategory(
+    @CurrentUser() user: { id: string },
+    @Body() dto: BulkMoveCategoryDto
+  ) {
+    return this.menuService.bulkMoveCategory(
+      user.id,
+      dto.productIds,
+      dto.categoryId
+    );
   }
 
   // Drag-and-drop de productos dentro de una misma categoría en /menu.
   @Post('products/reorder')
   @RequirePermission('menu:edit')
-  reorderProducts(@CurrentUser() user: { id: string }, @Body() dto: ReorderProductsDto) {
+  reorderProducts(
+    @CurrentUser() user: { id: string },
+    @Body() dto: ReorderProductsDto
+  ) {
     return this.menuService.reorderProducts(user.id, dto.productIds);
   }
 

@@ -24,7 +24,7 @@ import { CommerceResolverService } from '../../../common/commerce-resolver/comme
 export class GroupBuyingController {
   constructor(
     private readonly groupBuyingService: GroupBuyingService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   @Get('campaigns')
@@ -41,7 +41,10 @@ export class GroupBuyingController {
 
   @Post('campaigns')
   @RequirePermission('purchases:create')
-  async createCampaign(@CurrentUser() user: any, @Body() dto: CreateCampaignDto) {
+  async createCampaign(
+    @CurrentUser() user: any,
+    @Body() dto: CreateCampaignDto
+  ) {
     return this.groupBuyingService.createCampaign(user.id, dto);
   }
 
@@ -62,7 +65,7 @@ export class GroupBuyingController {
   async pledge(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @Body() dto: CreatePledgeDto,
+    @Body() dto: CreatePledgeDto
   ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.groupBuyingService.pledge(id, commerceId, dto);

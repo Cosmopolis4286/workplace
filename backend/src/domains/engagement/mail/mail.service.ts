@@ -35,14 +35,21 @@ export class MailService {
     return `"${name}" <${addr}>`;
   }
 
-  private loadTemplate(templateName: string, variables: Record<string, string>): string {
-    const templatePath = path.join(__dirname, 'templates', `${templateName}.html`);
+  private loadTemplate(
+    templateName: string,
+    variables: Record<string, string>
+  ): string {
+    const templatePath = path.join(
+      __dirname,
+      'templates',
+      `${templateName}.html`
+    );
     let template = fs.readFileSync(templatePath, 'utf-8');
-    
+
     Object.entries(variables).forEach(([key, value]) => {
       template = template.replace(new RegExp(`{{${key}}}`, 'g'), value);
     });
-    
+
     return template;
   }
 
@@ -81,7 +88,10 @@ export class MailService {
     event: 'password_changed' | 'email_changed' | 'password_reset',
     context?: { ip?: string; userAgent?: string }
   ) {
-    const messages: Record<typeof event, { subject: string; title: string; body: string }> = {
+    const messages: Record<
+      typeof event,
+      { subject: string; title: string; body: string }
+    > = {
       password_changed: {
         subject: 'Tu contraseña fue cambiada — WorkPlace Manager',
         title: 'Contraseña actualizada',
@@ -102,7 +112,9 @@ export class MailService {
     const meta = [
       context?.ip ? `IP: ${context.ip}` : null,
       context?.userAgent ? `Dispositivo: ${context.userAgent}` : null,
-    ].filter(Boolean).join(' · ');
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
     try {
       await this.transporter.sendMail({
@@ -133,9 +145,9 @@ export class MailService {
     try {
       const html = this.loadTemplate('email-verification', {
         firstName,
-        verifyUrl
+        verifyUrl,
       });
-      
+
       await this.transporter.sendMail({
         from: this.fromAddress,
         to: email,
@@ -153,7 +165,7 @@ export class MailService {
     email: string,
     firstName: string,
     status: 'APPROVED' | 'REJECTED',
-    rejectionReason?: string,
+    rejectionReason?: string
   ) {
     const isApproved = status === 'APPROVED';
     const subject = isApproved
@@ -187,7 +199,7 @@ export class MailService {
   async sendDriverInvitation(
     email: string,
     commerceName: string,
-    token: string,
+    token: string
   ) {
     const acceptUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/driver-invitation/${token}`;
     try {
@@ -215,7 +227,7 @@ export class MailService {
   async sendDriverGraceExpiringReminder(
     email: string,
     driverName: string,
-    daysLeft: number,
+    daysLeft: number
   ) {
     try {
       await this.transporter.sendMail({
@@ -243,7 +255,7 @@ export class MailService {
     firstName: string,
     categoryName: string,
     status: 'APPROVED' | 'REJECTED',
-    rejectionReason?: string,
+    rejectionReason?: string
   ) {
     const isApproved = status === 'APPROVED';
     const subject = isApproved
@@ -277,7 +289,7 @@ export class MailService {
     email: string,
     firstName: string,
     providerName: string,
-    serviceName: string,
+    serviceName: string
   ) {
     try {
       await this.transporter.sendMail({

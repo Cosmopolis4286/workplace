@@ -3,7 +3,10 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { CommerceResolverService } from '../../../../common/commerce-resolver/commerce-resolver.service';
 import { QueryAnalyticsDto } from '../dto/query-analytics.dto';
 import { CustomerSegment } from '@prisma/client';
-import { AnalyticsAccountStrategy, AnalyticsDashboardTrends } from './analytics-overview.strategy.interface';
+import {
+  AnalyticsAccountStrategy,
+  AnalyticsDashboardTrends,
+} from './analytics-overview.strategy.interface';
 import {
   startOfDay,
   endOfDay,
@@ -16,7 +19,7 @@ import {
 export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   private async getCommerceId(userId: string): Promise<string> {
@@ -91,7 +94,11 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
     // cualquier comercio de catálogo que no agende citas.
     const [revenueData, totalOrders, newCustomers] = await Promise.all([
       this.prisma.order.aggregate({
-        where: { commerceId, status: 'DELIVERED', createdAt: { gte: from, lte: to } },
+        where: {
+          commerceId,
+          status: 'DELIVERED',
+          createdAt: { gte: from, lte: to },
+        },
         _sum: { total: true },
         _count: { id: true },
       }),
@@ -103,7 +110,8 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
       }),
     ]);
 
-    const totalRevenue = Math.round(Number(revenueData._sum.total ?? 0) * 100) / 100;
+    const totalRevenue =
+      Math.round(Number(revenueData._sum.total ?? 0) * 100) / 100;
     const deliveredCount = revenueData._count.id;
     const avgTicket =
       deliveredCount > 0
@@ -130,7 +138,11 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
     // antes esto agregaba Customer.totalSpent por updatedAt, lo que contaba
     // como "revenue" cualquier actualización del customer, no solo compras.
     const orders = await this.prisma.order.findMany({
-      where: { commerceId, status: 'DELIVERED', createdAt: { gte: from, lte: to } },
+      where: {
+        commerceId,
+        status: 'DELIVERED',
+        createdAt: { gte: from, lte: to },
+      },
       select: { total: true, createdAt: true },
     });
 
@@ -195,8 +207,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
         const idx = Math.floor(
           (startOfDay(d).getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
         );
-        if (idx >= 0 && idx < values.length)
-          values[idx] += Number(o.total);
+        if (idx >= 0 && idx < values.length) values[idx] += Number(o.total);
       });
       values.forEach((_, i) => {
         values[i] = Math.round(values[i] * 100) / 100;
@@ -246,7 +257,11 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
     const items = await this.prisma.orderItem.groupBy({
       by: ['productId', 'productName'],
       where: {
-        order: { commerceId, status: 'DELIVERED', createdAt: { gte: from, lte: to } },
+        order: {
+          commerceId,
+          status: 'DELIVERED',
+          createdAt: { gte: from, lte: to },
+        },
       },
       _sum: { quantity: true, subtotal: true },
       orderBy: { _sum: { quantity: 'desc' } },
@@ -276,12 +291,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
       NEW: 'Nuevos',
     };
 
-    const allSegments: CustomerSegment[] = [
-      'VIP',
-      'PREMIUM',
-      'REGULAR',
-      'NEW',
-    ];
+    const allSegments: CustomerSegment[] = ['VIP', 'PREMIUM', 'REGULAR', 'NEW'];
     const counts = allSegments.map((s) => ({
       label: segmentMap[s],
       count: segments.find((sg) => sg.segment === s)?._count.id ?? 0,
@@ -307,7 +317,9 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
     for (let i = 0; i < days; i++) {
       const d = new Date(from);
       d.setDate(d.getDate() + i);
-      labels.push(d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }));
+      labels.push(
+        d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+      );
     }
 
     const [orders, customers, stockSnapshots] = await Promise.all([

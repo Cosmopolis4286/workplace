@@ -15,7 +15,10 @@ export interface FeeConfig {
  * externo debe poder modificar tasas de comisión, solo leerlas y aplicarlas.
  */
 export interface PlatformFeesFacade {
-  resolveFeeConfig(type: FeeTransactionType, userId?: string): Promise<FeeConfig | null>;
+  resolveFeeConfig(
+    type: FeeTransactionType,
+    userId?: string
+  ): Promise<FeeConfig | null>;
   calculateFee(baseAmount: number, config: FeeConfig): { feeAmount: number };
   chargeProviderFee(
     type: FeeTransactionType,

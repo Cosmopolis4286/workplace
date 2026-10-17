@@ -5,7 +5,8 @@ import { RedisService } from '../../redis/redis.service';
 import { userFindByIdCacheKey } from '../utils/cache-keys.util';
 import { includesProductModule } from '../capabilities/module-requirements';
 
-export const NO_COMMERCE_MESSAGE = 'Esta función requiere un comercio activo en tu cuenta';
+export const NO_COMMERCE_MESSAGE =
+  'Esta función requiere un comercio activo en tu cuenta';
 
 /**
  * ¿Este perfil, al activarse, debe tener un Commerce? Regla única compartida
@@ -16,9 +17,13 @@ export const NO_COMMERCE_MESSAGE = 'Esta función requiere un comercio activo en
  *   - PROFESSIONAL: solo si su categoría incluye un módulo de venta de
  *     producto (menu/inventory/orders) — decisión "opción 2" (2026-09-28).
  */
-export function shouldProvisionCommerce(profileType: ProfileType, categoryAllowedModules: readonly string[]): boolean {
+export function shouldProvisionCommerce(
+  profileType: ProfileType,
+  categoryAllowedModules: readonly string[]
+): boolean {
   if (profileType === ProfileType.BUSINESS) return true;
-  if (profileType === ProfileType.PROFESSIONAL) return includesProductModule(categoryAllowedModules);
+  if (profileType === ProfileType.PROFESSIONAL)
+    return includesProductModule(categoryAllowedModules);
   return false;
 }
 
@@ -40,7 +45,7 @@ export function shouldProvisionCommerce(profileType: ProfileType, categoryAllowe
 export class CommerceResolverService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
+    private readonly redis: RedisService
   ) {}
 
   /** commerceId del usuario, o null si no tiene. */
@@ -74,9 +79,12 @@ export class CommerceResolverService {
    */
   async provision(
     tx: Prisma.TransactionClient,
-    params: { userId: string; profileId?: string; name?: string | null },
+    params: { userId: string; profileId?: string; name?: string | null }
   ): Promise<string> {
-    const existing = await tx.commerce.findUnique({ where: { userId: params.userId }, select: { id: true } });
+    const existing = await tx.commerce.findUnique({
+      where: { userId: params.userId },
+      select: { id: true },
+    });
     if (existing) return existing.id;
 
     let name = params.name?.trim();
@@ -103,14 +111,20 @@ export class CommerceResolverService {
    * borra: desactivar un perfil no destruye el historial del comercio.
    * Devuelve el commerceId resultante, o null si no corresponde tener uno.
    */
-  async ensureForUser(tx: Prisma.TransactionClient, userId: string): Promise<string | null> {
+  async ensureForUser(
+    tx: Prisma.TransactionClient,
+    userId: string
+  ): Promise<string | null> {
     const user = await tx.user.findUnique({
       where: { id: userId },
       select: {
         commerce: { select: { id: true } },
         category: { select: { allowedModules: true } },
         profiles: {
-          where: { status: ProfileStatus.ACTIVE, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
+          where: {
+            status: ProfileStatus.ACTIVE,
+            type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+          },
           select: { id: true, type: true, pendingCommerceName: true },
         },
       },
@@ -121,11 +135,19 @@ export class CommerceResolverService {
     const allowedModules = user.category?.allowedModules ?? [];
     // BUSINESS primero: si tiene ambos perfiles, el Commerce se vincula al de negocio.
     const eligible = [...user.profiles]
-      .sort((a, b) => Number(b.type === ProfileType.BUSINESS) - Number(a.type === ProfileType.BUSINESS))
+      .sort(
+        (a, b) =>
+          Number(b.type === ProfileType.BUSINESS) -
+          Number(a.type === ProfileType.BUSINESS)
+      )
       .find((p) => shouldProvisionCommerce(p.type, allowedModules));
     if (!eligible) return null;
 
-    return this.provision(tx, { userId, profileId: eligible.id, name: eligible.pendingCommerceName });
+    return this.provision(tx, {
+      userId,
+      profileId: eligible.id,
+      name: eligible.pendingCommerceName,
+    });
   }
 
   async invalidateUserCache(userId: string): Promise<void> {

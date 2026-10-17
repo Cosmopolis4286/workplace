@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { QueryAnalyticsDto } from '../dto/query-analytics.dto';
 import { CustomerSegment } from '@prisma/client';
-import { AnalyticsAccountStrategy, AnalyticsDashboardTrends } from './analytics-overview.strategy.interface';
+import {
+  AnalyticsAccountStrategy,
+  AnalyticsDashboardTrends,
+} from './analytics-overview.strategy.interface';
 import {
   startOfDay,
   endOfDay,
@@ -64,13 +67,19 @@ export class PlatformAnalyticsStrategy implements AnalyticsAccountStrategy {
         : null,
       kpis: {
         totalRevenue: kpis.totalRevenue,
-        totalRevenueChange: pct(kpis.totalRevenue, prevKpis?.totalRevenue ?? null),
+        totalRevenueChange: pct(
+          kpis.totalRevenue,
+          prevKpis?.totalRevenue ?? null
+        ),
         totalOrders: kpis.totalOrders,
         totalOrdersChange: pct(kpis.totalOrders, prevKpis?.totalOrders ?? null),
         avgTicket: kpis.avgTicket,
         avgTicketChange: pct(kpis.avgTicket, prevKpis?.avgTicket ?? null),
         newCustomers: kpis.newCustomers,
-        newCustomersChange: pct(kpis.newCustomers, prevKpis?.newCustomers ?? null),
+        newCustomersChange: pct(
+          kpis.newCustomers,
+          prevKpis?.newCustomers ?? null
+        ),
       },
       revenueTrend,
       ordersByHour,
@@ -97,10 +106,13 @@ export class PlatformAnalyticsStrategy implements AnalyticsAccountStrategy {
       }),
     ]);
 
-    const totalRevenue = Math.round(Number(revenueData._sum.total ?? 0) * 100) / 100;
+    const totalRevenue =
+      Math.round(Number(revenueData._sum.total ?? 0) * 100) / 100;
     const deliveredCount = revenueData._count.id;
     const avgTicket =
-      deliveredCount > 0 ? Math.round((totalRevenue / deliveredCount) * 100) / 100 : 0;
+      deliveredCount > 0
+        ? Math.round((totalRevenue / deliveredCount) * 100) / 100
+        : 0;
 
     return {
       totalRevenue,
@@ -118,16 +130,19 @@ export class PlatformAnalyticsStrategy implements AnalyticsAccountStrategy {
       select: { total: true, createdAt: true },
     });
 
-    const days = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const days =
+      Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const labels: string[] = [];
     const values: number[] = [];
 
     const fmt =
       period === '1y'
-        ? (d: Date) => d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' })
+        ? (d: Date) =>
+            d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' })
         : period === 'today'
           ? (d: Date) => `${d.getHours()}:00`
-          : (d: Date) => d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+          : (d: Date) =>
+              d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
 
     if (period === 'today') {
       const hourly: number[] = Array(24).fill(0);
@@ -170,7 +185,9 @@ export class PlatformAnalyticsStrategy implements AnalyticsAccountStrategy {
       }
       orders.forEach((o) => {
         const d = new Date(o.createdAt);
-        const idx = Math.floor((startOfDay(d).getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+        const idx = Math.floor(
+          (startOfDay(d).getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
+        );
         if (idx >= 0 && idx < values.length) values[idx] += Number(o.total);
       });
       values.forEach((_, i) => {
@@ -185,7 +202,10 @@ export class PlatformAnalyticsStrategy implements AnalyticsAccountStrategy {
 
   private async getOrdersByHour(from: Date, to: Date) {
     const orders = await this.prisma.order.findMany({
-      where: { createdAt: { gte: from, lte: to }, status: { not: 'CANCELLED' } },
+      where: {
+        createdAt: { gte: from, lte: to },
+        status: { not: 'CANCELLED' },
+      },
       select: { createdAt: true },
     });
 
@@ -264,7 +284,9 @@ export class PlatformAnalyticsStrategy implements AnalyticsAccountStrategy {
     for (let i = 0; i < days; i++) {
       const d = new Date(from);
       d.setDate(d.getDate() + i);
-      labels.push(d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }));
+      labels.push(
+        d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+      );
     }
 
     const [orders, newUsers, stockSnapshots] = await Promise.all([
@@ -285,7 +307,10 @@ export class PlatformAnalyticsStrategy implements AnalyticsAccountStrategy {
     ]);
 
     const dayIndex = (date: Date) =>
-      Math.floor((startOfDay(new Date(date)).getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+      Math.floor(
+        (startOfDay(new Date(date)).getTime() - from.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
 
     const bucketByDay = (rows: { createdAt: Date }[]): number[] => {
       const values = Array(days).fill(0);
@@ -310,7 +335,7 @@ export class PlatformAnalyticsStrategy implements AnalyticsAccountStrategy {
       d.setDate(d.getDate() + i);
       const dayKey = startOfDay(d).getTime();
       const snapsForDay = stockSnapshots.filter(
-        (s) => startOfDay(new Date(s.date)).getTime() === dayKey,
+        (s) => startOfDay(new Date(s.date)).getTime() === dayKey
       );
       if (snapsForDay.length === 0) return null;
       return snapsForDay.reduce((sum, s) => sum + s.lowStockCount, 0);
@@ -328,54 +353,71 @@ export class PlatformAnalyticsStrategy implements AnalyticsAccountStrategy {
   // ─── Performance metrics (promedios/sumas entre toda la plataforma) ───────
 
   private async getPerformanceMetrics(from: Date, to: Date) {
-    const [settingsAgg, customersAgg, appointments, activeCommerces] = await Promise.all([
-      this.prisma.commerceSettings.aggregate({
-        _avg: { avgPrepTime: true, avgDeliveryTime: true },
-      }),
-      this.prisma.customer.aggregate({
-        where: { isActive: true },
-        _avg: { totalSpent: true },
-        _count: { id: true },
-        _sum: { totalSpent: true, totalOrders: true },
-      }),
-      this.prisma.appointment.groupBy({
-        by: ['status'],
-        where: { date: { gte: from, lte: to } },
-        _count: { id: true },
-      }),
-      this.prisma.commerce.count(),
-    ]);
+    const [settingsAgg, customersAgg, appointments, activeCommerces] =
+      await Promise.all([
+        this.prisma.commerceSettings.aggregate({
+          _avg: { avgPrepTime: true, avgDeliveryTime: true },
+        }),
+        this.prisma.customer.aggregate({
+          where: { isActive: true },
+          _avg: { totalSpent: true },
+          _count: { id: true },
+          _sum: { totalSpent: true, totalOrders: true },
+        }),
+        this.prisma.appointment.groupBy({
+          by: ['status'],
+          where: { date: { gte: from, lte: to } },
+          _count: { id: true },
+        }),
+        this.prisma.commerce.count(),
+      ]);
 
     const totalInPeriod = appointments.reduce((sum, a) => sum + a._count.id, 0);
-    const cancelled = appointments.find((a) => a.status === 'CANCELLED')?._count.id ?? 0;
-    const noShow = appointments.find((a) => a.status === 'NO_SHOW')?._count.id ?? 0;
+    const cancelled =
+      appointments.find((a) => a.status === 'CANCELLED')?._count.id ?? 0;
+    const noShow =
+      appointments.find((a) => a.status === 'NO_SHOW')?._count.id ?? 0;
     const cancellationRate =
-      totalInPeriod > 0 ? Math.round(((cancelled + noShow) / totalInPeriod) * 1000) / 10 : 0;
+      totalInPeriod > 0
+        ? Math.round(((cancelled + noShow) / totalInPeriod) * 1000) / 10
+        : 0;
 
     const totalCustomers = customersAgg._count.id;
     const totalOrders = Number(customersAgg._sum.totalOrders ?? 0);
     const totalRevenue = Number(customersAgg._sum.totalSpent ?? 0);
-    const avgTicket = totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0;
+    const avgTicket =
+      totalOrders > 0
+        ? Math.round((totalRevenue / totalOrders) * 100) / 100
+        : 0;
     const avgOrderFrequency =
-      totalCustomers > 0 ? Math.round((totalOrders / totalCustomers) * 10) / 10 : 0;
+      totalCustomers > 0
+        ? Math.round((totalOrders / totalCustomers) * 10) / 10
+        : 0;
     const clv = Number(customersAgg._avg.totalSpent ?? 0);
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const [newInLast30, returning] = await Promise.all([
-      this.prisma.customer.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      this.prisma.customer.count({
+        where: { createdAt: { gte: thirtyDaysAgo } },
+      }),
       this.prisma.customer.count({ where: { totalOrders: { gt: 1 } } }),
     ]);
 
     const retentionRate =
-      totalCustomers > 0 ? Math.round((returning / totalCustomers) * 1000) / 10 : 0;
+      totalCustomers > 0
+        ? Math.round((returning / totalCustomers) * 1000) / 10
+        : 0;
 
     const products = await this.prisma.product.aggregate({
       _avg: { price: true, cost: true },
     });
     const avgPrice = Number(products._avg.price ?? 0);
     const avgCost = Number(products._avg.cost ?? 0);
-    const grossMargin = avgPrice > 0 ? Math.round(((avgPrice - avgCost) / avgPrice) * 1000) / 10 : 0;
+    const grossMargin =
+      avgPrice > 0
+        ? Math.round(((avgPrice - avgCost) / avgPrice) * 1000) / 10
+        : 0;
 
     return {
       operational: {

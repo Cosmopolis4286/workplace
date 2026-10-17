@@ -1,36 +1,44 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common'
-import { PrismaService } from '../../../prisma/prisma.service'
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto'
-import { CreateSubcategoryDto, UpdateSubcategoryDto } from './dto/subcategory.dto'
-import { Category, Subcategory } from '@prisma/client'
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import {
+  CreateSubcategoryDto,
+  UpdateSubcategoryDto,
+} from './dto/subcategory.dto';
+import { Category, Subcategory } from '@prisma/client';
 
 @Injectable()
 export class CategoriesGlobalService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(params: { page: number; limit: number }) {
-    const { page, limit } = params
-    const skip = (page - 1) * limit
+    const { page, limit } = params;
+    const skip = (page - 1) * limit;
 
     const [categories, total] = await Promise.all([
       this.prisma.category.findMany({
         where: { isGlobal: true },
         skip,
         take: limit,
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
       }),
-      this.prisma.category.count({ where: { isGlobal: true } })
-    ])
+      this.prisma.category.count({ where: { isGlobal: true } }),
+    ]);
 
     // Obtener subcategorías por separado para evitar error de tipos
     const categoriesWithSubcategories = await Promise.all(
       categories.map(async (category) => {
         const subcategories = await this.prisma.subcategory.findMany({
-          where: { categoryId: category.id }
-        })
-        return { ...category, subcategories }
+          where: { categoryId: category.id },
+        });
+        return { ...category, subcategories };
       })
-    )
+    );
 
     return {
       data: categoriesWithSubcategories,
@@ -38,227 +46,267 @@ export class CategoriesGlobalService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
-      }
-    }
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(id: string) {
     const category = await this.prisma.category.findFirst({
-      where: { id, isGlobal: true }
-    })
+      where: { id, isGlobal: true },
+    });
 
     if (!category) {
-      throw new NotFoundException(`Categoría global con ID ${id} no encontrada`)
+      throw new NotFoundException(
+        `Categoría global con ID ${id} no encontrada`
+      );
     }
 
     // Obtener subcategorías por separado
     const subcategories = await this.prisma.subcategory.findMany({
-      where: { categoryId: id }
-    })
+      where: { categoryId: id },
+    });
 
-    return { ...category, subcategories }
+    return { ...category, subcategories };
   }
 
   async createCategory(createCategoryDto: CreateCategoryDto) {
     const existingCategory = await this.prisma.category.findFirst({
-      where: { 
+      where: {
         name: createCategoryDto.name,
-        isGlobal: true 
-      }
-    })
+        isGlobal: true,
+      },
+    });
 
     if (existingCategory) {
-      throw new ConflictException(`Ya existe una categoría global con el nombre "${createCategoryDto.name}"`)
+      throw new ConflictException(
+        `Ya existe una categoría global con el nombre "${createCategoryDto.name}"`
+      );
     }
 
     return this.prisma.category.create({
       data: {
         ...createCategoryDto,
         isGlobal: true,
-        commerceId: null
+        commerceId: null,
       },
-      include: { subcategories: true }
-    })
+      include: { subcategories: true },
+    });
   }
 
   async updateCategory(id: string, updateCategoryDto: UpdateCategoryDto) {
     const existingCategory = await this.prisma.category.findFirst({
-      where: { id, isGlobal: true }
-    })
+      where: { id, isGlobal: true },
+    });
 
     if (!existingCategory) {
-      throw new NotFoundException(`Categoría global con ID ${id} no encontrada`)
+      throw new NotFoundException(
+        `Categoría global con ID ${id} no encontrada`
+      );
     }
 
-    if (updateCategoryDto.name && updateCategoryDto.name !== existingCategory.name) {
+    if (
+      updateCategoryDto.name &&
+      updateCategoryDto.name !== existingCategory.name
+    ) {
       const duplicateCategory = await this.prisma.category.findFirst({
-        where: { 
+        where: {
           name: updateCategoryDto.name,
-          isGlobal: true 
-        }
-      })
+          isGlobal: true,
+        },
+      });
 
       if (duplicateCategory) {
-        throw new ConflictException(`Ya existe una categoría global con el nombre "${updateCategoryDto.name}"`)
+        throw new ConflictException(
+          `Ya existe una categoría global con el nombre "${updateCategoryDto.name}"`
+        );
       }
     }
 
     return this.prisma.category.update({
       where: { id },
       data: updateCategoryDto,
-      include: { subcategories: true }
-    })
+      include: { subcategories: true },
+    });
   }
 
   async deleteCategory(id: string) {
     const category = await this.prisma.category.findFirst({
-      where: { id, isGlobal: true }
-    })
+      where: { id, isGlobal: true },
+    });
 
     if (!category) {
-      throw new NotFoundException(`Categoría global con ID ${id} no encontrada`)
+      throw new NotFoundException(
+        `Categoría global con ID ${id} no encontrada`
+      );
     }
 
     await this.prisma.subcategory.deleteMany({
-      where: { categoryId: id }
-    })
+      where: { categoryId: id },
+    });
 
     return this.prisma.category.delete({
-      where: { id }
-    })
+      where: { id },
+    });
   }
 
   async findSubcategories(categoryId: string) {
     const category = await this.prisma.category.findFirst({
-      where: { id: categoryId, isGlobal: true }
-    })
+      where: { id: categoryId, isGlobal: true },
+    });
 
     if (!category) {
-      throw new NotFoundException(`Categoría global con ID ${categoryId} no encontrada`)
+      throw new NotFoundException(
+        `Categoría global con ID ${categoryId} no encontrada`
+      );
     }
 
     return this.prisma.subcategory.findMany({
       where: { categoryId },
-      orderBy: { sortOrder: 'asc' }
-    })
+      orderBy: { sortOrder: 'asc' },
+    });
   }
 
-  async createSubcategory(categoryId: string, createSubcategoryDto: CreateSubcategoryDto) {
+  async createSubcategory(
+    categoryId: string,
+    createSubcategoryDto: CreateSubcategoryDto
+  ) {
     const category = await this.prisma.category.findFirst({
-      where: { id: categoryId, isGlobal: true }
-    })
+      where: { id: categoryId, isGlobal: true },
+    });
 
     if (!category) {
-      throw new NotFoundException(`Categoría global con ID ${categoryId} no encontrada`)
+      throw new NotFoundException(
+        `Categoría global con ID ${categoryId} no encontrada`
+      );
     }
 
     const existingSubcategory = await this.prisma.subcategory.findFirst({
-      where: { 
+      where: {
         name: createSubcategoryDto.name,
-        categoryId 
-      }
-    })
+        categoryId,
+      },
+    });
 
     if (existingSubcategory) {
-      throw new ConflictException(`Ya existe una subcategoría con el nombre "${createSubcategoryDto.name}"`)
+      throw new ConflictException(
+        `Ya existe una subcategoría con el nombre "${createSubcategoryDto.name}"`
+      );
     }
 
     return this.prisma.subcategory.create({
       data: {
         ...createSubcategoryDto,
-        categoryId
-      }
-    })
+        categoryId,
+      },
+    });
   }
 
-  async updateSubcategory(id: string, updateSubcategoryDto: UpdateSubcategoryDto) {
+  async updateSubcategory(
+    id: string,
+    updateSubcategoryDto: UpdateSubcategoryDto
+  ) {
     const existingSubcategory = await this.prisma.subcategory.findUnique({
       where: { id },
-      include: { category: true }
-    })
+      include: { category: true },
+    });
 
     if (!existingSubcategory) {
-      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`)
+      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`);
     }
 
     if (!existingSubcategory.category?.isGlobal) {
-      throw new NotFoundException(`Esta subcategoría no pertenece a una categoría global`)
+      throw new NotFoundException(
+        `Esta subcategoría no pertenece a una categoría global`
+      );
     }
 
-    if (updateSubcategoryDto.name && updateSubcategoryDto.name !== existingSubcategory.name) {
+    if (
+      updateSubcategoryDto.name &&
+      updateSubcategoryDto.name !== existingSubcategory.name
+    ) {
       const duplicateSubcategory = await this.prisma.subcategory.findFirst({
-        where: { 
+        where: {
           name: updateSubcategoryDto.name,
-          categoryId: existingSubcategory.categoryId 
-        }
-      })
+          categoryId: existingSubcategory.categoryId,
+        },
+      });
 
       if (duplicateSubcategory) {
-        throw new ConflictException(`Ya existe una subcategoría con el nombre "${updateSubcategoryDto.name}"`)
+        throw new ConflictException(
+          `Ya existe una subcategoría con el nombre "${updateSubcategoryDto.name}"`
+        );
       }
     }
 
     return this.prisma.subcategory.update({
       where: { id },
-      data: updateSubcategoryDto
-    })
+      data: updateSubcategoryDto,
+    });
   }
 
   async deleteSubcategory(id: string) {
     const subcategory = await this.prisma.subcategory.findUnique({
       where: { id },
-      include: { category: true }
-    })
+      include: { category: true },
+    });
 
     if (!subcategory) {
-      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`)
+      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`);
     }
 
     if (!subcategory.category?.isGlobal) {
-      throw new NotFoundException(`Esta subcategoría no pertenece a una categoría global`)
+      throw new NotFoundException(
+        `Esta subcategoría no pertenece a una categoría global`
+      );
     }
 
     return this.prisma.subcategory.delete({
-      where: { id }
-    })
+      where: { id },
+    });
   }
 
   async exportCategoriesToCsv(): Promise<string> {
-    const result = await this.findAll({ page: 1, limit: 1000 })
-    const categories = result.data
-    
+    const result = await this.findAll({ page: 1, limit: 1000 });
+    const categories = result.data;
+
     const csvHeaders = [
       'ID',
       'Nombre',
       'Color',
       'ID Comercio',
       'Fecha Creación',
-      'Fecha Actualización'
-    ].join(',')
-    
-    const csvRows = categories.map(category => {
-      // category.subcategories ahora existe como array
-      const subcategoriesList = (category as any).subcategories 
-        ? (category as any).subcategories.map((sub: any) => sub.name).join(';') 
-        : ''
-      return [
-        category.id,
-        `"${category.name}"`,
-        `"${category.color}"`,
-        category.commerceId || '',
-        category.createdAt.toISOString(),
-        category.updatedAt.toISOString(),
-        `"${subcategoriesList}"`
-      ].join(',')
-    }).join('\n')
+      'Fecha Actualización',
+    ].join(',');
 
-    return csvHeaders + '\n' + csvRows
+    const csvRows = categories
+      .map((category) => {
+        // category.subcategories ahora existe como array
+        const subcategoriesList = (category as any).subcategories
+          ? (category as any).subcategories
+              .map((sub: any) => sub.name)
+              .join(';')
+          : '';
+        return [
+          category.id,
+          `"${category.name}"`,
+          `"${category.color}"`,
+          category.commerceId || '',
+          category.createdAt.toISOString(),
+          category.updatedAt.toISOString(),
+          `"${subcategoriesList}"`,
+        ].join(',');
+      })
+      .join('\n');
+
+    return csvHeaders + '\n' + csvRows;
   }
 
-  async importCategoriesFromCsv(categoriesData: any[]): Promise<{ created: number; updated: number }> {
-    let created = 0
-    let updated = 0
+  async importCategoriesFromCsv(
+    categoriesData: any[]
+  ): Promise<{ created: number; updated: number }> {
+    let created = 0;
+    let updated = 0;
 
     for (const categoryData of categoriesData) {
       try {
@@ -267,7 +315,7 @@ export class CategoriesGlobalService {
             name: categoryData.name,
             isGlobal: true,
           },
-        })
+        });
 
         if (existingCategory) {
           // Actualizar categoría existente
@@ -279,8 +327,8 @@ export class CategoriesGlobalService {
               color: categoryData.color,
               sortOrder: categoryData.sortOrder || 0,
             },
-          })
-          updated++
+          });
+          updated++;
         } else {
           // Crear nueva categoría
           await this.prisma.category.create({
@@ -293,15 +341,18 @@ export class CategoriesGlobalService {
               isGlobal: true,
               commerceId: null,
             },
-          })
-          created++
+          });
+          created++;
         }
       } catch (error) {
         // Continuar con la siguiente categoría si hay un error
-        console.error(`Error importando categoría ${categoryData.name}:`, error.message)
+        console.error(
+          `Error importando categoría ${categoryData.name}:`,
+          error.message
+        );
       }
     }
 
-    return { created, updated }
+    return { created, updated };
   }
 }

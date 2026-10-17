@@ -25,7 +25,7 @@ export class PlatformFeesService implements PlatformFeesFacade {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallets: WalletsService,
-    private readonly notifications: NotificationsService,
+    private readonly notifications: NotificationsService
   ) {}
 
   // ─── Resolución de la tasa efectiva ──────────────────────────────────────────
@@ -34,7 +34,10 @@ export class PlatformFeesService implements PlatformFeesFacade {
   // El payer de un override puede venir vacío (hereda de la tasa global); si
   // tampoco hay tasa global, el override igual aplica con el único payer que
   // tenga sentido en ese momento — nunca se descarta silenciosamente.
-  async resolveFeeConfig(type: FeeTransactionType, userId?: string): Promise<FeeConfig | null> {
+  async resolveFeeConfig(
+    type: FeeTransactionType,
+    userId?: string
+  ): Promise<FeeConfig | null> {
     const global = await this.getGlobalRate(type);
 
     if (userId) {
@@ -42,7 +45,10 @@ export class PlatformFeesService implements PlatformFeesFacade {
         where: { type, userId, isActive: true },
       });
       if (userOverride) {
-        return { rate: userOverride.rate, payer: userOverride.payer ?? global?.payer ?? 'PROVIDER' };
+        return {
+          rate: userOverride.rate,
+          payer: userOverride.payer ?? global?.payer ?? 'PROVIDER',
+        };
       }
 
       const subscription = await this.prisma.subscription.findFirst({
@@ -55,7 +61,10 @@ export class PlatformFeesService implements PlatformFeesFacade {
           where: { type, planId: subscription.planId, isActive: true },
         });
         if (planOverride) {
-          return { rate: planOverride.rate, payer: planOverride.payer ?? global?.payer ?? 'PROVIDER' };
+          return {
+            rate: planOverride.rate,
+            payer: planOverride.payer ?? global?.payer ?? 'PROVIDER',
+          };
         }
       }
     }
@@ -64,7 +73,9 @@ export class PlatformFeesService implements PlatformFeesFacade {
   }
 
   private async getGlobalRate(type: FeeTransactionType) {
-    return this.prisma.platformFeeRate.findFirst({ where: { type, isActive: true } });
+    return this.prisma.platformFeeRate.findFirst({
+      where: { type, isActive: true },
+    });
   }
 
   calculateFee(baseAmount: number, config: FeeConfig): { feeAmount: number } {
@@ -78,11 +89,18 @@ export class PlatformFeesService implements PlatformFeesFacade {
     userId: string,
     feeAmount: number,
     reference: string,
-    metadata: Record<string, unknown>,
+    metadata: Record<string, unknown>
   ) {
     if (feeAmount <= 0) return null;
-    const result = await this.wallets.chargePlatformFee(userId, feeAmount, reference, metadata);
-    this.notifications.notifyPlatformFeeCharged(userId, type, feeAmount).catch(() => {});
+    const result = await this.wallets.chargePlatformFee(
+      userId,
+      feeAmount,
+      reference,
+      metadata
+    );
+    this.notifications
+      .notifyPlatformFeeCharged(userId, type, feeAmount)
+      .catch(() => {});
     return result;
   }
 
@@ -103,8 +121,14 @@ export class PlatformFeesService implements PlatformFeesFacade {
     });
   }
 
-  async upsertRate(type: FeeTransactionType, dto: UpsertRateDto, adminId: string) {
-    const existing = await this.prisma.platformFeeRate.findFirst({ where: { type, isActive: true } });
+  async upsertRate(
+    type: FeeTransactionType,
+    dto: UpsertRateDto,
+    adminId: string
+  ) {
+    const existing = await this.prisma.platformFeeRate.findFirst({
+      where: { type, isActive: true },
+    });
     if (existing) {
       return this.prisma.platformFeeRate.update({
         where: { id: existing.id },
@@ -121,7 +145,9 @@ export class PlatformFeesService implements PlatformFeesFacade {
       where: { isActive: true },
       include: {
         plan: { select: { id: true, name: true } },
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -129,7 +155,9 @@ export class PlatformFeesService implements PlatformFeesFacade {
 
   async createOverride(dto: CreateOverrideDto) {
     if (!dto.planId && !dto.userId) {
-      throw new NotFoundException('Debe especificar un plan o un usuario para el override');
+      throw new NotFoundException(
+        'Debe especificar un plan o un usuario para el override'
+      );
     }
     return this.prisma.platformFeeOverride.create({
       data: {

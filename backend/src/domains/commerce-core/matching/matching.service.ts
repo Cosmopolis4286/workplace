@@ -1,6 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { REPUTATION_FACADE, ReputationFacade } from '../../reputation/reputation.facade';
+import {
+  REPUTATION_FACADE,
+  ReputationFacade,
+} from '../../reputation/reputation.facade';
 import { haversineDistanceMeters } from '../../../common/utils/geo.util';
 import {
   MatchCandidateInput,
@@ -30,12 +33,12 @@ const MAX_RELEVANT_DISTANCE_METERS = 30_000;
 export class MatchingService implements MatchingFacade {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(REPUTATION_FACADE) private readonly reputation: ReputationFacade,
+    @Inject(REPUTATION_FACADE) private readonly reputation: ReputationFacade
   ) {}
 
   async rankCandidates(
     candidates: MatchCandidateInput[],
-    options?: RankCandidatesOptions,
+    options?: RankCandidatesOptions
   ): Promise<MatchResult[]> {
     if (candidates.length === 0) return [];
 
@@ -43,7 +46,9 @@ export class MatchingService implements MatchingFacade {
     const locations = await this.resolveLocations(candidates);
     const reputations = await this.resolveReputations(candidates);
 
-    const prices = candidates.map((c) => c.price).filter((p): p is number => p != null && p > 0);
+    const prices = candidates
+      .map((c) => c.price)
+      .filter((p): p is number => p != null && p > 0);
     const minPrice = prices.length ? Math.min(...prices) : null;
 
     const results = candidates.map((candidate) => {
@@ -77,8 +82,12 @@ export class MatchingService implements MatchingFacade {
       const score =
         totalWeight > 0
           ? Math.round(
-              (available.reduce((sum, s) => sum + s.weight * (s.value as number), 0) / totalWeight) *
-                confidence,
+              (available.reduce(
+                (sum, s) => sum + s.weight * (s.value as number),
+                0
+              ) /
+                totalWeight) *
+                confidence
             )
           : 0;
 
@@ -107,7 +116,10 @@ export class MatchingService implements MatchingFacade {
   // caro = baja. Un candidato al doble del precio mínimo puntúa 0 (satura,
   // nunca negativo) — evita que un outlier carísimo distorsione la escala
   // para el resto.
-  private computePriceScore(price: number | null | undefined, minPrice: number | null): number | null {
+  private computePriceScore(
+    price: number | null | undefined,
+    minPrice: number | null
+  ): number | null {
     if (price == null || price <= 0 || minPrice == null) return null;
     const ratio = minPrice / price; // 1 = es el más barato, <1 = más caro
     return Math.round(Math.max(0, Math.min(1, ratio * 2 - 1)) * 100);
@@ -120,9 +132,11 @@ export class MatchingService implements MatchingFacade {
   }
 
   private async resolveLocations(
-    candidates: MatchCandidateInput[],
+    candidates: MatchCandidateInput[]
   ): Promise<Map<string, { lat: number; lng: number }>> {
-    const commerceUserIds = candidates.filter((c) => c.entityType === 'COMMERCE').map((c) => c.userId);
+    const commerceUserIds = candidates
+      .filter((c) => c.entityType === 'COMMERCE')
+      .map((c) => c.userId);
     const professionalUserIds = candidates
       .filter((c) => c.entityType === 'PROFESSIONAL')
       .map((c) => c.userId);
@@ -130,13 +144,21 @@ export class MatchingService implements MatchingFacade {
     const [commerces, freelancerSettings] = await Promise.all([
       commerceUserIds.length
         ? this.prisma.commerce.findMany({
-            where: { userId: { in: commerceUserIds }, latitude: { not: null }, longitude: { not: null } },
+            where: {
+              userId: { in: commerceUserIds },
+              latitude: { not: null },
+              longitude: { not: null },
+            },
             select: { userId: true, latitude: true, longitude: true },
           })
         : Promise.resolve([]),
       professionalUserIds.length
         ? this.prisma.freelancerSettings.findMany({
-            where: { userId: { in: professionalUserIds }, latitude: { not: null }, longitude: { not: null } },
+            where: {
+              userId: { in: professionalUserIds },
+              latitude: { not: null },
+              longitude: { not: null },
+            },
             select: { userId: true, latitude: true, longitude: true },
           })
         : Promise.resolve([]),
@@ -144,21 +166,25 @@ export class MatchingService implements MatchingFacade {
 
     const map = new Map<string, { lat: number; lng: number }>();
     for (const c of commerces) {
-      if (c.latitude != null && c.longitude != null) map.set(c.userId, { lat: c.latitude, lng: c.longitude });
+      if (c.latitude != null && c.longitude != null)
+        map.set(c.userId, { lat: c.latitude, lng: c.longitude });
     }
     for (const f of freelancerSettings) {
-      if (f.latitude != null && f.longitude != null) map.set(f.userId, { lat: f.latitude, lng: f.longitude });
+      if (f.latitude != null && f.longitude != null)
+        map.set(f.userId, { lat: f.latitude, lng: f.longitude });
     }
     return map;
   }
 
-  private async resolveReputations(candidates: MatchCandidateInput[]): Promise<Map<string, number>> {
+  private async resolveReputations(
+    candidates: MatchCandidateInput[]
+  ): Promise<Map<string, number>> {
     const map = new Map<string, number>();
     await Promise.all(
       candidates.map(async (c) => {
         const view = await this.reputation.getScore(c.entityType, c.entityId);
         if (view) map.set(c.entityId, view.score);
-      }),
+      })
     );
     return map;
   }

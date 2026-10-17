@@ -13,7 +13,7 @@ import { CommerceResolverService } from '../../../common/commerce-resolver/comme
 export class BusinessHealthController {
   constructor(
     private readonly businessHealthService: BusinessHealthService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   @Get('score')

@@ -33,7 +33,11 @@ const TABLE_BLOCKING_STATUSES: AppointmentStatus[] = [
 // evita reabrir una cita cancelada o completar una que nunca fue confirmada.
 const STATUS_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   PENDING: [AppointmentStatus.CONFIRMED, AppointmentStatus.CANCELLED],
-  CONFIRMED: [AppointmentStatus.SEATED, AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW],
+  CONFIRMED: [
+    AppointmentStatus.SEATED,
+    AppointmentStatus.CANCELLED,
+    AppointmentStatus.NO_SHOW,
+  ],
   SEATED: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED],
   COMPLETED: [],
   CANCELLED: [],
@@ -58,7 +62,8 @@ export class AppointmentsService {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id: appointmentId },
     });
-    if (!appointment) throw new NotFoundException(this.i18n.t('appointments.not_found'));
+    if (!appointment)
+      throw new NotFoundException(this.i18n.t('appointments.not_found'));
     if (appointment.commerceId !== commerceId)
       throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return appointment;
@@ -85,7 +90,8 @@ export class AppointmentsService {
         ...(excludeAppointmentId && { id: { not: excludeAppointmentId } }),
       },
     });
-    if (conflict) throw new BadRequestException(this.i18n.t('appointments.table_overlap'));
+    if (conflict)
+      throw new BadRequestException(this.i18n.t('appointments.table_overlap'));
   }
 
   // ─── Stats ──────────────────────────────────────────────────────────────────
@@ -178,7 +184,9 @@ export class AppointmentsService {
         where: { id: dto.customerId },
       });
       if (!customer || customer.commerceId !== commerceId)
-        throw new BadRequestException(this.i18n.t('appointments.customer_not_found'));
+        throw new BadRequestException(
+          this.i18n.t('appointments.customer_not_found')
+        );
     }
 
     const date = new Date(dto.date);
@@ -211,13 +219,21 @@ export class AppointmentsService {
         where: { id: dto.customerId },
       });
       if (!customer || customer.commerceId !== commerceId)
-        throw new BadRequestException(this.i18n.t('appointments.customer_not_found'));
+        throw new BadRequestException(
+          this.i18n.t('appointments.customer_not_found')
+        );
     }
 
-    const effectiveTableNumber = dto.tableNumber !== undefined ? dto.tableNumber : existing.tableNumber;
+    const effectiveTableNumber =
+      dto.tableNumber !== undefined ? dto.tableNumber : existing.tableNumber;
     const effectiveDate = dto.date ? new Date(dto.date) : existing.date;
     if (dto.tableNumber !== undefined || dto.date !== undefined) {
-      await this.assertNoTableOverlap(commerceId, effectiveTableNumber, effectiveDate, appointmentId);
+      await this.assertNoTableOverlap(
+        commerceId,
+        effectiveTableNumber,
+        effectiveDate,
+        appointmentId
+      );
     }
 
     return this.prisma.appointment.update({
@@ -248,8 +264,13 @@ export class AppointmentsService {
     const commerceId = await this.getCommerceId(userId);
     const existing = await this.assertOwnership(appointmentId, commerceId);
 
-    if (existing.status !== status && !STATUS_TRANSITIONS[existing.status].includes(status)) {
-      throw new BadRequestException(this.i18n.t('appointments.invalid_status_transition'));
+    if (
+      existing.status !== status &&
+      !STATUS_TRANSITIONS[existing.status].includes(status)
+    ) {
+      throw new BadRequestException(
+        this.i18n.t('appointments.invalid_status_transition')
+      );
     }
 
     return this.prisma.appointment.update({

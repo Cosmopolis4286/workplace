@@ -1,4 +1,10 @@
-import { IsString, IsBoolean, IsOptional, IsUUID, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsUUID,
+  IsDateString,
+} from 'class-validator';
 
 export class UpdateUserPermissionDto {
   @IsUUID()

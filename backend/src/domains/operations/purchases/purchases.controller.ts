@@ -25,7 +25,7 @@ import { CommerceResolverService } from '../../../common/commerce-resolver/comme
 export class PurchasesController {
   constructor(
     private readonly purchasesService: PurchasesService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   @Get()
@@ -39,7 +39,7 @@ export class PurchasesController {
   @RequirePermission('purchases:view')
   async getReplacementCost(
     @Param('productId') productId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: any
   ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.purchasesService.getReplacementCost(productId, commerceId);
@@ -53,13 +53,13 @@ export class PurchasesController {
   async getMarginReport(
     @CurrentUser() user: any,
     @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query('limit') limit?: string
   ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.purchasesService.getMarginReport(
       commerceId,
       Math.max(1, parseInt(page ?? '1')),
-      Math.min(50, Math.max(1, parseInt(limit ?? '20'))),
+      Math.min(50, Math.max(1, parseInt(limit ?? '20')))
     );
   }
 

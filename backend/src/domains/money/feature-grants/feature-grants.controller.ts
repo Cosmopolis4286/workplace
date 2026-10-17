@@ -38,14 +38,25 @@ export class FeatureGrantsController {
 
   @Post('activate/:featureKey')
   @UseGuards(JwtAuthGuard)
-  activate(@Param('featureKey') featureKey: string, @CurrentUser() user: { id: string }) {
+  activate(
+    @Param('featureKey') featureKey: string,
+    @CurrentUser() user: { id: string }
+  ) {
     return this.featureGrantsService.activateSelfService(user.id, featureKey);
   }
 
   @Get('has/:featureKey')
   @UseGuards(JwtAuthGuard)
-  async hasFeature(@Param('featureKey') featureKey: string, @CurrentUser() user: { id: string }) {
-    return { hasFeature: await this.featureGrantsService.hasFeature(user.id, featureKey) };
+  async hasFeature(
+    @Param('featureKey') featureKey: string,
+    @CurrentUser() user: { id: string }
+  ) {
+    return {
+      hasFeature: await this.featureGrantsService.hasFeature(
+        user.id,
+        featureKey
+      ),
+    };
   }
 
   // ── Admin: reglas de features por plan ──────────────────────────────────────
@@ -60,7 +71,10 @@ export class FeatureGrantsController {
   @Post('plans/:planId/rules')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  createRule(@Param('planId') planId: string, @Body() dto: CreatePlanFeatureRuleDto) {
+  createRule(
+    @Param('planId') planId: string,
+    @Body() dto: CreatePlanFeatureRuleDto
+  ) {
     return this.featureGrantsService.createRule(planId, dto);
   }
 
@@ -83,7 +97,10 @@ export class FeatureGrantsController {
   @Post('admin/grant')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  grantByAdmin(@Body() dto: AdminGrantFeatureDto, @CurrentUser() admin: { id: string }) {
+  grantByAdmin(
+    @Body() dto: AdminGrantFeatureDto,
+    @CurrentUser() admin: { id: string }
+  ) {
     return this.featureGrantsService.grantByAdmin(admin.id, dto);
   }
 

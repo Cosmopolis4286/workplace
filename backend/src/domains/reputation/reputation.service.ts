@@ -44,7 +44,7 @@ export class ReputationService implements ReputationFacade {
 
   async getScore(
     entityType: ReputationEntityType,
-    entityId: string,
+    entityId: string
   ): Promise<ReputationScoreView | null> {
     const row = await this.prisma.reputationScore.findUnique({
       where: { entityType_entityId: { entityType, entityId } },
@@ -66,7 +66,10 @@ export class ReputationService implements ReputationFacade {
   // operación que lo dispara si el recálculo falla: el score es una
   // proyección derivada, nunca debe poder bloquear una venta o un cierre de
   // solicitud real.
-  async recalculate(entityType: ReputationEntityType, entityId: string): Promise<void> {
+  async recalculate(
+    entityType: ReputationEntityType,
+    entityId: string
+  ): Promise<void> {
     try {
       const counts = await this.getOutcomeCounts(entityType, entityId);
       const total = counts.completed + counts.cancelled;
@@ -100,10 +103,14 @@ export class ReputationService implements ReputationFacade {
       const dataConfidence = available.length / signals.length;
       const rawScore =
         totalWeight > 0
-          ? available.reduce((sum, s) => sum + s.weight * (s.value as number), 0) / totalWeight
+          ? available.reduce(
+              (sum, s) => sum + s.weight * (s.value as number),
+              0
+            ) / totalWeight
           : 0;
 
-      const confidenceMultiplier = Math.min(1, sampleSize / CONFIDENCE_FLOOR) * dataConfidence;
+      const confidenceMultiplier =
+        Math.min(1, sampleSize / CONFIDENCE_FLOOR) * dataConfidence;
       const score = Math.round(rawScore * 100 * confidenceMultiplier);
 
       const breakdown = {
@@ -111,8 +118,14 @@ export class ReputationService implements ReputationFacade {
         cancellationRate: Number(cancellationRate.toFixed(4)),
         punctualityRate: Number(punctualityRate.toFixed(4)),
         disputeRate: Number(disputeRate.toFixed(4)),
-        satisfactionRate: counts.satisfactionRate != null ? Number(counts.satisfactionRate.toFixed(4)) : null,
-        repeatCustomerRate: counts.repeatCustomerRate != null ? Number(counts.repeatCustomerRate.toFixed(4)) : null,
+        satisfactionRate:
+          counts.satisfactionRate != null
+            ? Number(counts.satisfactionRate.toFixed(4))
+            : null,
+        repeatCustomerRate:
+          counts.repeatCustomerRate != null
+            ? Number(counts.repeatCustomerRate.toFixed(4))
+            : null,
         confidenceMultiplier: Number(confidenceMultiplier.toFixed(4)),
       };
 
@@ -126,14 +139,14 @@ export class ReputationService implements ReputationFacade {
       // la transacción real que disparó el recálculo.
       this.logger.error(
         `No se pudo recalcular ReputationScore de ${entityType}:${entityId}`,
-        err instanceof Error ? err.stack : String(err),
+        err instanceof Error ? err.stack : String(err)
       );
     }
   }
 
   private async getOutcomeCounts(
     entityType: ReputationEntityType,
-    entityId: string,
+    entityId: string
   ): Promise<OutcomeCounts> {
     switch (entityType) {
       case 'COMMERCE':
@@ -145,13 +158,21 @@ export class ReputationService implements ReputationFacade {
     }
   }
 
-  private async getCommerceOutcomes(commerceId: string): Promise<OutcomeCounts> {
+  private async getCommerceOutcomes(
+    commerceId: string
+  ): Promise<OutcomeCounts> {
     const commerce = await this.prisma.commerce.findUnique({
       where: { id: commerceId },
       select: { userId: true },
     });
 
-    const [completed, cancelled, disputed, satisfactionRate, repeatCustomerRate] = await Promise.all([
+    const [
+      completed,
+      cancelled,
+      disputed,
+      satisfactionRate,
+      repeatCustomerRate,
+    ] = await Promise.all([
       this.prisma.order.count({ where: { commerceId, status: 'DELIVERED' } }),
       this.prisma.order.count({ where: { commerceId, status: 'CANCELLED' } }),
       this.prisma.report.count({
@@ -161,10 +182,19 @@ export class ReputationService implements ReputationFacade {
           entityId: { in: await this.orderIdsForCommerce(commerceId) },
         },
       }),
-      commerce ? this.getSatisfactionRate(commerce.userId) : Promise.resolve(null),
+      commerce
+        ? this.getSatisfactionRate(commerce.userId)
+        : Promise.resolve(null),
       this.getRepeatCustomerRateForCommerce(commerceId),
     ]);
-    return { completed, cancelled, disputed, punctualityRate: null, satisfactionRate, repeatCustomerRate };
+    return {
+      completed,
+      cancelled,
+      disputed,
+      punctualityRate: null,
+      satisfactionRate,
+      repeatCustomerRate,
+    };
   }
 
   // % de reviews (Review.rating, 1-5) del dueño de la entidad con isHidden:
@@ -184,14 +214,18 @@ export class ReputationService implements ReputationFacade {
   // CustomerSegment manual (VIP/PREMIUM/REGULAR/NEW) que hoy no se deriva de
   // ningún dato. null si el comercio todavía no tiene ningún Customer con
   // órdenes (no hay base sobre la que calcular un %).
-  private async getRepeatCustomerRateForCommerce(commerceId: string): Promise<number | null> {
+  private async getRepeatCustomerRateForCommerce(
+    commerceId: string
+  ): Promise<number | null> {
     const customers = await this.prisma.order.groupBy({
       by: ['customerId'],
       where: { commerceId, customerId: { not: null } },
       _count: { _all: true },
     });
     if (customers.length === 0) return null;
-    const repeat = customers.filter((c) => c._count._all >= REPEAT_CUSTOMER_THRESHOLD).length;
+    const repeat = customers.filter(
+      (c) => c._count._all >= REPEAT_CUSTOMER_THRESHOLD
+    ).length;
     return repeat / customers.length;
   }
 
@@ -203,11 +237,26 @@ export class ReputationService implements ReputationFacade {
     return orders.map((o) => o.id);
   }
 
-  private async getProfessionalOutcomes(providerId: string): Promise<OutcomeCounts> {
-    const [completed, cancelled, rejected, disputed, satisfactionRate, repeatCustomerRate] = await Promise.all([
-      this.prisma.serviceRequest.count({ where: { providerId, status: 'CLOSED' } }),
-      this.prisma.serviceRequest.count({ where: { providerId, status: 'CANCELLED' } }),
-      this.prisma.serviceRequest.count({ where: { providerId, status: 'REJECTED' } }),
+  private async getProfessionalOutcomes(
+    providerId: string
+  ): Promise<OutcomeCounts> {
+    const [
+      completed,
+      cancelled,
+      rejected,
+      disputed,
+      satisfactionRate,
+      repeatCustomerRate,
+    ] = await Promise.all([
+      this.prisma.serviceRequest.count({
+        where: { providerId, status: 'CLOSED' },
+      }),
+      this.prisma.serviceRequest.count({
+        where: { providerId, status: 'CANCELLED' },
+      }),
+      this.prisma.serviceRequest.count({
+        where: { providerId, status: 'REJECTED' },
+      }),
       this.prisma.report.count({
         where: {
           entityType: 'SERVICE_REQUEST',
@@ -232,18 +281,24 @@ export class ReputationService implements ReputationFacade {
   // ≥ REPEAT_CUSTOMER_THRESHOLD solicitudes a este profesional. Solicitudes
   // sin requesterId (cliente no registrado) se excluyen del conteo — no se
   // puede saber si son la misma persona repitiendo.
-  private async getRepeatCustomerRateForProfessional(providerId: string): Promise<number | null> {
+  private async getRepeatCustomerRateForProfessional(
+    providerId: string
+  ): Promise<number | null> {
     const requesters = await this.prisma.serviceRequest.groupBy({
       by: ['requesterId'],
       where: { providerId, requesterId: { not: null } },
       _count: { _all: true },
     });
     if (requesters.length === 0) return null;
-    const repeat = requesters.filter((r) => r._count._all >= REPEAT_CUSTOMER_THRESHOLD).length;
+    const repeat = requesters.filter(
+      (r) => r._count._all >= REPEAT_CUSTOMER_THRESHOLD
+    ).length;
     return repeat / requesters.length;
   }
 
-  private async serviceRequestIdsForProvider(providerId: string): Promise<string[]> {
+  private async serviceRequestIdsForProvider(
+    providerId: string
+  ): Promise<string[]> {
     const requests = await this.prisma.serviceRequest.findMany({
       where: { providerId },
       select: { id: true },

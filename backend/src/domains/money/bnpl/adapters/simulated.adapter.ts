@@ -28,7 +28,11 @@ export class SimulatedAdapter implements BnplProviderAdapter {
       externalReference,
       checkoutUrl: `${frontendUrl}/bnpl/simulated/${externalReference}`,
       expiresAt,
-      rawResponse: { simulated: true, orderId: params.orderId, amount: params.amount },
+      rawResponse: {
+        simulated: true,
+        orderId: params.orderId,
+        amount: params.amount,
+      },
     };
   }
 
@@ -38,10 +42,16 @@ export class SimulatedAdapter implements BnplProviderAdapter {
   ): Promise<BnplStatusResult> {
     // En modo simulado no hay nada que "consultar": el estado solo avanza
     // cuando alguien llama al endpoint de desarrollo /bnpl/simulate/:id/resolve.
-    return { status: 'PENDING', rawResponse: { simulated: true, externalReference } };
+    return {
+      status: 'PENDING',
+      rawResponse: { simulated: true, externalReference },
+    };
   }
 
-  async cancel(_creds: BnplProviderCredentials, _externalReference: string): Promise<void> {
+  async cancel(
+    _creds: BnplProviderCredentials,
+    _externalReference: string
+  ): Promise<void> {
     // no-op: no hay nada externo que cancelar en modo simulado.
   }
 }

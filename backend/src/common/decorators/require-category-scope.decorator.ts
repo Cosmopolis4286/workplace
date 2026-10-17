@@ -20,4 +20,5 @@ export interface CategoryScopeOptions {
  * cuando el usuario sí elige una categoría de catálogo.
  * Usage: @RequireCategoryScope({ model: 'serviceCategory', bodyField: 'categoryId' })
  */
-export const RequireCategoryScope = (options: CategoryScopeOptions) => SetMetadata(CATEGORY_SCOPE_KEY, options);
+export const RequireCategoryScope = (options: CategoryScopeOptions) =>
+  SetMetadata(CATEGORY_SCOPE_KEY, options);

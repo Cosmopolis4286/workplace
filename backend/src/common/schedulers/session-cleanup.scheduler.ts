@@ -12,7 +12,7 @@ export class SessionCleanupScheduler {
   @Cron(CronExpression.EVERY_HOUR)
   async handleSessionCleanup() {
     this.logger.log('Starting scheduled session cleanup...');
-    
+
     try {
       await this.authService.cleanupExpiredSessions();
       this.logger.log('Session cleanup completed successfully');

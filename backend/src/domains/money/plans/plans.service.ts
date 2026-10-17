@@ -10,7 +10,15 @@ import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
-import { Prisma, SubscriptionStatus, KycStatus, BillingInterval, ProfileType, ProfessionalSubtype, ProfileStatus } from '@prisma/client';
+import {
+  Prisma,
+  SubscriptionStatus,
+  KycStatus,
+  BillingInterval,
+  ProfileType,
+  ProfessionalSubtype,
+  ProfileStatus,
+} from '@prisma/client';
 import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { CategoryScopeService } from '../../../common/category-scope/category-scope.service';
@@ -24,7 +32,7 @@ export class PlansService {
     private readonly roleResolver: RoleResolverService,
     private readonly accountTypeResolver: AccountTypeResolver,
     private readonly categoryScope: CategoryScopeService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   // ─── Plans CRUD ──────────────────────────────────────────────────────────────
@@ -206,21 +214,30 @@ export class PlansService {
   // que upgradePlan(): activar un plan pago sin pasar por revisión sería
   // otorgar límites/módulos superiores sin que exista pago real de por medio
   // (el mismo hueco que ya se corrigió en WalletsService.deposit()).
-  async selfSubscribe(userId: string, dto: { planId: string; interval?: string }) {
+  async selfSubscribe(
+    userId: string,
+    dto: { planId: string; interval?: string }
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
-    const plan = await this.prisma.plan.findUnique({ where: { id: dto.planId } });
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: dto.planId },
+    });
     if (!plan) throw new NotFoundException('Plan no encontrado');
 
-    const interval = (dto.interval === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY') as BillingInterval;
+    const interval = (
+      dto.interval === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY'
+    ) as BillingInterval;
 
     if (plan.price > 0) {
       const existingPending = await this.prisma.subscription.findFirst({
         where: { userId, status: 'PENDING' },
       });
       if (existingPending) {
-        throw new ConflictException('Ya tienes una solicitud de cambio de plan pendiente de aprobación');
+        throw new ConflictException(
+          'Ya tienes una solicitud de cambio de plan pendiente de aprobación'
+        );
       }
 
       return this.prisma.subscription.create({
@@ -272,13 +289,17 @@ export class PlansService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
     if (user.trialUsedAt) {
-      throw new ConflictException('Ya usaste tu prueba gratuita — cada cuenta solo puede activarla una vez');
+      throw new ConflictException(
+        'Ya usaste tu prueba gratuita — cada cuenta solo puede activarla una vez'
+      );
     }
 
     const plan = await this.prisma.plan.findUnique({ where: { id: planId } });
     if (!plan) throw new NotFoundException('Plan no encontrado');
     if (plan.price <= 0) {
-      throw new ConflictException('No tiene sentido activar una prueba gratuita de un plan gratuito');
+      throw new ConflictException(
+        'No tiene sentido activar una prueba gratuita de un plan gratuito'
+      );
     }
 
     const currentSubscription = await this.prisma.subscription.findFirst({
@@ -286,7 +307,9 @@ export class PlansService {
       include: { plan: true },
     });
     if (currentSubscription && currentSubscription.plan.price > 0) {
-      throw new ConflictException('Ya tienes un plan pago activo — la prueba gratuita es solo para cuentas en el plan gratuito');
+      throw new ConflictException(
+        'Ya tienes un plan pago activo — la prueba gratuita es solo para cuentas en el plan gratuito'
+      );
     }
 
     const startAt = new Date();
@@ -315,7 +338,10 @@ export class PlansService {
         include: { plan: true },
       });
 
-      await tx.user.update({ where: { id: userId }, data: { trialUsedAt: startAt } });
+      await tx.user.update({
+        where: { id: userId },
+        data: { trialUsedAt: startAt },
+      });
 
       return subscription;
     });
@@ -341,7 +367,7 @@ export class PlansService {
     userId: string,
     planId: string,
     interval: BillingInterval,
-    adminId: string,
+    adminId: string
   ) {
     const plan = await tx.plan.findUnique({ where: { id: planId } });
     if (!plan) throw new NotFoundException('Plan no encontrado');
@@ -383,12 +409,16 @@ export class PlansService {
         include: { plan: true },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.user.findUnique({ where: { id: userId }, select: { trialUsedAt: true } }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { trialUsedAt: true },
+      }),
     ]);
     return {
       subscription,
       pendingSubscription,
-      trialAvailable: !user?.trialUsedAt && (!subscription || subscription.plan.price === 0),
+      trialAvailable:
+        !user?.trialUsedAt && (!subscription || subscription.plan.price === 0),
     };
   }
 
@@ -401,14 +431,20 @@ export class PlansService {
     // fuente de verdad (ver RoleResolverService). `role` solo se usa para
     // distinguir NORMAL (ve planes de upgrade) de ADMIN/SUPERADMIN/público
     // (ven todos los planes activos) cuando no hay cuenta de negocio activa.
-    const accountType = userId ? await this.accountTypeResolver.resolve(userId) : null;
+    const accountType = userId
+      ? await this.accountTypeResolver.resolve(userId)
+      : null;
 
     if (accountType === 'FREELANCER') where.forFreelancer = true;
     else if (accountType === 'COMMERCE') where.forCommerce = true;
     else if (role === 'NORMAL') {
       // NORMAL sin cuenta de negocio activa: ve planes de upgrade
       // (freelancer, commerce o dirigidos a normal).
-      where.OR = [{ forFreelancer: true }, { forCommerce: true }, { forNormal: true }];
+      where.OR = [
+        { forFreelancer: true },
+        { forCommerce: true },
+        { forNormal: true },
+      ];
     }
     // Sin role NORMAL (público/no autenticado/admin): mostrar todos los planes activos
 
@@ -420,11 +456,18 @@ export class PlansService {
     // Filter by business category when provided — ver CategoryScopeService
     // (única fuente de verdad de "vacío = visible para cualquier rubro").
     if (!categoryId) return plans;
-    return this.categoryScope.filterByField(plans, (plan) => plan.categoryIds, categoryId);
+    return this.categoryScope.filterByField(
+      plans,
+      (plan) => plan.categoryIds,
+      categoryId
+    );
   }
 
   // Deriva el rol destino a partir de las banderas del plan
-  private getTargetRole(plan: { forFreelancer: boolean; forCommerce: boolean }): 'FREELANCER' | 'COMMERCE' | null {
+  private getTargetRole(plan: {
+    forFreelancer: boolean;
+    forCommerce: boolean;
+  }): 'FREELANCER' | 'COMMERCE' | null {
     if (plan.forFreelancer && !plan.forCommerce) return 'FREELANCER';
     if (plan.forCommerce && !plan.forFreelancer) return 'COMMERCE';
     if (plan.forCommerce) return 'COMMERCE';
@@ -443,7 +486,8 @@ export class PlansService {
     }
 
     const targetRole = this.getTargetRole(subscription.plan);
-    if (!targetRole) throw new ConflictException('El plan asociado no permite cambio de rol');
+    if (!targetRole)
+      throw new ConflictException('El plan asociado no permite cambio de rol');
 
     // El rol COMMERCE/FREELANCER habilita operar como negocio (catálogo público,
     // recibir pedidos y dinero en wallet) — exigimos identidad verificada antes
@@ -456,16 +500,23 @@ export class PlansService {
 
     // Cancelar otras suscripciones activas del usuario
     await this.prisma.subscription.updateMany({
-      where: { userId: subscription.userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+      where: {
+        userId: subscription.userId,
+        status: { in: ['ACTIVE', 'TRIAL'] },
+      },
       data: { status: 'CANCELLED' },
     });
 
     const startAt = new Date();
     const endAt = new Date(startAt);
-    if (subscription.interval === 'ANNUAL') endAt.setFullYear(endAt.getFullYear() + 1);
+    if (subscription.interval === 'ANNUAL')
+      endAt.setFullYear(endAt.getFullYear() + 1);
     else endAt.setMonth(endAt.getMonth() + 1);
 
-    const profileType = targetRole === 'COMMERCE' ? ProfileType.BUSINESS : ProfileType.PROFESSIONAL;
+    const profileType =
+      targetRole === 'COMMERCE'
+        ? ProfileType.BUSINESS
+        : ProfileType.PROFESSIONAL;
 
     const updatedSubscription = await this.prisma.$transaction(async (tx) => {
       const result = await tx.subscription.update({
@@ -489,7 +540,10 @@ export class PlansService {
           where: { id: existingProfile.id },
           data: {
             status: ProfileStatus.ACTIVE,
-            subtype: profileType === ProfileType.PROFESSIONAL ? ProfessionalSubtype.FREELANCER : null,
+            subtype:
+              profileType === ProfileType.PROFESSIONAL
+                ? ProfessionalSubtype.FREELANCER
+                : null,
             categoryId: subscription.user.categoryId,
             subcategoryId: subscription.user.subcategoryId,
             reviewedBy: adminId,
@@ -501,7 +555,10 @@ export class PlansService {
           data: {
             userId: subscription.userId,
             type: profileType,
-            subtype: profileType === ProfileType.PROFESSIONAL ? ProfessionalSubtype.FREELANCER : null,
+            subtype:
+              profileType === ProfileType.PROFESSIONAL
+                ? ProfessionalSubtype.FREELANCER
+                : null,
             categoryId: subscription.user.categoryId,
             subcategoryId: subscription.user.subcategoryId,
             status: ProfileStatus.ACTIVE,
@@ -524,7 +581,9 @@ export class PlansService {
   }
 
   async rejectSubscription(id: string, adminId: string, reason?: string) {
-    const subscription = await this.prisma.subscription.findUnique({ where: { id } });
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { id },
+    });
     if (!subscription) throw new NotFoundException('Solicitud no encontrada');
     if (subscription.status !== 'PENDING') {
       throw new ConflictException('Esta solicitud ya fue procesada');

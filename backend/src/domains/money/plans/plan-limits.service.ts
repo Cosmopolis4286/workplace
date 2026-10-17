@@ -1,7 +1,10 @@
 import { Inject, Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Role, ServiceStatus, JobStatus } from '@prisma/client';
-import { SystemModulesFacade, SYSTEM_MODULES_FACADE } from '../../platform/system-modules/system-modules.facade';
+import {
+  SystemModulesFacade,
+  SYSTEM_MODULES_FACADE,
+} from '../../platform/system-modules/system-modules.facade';
 import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
 import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
 
@@ -78,8 +81,9 @@ const FREE_LIMITS: PlanLimits = {
 export class PlanLimitsService implements PlanLimitsFacade {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(SYSTEM_MODULES_FACADE) private readonly systemModulesService: SystemModulesFacade,
-    private readonly capabilities: CapabilitiesService,
+    @Inject(SYSTEM_MODULES_FACADE)
+    private readonly systemModulesService: SystemModulesFacade,
+    private readonly capabilities: CapabilitiesService
   ) {}
 
   // ─── Core: plan limits + effective modules ──────────────────────────────────
@@ -92,7 +96,8 @@ export class PlanLimitsService implements PlanLimitsFacade {
 
     // Global kill-switch applies to EVERYONE, including SUPERADMIN — it's a
     // maintenance/feature-flag layer, not an RBAC concern.
-    const globallyDisabled = await this.systemModulesService.getDisabledModules();
+    const globallyDisabled =
+      await this.systemModulesService.getDisabledModules();
 
     // ADMIN/SUPERADMIN/NORMAL: unrestricted by plan/category
     if (
@@ -104,7 +109,9 @@ export class PlanLimitsService implements PlanLimitsFacade {
       return {
         ...UNLIMITED_LIMITS_BASE,
         enabledModules: allModules,
-        effectiveModules: allModules.filter((m) => !globallyDisabled.includes(m)),
+        effectiveModules: allModules.filter(
+          (m) => !globallyDisabled.includes(m)
+        ),
       };
     }
 
@@ -146,14 +153,12 @@ export class PlanLimitsService implements PlanLimitsFacade {
     const categoryFiltered = await this.intersectWithCategory(
       planModules,
       user?.categoryId ?? null,
-      userId,
+      userId
     );
 
     // Intersect with the commerce's own self-service opt-outs
-    const commercePreferenceFiltered = await this.intersectWithCommercePreference(
-      categoryFiltered,
-      userId
-    );
+    const commercePreferenceFiltered =
+      await this.intersectWithCommercePreference(categoryFiltered, userId);
 
     // Finally, the global kill-switch — overrides everything above
     const effectiveModules = commercePreferenceFiltered.filter(
@@ -185,7 +190,8 @@ export class PlanLimitsService implements PlanLimitsFacade {
       where: { id: userId },
       select: { role: true, categoryId: true },
     });
-    const globallyDisabled = await this.systemModulesService.getDisabledModules();
+    const globallyDisabled =
+      await this.systemModulesService.getDisabledModules();
 
     if (
       user?.role === Role.SUPERADMIN ||
@@ -202,7 +208,11 @@ export class PlanLimitsService implements PlanLimitsFacade {
       orderBy: { createdAt: 'desc' },
     });
     const planModules = sub?.plan.enabledModules ?? FREE_MODULES;
-    const categoryFiltered = await this.intersectWithCategory(planModules, user?.categoryId ?? null, userId);
+    const categoryFiltered = await this.intersectWithCategory(
+      planModules,
+      user?.categoryId ?? null,
+      userId
+    );
     return categoryFiltered.filter((m) => !globallyDisabled.includes(m));
   }
 
@@ -222,7 +232,7 @@ export class PlanLimitsService implements PlanLimitsFacade {
   private async intersectWithCategory(
     planModules: string[],
     categoryId: string | null,
-    userId: string,
+    userId: string
   ): Promise<string[]> {
     if (!categoryId) return planModules;
 
@@ -236,7 +246,9 @@ export class PlanLimitsService implements PlanLimitsFacade {
 
     let categoryModules = category.allowedModules;
     if (await this.capabilities.has(userId, 'HAS_PROFESSIONAL_PROFILE')) {
-      categoryModules = [...new Set([...categoryModules, ...SERVICE_PROVIDER_BASE_MODULES])];
+      categoryModules = [
+        ...new Set([...categoryModules, ...SERVICE_PROVIDER_BASE_MODULES]),
+      ];
     }
 
     return planModules.filter((m) => categoryModules.includes(m));

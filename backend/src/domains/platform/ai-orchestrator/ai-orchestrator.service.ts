@@ -1,9 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { ServicesService } from '../../commerce-core/services/services.service';
-import { QueryServicesDto, ServiceSortBy } from '../../commerce-core/services/dto/query-services.dto';
+import {
+  QueryServicesDto,
+  ServiceSortBy,
+} from '../../commerce-core/services/dto/query-services.dto';
 import { SearchNeedDto } from './dto/search-need.dto';
 import { ConfirmNeedDto } from './dto/confirm-need.dto';
 
@@ -34,7 +41,7 @@ export class AiOrchestratorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly servicesService: ServicesService,
+    private readonly servicesService: ServicesService
   ) {}
 
   async searchNeed(userId: string, dto: SearchNeedDto) {
@@ -42,7 +49,8 @@ export class AiOrchestratorService {
       where: { id: dto.categoryId },
       select: { id: true, name: true },
     });
-    if (!category) throw new NotFoundException('Categoría de servicio no encontrada');
+    if (!category)
+      throw new NotFoundException('Categoría de servicio no encontrada');
 
     const query: QueryServicesDto = {
       categoryId: dto.categoryId,
@@ -59,7 +67,11 @@ export class AiOrchestratorService {
       categoryId: dto.categoryId,
       serviceIds: results.data.map((s: any) => s.id),
     };
-    await this.redis.setex(searchCacheKey(searchId), SEARCH_TTL_SECONDS, JSON.stringify(cached));
+    await this.redis.setex(
+      searchCacheKey(searchId),
+      SEARCH_TTL_SECONDS,
+      JSON.stringify(cached)
+    );
 
     return {
       searchId,
@@ -73,14 +85,18 @@ export class AiOrchestratorService {
   async confirmNeed(userId: string, dto: ConfirmNeedDto) {
     const raw = await this.redis.get(searchCacheKey(dto.searchId));
     if (!raw) {
-      throw new BadRequestException('Esta búsqueda expiró o no existe. Vuelve a buscar antes de confirmar.');
+      throw new BadRequestException(
+        'Esta búsqueda expiró o no existe. Vuelve a buscar antes de confirmar.'
+      );
     }
     const cached = JSON.parse(raw) as CachedSearch;
     if (cached.userId !== userId) {
       throw new NotFoundException('Búsqueda no encontrada');
     }
     if (!cached.serviceIds.includes(dto.serviceId)) {
-      throw new BadRequestException('Ese servicio no formaba parte de los resultados de esta búsqueda.');
+      throw new BadRequestException(
+        'Ese servicio no formaba parte de los resultados de esta búsqueda.'
+      );
     }
 
     const service = await this.prisma.service.findUnique({
@@ -94,7 +110,8 @@ export class AiOrchestratorService {
         user: { select: { firstName: true, lastName: true } },
       },
     });
-    if (!service) throw new NotFoundException('El servicio ya no está disponible');
+    if (!service)
+      throw new NotFoundException('El servicio ya no está disponible');
 
     const requester = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -114,7 +131,8 @@ export class AiOrchestratorService {
         serviceId: service.id,
         serviceName: service.name,
         providerId: service.userId,
-        providerName: `${service.user.firstName} ${service.user.lastName}`.trim(),
+        providerName:
+          `${service.user.firstName} ${service.user.lastName}`.trim(),
         preferredDate: dto.preferredDate,
         preferredTime: dto.preferredTime,
         address: dto.address,
@@ -125,7 +143,7 @@ export class AiOrchestratorService {
         price: service.price,
         priceUnit: service.priceUnit ?? undefined,
       },
-      userId,
+      userId
     );
 
     await this.redis.del(searchCacheKey(dto.searchId));

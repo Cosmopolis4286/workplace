@@ -41,8 +41,8 @@ export class StockSnapshotScheduler {
             date: day,
             lowStockCount: c._count.id,
           },
-        }),
-      ),
+        })
+      )
     );
   }
 }

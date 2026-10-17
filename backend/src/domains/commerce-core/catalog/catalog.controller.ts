@@ -104,11 +104,7 @@ export class CatalogController {
     @CurrentUser() user: any
   ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
-    return this.catalogService.updateOrderStatus(
-      id,
-      commerceId,
-      status
-    );
+    return this.catalogService.updateOrderStatus(id, commerceId, status);
   }
 
   @Patch('orders/:id/confirm-completion')
@@ -119,7 +115,11 @@ export class CatalogController {
 
   @Patch('orders/:id/dispute')
   @UseGuards(JwtAuthGuard)
-  disputeOrder(@Param('id') id: string, @CurrentUser() user: any, @Body('reason') reason: string) {
+  disputeOrder(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body('reason') reason: string
+  ) {
     return this.catalogService.disputeOrder(id, user.id, reason);
   }
 

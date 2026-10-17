@@ -22,7 +22,11 @@ import { PrismaService } from '../../prisma/prisma.service';
  * §3): solo se promueve a persistencia si una capacidad necesita estado
  * propio (ej. suspensión temporal).
  */
-export const CAPABILITIES = ['HAS_COMMERCE', 'HAS_PROFESSIONAL_PROFILE', 'HAS_BUSINESS_PROFILE'] as const;
+export const CAPABILITIES = [
+  'HAS_COMMERCE',
+  'HAS_PROFESSIONAL_PROFILE',
+  'HAS_BUSINESS_PROFILE',
+] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 export type CapabilityMap = Record<Capability, boolean>;
 
@@ -52,7 +56,10 @@ export class CapabilitiesService {
       where: { id: userId },
       select: {
         commerce: { select: { id: true } },
-        profiles: { where: { status: ProfileStatus.ACTIVE }, select: { type: true } },
+        profiles: {
+          where: { status: ProfileStatus.ACTIVE },
+          select: { type: true },
+        },
       },
     });
     return capabilitiesFrom({

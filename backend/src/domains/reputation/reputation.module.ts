@@ -7,7 +7,10 @@ import { REPUTATION_FACADE } from './reputation.facade';
 @Module({
   imports: [PrismaModule],
   controllers: [ReputationController],
-  providers: [ReputationService, { provide: REPUTATION_FACADE, useExisting: ReputationService }],
+  providers: [
+    ReputationService,
+    { provide: REPUTATION_FACADE, useExisting: ReputationService },
+  ],
   // ReputationService se exporta directo para uso intra-módulo; consumidores
   // de otros dominios (services, orders, delivery, reports) deben inyectar
   // REPUTATION_FACADE — mismo patrón que money/platform-fees.

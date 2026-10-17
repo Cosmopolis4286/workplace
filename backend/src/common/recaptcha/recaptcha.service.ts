@@ -20,7 +20,11 @@ export class RecaptchaService {
    * Si no hay RECAPTCHA_SECRET_KEY configurada (dev/test), no bloquea —
    * simétrico con el frontend, que tampoco ejecuta el challenge sin site key.
    */
-  async verify(token: string | undefined, action: string, ip?: string): Promise<boolean> {
+  async verify(
+    token: string | undefined,
+    action: string,
+    ip?: string
+  ): Promise<boolean> {
     const secret = this.config.get('RECAPTCHA_SECRET_KEY');
     if (!secret) return true;
 
@@ -36,22 +40,30 @@ export class RecaptchaService {
       });
 
       if (!data.success) {
-        this.logger.warn(`reCAPTCHA rechazado (action=${action}): ${JSON.stringify(data['error-codes'])}`);
+        this.logger.warn(
+          `reCAPTCHA rechazado (action=${action}): ${JSON.stringify(data['error-codes'])}`
+        );
         return false;
       }
       if (data.action !== action) {
-        this.logger.warn(`reCAPTCHA action mismatch: esperado=${action} recibido=${data.action}`);
+        this.logger.warn(
+          `reCAPTCHA action mismatch: esperado=${action} recibido=${data.action}`
+        );
         return false;
       }
       if (typeof data.score === 'number' && data.score < MIN_SCORE) {
-        this.logger.warn(`reCAPTCHA score bajo (action=${action}): ${data.score}`);
+        this.logger.warn(
+          `reCAPTCHA score bajo (action=${action}): ${data.score}`
+        );
         return false;
       }
       return true;
     } catch (err) {
       // Fallo de red hacia Google no debe bloquear el login/registro —
       // se registra pero se deja pasar, igual que otros checks best-effort del proyecto.
-      this.logger.error(`Error verificando reCAPTCHA (action=${action}): ${err.message}`);
+      this.logger.error(
+        `Error verificando reCAPTCHA (action=${action}): ${err.message}`
+      );
       return true;
     }
   }

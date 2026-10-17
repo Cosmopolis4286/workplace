@@ -1,21 +1,21 @@
-import { Test, TestingModule } from '@nestjs/testing'
-import { AnalyticsController } from '../../domains/engagement/analytics/analytics.controller'
-import { AnalyticsService } from '../../domains/engagement/analytics/analytics.service'
-import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service'
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
-import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { Test, TestingModule } from '@nestjs/testing';
+import { AnalyticsController } from '../../domains/engagement/analytics/analytics.controller';
+import { AnalyticsService } from '../../domains/engagement/analytics/analytics.service';
+import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 
 describe('AnalyticsController', () => {
-  let controller: AnalyticsController
-  let service: AnalyticsService
+  let controller: AnalyticsController;
+  let service: AnalyticsService;
 
   const mockAnalyticsService = {
     getOverview: jest.fn(),
-  }
+  };
 
   const mockPermissionsService = {
     hasPermission: jest.fn().mockResolvedValue(true),
-  }
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -35,20 +35,23 @@ describe('AnalyticsController', () => {
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
-      .compile()
+      .compile();
 
-    controller = module.get<AnalyticsController>(AnalyticsController)
-    service = module.get<AnalyticsService>(AnalyticsService)
-  })
+    controller = module.get<AnalyticsController>(AnalyticsController);
+    service = module.get<AnalyticsService>(AnalyticsService);
+  });
 
   it('should be defined', () => {
-    expect(controller).toBeDefined()
-  })
+    expect(controller).toBeDefined();
+  });
 
   describe('getOverview', () => {
     it('should return analytics overview', async () => {
-      const userId = 'user-123'
-      const queryDto = { period: '30d' as const, compareWith: 'previous' as const }
+      const userId = 'user-123';
+      const queryDto = {
+        period: '30d' as const,
+        compareWith: 'previous' as const,
+      };
 
       const expectedResult = {
         period: '30d',
@@ -110,14 +113,21 @@ describe('AnalyticsController', () => {
             totalOrders: expect.any(Number),
           },
         },
-      }
+      };
 
-      mockAnalyticsService.getOverview.mockResolvedValue(expectedResult)
+      mockAnalyticsService.getOverview.mockResolvedValue(expectedResult);
 
-      const result = await controller.getOverview({ id: userId, role: 'PROFESIONAL' } as any, queryDto)
+      const result = await controller.getOverview(
+        { id: userId, role: 'PROFESIONAL' } as any,
+        queryDto
+      );
 
-      expect(result).toEqual(expectedResult)
-      expect(service.getOverview).toHaveBeenCalledWith(userId, 'PROFESIONAL', queryDto)
-    })
-  })
-})
+      expect(result).toEqual(expectedResult);
+      expect(service.getOverview).toHaveBeenCalledWith(
+        userId,
+        'PROFESIONAL',
+        queryDto
+      );
+    });
+  });
+});

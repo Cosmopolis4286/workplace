@@ -37,7 +37,15 @@ export interface PlanLimitsFacade {
   getUsage(
     userId: string,
     commerceId: string
-  ): Promise<{ limits: PlanLimits; usage: { products: number; employees: number; branches: number; ordersThisMonth: number } }>;
+  ): Promise<{
+    limits: PlanLimits;
+    usage: {
+      products: number;
+      employees: number;
+      branches: number;
+      ordersThisMonth: number;
+    };
+  }>;
 }
 
 export const PLAN_LIMITS_FACADE = Symbol('PLAN_LIMITS_FACADE');

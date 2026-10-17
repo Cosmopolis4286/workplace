@@ -13,10 +13,24 @@ import {
  * protegidos por @RequireCapability('HAS_COMMERCE') en el controller.
  */
 export interface SettingsAccountStrategy {
-  getSettings(userId: string): Promise<{ commerce: unknown; settings: unknown }>;
-  updatePaymentSettings(userId: string, dto: UpdatePaymentSettingsDto): Promise<unknown>;
-  updateNotificationSettings(userId: string, dto: UpdateNotificationSettingsDto): Promise<unknown>;
-  getModuleSettings(userId: string, availableModules: string[]): Promise<{ availableModules: string[]; disabledModules: string[] }>;
-  updateModuleSettings(userId: string, dto: UpdateModuleSettingsDto): Promise<unknown>;
+  getSettings(
+    userId: string
+  ): Promise<{ commerce: unknown; settings: unknown }>;
+  updatePaymentSettings(
+    userId: string,
+    dto: UpdatePaymentSettingsDto
+  ): Promise<unknown>;
+  updateNotificationSettings(
+    userId: string,
+    dto: UpdateNotificationSettingsDto
+  ): Promise<unknown>;
+  getModuleSettings(
+    userId: string,
+    availableModules: string[]
+  ): Promise<{ availableModules: string[]; disabledModules: string[] }>;
+  updateModuleSettings(
+    userId: string,
+    dto: UpdateModuleSettingsDto
+  ): Promise<unknown>;
   updateLocation(userId: string, dto: UpdateLocationDto): Promise<unknown>;
 }

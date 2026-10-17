@@ -1,44 +1,48 @@
-import { Test, TestingModule } from '@nestjs/testing'
-import { PrismaService } from '../../prisma/prisma.service'
+import { Test, TestingModule } from '@nestjs/testing';
+import { PrismaService } from '../../prisma/prisma.service';
 
 describe('PrismaService', () => {
-  let service: PrismaService
+  let service: PrismaService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [PrismaService],
-    }).compile()
+    }).compile();
 
-    service = module.get<PrismaService>(PrismaService)
-  })
+    service = module.get<PrismaService>(PrismaService);
+  });
 
   it('should be defined', () => {
-    expect(service).toBeDefined()
-  })
+    expect(service).toBeDefined();
+  });
 
   it('should have prisma client methods available', () => {
-    expect(service.$connect).toBeDefined()
-    expect(service.$disconnect).toBeDefined()
-    expect(service.user).toBeDefined()
-  })
+    expect(service.$connect).toBeDefined();
+    expect(service.$disconnect).toBeDefined();
+    expect(service.user).toBeDefined();
+  });
 
   describe('onModuleInit', () => {
     it('should connect to database', async () => {
-      const connectSpy = jest.spyOn(service, '$connect').mockResolvedValue(undefined)
-      
-      await service.onModuleInit()
-      
-      expect(connectSpy).toHaveBeenCalled()
-    })
-  })
+      const connectSpy = jest
+        .spyOn(service, '$connect')
+        .mockResolvedValue(undefined);
+
+      await service.onModuleInit();
+
+      expect(connectSpy).toHaveBeenCalled();
+    });
+  });
 
   describe('onModuleDestroy', () => {
     it('should disconnect from database', async () => {
-      const disconnectSpy = jest.spyOn(service, '$disconnect').mockResolvedValue(undefined)
-      
-      await service.onModuleDestroy()
-      
-      expect(disconnectSpy).toHaveBeenCalled()
-    })
-  })
-})
+      const disconnectSpy = jest
+        .spyOn(service, '$disconnect')
+        .mockResolvedValue(undefined);
+
+      await service.onModuleDestroy();
+
+      expect(disconnectSpy).toHaveBeenCalled();
+    });
+  });
+});

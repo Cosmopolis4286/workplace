@@ -5,7 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { Role, WalletTransactionType, WalletTransactionStatus } from '@prisma/client';
+import {
+  Role,
+  WalletTransactionType,
+  WalletTransactionStatus,
+} from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -45,14 +49,17 @@ export class WalletsService {
     // ese ciclo rompe la carga de módulos de Nest incluso con forwardRef()
     // porque el import estático de TypeScript entre los dos .module.ts ya
     // es circular a nivel de archivo. Ver retryPendingEscrowsForClient.
-    private readonly moduleRef: ModuleRef,
+    private readonly moduleRef: ModuleRef
   ) {}
 
   // ─── Wallet CRUD ─────────────────────────────────────────────────────────────
 
   async ensureWalletForUser(userId: string, currency = 'USD') {
     const normalizedCurrency = this.normalizeCurrency(currency);
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
     return this.prisma.wallet.upsert({
@@ -70,7 +77,11 @@ export class WalletsService {
     return this.ensureWalletForUser(userId, dto.currency);
   }
 
-  async createForUser(targetUserId: string, dto: CreateWalletDto, actorRole: Role) {
+  async createForUser(
+    targetUserId: string,
+    dto: CreateWalletDto,
+    actorRole: Role
+  ) {
     this.assertAdmin(actorRole);
     return this.ensureWalletForUser(targetUserId, dto.currency);
   }
@@ -114,7 +125,13 @@ export class WalletsService {
     ]);
 
     const data = rawData.map(({ pin: _, ...w }) => ({ ...w, hasPin: !!_ }));
-    return { data, total, page: safePage, limit: safeLimit, totalPages: Math.ceil(total / safeLimit) };
+    return {
+      data,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+    };
   }
 
   // ─── PIN management ───────────────────────────────────────────────────────────
@@ -135,9 +152,12 @@ export class WalletsService {
 
   async freezeWallet(targetUserId: string, actorId: string, actorRole: Role) {
     this.assertAdmin(actorRole);
-    const wallet = await this.prisma.wallet.findUnique({ where: { userId: targetUserId } });
+    const wallet = await this.prisma.wallet.findUnique({
+      where: { userId: targetUserId },
+    });
     if (!wallet) throw new NotFoundException('Billetera no encontrada');
-    if (wallet.frozenAt) throw new BadRequestException('La billetera ya está congelada');
+    if (wallet.frozenAt)
+      throw new BadRequestException('La billetera ya está congelada');
 
     return this.prisma.wallet.update({
       where: { id: wallet.id },
@@ -148,9 +168,12 @@ export class WalletsService {
 
   async unfreezeWallet(targetUserId: string, actorRole: Role) {
     this.assertAdmin(actorRole);
-    const wallet = await this.prisma.wallet.findUnique({ where: { userId: targetUserId } });
+    const wallet = await this.prisma.wallet.findUnique({
+      where: { userId: targetUserId },
+    });
     if (!wallet) throw new NotFoundException('Billetera no encontrada');
-    if (!wallet.frozenAt) throw new BadRequestException('La billetera no está congelada');
+    if (!wallet.frozenAt)
+      throw new BadRequestException('La billetera no está congelada');
 
     return this.prisma.wallet.update({
       where: { id: wallet.id },
@@ -169,7 +192,11 @@ export class WalletsService {
 
   async deposit(userId: string, role: Role, dto: DepositDto) {
     if (dto.idempotencyKey) {
-      const cached = await this.getIdempotent(dto.idempotencyKey, userId, 'deposit');
+      const cached = await this.getIdempotent(
+        dto.idempotencyKey,
+        userId,
+        'deposit'
+      );
       if (cached) return cached;
     }
 
@@ -178,7 +205,11 @@ export class WalletsService {
 
     // Balance ceiling check against current balance (pre-transaction check; atomic guard inside tx)
     const limits = await this.limitsService.getLimitsForRole(role);
-    await this.limitsService.assertBalanceLimit(userId, role, wallet.balance + dto.amount);
+    await this.limitsService.assertBalanceLimit(
+      userId,
+      role,
+      wallet.balance + dto.amount
+    );
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Atomic UPDATE: enforce ceiling inside the transaction to prevent race
@@ -190,11 +221,15 @@ export class WalletsService {
           AND balance + ${dto.amount}::numeric <= ${limits.maxBalance}::numeric
         RETURNING balance AS new_balance
       `;
-      if (!row) throw new BadRequestException('La operación superaría el límite de saldo permitido');
+      if (!row)
+        throw new BadRequestException(
+          'La operación superaría el límite de saldo permitido'
+        );
 
       const transaction = await tx.walletTransaction.create({
         data: {
-          walletId: wallet.id, userId,
+          walletId: wallet.id,
+          userId,
           type: WalletTransactionType.CREDIT,
           status: WalletTransactionStatus.COMPLETED,
           amount: dto.amount,
@@ -230,7 +265,11 @@ export class WalletsService {
   async withdraw(userId: string, role: Role, dto: WithdrawDto) {
     // Idempotency before PIN so a replay doesn't consume another PIN attempt
     if (dto.idempotencyKey) {
-      const cached = await this.getIdempotent(dto.idempotencyKey, userId, 'withdraw');
+      const cached = await this.getIdempotent(
+        dto.idempotencyKey,
+        userId,
+        'withdraw'
+      );
       if (cached) return cached;
     }
 
@@ -260,10 +299,12 @@ export class WalletsService {
 
       const transaction = await tx.walletTransaction.create({
         data: {
-          walletId: wallet.id, userId,
+          walletId: wallet.id,
+          userId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount: dto.amount, balanceAfter: row.new_balance,
+          amount: dto.amount,
+          balanceAfter: row.new_balance,
           description: dto.description ?? 'Retiro',
           reference: dto.reference ?? dto.idempotencyKey,
           metadata: dto.metadata,
@@ -290,7 +331,11 @@ export class WalletsService {
     await this.pinService.verifyPin(senderId, dto.pin);
 
     if (dto.idempotencyKey) {
-      const cached = await this.getIdempotent(dto.idempotencyKey, senderId, 'transfer');
+      const cached = await this.getIdempotent(
+        dto.idempotencyKey,
+        senderId,
+        'transfer'
+      );
       if (cached) return cached;
     }
 
@@ -311,7 +356,9 @@ export class WalletsService {
       where: { userId: dto.recipientUserId },
     });
     if (!recipientWallet || recipientWallet.status !== 'ACTIVE') {
-      throw new BadRequestException('No se pudo procesar la transferencia. Verifica el destinatario.');
+      throw new BadRequestException(
+        'No se pudo procesar la transferencia. Verifica el destinatario.'
+      );
     }
 
     const ref = `TRF-${uuidv4().split('-')[0].toUpperCase()}-${Date.now()}`;
@@ -337,15 +384,20 @@ export class WalletsService {
         RETURNING balance AS new_balance
       `;
 
-      const updatedSender    = { ...senderWallet,    balance: senderRow.new_balance };
-      const updatedRecipient = { ...recipientWallet, balance: recipientRow.new_balance };
+      const updatedSender = { ...senderWallet, balance: senderRow.new_balance };
+      const updatedRecipient = {
+        ...recipientWallet,
+        balance: recipientRow.new_balance,
+      };
       const [debit, credit] = await Promise.all([
         tx.walletTransaction.create({
           data: {
-            walletId: senderWallet.id, userId: senderId,
+            walletId: senderWallet.id,
+            userId: senderId,
             type: WalletTransactionType.DEBIT,
             status: WalletTransactionStatus.COMPLETED,
-            amount: dto.amount, balanceAfter: updatedSender.balance,
+            amount: dto.amount,
+            balanceAfter: updatedSender.balance,
             description: dto.description ?? 'Transferencia enviada',
             reference: ref,
             metadata: { recipientUserId: dto.recipientUserId, ...dto.metadata },
@@ -353,10 +405,12 @@ export class WalletsService {
         }),
         tx.walletTransaction.create({
           data: {
-            walletId: recipientWallet.id, userId: dto.recipientUserId,
+            walletId: recipientWallet.id,
+            userId: dto.recipientUserId,
             type: WalletTransactionType.CREDIT,
             status: WalletTransactionStatus.COMPLETED,
-            amount: dto.amount, balanceAfter: updatedRecipient.balance,
+            amount: dto.amount,
+            balanceAfter: updatedRecipient.balance,
             description: dto.description ?? 'Transferencia recibida',
             reference: ref,
             metadata: { senderUserId: senderId, ...dto.metadata },
@@ -365,7 +419,7 @@ export class WalletsService {
       ]);
       return {
         reference: ref,
-        sender:    { wallet: updatedSender,    transaction: debit },
+        sender: { wallet: updatedSender, transaction: debit },
         recipient: { wallet: updatedRecipient, transaction: credit },
       };
     });
@@ -376,7 +430,12 @@ export class WalletsService {
     ]);
 
     if (dto.idempotencyKey) {
-      await this.setIdempotent(dto.idempotencyKey, senderId, 'transfer', result);
+      await this.setIdempotent(
+        dto.idempotencyKey,
+        senderId,
+        'transfer',
+        result
+      );
     }
     return result;
   }
@@ -384,7 +443,11 @@ export class WalletsService {
   async payment(userId: string, role: Role, dto: PaymentDto) {
     // Idempotency before PIN so a replay doesn't consume another PIN attempt
     if (dto.idempotencyKey) {
-      const cached = await this.getIdempotent(dto.idempotencyKey, userId, 'payment');
+      const cached = await this.getIdempotent(
+        dto.idempotencyKey,
+        userId,
+        'payment'
+      );
       if (cached) return cached;
     }
 
@@ -418,13 +481,19 @@ export class WalletsService {
 
       const transaction = await tx.walletTransaction.create({
         data: {
-          walletId: wallet.id, userId,
+          walletId: wallet.id,
+          userId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount: dto.amount, balanceAfter: row.new_balance,
+          amount: dto.amount,
+          balanceAfter: row.new_balance,
           description: dto.description ?? 'Pago con billetera',
           reference: ref,
-          metadata: { orderId: dto.orderId, serviceRequestId: dto.serviceRequestId, ...dto.metadata },
+          metadata: {
+            orderId: dto.orderId,
+            serviceRequestId: dto.serviceRequestId,
+            ...dto.metadata,
+          },
         },
       });
       return { wallet: { ...wallet, balance: row.new_balance }, transaction };
@@ -443,13 +512,20 @@ export class WalletsService {
   // en la DB (elimina el race entre SELECT y UPDATE que tenía el patrón anterior).
   // Si el saldo es insuficiente, el monto real adeudado queda en metadata.feeOwed.
   // Autocrea el wallet si el proveedor/comercio/conductor aún no tiene uno.
-  async chargePlatformFee(userId: string, amount: number, reference: string, metadata: Record<string, unknown>) {
+  async chargePlatformFee(
+    userId: string,
+    amount: number,
+    reference: string,
+    metadata: Record<string, unknown>
+  ) {
     this.assertPositiveAmount(amount);
     const wallet = await this.ensureWalletForUser(userId);
 
     return this.prisma.$transaction(async (tx) => {
       // CTE captures balance BEFORE the update so prev_balance is always correct
-      const [row] = await tx.$queryRaw<{ new_balance: number; prev_balance: number }[]>`
+      const [row] = await tx.$queryRaw<
+        { new_balance: number; prev_balance: number }[]
+      >`
         WITH prev AS (SELECT balance FROM "wallets" WHERE id = ${wallet.id})
         UPDATE "wallets"
         SET balance = GREATEST(balance - ${amount}::numeric, 0),
@@ -463,14 +539,19 @@ export class WalletsService {
 
       const transaction = await tx.walletTransaction.create({
         data: {
-          walletId: wallet.id, userId,
+          walletId: wallet.id,
+          userId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
           amount: actualCharged,
           balanceAfter: row.new_balance,
           description: 'Comisión de plataforma',
           reference,
-          metadata: { ...metadata, feeOwed: amount, unpaidAmount: unpaid > 0 ? unpaid : undefined } as any,
+          metadata: {
+            ...metadata,
+            feeOwed: amount,
+            unpaidAmount: unpaid > 0 ? unpaid : undefined,
+          } as any,
         },
       });
 
@@ -523,25 +604,29 @@ export class WalletsService {
     const systemUserId = await this.ensureEscrowSystemUserId();
     const systemWallet = await this.ensureWalletForUser(systemUserId);
 
-    const [heldAggregate, pendingFundsAggregate, pendingFundsCount] = await Promise.all([
-      this.prisma.serviceRequest.aggregate({
-        where: { escrowStatus: 'HELD' },
-        _sum: { escrowAmount: true },
-        _count: true,
-      }),
-      this.prisma.serviceRequest.aggregate({
-        where: { escrowStatus: 'PENDING_FUNDS' },
-        _sum: { escrowAmount: true },
-      }),
-      this.prisma.serviceRequest.count({ where: { escrowStatus: 'PENDING_FUNDS' } }),
-    ]);
+    const [heldAggregate, pendingFundsAggregate, pendingFundsCount] =
+      await Promise.all([
+        this.prisma.serviceRequest.aggregate({
+          where: { escrowStatus: 'HELD' },
+          _sum: { escrowAmount: true },
+          _count: true,
+        }),
+        this.prisma.serviceRequest.aggregate({
+          where: { escrowStatus: 'PENDING_FUNDS' },
+          _sum: { escrowAmount: true },
+        }),
+        this.prisma.serviceRequest.count({
+          where: { escrowStatus: 'PENDING_FUNDS' },
+        }),
+      ]);
 
     const actualBalance = systemWallet.balance;
     // "Esperado" = solo lo efectivamente retenido (HELD). PENDING_FUNDS es
     // dinero que el cliente todavía no depositó — no debería estar en la
     // wallet de plataforma, se reporta aparte como referencia.
     const expectedBalance = heldAggregate._sum.escrowAmount ?? 0;
-    const discrepancy = Math.round((actualBalance - expectedBalance) * 100) / 100;
+    const discrepancy =
+      Math.round((actualBalance - expectedBalance) * 100) / 100;
 
     return {
       systemWalletBalance: actualBalance,
@@ -563,11 +648,18 @@ export class WalletsService {
   // `referenceOverride` permite distinguir en el libro de movimientos una
   // retención inicial (ESCROW-HOLD-{id}) de un aumento de precio aprobado
   // (ESCROW-HOLD-INCREASE-{proposalId}) — ver ServicesService.approvePriceChangeProposal.
-  async holdEscrow(clientUserId: string, amount: number, serviceRequestId: string, referenceOverride?: string) {
+  async holdEscrow(
+    clientUserId: string,
+    amount: number,
+    serviceRequestId: string,
+    referenceOverride?: string
+  ) {
     this.assertPositiveAmount(amount);
     const { wallet: clientWallet } = await this.getActiveWallet(clientUserId);
     if (clientWallet.balance < amount) {
-      throw new InsufficientEscrowFundsError('Saldo insuficiente para retener la garantía');
+      throw new InsufficientEscrowFundsError(
+        'Saldo insuficiente para retener la garantía'
+      );
     }
 
     const systemUserId = await this.ensureEscrowSystemUserId();
@@ -583,7 +675,10 @@ export class WalletsService {
           AND balance >= ${amount}::numeric
         RETURNING balance AS new_balance
       `;
-      if (!clientRow) throw new InsufficientEscrowFundsError('Saldo insuficiente para retener la garantía');
+      if (!clientRow)
+        throw new InsufficientEscrowFundsError(
+          'Saldo insuficiente para retener la garantía'
+        );
 
       const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
         UPDATE "wallets"
@@ -595,10 +690,12 @@ export class WalletsService {
 
       await tx.walletTransaction.create({
         data: {
-          walletId: clientWallet.id, userId: clientUserId,
+          walletId: clientWallet.id,
+          userId: clientUserId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount, balanceAfter: clientRow.new_balance,
+          amount,
+          balanceAfter: clientRow.new_balance,
           description: 'Garantía retenida para solicitud de servicio',
           reference: ref,
           metadata: { serviceRequestId },
@@ -606,10 +703,12 @@ export class WalletsService {
       });
       const systemTransaction = await tx.walletTransaction.create({
         data: {
-          walletId: systemWallet.id, userId: systemUserId,
+          walletId: systemWallet.id,
+          userId: systemUserId,
           type: WalletTransactionType.CREDIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount, balanceAfter: systemRow.new_balance,
+          amount,
+          balanceAfter: systemRow.new_balance,
           description: 'Garantía retenida (intermediación)',
           reference: ref,
           metadata: { serviceRequestId, clientUserId },
@@ -624,7 +723,11 @@ export class WalletsService {
   // El monto liberado ya debe venir neto de la comisión de plataforma (el
   // caller resta platformFeeAmount antes de invocar esto) — la comisión en sí
   // se cobra aparte vía chargeProviderFee, no se duplica acá.
-  async releaseEscrow(serviceRequestId: string, providerId: string, amount: number) {
+  async releaseEscrow(
+    serviceRequestId: string,
+    providerId: string,
+    amount: number
+  ) {
     this.assertPositiveAmount(amount);
     const systemUserId = await this.ensureEscrowSystemUserId();
     const systemWallet = await this.ensureWalletForUser(systemUserId);
@@ -649,10 +752,12 @@ export class WalletsService {
 
       await tx.walletTransaction.create({
         data: {
-          walletId: systemWallet.id, userId: systemUserId,
+          walletId: systemWallet.id,
+          userId: systemUserId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount, balanceAfter: systemRow.new_balance,
+          amount,
+          balanceAfter: systemRow.new_balance,
           description: 'Garantía liberada (intermediación)',
           reference: ref,
           metadata: { serviceRequestId, providerId },
@@ -660,10 +765,12 @@ export class WalletsService {
       });
       const providerTransaction = await tx.walletTransaction.create({
         data: {
-          walletId: providerWallet.id, userId: providerId,
+          walletId: providerWallet.id,
+          userId: providerId,
           type: WalletTransactionType.CREDIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount, balanceAfter: providerRow.new_balance,
+          amount,
+          balanceAfter: providerRow.new_balance,
           description: 'Pago de servicio (garantía liberada)',
           reference: ref,
           metadata: { serviceRequestId },
@@ -675,7 +782,11 @@ export class WalletsService {
   }
 
   // Reembolsa el escrow al cliente (cancelación/rechazo de la solicitud).
-  async refundEscrow(serviceRequestId: string, clientUserId: string, amount: number) {
+  async refundEscrow(
+    serviceRequestId: string,
+    clientUserId: string,
+    amount: number
+  ) {
     this.assertPositiveAmount(amount);
     const systemUserId = await this.ensureEscrowSystemUserId();
     const systemWallet = await this.ensureWalletForUser(systemUserId);
@@ -700,10 +811,12 @@ export class WalletsService {
 
       await tx.walletTransaction.create({
         data: {
-          walletId: systemWallet.id, userId: systemUserId,
+          walletId: systemWallet.id,
+          userId: systemUserId,
           type: WalletTransactionType.DEBIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount, balanceAfter: systemRow.new_balance,
+          amount,
+          balanceAfter: systemRow.new_balance,
           description: 'Reembolso de garantía (intermediación)',
           reference: ref,
           metadata: { serviceRequestId, clientUserId },
@@ -711,10 +824,12 @@ export class WalletsService {
       });
       const clientTransaction = await tx.walletTransaction.create({
         data: {
-          walletId: clientWallet.id, userId: clientUserId,
+          walletId: clientWallet.id,
+          userId: clientUserId,
           type: WalletTransactionType.CREDIT,
           status: WalletTransactionStatus.COMPLETED,
-          amount, balanceAfter: clientRow.new_balance,
+          amount,
+          balanceAfter: clientRow.new_balance,
           description: 'Garantía reembolsada',
           reference: ref,
           metadata: { serviceRequestId },
@@ -725,7 +840,12 @@ export class WalletsService {
     });
   }
 
-  async adjust(targetUserId: string, actorId: string, actorRole: Role, dto: AdjustDto) {
+  async adjust(
+    targetUserId: string,
+    actorId: string,
+    actorRole: Role,
+    dto: AdjustDto
+  ) {
     this.assertAdmin(actorRole);
     const { wallet } = await this.getActiveWallet(targetUserId);
     this.assertPositiveAmount(dto.amount);
@@ -736,19 +856,27 @@ export class WalletsService {
       throw new BadRequestException('El motivo del ajuste es obligatorio');
     }
 
-    const isCredit  = dto.type === WalletTransactionType.CREDIT;
-    const newBalance = isCredit ? wallet.balance + dto.amount : wallet.balance - dto.amount;
+    const isCredit = dto.type === WalletTransactionType.CREDIT;
+    const newBalance = isCredit
+      ? wallet.balance + dto.amount
+      : wallet.balance - dto.amount;
 
-    if (newBalance < 0) throw new BadRequestException('El ajuste dejaría el saldo en negativo');
+    if (newBalance < 0)
+      throw new BadRequestException('El ajuste dejaría el saldo en negativo');
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.wallet.update({ where: { id: wallet.id }, data: { balance: newBalance } });
+      const updated = await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: newBalance },
+      });
       const transaction = await tx.walletTransaction.create({
         data: {
-          walletId: wallet.id, userId: targetUserId,
+          walletId: wallet.id,
+          userId: targetUserId,
           type: WalletTransactionType.ADJUSTMENT,
           status: WalletTransactionStatus.COMPLETED,
-          amount: dto.amount, balanceAfter: newBalance,
+          amount: dto.amount,
+          balanceAfter: newBalance,
           description: dto.description.trim(),
           metadata: { adminId: actorId, ...dto.metadata },
         },
@@ -759,28 +887,50 @@ export class WalletsService {
 
   // ─── Transactions list ────────────────────────────────────────────────────────
 
-  async listCurrentUserTransactions(userId: string, query: QueryWalletTransactionsDto) {
+  async listCurrentUserTransactions(
+    userId: string,
+    query: QueryWalletTransactionsDto
+  ) {
     const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) throw new NotFoundException('Billetera no encontrada');
     return this.listTransactions(wallet.id, userId, query);
   }
 
-  async listUserTransactions(targetUserId: string, actorRole: Role, query: QueryWalletTransactionsDto) {
+  async listUserTransactions(
+    targetUserId: string,
+    actorRole: Role,
+    query: QueryWalletTransactionsDto
+  ) {
     this.assertAdmin(actorRole);
-    const wallet = await this.prisma.wallet.findUnique({ where: { userId: targetUserId } });
+    const wallet = await this.prisma.wallet.findUnique({
+      where: { userId: targetUserId },
+    });
     if (!wallet) throw new NotFoundException('Billetera no encontrada');
     return this.listTransactions(wallet.id, targetUserId, query);
   }
 
-  private async listTransactions(walletId: string, userId: string, query: QueryWalletTransactionsDto) {
-    const page  = Math.max(1, parseInt(query.page ?? '1'));
+  private async listTransactions(
+    walletId: string,
+    userId: string,
+    query: QueryWalletTransactionsDto
+  ) {
+    const page = Math.max(1, parseInt(query.page ?? '1'));
     const limit = Math.min(50, Math.max(1, parseInt(query.limit ?? '20')));
-    const skip  = (page - 1) * limit;
-    const where: { walletId: string; userId: string; type?: WalletTransactionType } = { walletId, userId };
+    const skip = (page - 1) * limit;
+    const where: {
+      walletId: string;
+      userId: string;
+      type?: WalletTransactionType;
+    } = { walletId, userId };
     if (query.type) where.type = query.type;
 
     const [data, total] = await Promise.all([
-      this.prisma.walletTransaction.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      this.prisma.walletTransaction.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
       this.prisma.walletTransaction.count({ where }),
     ]);
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
@@ -792,16 +942,25 @@ export class WalletsService {
     return `wallet:idempotent:${op}:${userId}:${key}`;
   }
 
-  private async getIdempotent(key: string, userId: string, op: string): Promise<any | null> {
+  private async getIdempotent(
+    key: string,
+    userId: string,
+    op: string
+  ): Promise<any | null> {
     const raw = await this.redis.get(this.idempotentKey(key, userId, op));
     return raw ? JSON.parse(raw) : null;
   }
 
-  private async setIdempotent(key: string, userId: string, op: string, result: any) {
+  private async setIdempotent(
+    key: string,
+    userId: string,
+    op: string,
+    result: any
+  ) {
     await this.redis.setex(
       this.idempotentKey(key, userId, op),
       IDEMPOTENCY_TTL,
-      JSON.stringify(result),
+      JSON.stringify(result)
     );
   }
 
@@ -809,16 +968,30 @@ export class WalletsService {
 
   private async getActiveWallet(userId: string) {
     const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
-    if (!wallet) throw new NotFoundException('Billetera no encontrada. Crea una primero.');
-    if (wallet.frozenAt) throw new BadRequestException('La billetera está congelada por el administrador.');
-    if (wallet.status === 'SUSPENDED') throw new BadRequestException('La billetera está suspendida.');
-    if (wallet.status === 'CLOSED')    throw new BadRequestException('La billetera está cerrada.');
+    if (!wallet)
+      throw new NotFoundException('Billetera no encontrada. Crea una primero.');
+    if (wallet.frozenAt)
+      throw new BadRequestException(
+        'La billetera está congelada por el administrador.'
+      );
+    if (wallet.status === 'SUSPENDED')
+      throw new BadRequestException('La billetera está suspendida.');
+    if (wallet.status === 'CLOSED')
+      throw new BadRequestException('La billetera está cerrada.');
     return { wallet };
   }
 
   private walletInclude() {
     return {
-      user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+        },
+      },
       _count: { select: { transactions: true } },
     };
   }
@@ -826,19 +999,24 @@ export class WalletsService {
   private normalizeCurrency(currency: string) {
     const normalized = currency.trim().toUpperCase();
     if (!/^[A-Z]{3}$/.test(normalized)) {
-      throw new BadRequestException('La moneda debe usar código ISO de 3 letras');
+      throw new BadRequestException(
+        'La moneda debe usar código ISO de 3 letras'
+      );
     }
     return normalized;
   }
 
   private assertAdmin(role: Role) {
     if (!ADMIN_ROLES.includes(role)) {
-      throw new ForbiddenException('No tienes permisos para gestionar billeteras de otros usuarios');
+      throw new ForbiddenException(
+        'No tienes permisos para gestionar billeteras de otros usuarios'
+      );
     }
   }
 
   private assertPositiveAmount(amount: number) {
-    if (!amount || amount <= 0) throw new BadRequestException('El monto debe ser mayor a cero');
+    if (!amount || amount <= 0)
+      throw new BadRequestException('El monto debe ser mayor a cero');
   }
 
   private assertSufficientFunds(balance: number, amount: number) {

@@ -8,7 +8,7 @@ import { RedisService } from '../../../redis/redis.service';
 export class HealthController {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly redisService: RedisService,
+    private readonly redisService: RedisService
   ) {}
 
   @Get('health')
@@ -34,7 +34,7 @@ export class HealthController {
   async ready() {
     const uptime = process.uptime();
     const isReady = uptime > 5;
-    
+
     // Verificar conexión a base de datos
     let dbStatus = 'disconnected';
     try {
@@ -56,8 +56,9 @@ export class HealthController {
       console.error('Redis health check failed:', error);
     }
 
-    const allChecksPass = isReady && dbStatus === 'connected' && redisStatus === 'connected';
-    
+    const allChecksPass =
+      isReady && dbStatus === 'connected' && redisStatus === 'connected';
+
     return {
       ready: allChecksPass,
       uptime: uptime,
@@ -66,7 +67,7 @@ export class HealthController {
         database: dbStatus,
         redis: redisStatus,
         application: isReady ? 'ready' : 'starting',
-      }
+      },
     };
   }
 }

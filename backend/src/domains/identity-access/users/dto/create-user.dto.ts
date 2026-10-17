@@ -10,12 +10,7 @@ import {
 import { ProfessionalSubtype, ProfileType, Role } from '@prisma/client';
 
 // Definir los valores válidos del enum
-const VALID_ROLES = [
-  'SUPERADMIN',
-  'ADMIN',
-  'PROFESIONAL',
-  'NORMAL',
-] as const;
+const VALID_ROLES = ['SUPERADMIN', 'ADMIN', 'PROFESIONAL', 'NORMAL'] as const;
 
 export class CreateUserDto {
   @IsString()

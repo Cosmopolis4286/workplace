@@ -65,7 +65,9 @@ export class CreateServiceRequestDto {
 
   @IsString()
   @IsOptional()
-  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'La hora preferida debe tener formato HH:mm' })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+    message: 'La hora preferida debe tener formato HH:mm',
+  })
   preferredTime?: string;
 
   @IsString()

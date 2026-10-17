@@ -13,7 +13,10 @@ export class BnplExpirationCron {
     try {
       await this.bnplService.expirePending();
     } catch (error) {
-      this.logger.error('Fallo al expirar transacciones BNPL pendientes:', error);
+      this.logger.error(
+        'Fallo al expirar transacciones BNPL pendientes:',
+        error
+      );
     }
   }
 }

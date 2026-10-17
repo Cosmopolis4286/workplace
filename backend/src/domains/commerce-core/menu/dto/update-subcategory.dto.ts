@@ -1,19 +1,19 @@
-import { IsString, IsOptional, IsNumber, IsBoolean } from 'class-validator'
+import { IsString, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 
 export class UpdateSubcategoryDto {
   @IsString()
   @IsOptional()
-  name?: string
+  name?: string;
 
   @IsString()
   @IsOptional()
-  description?: string
+  description?: string;
 
   @IsNumber()
   @IsOptional()
-  sortOrder?: number
+  sortOrder?: number;
 
   @IsBoolean()
   @IsOptional()
-  isActive?: boolean
+  isActive?: boolean;
 }

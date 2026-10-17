@@ -1,11 +1,20 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { CAPABILITY_KEY } from '../decorators/require-capability.decorator';
-import { Capability, CapabilitiesService } from '../capabilities/capabilities.service';
+import {
+  Capability,
+  CapabilitiesService,
+} from '../capabilities/capabilities.service';
 
 const MESSAGE_BY_CAPABILITY: Record<Capability, string> = {
   HAS_COMMERCE: 'Esta función requiere un comercio activo en tu cuenta',
-  HAS_PROFESSIONAL_PROFILE: 'Esta función requiere un perfil profesional activo',
+  HAS_PROFESSIONAL_PROFILE:
+    'Esta función requiere un perfil profesional activo',
   HAS_BUSINESS_PROFILE: 'Esta función requiere un perfil de negocio activo',
 };
 
@@ -21,14 +30,14 @@ const MESSAGE_BY_CAPABILITY: Record<Capability, string> = {
 export class CapabilityGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly capabilities: CapabilitiesService,
+    private readonly capabilities: CapabilitiesService
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const required = this.reflector.getAllAndOverride<Capability[]>(CAPABILITY_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const required = this.reflector.getAllAndOverride<Capability[]>(
+      CAPABILITY_KEY,
+      [context.getHandler(), context.getClass()]
+    );
     if (!required?.length) return true;
 
     const { user } = context.switchToHttp().getRequest();

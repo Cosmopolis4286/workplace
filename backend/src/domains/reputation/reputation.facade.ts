@@ -15,8 +15,14 @@ export interface ReputationScoreView {
  * estado de una transacción a un estado terminal) y uno de lectura.
  */
 export interface ReputationFacade {
-  recalculate(entityType: ReputationEntityType, entityId: string): Promise<void>;
-  getScore(entityType: ReputationEntityType, entityId: string): Promise<ReputationScoreView | null>;
+  recalculate(
+    entityType: ReputationEntityType,
+    entityId: string
+  ): Promise<void>;
+  getScore(
+    entityType: ReputationEntityType,
+    entityId: string
+  ): Promise<ReputationScoreView | null>;
 }
 
 export const REPUTATION_FACADE = Symbol('REPUTATION_FACADE');

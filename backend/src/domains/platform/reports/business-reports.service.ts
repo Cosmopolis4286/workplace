@@ -6,7 +6,10 @@ import { EmployeesService } from '../../commerce-core/employees/employees.servic
 import { ServicesService } from '../../commerce-core/services/services.service';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
-import { PermissionsFacade, PERMISSIONS_FACADE } from '../../identity-access/permissions/permissions.facade';
+import {
+  PermissionsFacade,
+  PERMISSIONS_FACADE,
+} from '../../identity-access/permissions/permissions.facade';
 
 /**
  * Agregador de "Reportes del Negocio" — antes la página /reports del
@@ -25,7 +28,7 @@ export class BusinessReportsService {
     private readonly servicesService: ServicesService,
     private readonly commerceResolver: CommerceResolverService,
     private readonly capabilities: CapabilitiesService,
-    @Inject(PERMISSIONS_FACADE) private readonly permissions: PermissionsFacade,
+    @Inject(PERMISSIONS_FACADE) private readonly permissions: PermissionsFacade
   ) {}
 
   async getSummary(userId: string, role: Role) {
@@ -34,7 +37,8 @@ export class BusinessReportsService {
     // Commerce?) y no por accountType: un PROFESSIONAL que vende producto
     // ("opción 2") tiene Commerce y su reporte real son sus pedidos.
     if (!(await this.capabilities.has(userId, 'HAS_COMMERCE'))) {
-      const orders = await this.servicesService.getMyServiceRequestsStats(userId);
+      const orders =
+        await this.servicesService.getMyServiceRequestsStats(userId);
       return { isFreelancer: true, orders, expenses: null, employees: null };
     }
 
@@ -46,8 +50,11 @@ export class BusinessReportsService {
       // (employeeForbidden en reports.vue): si el usuario no tiene
       // employees:view, esa sección se omite en vez de fallar toda la
       // respuesta — el resto del reporte sigue siendo válido.
-      this.permissions.hasEffectivePermission(userId, role, 'employees:view')
-        .then((allowed) => (allowed ? this.employeesService.getStats(userId) : null)),
+      this.permissions
+        .hasEffectivePermission(userId, role, 'employees:view')
+        .then((allowed) =>
+          allowed ? this.employeesService.getStats(userId) : null
+        ),
     ]);
 
     return { isFreelancer: false, orders, expenses, employees };

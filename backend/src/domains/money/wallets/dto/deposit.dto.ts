@@ -1,4 +1,11 @@
-import { IsNumber, IsObject, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import {
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+} from 'class-validator';
 
 export class DepositDto {
   @IsNumber()

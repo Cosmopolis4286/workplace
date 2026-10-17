@@ -38,7 +38,9 @@ export class PermissionsController {
   /** Endpoint ligero para polling: solo la versión compuesta (rol+usuario) */
   @Get('version')
   async getVersion(@CurrentUser() user: { role: Role; id: string }) {
-    const roleVersion = await this.permissionsService.getOrSetRoleVersion(user.role);
+    const roleVersion = await this.permissionsService.getOrSetRoleVersion(
+      user.role
+    );
     const userVersion = await this.permissionsService.getUserVersion(user.id);
     return { version: `${roleVersion}:${userVersion}` };
   }
@@ -62,7 +64,9 @@ export class PermissionsController {
     // ADMIN no puede modificar permisos de SUPERADMIN ni permisos de sistema
     if (user.role === Role.ADMIN) {
       if (dto.role === Role.SUPERADMIN) {
-        throw new ForbiddenException('No puedes modificar permisos de SUPERADMIN');
+        throw new ForbiddenException(
+          'No puedes modificar permisos de SUPERADMIN'
+        );
       }
     }
     return this.permissionsService.togglePermission(
@@ -77,7 +81,10 @@ export class PermissionsController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  create(@Body() dto: CreatePermissionDto, @CurrentUser() user: { id: string; role: Role }) {
+  create(
+    @Body() dto: CreatePermissionDto,
+    @CurrentUser() user: { id: string; role: Role }
+  ) {
     // ADMIN solo puede crear permisos no-sistema
     if (user.role === Role.ADMIN && dto.isSystem) {
       throw new ForbiddenException('No puedes crear permisos de sistema');
@@ -89,7 +96,10 @@ export class PermissionsController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  async remove(@Param('id') id: string, @CurrentUser() user: { id: string; role: Role }) {
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string; role: Role }
+  ) {
     const isSystem = await this.permissionsService.isSystemPermission(id);
     if (isSystem) {
       throw new ForbiddenException('No puedes eliminar permisos de sistema');
@@ -107,9 +117,13 @@ export class PermissionsController {
   ) {
     // ADMIN no puede modificar permisos de SUPERADMIN
     if (user.role === Role.ADMIN) {
-      const hasSuperAdminChanges = dto.updates.some(u => u.role === Role.SUPERADMIN);
+      const hasSuperAdminChanges = dto.updates.some(
+        (u) => u.role === Role.SUPERADMIN
+      );
       if (hasSuperAdminChanges) {
-        throw new ForbiddenException('No puedes modificar permisos de SUPERADMIN');
+        throw new ForbiddenException(
+          'No puedes modificar permisos de SUPERADMIN'
+        );
       }
     }
     return this.permissionsService.bulkUpdate(dto.updates, user.id);
@@ -150,7 +164,10 @@ export class PermissionsController {
     @Body() dto: BulkUpdateProfilePermissionsDto,
     @CurrentUser() user: { id: string }
   ) {
-    return this.permissionsService.bulkUpdateProfilePermissions(dto.updates, user.id);
+    return this.permissionsService.bulkUpdateProfilePermissions(
+      dto.updates,
+      user.id
+    );
   }
 
   // ─── USER PERMISSIONS (Permisos individuales por usuario) ─────────────────
@@ -163,7 +180,10 @@ export class PermissionsController {
     @Param('userId') userId: string,
     @CurrentUser() admin: { id: string; role: Role }
   ) {
-    return this.permissionsService.getUserPermissionsWithAccessCheck(userId, admin);
+    return this.permissionsService.getUserPermissionsWithAccessCheck(
+      userId,
+      admin
+    );
   }
 
   /** Lista de usuarios con búsqueda */
@@ -174,7 +194,8 @@ export class PermissionsController {
     @CurrentUser() admin: { id: string; role: Role },
     @Query('role') role?: Role,
     @Query('search') search?: string,
-    @Query('profileKind') profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER',
+    @Query('profileKind')
+    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER',
     @Query('page') page = '1',
     @Query('limit') limit = '20'
   ) {
@@ -214,7 +235,11 @@ export class PermissionsController {
     @Param('permissionId') permissionId: string,
     @CurrentUser() admin: { id: string; role: Role }
   ) {
-    return this.permissionsService.removeUserPermission(userId, permissionId, admin);
+    return this.permissionsService.removeUserPermission(
+      userId,
+      permissionId,
+      admin
+    );
   }
 
   /** Resetea todos los permisos individuales de un usuario */

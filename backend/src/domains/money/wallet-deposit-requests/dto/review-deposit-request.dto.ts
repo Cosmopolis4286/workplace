@@ -1,4 +1,10 @@
-import { IsEnum, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { ProposalStatus } from '@prisma/client';
 
 export class ReviewDepositRequestDto {

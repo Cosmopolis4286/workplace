@@ -26,7 +26,7 @@ import { CommerceResolverService } from '../../../common/commerce-resolver/comme
 export class AccountReceivablesController {
   constructor(
     private readonly receivablesService: AccountReceivablesService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   @Get()

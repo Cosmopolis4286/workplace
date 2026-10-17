@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { BnplProvider } from '@prisma/client';
 import { BnplService } from './bnpl.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';

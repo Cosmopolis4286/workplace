@@ -22,7 +22,10 @@ export class AlertEngineService {
   // existe y está habilitada, si no el default de fábrica. Un comercio con
   // regla explícita `enabled: false` no dispara esa alerta nunca (shouldFire
   // ya lo maneja devolviendo false directo, sin llegar a comparar threshold).
-  async getThreshold(commerceId: string, alertType: AlertType): Promise<number> {
+  async getThreshold(
+    commerceId: string,
+    alertType: AlertType
+  ): Promise<number> {
     const rule = await this.prisma.alertRule.findUnique({
       where: { commerceId_alertType: { commerceId, alertType } },
     });
@@ -34,7 +37,11 @@ export class AlertEngineService {
   // disparar la alerta X para este comercio?" — encapsula la lectura de la
   // regla (o default) y la comparación, para que MARGIN_DROP/SUPPLIER_PRICE_CHANGE/etc.
   // no reimplementen "leer threshold, comparar" cada uno por su cuenta.
-  async shouldFire(commerceId: string, alertType: AlertType, observedValue: number): Promise<boolean> {
+  async shouldFire(
+    commerceId: string,
+    alertType: AlertType,
+    observedValue: number
+  ): Promise<boolean> {
     const rule = await this.prisma.alertRule.findUnique({
       where: { commerceId_alertType: { commerceId, alertType } },
     });
@@ -47,7 +54,9 @@ export class AlertEngineService {
   // ── Configuración por comercio (autoservicio) ───────────────────────────────
 
   async listRules(commerceId: string) {
-    const existing = await this.prisma.alertRule.findMany({ where: { commerceId } });
+    const existing = await this.prisma.alertRule.findMany({
+      where: { commerceId },
+    });
     const existingByType = new Map(existing.map((r) => [r.alertType, r]));
 
     // Devuelve las 4 alertas siempre, aunque el comercio no haya personalizado
@@ -85,8 +94,16 @@ export class AlertEngineService {
     const rule = await this.prisma.alertRule.findUnique({
       where: { commerceId_alertType: { commerceId, alertType } },
     });
-    if (!rule) throw new NotFoundException('No hay una regla personalizada para restablecer');
+    if (!rule)
+      throw new NotFoundException(
+        'No hay una regla personalizada para restablecer'
+      );
     await this.prisma.alertRule.delete({ where: { id: rule.id } });
-    return { alertType, thresholdValue: ALERT_DEFAULTS[alertType], enabled: true, isDefault: true };
+    return {
+      alertType,
+      thresholdValue: ALERT_DEFAULTS[alertType],
+      enabled: true,
+      isDefault: true,
+    };
   }
 }

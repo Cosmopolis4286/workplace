@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
@@ -11,7 +15,7 @@ export class AccountPayablesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly exchangeRates: ExchangeRatesService,
-    private readonly i18n: I18nService,
+    private readonly i18n: I18nService
   ) {}
 
   async create(commerceId: string, userId: string, dto: CreatePayableDto) {
@@ -19,21 +23,25 @@ export class AccountPayablesService {
       const supplier = await this.prisma.supplier.findFirst({
         where: { id: dto.supplierId, commerceId },
       });
-      if (!supplier) throw new NotFoundException(this.i18n.t('accounts.supplier_not_found'));
+      if (!supplier)
+        throw new NotFoundException(this.i18n.t('accounts.supplier_not_found'));
     }
 
     if (dto.purchaseId) {
       const purchase = await this.prisma.purchase.findFirst({
         where: { id: dto.purchaseId, commerceId },
       });
-      if (!purchase) throw new NotFoundException(this.i18n.t('accounts.purchase_not_found'));
+      if (!purchase)
+        throw new NotFoundException(this.i18n.t('accounts.purchase_not_found'));
     }
 
     const currencyCode = dto.currencyCode.toUpperCase();
     const resolved = await this.exchangeRates.resolveRateToUsd(currencyCode);
     if (!resolved) {
       throw new BadRequestException(
-        this.i18n.t('accounts.invalid_exchange_rate', { args: { code: currencyCode } }),
+        this.i18n.t('accounts.invalid_exchange_rate', {
+          args: { code: currencyCode },
+        })
       );
     }
 
@@ -70,7 +78,8 @@ export class AccountPayablesService {
       where: { id, commerceId },
       include: { supplier: { select: { id: true, name: true } } },
     });
-    if (!payable) throw new NotFoundException(this.i18n.t('accounts.payable_not_found'));
+    if (!payable)
+      throw new NotFoundException(this.i18n.t('accounts.payable_not_found'));
     return payable;
   }
 

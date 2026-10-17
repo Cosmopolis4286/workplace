@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ExchangeRatesService } from '../../money/exchange-rates/exchange-rates.service';
@@ -19,13 +23,13 @@ export class PurchasesService {
     private readonly exchangeRates: ExchangeRatesService,
     private readonly notifications: NotificationsService,
     private readonly alertEngine: AlertEngineService,
-    private readonly i18n: I18nService,
+    private readonly i18n: I18nService
   ) {}
 
   // Resuelve moneda -> tasa a USD en el momento de la compra. USD es la
   // moneda base del sistema y no requiere fila en ExchangeRate.
   private async resolveRate(
-    currencyCode: string,
+    currencyCode: string
   ): Promise<{ rateToUsd: number; source: string | null }> {
     const code = currencyCode.toUpperCase();
     if (code === 'USD') return { rateToUsd: 1, source: null };
@@ -33,23 +37,30 @@ export class PurchasesService {
     const rate = await this.exchangeRates.findByCode(code);
     if (!rate.rateToUsd || rate.rateToUsd <= 0) {
       throw new BadRequestException(
-        this.i18n.t('purchases.invalid_exchange_rate', { args: { code } }),
+        this.i18n.t('purchases.invalid_exchange_rate', { args: { code } })
       );
     }
-    return { rateToUsd: rate.rateToUsd, source: rate.syncSource ?? rate.source };
+    return {
+      rateToUsd: rate.rateToUsd,
+      source: rate.syncSource ?? rate.source,
+    };
   }
 
   async create(commerceId: string, userId: string, dto: CreatePurchaseDto) {
     const product = await this.prisma.product.findFirst({
       where: { id: dto.productId, commerceId },
     });
-    if (!product) throw new NotFoundException(this.i18n.t('purchases.product_not_found'));
+    if (!product)
+      throw new NotFoundException(this.i18n.t('purchases.product_not_found'));
 
     if (dto.supplierId) {
       const supplier = await this.prisma.supplier.findFirst({
         where: { id: dto.supplierId, commerceId },
       });
-      if (!supplier) throw new NotFoundException(this.i18n.t('purchases.supplier_not_found'));
+      if (!supplier)
+        throw new NotFoundException(
+          this.i18n.t('purchases.supplier_not_found')
+        );
     }
 
     const currencyCode = dto.currencyCode.toUpperCase();
@@ -98,12 +109,18 @@ export class PurchasesService {
 
     // Best-effort: una falla al notificar no debe hacer fallar el registro
     // de la compra, que ya se guardó correctamente.
-    this.checkMarginDrop(commerceId, dto.productId, product.name).catch(() => {});
+    this.checkMarginDrop(commerceId, dto.productId, product.name).catch(
+      () => {}
+    );
 
     return purchase;
   }
 
-  private async checkMarginDrop(commerceId: string, productId: string, productName: string) {
+  private async checkMarginDrop(
+    commerceId: string,
+    productId: string,
+    productName: string
+  ) {
     const replacement = await this.getReplacementCost(productId, commerceId);
     if (
       !replacement.hasPurchaseData ||
@@ -112,21 +129,31 @@ export class PurchasesService {
     ) {
       return;
     }
-    const drop = replacement.marginHistoricalPct - replacement.marginReplacementPct;
+    const drop =
+      replacement.marginHistoricalPct - replacement.marginReplacementPct;
     // Threshold configurable por comercio (Alert Engine, ver
     // WORKPLACE_VISION.md sección 21) — antes era un valor fijo en código.
-    if (await this.alertEngine.shouldFire(commerceId, AlertType.MARGIN_DROP, drop)) {
+    if (
+      await this.alertEngine.shouldFire(commerceId, AlertType.MARGIN_DROP, drop)
+    ) {
       await this.notifications.notifyMarginDrop(
         commerceId,
         productName,
         replacement.marginHistoricalPct,
-        replacement.marginReplacementPct,
+        replacement.marginReplacementPct
       );
     }
   }
 
   async findAll(commerceId: string, query: QueryPurchasesDto) {
-    const { productId, supplierId, dateFrom, dateTo, page = 1, limit = 20 } = query;
+    const {
+      productId,
+      supplierId,
+      dateFrom,
+      dateTo,
+      page = 1,
+      limit = 20,
+    } = query;
 
     const where: any = { commerceId };
     if (productId) where.productId = productId;
@@ -155,8 +182,11 @@ export class PurchasesService {
   }
 
   async remove(id: string, commerceId: string) {
-    const purchase = await this.prisma.purchase.findFirst({ where: { id, commerceId } });
-    if (!purchase) throw new NotFoundException(this.i18n.t('purchases.not_found'));
+    const purchase = await this.prisma.purchase.findFirst({
+      where: { id, commerceId },
+    });
+    if (!purchase)
+      throw new NotFoundException(this.i18n.t('purchases.not_found'));
     await this.prisma.purchase.delete({ where: { id } });
     return { message: this.i18n.t('purchases.deleted') };
   }
@@ -171,7 +201,8 @@ export class PurchasesService {
     const product = await this.prisma.product.findFirst({
       where: { id: productId, commerceId },
     });
-    if (!product) throw new NotFoundException(this.i18n.t('purchases.product_not_found'));
+    if (!product)
+      throw new NotFoundException(this.i18n.t('purchases.product_not_found'));
 
     const recentPurchases = await this.prisma.purchase.findMany({
       where: { productId, commerceId },
@@ -197,7 +228,8 @@ export class PurchasesService {
 
     const lastPurchaseCostUsd = recentPurchases[0].unitCostUsd;
     const averageReplacementCostUsd =
-      recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) / recentPurchases.length;
+      recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) /
+      recentPurchases.length;
 
     return {
       productId,
@@ -243,9 +275,13 @@ export class PurchasesService {
 
     const rows = productsWithPurchases.map((p) => {
       const averageReplacementCostUsd =
-        p.purchases.reduce((sum, pu) => sum + pu.unitCostUsd, 0) / p.purchases.length;
+        p.purchases.reduce((sum, pu) => sum + pu.unitCostUsd, 0) /
+        p.purchases.length;
       const marginHistoricalPct = this.marginPct(p.price, p.cost);
-      const marginReplacementPct = this.marginPct(p.price, averageReplacementCostUsd);
+      const marginReplacementPct = this.marginPct(
+        p.price,
+        averageReplacementCostUsd
+      );
       const marginDropPct =
         marginHistoricalPct !== null && marginReplacementPct !== null
           ? Math.round((marginHistoricalPct - marginReplacementPct) * 10) / 10
@@ -265,7 +301,9 @@ export class PurchasesService {
     });
 
     // Mayor caída de margen primero; nulls (sin margen calculable) al final.
-    rows.sort((a, b) => (b.marginDropPct ?? -Infinity) - (a.marginDropPct ?? -Infinity));
+    rows.sort(
+      (a, b) => (b.marginDropPct ?? -Infinity) - (a.marginDropPct ?? -Infinity)
+    );
 
     const total = rows.length;
     const start = (page - 1) * limit;

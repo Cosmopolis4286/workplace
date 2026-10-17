@@ -82,9 +82,7 @@ export class NotificationsGateway
 
   // ── Broadcast helpers ─────────────────────────────────────────────────────
   broadcast(commerceId: string, notification: any) {
-    this.server
-      .to(`commerce:${commerceId}`)
-      .emit('notification', notification);
+    this.server.to(`commerce:${commerceId}`).emit('notification', notification);
   }
 
   broadcastToUser(userId: string, notification: any) {

@@ -70,7 +70,10 @@ export class ServicesController {
     @CurrentUser() user?: { id: string; role: Role },
     @Query('forCreation') forCreation?: string
   ) {
-    return this.servicesService.getCatalogCategories(user, forCreation === 'true');
+    return this.servicesService.getCatalogCategories(
+      user,
+      forCreation === 'true'
+    );
   }
 
   @Get('catalog/tags')
@@ -152,7 +155,8 @@ export class ServicesController {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
           const uploadPath = join(process.cwd(), 'uploads', 'services');
-          if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true });
+          if (!existsSync(uploadPath))
+            mkdirSync(uploadPath, { recursive: true });
           cb(null, uploadPath);
         },
         filename: (_req, file, cb) => {
@@ -162,7 +166,12 @@ export class ServicesController {
       }),
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/)) {
-          return cb(new BadRequestException('Solo se permiten imágenes (jpeg, png, webp, gif)'), false);
+          return cb(
+            new BadRequestException(
+              'Solo se permiten imágenes (jpeg, png, webp, gif)'
+            ),
+            false
+          );
         }
         cb(null, true);
       },
@@ -180,7 +189,12 @@ export class ServicesController {
     if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 2) {
       throw new BadRequestException('slot inválido');
     }
-    return this.servicesService.setServiceImageFromUpload(id, user.id, slotIndex, file);
+    return this.servicesService.setServiceImageFromUpload(
+      id,
+      user.id,
+      slotIndex,
+      file
+    );
   }
 
   // Alternativa a subir un archivo: el backend descarga la URL de forma
@@ -195,7 +209,12 @@ export class ServicesController {
     @CurrentUser() user: any,
     @Body() dto: ImportServiceImageDto
   ) {
-    return this.servicesService.importServiceImageFromUrl(id, user.id, dto.slot, dto.url);
+    return this.servicesService.importServiceImageFromUrl(
+      id,
+      user.id,
+      dto.slot,
+      dto.url
+    );
   }
 
   @Delete(':id')
@@ -254,12 +273,17 @@ export class ServicesController {
       storage: diskStorage({
         destination: (req, file, cb) => {
           const uploadPath = join(process.cwd(), 'uploads', 'service-requests');
-          if (!existsSync(uploadPath)) mkdirSync(uploadPath, { recursive: true });
+          if (!existsSync(uploadPath))
+            mkdirSync(uploadPath, { recursive: true });
           cb(null, uploadPath);
         },
         filename: (req, file, cb) => {
-          const ext = extensionForMimetype(file.mimetype) || extname(file.originalname);
-          cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+          const ext =
+            extensionForMimetype(file.mimetype) || extname(file.originalname);
+          cb(
+            null,
+            `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
+          );
         },
       }),
       limits: { fileSize: 50 * 1024 * 1024 },
@@ -273,7 +297,9 @@ export class ServicesController {
     })
   )
   uploadRequestMedia(@UploadedFiles() files: Express.Multer.File[]) {
-    return { urls: files.map((f) => `/uploads/service-requests/${f.filename}`) };
+    return {
+      urls: files.map((f) => `/uploads/service-requests/${f.filename}`),
+    };
   }
 
   // Media de una solicitud (fotos/videos del ítem): solo visible para el cliente,
@@ -286,12 +312,23 @@ export class ServicesController {
     @Res() res: Response
   ) {
     const safeFilename = basename(filename);
-    if (safeFilename !== filename) throw new NotFoundException('Archivo no encontrado');
+    if (safeFilename !== filename)
+      throw new NotFoundException('Archivo no encontrado');
 
-    await this.servicesService.authorizeRequestMedia(safeFilename, user.id, user.role);
+    await this.servicesService.authorizeRequestMedia(
+      safeFilename,
+      user.id,
+      user.role
+    );
 
-    const filePath = join(process.cwd(), 'uploads', 'service-requests', safeFilename);
-    if (!existsSync(filePath)) throw new NotFoundException('Archivo no encontrado');
+    const filePath = join(
+      process.cwd(),
+      'uploads',
+      'service-requests',
+      safeFilename
+    );
+    if (!existsSync(filePath))
+      throw new NotFoundException('Archivo no encontrado');
 
     res.sendFile(filePath);
   }
@@ -395,7 +432,11 @@ export class ServicesController {
 
   @Patch('requests/:id/dispute')
   @UseGuards(JwtAuthGuard)
-  disputeRequest(@Param('id') id: string, @CurrentUser() user: any, @Body('reason') reason: string) {
+  disputeRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body('reason') reason: string
+  ) {
     return this.servicesService.disputeServiceRequest(id, user.id, reason);
   }
 
@@ -419,7 +460,10 @@ export class ServicesController {
 
   @Post('requests/:id/price-change-proposals/:proposalId/approve')
   @UseGuards(JwtAuthGuard)
-  approvePriceChangeProposal(@Param('proposalId') proposalId: string, @CurrentUser() user: any) {
+  approvePriceChangeProposal(
+    @Param('proposalId') proposalId: string,
+    @CurrentUser() user: any
+  ) {
     return this.servicesService.approvePriceChangeProposal(proposalId, user.id);
   }
 
@@ -430,7 +474,11 @@ export class ServicesController {
     @CurrentUser() user: any,
     @Body() dto: RejectPriceChangeProposalDto
   ) {
-    return this.servicesService.rejectPriceChangeProposal(proposalId, user.id, dto.reason);
+    return this.servicesService.rejectPriceChangeProposal(
+      proposalId,
+      user.id,
+      dto.reason
+    );
   }
 
   // ─── Categories (admin) ───────────────────────────────────────────────────
@@ -484,7 +532,15 @@ export class ServicesController {
   @Post('modalities')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  createModality(@Body() dto: { name: string; value: string; emoji?: string; sortOrder?: number }) {
+  createModality(
+    @Body()
+    dto: {
+      name: string;
+      value: string;
+      emoji?: string;
+      sortOrder?: number;
+    }
+  ) {
     return this.servicesService.createModality(dto);
   }
 
@@ -493,7 +549,14 @@ export class ServicesController {
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   updateModality(
     @Param('id') id: string,
-    @Body() dto: Partial<{ name: string; value: string; emoji: string; sortOrder: number; isActive: boolean }>
+    @Body()
+    dto: Partial<{
+      name: string;
+      value: string;
+      emoji: string;
+      sortOrder: number;
+      isActive: boolean;
+    }>
   ) {
     return this.servicesService.updateModality(id, dto);
   }

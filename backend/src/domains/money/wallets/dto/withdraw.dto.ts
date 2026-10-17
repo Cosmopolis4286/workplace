@@ -1,4 +1,13 @@
-import { IsNumber, IsObject, IsOptional, IsString, IsUUID, Length, Matches, Min } from 'class-validator';
+import {
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  Min,
+} from 'class-validator';
 
 export class WithdrawDto {
   @IsNumber()
