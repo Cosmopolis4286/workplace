@@ -1,5 +1,5 @@
 {
-  "_comment": "Pares (origen -> destino) de imports cross-domain ya existentes al activar dependency-cruiser en modo error (Fase 5 del refactor arquitectónico). Ver check-cross-domain-imports.js. Notifications/Telegram/Mail son utilitarios de salida sin lógica de negocio propia — permanentes, no son deuda. La sección 'debt' original (menu/plans/settings -> users, plans <-> system-modules, navigation -> permissions) ya se resolvió con facades (PermissionsFacade, SystemModulesFacade) y moviendo cache-keys/module-catalog a common/ — queda vacía a propósito, no se elimina la clave para que quede claro que este JSON es donde documentar nueva deuda si aparece.",
+  "_comment": "Pares (origen -> destino) de imports cross-domain ya existentes al activar dependency-cruiser en modo error (Fase 5 del refactor arquitectónico). Ver check-cross-domain-imports.js. Notifications/Telegram/Mail son utilitarios de salida sin lógica de negocio propia — permanentes, no son deuda. La sección 'debt' original (menu/plans/settings -> users, plans <-> system-modules, navigation -> permissions) ya se resolvió con facades (PermissionsFacade, SystemModulesFacade) y moviendo cache-keys/module-catalog a common/ — queda vacía a propósito, no se elimina la clave para que quede claro que este JSON es donde documentar nueva deuda si aparece. Actualización 2026-10-17: deps:check no corría en CI (el job se cortaba antes), así que entraron 21 imports cruzados sin registrar. Los 9 hacia notifications/mail se agregaron a 'permanent' por la regla de arriba; los 12 restantes van a 'debt' — se resuelven con facades (ej. SystemModulesFacade para plans.controller, una facade de exchange-rates para purchases/suppliers, una de lectura para business-reports) y se borran de acá.",
   "permanent": [
     "src/domains/commerce-core/catalog/catalog.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
     "src/domains/commerce-core/menu/menu.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
@@ -17,7 +17,29 @@
     "src/domains/operations/delivery/delivery.service.ts -> src/domains/engagement/telegram/telegram.service.ts",
     "src/domains/operations/orders/orders.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
     "src/domains/operations/orders/orders.service.ts -> src/domains/engagement/telegram/telegram.service.ts",
-    "src/domains/commerce-core/search/search.service.ts -> src/domains/platform/jobs/jobs.service.ts"
+    "src/domains/commerce-core/search/search.service.ts -> src/domains/platform/jobs/jobs.service.ts",
+    "src/domains/commerce-core/services/messages/service-request-messages.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
+    "src/domains/identity-access/freelancer-applications/freelancer-applications.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
+    "src/domains/identity-access/profile-activations/profile-activations.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
+    "src/domains/money/escrow/escrow.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
+    "src/domains/operations/delivery/delivery.service.ts -> src/domains/engagement/mail/mail.service.ts",
+    "src/domains/operations/purchases/purchases.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
+    "src/domains/operations/rides/rides.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
+    "src/domains/operations/suppliers/suppliers.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
+    "src/domains/platform/jobs/jobs.service.ts -> src/domains/engagement/notifications/notifications.service.ts"
   ],
-  "debt": []
+  "debt": [
+    "src/domains/commerce-core/catalog/catalog.service.ts -> src/domains/money/wallets/wallets.service.ts",
+    "src/domains/commerce-core/services/services.service.ts -> src/domains/money/wallets/wallets.service.ts",
+    "src/domains/identity-access/profile-activations/profile-activations.service.ts -> src/domains/money/plans/plans.service.ts",
+    "src/domains/money/plans/plans.controller.ts -> src/domains/platform/system-modules/system-modules.service.ts",
+    "src/domains/money/wallets/wallets.service.ts -> src/domains/commerce-core/services/services.service.ts",
+    "src/domains/operations/purchases/purchases.service.ts -> src/domains/money/exchange-rates/exchange-rates.service.ts",
+    "src/domains/operations/suppliers/suppliers.service.ts -> src/domains/money/exchange-rates/exchange-rates.service.ts",
+    "src/domains/platform/ai-orchestrator/ai-orchestrator.service.ts -> src/domains/commerce-core/services/services.service.ts",
+    "src/domains/platform/reports/business-reports.service.ts -> src/domains/commerce-core/employees/employees.service.ts",
+    "src/domains/platform/reports/business-reports.service.ts -> src/domains/commerce-core/services/services.service.ts",
+    "src/domains/platform/reports/business-reports.service.ts -> src/domains/operations/expenses/expenses.service.ts",
+    "src/domains/platform/reports/business-reports.service.ts -> src/domains/operations/orders/orders.service.ts"
+  ]
 }
