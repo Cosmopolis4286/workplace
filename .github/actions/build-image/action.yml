@@ -36,6 +36,13 @@ inputs:
     description: 'Habilitar escaneo de vulnerabilidades Trivy'
     required: false
     default: 'true'
+  platforms:
+    description: >-
+      Plataformas a construir. El servidor es amd64; para sumar linux/arm64
+      hay que agregar docker/setup-qemu-action antes del build (sin emulación
+      los RUN de arm64 fallan) y subir el timeout del job.
+    required: false
+    default: 'linux/amd64'
   max-image-size:
     description: 'Tamaño máximo permitido de imagen en MB'
     required: false
@@ -86,7 +93,7 @@ runs:
         file: ${{ inputs.dockerfile }}
         target: ${{ inputs.target }}
         push: true
-        platforms: linux/amd64,linux/arm64
+        platforms: ${{ inputs.platforms }}
         tags: |
           ${{ inputs.image-name }}:${{ inputs.image-tag }}
           ${{ inputs.image-name }}:latest

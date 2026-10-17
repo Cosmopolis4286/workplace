@@ -1,4 +1,6 @@
 # Dockerfile específico para E2E Tests - Basado en imagen oficial de Playwright
+# La versión de la imagen debe coincidir con @playwright/test en package.json
+# (fijada sin ^): los navegadores de la imagen solo sirven para esa versión.
 FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 WORKDIR /app

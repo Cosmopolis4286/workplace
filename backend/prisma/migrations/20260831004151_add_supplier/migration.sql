@@ -1,26 +1,31 @@
+-- Esta migración se generó contra una base de desarrollo que ya tenía las
+-- columnas de tracking de 20260831033946_add_express_tracking (posterior).
+-- Los DROP son IF EXISTS para que una base nueva pueda aplicar la cadena
+-- completa; en las bases donde ya se aplicó el resultado es el mismo.
+
 -- CreateEnum
 CREATE TYPE "SupplierStatus" AS ENUM ('ACTIVE', 'INACTIVE');
 
 -- DropForeignKey
-ALTER TABLE "deliveries" DROP CONSTRAINT "deliveries_customerUserId_fkey";
+ALTER TABLE "deliveries" DROP CONSTRAINT IF EXISTS "deliveries_customerUserId_fkey";
 
 -- DropIndex
-DROP INDEX "deliveries_customerUserId_idx";
+DROP INDEX IF EXISTS "deliveries_customerUserId_idx";
 
 -- AlterTable
-ALTER TABLE "deliveries" DROP COLUMN "customerUserId",
-DROP COLUMN "destLat",
-DROP COLUMN "destLng",
-DROP COLUMN "pickupLat",
-DROP COLUMN "pickupLng",
-DROP COLUMN "trackingActive";
+ALTER TABLE "deliveries" DROP COLUMN IF EXISTS "customerUserId",
+DROP COLUMN IF EXISTS "destLat",
+DROP COLUMN IF EXISTS "destLng",
+DROP COLUMN IF EXISTS "pickupLat",
+DROP COLUMN IF EXISTS "pickupLng",
+DROP COLUMN IF EXISTS "trackingActive";
 
 -- AlterTable
-ALTER TABLE "drivers" DROP COLUMN "currentHeading",
-DROP COLUMN "currentLat",
-DROP COLUMN "currentLng",
-DROP COLUMN "currentSpeed",
-DROP COLUMN "locationUpdatedAt";
+ALTER TABLE "drivers" DROP COLUMN IF EXISTS "currentHeading",
+DROP COLUMN IF EXISTS "currentLat",
+DROP COLUMN IF EXISTS "currentLng",
+DROP COLUMN IF EXISTS "currentSpeed",
+DROP COLUMN IF EXISTS "locationUpdatedAt";
 
 -- CreateTable
 CREATE TABLE "suppliers" (
