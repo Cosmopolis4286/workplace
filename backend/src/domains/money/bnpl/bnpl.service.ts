@@ -111,8 +111,7 @@ export class BnplService {
         this.encryptField(dto.externalClientId) ??
         existing?.externalClientIdEnc,
       extraConfig: (dto.extraConfig ?? existing?.extraConfig) as
-        | Prisma.InputJsonValue
-        | undefined,
+        Prisma.InputJsonValue | undefined,
     };
 
     if (existing) {

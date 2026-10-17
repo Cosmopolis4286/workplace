@@ -1,14 +1,7 @@
 import { IsOptional, IsIn, IsDateString } from 'class-validator';
 
 export type AnalyticsPeriod =
-  | 'today'
-  | '7d'
-  | 'week'
-  | '30d'
-  | 'quarter'
-  | '90d'
-  | '1y'
-  | 'custom';
+  'today' | '7d' | 'week' | '30d' | 'quarter' | '90d' | '1y' | 'custom';
 
 export class QueryAnalyticsDto {
   @IsOptional()

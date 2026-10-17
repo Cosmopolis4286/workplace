@@ -25,11 +25,7 @@ export interface BnplInitiateResult {
 }
 
 export type BnplRemoteStatus =
-  | 'PENDING'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'EXPIRED'
-  | 'CANCELLED';
+  'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
 
 export interface BnplStatusResult {
   status: BnplRemoteStatus;

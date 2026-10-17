@@ -179,58 +179,52 @@ export class SearchService {
 
     const suggestions: SearchSuggestion[] = [
       ...(products.status === 'fulfilled'
-        ? products.value.data.map(
-            (p: any): SearchSuggestion => ({
-              id: p.id,
-              tab: 'productos',
-              title: p.name,
-              subtitle: p.commerce?.name,
-              providerName: p.commerce?.name ?? null,
-              image: p.image,
-              price: p.price,
-              category: p.category
-                ? { name: p.category.name, color: p.category.color }
-                : null,
-              rating: p.commerce?.user?.rating ?? null,
-              reviewsCount: p.commerce?.user?.reviewsCount ?? null,
-              lowStock: p.status === 'LOW_STOCK',
-              nearYou: isNear(p.commerce),
-            })
-          )
+        ? products.value.data.map((p: any): SearchSuggestion => ({
+            id: p.id,
+            tab: 'productos',
+            title: p.name,
+            subtitle: p.commerce?.name,
+            providerName: p.commerce?.name ?? null,
+            image: p.image,
+            price: p.price,
+            category: p.category
+              ? { name: p.category.name, color: p.category.color }
+              : null,
+            rating: p.commerce?.user?.rating ?? null,
+            reviewsCount: p.commerce?.user?.reviewsCount ?? null,
+            lowStock: p.status === 'LOW_STOCK',
+            nearYou: isNear(p.commerce),
+          }))
         : []),
       ...(services.status === 'fulfilled'
-        ? services.value.data.map(
-            (s: any): SearchSuggestion => ({
-              id: s.id,
-              tab: 'servicios',
-              title: s.name,
-              subtitle: s.category?.name,
-              providerName: s.user
-                ? `${s.user.firstName} ${s.user.lastName}`.trim()
-                : null,
-              image: s.images?.[0] ?? null,
-              price: s.price,
-              priceUnit: s.priceUnit,
-              rating: s.user?.rating ?? null,
-              reviewsCount: s.user?.reviewsCount ?? null,
-              nearYou: isNear(s.user),
-            })
-          )
+        ? services.value.data.map((s: any): SearchSuggestion => ({
+            id: s.id,
+            tab: 'servicios',
+            title: s.name,
+            subtitle: s.category?.name,
+            providerName: s.user
+              ? `${s.user.firstName} ${s.user.lastName}`.trim()
+              : null,
+            image: s.images?.[0] ?? null,
+            price: s.price,
+            priceUnit: s.priceUnit,
+            rating: s.user?.rating ?? null,
+            reviewsCount: s.user?.reviewsCount ?? null,
+            nearYou: isNear(s.user),
+          }))
         : []),
       ...(jobs.status === 'fulfilled'
-        ? jobs.value.data.map(
-            (j: any): SearchSuggestion => ({
-              id: j.id,
-              tab: 'empleos',
-              title: j.title,
-              subtitle: j.location ?? j.employer?.firstName,
-              image: null,
-              salaryMin: j.salaryMin,
-              salaryMax: j.salaryMax,
-              salaryCurrency: j.salaryCurrency,
-              nearYou: isNear(j.employer),
-            })
-          )
+        ? jobs.value.data.map((j: any): SearchSuggestion => ({
+            id: j.id,
+            tab: 'empleos',
+            title: j.title,
+            subtitle: j.location ?? j.employer?.firstName,
+            image: null,
+            salaryMin: j.salaryMin,
+            salaryMax: j.salaryMax,
+            salaryCurrency: j.salaryCurrency,
+            nearYou: isNear(j.employer),
+          }))
         : []),
     ];
 

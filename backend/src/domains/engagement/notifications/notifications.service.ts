@@ -455,11 +455,7 @@ export class NotificationsService {
   async notifyPlatformFeeCharged(
     userId: string,
     type:
-      | 'ORDER'
-      | 'SERVICE_REQUEST'
-      | 'RIDE'
-      | 'GROUP_BUYING'
-      | 'CATALOG_ORDER',
+      'ORDER' | 'SERVICE_REQUEST' | 'RIDE' | 'GROUP_BUYING' | 'CATALOG_ORDER',
     feeAmount: number
   ) {
     const labels: Record<string, string> = {
