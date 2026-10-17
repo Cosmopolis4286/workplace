@@ -59,6 +59,7 @@ COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/src/domains/engagement/mail/templates ./backend/dist/src/domains/engagement/mail/templates
 COPY --from=build /app/scripts/deployment/init-backend-prod.sh ./scripts/deployment/init-backend-prod.sh
 COPY --from=build /app/backend/prisma ./backend/prisma
+COPY --from=build /app/backend/scripts/migrate-deploy.sh ./backend/scripts/migrate-deploy.sh
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml

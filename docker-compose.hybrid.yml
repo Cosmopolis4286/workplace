@@ -5,22 +5,27 @@
 # Comando correcto:
 #   docker compose --env-file .env.dev -f docker-compose.hybrid.yml up -d
 #
+# ♻️ Después de un pull que cambie dependencias (package.json / pnpm-lock.yaml):
+#   docker compose --env-file .env.dev -f docker-compose.hybrid.yml up -d --build -V
+#   (-V renueva el volumen anónimo de backend/node_modules; sin él, Compose
+#   conserva los módulos viejos aunque la imagen se haya reconstruido)
+#
 # 🎨 Para correr frontend en host (después de levantar Docker):
 #   cd frontend && pnpm install && pnpm dev
 #
 # Accesos disponibles:
 #   - Frontend (host): http://localhost:3000
 #   - Backend API: http://localhost:3001
-#   - PostgreSQL: localhost:5432
-#   - Redis: localhost:6379
+#   - PostgreSQL: localhost:15432
+#   - Redis: localhost:16379
 #   - Traefik Dashboard: http://localhost:8080
-#   - Mailhog: http://localhost:8025
+#   - Mailhog: http://localhost:18025
 #   - Adminer: http://localhost:8081
 
 services:
   # 🌐 Traefik - Router para DEV
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.6  # >= v3.6: compatible con la API de Docker Engine 29
     container_name: traefik-hybrid
     command:
       - "--api.dashboard=true"
