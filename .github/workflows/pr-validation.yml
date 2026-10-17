@@ -40,6 +40,10 @@ jobs:
     - name: Validar límites de dominio
       run: cd backend && pnpm deps:check
 
+    # Dinero nuevo en Decimal, no Float — ver scripts/check-float-fields.js
+    - name: Sin campos Float nuevos
+      run: cd backend && pnpm schema:float-check
+
     - name: Format check
       run: cd backend && pnpm format:check
 

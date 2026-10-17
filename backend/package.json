@@ -25,6 +25,7 @@
     "prisma:studio": "prisma studio --schema=./prisma/schema.prisma",
     "seed": "node prisma/seed.js",
     "deps:check": "node scripts/check-cross-domain-imports.js",
+    "schema:float-check": "node scripts/check-float-fields.js",
     "deps:report": "depcruise --config .dependency-cruiser.js --output-type json src > docs/architecture/dependency-baseline.json",
     "deps:graph": "depcruise --config .dependency-cruiser.js --output-type dot src | dot -T svg > docs/architecture/dependency-graph.svg"
   },
