@@ -1,4 +1,9 @@
-import { EscrowEntityType, EscrowStatus, EscrowDisputeRaisedByRole, EscrowDisputeResolution } from '@prisma/client';
+import {
+  EscrowEntityType,
+  EscrowStatus,
+  EscrowDisputeRaisedByRole,
+  EscrowDisputeResolution,
+} from '@prisma/client';
 
 export interface EscrowView {
   id: string;
@@ -61,7 +66,10 @@ export interface EscrowFacade {
     amount: number;
   }): Promise<EscrowView>;
 
-  getByEntity(entityType: EscrowEntityType, entityId: string): Promise<EscrowView | null>;
+  getByEntity(
+    entityType: EscrowEntityType,
+    entityId: string
+  ): Promise<EscrowView | null>;
 
   /**
    * Marca el escrow HELD como en disputa — congela la liberación/reembolso

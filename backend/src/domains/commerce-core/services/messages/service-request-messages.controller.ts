@@ -1,6 +1,17 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
-import { RateLimitGuard, RateLimit } from '../../../../common/guards/rate-limit.guard';
+import {
+  RateLimitGuard,
+  RateLimit,
+} from '../../../../common/guards/rate-limit.guard';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { ServiceRequestMessagesService } from './service-request-messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -8,7 +19,9 @@ import { CreateMessageDto } from './dto/create-message.dto';
 @UseGuards(JwtAuthGuard, RateLimitGuard)
 @Controller('services/requests')
 export class ServiceRequestMessagesController {
-  constructor(private readonly messagesService: ServiceRequestMessagesService) {}
+  constructor(
+    private readonly messagesService: ServiceRequestMessagesService
+  ) {}
 
   @Get('messages/unread-count')
   getUnreadCount(@CurrentUser() user: any) {
@@ -28,8 +41,16 @@ export class ServiceRequestMessagesController {
   }
 
   @Post(':id/messages')
-  @RateLimit({ windowMs: 60_000, maxRequests: 30, keyGenerator: (req) => `svc-msg:send:${(req as any).user?.id}` })
-  send(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: CreateMessageDto) {
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 30,
+    keyGenerator: (req) => `svc-msg:send:${(req as any).user?.id}`,
+  })
+  send(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: CreateMessageDto
+  ) {
     return this.messagesService.send(id, user.id, dto);
   }
 

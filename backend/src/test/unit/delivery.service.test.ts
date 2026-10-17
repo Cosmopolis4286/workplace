@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { DeliveryService } from '../../domains/operations/delivery/delivery.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -19,17 +23,25 @@ describe('DeliveryService — driver invitations & assignability', () => {
 
   const I18N_MESSAGES: Record<string, string> = {
     'delivery.driver.not_found': 'Repartidor no encontrado',
-    'delivery.driver.not_found_in_commerce': 'Repartidor no encontrado en este comercio',
+    'delivery.driver.not_found_in_commerce':
+      'Repartidor no encontrado en este comercio',
     'delivery.driver.not_active': 'El repartidor no está activo',
-    'delivery.driver.kyc_required': 'Este repartidor debe verificar su identidad antes de recibir entregas.',
-    'delivery.driver.grace_expired': 'Este repartidor no tiene una cuenta verificada vinculada. Invítalo a registrarse para volver a asignarle entregas.',
+    'delivery.driver.kyc_required':
+      'Este repartidor debe verificar su identidad antes de recibir entregas.',
+    'delivery.driver.grace_expired':
+      'Este repartidor no tiene una cuenta verificada vinculada. Invítalo a registrarse para volver a asignarle entregas.',
     'delivery.delivery.not_found': 'Entrega no encontrada',
     'delivery.invitation.not_found': 'Invitación no encontrada',
-    'delivery.invitation.already_pending': 'Ya existe una invitación pendiente para este correo',
-    'delivery.invitation.no_longer_pending': 'Esta invitación ya no está pendiente',
-    'delivery.invitation.no_longer_available': 'Esta invitación ya no está disponible',
-    'delivery.invitation.expired': 'Esta invitación expiró. Solicita una nueva.',
-    'delivery.invitation.already_linked': 'Tu cuenta ya está vinculada como repartidor',
+    'delivery.invitation.already_pending':
+      'Ya existe una invitación pendiente para este correo',
+    'delivery.invitation.no_longer_pending':
+      'Esta invitación ya no está pendiente',
+    'delivery.invitation.no_longer_available':
+      'Esta invitación ya no está disponible',
+    'delivery.invitation.expired':
+      'Esta invitación expiró. Solicita una nueva.',
+    'delivery.invitation.already_linked':
+      'Tu cuenta ya está vinculada como repartidor',
     'delivery.invitation.user_not_found': 'Usuario no encontrado',
   };
   const mockI18nService = {
@@ -72,7 +84,9 @@ describe('DeliveryService — driver invitations & assignability', () => {
 
     mockPrismaService = {
       commerce: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'commerce-1', name: 'Comercio Uno' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'commerce-1', name: 'Comercio Uno' }),
       },
       driver: {
         findUnique: jest.fn(),
@@ -111,8 +125,10 @@ describe('DeliveryService — driver invitations & assignability', () => {
           provide: CommerceResolverService,
           useValue: {
             resolve: jest.fn(async (userId: string) => {
-              const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
-              return commerce?.id ?? userId
+              const commerce = await mockPrismaService.commerce.findUnique({
+                where: { userId },
+              });
+              return commerce?.id ?? userId;
             }),
             resolveOrCreate: jest.fn(),
           },
@@ -123,7 +139,10 @@ describe('DeliveryService — driver invitations & assignability', () => {
         { provide: I18nService, useValue: mockI18nService },
         {
           provide: REPUTATION_FACADE,
-          useValue: { recalculate: jest.fn().mockResolvedValue(undefined), getScore: jest.fn().mockResolvedValue(null) },
+          useValue: {
+            recalculate: jest.fn().mockResolvedValue(undefined),
+            getScore: jest.fn().mockResolvedValue(null),
+          },
         },
         {
           provide: TrackingService,
@@ -131,7 +150,10 @@ describe('DeliveryService — driver invitations & assignability', () => {
         },
         {
           provide: TrackingGateway,
-          useValue: { emitStatusUpdate: jest.fn(), emitLocationUpdate: jest.fn() },
+          useValue: {
+            emitStatusUpdate: jest.fn(),
+            emitLocationUpdate: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -142,11 +164,13 @@ describe('DeliveryService — driver invitations & assignability', () => {
   describe('inviteDriver', () => {
     it('creates an invitation and sends the email', async () => {
       mockPrismaService.driverInvitation.findFirst.mockResolvedValue(null);
-      mockPrismaService.driverInvitation.create.mockImplementation(({ data }: any) =>
-        Promise.resolve({ ...baseInvitation(), ...data })
+      mockPrismaService.driverInvitation.create.mockImplementation(
+        ({ data }: any) => Promise.resolve({ ...baseInvitation(), ...data })
       );
 
-      const result = await service.inviteDriver('user-1', { email: 'driver@example.com' });
+      const result = await service.inviteDriver('user-1', {
+        email: 'driver@example.com',
+      });
 
       expect(mockPrismaService.driverInvitation.create).toHaveBeenCalled();
       expect(mockMailService.sendDriverInvitation).toHaveBeenCalledWith(
@@ -157,7 +181,9 @@ describe('DeliveryService — driver invitations & assignability', () => {
     });
 
     it('rejects when there is already a pending invitation for the same email', async () => {
-      mockPrismaService.driverInvitation.findFirst.mockResolvedValue(baseInvitation());
+      mockPrismaService.driverInvitation.findFirst.mockResolvedValue(
+        baseInvitation()
+      );
 
       await expect(
         service.inviteDriver('user-1', { email: 'driver@example.com' })
@@ -168,8 +194,12 @@ describe('DeliveryService — driver invitations & assignability', () => {
 
   describe('cancelInvitation', () => {
     it('cancels a pending invitation owned by the commerce', async () => {
-      mockPrismaService.driverInvitation.findUnique.mockResolvedValue(baseInvitation());
-      mockPrismaService.driverInvitation.update.mockResolvedValue(baseInvitation({ status: 'CANCELLED' }));
+      mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
+        baseInvitation()
+      );
+      mockPrismaService.driverInvitation.update.mockResolvedValue(
+        baseInvitation({ status: 'CANCELLED' })
+      );
 
       const result = await service.cancelInvitation('user-1', 'invite-1');
 
@@ -181,7 +211,9 @@ describe('DeliveryService — driver invitations & assignability', () => {
         baseInvitation({ commerceId: 'other-commerce' })
       );
 
-      await expect(service.cancelInvitation('user-1', 'invite-1')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.cancelInvitation('user-1', 'invite-1')
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('rejects cancelling an invitation that is no longer pending', async () => {
@@ -189,16 +221,22 @@ describe('DeliveryService — driver invitations & assignability', () => {
         baseInvitation({ status: 'ACCEPTED' })
       );
 
-      await expect(service.cancelInvitation('user-1', 'invite-1')).rejects.toThrow(BadRequestException);
+      await expect(
+        service.cancelInvitation('user-1', 'invite-1')
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('acceptInvitation', () => {
     it('creates a Driver linked to the accepting user and notifies the commerce', async () => {
-      mockPrismaService.driverInvitation.findUnique.mockResolvedValue(baseInvitation());
+      mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
+        baseInvitation()
+      );
       mockPrismaService.driver.findUnique.mockResolvedValue(null); // no existing profile for this user
       mockPrismaService.user.findUnique.mockResolvedValue({
-        firstName: 'Juan', lastName: 'Pérez', phone: '+58123',
+        firstName: 'Juan',
+        lastName: 'Pérez',
+        phone: '+58123',
       });
       const createdDriver = baseDriver({ userId: 'user-2' });
       mockPrismaService.$transaction.mockResolvedValue([
@@ -209,16 +247,17 @@ describe('DeliveryService — driver invitations & assignability', () => {
       const result = await service.acceptInvitation('token-1', 'user-2');
 
       expect(result).toEqual(createdDriver);
-      expect(mockNotificationsService.notifyDriverInvitationAccepted).toHaveBeenCalledWith(
-        'commerce-1',
-        createdDriver.name
-      );
+      expect(
+        mockNotificationsService.notifyDriverInvitationAccepted
+      ).toHaveBeenCalledWith('commerce-1', createdDriver.name);
     });
 
     it('rejects when the invitation does not exist', async () => {
       mockPrismaService.driverInvitation.findUnique.mockResolvedValue(null);
 
-      await expect(service.acceptInvitation('bad-token', 'user-2')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.acceptInvitation('bad-token', 'user-2')
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('rejects when the invitation already expired, and marks it EXPIRED', async () => {
@@ -227,7 +266,9 @@ describe('DeliveryService — driver invitations & assignability', () => {
       );
       mockPrismaService.driverInvitation.update.mockResolvedValue(undefined);
 
-      await expect(service.acceptInvitation('token-1', 'user-2')).rejects.toThrow(BadRequestException);
+      await expect(
+        service.acceptInvitation('token-1', 'user-2')
+      ).rejects.toThrow(BadRequestException);
       expect(mockPrismaService.driverInvitation.update).toHaveBeenCalledWith({
         where: { id: 'invite-1' },
         data: { status: 'EXPIRED' },
@@ -235,10 +276,16 @@ describe('DeliveryService — driver invitations & assignability', () => {
     });
 
     it('rejects when the accepting user is already linked to a driver profile', async () => {
-      mockPrismaService.driverInvitation.findUnique.mockResolvedValue(baseInvitation());
-      mockPrismaService.driver.findUnique.mockResolvedValue(baseDriver({ userId: 'user-2' }));
+      mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
+        baseInvitation()
+      );
+      mockPrismaService.driver.findUnique.mockResolvedValue(
+        baseDriver({ userId: 'user-2' })
+      );
 
-      await expect(service.acceptInvitation('token-1', 'user-2')).rejects.toThrow(BadRequestException);
+      await expect(
+        service.acceptInvitation('token-1', 'user-2')
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('rejects when the invitation is not PENDING anymore', async () => {
@@ -246,7 +293,9 @@ describe('DeliveryService — driver invitations & assignability', () => {
         baseInvitation({ status: 'CANCELLED' })
       );
 
-      await expect(service.acceptInvitation('token-1', 'user-2')).rejects.toThrow(BadRequestException);
+      await expect(
+        service.acceptInvitation('token-1', 'user-2')
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -261,9 +310,13 @@ describe('DeliveryService — driver invitations & assignability', () => {
 
     beforeEach(() => {
       mockPrismaService.delivery.findUnique.mockResolvedValue({
-        id: 'delivery-1', commerceId: 'commerce-1',
+        id: 'delivery-1',
+        commerceId: 'commerce-1',
       });
-      mockPrismaService.delivery.update.mockResolvedValue({ id: 'delivery-1', driverId: 'driver-1' });
+      mockPrismaService.delivery.update.mockResolvedValue({
+        id: 'delivery-1',
+        driverId: 'driver-1',
+      });
       mockPrismaService.driver.update.mockResolvedValue({ id: 'driver-1' });
     });
 
@@ -289,7 +342,10 @@ describe('DeliveryService — driver invitations & assignability', () => {
 
     it('allows assigning a legacy driver (no account) still within its grace period', async () => {
       mockDriverLookups(
-        baseDriver({ userId: null, graceUntil: new Date(Date.now() + 24 * 60 * 60 * 1000) })
+        baseDriver({
+          userId: null,
+          graceUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        })
       );
 
       await expect(

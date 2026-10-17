@@ -17,7 +17,11 @@ export class AiOrchestratorController {
   // libre todavía. Mismo rate limit que jobs:apply — protege contra un
   // futuro cliente (o LLM) que llame en loop.
   @Post('search')
-  @RateLimit({ windowMs: 60_000, maxRequests: 20, keyGenerator: (req) => `ai:needs:search:${(req as any).user?.id}` })
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 20,
+    keyGenerator: (req) => `ai:needs:search:${(req as any).user?.id}`,
+  })
   search(@Body() dto: SearchNeedDto, @CurrentUser() user: { id: string }) {
     return this.aiOrchestratorService.searchNeed(user.id, dto);
   }
@@ -26,7 +30,11 @@ export class AiOrchestratorController {
   // requisito que POST /services/requests.
   @Post('confirm')
   @UseGuards(KycApprovedGuard)
-  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `ai:needs:confirm:${(req as any).user?.id}` })
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 10,
+    keyGenerator: (req) => `ai:needs:confirm:${(req as any).user?.id}`,
+  })
   confirm(@Body() dto: ConfirmNeedDto, @CurrentUser() user: { id: string }) {
     return this.aiOrchestratorService.confirmNeed(user.id, dto);
   }

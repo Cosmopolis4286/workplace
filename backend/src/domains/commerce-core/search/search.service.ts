@@ -62,14 +62,41 @@ export function detectBudget(query: string): number | null {
 // para clasificar la query — no es exhaustivo, es una primera capa sobre el
 // agregador de búsqueda existente, sin IA.
 const NEED_KEYWORDS: Record<NeedCategory, string[]> = {
-  comida: ['comida', 'comer', 'hambre', 'almuerzo', 'cena', 'desayuno', 'restaurante'],
-  hogar: ['casa', 'hogar', 'limpieza', 'limpiar', 'reparar', 'reparación', 'plomero', 'electricista'],
-  ocio: ['fiesta', 'cumpleaños', 'entretenimiento', 'diversión', 'salida', 'cine'],
+  comida: [
+    'comida',
+    'comer',
+    'hambre',
+    'almuerzo',
+    'cena',
+    'desayuno',
+    'restaurante',
+  ],
+  hogar: [
+    'casa',
+    'hogar',
+    'limpieza',
+    'limpiar',
+    'reparar',
+    'reparación',
+    'plomero',
+    'electricista',
+  ],
+  ocio: [
+    'fiesta',
+    'cumpleaños',
+    'entretenimiento',
+    'diversión',
+    'salida',
+    'cine',
+  ],
 };
 
 export function detectNeedCategory(query: string): NeedCategory | null {
   const lower = query.toLowerCase();
-  for (const [category, keywords] of Object.entries(NEED_KEYWORDS) as [NeedCategory, string[]][]) {
+  for (const [category, keywords] of Object.entries(NEED_KEYWORDS) as [
+    NeedCategory,
+    string[],
+  ][]) {
     if (keywords.some((kw) => lower.includes(kw))) return category;
   }
   return null;
@@ -84,12 +111,12 @@ export class SearchService {
     private readonly servicesService: ServicesService,
     private readonly jobsService: JobsService,
     private readonly prisma: PrismaService,
-    @Inject(MATCHING_FACADE) private readonly matching: MatchingFacade,
+    @Inject(MATCHING_FACADE) private readonly matching: MatchingFacade
   ) {}
 
   async suggest(
     q?: string,
-    location?: SearchLocationHint,
+    location?: SearchLocationHint
   ): Promise<{
     query: string;
     suggestions: SearchSuggestion[];
@@ -99,7 +126,13 @@ export class SearchService {
   }> {
     const query = (q ?? '').trim();
     if (query.length < 2) {
-      return { query, suggestions: [], counts: [], detectedBudget: null, needCategory: null };
+      return {
+        query,
+        suggestions: [],
+        counts: [],
+        detectedBudget: null,
+        needCategory: null,
+      };
     }
 
     const detectedBudget = detectBudget(query);
@@ -118,72 +151,102 @@ export class SearchService {
         limit: String(SUGGESTIONS_PER_TAB),
         ...(detectedBudget ? { priceMax: String(detectedBudget) } : {}),
       }),
-      this.jobsService.getCatalogJobs({ search: query, page: 1, limit: SUGGESTIONS_PER_TAB }),
+      this.jobsService.getCatalogJobs({
+        search: query,
+        page: 1,
+        limit: SUGGESTIONS_PER_TAB,
+      }),
     ]);
 
-    const isNear = (entityLocation?: { city?: string | null; state?: string | null }) => {
+    const isNear = (entityLocation?: {
+      city?: string | null;
+      state?: string | null;
+    }) => {
       if (!location?.city && !location?.state) return false;
       if (!entityLocation) return false;
       if (location.city && entityLocation.city) {
-        return entityLocation.city.toLowerCase() === location.city.toLowerCase();
+        return (
+          entityLocation.city.toLowerCase() === location.city.toLowerCase()
+        );
       }
       if (location.state && entityLocation.state) {
-        return entityLocation.state.toLowerCase() === location.state.toLowerCase();
+        return (
+          entityLocation.state.toLowerCase() === location.state.toLowerCase()
+        );
       }
       return false;
     };
 
     const suggestions: SearchSuggestion[] = [
       ...(products.status === 'fulfilled'
-        ? products.value.data.map((p: any): SearchSuggestion => ({
-            id: p.id,
-            tab: 'productos',
-            title: p.name,
-            subtitle: p.commerce?.name,
-            providerName: p.commerce?.name ?? null,
-            image: p.image,
-            price: p.price,
-            category: p.category ? { name: p.category.name, color: p.category.color } : null,
-            rating: p.commerce?.user?.rating ?? null,
-            reviewsCount: p.commerce?.user?.reviewsCount ?? null,
-            lowStock: p.status === 'LOW_STOCK',
-            nearYou: isNear(p.commerce),
-          }))
+        ? products.value.data.map(
+            (p: any): SearchSuggestion => ({
+              id: p.id,
+              tab: 'productos',
+              title: p.name,
+              subtitle: p.commerce?.name,
+              providerName: p.commerce?.name ?? null,
+              image: p.image,
+              price: p.price,
+              category: p.category
+                ? { name: p.category.name, color: p.category.color }
+                : null,
+              rating: p.commerce?.user?.rating ?? null,
+              reviewsCount: p.commerce?.user?.reviewsCount ?? null,
+              lowStock: p.status === 'LOW_STOCK',
+              nearYou: isNear(p.commerce),
+            })
+          )
         : []),
       ...(services.status === 'fulfilled'
-        ? services.value.data.map((s: any): SearchSuggestion => ({
-            id: s.id,
-            tab: 'servicios',
-            title: s.name,
-            subtitle: s.category?.name,
-            providerName: s.user ? `${s.user.firstName} ${s.user.lastName}`.trim() : null,
-            image: s.images?.[0] ?? null,
-            price: s.price,
-            priceUnit: s.priceUnit,
-            rating: s.user?.rating ?? null,
-            reviewsCount: s.user?.reviewsCount ?? null,
-            nearYou: isNear(s.user),
-          }))
+        ? services.value.data.map(
+            (s: any): SearchSuggestion => ({
+              id: s.id,
+              tab: 'servicios',
+              title: s.name,
+              subtitle: s.category?.name,
+              providerName: s.user
+                ? `${s.user.firstName} ${s.user.lastName}`.trim()
+                : null,
+              image: s.images?.[0] ?? null,
+              price: s.price,
+              priceUnit: s.priceUnit,
+              rating: s.user?.rating ?? null,
+              reviewsCount: s.user?.reviewsCount ?? null,
+              nearYou: isNear(s.user),
+            })
+          )
         : []),
       ...(jobs.status === 'fulfilled'
-        ? jobs.value.data.map((j: any): SearchSuggestion => ({
-            id: j.id,
-            tab: 'empleos',
-            title: j.title,
-            subtitle: j.location ?? j.employer?.firstName,
-            image: null,
-            salaryMin: j.salaryMin,
-            salaryMax: j.salaryMax,
-            salaryCurrency: j.salaryCurrency,
-            nearYou: isNear(j.employer),
-          }))
+        ? jobs.value.data.map(
+            (j: any): SearchSuggestion => ({
+              id: j.id,
+              tab: 'empleos',
+              title: j.title,
+              subtitle: j.location ?? j.employer?.firstName,
+              image: null,
+              salaryMin: j.salaryMin,
+              salaryMax: j.salaryMax,
+              salaryCurrency: j.salaryCurrency,
+              nearYou: isNear(j.employer),
+            })
+          )
         : []),
     ];
 
     const counts: SearchTabCount[] = [
-      { tab: 'productos', total: products.status === 'fulfilled' ? products.value.total : 0 },
-      { tab: 'servicios', total: services.status === 'fulfilled' ? services.value.total : 0 },
-      { tab: 'empleos', total: jobs.status === 'fulfilled' ? jobs.value.total : 0 },
+      {
+        tab: 'productos',
+        total: products.status === 'fulfilled' ? products.value.total : 0,
+      },
+      {
+        tab: 'servicios',
+        total: services.status === 'fulfilled' ? services.value.total : 0,
+      },
+      {
+        tab: 'empleos',
+        total: jobs.status === 'fulfilled' ? jobs.value.total : 0,
+      },
     ];
 
     if (counts.every((c) => c.total === 0)) {
@@ -191,7 +254,12 @@ export class SearchService {
     }
 
     const ranked = location?.origin
-      ? await this.rankByMatching(suggestions, products, services, location.origin)
+      ? await this.rankByMatching(
+          suggestions,
+          products,
+          services,
+          location.origin
+        )
       : suggestions;
 
     return { query, suggestions: ranked, counts, detectedBudget, needCategory };
@@ -205,22 +273,29 @@ export class SearchService {
     suggestions: SearchSuggestion[],
     products: PromiseSettledResult<{ data: any[] }>,
     services: PromiseSettledResult<{ data: any[] }>,
-    origin: { lat: number; lng: number },
+    origin: { lat: number; lng: number }
   ): Promise<SearchSuggestion[]> {
     try {
-      const productList = products.status === 'fulfilled' ? products.value.data : [];
-      const serviceList = services.status === 'fulfilled' ? services.value.data : [];
+      const productList =
+        products.status === 'fulfilled' ? products.value.data : [];
+      const serviceList =
+        services.status === 'fulfilled' ? services.value.data : [];
 
-      const commerceIds = [...new Set(productList.map((p: any) => p.commerce?.id).filter(Boolean))];
+      const commerceIds = [
+        ...new Set(productList.map((p: any) => p.commerce?.id).filter(Boolean)),
+      ];
       const commerces = commerceIds.length
         ? await this.prisma.commerce.findMany({
             where: { id: { in: commerceIds } },
             select: { id: true, userId: true },
           })
         : [];
-      const commerceUserIdById = new Map(commerces.map((c) => [c.id, c.userId]));
+      const commerceUserIdById = new Map(
+        commerces.map((c) => [c.id, c.userId])
+      );
 
-      const candidates: import('../matching/matching.facade').MatchCandidateInput[] = [];
+      const candidates: import('../matching/matching.facade').MatchCandidateInput[] =
+        [];
       const candidateKeyByIndex = new Map<number, string>(); // 'productos:<id>' | 'servicios:<id>'
 
       productList.forEach((p: any) => {
@@ -231,7 +306,8 @@ export class SearchService {
           entityId: p.commerce.id,
           userId,
           price: p.price ?? null,
-          isAvailable: p.status !== 'OUT_OF_STOCK' && p.status !== 'UNAVAILABLE',
+          isAvailable:
+            p.status !== 'OUT_OF_STOCK' && p.status !== 'UNAVAILABLE',
         });
         candidateKeyByIndex.set(candidates.length - 1, `productos:${p.id}`);
       });
@@ -250,23 +326,40 @@ export class SearchService {
 
       if (candidates.length === 0) return suggestions;
 
-      const results = await this.matching.rankCandidates(candidates, { origin });
+      const results = await this.matching.rankCandidates(candidates, {
+        origin,
+      });
 
       // rankCandidates devuelve ordenado pero sin el índice original — se
       // reconstruye el mapeo por (entityType, entityId) ya que puede repetirse
       // un mismo comercio/profesional en varios productos/servicios.
-      const scoreByCandidateKey = new Map<string, { score: number; distanceMeters: number | null }>();
+      const scoreByCandidateKey = new Map<
+        string,
+        { score: number; distanceMeters: number | null }
+      >();
       candidates.forEach((c, idx) => {
         const suggestionKey = candidateKeyByIndex.get(idx);
         if (!suggestionKey) return;
-        const result = results.find((r) => r.entityType === c.entityType && r.entityId === c.entityId);
-        if (result) scoreByCandidateKey.set(suggestionKey, { score: result.score, distanceMeters: result.distanceMeters });
+        const result = results.find(
+          (r) => r.entityType === c.entityType && r.entityId === c.entityId
+        );
+        if (result)
+          scoreByCandidateKey.set(suggestionKey, {
+            score: result.score,
+            distanceMeters: result.distanceMeters,
+          });
       });
 
       const annotated = suggestions.map((s) => {
         const key = `${s.tab}:${s.id}`;
         const match = scoreByCandidateKey.get(key);
-        return match ? { ...s, matchScore: match.score, distanceMeters: match.distanceMeters } : s;
+        return match
+          ? {
+              ...s,
+              matchScore: match.score,
+              distanceMeters: match.distanceMeters,
+            }
+          : s;
       });
 
       // Solo reordena productos/servicios entre sí (mismo tab) — empleos
@@ -276,7 +369,9 @@ export class SearchService {
         return (b.matchScore ?? -1) - (a.matchScore ?? -1);
       });
     } catch (err: any) {
-      this.logger.warn(`Matching ranking failed, falling back to default order: ${err.message}`);
+      this.logger.warn(
+        `Matching ranking failed, falling back to default order: ${err.message}`
+      );
       return suggestions;
     }
   }
@@ -287,6 +382,8 @@ export class SearchService {
   private recordUnmetSearch(query: string, city: string | null) {
     this.prisma.unmetSearch
       .create({ data: { query, city } })
-      .catch((err) => this.logger.warn(`Failed to record unmet search: ${err.message}`));
+      .catch((err) =>
+        this.logger.warn(`Failed to record unmet search: ${err.message}`)
+      );
   }
 }

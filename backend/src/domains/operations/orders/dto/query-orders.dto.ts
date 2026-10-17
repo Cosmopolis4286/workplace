@@ -1,4 +1,10 @@
-import { IsOptional, IsEnum, IsNumberString, IsString, Matches } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsNumberString,
+  IsString,
+  Matches,
+} from 'class-validator';
 import { OrderType } from '@prisma/client';
 
 const STATUS_LIST_PATTERN =

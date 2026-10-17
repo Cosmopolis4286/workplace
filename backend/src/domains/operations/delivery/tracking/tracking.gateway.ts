@@ -24,7 +24,9 @@ import { plainToInstance } from 'class-transformer';
   namespace: '/tracking',
   cors: { origin: '*', credentials: true },
 })
-export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class TrackingGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -40,7 +42,10 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     try {
       const token =
         (client.handshake.auth?.token as string) ||
-        (client.handshake.headers?.authorization as string)?.replace('Bearer ', '');
+        (client.handshake.headers?.authorization as string)?.replace(
+          'Bearer ',
+          ''
+        );
 
       if (!token) {
         client.disconnect();
@@ -84,7 +89,10 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   @SubscribeMessage('leave')
-  handleLeave(@ConnectedSocket() client: Socket, @MessageBody() data: { deliveryId: string }) {
+  handleLeave(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { deliveryId: string }
+  ) {
     if (data?.deliveryId) client.leave(this.room(data.deliveryId));
   }
 
@@ -130,7 +138,11 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     });
   }
 
-  emitStatusUpdate(deliveryId: string, status: string, trackingActive: boolean) {
+  emitStatusUpdate(
+    deliveryId: string,
+    status: string,
+    trackingActive: boolean
+  ) {
     this.server.to(this.room(deliveryId)).emit('DELIVERY_STATUS_UPDATED', {
       deliveryId,
       status,

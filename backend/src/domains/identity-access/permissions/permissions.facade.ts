@@ -15,7 +15,11 @@ export interface PermissionsFacade {
   getRolePermissions(role: Role): Promise<string[]>;
   getUserOverrides(userId: string): Promise<Record<string, boolean>>;
   getActiveProfilePermissions(userId: string): Promise<string[]>;
-  hasEffectivePermission(userId: string, role: Role, permissionKey: string): Promise<boolean>;
+  hasEffectivePermission(
+    userId: string,
+    role: Role,
+    permissionKey: string
+  ): Promise<boolean>;
 }
 
 export const PERMISSIONS_FACADE = Symbol('PERMISSIONS_FACADE');

@@ -24,7 +24,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 export class ExchangeRatesController {
   constructor(
     private readonly exchangeRatesService: ExchangeRatesService,
-    private readonly bcvSyncService: BcvSyncService,
+    private readonly bcvSyncService: BcvSyncService
   ) {}
 
   // ─── Truly public — no auth required ─────────────────────────────────────
@@ -88,7 +88,8 @@ export class ExchangeRatesController {
       return {
         success: false,
         code: code.toUpperCase(),
-        message: error.message ?? 'No se pudo sincronizar: todas las fuentes fallaron',
+        message:
+          error.message ?? 'No se pudo sincronizar: todas las fuentes fallaron',
       };
     }
   }
@@ -99,14 +100,23 @@ export class ExchangeRatesController {
   async syncAll() {
     const statuses = await this.bcvSyncService.getAllSyncStatuses();
     const results = await Promise.allSettled(
-      statuses.map(s => this.bcvSyncService.syncCurrency(s.currencyCode)),
+      statuses.map((s) => this.bcvSyncService.syncCurrency(s.currencyCode))
     );
 
     return results.map((result, index) => {
       const code = statuses[index].currencyCode;
       return result.status === 'fulfilled'
-        ? { code, success: true, rate: result.value.rate, source: result.value.source }
-        : { code, success: false, message: result.reason?.message ?? 'Error desconocido' };
+        ? {
+            code,
+            success: true,
+            rate: result.value.rate,
+            source: result.value.source,
+          }
+        : {
+            code,
+            success: false,
+            message: result.reason?.message ?? 'Error desconocido',
+          };
     });
   }
 
@@ -133,7 +143,7 @@ export class ExchangeRatesController {
   @RequirePermission('exchange_rates:manage')
   async setAutoSync(
     @Param('code') code: string,
-    @Body('enabled') enabled: boolean,
+    @Body('enabled') enabled: boolean
   ) {
     await this.bcvSyncService.setAutoSync(code.toUpperCase(), enabled);
     return {
@@ -181,7 +191,10 @@ export class ExchangeRatesController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermission('exchange_rates:view')
   getHistory(@Param('id') id: string, @Query('limit') limit?: string) {
-    return this.exchangeRatesService.getHistory(id, limit ? parseInt(limit, 10) : undefined);
+    return this.exchangeRatesService.getHistory(
+      id,
+      limit ? parseInt(limit, 10) : undefined
+    );
   }
 
   // Consultado por el modal de confirmación de eliminar en el frontend —

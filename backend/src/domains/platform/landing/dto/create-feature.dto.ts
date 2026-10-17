@@ -1,28 +1,35 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsInt, Min } from 'class-validator'
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  Min,
+} from 'class-validator';
 
 export class CreateFeatureDto {
   @IsString()
   @IsNotEmpty()
-  title: string
+  title: string;
 
   @IsString()
   @IsNotEmpty()
-  description: string
+  description: string;
 
   @IsString()
   @IsNotEmpty()
-  icon: string
+  icon: string;
 
   @IsString()
   @IsOptional()
-  bg?: string
+  bg?: string;
 
   @IsBoolean()
   @IsOptional()
-  isActive?: boolean
+  isActive?: boolean;
 
   @IsInt()
   @Min(0)
   @IsOptional()
-  sortOrder?: number
+  sortOrder?: number;
 }

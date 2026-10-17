@@ -10,22 +10,32 @@ import {
   UseGuards,
   HttpStatus,
   HttpCode,
-  NotFoundException
-} from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger'
-import { CategoriesGlobalService } from './categories-global.service'
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto'
-import { CreateSubcategoryDto, UpdateSubcategoryDto } from './dto/subcategory.dto'
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard'
-import { PermissionsGuard } from '../../../common/guards/permissions.guard'
-import { RequirePermission } from '../../../common/decorators/require-permission.decorator'
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { CategoriesGlobalService } from './categories-global.service';
+import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import {
+  CreateSubcategoryDto,
+  UpdateSubcategoryDto,
+} from './dto/subcategory.dto';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 
 @ApiTags('Categorías Globales')
 @Controller('categories-global')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class CategoriesGlobalController {
-  constructor(private readonly categoriesGlobalService: CategoriesGlobalService) {}
+  constructor(
+    private readonly categoriesGlobalService: CategoriesGlobalService
+  ) {}
 
   // ==================== CATEGORÍAS GLOBALES ====================
 
@@ -36,8 +46,8 @@ export class CategoriesGlobalController {
   async findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
     return this.categoriesGlobalService.findAll({
       page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 50
-    })
+      limit: limit ? parseInt(limit) : 50,
+    });
   }
 
   @Get(':id')
@@ -46,7 +56,7 @@ export class CategoriesGlobalController {
   @ApiResponse({ status: 404, description: 'Categoría global no encontrada' })
   @RequirePermission('categories_global:view')
   async findOne(@Param('id') id: string) {
-    return this.categoriesGlobalService.findOne(id)
+    return this.categoriesGlobalService.findOne(id);
   }
 
   @Post()
@@ -57,7 +67,7 @@ export class CategoriesGlobalController {
   @HttpCode(HttpStatus.CREATED)
   @RequirePermission('categories_global:create')
   async createCategory(@Body() createCategoryDto: CreateCategoryDto) {
-    return this.categoriesGlobalService.createCategory(createCategoryDto)
+    return this.categoriesGlobalService.createCategory(createCategoryDto);
   }
 
   @Put(':id')
@@ -67,9 +77,9 @@ export class CategoriesGlobalController {
   @RequirePermission('categories_global:edit')
   async updateCategory(
     @Param('id') id: string,
-    @Body() updateCategoryDto: UpdateCategoryDto,
+    @Body() updateCategoryDto: UpdateCategoryDto
   ) {
-    return this.categoriesGlobalService.updateCategory(id, updateCategoryDto)
+    return this.categoriesGlobalService.updateCategory(id, updateCategoryDto);
   }
 
   @Delete(':id')
@@ -78,7 +88,7 @@ export class CategoriesGlobalController {
   @ApiResponse({ status: 404, description: 'Categoría global no encontrada' })
   @RequirePermission('categories_global:delete')
   async deleteCategory(@Param('id') id: string) {
-    return this.categoriesGlobalService.deleteCategory(id)
+    return this.categoriesGlobalService.deleteCategory(id);
   }
 
   // ==================== SUBCATEGORÍAS GLOBALES ====================
@@ -88,21 +98,25 @@ export class CategoriesGlobalController {
   @ApiResponse({ status: 200, description: 'Subcategorías encontradas' })
   @RequirePermission('subcategories_global:view')
   async findSubcategoriesByCategory(@Param('categoryId') categoryId: string) {
-    return this.categoriesGlobalService.findSubcategories(categoryId)
+    return this.categoriesGlobalService.findSubcategories(categoryId);
   }
 
   @Get('subcategories/:id')
   @ApiOperation({ summary: 'Obtener subcategoría global por ID' })
   @ApiResponse({ status: 200, description: 'Subcategoría global encontrada' })
-  @ApiResponse({ status: 404, description: 'Subcategoría global no encontrada' })
+  @ApiResponse({
+    status: 404,
+    description: 'Subcategoría global no encontrada',
+  })
   @RequirePermission('subcategories_global:view')
   async findSubcategoryById(@Param('id') id: string) {
-    const subcategories = await this.categoriesGlobalService.findSubcategories('dummy')
-    const subcategory = subcategories.find(sub => sub.id === id)
+    const subcategories =
+      await this.categoriesGlobalService.findSubcategories('dummy');
+    const subcategory = subcategories.find((sub) => sub.id === id);
     if (!subcategory) {
-      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`)
+      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`);
     }
-    return subcategory
+    return subcategory;
   }
 
   @Post(':categoryId/subcategories')
@@ -114,30 +128,42 @@ export class CategoriesGlobalController {
   @RequirePermission('subcategories_global:create')
   async createSubcategory(
     @Param('categoryId') categoryId: string,
-    @Body() createSubcategoryDto: CreateSubcategoryDto,
+    @Body() createSubcategoryDto: CreateSubcategoryDto
   ) {
-    return this.categoriesGlobalService.createSubcategory(categoryId, createSubcategoryDto)
+    return this.categoriesGlobalService.createSubcategory(
+      categoryId,
+      createSubcategoryDto
+    );
   }
 
   @Put('subcategories/:id')
   @ApiOperation({ summary: 'Actualizar subcategoría global' })
   @ApiResponse({ status: 200, description: 'Subcategoría global actualizada' })
-  @ApiResponse({ status: 404, description: 'Subcategoría global no encontrada' })
+  @ApiResponse({
+    status: 404,
+    description: 'Subcategoría global no encontrada',
+  })
   @RequirePermission('subcategories_global:edit')
   async updateSubcategory(
     @Param('id') id: string,
-    @Body() updateSubcategoryDto: UpdateSubcategoryDto,
+    @Body() updateSubcategoryDto: UpdateSubcategoryDto
   ) {
-    return this.categoriesGlobalService.updateSubcategory(id, updateSubcategoryDto)
+    return this.categoriesGlobalService.updateSubcategory(
+      id,
+      updateSubcategoryDto
+    );
   }
 
   @Delete('subcategories/:id')
   @ApiOperation({ summary: 'Eliminar subcategoría global' })
   @ApiResponse({ status: 200, description: 'Subcategoría global eliminada' })
-  @ApiResponse({ status: 404, description: 'Subcategoría global no encontrada' })
+  @ApiResponse({
+    status: 404,
+    description: 'Subcategoría global no encontrada',
+  })
   @RequirePermission('subcategories_global:delete')
   async deleteSubcategory(@Param('id') id: string) {
-    return this.categoriesGlobalService.deleteSubcategory(id)
+    return this.categoriesGlobalService.deleteSubcategory(id);
   }
 
   // ==================== UTILIDADES ====================
@@ -147,7 +173,7 @@ export class CategoriesGlobalController {
   @ApiResponse({ status: 200, description: 'Archivo CSV generado' })
   @RequirePermission('categories_global:view')
   async exportCategoriesToCsv() {
-    return this.categoriesGlobalService.exportCategoriesToCsv()
+    return this.categoriesGlobalService.exportCategoriesToCsv();
   }
 
   @Post('import/csv')
@@ -157,6 +183,8 @@ export class CategoriesGlobalController {
   @HttpCode(HttpStatus.CREATED)
   @RequirePermission('categories_global:create')
   async importCategoriesFromCsv(@Body() data: { categories: any[] }) {
-    return this.categoriesGlobalService.importCategoriesFromCsv(data.categories)
+    return this.categoriesGlobalService.importCategoriesFromCsv(
+      data.categories
+    );
   }
 }

@@ -8,7 +8,14 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
-import { IsEnum, IsNumber, IsOptional, IsString, Min, Max } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+} from 'class-validator';
 import { FeeTransactionType, FeePayer } from '@prisma/client';
 import { PlatformFeesService } from './platform-fees.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
@@ -71,7 +78,7 @@ export class PlatformFeesController {
   upsertRate(
     @Param('type') type: FeeTransactionType,
     @Body() dto: UpsertRateBodyDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: any
   ) {
     return this.platformFeesService.upsertRate(type, dto, user.id);
   }

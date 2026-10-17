@@ -1,13 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing'
-import { NotFoundException, BadRequestException } from '@nestjs/common'
-import { I18nService } from 'nestjs-i18n'
-import { AccountReceivablesService } from '../../domains/money/accounts/account-receivables.service'
-import { PrismaService } from '../../prisma/prisma.service'
-import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service'
-import { AccountStatus } from '@prisma/client'
+import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
+import { AccountReceivablesService } from '../../domains/money/accounts/account-receivables.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service';
+import { AccountStatus } from '@prisma/client';
 
 describe('AccountReceivablesService', () => {
-  let service: AccountReceivablesService
+  let service: AccountReceivablesService;
 
   const mockPrismaService = {
     customer: { findFirst: jest.fn() },
@@ -19,21 +19,21 @@ describe('AccountReceivablesService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
-  }
+  };
 
   const mockExchangeRatesService = {
     resolveRateToUsd: jest.fn(),
-  }
+  };
 
   const mockI18nService = {
     t: jest.fn((key: string) => key),
-  }
+  };
 
-  const commerceId = 'commerce-1'
-  const userId = 'user-1'
+  const commerceId = 'commerce-1';
+  const userId = 'user-1';
 
   beforeEach(async () => {
-    jest.clearAllMocks()
+    jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,48 +42,69 @@ describe('AccountReceivablesService', () => {
         { provide: ExchangeRatesService, useValue: mockExchangeRatesService },
         { provide: I18nService, useValue: mockI18nService },
       ],
-    }).compile()
+    }).compile();
 
-    service = module.get<AccountReceivablesService>(AccountReceivablesService)
-  })
+    service = module.get<AccountReceivablesService>(AccountReceivablesService);
+  });
 
   it('should be defined', () => {
-    expect(service).toBeDefined()
-  })
+    expect(service).toBeDefined();
+  });
 
   describe('create', () => {
-    const dto = { description: 'Fiado a Juan', amount: 100, currencyCode: 'usd' }
+    const dto = {
+      description: 'Fiado a Juan',
+      amount: 100,
+      currencyCode: 'usd',
+    };
 
     it('throws NotFoundException when customer does not belong to commerce', async () => {
-      mockPrismaService.customer.findFirst.mockResolvedValue(null)
+      mockPrismaService.customer.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.create(commerceId, userId, { ...dto, customerId: 'cust-1' } as any),
-      ).rejects.toThrow(NotFoundException)
-    })
+        service.create(commerceId, userId, {
+          ...dto,
+          customerId: 'cust-1',
+        } as any)
+      ).rejects.toThrow(NotFoundException);
+    });
 
     it('throws NotFoundException when order does not belong to commerce', async () => {
-      mockPrismaService.order.findFirst.mockResolvedValue(null)
+      mockPrismaService.order.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.create(commerceId, userId, { ...dto, orderId: 'order-1' } as any),
-      ).rejects.toThrow(NotFoundException)
-    })
+        service.create(commerceId, userId, {
+          ...dto,
+          orderId: 'order-1',
+        } as any)
+      ).rejects.toThrow(NotFoundException);
+    });
 
     it('throws BadRequestException when the exchange rate is invalid', async () => {
-      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue(null)
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue(null);
 
       await expect(
-        service.create(commerceId, userId, { ...dto, currencyCode: 'ves' } as any),
-      ).rejects.toThrow(BadRequestException)
-      expect(mockPrismaService.accountReceivable.create).not.toHaveBeenCalled()
-    })
+        service.create(commerceId, userId, {
+          ...dto,
+          currencyCode: 'ves',
+        } as any)
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.accountReceivable.create).not.toHaveBeenCalled();
+    });
 
     it('stores an immutable exchange rate snapshot converted to USD', async () => {
-      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({ rateToUsd: 40 })
-      mockPrismaService.accountReceivable.create.mockResolvedValue({ id: 'rec-1' })
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({
+        rateToUsd: 40,
+      });
+      mockPrismaService.accountReceivable.create.mockResolvedValue({
+        id: 'rec-1',
+      });
 
-      await service.create(commerceId, userId, { ...dto, currencyCode: 'ves', amount: 4000 } as any)
+      await service.create(commerceId, userId, {
+        ...dto,
+        currencyCode: 'ves',
+        amount: 4000,
+      } as any);
 
       expect(mockPrismaService.accountReceivable.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -93,29 +114,34 @@ describe('AccountReceivablesService', () => {
             amountUsd: 100,
             createdBy: userId,
           }),
-        }),
-      )
-    })
-  })
+        })
+      );
+    });
+  });
 
   describe('markAsPaid', () => {
     it('throws NotFoundException when the receivable does not belong to the commerce', async () => {
-      mockPrismaService.accountReceivable.findFirst.mockResolvedValue(null)
+      mockPrismaService.accountReceivable.findFirst.mockResolvedValue(null);
 
-      await expect(service.markAsPaid('rec-1', commerceId)).rejects.toThrow(NotFoundException)
-    })
+      await expect(service.markAsPaid('rec-1', commerceId)).rejects.toThrow(
+        NotFoundException
+      );
+    });
 
     it('marks it as PAID with a paidAt timestamp', async () => {
-      mockPrismaService.accountReceivable.findFirst.mockResolvedValue({ id: 'rec-1', commerceId })
+      mockPrismaService.accountReceivable.findFirst.mockResolvedValue({
+        id: 'rec-1',
+        commerceId,
+      });
 
-      await service.markAsPaid('rec-1', commerceId)
+      await service.markAsPaid('rec-1', commerceId);
 
       expect(mockPrismaService.accountReceivable.update).toHaveBeenCalledWith({
         where: { id: 'rec-1' },
         data: { status: AccountStatus.PAID, paidAt: expect.any(Date) },
-      })
-    })
-  })
+      });
+    });
+  });
 
   describe('getReplacementRisk', () => {
     it('reports no exposure for USD receivables', async () => {
@@ -126,13 +152,13 @@ describe('AccountReceivablesService', () => {
         amount: 100,
         amountUsd: 100,
         exchangeRateValue: 1,
-      })
+      });
 
-      const result = await service.getReplacementRisk('rec-1', commerceId)
+      const result = await service.getReplacementRisk('rec-1', commerceId);
 
-      expect(result.hasExposure).toBe(false)
-      expect(mockExchangeRatesService.resolveRateToUsd).not.toHaveBeenCalled()
-    })
+      expect(result.hasExposure).toBe(false);
+      expect(mockExchangeRatesService.resolveRateToUsd).not.toHaveBeenCalled();
+    });
 
     it('reports no exposure when the current rate cannot be resolved', async () => {
       mockPrismaService.accountReceivable.findFirst.mockResolvedValue({
@@ -142,13 +168,13 @@ describe('AccountReceivablesService', () => {
         amount: 4000,
         amountUsd: 100,
         exchangeRateValue: 40,
-      })
-      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue(null)
+      });
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue(null);
 
-      const result = await service.getReplacementRisk('rec-1', commerceId)
+      const result = await service.getReplacementRisk('rec-1', commerceId);
 
-      expect(result.hasExposure).toBe(false)
-    })
+      expect(result.hasExposure).toBe(false);
+    });
 
     it('matches the audit example: currency devalued since the sale reduces the USD value collected', async () => {
       // Vendió 4000 VES a tasa 40 (=$100 USD en ese momento). 30 días después
@@ -162,16 +188,18 @@ describe('AccountReceivablesService', () => {
         amount: 4000,
         amountUsd: 100,
         exchangeRateValue: 40,
-      })
-      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({ rateToUsd: 50 })
+      });
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({
+        rateToUsd: 50,
+      });
 
-      const result = await service.getReplacementRisk('rec-1', commerceId)
+      const result = await service.getReplacementRisk('rec-1', commerceId);
 
-      expect(result.hasExposure).toBe(true)
-      expect(result.currentAmountUsd).toBe(80)
-      expect(result.valueLossUsd).toBe(20)
-      expect(result.rateChangePct).toBeCloseTo(25, 1)
-    })
+      expect(result.hasExposure).toBe(true);
+      expect(result.currentAmountUsd).toBe(80);
+      expect(result.valueLossUsd).toBe(20);
+      expect(result.rateChangePct).toBeCloseTo(25, 1);
+    });
 
     it('reports a gain (negative loss) when the currency appreciated since the sale', async () => {
       mockPrismaService.accountReceivable.findFirst.mockResolvedValue({
@@ -181,13 +209,15 @@ describe('AccountReceivablesService', () => {
         amount: 4000,
         amountUsd: 100,
         exchangeRateValue: 40,
-      })
-      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({ rateToUsd: 40 })
+      });
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({
+        rateToUsd: 40,
+      });
 
-      const result = await service.getReplacementRisk('rec-1', commerceId)
+      const result = await service.getReplacementRisk('rec-1', commerceId);
 
-      expect(result.valueLossUsd).toBe(0)
-      expect(result.rateChangePct).toBe(0)
-    })
-  })
-})
+      expect(result.valueLossUsd).toBe(0);
+      expect(result.rateChangePct).toBe(0);
+    });
+  });
+});

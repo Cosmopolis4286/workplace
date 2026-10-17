@@ -23,7 +23,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.client.on('connect', () => this.logger.log('Redis connected'));
-    this.client.on('error', (err) => this.logger.error('Redis error', err.stack));
+    this.client.on('error', (err) =>
+      this.logger.error('Redis error', err.stack)
+    );
   }
 
   async onModuleDestroy() {
@@ -45,37 +47,37 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async set(key: string, value: string): Promise<void> {
     await this.client.set(key, value);
   }
-  
+
   async setex(key: string, seconds: number, value: string): Promise<void> {
     await this.client.setex(key, seconds, value);
   }
-  
+
   async get(key: string): Promise<string | null> {
     return await this.client.get(key);
   }
-  
+
   async del(key: string): Promise<void> {
     await this.client.del(key);
   }
-  
+
   async delMultiple(keys: string[]): Promise<void> {
     if (keys.length > 0) {
       await this.client.del(...keys);
     }
   }
-  
+
   async keys(pattern: string): Promise<string[]> {
     return await this.client.keys(pattern);
   }
-  
+
   async lpush(key: string, value: string): Promise<number> {
     return await this.client.lpush(key, value);
   }
-  
+
   async ltrim(key: string, start: number, stop: number): Promise<void> {
     await this.client.ltrim(key, start, stop);
   }
-  
+
   async lrange(key: string, start: number, stop: number): Promise<string[]> {
     return await this.client.lrange(key, start, stop);
   }
@@ -146,13 +148,23 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   // Atomic INCRBYFLOAT + EXPIRE in one Lua script — eliminates the window
   // between the two commands where a crash or key expiry leaves the counter
   // without a TTL (which would permanently block users at their daily limit).
-  async incrbyfloatWithExpire(key: string, amount: number, ttlSeconds: number): Promise<number> {
+  async incrbyfloatWithExpire(
+    key: string,
+    amount: number,
+    ttlSeconds: number
+  ): Promise<number> {
     const script = `
       local v = redis.call('INCRBYFLOAT', KEYS[1], ARGV[1])
       redis.call('EXPIRE', KEYS[1], ARGV[2])
       return v
     `;
-    const result = await this.client.eval(script, 1, key, String(amount), String(ttlSeconds));
+    const result = await this.client.eval(
+      script,
+      1,
+      key,
+      String(amount),
+      String(ttlSeconds)
+    );
     return parseFloat(String(result));
   }
 }

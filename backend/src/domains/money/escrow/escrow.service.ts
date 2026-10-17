@@ -1,5 +1,14 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { EscrowEntityType, EscrowDisputeResolution, Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  EscrowEntityType,
+  EscrowDisputeResolution,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
@@ -10,7 +19,7 @@ export class EscrowService implements EscrowFacade {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallets: WalletsService,
-    private readonly notifications: NotificationsService,
+    private readonly notifications: NotificationsService
   ) {}
 
   async hold(params: {
@@ -32,10 +41,20 @@ export class EscrowService implements EscrowFacade {
     // InsufficientEscrowFundsError), se propaga tal cual y no se persiste
     // ninguna fila Escrow — el caller decide cómo manejar el fallo, igual
     // que hace hoy con ServiceRequest.
-    await this.wallets.holdEscrow(params.payerId, params.deltaAmount, params.entityId, params.referenceOverride);
+    await this.wallets.holdEscrow(
+      params.payerId,
+      params.deltaAmount,
+      params.entityId,
+      params.referenceOverride
+    );
 
     const existing = await this.prisma.escrow.findUnique({
-      where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      where: {
+        entityType_entityId: {
+          entityType: params.entityType,
+          entityId: params.entityId,
+        },
+      },
     });
     // Acumula sobre lo ya retenido (aumento de precio aprobado) en vez de
     // sobrescribir — un segundo hold() sobre la misma entidad SIEMPRE es un
@@ -43,7 +62,12 @@ export class EscrowService implements EscrowFacade {
     const totalAmount = (existing?.amount ?? 0) + params.deltaAmount;
 
     const row = await this.prisma.escrow.upsert({
-      where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      where: {
+        entityType_entityId: {
+          entityType: params.entityType,
+          entityId: params.entityId,
+        },
+      },
       create: {
         entityType: params.entityType,
         entityId: params.entityId,
@@ -68,10 +92,19 @@ export class EscrowService implements EscrowFacade {
     payeeId: string;
     amount: number;
   }): Promise<EscrowView> {
-    await this.wallets.releaseEscrow(params.entityId, params.payeeId, params.amount);
+    await this.wallets.releaseEscrow(
+      params.entityId,
+      params.payeeId,
+      params.amount
+    );
 
     const row = await this.prisma.escrow.update({
-      where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      where: {
+        entityType_entityId: {
+          entityType: params.entityType,
+          entityId: params.entityId,
+        },
+      },
       data: { status: 'RELEASED', releasedAt: new Date() },
     });
     return this.toView(row);
@@ -83,16 +116,28 @@ export class EscrowService implements EscrowFacade {
     payerId: string;
     amount: number;
   }): Promise<EscrowView> {
-    await this.wallets.refundEscrow(params.entityId, params.payerId, params.amount);
+    await this.wallets.refundEscrow(
+      params.entityId,
+      params.payerId,
+      params.amount
+    );
 
     const row = await this.prisma.escrow.update({
-      where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      where: {
+        entityType_entityId: {
+          entityType: params.entityType,
+          entityId: params.entityId,
+        },
+      },
       data: { status: 'REFUNDED', refundedAt: new Date() },
     });
     return this.toView(row);
   }
 
-  async getByEntity(entityType: EscrowEntityType, entityId: string): Promise<EscrowView | null> {
+  async getByEntity(
+    entityType: EscrowEntityType,
+    entityId: string
+  ): Promise<EscrowView | null> {
     const row = await this.prisma.escrow.findUnique({
       where: { entityType_entityId: { entityType, entityId } },
     });
@@ -108,7 +153,10 @@ export class EscrowService implements EscrowFacade {
       include: { escrow: true },
       orderBy: { createdAt: 'asc' },
     });
-    return disputes.map((d) => ({ ...this.toDisputeView(d), escrow: this.toView(d.escrow) }));
+    return disputes.map((d) => ({
+      ...this.toDisputeView(d),
+      escrow: this.toView(d.escrow),
+    }));
   }
 
   async openDispute(params: {
@@ -118,24 +166,42 @@ export class EscrowService implements EscrowFacade {
     reason: string;
   }): Promise<EscrowDisputeView> {
     const escrow = await this.prisma.escrow.findUnique({
-      where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      where: {
+        entityType_entityId: {
+          entityType: params.entityType,
+          entityId: params.entityId,
+        },
+      },
     });
-    if (!escrow) throw new NotFoundException('No hay garantía retenida para esta transacción');
+    if (!escrow)
+      throw new NotFoundException(
+        'No hay garantía retenida para esta transacción'
+      );
     if (escrow.status !== 'HELD') {
-      throw new BadRequestException('Solo se puede disputar una garantía retenida (HELD)');
+      throw new BadRequestException(
+        'Solo se puede disputar una garantía retenida (HELD)'
+      );
     }
-    if (escrow.payerId !== params.raisedById && escrow.payeeId !== params.raisedById) {
-      throw new ForbiddenException('No tienes permiso para disputar esta transacción');
+    if (
+      escrow.payerId !== params.raisedById &&
+      escrow.payeeId !== params.raisedById
+    ) {
+      throw new ForbiddenException(
+        'No tienes permiso para disputar esta transacción'
+      );
     }
 
     const existingOpen = await this.prisma.escrowDispute.findFirst({
       where: { escrowId: escrow.id, status: 'OPEN' },
     });
     if (existingOpen) {
-      throw new BadRequestException('Ya existe una disputa abierta para esta transacción');
+      throw new BadRequestException(
+        'Ya existe una disputa abierta para esta transacción'
+      );
     }
 
-    const raisedByRole = escrow.payerId === params.raisedById ? 'PAYER' : 'PAYEE';
+    const raisedByRole =
+      escrow.payerId === params.raisedById ? 'PAYER' : 'PAYEE';
 
     const [dispute] = await this.prisma.$transaction([
       this.prisma.escrowDispute.create({
@@ -146,8 +212,15 @@ export class EscrowService implements EscrowFacade {
           reason: params.reason,
         },
       }),
-      this.prisma.escrow.update({ where: { id: escrow.id }, data: { status: 'DISPUTED' } }),
-      ...this.syncEntityEscrowStatusTo(params.entityType, params.entityId, 'DISPUTED'),
+      this.prisma.escrow.update({
+        where: { id: escrow.id },
+        data: { status: 'DISPUTED' },
+      }),
+      ...this.syncEntityEscrowStatusTo(
+        params.entityType,
+        params.entityId,
+        'DISPUTED'
+      ),
     ]);
 
     return this.toDisputeView(dispute);
@@ -166,7 +239,8 @@ export class EscrowService implements EscrowFacade {
       include: { escrow: true },
     });
     if (!dispute) throw new NotFoundException('Disputa no encontrada');
-    if (dispute.status !== 'OPEN') throw new BadRequestException('Esta disputa ya fue resuelta');
+    if (dispute.status !== 'OPEN')
+      throw new BadRequestException('Esta disputa ya fue resuelta');
 
     const { escrow } = dispute;
     let releaseAmount = 0;
@@ -181,13 +255,17 @@ export class EscrowService implements EscrowFacade {
       // total retenido — no puede "aparecer" ni "desaparecer" dinero al
       // resolver, solo redistribuirse entre payer y payee.
       if (params.releaseAmount == null || params.refundAmount == null) {
-        throw new BadRequestException('SPLIT requiere releaseAmount y refundAmount');
+        throw new BadRequestException(
+          'SPLIT requiere releaseAmount y refundAmount'
+        );
       }
       releaseAmount = params.releaseAmount;
       refundAmount = params.refundAmount;
       const diff = Math.abs(releaseAmount + refundAmount - escrow.amount);
       if (diff > 0.01) {
-        throw new BadRequestException('releaseAmount + refundAmount debe ser igual al monto total retenido');
+        throw new BadRequestException(
+          'releaseAmount + refundAmount debe ser igual al monto total retenido'
+        );
       }
     }
 
@@ -195,10 +273,18 @@ export class EscrowService implements EscrowFacade {
     // si alguno falla, la disputa sigue OPEN para reintentar, en vez de
     // quedar marcada RESOLVED sin que el dinero se haya movido.
     if (releaseAmount > 0) {
-      await this.wallets.releaseEscrow(escrow.entityId, escrow.payeeId, releaseAmount);
+      await this.wallets.releaseEscrow(
+        escrow.entityId,
+        escrow.payeeId,
+        releaseAmount
+      );
     }
     if (refundAmount > 0) {
-      await this.wallets.refundEscrow(escrow.entityId, escrow.payerId, refundAmount);
+      await this.wallets.refundEscrow(
+        escrow.entityId,
+        escrow.payerId,
+        refundAmount
+      );
     }
 
     const [updatedDispute] = await this.prisma.$transaction([
@@ -224,37 +310,59 @@ export class EscrowService implements EscrowFacade {
       // Escrow es una proyección — ServiceRequest/CatalogOrder siguen siendo
       // la fuente real que consultan sus propios dominios, así que hay que
       // sincronizar el espejo desnormalizado ahí también.
-      ...this.syncEntityEscrowStatusTo(escrow.entityType, escrow.entityId, 'RELEASED'),
+      ...this.syncEntityEscrowStatusTo(
+        escrow.entityType,
+        escrow.entityId,
+        'RELEASED'
+      ),
     ]);
 
-    const entityName = await this.getEntityName(escrow.entityType, escrow.entityId);
+    const entityName = await this.getEntityName(
+      escrow.entityType,
+      escrow.entityId
+    );
     if (releaseAmount > 0) {
-      this.notifications.notifyEscrowDisputeResolved(escrow.payeeId, entityName, releaseAmount).catch(() => {});
+      this.notifications
+        .notifyEscrowDisputeResolved(escrow.payeeId, entityName, releaseAmount)
+        .catch(() => {});
     }
     if (refundAmount > 0) {
-      this.notifications.notifyEscrowDisputeResolved(escrow.payerId, entityName, refundAmount).catch(() => {});
+      this.notifications
+        .notifyEscrowDisputeResolved(escrow.payerId, entityName, refundAmount)
+        .catch(() => {});
     }
 
     return this.toDisputeView(updatedDispute);
   }
 
-  private async getEntityName(entityType: EscrowEntityType, entityId: string): Promise<string> {
+  private async getEntityName(
+    entityType: EscrowEntityType,
+    entityId: string
+  ): Promise<string> {
     if (entityType === 'SERVICE_REQUEST') {
-      const req = await this.prisma.serviceRequest.findUnique({ where: { id: entityId }, select: { serviceName: true } });
+      const req = await this.prisma.serviceRequest.findUnique({
+        where: { id: entityId },
+        select: { serviceName: true },
+      });
       return req?.serviceName ?? 'la transacción';
     }
-    const order = await this.prisma.catalogOrder.findUnique({ where: { id: entityId }, select: { commerceName: true } });
+    const order = await this.prisma.catalogOrder.findUnique({
+      where: { id: entityId },
+      select: { commerceName: true },
+    });
     return order?.commerceName ?? 'la transacción';
   }
 
   private syncEntityEscrowStatusTo(
     entityType: EscrowEntityType,
     entityId: string,
-    status: 'DISPUTED' | 'RELEASED',
+    status: 'DISPUTED' | 'RELEASED'
   ): Prisma.PrismaPromise<unknown>[] {
     const data = { escrowStatus: status };
     if (entityType === 'SERVICE_REQUEST') {
-      return [this.prisma.serviceRequest.update({ where: { id: entityId }, data })];
+      return [
+        this.prisma.serviceRequest.update({ where: { id: entityId }, data }),
+      ];
     }
     return [this.prisma.catalogOrder.update({ where: { id: entityId }, data })];
   }

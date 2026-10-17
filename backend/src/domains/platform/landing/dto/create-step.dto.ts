@@ -1,24 +1,31 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsInt, Min } from 'class-validator'
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  Min,
+} from 'class-validator';
 
 export class CreateStepDto {
   @IsString()
   @IsNotEmpty()
-  title: string
+  title: string;
 
   @IsString()
   @IsNotEmpty()
-  desc: string
+  desc: string;
 
   @IsString()
   @IsNotEmpty()
-  icon: string
+  icon: string;
 
   @IsBoolean()
   @IsOptional()
-  isActive?: boolean
+  isActive?: boolean;
 
   @IsInt()
   @Min(0)
   @IsOptional()
-  sortOrder?: number
+  sortOrder?: number;
 }

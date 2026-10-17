@@ -37,7 +37,11 @@ export class AccountTypeResolver {
 
   async resolve(userId: string): Promise<ResolvedAccountType> {
     const profiles = await this.prisma.userProfile.findMany({
-      where: { userId, status: ProfileStatus.ACTIVE, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
+      where: {
+        userId,
+        status: ProfileStatus.ACTIVE,
+        type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+      },
       select: { type: true },
     });
     return this.accountTypeFromProfileTypes(profiles.map((p) => p.type));
@@ -53,12 +57,20 @@ export class AccountTypeResolver {
       where: { userId, status: ProfileStatus.ACTIVE },
     });
     const businessTypes = activeProfiles
-      .filter((p) => p.type === ProfileType.BUSINESS || p.type === ProfileType.PROFESSIONAL)
+      .filter(
+        (p) =>
+          p.type === ProfileType.BUSINESS || p.type === ProfileType.PROFESSIONAL
+      )
       .map((p) => p.type);
-    return { accountType: this.accountTypeFromProfileTypes(businessTypes), activeProfiles };
+    return {
+      accountType: this.accountTypeFromProfileTypes(businessTypes),
+      activeProfiles,
+    };
   }
 
-  private accountTypeFromProfileTypes(types: ProfileType[]): ResolvedAccountType {
+  private accountTypeFromProfileTypes(
+    types: ProfileType[]
+  ): ResolvedAccountType {
     if (types.includes(ProfileType.BUSINESS)) return 'COMMERCE';
     if (types.includes(ProfileType.PROFESSIONAL)) return 'FREELANCER';
     return null;

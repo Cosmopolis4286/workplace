@@ -1,17 +1,17 @@
-import { Test, TestingModule } from '@nestjs/testing'
-import { BranchesService } from '../../domains/commerce-core/branches/branches.service'
-import { PrismaService } from '../../prisma/prisma.service'
-import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
-import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade'
-import { CreateBranchDto } from '../../domains/commerce-core/branches/dto/create-branch.dto'
-import { UpdateBranchDto } from '../../domains/commerce-core/branches/dto/update-branch.dto'
-import { NotFoundException, BadRequestException } from '@nestjs/common'
-import { I18nService } from 'nestjs-i18n'
+import { Test, TestingModule } from '@nestjs/testing';
+import { BranchesService } from '../../domains/commerce-core/branches/branches.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
+import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade';
+import { CreateBranchDto } from '../../domains/commerce-core/branches/dto/create-branch.dto';
+import { UpdateBranchDto } from '../../domains/commerce-core/branches/dto/update-branch.dto';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 
 describe('BranchesService', () => {
-  let service: BranchesService
-  let prismaService: PrismaService
-  let planLimitsService: typeof mockPlanLimitsService
+  let service: BranchesService;
+  let prismaService: PrismaService;
+  let planLimitsService: typeof mockPlanLimitsService;
 
   const mockPrismaService = {
     branch: {
@@ -27,23 +27,25 @@ describe('BranchesService', () => {
       findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
-  }
+  };
 
   const mockPlanLimitsService = {
     assertBranchLimit: jest.fn(),
-  }
+  };
 
   const mockI18nService = {
     t: jest.fn((key: string) => key),
-  }
+  };
 
   const mockCommerceResolverService = {
     resolve: jest.fn(async (userId: string) => {
-      const commerce = await mockPrismaService.commerce.findUnique({ where: { userId } })
-      return commerce?.id ?? userId
+      const commerce = await mockPrismaService.commerce.findUnique({
+        where: { userId },
+      });
+      return commerce?.id ?? userId;
     }),
     resolveOrCreate: jest.fn(),
-  }
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -66,26 +68,26 @@ describe('BranchesService', () => {
           useValue: mockI18nService,
         },
       ],
-    }).compile()
+    }).compile();
 
-    service = module.get<BranchesService>(BranchesService)
-    prismaService = module.get<PrismaService>(PrismaService)
-    planLimitsService = module.get(PLAN_LIMITS_FACADE)
-  })
+    service = module.get<BranchesService>(BranchesService);
+    prismaService = module.get<PrismaService>(PrismaService);
+    planLimitsService = module.get(PLAN_LIMITS_FACADE);
+  });
 
   it('should be defined', () => {
-    expect(service).toBeDefined()
-  })
+    expect(service).toBeDefined();
+  });
 
   describe('create', () => {
     it('should create a new branch successfully', async () => {
-      const commerceId = 'commerce-123'
+      const commerceId = 'commerce-123';
       const createBranchDto: CreateBranchDto = {
         name: 'Sucursal Principal',
         address: 'Calle Principal #123',
         phone: '+582121234567',
         email: 'sucursal@ejemplo.com',
-      }
+      };
 
       const mockBranch = {
         id: 'branch-123',
@@ -96,41 +98,46 @@ describe('BranchesService', () => {
         email: 'sucursal@ejemplo.com',
         createdAt: new Date(),
         updatedAt: new Date(),
-      }
+      };
 
-      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: commerceId })
-      mockPlanLimitsService.assertBranchLimit.mockResolvedValue(undefined)
-      mockPrismaService.branch.create.mockResolvedValue(mockBranch)
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        id: commerceId,
+      });
+      mockPlanLimitsService.assertBranchLimit.mockResolvedValue(undefined);
+      mockPrismaService.branch.create.mockResolvedValue(mockBranch);
 
-      const result = await service.create('user-id', createBranchDto)
+      const result = await service.create('user-id', createBranchDto);
 
-      expect(result).toEqual(mockBranch)
-      expect(mockPlanLimitsService.assertBranchLimit).toHaveBeenCalledWith('user-id', commerceId)
+      expect(result).toEqual(mockBranch);
+      expect(mockPlanLimitsService.assertBranchLimit).toHaveBeenCalledWith(
+        'user-id',
+        commerceId
+      );
       expect(mockPrismaService.branch.create).toHaveBeenCalledWith({
         data: { ...createBranchDto, commerceId },
-      })
-    })
+      });
+    });
 
     it('should throw error if branch limit is reached', async () => {
-      const commerceId = 'commerce-123'
+      const commerceId = 'commerce-123';
       const createBranchDto: CreateBranchDto = {
         name: 'Nueva Sucursal',
         address: 'Calle Nueva #456',
-      }
+      };
 
       mockPlanLimitsService.assertBranchLimit.mockRejectedValue(
         new Error('Branch limit reached')
-      )
+      );
 
       await expect(service.create('user-id', createBranchDto)).rejects.toThrow(
         'Branch limit reached'
-      )
-    })
-  })
+      );
+    });
+  });
 
   describe('findAll', () => {
     it('should return all branches for user', async () => {
-      const userId = 'user-123'
+      const userId = 'user-123';
 
       const mockBranches = [
         {
@@ -141,89 +148,98 @@ describe('BranchesService', () => {
           id: 'branch-2',
           name: 'Sucursal Este',
         },
-      ]
+      ];
 
-      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
-      mockPrismaService.branch.findMany.mockResolvedValue(mockBranches)
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        id: 'commerce-123',
+      });
+      mockPrismaService.branch.findMany.mockResolvedValue(mockBranches);
 
-      const result = await service.findAll(userId)
+      const result = await service.findAll(userId);
 
-      expect(result).toEqual(mockBranches)
-    })
-
-  })
+      expect(result).toEqual(mockBranches);
+    });
+  });
 
   describe('findOne', () => {
     it('should return branch by id', async () => {
-      const userId = 'user-123'
-      const branchId = 'branch-123'
-      
+      const userId = 'user-123';
+      const branchId = 'branch-123';
+
       const mockBranch = {
         id: branchId,
         commerceId: 'commerce-123',
         name: 'Sucursal Principal',
-      }
+      };
 
-      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
-      mockPrismaService.branch.findUnique.mockResolvedValue(mockBranch)
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        id: 'commerce-123',
+      });
+      mockPrismaService.branch.findUnique.mockResolvedValue(mockBranch);
 
-      const result = await service.findOne(userId, branchId)
+      const result = await service.findOne(userId, branchId);
 
-      expect(result).toEqual(mockBranch)
-    })
-  })
+      expect(result).toEqual(mockBranch);
+    });
+  });
 
   describe('update', () => {
     it('should update branch successfully', async () => {
-      const userId = 'user-123'
-      const branchId = 'branch-123'
+      const userId = 'user-123';
+      const branchId = 'branch-123';
       const updateBranchDto: UpdateBranchDto = {
         name: 'Sucursal Actualizada',
-      }
+      };
 
       const existingBranch = {
         id: branchId,
         commerceId: 'commerce-123',
         name: 'Sucursal Principal',
-      }
+      };
 
       const updatedBranch = {
         ...existingBranch,
         name: 'Sucursal Actualizada',
-      }
+      };
 
-      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
-      mockPrismaService.branch.findUnique.mockResolvedValue(existingBranch)
-      mockPrismaService.branch.update.mockResolvedValue(updatedBranch)
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        id: 'commerce-123',
+      });
+      mockPrismaService.branch.findUnique.mockResolvedValue(existingBranch);
+      mockPrismaService.branch.update.mockResolvedValue(updatedBranch);
 
-      const result = await service.update(userId, branchId, updateBranchDto)
+      const result = await service.update(userId, branchId, updateBranchDto);
 
-      expect(result).toEqual(updatedBranch)
-    })
-  })
+      expect(result).toEqual(updatedBranch);
+    });
+  });
 
   describe('remove', () => {
     it('should remove branch successfully', async () => {
-      const userId = 'user-123'
-      const branchId = 'branch-123'
+      const userId = 'user-123';
+      const branchId = 'branch-123';
 
-      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
-      mockPrismaService.branch.findUnique.mockResolvedValue({ id: branchId, commerceId: 'commerce-123' })
-      mockPrismaService.branch.delete.mockResolvedValue({ id: branchId })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        id: 'commerce-123',
+      });
+      mockPrismaService.branch.findUnique.mockResolvedValue({
+        id: branchId,
+        commerceId: 'commerce-123',
+      });
+      mockPrismaService.branch.delete.mockResolvedValue({ id: branchId });
 
-      await service.remove(userId, branchId)
+      await service.remove(userId, branchId);
 
       expect(mockPrismaService.branch.delete).toHaveBeenCalledWith({
         where: { id: branchId },
-      })
-    })
-  })
-
+      });
+    });
+  });
 
   describe('getStats', () => {
     it('should return branch statistics', async () => {
-      const userId = 'user-123'
-      
+      const userId = 'user-123';
+
       const mockStats = {
         total: 5,
         active: 4,
@@ -231,25 +247,26 @@ describe('BranchesService', () => {
           { status: 'ACTIVE', _count: { status: 4 } },
           { status: 'INACTIVE', _count: { status: 1 } },
         ],
-      }
+      };
 
-      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'commerce-123' })
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        id: 'commerce-123',
+      });
       mockPrismaService.branch.count
         .mockResolvedValueOnce(mockStats.total)
-        .mockResolvedValueOnce(mockStats.active)
-      mockPrismaService.branch.groupBy.mockResolvedValue(mockStats.byStatus)
+        .mockResolvedValueOnce(mockStats.active);
+      mockPrismaService.branch.groupBy.mockResolvedValue(mockStats.byStatus);
 
-      const result = await service.getStats(userId)
+      const result = await service.getStats(userId);
 
       expect(result).toEqual({
         total: 5,
         active: 4,
         byStatus: {
-          'ACTIVE': 4,
-          'INACTIVE': 1,
+          ACTIVE: 4,
+          INACTIVE: 1,
         },
-      })
-    })
-  })
-
-})
+      });
+    });
+  });
+});

@@ -7,7 +7,12 @@ import { EscrowModule } from '../../money/escrow/escrow.module';
 import { PlatformFeesModule } from '../../money/platform-fees/platform-fees.module';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, EscrowModule, PlatformFeesModule],
+  imports: [
+    PrismaModule,
+    NotificationsModule,
+    EscrowModule,
+    PlatformFeesModule,
+  ],
   controllers: [CatalogController],
   providers: [CatalogService],
   exports: [CatalogService],

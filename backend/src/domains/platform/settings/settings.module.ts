@@ -9,6 +9,10 @@ import { FreelancerSettingsStrategy } from './strategies/freelancer-settings.str
 @Module({
   imports: [PrismaModule, PlansModule],
   controllers: [SettingsController],
-  providers: [SettingsService, CommerceSettingsStrategy, FreelancerSettingsStrategy],
+  providers: [
+    SettingsService,
+    CommerceSettingsStrategy,
+    FreelancerSettingsStrategy,
+  ],
 })
 export class SettingsModule {}

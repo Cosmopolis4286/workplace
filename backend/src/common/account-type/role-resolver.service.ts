@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Role, ProfileType, ProfessionalSubtype, ProfileStatus, Prisma } from '@prisma/client';
+import {
+  Role,
+  ProfileType,
+  ProfessionalSubtype,
+  ProfileStatus,
+  Prisma,
+} from '@prisma/client';
 
 type PrismaClientOrTx = PrismaService | Prisma.TransactionClient;
 
@@ -29,9 +35,12 @@ export class RoleResolverService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Calcula el Role que le correspondería a un usuario dado un conjunto de perfiles ACTIVE. */
-  resolveFromProfiles(profiles: Array<{ type: ProfileType; subtype: ProfessionalSubtype | null }>): Role | null {
+  resolveFromProfiles(
+    profiles: Array<{ type: ProfileType; subtype: ProfessionalSubtype | null }>
+  ): Role | null {
     const hasBusinessProfile = profiles.some(
-      (p) => p.type === ProfileType.BUSINESS || p.type === ProfileType.PROFESSIONAL,
+      (p) =>
+        p.type === ProfileType.BUSINESS || p.type === ProfileType.PROFESSIONAL
     );
     return hasBusinessProfile ? Role.PROFESIONAL : null;
   }
@@ -50,13 +59,24 @@ export class RoleResolverService {
    * FreelancerApplicationsService.review()), pasando un cliente Prisma
    * transaccional si aplica.
    */
-  async syncRoleForUser(userId: string, tx: PrismaClientOrTx = this.prisma): Promise<Role | null> {
-    const user = await tx.user.findUnique({ where: { id: userId }, select: { role: true } });
+  async syncRoleForUser(
+    userId: string,
+    tx: PrismaClientOrTx = this.prisma
+  ): Promise<Role | null> {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
     if (!user) return null;
-    if (user.role === Role.SUPERADMIN || user.role === Role.ADMIN) return user.role;
+    if (user.role === Role.SUPERADMIN || user.role === Role.ADMIN)
+      return user.role;
 
     const activeProfiles = await tx.userProfile.findMany({
-      where: { userId, status: ProfileStatus.ACTIVE, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
+      where: {
+        userId,
+        status: ProfileStatus.ACTIVE,
+        type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+      },
       select: { type: true, subtype: true },
     });
 
@@ -66,9 +86,13 @@ export class RoleResolverService {
     // no lo degradamos a NORMAL — este resolver solo actúa quien SÍ pasó
     // por el flujo de perfiles.
     const hasAnyBusinessProfile = await tx.userProfile.count({
-      where: { userId, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
+      where: {
+        userId,
+        type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+      },
     });
-    const newRole = resolved ?? (hasAnyBusinessProfile > 0 ? Role.NORMAL : user.role);
+    const newRole =
+      resolved ?? (hasAnyBusinessProfile > 0 ? Role.NORMAL : user.role);
 
     if (newRole === user.role) return newRole;
 

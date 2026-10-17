@@ -16,7 +16,10 @@ describe('RoutingService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoutingService,
-        { provide: ConfigService, useValue: { get: jest.fn((_key, fallback) => fallback) } },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((_key, fallback) => fallback) },
+        },
         { provide: OsrmProvider, useValue: mockOsrmProvider },
       ],
     }).compile();
@@ -35,17 +38,31 @@ describe('RoutingService', () => {
       provider: 'osrm',
     });
 
-    const result = await service.calculateRoute(origin, destination, 'MOTORCYCLE');
+    const result = await service.calculateRoute(
+      origin,
+      destination,
+      'MOTORCYCLE'
+    );
 
-    expect(mockOsrmProvider.calculateRoute).toHaveBeenCalledWith(origin, destination, 'MOTORCYCLE');
+    expect(mockOsrmProvider.calculateRoute).toHaveBeenCalledWith(
+      origin,
+      destination,
+      'MOTORCYCLE'
+    );
     expect(result.provider).toBe('osrm');
     expect(result.distanceMeters).toBe(1500);
   });
 
   it('falls back to a straight-line estimate when the provider fails', async () => {
-    mockOsrmProvider.calculateRoute.mockRejectedValue(new Error('OSRM unreachable'));
+    mockOsrmProvider.calculateRoute.mockRejectedValue(
+      new Error('OSRM unreachable')
+    );
 
-    const result = await service.calculateRoute(origin, destination, 'MOTORCYCLE');
+    const result = await service.calculateRoute(
+      origin,
+      destination,
+      'MOTORCYCLE'
+    );
 
     expect(result.provider).toBe('straight-line-fallback');
     expect(result.distanceMeters).toBeGreaterThan(0);
@@ -57,18 +74,32 @@ describe('RoutingService', () => {
   });
 
   it('fallback duration scales with vehicle speed (bicycle slower than car)', async () => {
-    mockOsrmProvider.calculateRoute.mockRejectedValue(new Error('OSRM unreachable'));
+    mockOsrmProvider.calculateRoute.mockRejectedValue(
+      new Error('OSRM unreachable')
+    );
 
     const carResult = await service.calculateRoute(origin, destination, 'CAR');
-    const bikeResult = await service.calculateRoute(origin, destination, 'BICYCLE');
+    const bikeResult = await service.calculateRoute(
+      origin,
+      destination,
+      'BICYCLE'
+    );
 
-    expect(bikeResult.durationSeconds).toBeGreaterThan(carResult.durationSeconds);
+    expect(bikeResult.durationSeconds).toBeGreaterThan(
+      carResult.durationSeconds
+    );
   });
 
   it('fallback distance is a reasonable straight-line approximation (~1.2km for this pair)', async () => {
-    mockOsrmProvider.calculateRoute.mockRejectedValue(new Error('OSRM unreachable'));
+    mockOsrmProvider.calculateRoute.mockRejectedValue(
+      new Error('OSRM unreachable')
+    );
 
-    const result = await service.calculateRoute(origin, destination, 'MOTORCYCLE');
+    const result = await service.calculateRoute(
+      origin,
+      destination,
+      'MOTORCYCLE'
+    );
 
     expect(result.distanceMeters).toBeGreaterThan(500);
     expect(result.distanceMeters).toBeLessThan(3000);

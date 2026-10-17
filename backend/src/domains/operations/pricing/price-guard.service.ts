@@ -8,7 +8,7 @@ export class PriceGuardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly purchases: PurchasesService,
-    private readonly i18n: I18nService,
+    private readonly i18n: I18nService
   ) {}
 
   // Costo de reposición "efectivo" para Price Guard: el promedio de compras
@@ -20,17 +20,22 @@ export class PriceGuardService {
     averageReplacementCostUsd: number | null;
     historicalCost: number;
   }): number {
-    return replacement.hasPurchaseData && replacement.averageReplacementCostUsd !== null
+    return replacement.hasPurchaseData &&
+      replacement.averageReplacementCostUsd !== null
       ? replacement.averageReplacementCostUsd
       : replacement.historicalCost;
   }
 
-  private async resolveMinMarginPct(productId: string, commerceId: string): Promise<number> {
+  private async resolveMinMarginPct(
+    productId: string,
+    commerceId: string
+  ): Promise<number> {
     const product = await this.prisma.product.findFirst({
       where: { id: productId, commerceId },
       select: { minMarginPct: true },
     });
-    if (!product) throw new NotFoundException(this.i18n.t('purchases.product_not_found'));
+    if (!product)
+      throw new NotFoundException(this.i18n.t('purchases.product_not_found'));
     if (product.minMarginPct !== null && product.minMarginPct !== undefined) {
       return product.minMarginPct;
     }
@@ -50,7 +55,10 @@ export class PriceGuardService {
   }
 
   async getMinPrice(productId: string, commerceId: string) {
-    const replacement = await this.purchases.getReplacementCost(productId, commerceId);
+    const replacement = await this.purchases.getReplacementCost(
+      productId,
+      commerceId
+    );
     const minMarginPct = await this.resolveMinMarginPct(productId, commerceId);
     const cost = this.effectiveReplacementCost(replacement);
     const minPrice = this.minPriceFor(cost, minMarginPct);
@@ -69,16 +77,26 @@ export class PriceGuardService {
   // "¿Qué pasa si el tipo de cambio sube X%?" — aplica el incremento sobre
   // el costo de reposición efectivo y recalcula el precio mínimo y el margen
   // resultante con el precio ACTUAL, sin tocar ningún dato real todavía.
-  async simulatePriceChange(productId: string, commerceId: string, costIncreasePct: number) {
-    const replacement = await this.purchases.getReplacementCost(productId, commerceId);
+  async simulatePriceChange(
+    productId: string,
+    commerceId: string,
+    costIncreasePct: number
+  ) {
+    const replacement = await this.purchases.getReplacementCost(
+      productId,
+      commerceId
+    );
     const minMarginPct = await this.resolveMinMarginPct(productId, commerceId);
     const currentCost = this.effectiveReplacementCost(replacement);
-    const simulatedCost = Math.round(currentCost * (1 + costIncreasePct / 100) * 100) / 100;
+    const simulatedCost =
+      Math.round(currentCost * (1 + costIncreasePct / 100) * 100) / 100;
     const simulatedMinPrice = this.minPriceFor(simulatedCost, minMarginPct);
 
     const price = replacement.price;
     const simulatedMarginPct =
-      price > 0 ? Math.round(((price - simulatedCost) / price) * 1000) / 10 : null;
+      price > 0
+        ? Math.round(((price - simulatedCost) / price) * 1000) / 10
+        : null;
 
     return {
       productId,

@@ -11,7 +11,10 @@ import { CommerceResolverService } from '../../../common/commerce-resolver/comme
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeeRole } from '@prisma/client';
-import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
+import {
+  PlanLimitsFacade,
+  PLAN_LIMITS_FACADE,
+} from '../../money/plans/plan-limits.facade';
 
 @Injectable()
 export class EmployeesService {
@@ -32,7 +35,8 @@ export class EmployeesService {
     const employee = await this.prisma.employee.findUnique({
       where: { id: employeeId },
     });
-    if (!employee) throw new NotFoundException(this.i18n.t('employees.not_found'));
+    if (!employee)
+      throw new NotFoundException(this.i18n.t('employees.not_found'));
     if (employee.commerceId !== commerceId)
       throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return employee;
@@ -90,9 +94,18 @@ export class EmployeesService {
     return this.prisma.employee.findMany({
       where: { commerceId },
       select: {
-        id: true, firstName: true, lastName: true, email: true, phone: true,
-        role: true, status: true, hireDate: true, isActive: true,
-        commerceId: true, createdAt: true, updatedAt: true,
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        hireDate: true,
+        isActive: true,
+        commerceId: true,
+        createdAt: true,
+        updatedAt: true,
       },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });

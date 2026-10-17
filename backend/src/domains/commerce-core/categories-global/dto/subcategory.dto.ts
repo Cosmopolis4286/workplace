@@ -1,35 +1,35 @@
-import { IsString, IsOptional, IsNumber } from 'class-validator'
+import { IsString, IsOptional, IsNumber } from 'class-validator';
 
 export class CreateSubcategoryDto {
   @IsString()
-  name: string
+  name: string;
 
   @IsString()
   @IsOptional()
-  description?: string
+  description?: string;
 
   @IsString()
-  categoryId: string
+  categoryId: string;
 
   @IsNumber()
   @IsOptional()
-  sortOrder?: number
+  sortOrder?: number;
 }
 
 export class UpdateSubcategoryDto {
   @IsString()
   @IsOptional()
-  name?: string
+  name?: string;
 
   @IsString()
   @IsOptional()
-  description?: string
+  description?: string;
 
   @IsString()
   @IsOptional()
-  categoryId?: string
+  categoryId?: string;
 
   @IsNumber()
   @IsOptional()
-  sortOrder?: number
+  sortOrder?: number;
 }

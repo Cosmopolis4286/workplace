@@ -1,4 +1,9 @@
-import { Injectable, ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   ThrottlerGuard,
@@ -24,7 +29,10 @@ export class SpanishThrottlerGuard extends ThrottlerGuard {
   private buildMessage(seconds: number, lang?: string): string {
     const wait =
       seconds < 60
-        ? this.i18n.t('common.rate_limit.wait_seconds', { lang, args: { count: seconds } })
+        ? this.i18n.t('common.rate_limit.wait_seconds', {
+            lang,
+            args: { count: seconds },
+          })
         : this.i18n.t('common.rate_limit.wait_minutes', {
             lang,
             args: { count: Math.ceil(seconds / 60) },
@@ -38,7 +46,10 @@ export class SpanishThrottlerGuard extends ThrottlerGuard {
     throttlerLimitDetail: ThrottlerLimitDetail
   ): Promise<string> {
     const lang = I18nContext.current(context)?.lang;
-    return this.buildMessage(Math.ceil(throttlerLimitDetail.timeToExpire), lang);
+    return this.buildMessage(
+      Math.ceil(throttlerLimitDetail.timeToExpire),
+      lang
+    );
   }
 
   // Sobreescribe el throw por defecto (que solo acepta un string como
@@ -50,7 +61,10 @@ export class SpanishThrottlerGuard extends ThrottlerGuard {
     throttlerLimitDetail: ThrottlerLimitDetail
   ): Promise<void> {
     const lang = I18nContext.current(context)?.lang;
-    const retryAfterSeconds = Math.max(1, Math.ceil(throttlerLimitDetail.timeToExpire));
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil(throttlerLimitDetail.timeToExpire)
+    );
 
     const response = context.switchToHttp().getResponse();
     response?.setHeader?.('Retry-After', String(retryAfterSeconds));

@@ -16,8 +16,19 @@ import { ReputationModule } from '../../reputation/reputation.module';
   // dependencia unidireccional normal. WalletsService, del lado opuesto,
   // llama de vuelta a ServicesService (reintento tras depósito) sin declarar
   // este módulo como import — ver comentario en wallets.module.ts.
-  imports: [NotificationsModule, PlatformFeesModule, MailModule, PlansModule, EscrowModule, ReputationModule],
-  providers: [ServicesService, ServiceRequestReminderScheduler, EscrowRetryScheduler],
+  imports: [
+    NotificationsModule,
+    PlatformFeesModule,
+    MailModule,
+    PlansModule,
+    EscrowModule,
+    ReputationModule,
+  ],
+  providers: [
+    ServicesService,
+    ServiceRequestReminderScheduler,
+    EscrowRetryScheduler,
+  ],
   controllers: [ServicesController],
   exports: [ServicesService],
 })

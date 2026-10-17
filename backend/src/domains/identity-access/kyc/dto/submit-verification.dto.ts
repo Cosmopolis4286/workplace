@@ -1,4 +1,11 @@
-import { IsEnum, IsString, IsOptional, IsDateString, MinLength, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  IsOptional,
+  IsDateString,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 import { KycDocumentType } from '@prisma/client';
 
 export class SubmitVerificationDto {
@@ -11,7 +18,9 @@ export class SubmitVerificationDto {
   documentNumber: string;
 
   @IsString()
-  @MinLength(3, { message: 'Ingresa el nombre completo tal como aparece en el documento' })
+  @MinLength(3, {
+    message: 'Ingresa el nombre completo tal como aparece en el documento',
+  })
   @MaxLength(150)
   fullName: string;
 

@@ -8,7 +8,10 @@ import { NotificationsModule } from '../../engagement/notifications/notification
 @Module({
   imports: [WalletsModule, NotificationsModule],
   controllers: [EscrowController],
-  providers: [EscrowService, { provide: ESCROW_FACADE, useExisting: EscrowService }],
+  providers: [
+    EscrowService,
+    { provide: ESCROW_FACADE, useExisting: EscrowService },
+  ],
   // EscrowService se exporta directo para uso intra-módulo; consumidores
   // externos (services, catalog) deben inyectar ESCROW_FACADE — mismo
   // patrón que ReputationModule/PlatformFeesModule.

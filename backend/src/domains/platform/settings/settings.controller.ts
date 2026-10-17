@@ -17,7 +17,10 @@ import {
   UpdateLocationDto,
   UpdateFreelancerProfileDto,
 } from './dto/update-settings.dto';
-import { UpdateCommerceSlugDto, UpdateFreelancerSlugDto } from './dto/update-commerce-slug.dto';
+import {
+  UpdateCommerceSlugDto,
+  UpdateFreelancerSlugDto,
+} from './dto/update-commerce-slug.dto';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard)
@@ -81,7 +84,12 @@ export class SettingsController {
     @Query('slug') slug: string
   ) {
     if (!slug || slug.length < 3) {
-      return { available: false, canChange: true, daysLeft: 0, nextChangeAt: null };
+      return {
+        available: false,
+        canChange: true,
+        daysLeft: 0,
+        nextChangeAt: null,
+      };
     }
     return this.settingsService.checkCommerceSlugAvailability(user.id, slug);
   }
@@ -104,7 +112,12 @@ export class SettingsController {
     @Query('slug') slug: string
   ) {
     if (!slug || slug.length < 3) {
-      return { available: false, canChange: true, daysLeft: 0, nextChangeAt: null };
+      return {
+        available: false,
+        canChange: true,
+        daysLeft: 0,
+        nextChangeAt: null,
+      };
     }
     return this.settingsService.checkFreelancerSlugAvailability(user.id, slug);
   }

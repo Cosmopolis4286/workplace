@@ -16,7 +16,7 @@ export class DriverGraceReminderScheduler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
-    private readonly mail: MailService,
+    private readonly mail: MailService
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_9AM)
@@ -38,12 +38,19 @@ export class DriverGraceReminderScheduler {
         graceUntil: { not: null, lte: reminderThreshold, gt: now },
         graceReminderSentAt: null,
       },
-      include: { commerce: { select: { id: true, user: { select: { email: true } } } } },
+      include: {
+        commerce: { select: { id: true, user: { select: { email: true } } } },
+      },
     });
 
     for (const driver of expiringSoon) {
       if (!driver.graceUntil) continue;
-      const daysLeft = Math.max(1, Math.ceil((driver.graceUntil.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+      const daysLeft = Math.max(
+        1,
+        Math.ceil(
+          (driver.graceUntil.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)
+        )
+      );
 
       this.notifications
         .notifyDriverGraceExpiringSoon(driver.commerceId, driver.name, daysLeft)
@@ -51,7 +58,11 @@ export class DriverGraceReminderScheduler {
 
       if (driver.commerce.user?.email) {
         this.mail
-          .sendDriverGraceExpiringReminder(driver.commerce.user.email, driver.name, daysLeft)
+          .sendDriverGraceExpiringReminder(
+            driver.commerce.user.email,
+            driver.name,
+            daysLeft
+          )
           .catch(() => {});
       }
 

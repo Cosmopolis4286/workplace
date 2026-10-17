@@ -19,4 +19,5 @@ export const MODULE_KEY = 'required_module';
  * BUSINESS de "Tecnología" no — UserCategory.allowedModules lo codifica.
  * Usage: @RequireModule('menu')
  */
-export const RequireModule = (module: string) => SetMetadata(MODULE_KEY, module);
+export const RequireModule = (module: string) =>
+  SetMetadata(MODULE_KEY, module);

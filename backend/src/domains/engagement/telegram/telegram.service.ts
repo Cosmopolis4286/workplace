@@ -12,7 +12,7 @@ export class TelegramService {
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
-    private readonly jwt: JwtService,
+    private readonly jwt: JwtService
   ) {
     this.botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN') ?? '';
     this.apiBase = `https://api.telegram.org/bot${this.botToken}`;
@@ -53,7 +53,7 @@ export class TelegramService {
   generateLinkToken(customerId: string, commerceId: string): string {
     return this.jwt.sign(
       { customerId, commerceId, purpose: 'telegram_link' },
-      { expiresIn: '24h' },
+      { expiresIn: '24h' }
     );
   }
 

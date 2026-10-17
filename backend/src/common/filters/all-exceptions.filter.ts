@@ -35,12 +35,23 @@ export class AllExceptionsFilter implements ExceptionFilter {
     });
   }
 
-  private resolve(exception: unknown): { status: number; body: Record<string, any> } {
+  private resolve(exception: unknown): {
+    status: number;
+    body: Record<string, any>;
+  } {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const response = exception.getResponse();
-      const body = typeof response === 'string' ? { message: response } : response;
-      return { status, body: { statusCode: status, error: exception.name, ...(body as object) } };
+      const body =
+        typeof response === 'string' ? { message: response } : response;
+      return {
+        status,
+        body: {
+          statusCode: status,
+          error: exception.name,
+          ...(body as object),
+        },
+      };
     }
 
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
@@ -60,13 +71,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private resolvePrismaError(exception: Prisma.PrismaClientKnownRequestError) {
     switch (exception.code) {
       case 'P2002': {
-        const target = (exception.meta?.target as string[] | undefined)?.join(', ');
+        const target = (exception.meta?.target as string[] | undefined)?.join(
+          ', '
+        );
         return {
           status: HttpStatus.CONFLICT,
           body: {
             statusCode: HttpStatus.CONFLICT,
             error: 'Conflict',
-            message: target ? `Ya existe un registro con ese ${target}.` : 'Registro duplicado.',
+            message: target
+              ? `Ya existe un registro con ese ${target}.`
+              : 'Registro duplicado.',
           },
         };
       }

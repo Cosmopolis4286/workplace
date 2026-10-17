@@ -12,9 +12,18 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { OrderStatus } from '@prisma/client';
-import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
-import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
-import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
+import {
+  PlanLimitsFacade,
+  PLAN_LIMITS_FACADE,
+} from '../../money/plans/plan-limits.facade';
+import {
+  PlatformFeesFacade,
+  PLATFORM_FEES_FACADE,
+} from '../../money/platform-fees/platform-fees.facade';
+import {
+  ReputationFacade,
+  REPUTATION_FACADE,
+} from '../../reputation/reputation.facade';
 import { ReceiptsService } from '../receipts/receipts.service';
 import { CashService } from '../cash/cash.service';
 
@@ -37,10 +46,11 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly telegram: TelegramService,
-    @Inject(PLATFORM_FEES_FACADE) private readonly platformFees: PlatformFeesFacade,
+    @Inject(PLATFORM_FEES_FACADE)
+    private readonly platformFees: PlatformFeesFacade,
     @Inject(REPUTATION_FACADE) private readonly reputation: ReputationFacade,
     private readonly receipts: ReceiptsService,
-    private readonly cash: CashService,
+    private readonly cash: CashService
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -285,17 +295,24 @@ export class OrdersService {
     const deliveryFee = dto.deliveryFee ?? 0;
     const discount = dto.discount ?? 0;
     if (discount > subtotal + tax + deliveryFee) {
-      throw new BadRequestException('El descuento no puede ser mayor al total del pedido');
+      throw new BadRequestException(
+        'El descuento no puede ser mayor al total del pedido'
+      );
     }
 
     const feeConfig = await this.platformFees.resolveFeeConfig('ORDER', userId);
     let platformFeeAmount = 0;
     if (feeConfig?.payer === 'CLIENT') {
-      platformFeeAmount = this.platformFees.calculateFee(subtotal, feeConfig).feeAmount;
+      platformFeeAmount = this.platformFees.calculateFee(
+        subtotal,
+        feeConfig
+      ).feeAmount;
     }
 
     const total =
-      Math.round((subtotal + tax + deliveryFee - discount + platformFeeAmount) * 100) / 100;
+      Math.round(
+        (subtotal + tax + deliveryFee - discount + platformFeeAmount) * 100
+      ) / 100;
 
     // Generate order number
     const count = await this.prisma.order.count({ where: { commerceId } });
@@ -319,8 +336,10 @@ export class OrdersService {
         deliveryFee,
         discount,
         total,
-        platformFeeRate: feeConfig?.payer === 'CLIENT' ? feeConfig.rate : undefined,
-        platformFeeAmount: feeConfig?.payer === 'CLIENT' ? platformFeeAmount : undefined,
+        platformFeeRate:
+          feeConfig?.payer === 'CLIENT' ? feeConfig.rate : undefined,
+        platformFeeAmount:
+          feeConfig?.payer === 'CLIENT' ? platformFeeAmount : undefined,
         platformFeePayer: feeConfig?.payer === 'CLIENT' ? 'CLIENT' : undefined,
         items: {
           create: dto.items.map((item) => ({
@@ -356,7 +375,7 @@ export class OrdersService {
       this.telegram
         .notifyCustomer(
           dto.customerId,
-          `🛒 <b>Pedido recibido</b>\nNúmero: <b>${orderNumber}</b>\nTotal: <b>$${total.toFixed(2)}</b>\nEstaremos preparando tu pedido pronto.`,
+          `🛒 <b>Pedido recibido</b>\nNúmero: <b>${orderNumber}</b>\nTotal: <b>$${total.toFixed(2)}</b>\nEstaremos preparando tu pedido pronto.`
         )
         .catch(() => null);
     }
@@ -420,13 +439,16 @@ export class OrdersService {
           ? await this.platformFees.resolveFeeConfig('ORDER', commerce.userId)
           : null;
         if (feeConfig?.payer === 'PROVIDER' && commerce) {
-          const { feeAmount } = this.platformFees.calculateFee(existing.total, feeConfig);
+          const { feeAmount } = this.platformFees.calculateFee(
+            existing.total,
+            feeConfig
+          );
           await this.platformFees.chargeProviderFee(
             'ORDER',
             commerce.userId,
             feeAmount,
             `FEE-ORDER-${id}`,
-            { orderId: id },
+            { orderId: id }
           );
           data.platformFeeRate = feeConfig.rate;
           data.platformFeeAmount = feeAmount;
@@ -444,7 +466,11 @@ export class OrdersService {
     // stats (totalOrders/totalSpent) desincronizadas del estado real del
     // pedido de forma permanente, sin ningún mecanismo de reconciliación.
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (dto.status === 'DELIVERED' && existing.customerId && existing.status !== 'DELIVERED') {
+      if (
+        dto.status === 'DELIVERED' &&
+        existing.customerId &&
+        existing.status !== 'DELIVERED'
+      ) {
         await tx.customer.update({
           where: { id: existing.customerId },
           data: { totalSpent: { increment: existing.total } },
@@ -496,7 +522,7 @@ export class OrdersService {
         this.telegram
           .notifyCustomer(
             existing.customerId,
-            `📋 <b>Pedido #${existing.orderNumber}</b>\nEstado: <b>${label}</b>`,
+            `📋 <b>Pedido #${existing.orderNumber}</b>\nEstado: <b>${label}</b>`
           )
           .catch(() => null);
       }
@@ -525,7 +551,7 @@ export class OrdersService {
     ]);
 
     const statusMap = Object.fromEntries(
-      byStatus.map((s) => [s.status, s._count]),
+      byStatus.map((s) => [s.status, s._count])
     );
     const processingStatuses: OrderStatus[] = [
       'CONFIRMED',
@@ -535,7 +561,7 @@ export class OrdersService {
     ];
     const processingOrders = processingStatuses.reduce(
       (sum, s) => sum + (statusMap[s] ?? 0),
-      0,
+      0
     );
 
     return {
@@ -564,7 +590,13 @@ export class OrdersService {
         orderBy: { createdAt: 'desc' },
         include: {
           items: true,
-          commerce: { select: { id: true, name: true, user: { select: { avatar: true } } } },
+          commerce: {
+            select: {
+              id: true,
+              name: true,
+              user: { select: { avatar: true } },
+            },
+          },
         },
       }),
       this.prisma.order.count({ where }),
@@ -574,7 +606,13 @@ export class OrdersService {
       data: data.map((o) => ({
         ...o,
         itemCount: o.items.length,
-        commerce: o.commerce ? { id: o.commerce.id, name: o.commerce.name, avatar: o.commerce.user.avatar } : null,
+        commerce: o.commerce
+          ? {
+              id: o.commerce.id,
+              name: o.commerce.name,
+              avatar: o.commerce.user.avatar,
+            }
+          : null,
       })),
       total,
       page,

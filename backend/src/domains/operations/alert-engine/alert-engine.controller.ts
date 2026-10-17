@@ -24,7 +24,7 @@ import { AlertType } from '@prisma/client';
 export class AlertEngineController {
   constructor(
     private readonly alertEngineService: AlertEngineService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   @Get()
@@ -39,15 +39,21 @@ export class AlertEngineController {
   async upsertRule(
     @Param('alertType') alertType: AlertType,
     @CurrentUser() user: any,
-    @Body() dto: Omit<UpsertAlertRuleDto, 'alertType'>,
+    @Body() dto: Omit<UpsertAlertRuleDto, 'alertType'>
   ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
-    return this.alertEngineService.upsertRule(commerceId, { ...dto, alertType });
+    return this.alertEngineService.upsertRule(commerceId, {
+      ...dto,
+      alertType,
+    });
   }
 
   @Delete(':alertType')
   @RequirePermission('settings:edit')
-  async resetRule(@Param('alertType') alertType: AlertType, @CurrentUser() user: any) {
+  async resetRule(
+    @Param('alertType') alertType: AlertType,
+    @CurrentUser() user: any
+  ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.alertEngineService.resetRule(commerceId, alertType);
   }

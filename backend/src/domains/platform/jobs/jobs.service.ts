@@ -1,90 +1,109 @@
-import { Inject, Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
-import { Prisma } from '@prisma/client'
-import { PrismaService } from '../../../prisma/prisma.service'
-import type { Job, JobType, JobModality, JobStatus, JobApplication, JobApplicationStatus } from '@prisma/client'
-import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util'
-import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade'
-import { NotificationsService } from '../../engagement/notifications/notifications.service'
-import { CategoryScopeService } from '../../../common/category-scope/category-scope.service'
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../../prisma/prisma.service';
+import type {
+  Job,
+  JobType,
+  JobModality,
+  JobStatus,
+  JobApplication,
+  JobApplicationStatus,
+} from '@prisma/client';
+import {
+  normalizeTags,
+  tagSearchCondition,
+} from '../../../common/utils/tags.util';
+import {
+  PlanLimitsFacade,
+  PLAN_LIMITS_FACADE,
+} from '../../money/plans/plan-limits.facade';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { CategoryScopeService } from '../../../common/category-scope/category-scope.service';
 
 export interface JobWithEmployer extends Job {
   employer: {
-    id: string
-    firstName: string
-    lastName: string
-    username: string | null
-    avatar: string | null
-    country: string | null
-    state: string | null
-    city: string | null
-    category: { name: string } | null
-    subcategory: { name: string } | null
-  }
+    id: string;
+    firstName: string;
+    lastName: string;
+    username: string | null;
+    avatar: string | null;
+    country: string | null;
+    state: string | null;
+    city: string | null;
+    category: { name: string } | null;
+    subcategory: { name: string } | null;
+  };
   category: {
-    id: string
-    name: string
-    color: string
-    icon: string | null
-  } | null
+    id: string;
+    name: string;
+    color: string;
+    icon: string | null;
+  } | null;
   _count?: {
-    applications: number
-  }
+    applications: number;
+  };
 }
 
 export interface CreateJobDto {
-  title: string
-  description: string
-  requirements?: string[]
-  benefits?: string[]
-  salaryMin?: number
-  salaryMax?: number
-  salaryCurrency?: string
-  location?: string
-  type?: JobType
-  modality?: JobModality
-  experienceLevel?: string
-  tags?: string[]
-  categoryId?: string
-  expiresAt?: string
+  title: string;
+  description: string;
+  requirements?: string[];
+  benefits?: string[];
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency?: string;
+  location?: string;
+  type?: JobType;
+  modality?: JobModality;
+  experienceLevel?: string;
+  tags?: string[];
+  categoryId?: string;
+  expiresAt?: string;
 }
 
 export interface CreateJobCategoryDto {
-  name: string
-  color?: string
-  icon?: string
-  description?: string
+  name: string;
+  color?: string;
+  icon?: string;
+  description?: string;
   // Rubros (UserCategory.id) a los que aplica — ver CategoryScopeService.
   // Vacío/omitido = visible para cualquier rubro.
-  userCategoryIds?: string[]
+  userCategoryIds?: string[];
 }
 
 export interface UpdateJobDto extends Partial<CreateJobDto> {
-  status?: JobStatus
+  status?: JobStatus;
 }
 
 export interface JobFilters {
-  search?: string
-  categoryId?: string
-  type?: JobType
-  modality?: JobModality
-  employerId?: string
-  status?: JobStatus
-  country?: string
-  state?: string
-  city?: string
+  search?: string;
+  categoryId?: string;
+  type?: JobType;
+  modality?: JobModality;
+  employerId?: string;
+  status?: JobStatus;
+  country?: string;
+  state?: string;
+  city?: string;
 }
 
 export interface JobQuery extends JobFilters {
-  page?: number
-  limit?: number
-  sort?: 'relevance' | 'newest' | 'salary_asc' | 'salary_desc'
+  page?: number;
+  limit?: number;
+  sort?: 'relevance' | 'newest' | 'salary_asc' | 'salary_desc';
 }
 
 export interface CreateApplicationDto {
-  jobId: string
-  coverLetter?: string
-  phone?: string
-  email?: string
+  jobId: string;
+  coverLetter?: string;
+  phone?: string;
+  email?: string;
 }
 
 @Injectable()
@@ -93,7 +112,7 @@ export class JobsService {
     private readonly prisma: PrismaService,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly notifications: NotificationsService,
-    private readonly categoryScope: CategoryScopeService,
+    private readonly categoryScope: CategoryScopeService
   ) {}
 
   // ─── Categories ─────────────────────────────────────────────────────────────
@@ -113,21 +132,24 @@ export class JobsService {
         },
       },
       orderBy: { name: 'asc' },
-    })
+    });
 
     const filtered =
       scoped && user && user.role !== 'SUPERADMIN' && user.role !== 'ADMIN'
-        ? this.categoryScope.filterByCategory(categories, await this.categoryScope.getUserCategoryId(user.id))
-        : categories
+        ? this.categoryScope.filterByCategory(
+            categories,
+            await this.categoryScope.getUserCategoryId(user.id)
+          )
+        : categories;
 
-    return filtered.map(c => ({
+    return filtered.map((c) => ({
       id: c.id,
       name: c.name,
       color: c.color,
       icon: c.icon,
       description: c.description,
       jobCount: c._count.jobs,
-    }))
+    }));
   }
 
   // ─── Categories (Admin CRUD) ──────────────────────────────────────────────────
@@ -135,19 +157,19 @@ export class JobsService {
   // Sin scope de rubro — el admin necesita ver/editar toda categoría,
   // incluidas las que aún no tienen ningún empleo activo.
   async getAdminCategories() {
-    return this.prisma.jobCategory.findMany({ orderBy: { name: 'asc' } })
+    return this.prisma.jobCategory.findMany({ orderBy: { name: 'asc' } });
   }
 
   async createCategory(dto: CreateJobCategoryDto) {
-    return this.prisma.jobCategory.create({ data: dto })
+    return this.prisma.jobCategory.create({ data: dto });
   }
 
   async updateCategory(id: string, dto: Partial<CreateJobCategoryDto>) {
-    return this.prisma.jobCategory.update({ where: { id }, data: dto })
+    return this.prisma.jobCategory.update({ where: { id }, data: dto });
   }
 
   async deleteCategory(id: string) {
-    await this.prisma.jobCategory.delete({ where: { id } })
+    await this.prisma.jobCategory.delete({ where: { id } });
   }
 
   // ─── Tags (Public) ──────────────────────────────────────────────────────────
@@ -156,23 +178,26 @@ export class JobsService {
   // filtrados por substring `q` para autocompletado. Solo se trae la columna
   // `tags` (liviana) y el conteo se hace en memoria — evita tener que mantener
   // una tabla maestra de tags separada solo para esta sugerencia.
-  async getPopularTags(q?: string, limit = 20): Promise<{ tag: string; count: number }[]> {
+  async getPopularTags(
+    q?: string,
+    limit = 20
+  ): Promise<{ tag: string; count: number }[]> {
     const jobs = await this.prisma.job.findMany({
       where: { status: 'ACTIVE' },
       select: { tags: true },
-    })
-    const counts = new Map<string, number>()
+    });
+    const counts = new Map<string, number>();
     for (const job of jobs) {
       for (const tag of job.tags) {
-        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
       }
     }
-    const query = q?.trim().toLowerCase()
+    const query = q?.trim().toLowerCase();
     return Array.from(counts.entries())
       .filter(([tag]) => !query || tag.includes(query))
       .sort((a, b) => b[1] - a[1])
       .slice(0, limit)
-      .map(([tag, count]) => ({ tag, count }))
+      .map(([tag, count]) => ({ tag, count }));
   }
 
   // ─── Jobs CRUD ──────────────────────────────────────────────────────────────
@@ -188,13 +213,18 @@ export class JobsService {
         tags: normalizeTags(dto.tags) || [],
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
       },
-    })
+    });
   }
 
-  async updateJob(jobId: string, userId: string, dto: UpdateJobDto): Promise<Job> {
-    const job = await this.prisma.job.findUnique({ where: { id: jobId } })
-    if (!job) throw new NotFoundException('Empleo no encontrado')
-    if (job.employerId !== userId) throw new ForbiddenException('No tienes permiso para editar este empleo')
+  async updateJob(
+    jobId: string,
+    userId: string,
+    dto: UpdateJobDto
+  ): Promise<Job> {
+    const job = await this.prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('Empleo no encontrado');
+    if (job.employerId !== userId)
+      throw new ForbiddenException('No tienes permiso para editar este empleo');
 
     return this.prisma.job.update({
       where: { id: jobId },
@@ -203,15 +233,18 @@ export class JobsService {
         tags: normalizeTags(dto.tags),
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
       },
-    })
+    });
   }
 
   async deleteJob(jobId: string, userId: string): Promise<void> {
-    const job = await this.prisma.job.findUnique({ where: { id: jobId } })
-    if (!job) throw new NotFoundException('Empleo no encontrado')
-    if (job.employerId !== userId) throw new ForbiddenException('No tienes permiso para eliminar este empleo')
+    const job = await this.prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('Empleo no encontrado');
+    if (job.employerId !== userId)
+      throw new ForbiddenException(
+        'No tienes permiso para eliminar este empleo'
+      );
 
-    await this.prisma.job.delete({ where: { id: jobId } })
+    await this.prisma.job.delete({ where: { id: jobId } });
   }
 
   // ─── Job Catalog (Public) ───────────────────────────────────────────────────
@@ -240,17 +273,29 @@ export class JobsService {
       },
     },
     _count: { select: { applications: true } },
-  } as const
+  } as const;
 
-  async getCatalogJobs(query: JobQuery): Promise<{ data: JobWithEmployer[]; total: number; totalPages: number; locationTier?: 'city' | 'state' | 'country' | null }> {
+  async getCatalogJobs(query: JobQuery): Promise<{
+    data: JobWithEmployer[];
+    total: number;
+    totalPages: number;
+    locationTier?: 'city' | 'state' | 'country' | null;
+  }> {
     const {
-      search, categoryId, type, modality, status = 'ACTIVE',
-      sort = 'relevance', country, state, city,
-    } = query
-    const page = Number(query.page) || 1
-    const limit = Number(query.limit) || 16
+      search,
+      categoryId,
+      type,
+      modality,
+      status = 'ACTIVE',
+      sort = 'relevance',
+      country,
+      state,
+      city,
+    } = query;
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 16;
 
-    const where: any = { status }
+    const where: any = { status };
 
     if (search) {
       where.OR = [
@@ -258,30 +303,36 @@ export class JobsService {
         { description: { contains: search, mode: 'insensitive' } },
         { tags: tagSearchCondition(search) },
         { location: { contains: search, mode: 'insensitive' } },
-      ]
+      ];
     }
 
-    if (categoryId) where.categoryId = categoryId
-    if (type) where.type = type
-    if (modality) where.modality = modality
+    if (categoryId) where.categoryId = categoryId;
+    if (type) where.type = type;
+    if (modality) where.modality = modality;
 
-    const orderBy: any = {}
+    const orderBy: any = {};
     switch (sort) {
       case 'newest':
-        orderBy.createdAt = 'desc'
-        break
+        orderBy.createdAt = 'desc';
+        break;
       case 'salary_asc':
-        orderBy.salaryMin = 'asc'
-        break
+        orderBy.salaryMin = 'asc';
+        break;
       case 'salary_desc':
-        orderBy.salaryMax = 'desc'
-        break
+        orderBy.salaryMax = 'desc';
+        break;
       default:
-        orderBy.createdAt = 'desc'
+        orderBy.createdAt = 'desc';
     }
 
     if (city || state || country) {
-      return this.getCatalogJobsNearMe(where, { country, state, city }, page, limit, orderBy)
+      return this.getCatalogJobsNearMe(
+        where,
+        { country, state, city },
+        page,
+        limit,
+        orderBy
+      );
     }
 
     const [jobs, total] = await Promise.all([
@@ -293,13 +344,13 @@ export class JobsService {
         take: limit,
       }),
       this.prisma.job.count({ where }),
-    ])
+    ]);
 
     return {
       data: jobs as JobWithEmployer[],
       total,
       totalPages: Math.ceil(total / limit),
-    }
+    };
   }
 
   /**
@@ -312,27 +363,55 @@ export class JobsService {
     page: number,
     limit: number,
     orderBy: any
-  ): Promise<{ data: JobWithEmployer[]; total: number; totalPages: number; locationTier: 'city' | 'state' | 'country' | null }> {
-    const { country, state, city } = location
-    const skip = (page - 1) * limit
+  ): Promise<{
+    data: JobWithEmployer[];
+    total: number;
+    totalPages: number;
+    locationTier: 'city' | 'state' | 'country' | null;
+  }> {
+    const { country, state, city } = location;
+    const skip = (page - 1) * limit;
 
-    const tiers: { tier: 'city' | 'state' | 'country'; employer: any }[] = []
-    if (city) tiers.push({ tier: 'city', employer: { city: { equals: city, mode: 'insensitive' } } })
-    if (state) tiers.push({ tier: 'state', employer: { state: { equals: state, mode: 'insensitive' } } })
-    if (country) tiers.push({ tier: 'country', employer: { country: { equals: country, mode: 'insensitive' } } })
+    const tiers: { tier: 'city' | 'state' | 'country'; employer: any }[] = [];
+    if (city)
+      tiers.push({
+        tier: 'city',
+        employer: { city: { equals: city, mode: 'insensitive' } },
+      });
+    if (state)
+      tiers.push({
+        tier: 'state',
+        employer: { state: { equals: state, mode: 'insensitive' } },
+      });
+    if (country)
+      tiers.push({
+        tier: 'country',
+        employer: { country: { equals: country, mode: 'insensitive' } },
+      });
 
     for (const { tier, employer } of tiers) {
-      const where = { ...baseWhere, employer }
+      const where = { ...baseWhere, employer };
       const [jobs, total] = await Promise.all([
-        this.prisma.job.findMany({ where, include: this.catalogJobInclude, orderBy, skip, take: limit }),
+        this.prisma.job.findMany({
+          where,
+          include: this.catalogJobInclude,
+          orderBy,
+          skip,
+          take: limit,
+        }),
         this.prisma.job.count({ where }),
-      ])
+      ]);
       if (total > 0) {
-        return { data: jobs as JobWithEmployer[], total, totalPages: Math.ceil(total / limit), locationTier: tier }
+        return {
+          data: jobs as JobWithEmployer[],
+          total,
+          totalPages: Math.ceil(total / limit),
+          locationTier: tier,
+        };
       }
     }
 
-    return { data: [], total: 0, totalPages: 0, locationTier: null }
+    return { data: [], total: 0, totalPages: 0, locationTier: null };
   }
 
   async getJobById(jobId: string): Promise<JobWithEmployer | null> {
@@ -360,9 +439,9 @@ export class JobsService {
         },
         _count: { select: { applications: true } },
       },
-    })
+    });
 
-    return job as JobWithEmployer | null
+    return job as JobWithEmployer | null;
   }
 
   // ─── My Jobs (Employer) ─────────────────────────────────────────────────────
@@ -393,9 +472,9 @@ export class JobsService {
         _count: { select: { applications: true } },
       },
       orderBy: { createdAt: 'desc' },
-    })
+    });
 
-    return jobs as JobWithEmployer[]
+    return jobs as JobWithEmployer[];
   }
 
   async getMyJobsStats(userId: string) {
@@ -403,22 +482,39 @@ export class JobsService {
       by: ['status'],
       where: { employerId: userId },
       _count: { _all: true },
-    })
-    const counts: Record<string, number> = { ACTIVE: 0, PAUSED: 0, INACTIVE: 0, CLOSED: 0 }
-    for (const g of grouped) counts[g.status] = g._count._all
-    const total = counts.ACTIVE + counts.PAUSED + counts.INACTIVE + counts.CLOSED
-    return { total, activos: counts.ACTIVE, pausados: counts.PAUSED, inactivos: counts.INACTIVE, cerrados: counts.CLOSED }
+    });
+    const counts: Record<string, number> = {
+      ACTIVE: 0,
+      PAUSED: 0,
+      INACTIVE: 0,
+      CLOSED: 0,
+    };
+    for (const g of grouped) counts[g.status] = g._count._all;
+    const total =
+      counts.ACTIVE + counts.PAUSED + counts.INACTIVE + counts.CLOSED;
+    return {
+      total,
+      activos: counts.ACTIVE,
+      pausados: counts.PAUSED,
+      inactivos: counts.INACTIVE,
+      cerrados: counts.CLOSED,
+    };
   }
 
   // ─── Applications ───────────────────────────────────────────────────────────
 
-  async createApplication(userId: string, dto: CreateApplicationDto): Promise<JobApplication> {
-    const job = await this.prisma.job.findUnique({ where: { id: dto.jobId } })
-    if (!job) throw new NotFoundException('Empleo no encontrado')
-    if (job.employerId === userId) throw new ForbiddenException('No puedes aplicar a tu propio empleo')
-    if (job.status !== 'ACTIVE') throw new ForbiddenException('Este empleo no está activo')
+  async createApplication(
+    userId: string,
+    dto: CreateApplicationDto
+  ): Promise<JobApplication> {
+    const job = await this.prisma.job.findUnique({ where: { id: dto.jobId } });
+    if (!job) throw new NotFoundException('Empleo no encontrado');
+    if (job.employerId === userId)
+      throw new ForbiddenException('No puedes aplicar a tu propio empleo');
+    if (job.status !== 'ACTIVE')
+      throw new ForbiddenException('Este empleo no está activo');
 
-    let application: JobApplication
+    let application: JobApplication;
     try {
       application = await this.prisma.jobApplication.create({
         data: {
@@ -428,24 +524,29 @@ export class JobsService {
           phone: dto.phone,
           email: dto.email,
         },
-      })
+      });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException('Ya aplicaste a este empleo')
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException('Ya aplicaste a este empleo');
       }
-      throw e
+      throw e;
     }
 
     const applicant = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { firstName: true, lastName: true },
-    })
-    const applicantName = applicant ? `${applicant.firstName} ${applicant.lastName}` : 'Un candidato'
+    });
+    const applicantName = applicant
+      ? `${applicant.firstName} ${applicant.lastName}`
+      : 'Un candidato';
     this.notifications
       .notifyNewJobApplication(job.employerId, applicantName, job.title)
-      .catch(() => {})
+      .catch(() => {});
 
-    return application
+    return application;
   }
 
   async getMyApplications(userId: string) {
@@ -474,15 +575,18 @@ export class JobsService {
         },
       },
       orderBy: { createdAt: 'desc' },
-    })
+    });
 
-    return applications
+    return applications;
   }
 
   async getJobApplications(jobId: string, employerId: string) {
-    const job = await this.prisma.job.findUnique({ where: { id: jobId } })
-    if (!job) throw new NotFoundException('Empleo no encontrado')
-    if (job.employerId !== employerId) throw new ForbiddenException('No tienes permiso para ver estas aplicaciones')
+    const job = await this.prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('Empleo no encontrado');
+    if (job.employerId !== employerId)
+      throw new ForbiddenException(
+        'No tienes permiso para ver estas aplicaciones'
+      );
 
     const applications = await this.prisma.jobApplication.findMany({
       where: { jobId },
@@ -500,38 +604,51 @@ export class JobsService {
         },
       },
       orderBy: { createdAt: 'desc' },
-    })
+    });
 
-    return applications
+    return applications;
   }
 
   async updateApplicationStatus(
     applicationId: string,
     employerId: string,
-    status: JobApplicationStatus,
+    status: JobApplicationStatus
   ): Promise<JobApplication> {
     const application = await this.prisma.jobApplication.findUnique({
       where: { id: applicationId },
-      include: { job: { include: { employer: { select: { firstName: true, lastName: true } } } } },
-    })
-    if (!application) throw new NotFoundException('Aplicación no encontrada')
+      include: {
+        job: {
+          include: {
+            employer: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+    if (!application) throw new NotFoundException('Aplicación no encontrada');
     if (application.job.employerId !== employerId) {
-      throw new ForbiddenException('No tienes permiso para actualizar esta aplicación')
+      throw new ForbiddenException(
+        'No tienes permiso para actualizar esta aplicación'
+      );
     }
 
     const updated = await this.prisma.jobApplication.update({
       where: { id: applicationId },
       data: { status },
-    })
+    });
 
     if (status === 'ACCEPTED' || status === 'REJECTED') {
-      const employerName = `${application.job.employer.firstName} ${application.job.employer.lastName}`
+      const employerName = `${application.job.employer.firstName} ${application.job.employer.lastName}`;
       this.notifications
-        .notifyJobApplicationStatusChanged(application.applicantId, employerName, application.job.title, status)
-        .catch(() => {})
+        .notifyJobApplicationStatusChanged(
+          application.applicantId,
+          employerName,
+          application.job.title,
+          status
+        )
+        .catch(() => {});
     }
 
-    return updated
+    return updated;
   }
 
   // ─── Statistics ─────────────────────────────────────────────────────────────
@@ -544,11 +661,11 @@ export class JobsService {
         where: { status: 'ACTIVE' },
         _count: { employerId: true },
       }),
-    ])
+    ]);
 
     return {
       total,
       employers: employers.length,
-    }
+    };
   }
 }

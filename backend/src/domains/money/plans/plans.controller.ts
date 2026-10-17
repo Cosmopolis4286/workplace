@@ -44,8 +44,15 @@ export class PlansController {
 
   @Get('public')
   @UseGuards(OptionalJwtAuthGuard)
-  getPublicPlans(@CurrentUser() user: any, @Query('categoryId') categoryId?: string) {
-    return this.plansService.getPublicPlans(user?.id, user?.role, categoryId ?? user?.categoryId);
+  getPublicPlans(
+    @CurrentUser() user: any,
+    @Query('categoryId') categoryId?: string
+  ) {
+    return this.plansService.getPublicPlans(
+      user?.id,
+      user?.role,
+      categoryId ?? user?.categoryId
+    );
   }
 
   // ─── Authenticated user endpoints ────────────────────────────────────────
@@ -59,12 +66,12 @@ export class PlansController {
   @Get('usage')
   @UseGuards(JwtAuthGuard)
   async getUsage(@CurrentUser() user: any) {
-    const commerce = await this.planLimitsService[
-      'prisma'
-    ].commerce.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    });
+    const commerce = await this.planLimitsService['prisma'].commerce.findUnique(
+      {
+        where: { userId: user.id },
+        select: { id: true },
+      }
+    );
     // Sin Commerce (p.ej. FREELANCER): igual calculamos `limits` —
     // effectiveModules no depende de tener un comercio — solo se omiten
     // los contadores de uso (products/employees/branches/orders).
@@ -81,7 +88,8 @@ export class PlansController {
     @Body() dto: { planId: string; interval?: string },
     @CurrentUser() user: { id: string; role: string }
   ) {
-    if (!dto.planId) throw new BadRequestException('Datos inválidos para suscripción');
+    if (!dto.planId)
+      throw new BadRequestException('Datos inválidos para suscripción');
     return this.plansService.selfSubscribe(user.id, dto);
   }
 
@@ -94,7 +102,10 @@ export class PlansController {
     @Body() dto: { planId: string },
     @CurrentUser() user: { id: string }
   ) {
-    if (!dto.planId) throw new BadRequestException('Datos inválidos para activar la prueba gratuita');
+    if (!dto.planId)
+      throw new BadRequestException(
+        'Datos inválidos para activar la prueba gratuita'
+      );
     return this.plansService.activateTrial(user.id, dto.planId);
   }
 

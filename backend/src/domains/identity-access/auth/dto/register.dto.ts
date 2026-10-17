@@ -28,7 +28,10 @@ function IsAdult(validationOptions?: ValidationOptions) {
           const today = new Date();
           let age = today.getFullYear() - birthDate.getFullYear();
           const monthDiff = today.getMonth() - birthDate.getMonth();
-          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          if (
+            monthDiff < 0 ||
+            (monthDiff === 0 && today.getDate() < birthDate.getDate())
+          ) {
             age--;
           }
           return age >= 18;
@@ -68,7 +71,10 @@ export class RegisterDto {
   @IsUUID()
   categoryId?: string;
 
-  @Equals(true, { message: 'Debes aceptar los Términos y Condiciones y la Política de Privacidad' })
+  @Equals(true, {
+    message:
+      'Debes aceptar los Términos y Condiciones y la Política de Privacidad',
+  })
   acceptTerms: boolean;
 
   @IsOptional()

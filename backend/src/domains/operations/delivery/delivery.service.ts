@@ -24,7 +24,10 @@ import {
   DriverInvitationStatus,
   KycStatus,
 } from '@prisma/client';
-import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
+import {
+  ReputationFacade,
+  REPUTATION_FACADE,
+} from '../../reputation/reputation.facade';
 import { TrackingService } from './tracking/tracking.service';
 import { TrackingGateway } from './tracking/tracking.gateway';
 
@@ -49,7 +52,7 @@ export class DeliveryService {
     private readonly i18n: I18nService,
     @Inject(REPUTATION_FACADE) private readonly reputation: ReputationFacade,
     private readonly tracking: TrackingService,
-    private readonly trackingGateway: TrackingGateway,
+    private readonly trackingGateway: TrackingGateway
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -62,7 +65,8 @@ export class DeliveryService {
     const driver = await this.prisma.driver.findUnique({
       where: { id: driverId },
     });
-    if (!driver) throw new NotFoundException(this.i18n.t('delivery.driver.not_found'));
+    if (!driver)
+      throw new NotFoundException(this.i18n.t('delivery.driver.not_found'));
     if (driver.commerceId !== commerceId)
       throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return driver;
@@ -76,17 +80,22 @@ export class DeliveryService {
       where: { id: driverId },
       include: { user: { select: { kycStatus: true } } },
     });
-    if (!driver) throw new NotFoundException(this.i18n.t('delivery.driver.not_found'));
+    if (!driver)
+      throw new NotFoundException(this.i18n.t('delivery.driver.not_found'));
 
     if (driver.userId) {
       if (driver.user?.kycStatus !== KycStatus.APPROVED) {
-        throw new ForbiddenException(this.i18n.t('delivery.driver.kyc_required'));
+        throw new ForbiddenException(
+          this.i18n.t('delivery.driver.kyc_required')
+        );
       }
       return driver;
     }
 
     if (driver.graceUntil && driver.graceUntil < new Date()) {
-      throw new ForbiddenException(this.i18n.t('delivery.driver.grace_expired'));
+      throw new ForbiddenException(
+        this.i18n.t('delivery.driver.grace_expired')
+      );
     }
 
     return driver;
@@ -99,7 +108,8 @@ export class DeliveryService {
     const delivery = await this.prisma.delivery.findUnique({
       where: { id: deliveryId },
     });
-    if (!delivery) throw new NotFoundException(this.i18n.t('delivery.delivery.not_found'));
+    if (!delivery)
+      throw new NotFoundException(this.i18n.t('delivery.delivery.not_found'));
     if (delivery.commerceId !== commerceId)
       throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return delivery;
@@ -258,10 +268,13 @@ export class DeliveryService {
       where: { token },
       include: { commerce: { select: { name: true } } },
     });
-    if (!invitation) throw new NotFoundException(this.i18n.t('delivery.invitation.not_found'));
+    if (!invitation)
+      throw new NotFoundException(this.i18n.t('delivery.invitation.not_found'));
 
-    const isExpired = invitation.status === DriverInvitationStatus.EXPIRED
-      || (invitation.status === DriverInvitationStatus.PENDING && invitation.expiresAt < new Date());
+    const isExpired =
+      invitation.status === DriverInvitationStatus.EXPIRED ||
+      (invitation.status === DriverInvitationStatus.PENDING &&
+        invitation.expiresAt < new Date());
 
     return {
       commerceName: invitation.commerce.name,
@@ -273,10 +286,16 @@ export class DeliveryService {
     const commerceId = await this.getCommerceId(userId);
 
     const existingPending = await this.prisma.driverInvitation.findFirst({
-      where: { commerceId, email: dto.email, status: DriverInvitationStatus.PENDING },
+      where: {
+        commerceId,
+        email: dto.email,
+        status: DriverInvitationStatus.PENDING,
+      },
     });
     if (existingPending) {
-      throw new BadRequestException(this.i18n.t('delivery.invitation.already_pending'));
+      throw new BadRequestException(
+        this.i18n.t('delivery.invitation.already_pending')
+      );
     }
 
     const commerce = await this.prisma.commerce.findUnique({
@@ -296,7 +315,11 @@ export class DeliveryService {
     });
 
     this.mail
-      .sendDriverInvitation(dto.email, commerce?.name ?? 'Un comercio', invitation.token)
+      .sendDriverInvitation(
+        dto.email,
+        commerce?.name ?? 'Un comercio',
+        invitation.token
+      )
       .catch(() => null);
 
     return invitation;
@@ -311,7 +334,9 @@ export class DeliveryService {
       throw new NotFoundException(this.i18n.t('delivery.invitation.not_found'));
     }
     if (invitation.status !== DriverInvitationStatus.PENDING) {
-      throw new BadRequestException(this.i18n.t('delivery.invitation.no_longer_pending'));
+      throw new BadRequestException(
+        this.i18n.t('delivery.invitation.no_longer_pending')
+      );
     }
     return this.prisma.driverInvitation.update({
       where: { id: invitationId },
@@ -323,10 +348,15 @@ export class DeliveryService {
   // la invitación con el token. Se crea el Driver vinculado a su userId —
   // sin periodo de gracia, porque nace ya con cuenta propia.
   async acceptInvitation(token: string, acceptingUserId: string) {
-    const invitation = await this.prisma.driverInvitation.findUnique({ where: { token } });
-    if (!invitation) throw new NotFoundException(this.i18n.t('delivery.invitation.not_found'));
+    const invitation = await this.prisma.driverInvitation.findUnique({
+      where: { token },
+    });
+    if (!invitation)
+      throw new NotFoundException(this.i18n.t('delivery.invitation.not_found'));
     if (invitation.status !== DriverInvitationStatus.PENDING) {
-      throw new BadRequestException(this.i18n.t('delivery.invitation.no_longer_available'));
+      throw new BadRequestException(
+        this.i18n.t('delivery.invitation.no_longer_available')
+      );
     }
     if (invitation.expiresAt < new Date()) {
       await this.prisma.driverInvitation.update({
@@ -340,14 +370,19 @@ export class DeliveryService {
       where: { userId: acceptingUserId },
     });
     if (existingDriverProfile) {
-      throw new BadRequestException(this.i18n.t('delivery.invitation.already_linked'));
+      throw new BadRequestException(
+        this.i18n.t('delivery.invitation.already_linked')
+      );
     }
 
     const user = await this.prisma.user.findUnique({
       where: { id: acceptingUserId },
       select: { firstName: true, lastName: true, phone: true },
     });
-    if (!user) throw new NotFoundException(this.i18n.t('delivery.invitation.user_not_found'));
+    if (!user)
+      throw new NotFoundException(
+        this.i18n.t('delivery.invitation.user_not_found')
+      );
 
     const [driver] = await this.prisma.$transaction([
       this.prisma.driver.create({
@@ -360,7 +395,10 @@ export class DeliveryService {
       }),
       this.prisma.driverInvitation.update({
         where: { id: invitation.id },
-        data: { status: DriverInvitationStatus.ACCEPTED, acceptedAt: new Date() },
+        data: {
+          status: DriverInvitationStatus.ACCEPTED,
+          acceptedAt: new Date(),
+        },
       }),
     ]);
 
@@ -463,7 +501,9 @@ export class DeliveryService {
         where: { id: dto.driverId },
       });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_commerce'));
+        throw new BadRequestException(
+          this.i18n.t('delivery.driver.not_found_in_commerce')
+        );
       await this.assertDriverAssignable(dto.driverId);
     }
 
@@ -511,7 +551,9 @@ export class DeliveryService {
         where: { id: dto.driverId },
       });
       if (!driver || driver.commerceId !== commerceId)
-        throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_commerce'));
+        throw new BadRequestException(
+          this.i18n.t('delivery.driver.not_found_in_commerce')
+        );
       await this.assertDriverAssignable(dto.driverId);
     }
 
@@ -607,7 +649,10 @@ export class DeliveryService {
       this.reputation.recalculate('DRIVER', delivery.driverId).catch(() => {});
     }
 
-    const trackingActive = await this.tracking.syncTrackingActive(deliveryId, status);
+    const trackingActive = await this.tracking.syncTrackingActive(
+      deliveryId,
+      status
+    );
     this.trackingGateway.emitStatusUpdate(deliveryId, status, trackingActive);
 
     this.notifications
@@ -632,7 +677,7 @@ export class DeliveryService {
         this.telegram
           .sendMessage(
             customer.telegramChatId,
-            `📦 <b>Entrega #${delivery.orderNumber}</b>\n${label}`,
+            `📦 <b>Entrega #${delivery.orderNumber}</b>\n${label}`
           )
           .catch(() => null);
       }
@@ -649,7 +694,9 @@ export class DeliveryService {
       where: { id: driverId },
     });
     if (!driver || driver.commerceId !== commerceId)
-      throw new BadRequestException(this.i18n.t('delivery.driver.not_found_in_commerce'));
+      throw new BadRequestException(
+        this.i18n.t('delivery.driver.not_found_in_commerce')
+      );
     if (!driver.isActive)
       throw new BadRequestException(this.i18n.t('delivery.driver.not_active'));
     await this.assertDriverAssignable(driverId);
@@ -681,7 +728,11 @@ export class DeliveryService {
       deliveryId,
       DeliveryStatus.ASSIGNED
     );
-    this.trackingGateway.emitStatusUpdate(deliveryId, DeliveryStatus.ASSIGNED, trackingActive);
+    this.trackingGateway.emitStatusUpdate(
+      deliveryId,
+      DeliveryStatus.ASSIGNED,
+      trackingActive
+    );
 
     return delivery;
   }

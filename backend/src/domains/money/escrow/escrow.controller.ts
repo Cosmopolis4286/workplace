@@ -27,7 +27,7 @@ export class EscrowController {
   resolveDispute(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @Body() dto: ResolveDisputeDto,
+    @Body() dto: ResolveDisputeDto
   ) {
     return this.escrowService.resolveDispute({
       disputeId: id,

@@ -4,7 +4,10 @@ import { QueryAnalyticsDto } from './dto/query-analytics.dto';
 import { CommerceAnalyticsStrategy } from './strategies/commerce-analytics.strategy';
 import { FreelancerAnalyticsStrategy } from './strategies/freelancer-analytics.strategy';
 import { PlatformAnalyticsStrategy } from './strategies/platform-analytics.strategy';
-import { AnalyticsAccountStrategy, AnalyticsOverview } from './strategies/analytics-overview.strategy.interface';
+import {
+  AnalyticsAccountStrategy,
+  AnalyticsOverview,
+} from './strategies/analytics-overview.strategy.interface';
 import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
 
 /**
@@ -35,21 +38,32 @@ export class AnalyticsService {
     private readonly commerceStrategy: CommerceAnalyticsStrategy,
     private readonly freelancerStrategy: FreelancerAnalyticsStrategy,
     private readonly platformStrategy: PlatformAnalyticsStrategy,
-    private readonly capabilities: CapabilitiesService,
+    private readonly capabilities: CapabilitiesService
   ) {}
 
-  private async resolveStrategy(userId: string, role: Role): Promise<AnalyticsAccountStrategy> {
+  private async resolveStrategy(
+    userId: string,
+    role: Role
+  ): Promise<AnalyticsAccountStrategy> {
     if (role === Role.SUPERADMIN || role === Role.ADMIN) {
       return this.platformStrategy;
     }
-    return (await this.capabilities.has(userId, 'HAS_COMMERCE')) ? this.commerceStrategy : this.freelancerStrategy;
+    return (await this.capabilities.has(userId, 'HAS_COMMERCE'))
+      ? this.commerceStrategy
+      : this.freelancerStrategy;
   }
 
-  async getOverview(userId: string, role: Role, dto: QueryAnalyticsDto): Promise<AnalyticsOverview> {
+  async getOverview(
+    userId: string,
+    role: Role,
+    dto: QueryAnalyticsDto
+  ): Promise<AnalyticsOverview> {
     return (await this.resolveStrategy(userId, role)).getOverview(userId, dto);
   }
 
   async getDashboardTrends(userId: string, role: Role) {
-    return (await this.resolveStrategy(userId, role)).getDashboardTrends(userId);
+    return (await this.resolveStrategy(userId, role)).getDashboardTrends(
+      userId
+    );
   }
 }

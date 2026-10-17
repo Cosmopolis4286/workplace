@@ -18,8 +18,15 @@ const {
   PRODUCT_SELLER_KEYS,
 } = defaults as {
   PERMISSIONS: Array<{ key: string }>;
-  ROLE_DEFAULTS: Record<'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL', string[]>;
-  PROFILE_PERMISSION_DEFAULTS: Array<{ profileType: string; subtype: string | null; keys: string[] }>;
+  ROLE_DEFAULTS: Record<
+    'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL',
+    string[]
+  >;
+  PROFILE_PERMISSION_DEFAULTS: Array<{
+    profileType: string;
+    subtype: string | null;
+    keys: string[];
+  }>;
   BUSINESS_PROFILE_KEYS: string[];
   PROFESSIONAL_PROFILE_KEYS: string[];
   PRODUCT_SELLER_KEYS: string[];
@@ -38,8 +45,13 @@ describe('permission-defaults', () => {
 
   it('role PROFESIONAL grants only what EVERY business profile grants (intersection, not union)', () => {
     for (const profile of PROFILE_PERMISSION_DEFAULTS) {
-      const missing = ROLE_DEFAULTS.PROFESIONAL.filter((k) => !profile.keys.includes(k));
-      expect({ profile: `${profile.profileType}/${profile.subtype}`, missing }).toEqual({
+      const missing = ROLE_DEFAULTS.PROFESIONAL.filter(
+        (k) => !profile.keys.includes(k)
+      );
+      expect({
+        profile: `${profile.profileType}/${profile.subtype}`,
+        missing,
+      }).toEqual({
         profile: `${profile.profileType}/${profile.subtype}`,
         missing: [],
       });
@@ -47,29 +59,54 @@ describe('permission-defaults', () => {
   });
 
   it('role PROFESIONAL does NOT grant business-only permissions (they come from the BUSINESS profile)', () => {
-    const businessOnly = BUSINESS_PROFILE_KEYS.filter((k) => !PROFESSIONAL_PROFILE_KEYS.includes(k));
+    const businessOnly = BUSINESS_PROFILE_KEYS.filter(
+      (k) => !PROFESSIONAL_PROFILE_KEYS.includes(k)
+    );
     expect(businessOnly.length).toBeGreaterThan(0);
-    expect(ROLE_DEFAULTS.PROFESIONAL.filter((k) => businessOnly.includes(k))).toEqual([]);
+    expect(
+      ROLE_DEFAULTS.PROFESIONAL.filter((k) => businessOnly.includes(k))
+    ).toEqual([]);
   });
 
   it('business-only modules are exactly the commerce-operations modules', () => {
     const businessOnlyModules = new Set(
-      BUSINESS_PROFILE_KEYS.filter((k) => !PROFESSIONAL_PROFILE_KEYS.includes(k)).map((k) => k.split(':')[0]),
+      BUSINESS_PROFILE_KEYS.filter(
+        (k) => !PROFESSIONAL_PROFILE_KEYS.includes(k)
+      ).map((k) => k.split(':')[0])
     );
     expect([...businessOnlyModules].sort()).toEqual(
-      ['accounts', 'appointments', 'branches', 'cash', 'employees', 'purchases', 'suppliers'].sort(),
+      [
+        'accounts',
+        'appointments',
+        'branches',
+        'cash',
+        'employees',
+        'purchases',
+        'suppliers',
+      ].sort()
     );
   });
 
   it('both PROFESSIONAL subtypes get the product-seller kit (option 2: the category decides real usage)', () => {
-    const professional = PROFILE_PERMISSION_DEFAULTS.filter((p) => p.profileType === 'PROFESSIONAL');
-    expect(professional.map((p) => p.subtype).sort()).toEqual(['FREELANCER', 'SERVICE_PROVIDER']);
+    const professional = PROFILE_PERMISSION_DEFAULTS.filter(
+      (p) => p.profileType === 'PROFESSIONAL'
+    );
+    expect(professional.map((p) => p.subtype).sort()).toEqual([
+      'FREELANCER',
+      'SERVICE_PROVIDER',
+    ]);
     for (const p of professional) {
-      expect(PRODUCT_SELLER_KEYS.filter((k) => !p.keys.includes(k))).toEqual([]);
+      expect(PRODUCT_SELLER_KEYS.filter((k) => !p.keys.includes(k))).toEqual(
+        []
+      );
     }
   });
 
   it('BUSINESS profile is a superset of the PROFESSIONAL profile', () => {
-    expect(PROFESSIONAL_PROFILE_KEYS.filter((k) => !BUSINESS_PROFILE_KEYS.includes(k))).toEqual([]);
+    expect(
+      PROFESSIONAL_PROFILE_KEYS.filter(
+        (k) => !BUSINESS_PROFILE_KEYS.includes(k)
+      )
+    ).toEqual([]);
   });
 });

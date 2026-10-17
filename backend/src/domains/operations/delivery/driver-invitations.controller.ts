@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Param,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { DeliveryService } from './delivery.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
@@ -35,10 +28,7 @@ export class DriverInvitationsController {
   @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
   @RequireModule('delivery')
   @RequirePermission('delivery:manage_drivers')
-  invite(
-    @CurrentUser() user: { id: string },
-    @Body() dto: InviteDriverDto
-  ) {
+  invite(@CurrentUser() user: { id: string }, @Body() dto: InviteDriverDto) {
     return this.deliveryService.inviteDriver(user.id, dto);
   }
 

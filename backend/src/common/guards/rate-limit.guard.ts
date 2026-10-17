@@ -1,11 +1,17 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { I18nService, I18nContext } from 'nestjs-i18n';
 import { RedisService } from '../../redis/redis.service';
 import { Request } from 'express';
 
 export interface RateLimitOptions {
-  windowMs: number;    // Ventana de tiempo en milisegundos
+  windowMs: number; // Ventana de tiempo en milisegundos
   maxRequests: number; // Máximo de solicitudes permitidas
   keyGenerator?: (req: Request) => string; // Generador de clave personalizado
   skipSuccessfulRequests?: boolean; // No contar requests exitosas
@@ -24,8 +30,9 @@ export class RateLimitGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const options = this.reflector.get<RateLimitOptions>('rateLimit', context.getHandler()) ||
-                   this.reflector.get<RateLimitOptions>('rateLimit', context.getClass());
+    const options =
+      this.reflector.get<RateLimitOptions>('rateLimit', context.getHandler()) ||
+      this.reflector.get<RateLimitOptions>('rateLimit', context.getClass());
 
     if (!options) {
       return true; // Sin rate limiting si no hay opciones
@@ -48,7 +55,10 @@ export class RateLimitGuard implements CanActivate {
       // Atómico: INCR no puede sufrir la carrera de un GET+SETEX separado,
       // donde dos requests concurrentes leen el mismo contador antes de que
       // ninguna escriba y ambas pasan el límite (ver RedisService.incrWithExpire).
-      const newCount = await this.redis.incrWithExpire(key, Math.ceil(options.windowMs / 1000));
+      const newCount = await this.redis.incrWithExpire(
+        key,
+        Math.ceil(options.windowMs / 1000)
+      );
 
       // Si ya excedió el límite
       if (newCount > options.maxRequests) {
@@ -56,7 +66,7 @@ export class RateLimitGuard implements CanActivate {
           requests: newCount,
           maxRequests: options.maxRequests,
           ip: request.ip,
-          userAgent: request.headers['user-agent']
+          userAgent: request.headers['user-agent'],
         });
 
         // TTL real de la key en Redis — más preciso que options.windowMs
@@ -83,7 +93,7 @@ export class RateLimitGuard implements CanActivate {
         this.logger.warn(`Rate limit warning for key: ${key}`, {
           requests: newCount,
           maxRequests: options.maxRequests,
-          percentage: Math.round((newCount / options.maxRequests) * 100)
+          percentage: Math.round((newCount / options.maxRequests) * 100),
         });
       }
 
@@ -92,7 +102,7 @@ export class RateLimitGuard implements CanActivate {
       if (error instanceof ForbiddenException) {
         throw error;
       }
-      
+
       this.logger.error(`Error checking rate limit for key: ${key}`, error);
       return true; // Permitir si hay error en Redis (fail-open)
     }
@@ -130,7 +140,11 @@ export class RateLimitGuard implements CanActivate {
 
 // Decorator para configurar rate limiting
 export const RateLimit = (options: RateLimitOptions) => {
-  return (target: any, propertyKey?: string, descriptor?: PropertyDescriptor) => {
+  return (
+    target: any,
+    propertyKey?: string,
+    descriptor?: PropertyDescriptor
+  ) => {
     if (propertyKey && descriptor) {
       // Para métodos
       Reflect.defineMetadata('rateLimit', options, descriptor.value);

@@ -58,7 +58,7 @@ import { RidesModule } from './domains/operations/rides/rides.module';
 import { JobsModule } from './domains/platform/jobs/jobs.module';
 import { ProposedCategoriesModule } from './domains/commerce-core/proposed-categories/proposed-categories.module';
 import { TelegramModule } from './domains/engagement/telegram/telegram.module';
-import { WalletsModule } from './domains/money/wallets/wallets.module'
+import { WalletsModule } from './domains/money/wallets/wallets.module';
 import { WalletDepositRequestsModule } from './domains/money/wallet-deposit-requests/wallet-deposit-requests.module';
 import { PlatformFeesModule } from './domains/money/platform-fees/platform-fees.module';
 import { ReputationModule } from './domains/reputation/reputation.module';
@@ -171,8 +171,6 @@ import { EscrowModule } from './domains/money/escrow/escrow.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(SecurityContextMiddleware)
-      .forRoutes('*'); // Aplicar a todas las rutas
+    consumer.apply(SecurityContextMiddleware).forRoutes('*'); // Aplicar a todas las rutas
   }
 }

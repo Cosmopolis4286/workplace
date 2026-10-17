@@ -9,7 +9,14 @@ import {
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { Prisma, Role, Sex, ProfileType, ProfessionalSubtype, ProfileStatus } from '@prisma/client';
+import {
+  Prisma,
+  Role,
+  Sex,
+  ProfileType,
+  ProfessionalSubtype,
+  ProfileStatus,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 import { ChangePasswordDto } from '../auth/dto/change-password.dto';
@@ -50,7 +57,7 @@ export class UsersService {
     private commerceProfileCompletion: CommerceProfileCompletionStrategy,
     private freelancerProfileCompletion: FreelancerProfileCompletionStrategy,
     private accountTypeResolver: AccountTypeResolver,
-    private commerceResolver: CommerceResolverService,
+    private commerceResolver: CommerceResolverService
   ) {}
 
   // Invalida el caché de findById para un usuario. Llamar después de
@@ -96,8 +103,12 @@ export class UsersService {
     // RoleResolverService) — ADMIN queda fuera a propósito, no es un perfil
     // de negocio aunque también reciba un Commerce por conveniencia arriba.
     const businessProfileType =
-      role !== Role.PROFESIONAL ? null
-      : data.businessProfileType ?? (data.commerceName ? ProfileType.BUSINESS : ProfileType.PROFESSIONAL);
+      role !== Role.PROFESIONAL
+        ? null
+        : (data.businessProfileType ??
+          (data.commerceName
+            ? ProfileType.BUSINESS
+            : ProfileType.PROFESSIONAL));
 
     const now = new Date();
     let user;
@@ -138,9 +149,10 @@ export class UsersService {
             data: {
               userId: created.id,
               type: businessProfileType,
-              subtype: businessProfileType === ProfileType.PROFESSIONAL
-                ? (data.professionalSubtype ?? ProfessionalSubtype.FREELANCER)
-                : null,
+              subtype:
+                businessProfileType === ProfileType.PROFESSIONAL
+                  ? (data.professionalSubtype ?? ProfessionalSubtype.FREELANCER)
+                  : null,
               categoryId: data.categoryId,
               subcategoryId: data.subcategoryId,
               status: ProfileStatus.ACTIVE,
@@ -149,7 +161,10 @@ export class UsersService {
 
           // Un PROFESSIONAL creado directo por admin en una categoría que
           // vende producto también necesita su Commerce (shouldProvisionCommerce).
-          if (!created.commerce && (await this.commerceResolver.ensureForUser(tx, created.id))) {
+          if (
+            !created.commerce &&
+            (await this.commerceResolver.ensureForUser(tx, created.id))
+          ) {
             return tx.user.findUniqueOrThrow({
               where: { id: created.id },
               include: { commerce: true, category: true, subcategory: true },
@@ -207,14 +222,25 @@ export class UsersService {
     // — filtra por el UserProfile ACTIVE del usuario, no por Role.
     profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
   }): Record<string, unknown> {
-    const { roleFilter, allowedRoles, categoryId, subcategoryId, search, excludeUserId, profileKind } =
-      options;
+    const {
+      roleFilter,
+      allowedRoles,
+      categoryId,
+      subcategoryId,
+      search,
+      excludeUserId,
+      profileKind,
+    } = options;
     const where: Record<string, unknown> = {};
     if (allowedRoles) {
       // Si se pide un rol fuera del conjunto permitido, no debe devolver
       // nada (en vez de ignorar silenciosamente la restricción de scoping).
       where.role = {
-        in: roleFilter ? (allowedRoles.includes(roleFilter) ? [roleFilter] : []) : allowedRoles,
+        in: roleFilter
+          ? allowedRoles.includes(roleFilter)
+            ? [roleFilter]
+            : []
+          : allowedRoles,
       };
     } else if (roleFilter) {
       where.role = roleFilter;
@@ -224,9 +250,10 @@ export class UsersService {
     if (excludeUserId) where.id = { not: excludeUserId };
     if (profileKind) {
       where.profiles = {
-        some: profileKind === 'BUSINESS'
-          ? { type: 'BUSINESS', status: 'ACTIVE' }
-          : { type: 'PROFESSIONAL', subtype: profileKind, status: 'ACTIVE' },
+        some:
+          profileKind === 'BUSINESS'
+            ? { type: 'BUSINESS', status: 'ACTIVE' }
+            : { type: 'PROFESSIONAL', subtype: profileKind, status: 'ACTIVE' },
       };
     }
     if (search) {
@@ -277,7 +304,10 @@ export class UsersService {
           // AccountTypeResolver). Solo el perfil ACTIVE de negocio importa
           // para la UI de administración de usuarios.
           profiles: {
-            where: { status: ProfileStatus.ACTIVE, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
+            where: {
+              status: ProfileStatus.ACTIVE,
+              type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+            },
             select: { type: true, subtype: true },
             take: 1,
           },
@@ -306,19 +336,41 @@ export class UsersService {
     // "commerce"/"freelancer" ya no son valores de Role (colapsados en
     // PROFESIONAL) — el desglose fino ahora se cuenta vía UserProfile
     // ACTIVE, que es donde vive esa distinción real.
-    const withActiveProfile = (type: 'BUSINESS' | 'PROFESSIONAL', subtype?: ProfessionalSubtype) => ({
+    const withActiveProfile = (
+      type: 'BUSINESS' | 'PROFESSIONAL',
+      subtype?: ProfessionalSubtype
+    ) => ({
       AND: [
         where,
-        { profiles: { some: { type, status: 'ACTIVE' as const, ...(subtype && { subtype }) } } },
+        {
+          profiles: {
+            some: {
+              type,
+              status: 'ACTIVE' as const,
+              ...(subtype && { subtype }),
+            },
+          },
+        },
       ],
     });
-    const [total, commerce, freelancer, serviceProvider, active] = await Promise.all([
-      this.prisma.user.count({ where }),
-      this.prisma.user.count({ where: withActiveProfile('BUSINESS') }),
-      this.prisma.user.count({ where: withActiveProfile('PROFESSIONAL', ProfessionalSubtype.FREELANCER) }),
-      this.prisma.user.count({ where: withActiveProfile('PROFESSIONAL', ProfessionalSubtype.SERVICE_PROVIDER) }),
-      this.prisma.user.count({ where: { AND: [where, { isActive: true }] } }),
-    ]);
+    const [total, commerce, freelancer, serviceProvider, active] =
+      await Promise.all([
+        this.prisma.user.count({ where }),
+        this.prisma.user.count({ where: withActiveProfile('BUSINESS') }),
+        this.prisma.user.count({
+          where: withActiveProfile(
+            'PROFESSIONAL',
+            ProfessionalSubtype.FREELANCER
+          ),
+        }),
+        this.prisma.user.count({
+          where: withActiveProfile(
+            'PROFESSIONAL',
+            ProfessionalSubtype.SERVICE_PROVIDER
+          ),
+        }),
+        this.prisma.user.count({ where: { AND: [where, { isActive: true }] } }),
+      ]);
     return { total, commerce, freelancer, serviceProvider, active };
   }
 
@@ -362,13 +414,19 @@ export class UsersService {
         // null explícito = quitar el perfil de negocio (desactivarlo, no
         // borrarlo — conserva el historial); un ProfileType = crear/actualizar.
         if (dto.businessProfileType !== undefined) {
-          await this.applyBusinessProfileType(tx, updated.id, dto.businessProfileType, dto.professionalSubtype);
+          await this.applyBusinessProfileType(
+            tx,
+            updated.id,
+            dto.businessProfileType,
+            dto.professionalSubtype
+          );
         }
 
         // Cambio de perfil o de categoría puede volver obligatorio el Commerce.
         if (
           !updated.commerce &&
-          (dto.businessProfileType !== undefined || dto.categoryId !== undefined) &&
+          (dto.businessProfileType !== undefined ||
+            dto.categoryId !== undefined) &&
           (await this.commerceResolver.ensureForUser(tx, updated.id))
         ) {
           return tx.user.findUniqueOrThrow({
@@ -402,10 +460,13 @@ export class UsersService {
     tx: Prisma.TransactionClient,
     userId: string,
     businessProfileType: ProfileType | null,
-    professionalSubtype?: ProfessionalSubtype,
+    professionalSubtype?: ProfessionalSubtype
   ) {
     const existing = await tx.userProfile.findFirst({
-      where: { userId, type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] } },
+      where: {
+        userId,
+        type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+      },
     });
 
     if (businessProfileType === null) {
@@ -413,23 +474,36 @@ export class UsersService {
       // desactiva — igual semántica que ProfileActivationsService, que
       // nunca borra un UserProfile, solo cambia su status.
       if (existing) {
-        await tx.userProfile.update({ where: { id: existing.id }, data: { status: ProfileStatus.SUSPENDED } });
+        await tx.userProfile.update({
+          where: { id: existing.id },
+          data: { status: ProfileStatus.SUSPENDED },
+        });
       }
       return;
     }
 
-    const subtype = businessProfileType === ProfileType.PROFESSIONAL
-      ? (professionalSubtype ?? ProfessionalSubtype.FREELANCER)
-      : null;
+    const subtype =
+      businessProfileType === ProfileType.PROFESSIONAL
+        ? (professionalSubtype ?? ProfessionalSubtype.FREELANCER)
+        : null;
 
     if (existing) {
       await tx.userProfile.update({
         where: { id: existing.id },
-        data: { type: businessProfileType, subtype, status: ProfileStatus.ACTIVE },
+        data: {
+          type: businessProfileType,
+          subtype,
+          status: ProfileStatus.ACTIVE,
+        },
       });
     } else {
       await tx.userProfile.create({
-        data: { userId, type: businessProfileType, subtype, status: ProfileStatus.ACTIVE },
+        data: {
+          userId,
+          type: businessProfileType,
+          subtype,
+          status: ProfileStatus.ACTIVE,
+        },
       });
     }
   }
@@ -450,7 +524,11 @@ export class UsersService {
       });
       // Un profesional que se pasa a una categoría que vende producto recibe
       // su Commerce (misma regla que al aprobar el perfil).
-      if (!updated.commerce && dto.categoryId && (await this.commerceResolver.ensureForUser(tx, id))) {
+      if (
+        !updated.commerce &&
+        dto.categoryId &&
+        (await this.commerceResolver.ensureForUser(tx, id))
+      ) {
         return tx.user.findUniqueOrThrow({
           where: { id },
           include: { commerce: true, category: true, subcategory: true },
@@ -584,30 +662,45 @@ export class UsersService {
     });
   }
 
-  async createSubcategory(categoryId: string, data: { name: string; icon?: string; description?: string }) {
+  async createSubcategory(
+    categoryId: string,
+    data: { name: string; icon?: string; description?: string }
+  ) {
     const cat = await this.prisma.userCategory.findUnique({
       where: { id: categoryId },
     });
-    if (!cat) throw new NotFoundException(this.i18n.t('users.category.not_found'));
+    if (!cat)
+      throw new NotFoundException(this.i18n.t('users.category.not_found'));
     const existing = await this.prisma.userSubcategory.findUnique({
       where: { name_categoryId: { name: data.name, categoryId } },
     });
     if (existing)
       throw new ConflictException(this.i18n.t('users.subcategory.name_taken'));
     return this.prisma.userSubcategory.create({
-      data: { name: data.name, icon: data.icon, description: data.description, categoryId },
+      data: {
+        name: data.name,
+        icon: data.icon,
+        description: data.description,
+        categoryId,
+      },
     });
   }
 
-  async updateSubcategory(id: string, data: { name?: string; icon?: string; description?: string }) {
+  async updateSubcategory(
+    id: string,
+    data: { name?: string; icon?: string; description?: string }
+  ) {
     const sub = await this.prisma.userSubcategory.findUnique({ where: { id } });
-    if (!sub) throw new NotFoundException(this.i18n.t('users.subcategory.not_found'));
+    if (!sub)
+      throw new NotFoundException(this.i18n.t('users.subcategory.not_found'));
     if (data.name) {
       const existing = await this.prisma.userSubcategory.findFirst({
         where: { name: data.name, categoryId: sub.categoryId, NOT: { id } },
       });
       if (existing)
-        throw new ConflictException(this.i18n.t('users.subcategory.name_taken'));
+        throw new ConflictException(
+          this.i18n.t('users.subcategory.name_taken')
+        );
     }
     return this.prisma.userSubcategory.update({ where: { id }, data });
   }
@@ -718,7 +811,11 @@ export class UsersService {
               const daysLeft = Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince);
               throw new BadRequestException(
                 this.i18n.t('users.username_cooldown', {
-                  args: { cooldown: USERNAME_COOLDOWN_DAYS, daysLeft, count: daysLeft },
+                  args: {
+                    cooldown: USERNAME_COOLDOWN_DAYS,
+                    daysLeft,
+                    count: daysLeft,
+                  },
                 })
               );
             }
@@ -739,14 +836,20 @@ export class UsersService {
           ...(dto.phone !== undefined && { phone: dto.phone || null }),
           ...(dto.username !== undefined && { username: dto.username || null }),
           ...(usernameChanged && { usernameUpdatedAt: new Date() }),
-          ...((dto as any).categoryId !== undefined && { categoryId: (dto as any).categoryId || null }),
+          ...((dto as any).categoryId !== undefined && {
+            categoryId: (dto as any).categoryId || null,
+          }),
           ...(dto.country !== undefined && { country: dto.country || null }),
           ...(dto.state !== undefined && { state: dto.state || null }),
           ...(dto.city !== undefined && { city: dto.city || null }),
-          ...(dto.municipality !== undefined && { municipality: dto.municipality || null }),
+          ...(dto.municipality !== undefined && {
+            municipality: dto.municipality || null,
+          }),
           ...(dto.parish !== undefined && { parish: dto.parish || null }),
           ...(dto.latitude !== undefined && { latitude: dto.latitude ?? null }),
-          ...(dto.longitude !== undefined && { longitude: dto.longitude ?? null }),
+          ...(dto.longitude !== undefined && {
+            longitude: dto.longitude ?? null,
+          }),
         },
         include: { commerce: true, profileSettings: true },
       });
@@ -755,10 +858,16 @@ export class UsersService {
       // requests cambiando a el mismo email/username en paralelo pueden
       // ambas pasar el pre-check de arriba; el constraint @unique es la
       // garantía real.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        const target = (err.meta?.target as string[] | undefined)?.join(',') ?? '';
-        if (target.includes('email')) throw new ConflictException(this.i18n.t('users.email_in_use'));
-        if (target.includes('username')) throw new ConflictException(this.i18n.t('users.username_taken'));
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        const target =
+          (err.meta?.target as string[] | undefined)?.join(',') ?? '';
+        if (target.includes('email'))
+          throw new ConflictException(this.i18n.t('users.email_in_use'));
+        if (target.includes('username'))
+          throw new ConflictException(this.i18n.t('users.username_taken'));
       }
       throw err;
     }
@@ -767,7 +876,9 @@ export class UsersService {
       this.mail
         .sendSecurityAlert(previousEmail, user.firstName, 'email_changed')
         .catch((err) => {
-          this.logger.warn(`Failed to send email-changed security alert: ${err.message}`);
+          this.logger.warn(
+            `Failed to send email-changed security alert: ${err.message}`
+          );
         });
     }
 
@@ -831,10 +942,14 @@ export class UsersService {
 
     const valid = await bcrypt.compare(dto.currentPassword, user.password);
     if (!valid)
-      throw new UnauthorizedException(this.i18n.t('users.current_password_incorrect'));
+      throw new UnauthorizedException(
+        this.i18n.t('users.current_password_incorrect')
+      );
 
     if (dto.currentPassword === dto.newPassword) {
-      throw new BadRequestException(this.i18n.t('users.new_password_must_differ'));
+      throw new BadRequestException(
+        this.i18n.t('users.new_password_must_differ')
+      );
     }
 
     const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
@@ -854,7 +969,9 @@ export class UsersService {
     this.mail
       .sendSecurityAlert(user.email, user.firstName, 'password_changed')
       .catch((err) => {
-        this.logger.warn(`Failed to send password-changed security alert: ${err.message}`);
+        this.logger.warn(
+          `Failed to send password-changed security alert: ${err.message}`
+        );
       });
 
     return { message: this.i18n.t('users.password_updated') };
@@ -873,10 +990,16 @@ export class UsersService {
     }
 
     // Obtener información de categoría y subcategoría
-    const category = user.categoryId ? 
-      await this.prisma.userCategory.findUnique({ where: { id: user.categoryId } }) : null;
-    const subcategory = user.subcategoryId ? 
-      await this.prisma.userSubcategory.findUnique({ where: { id: user.subcategoryId } }) : null;
+    const category = user.categoryId
+      ? await this.prisma.userCategory.findUnique({
+          where: { id: user.categoryId },
+        })
+      : null;
+    const subcategory = user.subcategoryId
+      ? await this.prisma.userSubcategory.findUnique({
+          where: { id: user.subcategoryId },
+        })
+      : null;
 
     // Verificar campos básicos del perfil
     const hasBasicInfo = !!(user.firstName && user.lastName && user.phone);
@@ -899,13 +1022,18 @@ export class UsersService {
     // usuario cree su Commerce).
     const isBusiness = !!user.commerce;
     const accountType = await this.accountTypeResolver.resolve(userId);
-    const isFreelancerProfile = !isBusiness && this.accountTypeResolver.isFreelancer(accountType);
+    const isFreelancerProfile =
+      !isBusiness && this.accountTypeResolver.isFreelancer(accountType);
 
     const profileContext = { hasBasicInfo, hasCategory, category };
     if (isBusiness) {
-      hasBusinessSetup = (await this.commerceProfileCompletion.check(user, profileContext)).isSetupComplete;
+      hasBusinessSetup = (
+        await this.commerceProfileCompletion.check(user, profileContext)
+      ).isSetupComplete;
     } else if (isFreelancerProfile) {
-      hasServicesSetup = (await this.freelancerProfileCompletion.check(user, profileContext)).isSetupComplete;
+      hasServicesSetup = (
+        await this.freelancerProfileCompletion.check(user, profileContext)
+      ).isSetupComplete;
     }
 
     // Calcular porcentaje de completitud
@@ -923,7 +1051,9 @@ export class UsersService {
 
     const completedFields = requiredFields.filter(Boolean).length;
     const totalFields = requiredFields.length;
-    const completionPercentage = Math.round((completedFields / totalFields) * 100);
+    const completionPercentage = Math.round(
+      (completedFields / totalFields) * 100
+    );
 
     const isComplete = completionPercentage === 100;
 

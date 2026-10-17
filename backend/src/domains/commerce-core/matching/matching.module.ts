@@ -7,7 +7,10 @@ import { ReputationModule } from '../../reputation/reputation.module';
 @Module({
   imports: [ReputationModule],
   controllers: [MatchingController],
-  providers: [MatchingService, { provide: MATCHING_FACADE, useExisting: MatchingService }],
+  providers: [
+    MatchingService,
+    { provide: MATCHING_FACADE, useExisting: MatchingService },
+  ],
   // MatchingService se exporta directo para uso intra-módulo; consumidores
   // externos (SearchModule hoy, AI Orchestrator a futuro) deben inyectar
   // MATCHING_FACADE — mismo patrón que ReputationModule/PlatformFeesModule.

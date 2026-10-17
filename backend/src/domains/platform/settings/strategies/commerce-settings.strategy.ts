@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisService } from '../../../../redis/redis.service';
@@ -22,10 +27,34 @@ export const COMMERCE_SLUG_COOLDOWN_DAYS = 30;
 // Exportado: reusado también por FreelancerSettingsStrategy (/pro/:slug) —
 // mismo namespace de rutas reservadas de la app para ambos tipos de slug.
 export const RESERVED_SLUGS = new Set([
-  'admin', 'api', 'app', 'auth', 'login', 'register', 'settings', 'p',
-  'loja', 'catalog', 'catalogo', 'search', 'buscar', 'profile', 'perfil',
-  'wallet', 'checkout', 'orders', 'pedidos', 'services', 'servicios',
-  'jobs', 'empleos', 'about', 'help', 'ayuda', 'terms', 'privacy',
+  'admin',
+  'api',
+  'app',
+  'auth',
+  'login',
+  'register',
+  'settings',
+  'p',
+  'loja',
+  'catalog',
+  'catalogo',
+  'search',
+  'buscar',
+  'profile',
+  'perfil',
+  'wallet',
+  'checkout',
+  'orders',
+  'pedidos',
+  'services',
+  'servicios',
+  'jobs',
+  'empleos',
+  'about',
+  'help',
+  'ayuda',
+  'terms',
+  'privacy',
 ]);
 
 @Injectable()
@@ -59,7 +88,9 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
   // settings:view) recibe { commerce: null, settings: null } en vez de un 403
   // o de que se le cree uno.
   async getSettings(userId: string) {
-    const commerce = await this.prisma.commerce.findUnique({ where: { userId } });
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { userId },
+    });
     if (!commerce) return { commerce: null, settings: null };
     const settings = await this.getOrCreateSettings(commerce.id);
     return { commerce, settings };
@@ -74,13 +105,26 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
     });
   }
 
-  async updateNotificationSettings(userId: string, dto: UpdateNotificationSettingsDto) {
-    const { notifyNewOrders, notifyLowStock, notifyDailyReports, notifyCustomerReviews } = dto;
+  async updateNotificationSettings(
+    userId: string,
+    dto: UpdateNotificationSettingsDto
+  ) {
+    const {
+      notifyNewOrders,
+      notifyLowStock,
+      notifyDailyReports,
+      notifyCustomerReviews,
+    } = dto;
     const commerce = await this.getCommerce(userId);
     await this.getOrCreateSettings(commerce.id);
     return this.prisma.commerceSettings.update({
       where: { commerceId: commerce.id },
-      data: { notifyNewOrders, notifyLowStock, notifyDailyReports, notifyCustomerReviews },
+      data: {
+        notifyNewOrders,
+        notifyLowStock,
+        notifyDailyReports,
+        notifyCustomerReviews,
+      },
     });
   }
 
@@ -117,7 +161,12 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
     nextChangeAt: string | null;
   }> {
     if (RESERVED_SLUGS.has(slug)) {
-      return { available: false, canChange: true, daysLeft: 0, nextChangeAt: null };
+      return {
+        available: false,
+        canChange: true,
+        daysLeft: 0,
+        nextChangeAt: null,
+      };
     }
 
     const commerce = await this.getCommerce(userId);
@@ -135,7 +184,8 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
         canChange = false;
         daysLeft = Math.ceil(COMMERCE_SLUG_COOLDOWN_DAYS - daysSince);
         nextChangeAt = new Date(
-          commerce.slugUpdatedAt.getTime() + COMMERCE_SLUG_COOLDOWN_DAYS * 24 * 60 * 60 * 1000
+          commerce.slugUpdatedAt.getTime() +
+            COMMERCE_SLUG_COOLDOWN_DAYS * 24 * 60 * 60 * 1000
         ).toISOString();
       }
     }
@@ -171,7 +221,10 @@ export class CommerceSettingsStrategy implements SettingsAccountStrategy {
       await this.redis.del(userFindByIdCacheKey(userId));
       return updated;
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
         throw new ConflictException('Esa URL de tienda ya está en uso');
       }
       throw err;

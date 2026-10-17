@@ -13,7 +13,13 @@ import { KreceAdapter } from './adapters/krece.adapter';
 @Module({
   imports: [PrismaModule, NotificationsModule, TelegramModule],
   controllers: [BnplController, BnplWebhookController],
-  providers: [BnplService, SimulatedAdapter, CasheaAdapter, KreceAdapter, BnplExpirationCron],
+  providers: [
+    BnplService,
+    SimulatedAdapter,
+    CasheaAdapter,
+    KreceAdapter,
+    BnplExpirationCron,
+  ],
   exports: [BnplService],
 })
 export class BnplModule {}

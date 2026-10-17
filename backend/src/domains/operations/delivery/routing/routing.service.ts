@@ -49,7 +49,11 @@ export class RoutingService {
     vehicleType: VehicleType
   ): Promise<RouteResult> {
     try {
-      return await this.primary.calculateRoute(origin, destination, vehicleType);
+      return await this.primary.calculateRoute(
+        origin,
+        destination,
+        vehicleType
+      );
     } catch (err) {
       this.logger.warn(
         `Provider "${this.primary.name}" failed, using straight-line fallback: ${(err as Error).message}`
@@ -64,7 +68,8 @@ export class RoutingService {
     vehicleType: VehicleType
   ): RouteResult {
     const distanceMeters = haversineDistanceMeters(origin, destination);
-    const speed = FALLBACK_SPEED_MPS[vehicleType] ?? FALLBACK_SPEED_MPS.MOTORCYCLE;
+    const speed =
+      FALLBACK_SPEED_MPS[vehicleType] ?? FALLBACK_SPEED_MPS.MOTORCYCLE;
     return {
       distanceMeters,
       durationSeconds: distanceMeters / speed,

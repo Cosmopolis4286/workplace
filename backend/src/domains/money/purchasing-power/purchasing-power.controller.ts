@@ -14,7 +14,7 @@ import { CommerceResolverService } from '../../../common/commerce-resolver/comme
 export class PurchasingPowerController {
   constructor(
     private readonly purchasingPowerService: PurchasingPowerService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   @Get()

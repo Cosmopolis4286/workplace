@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -37,7 +46,10 @@ export class SystemModulesController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  create(@Body() dto: CreateSystemModuleDto, @CurrentUser() user: { id: string }) {
+  create(
+    @Body() dto: CreateSystemModuleDto,
+    @CurrentUser() user: { id: string }
+  ) {
     return this.systemModulesService.create(dto, user.id);
   }
 

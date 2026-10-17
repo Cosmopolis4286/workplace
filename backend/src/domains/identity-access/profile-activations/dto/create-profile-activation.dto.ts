@@ -1,16 +1,36 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from 'class-validator';
-import { BillingInterval, ProfessionalSubtype, ProfileType } from '@prisma/client';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
+import {
+  BillingInterval,
+  ProfessionalSubtype,
+  ProfileType,
+} from '@prisma/client';
 
 export class CreateProfileActivationDto {
   @IsEnum(ProfileType)
   type: ProfileType;
 
   @ValidateIf((dto) => dto.type === ProfileType.PROFESSIONAL)
-  @IsEnum(ProfessionalSubtype, { message: 'subtype es requerido y debe ser FREELANCER o SERVICE_PROVIDER cuando type=PROFESSIONAL' })
+  @IsEnum(ProfessionalSubtype, {
+    message:
+      'subtype es requerido y debe ser FREELANCER o SERVICE_PROVIDER cuando type=PROFESSIONAL',
+  })
   subtype?: ProfessionalSubtype;
 
-  @ValidateIf((dto) => dto.type === ProfileType.PROFESSIONAL || dto.type === ProfileType.BUSINESS)
-  @IsUUID(undefined, { message: 'categoryId es requerido para perfiles PROFESSIONAL/BUSINESS' })
+  @ValidateIf(
+    (dto) =>
+      dto.type === ProfileType.PROFESSIONAL || dto.type === ProfileType.BUSINESS
+  )
+  @IsUUID(undefined, {
+    message: 'categoryId es requerido para perfiles PROFESSIONAL/BUSINESS',
+  })
   categoryId?: string;
 
   @IsOptional()

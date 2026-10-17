@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DeliveryStatus, VehicleType } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisService } from '../../../../redis/redis.service';
@@ -99,7 +103,13 @@ export class TrackingService {
     return this.prisma.delivery.findMany({
       where: {
         driverId: driver.id,
-        status: { in: [DeliveryStatus.ASSIGNED, DeliveryStatus.PICKING_UP, DeliveryStatus.IN_TRANSIT] },
+        status: {
+          in: [
+            DeliveryStatus.ASSIGNED,
+            DeliveryStatus.PICKING_UP,
+            DeliveryStatus.IN_TRANSIT,
+          ],
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -139,10 +149,14 @@ export class TrackingService {
     });
     if (!delivery) throw new NotFoundException('Entrega no encontrada');
     if (!delivery.driver || delivery.driver.userId !== userId) {
-      throw new ForbiddenException('No autorizado para publicar ubicación en esta entrega');
+      throw new ForbiddenException(
+        'No autorizado para publicar ubicación en esta entrega'
+      );
     }
     if (!delivery.trackingActive) {
-      throw new ForbiddenException('El tracking de esta entrega no está activo');
+      throw new ForbiddenException(
+        'El tracking de esta entrega no está activo'
+      );
     }
     return delivery;
   }
@@ -150,13 +164,17 @@ export class TrackingService {
   // ─── Activación/desactivación según estado ─────────────────────────────
   // Llamado desde DeliveryService cada vez que cambia el estado o se asigna
   // driver. Idempotente: solo escribe si el valor realmente cambia.
-  async syncTrackingActive(deliveryId: string, status: DeliveryStatus): Promise<boolean> {
+  async syncTrackingActive(
+    deliveryId: string,
+    status: DeliveryStatus
+  ): Promise<boolean> {
     const shouldBeActive = TRACKABLE_STATUSES.includes(status);
     const delivery = await this.prisma.delivery.findUnique({
       where: { id: deliveryId },
       select: { trackingActive: true },
     });
-    if (!delivery || delivery.trackingActive === shouldBeActive) return shouldBeActive;
+    if (!delivery || delivery.trackingActive === shouldBeActive)
+      return shouldBeActive;
 
     await this.prisma.delivery.update({
       where: { id: deliveryId },
@@ -177,7 +195,11 @@ export class TrackingService {
     deliveryId: string,
     userId: string,
     dto: UpdateLocationDto
-  ): Promise<{ delivery: Awaited<ReturnType<typeof this.assertCanPublish>>; accepted: boolean; snapshot: LocationSnapshot }> {
+  ): Promise<{
+    delivery: Awaited<ReturnType<typeof this.assertCanPublish>>;
+    accepted: boolean;
+    snapshot: LocationSnapshot;
+  }> {
     const delivery = await this.assertCanPublish(deliveryId, userId);
 
     const previous = await this.getLastLocation(deliveryId);
@@ -195,14 +217,19 @@ export class TrackingService {
     if (previous) {
       const movedMeters = haversineDistanceMeters(previous, dto);
       const elapsedMs = now - new Date(previous.recordedAt).getTime();
-      accepted = movedMeters >= MIN_DISTANCE_METERS || elapsedMs >= MIN_INTERVAL_MS;
+      accepted =
+        movedMeters >= MIN_DISTANCE_METERS || elapsedMs >= MIN_INTERVAL_MS;
     }
 
     if (!accepted) {
       return { delivery, accepted, snapshot: previous! };
     }
 
-    await this.redis.setex(this.locationKey(deliveryId), LOCATION_TTL_SECONDS, JSON.stringify(snapshot));
+    await this.redis.setex(
+      this.locationKey(deliveryId),
+      LOCATION_TTL_SECONDS,
+      JSON.stringify(snapshot)
+    );
 
     await this.prisma.driver.update({
       where: { id: delivery.driver!.id },
@@ -218,7 +245,9 @@ export class TrackingService {
     return { delivery, accepted, snapshot };
   }
 
-  private async getLastLocation(deliveryId: string): Promise<LocationSnapshot | null> {
+  private async getLastLocation(
+    deliveryId: string
+  ): Promise<LocationSnapshot | null> {
     const raw = await this.redis.get(this.locationKey(deliveryId));
     if (!raw) return null;
     return JSON.parse(raw) as LocationSnapshot;
@@ -253,13 +282,23 @@ export class TrackingService {
       }
     }
 
-    const route = await this.routing.calculateRoute(origin, destination, vehicleType);
+    const route = await this.routing.calculateRoute(
+      origin,
+      destination,
+      vehicleType
+    );
     const toCache: CachedRoute = { origin, route };
-    await this.redis.setex(this.routeKey(deliveryId), ROUTE_CACHE_TTL_SECONDS, JSON.stringify(toCache));
+    await this.redis.setex(
+      this.routeKey(deliveryId),
+      ROUTE_CACHE_TTL_SECONDS,
+      JSON.stringify(toCache)
+    );
     return route;
   }
 
-  private async getCachedRoute(deliveryId: string): Promise<CachedRoute | null> {
+  private async getCachedRoute(
+    deliveryId: string
+  ): Promise<CachedRoute | null> {
     const raw = await this.redis.get(this.routeKey(deliveryId));
     if (!raw) return null;
     return JSON.parse(raw) as CachedRoute;
@@ -291,7 +330,12 @@ export class TrackingService {
         ? { lat: location.lat, lng: location.lng }
         : { lat: delivery.pickupLat!, lng: delivery.pickupLng! };
       const destination = { lat: delivery.destLat!, lng: delivery.destLng! };
-      route = await this.getOrRecalculateRoute(deliveryId, origin, destination, delivery.driver.vehicleType);
+      route = await this.getOrRecalculateRoute(
+        deliveryId,
+        origin,
+        destination,
+        delivery.driver.vehicleType
+      );
     }
 
     return {

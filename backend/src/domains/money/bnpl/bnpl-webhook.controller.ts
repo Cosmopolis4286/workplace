@@ -1,8 +1,21 @@
-import { Body, Controller, ForbiddenException, Headers, HttpCode, Param, Post, UnauthorizedException, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BnplService } from './bnpl.service';
 import { BnplWebhookDto } from './dto/bnpl-webhook.dto';
-import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.guard';
+import {
+  RateLimitGuard,
+  RateLimit,
+} from '../../../common/guards/rate-limit.guard';
 
 // Endpoints públicos de callback por proveedor: Cashea/Krece no tienen JWT de
 // este sistema, así que no llevan JwtAuthGuard. La autenticidad del payload
@@ -21,7 +34,7 @@ export class BnplWebhookController {
   @HttpCode(200)
   handleCasheaWebhook(
     @Body() payload: BnplWebhookDto,
-    @Headers('x-bnpl-webhook-secret') secret: string | undefined,
+    @Headers('x-bnpl-webhook-secret') secret: string | undefined
   ) {
     if (!this.bnplService.verifyWebhookSecret('CASHEA', secret)) {
       throw new UnauthorizedException();
@@ -33,7 +46,7 @@ export class BnplWebhookController {
   @HttpCode(200)
   handleKreceWebhook(
     @Body() payload: BnplWebhookDto,
-    @Headers('x-bnpl-webhook-secret') secret: string | undefined,
+    @Headers('x-bnpl-webhook-secret') secret: string | undefined
   ) {
     if (!this.bnplService.verifyWebhookSecret('KRECE', secret)) {
       throw new UnauthorizedException();

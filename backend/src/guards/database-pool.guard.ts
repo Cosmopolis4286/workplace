@@ -13,26 +13,32 @@ export class DatabasePoolGuard implements CanActivate {
     // Verificar límite
     if (DatabasePoolGuard.activeConnections > this.maxConnections) {
       DatabasePoolGuard.activeConnections--;
-      console.warn(`🚫 DB Pool Guard: Rejecting request - ${DatabasePoolGuard.activeConnections}/${this.maxConnections} connections`);
-      
+      console.warn(
+        `🚫 DB Pool Guard: Rejecting request - ${DatabasePoolGuard.activeConnections}/${this.maxConnections} connections`
+      );
+
       // Responder con 429 Too Many Requests
       const response = context.switchToHttp().getResponse();
       response.status(429).json({
         error: 'Database pool temporarily unavailable',
         message: 'Too many concurrent database connections',
-        retryAfter: 5 // Sugerir retry en 5 segundos
+        retryAfter: 5, // Sugerir retry en 5 segundos
       });
-      
+
       return false;
     }
 
-    console.log(`✅ DB Pool Guard: Allowing request - ${DatabasePoolGuard.activeConnections}/${this.maxConnections} connections`);
+    console.log(
+      `✅ DB Pool Guard: Allowing request - ${DatabasePoolGuard.activeConnections}/${this.maxConnections} connections`
+    );
     return true;
   }
 
   // Método estático para liberar conexiones
   static releaseConnection(): void {
     DatabasePoolGuard.activeConnections--;
-    console.log(`🔌 DB Pool Guard: Connection released - ${DatabasePoolGuard.activeConnections}/15 connections`);
+    console.log(
+      `🔌 DB Pool Guard: Connection released - ${DatabasePoolGuard.activeConnections}/15 connections`
+    );
   }
 }

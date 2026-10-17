@@ -78,7 +78,7 @@ export class NotificationsService {
     recipientId: string,
     senderName: string,
     serviceName: string,
-    serviceRequestId: string,
+    serviceRequestId: string
   ) {
     return this.createForUser(recipientId, {
       type: NotificationType.ORDER,
@@ -93,9 +93,12 @@ export class NotificationsService {
     clientId: string,
     providerName: string,
     serviceName: string,
-    status: 'SEEN' | 'CONTACTED' | 'CLOSED',
+    status: 'SEEN' | 'CONTACTED' | 'CLOSED'
   ) {
-    const STATUS_COPY: Record<typeof status, { icon: string; title: string; message: string }> = {
+    const STATUS_COPY: Record<
+      typeof status,
+      { icon: string; title: string; message: string }
+    > = {
       SEEN: {
         icon: '👀',
         title: 'Tu solicitud fue vista',
@@ -125,7 +128,7 @@ export class NotificationsService {
   async notifyServiceRequestCancelled(
     providerId: string,
     clientName: string,
-    serviceName: string,
+    serviceName: string
   ) {
     return this.createForUser(providerId, {
       type: NotificationType.ORDER,
@@ -142,7 +145,7 @@ export class NotificationsService {
   async notifyServiceRequestRejected(
     clientId: string,
     providerName: string,
-    serviceName: string,
+    serviceName: string
   ) {
     return this.createForUser(clientId, {
       type: NotificationType.ORDER,
@@ -156,7 +159,7 @@ export class NotificationsService {
   async notifyServiceRequestNoResponse(
     clientId: string,
     providerName: string,
-    serviceName: string,
+    serviceName: string
   ) {
     return this.createForUser(clientId, {
       type: NotificationType.ORDER,
@@ -170,7 +173,7 @@ export class NotificationsService {
   async notifyServiceRequestAtRisk(
     providerId: string,
     clientName: string,
-    serviceName: string,
+    serviceName: string
   ) {
     return this.createForUser(providerId, {
       type: NotificationType.ORDER,
@@ -184,7 +187,7 @@ export class NotificationsService {
   async notifyReviewReminder(
     clientId: string,
     providerName: string,
-    providerUsername?: string | null,
+    providerUsername?: string | null
   ) {
     return this.createForUser(clientId, {
       type: NotificationType.REVIEW,
@@ -198,7 +201,7 @@ export class NotificationsService {
   async notifyProposedCategoryReviewed(
     proposerId: string,
     categoryName: string,
-    status: 'APPROVED' | 'REJECTED',
+    status: 'APPROVED' | 'REJECTED'
   ) {
     const isApproved = status === 'APPROVED';
     return this.createForUser(proposerId, {
@@ -212,10 +215,7 @@ export class NotificationsService {
     });
   }
 
-  async notifyRideAccepted(
-    passengerId: string,
-    driverName: string,
-  ) {
+  async notifyRideAccepted(passengerId: string, driverName: string) {
     return this.createForUser(passengerId, {
       type: NotificationType.ORDER,
       title: '🚗 Conductor asignado',
@@ -228,9 +228,12 @@ export class NotificationsService {
   async notifyRideStatusChanged(
     passengerId: string,
     driverName: string,
-    status: 'IN_PROGRESS' | 'COMPLETED',
+    status: 'IN_PROGRESS' | 'COMPLETED'
   ) {
-    const STATUS_COPY: Record<typeof status, { icon: string; title: string; message: string }> = {
+    const STATUS_COPY: Record<
+      typeof status,
+      { icon: string; title: string; message: string }
+    > = {
       IN_PROGRESS: {
         icon: '🏍️',
         title: 'Tu corrida comenzó',
@@ -255,7 +258,7 @@ export class NotificationsService {
   async notifyNewJobApplication(
     employerId: string,
     applicantName: string,
-    jobTitle: string,
+    jobTitle: string
   ) {
     return this.createForUser(employerId, {
       type: NotificationType.ORDER,
@@ -270,12 +273,14 @@ export class NotificationsService {
     applicantId: string,
     employerName: string,
     jobTitle: string,
-    status: 'ACCEPTED' | 'REJECTED',
+    status: 'ACCEPTED' | 'REJECTED'
   ) {
     const isAccepted = status === 'ACCEPTED';
     return this.createForUser(applicantId, {
       type: NotificationType.ORDER,
-      title: isAccepted ? '🎉 ¡Fuiste aceptado!' : '📋 Actualización de tu aplicación',
+      title: isAccepted
+        ? '🎉 ¡Fuiste aceptado!'
+        : '📋 Actualización de tu aplicación',
       message: isAccepted
         ? `${employerName} aceptó tu aplicación a "${jobTitle}"`
         : `${employerName} no continuará con tu aplicación a "${jobTitle}"`,
@@ -352,7 +357,11 @@ export class NotificationsService {
     });
   }
 
-  async notifyDriverGraceExpiringSoon(commerceId: string, driverName: string, daysLeft: number) {
+  async notifyDriverGraceExpiringSoon(
+    commerceId: string,
+    driverName: string,
+    daysLeft: number
+  ) {
     return this.create(commerceId, {
       type: NotificationType.DELIVERY,
       title: '⚠️ Repartidor sin cuenta verificada',
@@ -411,7 +420,7 @@ export class NotificationsService {
     commerceId: string,
     productName: string,
     marginHistoricalPct: number,
-    marginReplacementPct: number,
+    marginReplacementPct: number
   ) {
     return this.create(commerceId, {
       type: NotificationType.INVENTORY,
@@ -431,7 +440,7 @@ export class NotificationsService {
     supplierName: string,
     productName: string,
     priceChangePct: number,
-    lookbackDays: number,
+    lookbackDays: number
   ) {
     return this.create(commerceId, {
       type: NotificationType.INVENTORY,
@@ -445,7 +454,12 @@ export class NotificationsService {
 
   async notifyPlatformFeeCharged(
     userId: string,
-    type: 'ORDER' | 'SERVICE_REQUEST' | 'RIDE' | 'GROUP_BUYING' | 'CATALOG_ORDER',
+    type:
+      | 'ORDER'
+      | 'SERVICE_REQUEST'
+      | 'RIDE'
+      | 'GROUP_BUYING'
+      | 'CATALOG_ORDER',
     feeAmount: number
   ) {
     const labels: Record<string, string> = {
@@ -506,7 +520,11 @@ export class NotificationsService {
     });
   }
 
-  async notifyEscrowDisputeResolved(userId: string, entityName: string, amount: number) {
+  async notifyEscrowDisputeResolved(
+    userId: string,
+    entityName: string,
+    amount: number
+  ) {
     return this.createForUser(userId, {
       type: NotificationType.SYSTEM,
       title: '⚖️ Disputa resuelta',
@@ -599,7 +617,8 @@ export class NotificationsService {
       return this.createForUser(userId, {
         type: NotificationType.SYSTEM,
         title: '🎉 ¡Ya eres freelancer!',
-        message: 'Tu solicitud fue aprobada. Ya puedes publicar servicios y recibir solicitudes de clientes.',
+        message:
+          'Tu solicitud fue aprobada. Ya puedes publicar servicios y recibir solicitudes de clientes.',
         link: '/my-services',
         metadata: { status },
       });
@@ -806,7 +825,10 @@ export class NotificationsService {
    * Envío real vía FCM pendiente de credenciales Firebase
    * (ver frontend/docs/PUSH_NOTIFICATIONS.md). No-op por ahora.
    */
-  private async sendPush(_userId: string, _notification: { title: string; message: string }) {
+  private async sendPush(
+    _userId: string,
+    _notification: { title: string; message: string }
+  ) {
     return;
   }
 

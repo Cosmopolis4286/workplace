@@ -1,4 +1,10 @@
-import { ArrayMinSize, ArrayMaxSize, IsArray, IsString, IsUUID } from 'class-validator';
+import {
+  ArrayMinSize,
+  ArrayMaxSize,
+  IsArray,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 // Límite de 200 a propósito: evita que un bulk masivo bloquee el event loop
 // (cada item hace su propio UPDATE) o un payload abusivo desde un cliente

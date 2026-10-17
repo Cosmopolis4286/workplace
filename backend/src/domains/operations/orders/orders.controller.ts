@@ -84,7 +84,9 @@ export class OrdersController {
   @Get('platform-recent')
   @RequirePermission('platform:monitor')
   getPlatformRecent(@Query('limit') limit?: string) {
-    return this.ordersService.getPlatformRecent(limit ? parseInt(limit) : undefined);
+    return this.ordersService.getPlatformRecent(
+      limit ? parseInt(limit) : undefined
+    );
   }
 
   @Get()

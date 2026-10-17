@@ -13,7 +13,7 @@ import { UpdateExchangeRateDto } from './dto/update-exchange-rate.dto';
 export class ExchangeRatesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly bcvSyncService: BcvSyncService,
+    private readonly bcvSyncService: BcvSyncService
   ) {}
 
   // Resuelve moneda -> tasa a USD para operaciones que necesitan un snapshot
@@ -22,14 +22,17 @@ export class ExchangeRatesService {
   // inválida — el llamador decide el mensaje de error (evita acoplar este
   // servicio a los i18n keys de otros dominios).
   async resolveRateToUsd(
-    currencyCode: string,
+    currencyCode: string
   ): Promise<{ rateToUsd: number; source: string | null } | null> {
     const code = currencyCode.toUpperCase();
     if (code === 'USD') return { rateToUsd: 1, source: null };
 
     const rate = await this.prisma.exchangeRate.findUnique({ where: { code } });
     if (!rate || !rate.rateToUsd || rate.rateToUsd <= 0) return null;
-    return { rateToUsd: rate.rateToUsd, source: rate.syncSource ?? rate.source };
+    return {
+      rateToUsd: rate.rateToUsd,
+      source: rate.syncSource ?? rate.source,
+    };
   }
 
   async findAll(includeInactive = false) {
@@ -45,7 +48,9 @@ export class ExchangeRatesService {
     // ensureFreshRate() no-opea al instante si ya está fresca. Antes se
     // esperaba el sync inline, lo que podía bloquear este GET hasta ~40s si
     // el BCV estaba caído — el peor momento para que un endpoint cuelgue.
-    rates.filter(r => r.autoSync).forEach(r => this.bcvSyncService.ensureFreshRate(r.code));
+    rates
+      .filter((r) => r.autoSync)
+      .forEach((r) => this.bcvSyncService.ensureFreshRate(r.code));
 
     return rates;
   }
@@ -235,18 +240,27 @@ export class ExchangeRatesService {
     const rate = await this.findOne(id);
     const code = rate.code;
 
-    const [purchases, supplierQuotes, receivables, payables, groupBuying] = await Promise.all([
-      this.prisma.purchase.count({ where: { currencyCode: code } }),
-      this.prisma.supplierQuote.count({ where: { currencyCode: code } }),
-      this.prisma.accountReceivable.count({ where: { currencyCode: code } }),
-      this.prisma.accountPayable.count({ where: { currencyCode: code } }),
-      this.prisma.groupBuyingCampaign.count({ where: { currencyCode: code } }),
-    ]);
+    const [purchases, supplierQuotes, receivables, payables, groupBuying] =
+      await Promise.all([
+        this.prisma.purchase.count({ where: { currencyCode: code } }),
+        this.prisma.supplierQuote.count({ where: { currencyCode: code } }),
+        this.prisma.accountReceivable.count({ where: { currencyCode: code } }),
+        this.prisma.accountPayable.count({ where: { currencyCode: code } }),
+        this.prisma.groupBuyingCampaign.count({
+          where: { currencyCode: code },
+        }),
+      ]);
 
     return {
       code,
       total: purchases + supplierQuotes + receivables + payables + groupBuying,
-      breakdown: { purchases, supplierQuotes, receivables, payables, groupBuying },
+      breakdown: {
+        purchases,
+        supplierQuotes,
+        receivables,
+        payables,
+        groupBuying,
+      },
     };
   }
 

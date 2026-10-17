@@ -66,6 +66,9 @@ export interface AnalyticsOverview {
  * forma de la respuesta — esta interfaz hace esa forma explícita.
  */
 export interface AnalyticsAccountStrategy {
-  getOverview(userId: string, dto: QueryAnalyticsDto): Promise<AnalyticsOverview>;
+  getOverview(
+    userId: string,
+    dto: QueryAnalyticsDto
+  ): Promise<AnalyticsOverview>;
   getDashboardTrends(userId: string): Promise<AnalyticsDashboardTrends>;
 }

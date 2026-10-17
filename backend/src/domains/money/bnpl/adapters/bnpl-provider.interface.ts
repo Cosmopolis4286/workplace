@@ -24,7 +24,12 @@ export interface BnplInitiateResult {
   rawResponse: unknown;
 }
 
-export type BnplRemoteStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
+export type BnplRemoteStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'CANCELLED';
 
 export interface BnplStatusResult {
   status: BnplRemoteStatus;
@@ -41,5 +46,8 @@ export interface BnplProviderAdapter {
     creds: BnplProviderCredentials,
     externalReference: string
   ): Promise<BnplStatusResult>;
-  cancel(creds: BnplProviderCredentials, externalReference: string): Promise<void>;
+  cancel(
+    creds: BnplProviderCredentials,
+    externalReference: string
+  ): Promise<void>;
 }

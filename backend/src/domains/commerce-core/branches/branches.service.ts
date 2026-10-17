@@ -11,7 +11,10 @@ import { CommerceResolverService } from '../../../common/commerce-resolver/comme
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 import { BranchStatus } from '@prisma/client';
-import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
+import {
+  PlanLimitsFacade,
+  PLAN_LIMITS_FACADE,
+} from '../../money/plans/plan-limits.facade';
 
 @Injectable()
 export class BranchesService {
@@ -84,8 +87,7 @@ export class BranchesService {
     const exists = await this.prisma.branch.findUnique({
       where: { name_commerceId: { name: dto.name, commerceId } },
     });
-    if (exists)
-      throw new ConflictException(this.i18n.t('branches.name_taken'));
+    if (exists) throw new ConflictException(this.i18n.t('branches.name_taken'));
 
     return this.prisma.branch.create({
       data: { ...dto, commerceId },

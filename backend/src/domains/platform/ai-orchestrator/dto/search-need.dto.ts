@@ -1,7 +1,9 @@
 import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class SearchNeedDto {
-  @IsUUID(undefined, { message: 'categoryId debe ser un ID de categoría de servicio válido' })
+  @IsUUID(undefined, {
+    message: 'categoryId debe ser un ID de categoría de servicio válido',
+  })
   categoryId: string;
 
   @IsOptional()

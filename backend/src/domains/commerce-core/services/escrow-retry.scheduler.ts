@@ -13,7 +13,8 @@ export class EscrowRetryScheduler {
   @Cron(CronExpression.EVERY_HOUR)
   async handleRetryCheck() {
     try {
-      const { checked, resolved } = await this.services.retryAllPendingEscrows();
+      const { checked, resolved } =
+        await this.services.retryAllPendingEscrows();
       if (checked > 0) {
         this.logger.log(`Escrow retry: ${resolved}/${checked} resueltas`);
       }

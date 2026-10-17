@@ -17,7 +17,10 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
-import { RateLimit, RateLimitOptions } from '../../../common/guards/rate-limit.guard';
+import {
+  RateLimit,
+  RateLimitOptions,
+} from '../../../common/guards/rate-limit.guard';
 import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -39,7 +42,10 @@ import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { JwtRefreshGuard } from '../../../common/guards/jwt-refresh.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { ConfigService } from '@nestjs/config';
-import { setAuthCookies, clearAuthCookies } from '../../../common/utils/auth-cookies.util';
+import {
+  setAuthCookies,
+  clearAuthCookies,
+} from '../../../common/utils/auth-cookies.util';
 
 @Controller('auth')
 export class AuthController {
@@ -82,9 +88,13 @@ export class AuthController {
   @RateLimit({
     windowMs: 60 * 60 * 1000, // 1 hora
     maxRequests: 3, // Máximo 3 registros por hora
-    keyGenerator: (req) => `register:${req.ip}` // Por IP
+    keyGenerator: (req) => `register:${req.ip}`, // Por IP
   })
-  async register(@Body() dto: RegisterDto, @Request() req: any, @Res({ passthrough: true }) res: Response) {
+  async register(
+    @Body() dto: RegisterDto,
+    @Request() req: any,
+    @Res({ passthrough: true }) res: Response
+  ) {
     const result = await this.authService.register(dto, req.securityContext);
     setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
     return result;
@@ -96,12 +106,22 @@ export class AuthController {
   @RateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
     maxRequests: 20, // Máximo 20 intentos de login
-    keyGenerator: (req) => `login:${req.ip}` // Por IP
+    keyGenerator: (req) => `login:${req.ip}`, // Por IP
   })
-  async login(@Body() dto: LoginDto, @Request() req: any, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() dto: LoginDto,
+    @Request() req: any,
+    @Res({ passthrough: true }) res: Response
+  ) {
     const result = await this.authService.login(dto, req.securityContext);
     if ('requiresTwoFactor' in result) return result;
-    setAuthCookies(res, result.accessToken, result.refreshToken, this.config, dto.rememberMe ?? true);
+    setAuthCookies(
+      res,
+      result.accessToken,
+      result.refreshToken,
+      this.config,
+      dto.rememberMe ?? true
+    );
     return result;
   }
 
@@ -111,10 +131,19 @@ export class AuthController {
   @RateLimit({
     windowMs: 5 * 60 * 1000, // 5 minutos
     maxRequests: 50, // Máximo 50 refresh tokens
-    keyGenerator: (req: any) => `refresh:${(req.user as any)?.userId || req.ip}` // Por usuario o IP
+    keyGenerator: (req: any) =>
+      `refresh:${(req.user as any)?.userId || req.ip}`, // Por usuario o IP
   })
-  async refresh(@Request() req: any, @Body() dto: RefreshDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.refreshTokens(req.user.userId, req.user.refreshToken, req.securityContext);
+  async refresh(
+    @Request() req: any,
+    @Body() dto: RefreshDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.authService.refreshTokens(
+      req.user.userId,
+      req.user.refreshToken,
+      req.securityContext
+    );
     setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
     return result;
   }
@@ -129,13 +158,19 @@ export class AuthController {
 
   @Post('2fa/enable')
   @UseGuards(JwtAuthGuard)
-  async enableTwoFactor(@CurrentUser() user: any, @Body() dto: VerifyTwoFactorDto) {
+  async enableTwoFactor(
+    @CurrentUser() user: any,
+    @Body() dto: VerifyTwoFactorDto
+  ) {
     return this.authService.enableTwoFactor(user.id, dto);
   }
 
   @Post('2fa/disable')
   @UseGuards(JwtAuthGuard)
-  async disableTwoFactor(@CurrentUser() user: any, @Body() dto: DisableTwoFactorDto) {
+  async disableTwoFactor(
+    @CurrentUser() user: any,
+    @Body() dto: DisableTwoFactorDto
+  ) {
     return this.authService.disableTwoFactor(user.id, dto);
   }
 
@@ -145,9 +180,12 @@ export class AuthController {
   @RateLimit({
     windowMs: 5 * 60 * 1000, // 5 minutos
     maxRequests: 10, // Máximo 10 intentos de verificación 2FA
-    keyGenerator: (req) => `2fa-verify:${req.body?.sessionId || req.ip}`
+    keyGenerator: (req) => `2fa-verify:${req.body?.sessionId || req.ip}`,
   })
-  async verifyLoginTwoFactor(@Body() dto: VerifyLoginTwoFactorDto, @Res({ passthrough: true }) res: Response) {
+  async verifyLoginTwoFactor(
+    @Body() dto: VerifyLoginTwoFactorDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
     const result = await this.authService.verifyLoginTwoFactor(dto);
     setAuthCookies(res, result.accessToken, result.refreshToken, this.config);
     return result;
@@ -256,7 +294,7 @@ export class AuthController {
   @RateLimit({
     windowMs: 60 * 60 * 1000, // 1 hora
     maxRequests: 5, // Máximo 5 solicitudes de reset por hora
-    keyGenerator: (req) => `reset:${req.ip}` // Por IP
+    keyGenerator: (req) => `reset:${req.ip}`, // Por IP
   })
   async forgotPassword(@Body('email') email: string) {
     return this.authService.requestPasswordReset(email);

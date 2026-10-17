@@ -2,7 +2,10 @@ import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
-import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
+import {
+  PlanLimitsFacade,
+  PLAN_LIMITS_FACADE,
+} from '../../money/plans/plan-limits.facade';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
 import { CommerceSettingsStrategy } from './strategies/commerce-settings.strategy';
@@ -49,14 +52,17 @@ export class SettingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    @Inject(PLAN_LIMITS_FACADE) private readonly planLimitsService: PlanLimitsFacade,
+    @Inject(PLAN_LIMITS_FACADE)
+    private readonly planLimitsService: PlanLimitsFacade,
     private readonly accountTypeResolver: AccountTypeResolver,
     private readonly capabilities: CapabilitiesService,
     private readonly commerceStrategy: CommerceSettingsStrategy,
     private readonly freelancerStrategy: FreelancerSettingsStrategy
   ) {}
 
-  private async resolveStrategy(userId: string): Promise<SettingsAccountStrategy> {
+  private async resolveStrategy(
+    userId: string
+  ): Promise<SettingsAccountStrategy> {
     const hasCommerce = await this.capabilities.has(userId, 'HAS_COMMERCE');
     return hasCommerce ? this.commerceStrategy : this.freelancerStrategy;
   }
@@ -72,11 +78,14 @@ export class SettingsService {
   // al frontend a adivinar qué forma tiene `settings` con un solo booleano.
   async getSettings(userId: string) {
     const capabilities = await this.capabilities.resolve(userId);
-    const strategy = capabilities.HAS_COMMERCE ? this.commerceStrategy : this.freelancerStrategy;
+    const strategy = capabilities.HAS_COMMERCE
+      ? this.commerceStrategy
+      : this.freelancerStrategy;
     const result = await strategy.getSettings(userId);
 
     if (capabilities.HAS_COMMERCE && capabilities.HAS_PROFESSIONAL_PROFILE) {
-      const { settings: freelancerSettings } = await this.freelancerStrategy.getSettings(userId);
+      const { settings: freelancerSettings } =
+        await this.freelancerStrategy.getSettings(userId);
       return { ...result, freelancerSettings };
     }
 
@@ -107,8 +116,14 @@ export class SettingsService {
   // porque un COMMERCE puro no tiene FreelancerSettings — la restricción de
   // acceso vive en @RequireCapability('HAS_PROFESSIONAL_PROFILE') en
   // SettingsController, igual criterio que el slug profesional.
-  async updateFreelancerProfile(userId: string, dto: UpdateFreelancerProfileDto) {
-    const updated = await this.freelancerStrategy.updateProfileInfo(userId, dto);
+  async updateFreelancerProfile(
+    userId: string,
+    dto: UpdateFreelancerProfileDto
+  ) {
+    const updated = await this.freelancerStrategy.updateProfileInfo(
+      userId,
+      dto
+    );
     await this.redis.del(userFindByIdCacheKey(userId));
     return updated;
   }
@@ -135,7 +150,10 @@ export class SettingsService {
   // ─── Store slug (/loja/:slug) — solo COMMERCE ───────────────────────────────
 
   async checkCommerceSlugAvailability(userId: string, slug: string) {
-    return this.commerceStrategy.checkSlugAvailability(slug.toLowerCase(), userId);
+    return this.commerceStrategy.checkSlugAvailability(
+      slug.toLowerCase(),
+      userId
+    );
   }
 
   async updateCommerceSlug(userId: string, slug: string) {
@@ -145,7 +163,10 @@ export class SettingsService {
   // ─── Profile slug (/pro/:slug) — solo FREELANCER ────────────────────────────
 
   async checkFreelancerSlugAvailability(userId: string, slug: string) {
-    return this.freelancerStrategy.checkSlugAvailability(slug.toLowerCase(), userId);
+    return this.freelancerStrategy.checkSlugAvailability(
+      slug.toLowerCase(),
+      userId
+    );
   }
 
   async updateFreelancerSlug(userId: string, slug: string) {
@@ -154,13 +175,17 @@ export class SettingsService {
 
   // ─── Payment settings ───────────────────────────────────────────────────────
 
-  private async assertValidCurrency(currency?: string): Promise<string | undefined> {
+  private async assertValidCurrency(
+    currency?: string
+  ): Promise<string | undefined> {
     if (!currency) return currency;
     const rate = await this.prisma.exchangeRate.findUnique({
       where: { code: currency.toUpperCase() },
     });
     if (!rate || !rate.isActive) {
-      throw new BadRequestException(`La moneda "${currency}" no está disponible`);
+      throw new BadRequestException(
+        `La moneda "${currency}" no está disponible`
+      );
     }
     return currency.toUpperCase();
   }
@@ -187,7 +212,10 @@ export class SettingsService {
 
   // ─── Price Guard settings (solo COMMERCE) ───────────────────────────────────
 
-  async updatePriceGuardSettings(userId: string, dto: UpdatePriceGuardSettingsDto) {
+  async updatePriceGuardSettings(
+    userId: string,
+    dto: UpdatePriceGuardSettingsDto
+  ) {
     const commerce = await this.commerceStrategy.getCommerce(userId);
     await this.commerceStrategy.getOrCreateSettings(commerce.id);
     return this.prisma.commerceSettings.update({
@@ -219,7 +247,9 @@ export class SettingsService {
       return updated;
     }
 
-    const strategy = capabilities.HAS_COMMERCE ? this.commerceStrategy : this.freelancerStrategy;
+    const strategy = capabilities.HAS_COMMERCE
+      ? this.commerceStrategy
+      : this.freelancerStrategy;
     return strategy.updateNotificationSettings(userId, dto);
   }
 
@@ -227,7 +257,8 @@ export class SettingsService {
 
   /** Modules the user's plan/category include, plus which of those it has hidden. */
   async getModuleSettings(userId: string) {
-    const availableModules = await this.planLimitsService.getSelectableModules(userId);
+    const availableModules =
+      await this.planLimitsService.getSelectableModules(userId);
     const strategy = await this.resolveStrategy(userId);
     return strategy.getModuleSettings(userId, availableModules);
   }
@@ -235,7 +266,8 @@ export class SettingsService {
   async updateModuleSettings(userId: string, dto: UpdateModuleSettingsDto) {
     // Self-service can only hide modules the plan/category already grant —
     // it can never be used to sneak in access to a module outside the plan.
-    const selectable = await this.planLimitsService.getSelectableModules(userId);
+    const selectable =
+      await this.planLimitsService.getSelectableModules(userId);
     const invalid = dto.disabledModules.filter((m) => !selectable.includes(m));
     if (invalid.length > 0) {
       throw new BadRequestException(

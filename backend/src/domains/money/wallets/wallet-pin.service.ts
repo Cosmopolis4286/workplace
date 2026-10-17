@@ -9,14 +9,14 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 
 const PIN_MAX_ATTEMPTS = 5;
-const PIN_LOCK_TTL = 15 * 60;       // 15 min lockout after max failed attempts
-const PIN_ATTEMPT_TTL = 5 * 60;     // 5 min window to count failed attempts
+const PIN_LOCK_TTL = 15 * 60; // 15 min lockout after max failed attempts
+const PIN_ATTEMPT_TTL = 5 * 60; // 5 min window to count failed attempts
 
 @Injectable()
 export class WalletPinService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
+    private readonly redis: RedisService
   ) {}
 
   async setPin(userId: string, pin: string) {
@@ -40,7 +40,9 @@ export class WalletPinService {
     const wallet = await this.getWalletOrFail(userId);
 
     if (!wallet.pin) {
-      throw new BadRequestException('No tienes PIN configurado. Configura uno antes de operar.');
+      throw new BadRequestException(
+        'No tienes PIN configurado. Configura uno antes de operar.'
+      );
     }
 
     const valid = await bcrypt.compare(pin, wallet.pin);
@@ -49,7 +51,7 @@ export class WalletPinService {
       await this.recordFailedAttempt(userId);
       const remaining = await this.getRemainingAttempts(userId);
       throw new ForbiddenException(
-        `PIN incorrecto. Te quedan ${remaining} intento${remaining !== 1 ? 's' : ''}.`,
+        `PIN incorrecto. Te quedan ${remaining} intento${remaining !== 1 ? 's' : ''}.`
       );
     }
 
@@ -78,24 +80,43 @@ export class WalletPinService {
 
   private assertValidPin(pin: string) {
     if (!/^\d{6}$/.test(pin)) {
-      throw new BadRequestException('El PIN debe ser de exactamente 6 dígitos numéricos');
+      throw new BadRequestException(
+        'El PIN debe ser de exactamente 6 dígitos numéricos'
+      );
     }
     // Reject trivially sequential / repeated PINs
-    const sequential = ['012345','123456','234567','345678','456789','987654','876543','765432','654321','543210']
-    const repeated   = Array.from({ length: 10 }, (_, i) => String(i).repeat(6))
+    const sequential = [
+      '012345',
+      '123456',
+      '234567',
+      '345678',
+      '456789',
+      '987654',
+      '876543',
+      '765432',
+      '654321',
+      '543210',
+    ];
+    const repeated = Array.from({ length: 10 }, (_, i) => String(i).repeat(6));
     if ([...sequential, ...repeated].includes(pin)) {
-      throw new BadRequestException('El PIN es demasiado simple. Elige uno más seguro');
+      throw new BadRequestException(
+        'El PIN es demasiado simple. Elige uno más seguro'
+      );
     }
   }
 
-  private lockKey(userId: string)    { return `wallet:pin:lock:${userId}` }
-  private attemptsKey(userId: string){ return `wallet:pin:attempts:${userId}` }
+  private lockKey(userId: string) {
+    return `wallet:pin:lock:${userId}`;
+  }
+  private attemptsKey(userId: string) {
+    return `wallet:pin:attempts:${userId}`;
+  }
 
   private async assertNotLocked(userId: string) {
     const locked = await this.redis.exists(this.lockKey(userId));
     if (locked) {
       throw new ForbiddenException(
-        'Billetera bloqueada temporalmente por demasiados intentos de PIN incorrectos. Espera 15 minutos.',
+        'Billetera bloqueada temporalmente por demasiados intentos de PIN incorrectos. Espera 15 minutos.'
       );
     }
   }
@@ -111,7 +132,7 @@ export class WalletPinService {
       await this.redis.setex(this.lockKey(userId), PIN_LOCK_TTL, '1');
       await this.redis.del(key);
       throw new ForbiddenException(
-        'Demasiados intentos incorrectos. La billetera ha sido bloqueada por 15 minutos.',
+        'Demasiados intentos incorrectos. La billetera ha sido bloqueada por 15 minutos.'
       );
     }
   }

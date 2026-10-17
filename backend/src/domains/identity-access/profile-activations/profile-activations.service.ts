@@ -1,5 +1,15 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { BillingInterval, KycStatus, ProfileStatus, ProfileType } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  BillingInterval,
+  KycStatus,
+  ProfileStatus,
+  ProfileType,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
@@ -13,7 +23,10 @@ import { ReviewProfileActivationDto } from './dto/review-profile-activation.dto'
 // Tipos que requieren revisión de un admin antes de quedar ACTIVE (mismo
 // criterio que aplicaba FreelancerApplication: ejercen una actividad de
 // negocio dentro del ecosistema). CUSTOMER y JOB_SEEKER se activan solo.
-const REQUIRES_APPROVAL: ProfileType[] = [ProfileType.PROFESSIONAL, ProfileType.BUSINESS];
+const REQUIRES_APPROVAL: ProfileType[] = [
+  ProfileType.PROFESSIONAL,
+  ProfileType.BUSINESS,
+];
 
 const TYPE_LABEL: Record<ProfileType, string> = {
   CUSTOMER: 'Cliente',
@@ -30,7 +43,7 @@ export class ProfileActivationsService {
     private readonly notifications: NotificationsService,
     private readonly roleResolver: RoleResolverService,
     private readonly plansService: PlansService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   async getMine(userId: string) {
@@ -40,14 +53,20 @@ export class ProfileActivationsService {
       include: {
         category: { select: { id: true, name: true, icon: true } },
         subcategory: { select: { id: true, name: true } },
-        pendingPlan: { select: { id: true, name: true, price: true, color: true } },
+        pendingPlan: {
+          select: { id: true, name: true, price: true, color: true },
+        },
       },
     });
   }
 
   async create(userId: string, dto: CreateProfileActivationDto) {
     const existing = await this.prisma.userProfile.findFirst({
-      where: { userId, type: dto.type, status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] } },
+      where: {
+        userId,
+        type: dto.type,
+        status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
+      },
     });
     if (existing) {
       throw new ConflictException(
@@ -63,9 +82,16 @@ export class ProfileActivationsService {
     // KYC de negocio y la semántica de "mi rol" en el resto de la app).
     // CUSTOMER y JOB_SEEKER no entran en esta exclusión.
     if (REQUIRES_APPROVAL.includes(dto.type)) {
-      const otherType = dto.type === ProfileType.BUSINESS ? ProfileType.PROFESSIONAL : ProfileType.BUSINESS;
+      const otherType =
+        dto.type === ProfileType.BUSINESS
+          ? ProfileType.PROFESSIONAL
+          : ProfileType.BUSINESS;
       const conflicting = await this.prisma.userProfile.findFirst({
-        where: { userId, type: otherType, status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] } },
+        where: {
+          userId,
+          type: otherType,
+          status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
+        },
       });
       if (conflicting) {
         throw new ConflictException(
@@ -75,11 +101,15 @@ export class ProfileActivationsService {
     }
 
     if (dto.categoryId) {
-      const category = await this.prisma.userCategory.findUnique({ where: { id: dto.categoryId } });
+      const category = await this.prisma.userCategory.findUnique({
+        where: { id: dto.categoryId },
+      });
       if (!category) throw new BadRequestException('Categoría inválida');
 
       if (dto.subcategoryId) {
-        const subcategory = await this.prisma.userSubcategory.findUnique({ where: { id: dto.subcategoryId } });
+        const subcategory = await this.prisma.userSubcategory.findUnique({
+          where: { id: dto.subcategoryId },
+        });
         if (!subcategory || subcategory.categoryId !== dto.categoryId) {
           throw new BadRequestException('Subcategoría inválida');
         }
@@ -90,12 +120,22 @@ export class ProfileActivationsService {
     // BUSINESS) — CUSTOMER/JOB_SEEKER no tienen plan de negocio asociado.
     if (dto.planId) {
       if (!REQUIRES_APPROVAL.includes(dto.type)) {
-        throw new BadRequestException('planId solo aplica a perfiles Profesional o Negocio');
+        throw new BadRequestException(
+          'planId solo aplica a perfiles Profesional o Negocio'
+        );
       }
-      const plan = await this.prisma.plan.findUnique({ where: { id: dto.planId } });
+      const plan = await this.prisma.plan.findUnique({
+        where: { id: dto.planId },
+      });
       if (!plan) throw new BadRequestException('Plan inválido');
-      const compatible = dto.type === ProfileType.BUSINESS ? plan.forCommerce : plan.forFreelancer;
-      if (!compatible) throw new BadRequestException('El plan seleccionado no corresponde a este tipo de perfil');
+      const compatible =
+        dto.type === ProfileType.BUSINESS
+          ? plan.forCommerce
+          : plan.forFreelancer;
+      if (!compatible)
+        throw new BadRequestException(
+          'El plan seleccionado no corresponde a este tipo de perfil'
+        );
     }
 
     const needsApproval = REQUIRES_APPROVAL.includes(dto.type);
@@ -107,9 +147,12 @@ export class ProfileActivationsService {
         subtype: dto.subtype,
         categoryId: dto.categoryId,
         subcategoryId: dto.subcategoryId,
-        pendingCommerceName: dto.type === ProfileType.BUSINESS ? dto.commerceName : undefined,
+        pendingCommerceName:
+          dto.type === ProfileType.BUSINESS ? dto.commerceName : undefined,
         pendingPlanId: dto.planId,
-        pendingPlanInterval: dto.planId ? (dto.planInterval ?? BillingInterval.MONTHLY) : undefined,
+        pendingPlanInterval: dto.planId
+          ? (dto.planInterval ?? BillingInterval.MONTHLY)
+          : undefined,
         status: needsApproval ? ProfileStatus.PENDING : ProfileStatus.ACTIVE,
       },
     });
@@ -122,15 +165,22 @@ export class ProfileActivationsService {
   // "activeProfile"). El perfil debe pertenecer al usuario y estar ACTIVE
   // — no tiene sentido "activar" un perfil PENDING/REJECTED/SUSPENDED.
   async setActive(userId: string, profileId: string) {
-    const profile = await this.prisma.userProfile.findUnique({ where: { id: profileId } });
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { id: profileId },
+    });
     if (!profile || profile.userId !== userId) {
       throw new NotFoundException('Perfil no encontrado');
     }
     if (profile.status !== ProfileStatus.ACTIVE) {
-      throw new BadRequestException('Solo se puede activar un perfil que ya está ACTIVE');
+      throw new BadRequestException(
+        'Solo se puede activar un perfil que ya está ACTIVE'
+      );
     }
 
-    await this.prisma.user.update({ where: { id: userId }, data: { activeProfileId: profileId } });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { activeProfileId: profileId },
+    });
     await this.redis.del(userFindByIdCacheKey(userId));
 
     return profile;
@@ -142,12 +192,16 @@ export class ProfileActivationsService {
   // (histórico de categoría/reviewedBy) como SUSPENDED, nunca se borra.
   // Solo PENDING/REJECTED no tiene sentido "desactivar" — ya no está ACTIVE.
   async deactivate(userId: string, profileId: string) {
-    const profile = await this.prisma.userProfile.findUnique({ where: { id: profileId } });
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { id: profileId },
+    });
     if (!profile || profile.userId !== userId) {
       throw new NotFoundException('Perfil no encontrado');
     }
     if (profile.status !== ProfileStatus.ACTIVE) {
-      throw new BadRequestException('Solo se puede desactivar un perfil que está ACTIVE');
+      throw new BadRequestException(
+        'Solo se puede desactivar un perfil que está ACTIVE'
+      );
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -158,9 +212,15 @@ export class ProfileActivationsService {
 
       // Si era el perfil "activo" de contexto de UX, limpiarlo — no tiene
       // sentido dejar activeProfileId apuntando a un perfil SUSPENDED.
-      await tx.user.updateMany({ where: { id: userId, activeProfileId: profileId }, data: { activeProfileId: null } });
+      await tx.user.updateMany({
+        where: { id: userId, activeProfileId: profileId },
+        data: { activeProfileId: null },
+      });
 
-      if (profile.type === ProfileType.BUSINESS || profile.type === ProfileType.PROFESSIONAL) {
+      if (
+        profile.type === ProfileType.BUSINESS ||
+        profile.type === ProfileType.PROFESSIONAL
+      ) {
         await this.roleResolver.syncRoleForUser(userId, tx);
       }
 
@@ -178,21 +238,34 @@ export class ProfileActivationsService {
   // con un clic. Respeta la exclusión mutua PROFESSIONAL/BUSINESS igual que
   // create() — reactivar uno mientras el otro está ACTIVE/PENDING no aplica.
   async reactivate(userId: string, profileId: string) {
-    const profile = await this.prisma.userProfile.findUnique({ where: { id: profileId } });
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { id: profileId },
+    });
     if (!profile || profile.userId !== userId) {
       throw new NotFoundException('Perfil no encontrado');
     }
     if (profile.status !== ProfileStatus.SUSPENDED) {
-      throw new BadRequestException('Solo se puede reactivar un perfil que está SUSPENDED');
+      throw new BadRequestException(
+        'Solo se puede reactivar un perfil que está SUSPENDED'
+      );
     }
     if (!profile.suspendedBySelf) {
-      throw new BadRequestException('Este perfil fue suspendido por un administrador — contacta a soporte para reactivarlo');
+      throw new BadRequestException(
+        'Este perfil fue suspendido por un administrador — contacta a soporte para reactivarlo'
+      );
     }
 
     if (REQUIRES_APPROVAL.includes(profile.type)) {
-      const otherType = profile.type === ProfileType.BUSINESS ? ProfileType.PROFESSIONAL : ProfileType.BUSINESS;
+      const otherType =
+        profile.type === ProfileType.BUSINESS
+          ? ProfileType.PROFESSIONAL
+          : ProfileType.BUSINESS;
       const conflicting = await this.prisma.userProfile.findFirst({
-        where: { userId, type: otherType, status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] } },
+        where: {
+          userId,
+          type: otherType,
+          status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
+        },
       });
       if (conflicting) {
         throw new ConflictException(
@@ -207,7 +280,10 @@ export class ProfileActivationsService {
         data: { status: ProfileStatus.ACTIVE, suspendedBySelf: false },
       });
 
-      if (profile.type === ProfileType.BUSINESS || profile.type === ProfileType.PROFESSIONAL) {
+      if (
+        profile.type === ProfileType.BUSINESS ||
+        profile.type === ProfileType.PROFESSIONAL
+      ) {
         await this.roleResolver.syncRoleForUser(userId, tx);
         // Un perfil aprobado antes de que existiera la provisión de Commerce
         // para PROFESSIONAL (o cuya categoría cambió mientras estaba
@@ -233,27 +309,48 @@ export class ProfileActivationsService {
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, firstName: true, lastName: true, email: true, role: true, kycStatus: true } },
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+              kycStatus: true,
+            },
+          },
           category: { select: { id: true, name: true, icon: true } },
           subcategory: { select: { id: true, name: true } },
-          pendingPlan: { select: { id: true, name: true, price: true, color: true } },
+          pendingPlan: {
+            select: { id: true, name: true, price: true, color: true },
+          },
         },
       }),
-      this.prisma.userProfile.count({ where: { status: ProfileStatus.PENDING } }),
+      this.prisma.userProfile.count({
+        where: { status: ProfileStatus.PENDING },
+      }),
     ]);
     return { data, total, page, limit };
   }
 
-  async review(id: string, reviewerId: string, dto: ReviewProfileActivationDto) {
+  async review(
+    id: string,
+    reviewerId: string,
+    dto: ReviewProfileActivationDto
+  ) {
     const profile = await this.prisma.userProfile.findUnique({
       where: { id },
       include: { user: { select: { kycStatus: true } } },
     });
-    if (!profile) throw new NotFoundException('Solicitud de perfil no encontrada');
+    if (!profile)
+      throw new NotFoundException('Solicitud de perfil no encontrada');
     if (profile.status !== ProfileStatus.PENDING) {
       throw new BadRequestException('Esta solicitud ya fue revisada');
     }
-    if (dto.status === ProfileStatus.ACTIVE && profile.user.kycStatus !== KycStatus.APPROVED) {
+    if (
+      dto.status === ProfileStatus.ACTIVE &&
+      profile.user.kycStatus !== KycStatus.APPROVED
+    ) {
       throw new BadRequestException(
         'El solicitante debe tener su identidad verificada (KYC aprobado) antes de activar este perfil'
       );
@@ -264,7 +361,8 @@ export class ProfileActivationsService {
         where: { id },
         data: {
           status: dto.status,
-          rejectionReason: dto.status === ProfileStatus.REJECTED ? dto.rejectionReason : null,
+          rejectionReason:
+            dto.status === ProfileStatus.REJECTED ? dto.rejectionReason : null,
           reviewedBy: reviewerId,
           reviewedAt: new Date(),
         },
@@ -276,7 +374,10 @@ export class ProfileActivationsService {
       if (dto.status === ProfileStatus.ACTIVE && profile.categoryId) {
         await tx.user.update({
           where: { id: profile.userId },
-          data: { categoryId: profile.categoryId, subcategoryId: profile.subcategoryId },
+          data: {
+            categoryId: profile.categoryId,
+            subcategoryId: profile.subcategoryId,
+          },
         });
       }
 
@@ -287,7 +388,10 @@ export class ProfileActivationsService {
       // negocio deja al usuario con UserProfile ACTIVE pero sin el rol
       // real, y el resto de la app (guards, middleware del frontend) sigue
       // leyendo User.role — sería un callejón sin salida silencioso.
-      if (profile.type === ProfileType.BUSINESS || profile.type === ProfileType.PROFESSIONAL) {
+      if (
+        profile.type === ProfileType.BUSINESS ||
+        profile.type === ProfileType.PROFESSIONAL
+      ) {
         await this.roleResolver.syncRoleForUser(profile.userId, tx);
       }
 
@@ -303,7 +407,7 @@ export class ProfileActivationsService {
           profile.userId,
           profile.pendingPlanId,
           profile.pendingPlanInterval ?? BillingInterval.MONTHLY,
-          reviewerId,
+          reviewerId
         );
       }
 
@@ -322,7 +426,12 @@ export class ProfileActivationsService {
     }
 
     this.notifications
-      .notifyProfileActivationReviewed(profile.userId, TYPE_LABEL[profile.type], dto.status, dto.rejectionReason)
+      .notifyProfileActivationReviewed(
+        profile.userId,
+        TYPE_LABEL[profile.type],
+        dto.status,
+        dto.rejectionReason
+      )
       .catch(() => {});
 
     return updated;
