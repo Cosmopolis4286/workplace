@@ -14,6 +14,8 @@ on:
 permissions:
   contents: read
   security-events: write
+  actions: read        # upload-sarif lee el workflow run
+  pull-requests: write # comentario con el resumen en el PR
 
 jobs:
   # ─── Validación de código ──────────────────────────────────────────────────
@@ -21,6 +23,10 @@ jobs:
     name: Validar Código
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # prisma validate/generate solo leen el schema, pero exigen que la
+      # variable exista. No se conecta a ninguna base.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
     - uses: actions/checkout@v4
 
