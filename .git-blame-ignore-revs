@@ -1,3 +1,5 @@
 # Commits solo de formato (git config blame.ignoreRevsFile .git-blame-ignore-revs)
 # style(backend): aplica Prettier a src
 d99bf6db225afad3ed85ecad4fd9be34ef000904
+# style(backend): formato de Prettier 3.9
+996ae429da15f3495765641cf9b31e09d3766212
