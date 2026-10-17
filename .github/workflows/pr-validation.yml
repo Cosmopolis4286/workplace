@@ -99,15 +99,12 @@ jobs:
       with:
         node-version: '22'
 
-    # No bloqueante todavía: el typecheck del frontend nunca corrió antes de
-    # 2026-08-30 (vue-tsc/typescript no eran devDependencies — ver commit que
-    # agregó esto). Arrancó con ~750 errores preexistentes en 139 archivos,
-    # ninguno relacionado con lógica de negocio real (mayormente auto-imports
-    # de Nuxt sin tipar). Se deja como warning visible en el PR mientras se
-    # van limpiando; quitar continue-on-error cuando llegue a 0.
-    - name: Type checking
-      run: cd frontend && pnpm type-check
-      continue-on-error: true
+    # Trinquete: todavía quedan errores preexistentes (ver
+    # frontend/typecheck-baseline.json), así que en vez de exigir 0 se exige
+    # que ningún archivo tenga MÁS errores que su línea base. Bloqueante.
+    # Al corregir errores: node scripts/typecheck-ratchet.mjs --update
+    - name: Type checking (trinquete)
+      run: cd frontend && pnpm type-check:ratchet
 
   # ─── Build de verificación Docker ─────────────────────────────────────────
   docker-build-check:
@@ -195,10 +192,7 @@ jobs:
           };
 
           const icon = (r) => r === 'success' ? '✅' : r === 'skipped' ? '⏭️' : '❌';
-          // validateFrontend no cuenta contra allOk todavía: su único step
-          // (type-check) usa continue-on-error mientras se limpia la deuda
-          // preexistente — ver comentario en pr-validation.yml.
-          const allOk = ['validate', 'dockerBuildCheck', 'securityScan', 'dependencyReview']
+          const allOk = ['validate', 'validateFrontend', 'dockerBuildCheck', 'securityScan', 'dependencyReview']
             .every((k) => results[k] === 'success' || results[k] === 'skipped');
 
           const body = [
@@ -207,7 +201,7 @@ jobs:
             `| Check | Estado |`,
             `|-------|--------|`,
             `| Código backend (lint, types, tests, build) | ${icon(results.validate)} ${results.validate} |`,
-            `| Types frontend (informativo, no bloquea) | ${icon(results.validateFrontend)} ${results.validateFrontend} |`,
+            `| Types frontend (trinquete) | ${icon(results.validateFrontend)} ${results.validateFrontend} |`,
             `| Build Docker | ${icon(results.dockerBuildCheck)} ${results.dockerBuildCheck} |`,
             `| Seguridad (Trivy) | ${icon(results.securityScan)} ${results.securityScan} |`,
             `| Dependencias | ${icon(results.dependencyReview)} ${results.dependencyReview} |`,

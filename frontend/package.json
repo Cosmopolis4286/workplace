@@ -10,6 +10,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "type-check": "nuxi typecheck",
+    "type-check:ratchet": "node scripts/typecheck-ratchet.mjs",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "coverage:percentage": "node scripts/get-coverage.js"

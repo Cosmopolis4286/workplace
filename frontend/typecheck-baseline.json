@@ -1,5 +1,5 @@
 {
-  "total": 120,
+  "total": 114,
   "files": {
     "capacitor.config.ts": 1,
     "components/admin/landing/FeaturesSection.vue": 1,
@@ -26,8 +26,7 @@
     "components/shared/LanguageSwitcher.vue": 1,
     "components/ui/SearchableSelect.vue": 1,
     "composables/admin/useLandingCrudSection.ts": 2,
-    "composables/auth/useAuth.ts": 6,
-    "composables/auth/useDemoCredentials.ts": 1,
+    "composables/auth/useAuth.ts": 2,
     "composables/auth/useDemoCredentialsHelpers.ts": 1,
     "composables/commerce/usePlans.ts": 16,
     "composables/dashboard/useQuickAccess.ts": 1,
@@ -44,7 +43,6 @@
     "pages/(top)/menu.vue": 2,
     "pages/(top)/search.vue": 7,
     "pages/(top)/service-requests.vue": 1,
-    "plugins/sentry.client.ts": 1,
-    "server/api/health.get.ts": 1
+    "plugins/sentry.client.ts": 1
   }
 }
