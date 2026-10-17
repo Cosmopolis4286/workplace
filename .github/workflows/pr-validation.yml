@@ -156,7 +156,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    # Tabla en el log: visible siempre, también en repos privados sin
+    # GitHub Code Security (donde no se puede subir el SARIF).
     - name: Trivy — escaneo de vulnerabilidades
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: fs
+        scan-ref: .
+        format: table
+
+    - name: Trivy — reporte SARIF
+      if: ${{ !github.event.repository.private }}
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: fs
@@ -164,19 +174,22 @@ jobs:
         format: sarif
         output: trivy-results.sarif
 
+    # Code scanning en un repo privado exige GitHub Code Security (de pago).
     - name: Subir resultados a GitHub Security
       uses: github/codeql-action/upload-sarif@v4
-      if: always()
+      if: ${{ always() && !github.event.repository.private }}
       with:
         sarif_file: trivy-results.sarif
       env:
         GITHUB_TOKEN: ${{ secrets.WORKPLACE_PAT || github.token }}
 
   # ─── Revisión de dependencias (solo PRs) ──────────────────────────────────
+  # En repos privados exige GitHub Advanced Security (de pago): se salta, y
+  # las vulnerabilidades de dependencias las cubre `pnpm audit` en validate.
   dependency-review:
     name: Revisión de Dependencias
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: ${{ github.event_name == 'pull_request' && !github.event.repository.private }}
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
