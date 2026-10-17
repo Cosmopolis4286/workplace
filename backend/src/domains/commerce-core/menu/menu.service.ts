@@ -71,7 +71,7 @@ export class MenuService {
     return this.prisma.category.findMany({
       where: { commerceId },
       include: { _count: { select: { products: true } } },
-      orderBy: { name: 'asc' },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
 
@@ -83,9 +83,32 @@ export class MenuService {
     if (exists)
       throw new ConflictException(this.i18n.t('menu.category.name_taken'));
 
+    // Nueva categoría al final del orden manual — mismo criterio que
+    // SearchTabsService.create (count como siguiente sortOrder).
+    const count = await this.prisma.category.count({ where: { commerceId } });
     return this.prisma.category.create({
-      data: { ...dto, commerceId },
+      data: { ...dto, commerceId, sortOrder: count },
     });
+  }
+
+  // Drag-and-drop en /menu: el índice de cada id en el array recibido se
+  // convierte en su sortOrder — mismo patrón que SearchTabsService.reorder.
+  async reorderCategories(userId: string, categoryIds: string[]) {
+    const commerceId = await this.getCommerceId(userId);
+    const owned = await this.prisma.category.findMany({
+      where: { id: { in: categoryIds }, commerceId },
+      select: { id: true },
+    });
+    if (owned.length !== categoryIds.length) {
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
+    }
+
+    await this.prisma.$transaction(
+      categoryIds.map((id, index) =>
+        this.prisma.category.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    );
+    return this.getCategories(userId);
   }
 
   async updateCategory(
@@ -145,7 +168,7 @@ export class MenuService {
       this.prisma.product.findMany({
         where,
         include: { category: { select: { id: true, name: true, color: true } } },
-        orderBy: { name: 'asc' },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
         skip,
         take: limit,
       }),
@@ -220,7 +243,7 @@ export class MenuService {
     return this.prisma.product.findMany({
       where: { commerceId, categoryId },
       include: { category: { select: { id: true, name: true, color: true } } },
-      orderBy: { name: 'asc' },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
 
@@ -229,10 +252,45 @@ export class MenuService {
     await this.planLimits.assertProductLimit(userId, commerceId);
     await this.assertCategoryOwnership(dto.categoryId, commerceId);
 
+    // Nuevo producto al final del orden manual de SU categoría (no del
+    // comercio completo) — el reorder por drag-and-drop es por categoría.
+    const sortOrder = await this.prisma.product.count({ where: { categoryId: dto.categoryId } });
+
     const { categoryId, ...rest } = dto;
     return this.prisma.product.create({
-      data: { ...rest, tags: normalizeTags(dto.tags) ?? [], categoryId, commerceId },
+      data: { ...rest, tags: normalizeTags(dto.tags) ?? [], categoryId, commerceId, sortOrder },
       include: { category: { select: { id: true, name: true, color: true } } },
+    });
+  }
+
+  // Drag-and-drop dentro de una categoría en /menu: el índice de cada id en
+  // el array recibido se convierte en su sortOrder. A diferencia de
+  // reorderCategories, no recibe categoryId explícito — se infiere y valida
+  // a partir de los productos mismos (deben ser todos de la misma categoría,
+  // y esa categoría debe ser del comercio del usuario).
+  async reorderProducts(userId: string, productIds: string[]) {
+    const commerceId = await this.getCommerceId(userId);
+    const owned = await this.prisma.product.findMany({
+      where: { id: { in: productIds }, commerceId },
+      select: { id: true, categoryId: true },
+    });
+    if (owned.length !== productIds.length) {
+      throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
+    }
+    const distinctCategories = new Set(owned.map((p) => p.categoryId));
+    if (distinctCategories.size > 1) {
+      throw new ConflictException('Todos los productos deben pertenecer a la misma categoría para reordenarlos');
+    }
+
+    await this.prisma.$transaction(
+      productIds.map((id, index) =>
+        this.prisma.product.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    );
+    return this.prisma.product.findMany({
+      where: { id: { in: productIds } },
+      include: { category: { select: { id: true, name: true, color: true } } },
+      orderBy: { sortOrder: 'asc' },
     });
   }
 

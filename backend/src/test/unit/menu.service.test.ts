@@ -41,6 +41,10 @@ describe('MenuService', () => {
       count: jest.fn(),
     },
     $queryRaw: jest.fn(),
+    // $transaction(array) en los services reales ejecuta cada promesa y
+    // devuelve sus resultados — el mock replica eso con Promise.all en vez
+    // de requerir que cada test stubee una transacción real.
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   }
 
   const mockPlanLimitsService = {
@@ -497,6 +501,66 @@ describe('MenuService', () => {
 
         await expect(service.bulkMoveCategory(userId, productIds, 'missing-cat')).rejects.toBeInstanceOf(Error)
         expect(mockPrismaService.product.updateMany).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('reorderCategories', () => {
+      it('assigns sortOrder = array index to each category, in the given order', async () => {
+        mockPrismaService.category.findMany
+          .mockResolvedValueOnce([{ id: 'cat-2' }, { id: 'cat-1' }, { id: 'cat-3' }]) // ownership check
+          .mockResolvedValueOnce([]) // getCategories() al final
+        mockPrismaService.category.update.mockResolvedValue({})
+
+        await service.reorderCategories(userId, ['cat-2', 'cat-1', 'cat-3'])
+
+        expect(mockPrismaService.category.update).toHaveBeenNthCalledWith(1, { where: { id: 'cat-2' }, data: { sortOrder: 0 } })
+        expect(mockPrismaService.category.update).toHaveBeenNthCalledWith(2, { where: { id: 'cat-1' }, data: { sortOrder: 1 } })
+        expect(mockPrismaService.category.update).toHaveBeenNthCalledWith(3, { where: { id: 'cat-3' }, data: { sortOrder: 2 } })
+      })
+
+      it('rejects if any category id does not belong to the commerce', async () => {
+        mockPrismaService.category.findMany.mockResolvedValueOnce([{ id: 'cat-1' }]) // solo 1 de 2 pertenece
+
+        await expect(service.reorderCategories(userId, ['cat-1', 'cat-ajena'])).rejects.toBeInstanceOf(Error)
+        expect(mockPrismaService.category.update).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('reorderProducts', () => {
+      it('assigns sortOrder = array index when all products share the same category', async () => {
+        mockPrismaService.product.findMany
+          .mockResolvedValueOnce([
+            { id: 'prod-2', categoryId: 'cat-1' },
+            { id: 'prod-1', categoryId: 'cat-1' },
+            { id: 'prod-3', categoryId: 'cat-1' },
+          ]) // ownership + same-category check
+          .mockResolvedValueOnce([]) // findMany final de retorno
+        mockPrismaService.product.update.mockResolvedValue({})
+
+        await service.reorderProducts(userId, ['prod-2', 'prod-1', 'prod-3'])
+
+        expect(mockPrismaService.product.update).toHaveBeenNthCalledWith(1, { where: { id: 'prod-2' }, data: { sortOrder: 0 } })
+        expect(mockPrismaService.product.update).toHaveBeenNthCalledWith(2, { where: { id: 'prod-1' }, data: { sortOrder: 1 } })
+        expect(mockPrismaService.product.update).toHaveBeenNthCalledWith(3, { where: { id: 'prod-3' }, data: { sortOrder: 2 } })
+      })
+
+      it('rejects if any product id does not belong to the commerce', async () => {
+        mockPrismaService.product.findMany.mockResolvedValueOnce([{ id: 'prod-1', categoryId: 'cat-1' }])
+
+        await expect(service.reorderProducts(userId, ['prod-1', 'prod-ajeno'])).rejects.toBeInstanceOf(Error)
+        expect(mockPrismaService.product.update).not.toHaveBeenCalled()
+      })
+
+      it('rejects reordering products that span more than one category', async () => {
+        // El drag-and-drop en menu.vue reordena DENTRO de una sección —
+        // mezclar categorías indicaría un bug de frontend o un payload manipulado.
+        mockPrismaService.product.findMany.mockResolvedValueOnce([
+          { id: 'prod-1', categoryId: 'cat-1' },
+          { id: 'prod-2', categoryId: 'cat-2' },
+        ])
+
+        await expect(service.reorderProducts(userId, ['prod-1', 'prod-2'])).rejects.toBeInstanceOf(Error)
+        expect(mockPrismaService.product.update).not.toHaveBeenCalled()
       })
     })
   })

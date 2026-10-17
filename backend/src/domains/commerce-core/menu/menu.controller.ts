@@ -33,7 +33,7 @@ import { CreateBundleDto } from './dto/create-bundle.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { QueryProductsDto } from './dto/query-products.dto';
-import { BulkProductIdsDto, BulkMoveCategoryDto } from './dto/bulk-products.dto';
+import { BulkProductIdsDto, BulkMoveCategoryDto, ReorderCategoriesDto, ReorderProductsDto } from './dto/bulk-products.dto';
 
 @Controller('menu')
 @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
@@ -73,6 +73,14 @@ export class MenuController {
   @RequirePermission('menu:delete')
   deleteCategory(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.menuService.deleteCategory(user.id, id);
+  }
+
+  // Drag-and-drop de secciones en /menu — recibe el array completo de ids
+  // en el nuevo orden deseado.
+  @Post('categories/reorder')
+  @RequirePermission('menu:edit')
+  reorderCategories(@CurrentUser() user: { id: string }, @Body() dto: ReorderCategoriesDto) {
+    return this.menuService.reorderCategories(user.id, dto.categoryIds);
   }
 
   // ─── Products ────────────────────────────────────────────────────────────────
@@ -184,6 +192,13 @@ export class MenuController {
   @RequirePermission('menu:edit')
   bulkMoveCategory(@CurrentUser() user: { id: string }, @Body() dto: BulkMoveCategoryDto) {
     return this.menuService.bulkMoveCategory(user.id, dto.productIds, dto.categoryId);
+  }
+
+  // Drag-and-drop de productos dentro de una misma categoría en /menu.
+  @Post('products/reorder')
+  @RequirePermission('menu:edit')
+  reorderProducts(@CurrentUser() user: { id: string }, @Body() dto: ReorderProductsDto) {
+    return this.menuService.reorderProducts(user.id, dto.productIds);
   }
 
   @Patch('products/:id/stock')

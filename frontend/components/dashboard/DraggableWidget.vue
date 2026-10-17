@@ -1,13 +1,16 @@
 <template>
   <div
-    draggable="true"
-    @dragstart="onDragStart"
-    @dragover.prevent="onDragOver"
-    @dragleave="onDragLeave"
-    @drop.prevent="onDrop"
-    @dragend="onDragEnd"
-    class="transition-opacity duration-200 cursor-grab active:cursor-grabbing"
-    :class="isDragOver ? 'opacity-50 ring-2 ring-indigo-400 ring-offset-2 rounded-xl' : ''"
+    :draggable="!disabled"
+    @dragstart.stop="onDragStart"
+    @dragover.prevent.stop="onDragOver"
+    @dragleave.stop="onDragLeave"
+    @drop.prevent.stop="onDrop"
+    @dragend.stop="onDragEnd"
+    class="transition-opacity duration-200"
+    :class="[
+      disabled ? '' : 'cursor-grab active:cursor-grabbing',
+      isDragOver ? 'opacity-50 ring-2 ring-indigo-400 ring-offset-2 rounded-xl' : '',
+    ]"
   >
     <slot />
   </div>
@@ -17,19 +20,27 @@
 // ID del widget que se está arrastrando actualmente (compartido entre instancias vía módulo)
 let dragSourceId = ''
 
-const props = defineProps<{ widgetId: string }>()
+// .stop en todos los listeners del template: necesario para poder anidar
+// este componente (ej. menu.vue — tarjetas de producto arrastrables DENTRO
+// de una categoría también arrastrable). Sin .stop, soltar un producto
+// sobre otro también dispara drop/dragover en el DraggableWidget padre (la
+// categoría), emitiendo un drag-swap con un productId donde se esperaba un
+// categoryId.
+
+const props = withDefaults(defineProps<{ widgetId: string; disabled?: boolean }>(), { disabled: false })
 const emit = defineEmits<{ 'drag-swap': [from: string, to: string] }>()
 
 const isDragOver = ref(false)
 
 function onDragStart(e: DragEvent) {
+  if (props.disabled) return
   dragSourceId = props.widgetId
   e.dataTransfer!.effectAllowed = 'move'
   e.dataTransfer!.setData('text/plain', props.widgetId)
 }
 
 function onDragOver() {
-  if (dragSourceId !== props.widgetId) isDragOver.value = true
+  if (!props.disabled && dragSourceId !== props.widgetId) isDragOver.value = true
 }
 
 function onDragLeave() {

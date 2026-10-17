@@ -19,3 +19,17 @@ export class BulkMoveCategoryDto extends BulkProductIdsDto {
   @IsUUID('4')
   categoryId: string;
 }
+
+// Reorder (drag-and-drop en /menu): el array completo en el orden deseado —
+// el índice de cada id en el array se convierte en su nuevo sortOrder (ver
+// MenuService.reorderCategories/reorderProducts), mismo patrón que
+// SearchTabsService.reorder.
+export class ReorderCategoriesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_BULK_SIZE)
+  @IsUUID('4', { each: true })
+  categoryIds: string[];
+}
+
+export class ReorderProductsDto extends BulkProductIdsDto {}

@@ -123,58 +123,81 @@
       </div>
     </div>
 
+    <!-- Reordenar categorías: arrastra el encabezado de una sección sobre otra para intercambiarlas.
+         Solo disponible sin filtros activos (mismo criterio que el reorder de productos, ver abajo):
+         con la lista filtrada, el array "completo" que se envía al backend ya no sería el real. -->
+    <div v-if="!loading && canReorder && categoriesWithProducts.length > 1" class="mb-4 text-xs text-gray-400 flex items-center gap-1.5">
+      <ArrowsUpDownIcon class="h-3.5 w-3.5" />
+      Arrastra el encabezado de una categoría o una tarjeta de producto para reordenar
+    </div>
+
     <!-- Menu Categories -->
-    <div v-else class="space-y-8">
-      <div v-for="category in displayCategories" :key="category.id" class="card p-6">
-        <div class="flex justify-between items-center mb-6">
-          <div class="flex items-center">
-            <div
-              class="w-4 h-4 rounded-full mr-3"
-              :style="{ backgroundColor: category.color }"
-            ></div>
-            <h2 class="text-xl font-semibold text-gray-900">{{ category.name }}</h2>
-            <span class="ml-3 bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-sm">
-              {{ category.products.length }} productos
-            </span>
+    <div v-if="!loading" class="space-y-8">
+      <DraggableWidget
+        v-for="category in displayCategories"
+        :key="category.id"
+        :widget-id="category.id"
+        :disabled="!canReorder"
+        @drag-swap="handleCategoryDragSwap"
+      >
+        <div class="card p-6">
+          <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center">
+              <Bars3Icon v-if="canReorder" class="h-4 w-4 text-gray-300 mr-2 cursor-grab" />
+              <div
+                class="w-4 h-4 rounded-full mr-3"
+                :style="{ backgroundColor: category.color }"
+              ></div>
+              <h2 class="text-xl font-semibold text-gray-900">{{ category.name }}</h2>
+              <span class="ml-3 bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-sm">
+                {{ category.products.length }} productos
+              </span>
+            </div>
+            <div class="flex space-x-2">
+              <button
+                @click="openEditCategory(category)"
+                class="p-2 text-gray-400 hover:text-gray-600"
+                title="Editar categoría"
+              >
+                <PencilIcon class="h-5 w-5" />
+              </button>
+              <button
+                @click="confirmDeleteCategory(category)"
+                class="p-2 text-red-400 hover:text-red-600"
+                title="Eliminar categoría"
+              >
+                <TrashIcon class="h-5 w-5" />
+              </button>
+            </div>
           </div>
-          <div class="flex space-x-2">
-            <button
-              @click="openEditCategory(category)"
-              class="p-2 text-gray-400 hover:text-gray-600"
-              title="Editar categoría"
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <DraggableWidget
+              v-for="product in category.visibleProducts"
+              :key="product.id"
+              :widget-id="product.id"
+              :disabled="!canReorder"
+              @drag-swap="(from, to) => handleProductDragSwap(category.id, from, to)"
             >
-              <PencilIcon class="h-5 w-5" />
-            </button>
-            <button
-              @click="confirmDeleteCategory(category)"
-              class="p-2 text-red-400 hover:text-red-600"
-              title="Eliminar categoría"
-            >
-              <TrashIcon class="h-5 w-5" />
+              <MenuProductCard
+                :product="product"
+                :selectable="selectMode"
+                :selected="selectedIds.has(product.id)"
+                @edit="openEditProduct"
+                @delete="confirmDeleteProduct"
+                @toggle-status="handleToggleStatus"
+                @toggle-select="toggleSelect"
+              />
+            </DraggableWidget>
+          </div>
+
+          <div v-if="category.products.length > category.visibleProducts.length" class="mt-4 text-center">
+            <button @click="showMore(category.id)" class="btn-secondary">
+              Mostrar más ({{ category.products.length - category.visibleProducts.length }} restantes)
             </button>
           </div>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <MenuProductCard
-            v-for="product in category.visibleProducts"
-            :key="product.id"
-            :product="product"
-            :selectable="selectMode"
-            :selected="selectedIds.has(product.id)"
-            @edit="openEditProduct"
-            @delete="confirmDeleteProduct"
-            @toggle-status="handleToggleStatus"
-            @toggle-select="toggleSelect"
-          />
-        </div>
-
-        <div v-if="category.products.length > category.visibleProducts.length" class="mt-4 text-center">
-          <button @click="showMore(category.id)" class="btn-secondary">
-            Mostrar más ({{ category.products.length - category.visibleProducts.length }} restantes)
-          </button>
-        </div>
-      </div>
+      </DraggableWidget>
 
       <!-- Empty state: sin productos en absoluto -->
       <div v-if="categoriesWithProducts.length === 0" class="text-center py-12">
@@ -254,6 +277,8 @@ import {
   XMarkIcon,
   MagnifyingGlassIcon,
   ArrowTopRightOnSquareIcon,
+  ArrowsUpDownIcon,
+  Bars3Icon,
 } from '@heroicons/vue/24/outline'
 import { useMenu } from '~/composables/catalog/useMenu'
 import type { Category, Product, CreateBundlePayload } from '~/composables/catalog/useMenu'
@@ -261,6 +286,7 @@ import { usePlans } from '~/composables/commerce/usePlans'
 import { useUserPreferences } from '~/composables/users/useUserPreferences'
 import { useSettings } from '~/composables/commerce/useSettings'
 import MenuProductCard from '~/components/catalog/MenuProductCard.vue'
+import DraggableWidget from '~/components/dashboard/DraggableWidget.vue'
 import ProductModal from '~/components/modals/ProductModal.vue'
 import BundleModal from '~/components/modals/BundleModal.vue'
 import CategoryModal from '~/components/modals/CategoryModal.vue'
@@ -294,6 +320,8 @@ const {
   bulkDeactivate,
   bulkDeleteProducts,
   bulkMoveCategory,
+  reorderCategories,
+  reorderProducts,
 } = useMenu()
 
 const { commerce: settingsCommerce, loadSettings } = useSettings()
@@ -386,6 +414,39 @@ const displayCategories = computed(() =>
 function showMore(categoryId: string) {
   const current = categoryShowCount.value[categoryId] ?? pageSize.value
   categoryShowCount.value = { ...categoryShowCount.value, [categoryId]: current + pageSize.value }
+}
+
+// ─── Reordenar (drag-and-drop) ───────────────────────────────────────────────
+// El array que se envía al backend debe ser el orden COMPLETO real de la
+// categoría/comercio — con un filtro de búsqueda/estado activo, o un
+// "Ordenar por" distinto de "Relevancia" (que es justo el que refleja
+// sortOrder), lo que se ve en pantalla ya no es ese array completo, así que
+// el reorder se deshabilita en esos casos para no corromper el orden real.
+const canReorder = computed(() =>
+  sortBy.value === 'relevance' && !search.value.trim() && !filterStatus.value && !selectMode.value,
+)
+
+function handleCategoryDragSwap(fromId: string, toId: string) {
+  if (!canReorder.value) return
+  const ids = categories.value.map((c) => c.id)
+  const fromIdx = ids.indexOf(fromId)
+  const toIdx = ids.indexOf(toId)
+  if (fromIdx === -1 || toIdx === -1) return
+  ;[ids[fromIdx], ids[toIdx]] = [ids[toIdx], ids[fromIdx]]
+  reorderCategories(ids)
+}
+
+function handleProductDragSwap(categoryId: string, fromId: string, toId: string) {
+  if (!canReorder.value) return
+  // Orden completo y actual de ESA categoría (no el array filtrado de
+  // displayCategories) — products ya viene ordenado por sortOrder desde el
+  // backend (ver MenuService.getProducts).
+  const ids = products.value.filter((p) => p.categoryId === categoryId).map((p) => p.id)
+  const fromIdx = ids.indexOf(fromId)
+  const toIdx = ids.indexOf(toId)
+  if (fromIdx === -1 || toIdx === -1) return
+  ;[ids[fromIdx], ids[toIdx]] = [ids[toIdx], ids[fromIdx]]
+  reorderProducts(ids)
 }
 
 // ─── Selección múltiple y acciones masivas ──────────────────────────────────

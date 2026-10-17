@@ -648,6 +648,10 @@ model Product {
   maxStock        Int                 @default(100)
   unit            String              @default("unidad")
   status          ProductStatus       @default(AVAILABLE)
+  // Orden manual dentro de su categoría (drag-and-drop en /menu) — 0 por
+  // defecto para productos existentes, reasignado secuencialmente al crear
+  // uno nuevo (ver MenuService.createProduct) para que aparezca al final.
+  sortOrder       Int                 @default(0)
   image           String?
   preparationTime Int?
   calories        Int?

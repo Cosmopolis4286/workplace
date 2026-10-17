@@ -224,6 +224,25 @@ export const useMenu = () => {
     }
   }
 
+  // Drag-and-drop de secciones en menu.vue — categoryIds es el array
+  // completo en el nuevo orden. Actualiza `categories` localmente con el
+  // array recién enviado (optimista) en vez de esperar la respuesta del
+  // backend, para que el reorder se sienta instantáneo; si falla, recarga
+  // desde el backend para no dejar el estado local divergente.
+  async function reorderCategories(categoryIds: string[]): Promise<boolean> {
+    const previous = categories.value
+    const byId = new Map(previous.map((c) => [c.id, c]))
+    categories.value = categoryIds.map((id) => byId.get(id)).filter((c): c is Category => !!c)
+    try {
+      await post('/menu/categories/reorder', { categoryIds })
+      return true
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al reordenar las categorías'
+      await loadCategories()
+      return false
+    }
+  }
+
   // ─── Products ──────────────────────────────────────────────────────────────
 
   async function createProduct(data: Partial<Product>): Promise<Product | null> {
@@ -325,6 +344,35 @@ export const useMenu = () => {
     }
   }
 
+  // Drag-and-drop de productos dentro de una misma categoría en menu.vue —
+  // productIds es el array completo de ESA categoría en el nuevo orden.
+  // Optimista igual que reorderCategories: no espera al backend para
+  // reflejar el nuevo orden, y re-sincroniza solo si falla.
+  async function reorderProducts(productIds: string[]): Promise<boolean> {
+    const previous = products.value
+    const byId = new Map(previous.map((p) => [p.id, p]))
+    const reorderedSet = new Set(productIds)
+    // Las POSICIONES que ocupaban los productos reordenados en el array
+    // original se rellenan, en orden, con productIds — así el resto del
+    // array (productos de otras categorías) no se mueve de lugar, y los
+    // reordenados sí respetan el nuevo orden dentro de esas posiciones.
+    let next = 0
+    products.value = previous.map((p) => {
+      if (!reorderedSet.has(p.id)) return p
+      const replacement = byId.get(productIds[next])!
+      next++
+      return replacement
+    })
+    try {
+      await post('/menu/products/reorder', { productIds })
+      return true
+    } catch (err: any) {
+      error.value = err?.message ?? 'Error al reordenar los productos'
+      await loadProducts()
+      return false
+    }
+  }
+
   async function updateStock(id: string, quantity: number, type: 'set' | 'add' | 'subtract' = 'set'): Promise<Product | null> {
     try {
       const product = await patch<Product>(`/menu/products/${id}/stock`, { quantity, type })
@@ -403,5 +451,7 @@ export const useMenu = () => {
     bulkDeactivate,
     bulkDeleteProducts,
     bulkMoveCategory,
+    reorderCategories,
+    reorderProducts,
   }
 }
