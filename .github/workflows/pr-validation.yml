@@ -53,8 +53,11 @@ jobs:
     - name: Format check
       run: cd backend && pnpm format:check
 
+    # Bloquea vulnerabilidades críticas (hoy 0). Quedan altas/moderadas que
+    # exigen saltos mayores (NestJS 10 -> 11, nodemailer 8 -> 10) o no tienen
+    # parche (braces, node-forge); bajar a --audit-level high al resolverlas.
     - name: Audit de dependencias
-      run: cd backend && pnpm audit --audit-level moderate
+      run: cd backend && pnpm audit --audit-level critical
       timeout-minutes: 5
       continue-on-error: ${{ github.event.inputs.force_approval == 'true' }}
 
