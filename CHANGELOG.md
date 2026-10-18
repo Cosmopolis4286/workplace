@@ -4,6 +4,34 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Added — Menú de siguiente nivel (2026-10-05 → 2026-10-17)
+
+- **Búsqueda y filtro por estado** en `/menu` (client-side sobre el catálogo agrupado), con empty-state distinto para "sin resultados" y "sin productos".
+- **Acciones masivas**: `POST /menu/products/bulk-activate|bulk-deactivate|bulk-delete|bulk-move-category` (máx. 200 ids, scope por `commerceId` en el `where`) + modo de selección y barra sticky en el frontend.
+- **Reordenamiento drag-and-drop** de categorías y de productos dentro de cada categoría: nueva columna `Product.sortOrder` (migración `20261005151012_add_sort_order_to_product`), `POST /menu/categories/reorder` y `POST /menu/products/reorder`, actualización optimista en `useMenu()`. El arrastre de productos solo se habilita sin búsqueda/filtros y con orden "relevancia". `DraggableWidget` acepta `disabled` y detiene la propagación para poder anidarse.
+- Botón **"Ver catálogo público"** (`/loja/[slug]`) y `MenuProductCard.vue` migrado a TypeScript.
+
+### Added — Tasas de cambio robustas (2026-10)
+
+- **`BcvSyncService.ensureDefaultRate()`**: al arrancar y en el health-check horario garantiza que exista la tasa VES/BCV, la reactiva y la marca como predeterminada si no hay otra elegida por un admin.
+- Sync BCV **fire-and-forget** en `GET /exchange-rates` y `/default` (antes podía bloquear hasta ~40 s si el BCV estaba caído); `SELECT … FOR UPDATE` en `updateCurrencyRate` para evitar historial duplicado por syncs concurrentes; confianza baja + validación de rango cuando la tasa sale del regex de respaldo.
+- `GET /exchange-rates/:id/usage` y confirmación de borrado mostrando cuántas compras/cotizaciones/cuentas usan la moneda; badge "Atrasada" en la tabla, errores de red categorizados con botón Reintentar y layout de tabla responsive.
+
+### Changed — Modelo de acceso por capas (2026-09-22 → 2026-10)
+
+- **Perfiles múltiples**: activar, desactivar y reactivar perfiles desde `/profile`; PROFESSIONAL y BUSINESS son mutuamente excluyentes; flujo unificado de conversión (`pricing`/`onboarding`/`profile`) sobre `profile-activations`, con categoría/subcategoría "Otro" propuesta por el usuario para revisión admin.
+- **`CategoryScopeService` + `CategoryScopeGuard`**: `ServiceCategory`/`JobCategory` se acotan al rubro del usuario (`userCategoryIds`), con UI admin para editarlos y test de coherencia del seed (`catalog-categories.data.test.ts`).
+- **`ModuleAccessGuard` + `@RequireModule`** aplican en el backend los mismos `effectiveModules` que muestra el sidebar; **`CapabilityGuard`/`CapabilitiesService`** (`HAS_COMMERCE`, …) reemplazan a `AccountTypeGuard`. Settings, analytics, reportes, dashboard y navegación deciden por capacidad, no por `accountType`. Un profesional que vende producto físico recibe su `Commerce` de forma determinista (`ensureForUser`).
+- `PlanLimitsService` amplía el techo de módulos de servicios para proveedores autónomos en rubros de comercio; `appointments` (reserva de mesa) deja de otorgarse a profesionales.
+- Navegación y módulos se invalidan y recargan tras login, OAuth y cambio de perfil.
+- Usuario demo `costura@demo.com` y categoría "Reparación y Oficios Técnicos"; `comidarapida@demo.com` pasa a `SERVICE_PROVIDER`.
+
+### Changed — Repositorio y CI (2026-10-18)
+
+- README reescrito según la arquitectura actual; nuevos `SECURITY.md`, `CONTRIBUTING.md`, plantillas de PR e issues, `CODEOWNERS` y `dependabot.yml`.
+- El typecheck del frontend en `pr-validation.yml` pasa a ser **bloqueante** mediante el trinquete (`frontend/scripts/typecheck-ratchet.mjs`, línea base 114 errores).
+- `pnpm-lock.yaml` resincronizado con `frontend/package.json` (CI instala con `--frozen-lockfile`).
+
 ### Added — Fase 3 (Network): Sistema de disputas para Pago Protegido (2026-09-28)
 
 Cierra el hueco que quedó explícito al lanzar Pago Protegido: hasta ahora un escrow retenido solo tenía dos salidas binarias (liberar todo, reembolsar todo) sin mediación cuando comprador y comercio/proveedor no se ponían de acuerdo.

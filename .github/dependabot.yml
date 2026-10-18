@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # Monorepo pnpm: un solo lockfile en la raíz cubre frontend y backend.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    target-branch: develop
+    groups:
+      nestjs:
+        patterns: ["@nestjs/*"]
+      prisma:
+        patterns: ["prisma", "@prisma/*"]
+      nuxt-vue:
+        patterns: ["nuxt", "@nuxt/*", "@nuxtjs/*", "vue", "vue-*", "@vue/*"]
+      capacitor:
+        patterns: ["@capacitor/*"]
+    ignore:
+      # Saltos de versión mayor se hacen a mano, con su propio PR de migración.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    target-branch: develop
+

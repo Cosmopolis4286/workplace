@@ -99,15 +99,11 @@ jobs:
       with:
         node-version: '22'
 
-    # No bloqueante todavía: el typecheck del frontend nunca corrió antes de
-    # 2026-08-30 (vue-tsc/typescript no eran devDependencies — ver commit que
-    # agregó esto). Arrancó con ~750 errores preexistentes en 139 archivos,
-    # ninguno relacionado con lógica de negocio real (mayormente auto-imports
-    # de Nuxt sin tipar). Se deja como warning visible en el PR mientras se
-    # van limpiando; quitar continue-on-error cuando llegue a 0.
-    - name: Type checking
-      run: cd frontend && pnpm type-check
-      continue-on-error: true
+    # Trinquete: la cantidad de errores de tipos por archivo solo puede bajar
+    # respecto de frontend/typecheck-baseline.json. Bloqueante — un archivo con
+    # más errores que su línea base (o un archivo nuevo con errores) falla el PR.
+    - name: Type checking (trinquete)
+      run: cd frontend && node scripts/typecheck-ratchet.mjs
 
   # ─── Build de verificación Docker ─────────────────────────────────────────
   docker-build-check:

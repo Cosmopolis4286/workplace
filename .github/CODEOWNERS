@@ -1,0 +1,7 @@
+# Revisión obligatoria en las zonas sensibles.
+*                                   @Cosmopolis4286
+/backend/prisma/                    @Cosmopolis4286
+/backend/src/domains/money/         @Cosmopolis4286
+/backend/src/domains/identity-access/ @Cosmopolis4286
+/.github/                           @Cosmopolis4286
+/SECURITY.md                        @Cosmopolis4286

@@ -10,35 +10,27 @@ Este repositorio utiliza una arquitectura **híbrida YAML + Shell** para CI/CD e
 
 ```
 .github/
-├── actions/                   # ✅ Acciones reutilizables (YAML)
-│   ├── setup-node-pnpm/
-│   ├── setup-tests/
-│   ├── run-tests/
-│   ├── run-e2e/
-│   ├── build-images/
-│   └── deploy-infrastructure/
-├── workflows/                 # ✅ Workflows principales
-│   ├── deploy.yml            # Pipeline híbrido principal
-│   ├── dev.yml               # Deploy desarrollo
-│   ├── pr-validation.yml      # Validación PRs
+├── actions/                  # Acciones compuestas reutilizables
+│   ├── setup-node-pnpm/      # Node + pnpm + install --frozen-lockfile
+│   ├── setup-tests/ run-tests/ run-seed/ db-migrate/
+│   ├── build-image/ docker-deploy/ deploy-server/ sync-server/ setup-ssh/
+│   ├── health-check/ smoke-test/ rollback/
+│   └── validate-environment/ github-deployment/ notify/
+├── workflows/
+│   ├── deploy.yml            # Producción (push a main / release)
+│   ├── dev.yml               # Desarrollo (push a develop)
+│   ├── pr-validation.yml     # Validación de PRs a main/develop
 │   └── README.md             # Esta documentación
-└── scripts/                   # ✅ Shell scripts (lógica compleja)
-    ├── ci/                    # Scripts de CI
-    ├── deploy/                # Scripts de deploy
-    ├── deployment/            # Scripts de setup
-    └── ssl/                   # Scripts SSL
+├── ISSUE_TEMPLATE/           # Formularios de bug y propuesta
+├── PULL_REQUEST_TEMPLATE.md
+├── CODEOWNERS
+└── dependabot.yml            # npm (lockfile raíz) + GitHub Actions
 
-scripts/
-├── ci/                        # ✅ Shell scripts para CI
-│   ├── run-tests.sh          # Tests con coverage
-│   └── run-e2e.sh            # Tests E2E con Playwright
-├── deploy/                    # ✅ Scripts de deploy complejo
-│   ├── canary-traffic-split.sh
-│   ├── sla-monitor.sh
-│   └── rolling_update_backend.sh
-└── deployment/                # ✅ Scripts de setup
-    ├── init-backend-prod.sh
-    └── setup-nginx-prod.sh
+scripts/                      # Lógica de shell invocada por los workflows
+├── ci/                       # run-tests.sh, run-e2e-optimized.sh…
+├── deploy/ deployment/       # Deploy, canary, rolling update
+├── database/ backup/         # Migraciones, backups y restore
+└── monitoring/ security/ …
 ```
 
 ## 🚀 Workflows Principales
@@ -76,7 +68,7 @@ scripts/
 
 ### 3. `pr-validation.yml` - Validación de PRs
 **Trigger**: Pull Requests
-- ✅ Type checking
+- ✅ Type checking backend + trinquete de typecheck del frontend (bloqueante)
 - ✅ Linting
 - ✅ Security audit
 - ✅ Validación de migraciones
