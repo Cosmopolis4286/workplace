@@ -111,12 +111,14 @@
           @save="saveFreelancerProfile"
         />
 
-        <!-- isFreelancer decide qué forma de datos leer (notifyNewRequests
-             vs. notifyNewOrders), no si el componente se monta: un híbrido
-             con Commerce ve notificaciones de pedidos Y de solicitudes. -->
+        <!-- Secciones por capacidad, no por accountType: un híbrido con
+             Commerce y perfil profesional ve las de pedidos Y las de
+             solicitudes (el backend guarda el form en ambos settings). -->
         <BusinessNotificationsCard
-          :settings="isFreelancer ? freelancerSettings : commerceSettings"
-          :is-freelancer="isFreelancer"
+          :commerce-settings="commerceSettings"
+          :freelancer-settings="freelancerSettings"
+          :show-commerce="hasCommerce"
+          :show-freelancer="showFreelancerNotifications"
           @save="saveNotificationSettings"
         />
 
@@ -133,11 +135,10 @@
              exigen @RequireCapability('HAS_COMMERCE'), no accountType). Un
              profesional con Commerce ("opción 2") también debe verlas — antes
              el !isFreelancer se lo ocultaba aunque ya pudiera guardarlas.
-             `settings` sigue siendo FreelancerSettings para este caso
-             (SettingsService.resolveStrategy aún decide por accountType, no
-             se toca acá), así que `commerceSettings` es null — los componentes
-             ya manejan settings=null con sus defaults y crean el
-             CommerceSettings real recién al guardar (getOrCreateSettings). -->
+             SettingsService.resolveStrategy también decide por HAS_COMMERCE,
+             así que para este caso `settings` ya es CommerceSettings. Si
+             todavía no existe, llega null: los componentes usan sus defaults
+             y el CommerceSettings se crea al guardar (getOrCreateSettings). -->
         <OperationsSettingsCard
           v-if="isComidaCategory && hasCommerce"
           :settings="commerceSettings"
@@ -236,6 +237,10 @@ const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
 // URL /pro/:slug: quien tiene perfil profesional (CapabilityGuard exige
 // HAS_PROFESSIONAL_PROFILE) y cuyo `settings` es FreelancerSettings.
 const showProfessionalSlug = computed(() => isFreelancer.value && hasCapability('HAS_PROFESSIONAL_PROFILE'))
+// Sin Commerce los settings son siempre FreelancerSettings; con Commerce,
+// solo si además tiene perfil profesional (híbrido) — mismo criterio que
+// SettingsService.getSettings/updateNotificationSettings.
+const showFreelancerNotifications = computed(() => !hasCommerce.value || hasCapability('HAS_PROFESSIONAL_PROFILE'))
 // Solo usuarios de categoría "Comida" pueden ver Operaciones y Configuración de Pagos
 const isComidaCategory = computed(() => userCategory.value === 'Comida')
 const roleLabel = computed(() => {
