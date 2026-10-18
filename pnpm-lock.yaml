@@ -8,6 +8,8 @@ overrides:
   multer@<2.3.0: ^2.3.0
   lodash@<4.18.0: ^4.18.0
 
+packageExtensionsChecksum: 5767651e6b2c68178dfbf9fce92eb7b8
+
 importers:
 
   .:
@@ -12642,6 +12644,7 @@ snapshots:
   '@vite-pwa/nuxt@1.1.1(magicast@0.5.5)(vite@8.3.4(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(workbox-build@7.4.1(@types/babel__core@7.20.5))(workbox-window@7.4.1)':
     dependencies:
       '@nuxt/kit': 3.21.11(magicast@0.5.5)
+      h3: 1.15.11
       pathe: 1.1.2
       ufo: 1.6.4
       vite-plugin-pwa: 1.3.0(vite@8.3.4(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(workbox-build@7.4.1(@types/babel__core@7.20.5))(workbox-window@7.4.1)
