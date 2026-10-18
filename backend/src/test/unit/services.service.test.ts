@@ -21,6 +21,7 @@ import {
   ESCROW_FACADE,
 } from '../../domains/money/escrow/escrow.facade';
 import { CategoryScopeService } from '../../common/category-scope/category-scope.service';
+import { money } from '../money-matcher';
 
 describe('ServicesService — service request status transitions', () => {
   let service: ServicesService;
@@ -581,7 +582,10 @@ describe('ServicesService — service request status transitions', () => {
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
       expect(mockPrismaService.serviceRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ price: 150, escrowAmount: 150 }),
+          data: expect.objectContaining({
+            price: 150,
+            escrowAmount: money(150),
+          }),
         })
       );
       expect(mockPrismaService.serviceRequestItem.create).toHaveBeenCalledWith(

@@ -12,6 +12,15 @@ import {
 import { PrismaService } from '../../../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import {
+  add,
+  eq,
+  gt,
+  round,
+  toDecimal,
+  toNumber,
+  type MoneyInput,
+} from '../../../common/money/money';
 import { EscrowDisputeView, EscrowFacade, EscrowView } from './escrow.facade';
 
 @Injectable()
@@ -32,7 +41,7 @@ export class EscrowService implements EscrowFacade {
     // ServicesService.approvePriceChangeProposal), esto es el DELTA, nunca
     // el total: WalletsService.holdEscrow retiene exactamente lo que se le
     // pasa acá. La fila Escrow.amount sí acumula (ver abajo).
-    deltaAmount: number;
+    deltaAmount: MoneyInput;
     referenceOverride?: string;
   }): Promise<EscrowView> {
     // WalletsService.holdEscrow es la única fuente de movimiento de dinero
@@ -59,7 +68,7 @@ export class EscrowService implements EscrowFacade {
     // Acumula sobre lo ya retenido (aumento de precio aprobado) en vez de
     // sobrescribir — un segundo hold() sobre la misma entidad SIEMPRE es un
     // incremento, nunca un monto final distinto.
-    const totalAmount = (existing?.amount ?? 0) + params.deltaAmount;
+    const totalAmount = add(existing?.amount ?? 0, params.deltaAmount);
 
     const row = await this.prisma.escrow.upsert({
       where: {
@@ -90,7 +99,7 @@ export class EscrowService implements EscrowFacade {
     entityType: EscrowEntityType;
     entityId: string;
     payeeId: string;
-    amount: number;
+    amount: MoneyInput;
   }): Promise<EscrowView> {
     await this.wallets.releaseEscrow(
       params.entityId,
@@ -114,7 +123,7 @@ export class EscrowService implements EscrowFacade {
     entityType: EscrowEntityType;
     entityId: string;
     payerId: string;
-    amount: number;
+    amount: MoneyInput;
   }): Promise<EscrowView> {
     await this.wallets.refundEscrow(
       params.entityId,
@@ -243,13 +252,13 @@ export class EscrowService implements EscrowFacade {
       throw new BadRequestException('Esta disputa ya fue resuelta');
 
     const { escrow } = dispute;
-    let releaseAmount = 0;
-    let refundAmount = 0;
+    let releaseAmount = toDecimal(0);
+    let refundAmount = toDecimal(0);
 
     if (params.resolution === 'RELEASE_FULL') {
-      releaseAmount = escrow.amount;
+      releaseAmount = toDecimal(escrow.amount);
     } else if (params.resolution === 'REFUND_FULL') {
-      refundAmount = escrow.amount;
+      refundAmount = toDecimal(escrow.amount);
     } else {
       // SPLIT: ambos montos son obligatorios y deben sumar exactamente el
       // total retenido — no puede "aparecer" ni "desaparecer" dinero al
@@ -259,10 +268,11 @@ export class EscrowService implements EscrowFacade {
           'SPLIT requiere releaseAmount y refundAmount'
         );
       }
-      releaseAmount = params.releaseAmount;
-      refundAmount = params.refundAmount;
-      const diff = Math.abs(releaseAmount + refundAmount - escrow.amount);
-      if (diff > 0.01) {
+      releaseAmount = round(params.releaseAmount);
+      refundAmount = round(params.refundAmount);
+      // Exacto al centavo (Decimal): con Float se toleraba ±0.01, lo que
+      // dejaba pasar un centavo de más o de menos en cada resolución.
+      if (!eq(add(releaseAmount, refundAmount), escrow.amount)) {
         throw new BadRequestException(
           'releaseAmount + refundAmount debe ser igual al monto total retenido'
         );
@@ -272,14 +282,14 @@ export class EscrowService implements EscrowFacade {
     // Ejecuta los movimientos de dinero reales primero (vía WalletsService) —
     // si alguno falla, la disputa sigue OPEN para reintentar, en vez de
     // quedar marcada RESOLVED sin que el dinero se haya movido.
-    if (releaseAmount > 0) {
+    if (gt(releaseAmount, 0)) {
       await this.wallets.releaseEscrow(
         escrow.entityId,
         escrow.payeeId,
         releaseAmount
       );
     }
-    if (refundAmount > 0) {
+    if (gt(refundAmount, 0)) {
       await this.wallets.refundEscrow(
         escrow.entityId,
         escrow.payerId,
@@ -321,14 +331,22 @@ export class EscrowService implements EscrowFacade {
       escrow.entityType,
       escrow.entityId
     );
-    if (releaseAmount > 0) {
+    if (gt(releaseAmount, 0)) {
       this.notifications
-        .notifyEscrowDisputeResolved(escrow.payeeId, entityName, releaseAmount)
+        .notifyEscrowDisputeResolved(
+          escrow.payeeId,
+          entityName,
+          toNumber(releaseAmount)
+        )
         .catch(() => {});
     }
-    if (refundAmount > 0) {
+    if (gt(refundAmount, 0)) {
       this.notifications
-        .notifyEscrowDisputeResolved(escrow.payerId, entityName, refundAmount)
+        .notifyEscrowDisputeResolved(
+          escrow.payerId,
+          entityName,
+          toNumber(refundAmount)
+        )
         .catch(() => {});
     }
 
@@ -375,8 +393,8 @@ export class EscrowService implements EscrowFacade {
     reason: string;
     status: string;
     resolution: string | null;
-    releaseAmount: number | null;
-    refundAmount: number | null;
+    releaseAmount: Prisma.Decimal | null;
+    refundAmount: Prisma.Decimal | null;
     resolvedById: string | null;
     resolvedAt: Date | null;
   }): EscrowDisputeView {
@@ -388,8 +406,10 @@ export class EscrowService implements EscrowFacade {
       reason: row.reason,
       status: row.status as EscrowDisputeView['status'],
       resolution: row.resolution as EscrowDisputeView['resolution'],
-      releaseAmount: row.releaseAmount,
-      refundAmount: row.refundAmount,
+      releaseAmount:
+        row.releaseAmount == null ? null : toNumber(row.releaseAmount),
+      refundAmount:
+        row.refundAmount == null ? null : toNumber(row.refundAmount),
       resolvedById: row.resolvedById,
       resolvedAt: row.resolvedAt,
     };
@@ -402,7 +422,7 @@ export class EscrowService implements EscrowFacade {
     payerId: string;
     payeeId: string;
     status: string;
-    amount: number;
+    amount: Prisma.Decimal;
     heldAt: Date | null;
     releasedAt: Date | null;
     refundedAt: Date | null;
@@ -414,7 +434,7 @@ export class EscrowService implements EscrowFacade {
       payerId: row.payerId,
       payeeId: row.payeeId,
       status: row.status as EscrowView['status'],
-      amount: row.amount,
+      amount: toNumber(row.amount),
       heldAt: row.heldAt,
       releasedAt: row.releasedAt,
       refundedAt: row.refundedAt,

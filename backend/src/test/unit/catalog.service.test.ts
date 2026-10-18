@@ -17,6 +17,7 @@ import {
   PLATFORM_FEES_FACADE,
 } from '../../domains/money/platform-fees/platform-fees.facade';
 import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallets.service';
+import { money } from '../money-matcher';
 
 describe('CatalogService', () => {
   let service: CatalogService;
@@ -599,7 +600,7 @@ describe('CatalogService', () => {
         { catalogOrderId: 'order-1' }
       );
       expect(mockEscrowService.release).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 92 })
+        expect.objectContaining({ amount: money(92) })
       );
       expect(result.data.platformFeeAmount).toBe(8);
     });

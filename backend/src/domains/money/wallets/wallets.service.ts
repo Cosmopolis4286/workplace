@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import {
+  Prisma,
   Role,
   WalletTransactionType,
   WalletTransactionStatus,
@@ -27,8 +28,11 @@ import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
 import { ESCROW_SYSTEM_USER_EMAIL } from './escrow-system-user.const';
 import {
   add,
+  gt,
   lt,
+  sqlNumeric,
   sub,
+  toDecimal,
   toNumber,
   type MoneyInput,
 } from '../../../common/money/money';
@@ -220,12 +224,12 @@ export class WalletsService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Atomic UPDATE: enforce ceiling inside the transaction to prevent race
-      const [row] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [row] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = balance + ${dto.amount}::numeric,
+        SET balance = balance + ${sqlNumeric(dto.amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${wallet.id}
-          AND balance + ${dto.amount}::numeric <= ${limits.maxBalance}::numeric
+          AND balance + ${sqlNumeric(dto.amount)}::numeric <= ${sqlNumeric(limits.maxBalance)}::numeric
         RETURNING balance AS new_balance
       `;
       if (!row)
@@ -294,12 +298,12 @@ export class WalletsService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Atomic debit: WHERE balance >= amount prevents double-spend race
-      const [row] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [row] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = balance - ${dto.amount}::numeric,
+        SET balance = balance - ${sqlNumeric(dto.amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${wallet.id}
-          AND balance >= ${dto.amount}::numeric
+          AND balance >= ${sqlNumeric(dto.amount)}::numeric
         RETURNING balance AS new_balance
       `;
       if (!row) throw new BadRequestException('Saldo insuficiente');
@@ -372,20 +376,22 @@ export class WalletsService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Atomic debit of sender: WHERE balance >= amount prevents double-spend race
-      const [senderRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [senderRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = balance - ${dto.amount}::numeric,
+        SET balance = balance - ${sqlNumeric(dto.amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${senderWallet.id}
-          AND balance >= ${dto.amount}::numeric
+          AND balance >= ${sqlNumeric(dto.amount)}::numeric
         RETURNING balance AS new_balance
       `;
       if (!senderRow) throw new BadRequestException('Saldo insuficiente');
 
       // Atomic credit of recipient
-      const [recipientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [recipientRow] = await tx.$queryRaw<
+        { new_balance: Prisma.Decimal }[]
+      >`
         UPDATE "wallets"
-        SET balance = balance + ${dto.amount}::numeric,
+        SET balance = balance + ${sqlNumeric(dto.amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${recipientWallet.id}
         RETURNING balance AS new_balance
@@ -476,12 +482,12 @@ export class WalletsService {
         : `PAY-${Date.now()}`;
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const [row] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [row] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = balance - ${dto.amount}::numeric,
+        SET balance = balance - ${sqlNumeric(dto.amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${wallet.id}
-          AND balance >= ${dto.amount}::numeric
+          AND balance >= ${sqlNumeric(dto.amount)}::numeric
         RETURNING balance AS new_balance
       `;
       if (!row) throw new BadRequestException('Saldo insuficiente');
@@ -521,7 +527,7 @@ export class WalletsService {
   // Autocrea el wallet si el proveedor/comercio/conductor aún no tiene uno.
   async chargePlatformFee(
     userId: string,
-    amount: number,
+    amount: MoneyInput,
     reference: string,
     metadata: Record<string, unknown>
   ) {
@@ -531,18 +537,21 @@ export class WalletsService {
     return this.prisma.$transaction(async (tx) => {
       // CTE captures balance BEFORE the update so prev_balance is always correct
       const [row] = await tx.$queryRaw<
-        { new_balance: number; prev_balance: number }[]
+        { new_balance: Prisma.Decimal; prev_balance: Prisma.Decimal | null }[]
       >`
         WITH prev AS (SELECT balance FROM "wallets" WHERE id = ${wallet.id})
         UPDATE "wallets"
-        SET balance = GREATEST(balance - ${amount}::numeric, 0),
+        SET balance = GREATEST(balance - ${sqlNumeric(amount)}::numeric, 0),
             "updatedAt" = NOW()
         WHERE id = ${wallet.id}
         RETURNING balance AS new_balance, (SELECT balance FROM prev) AS prev_balance
       `;
 
-      const actualCharged = Math.min(amount, Number(row.prev_balance));
-      const unpaid = amount - actualCharged;
+      const prevBalance = row.prev_balance ?? 0;
+      const actualCharged = lt(prevBalance, amount)
+        ? toDecimal(prevBalance)
+        : toDecimal(amount);
+      const unpaid = sub(amount, actualCharged);
 
       const transaction = await tx.walletTransaction.create({
         data: {
@@ -556,8 +565,8 @@ export class WalletsService {
           reference,
           metadata: {
             ...metadata,
-            feeOwed: amount,
-            unpaidAmount: unpaid > 0 ? unpaid : undefined,
+            feeOwed: toNumber(amount),
+            unpaidAmount: gt(unpaid, 0) ? toNumber(unpaid) : undefined,
           } as any,
         },
       });
@@ -635,10 +644,10 @@ export class WalletsService {
     const discrepancy = toNumber(sub(actualBalance, expectedBalance));
 
     return {
-      systemWalletBalance: actualBalance,
-      heldTotal: expectedBalance,
+      systemWalletBalance: toNumber(actualBalance),
+      heldTotal: toNumber(expectedBalance),
       heldCount: heldAggregate._count,
-      pendingFundsTotal: pendingFundsAggregate._sum.escrowAmount ?? 0,
+      pendingFundsTotal: toNumber(pendingFundsAggregate._sum.escrowAmount ?? 0),
       pendingFundsCount,
       discrepancy,
       isBalanced: Math.abs(discrepancy) < 0.01,
@@ -656,7 +665,7 @@ export class WalletsService {
   // (ESCROW-HOLD-INCREASE-{proposalId}) — ver ServicesService.approvePriceChangeProposal.
   async holdEscrow(
     clientUserId: string,
-    amount: number,
+    amount: MoneyInput,
     serviceRequestId: string,
     referenceOverride?: string
   ) {
@@ -673,12 +682,12 @@ export class WalletsService {
     const ref = referenceOverride ?? `ESCROW-HOLD-${serviceRequestId}`;
 
     return this.prisma.$transaction(async (tx) => {
-      const [clientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [clientRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = balance - ${amount}::numeric,
+        SET balance = balance - ${sqlNumeric(amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${clientWallet.id}
-          AND balance >= ${amount}::numeric
+          AND balance >= ${sqlNumeric(amount)}::numeric
         RETURNING balance AS new_balance
       `;
       if (!clientRow)
@@ -686,9 +695,9 @@ export class WalletsService {
           'Saldo insuficiente para retener la garantía'
         );
 
-      const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [systemRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = balance + ${amount}::numeric,
+        SET balance = balance + ${sqlNumeric(amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${systemWallet.id}
         RETURNING balance AS new_balance
@@ -732,7 +741,7 @@ export class WalletsService {
   async releaseEscrow(
     serviceRequestId: string,
     providerId: string,
-    amount: number
+    amount: MoneyInput
   ) {
     this.assertPositiveAmount(amount);
     const systemUserId = await this.ensureEscrowSystemUserId();
@@ -741,16 +750,18 @@ export class WalletsService {
     const ref = `ESCROW-RELEASE-${serviceRequestId}`;
 
     return this.prisma.$transaction(async (tx) => {
-      const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [systemRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = GREATEST(balance - ${amount}::numeric, 0),
+        SET balance = GREATEST(balance - ${sqlNumeric(amount)}::numeric, 0),
             "updatedAt" = NOW()
         WHERE id = ${systemWallet.id}
         RETURNING balance AS new_balance
       `;
-      const [providerRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [providerRow] = await tx.$queryRaw<
+        { new_balance: Prisma.Decimal }[]
+      >`
         UPDATE "wallets"
-        SET balance = balance + ${amount}::numeric,
+        SET balance = balance + ${sqlNumeric(amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${providerWallet.id}
         RETURNING balance AS new_balance
@@ -791,7 +802,7 @@ export class WalletsService {
   async refundEscrow(
     serviceRequestId: string,
     clientUserId: string,
-    amount: number
+    amount: MoneyInput
   ) {
     this.assertPositiveAmount(amount);
     const systemUserId = await this.ensureEscrowSystemUserId();
@@ -800,16 +811,16 @@ export class WalletsService {
     const ref = `ESCROW-REFUND-${serviceRequestId}`;
 
     return this.prisma.$transaction(async (tx) => {
-      const [systemRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [systemRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = GREATEST(balance - ${amount}::numeric, 0),
+        SET balance = GREATEST(balance - ${sqlNumeric(amount)}::numeric, 0),
             "updatedAt" = NOW()
         WHERE id = ${systemWallet.id}
         RETURNING balance AS new_balance
       `;
-      const [clientRow] = await tx.$queryRaw<{ new_balance: number }[]>`
+      const [clientRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = balance + ${amount}::numeric,
+        SET balance = balance + ${sqlNumeric(amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${clientWallet.id}
         RETURNING balance AS new_balance
@@ -1020,8 +1031,8 @@ export class WalletsService {
     }
   }
 
-  private assertPositiveAmount(amount: number) {
-    if (!amount || amount <= 0)
+  private assertPositiveAmount(amount: MoneyInput) {
+    if (amount == null || !gt(amount, 0))
       throw new BadRequestException('El monto debe ser mayor a cero');
   }
 

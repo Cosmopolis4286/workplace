@@ -18,6 +18,7 @@ import {
 } from '../../money/platform-fees/platform-fees.facade';
 import { InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
 import { v4 as uuidv4 } from 'uuid';
+import { gt, isPositive, sub, toNumber } from '../../../common/money/money';
 
 function attachProductRating<
   T extends {
@@ -922,7 +923,7 @@ export class CatalogService {
     if (
       status === 'CANCELLED' &&
       order.escrowStatus === 'HELD' &&
-      order.escrowAmount &&
+      isPositive(order.escrowAmount) &&
       order.requesterId
     ) {
       await this.escrow.refund({
@@ -956,7 +957,7 @@ export class CatalogService {
 
     const update: any = { status: 'CLOSED' };
 
-    if (order.escrowStatus === 'HELD' && order.escrowAmount) {
+    if (order.escrowStatus === 'HELD' && isPositive(order.escrowAmount)) {
       const commerce = await this.prisma.commerce.findUnique({
         where: { id: order.commerceId },
         select: { userId: true },
@@ -974,7 +975,7 @@ export class CatalogService {
         );
         if (feeConfig?.payer === 'PROVIDER') {
           const { feeAmount } = this.platformFees.calculateFee(
-            order.escrowAmount,
+            toNumber(order.escrowAmount),
             feeConfig
           );
           await this.platformFees.chargeProviderFee(
@@ -984,13 +985,13 @@ export class CatalogService {
             `FEE-CATALOG-${id}`,
             { catalogOrderId: id }
           );
-          releaseAmount = order.escrowAmount - feeAmount;
+          releaseAmount = sub(order.escrowAmount, feeAmount);
           update.platformFeeRate = feeConfig.rate;
           update.platformFeeAmount = feeAmount;
         }
       }
 
-      if (commerce && releaseAmount > 0) {
+      if (commerce && gt(releaseAmount, 0)) {
         await this.escrow.release({
           entityType: 'CATALOG_ORDER',
           entityId: id,
