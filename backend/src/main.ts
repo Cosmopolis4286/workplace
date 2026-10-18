@@ -1,4 +1,5 @@
 import './config/env'; // valida variables de entorno antes de arrancar
+import './common/money/decimal-json'; // Decimal -> number en las respuestas JSON
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';

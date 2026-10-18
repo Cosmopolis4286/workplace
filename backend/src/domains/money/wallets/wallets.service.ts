@@ -25,6 +25,13 @@ import { PaymentDto } from './dto/payment.dto';
 import { AdjustDto } from './dto/adjust.dto';
 import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
 import { ESCROW_SYSTEM_USER_EMAIL } from './escrow-system-user.const';
+import {
+  add,
+  lt,
+  sub,
+  toNumber,
+  type MoneyInput,
+} from '../../../common/money/money';
 import type { ServicesService } from '../../commerce-core/services/services.service';
 
 const ADMIN_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
@@ -208,7 +215,7 @@ export class WalletsService {
     await this.limitsService.assertBalanceLimit(
       userId,
       role,
-      wallet.balance + dto.amount
+      toNumber(add(wallet.balance, dto.amount))
     );
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -625,8 +632,7 @@ export class WalletsService {
     // dinero que el cliente todavía no depositó — no debería estar en la
     // wallet de plataforma, se reporta aparte como referencia.
     const expectedBalance = heldAggregate._sum.escrowAmount ?? 0;
-    const discrepancy =
-      Math.round((actualBalance - expectedBalance) * 100) / 100;
+    const discrepancy = toNumber(sub(actualBalance, expectedBalance));
 
     return {
       systemWalletBalance: actualBalance,
@@ -656,7 +662,7 @@ export class WalletsService {
   ) {
     this.assertPositiveAmount(amount);
     const { wallet: clientWallet } = await this.getActiveWallet(clientUserId);
-    if (clientWallet.balance < amount) {
+    if (lt(clientWallet.balance, amount)) {
       throw new InsufficientEscrowFundsError(
         'Saldo insuficiente para retener la garantía'
       );
@@ -858,10 +864,10 @@ export class WalletsService {
 
     const isCredit = dto.type === WalletTransactionType.CREDIT;
     const newBalance = isCredit
-      ? wallet.balance + dto.amount
-      : wallet.balance - dto.amount;
+      ? add(wallet.balance, dto.amount)
+      : sub(wallet.balance, dto.amount);
 
-    if (newBalance < 0)
+    if (lt(newBalance, 0))
       throw new BadRequestException('El ajuste dejaría el saldo en negativo');
 
     return this.prisma.$transaction(async (tx) => {
@@ -1019,7 +1025,8 @@ export class WalletsService {
       throw new BadRequestException('El monto debe ser mayor a cero');
   }
 
-  private assertSufficientFunds(balance: number, amount: number) {
-    if (balance < amount) throw new BadRequestException('Saldo insuficiente');
+  private assertSufficientFunds(balance: MoneyInput, amount: MoneyInput) {
+    if (lt(balance, amount))
+      throw new BadRequestException('Saldo insuficiente');
   }
 }
