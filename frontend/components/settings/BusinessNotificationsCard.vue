@@ -41,9 +41,16 @@ import { ref, computed, watch } from 'vue'
 import { BellIcon } from '@heroicons/vue/24/outline'
 import type { CommerceSettings, FreelancerSettingsData } from '~/composables/commerce/useSettings'
 
+// Un usuario puede tener Commerce, perfil profesional o ambos ("opción 2"):
+// se muestran las notificaciones de cada parte que tenga. Para un híbrido el
+// backend (SettingsService.updateNotificationSettings) guarda el mismo form
+// en CommerceSettings y FreelancerSettings, así que las compartidas
+// (reportes, reseñas) van una sola vez.
 const props = defineProps<{
-  settings: CommerceSettings | FreelancerSettingsData | null
-  isFreelancer: boolean
+  commerceSettings: CommerceSettings | null
+  freelancerSettings: FreelancerSettingsData | null
+  showCommerce: boolean
+  showFreelancer: boolean
 }>()
 
 const emit = defineEmits<{
@@ -53,40 +60,42 @@ const emit = defineEmits<{
 const commerceItems = [
   { key: 'notifyNewOrders' as const, title: 'Nuevos Pedidos', description: 'Recibir notificaciones de pedidos nuevos' },
   { key: 'notifyLowStock' as const, title: 'Stock Bajo', description: 'Alertas cuando productos están por agotarse' },
-  { key: 'notifyDailyReports' as const, title: 'Reportes Diarios', description: 'Recibir resumen diario de ventas' },
-  { key: 'notifyCustomerReviews' as const, title: 'Reseñas de Clientes', description: 'Notificaciones de nuevas reseñas' },
 ]
 
 const freelancerItems = [
   { key: 'notifyNewRequests' as const, title: 'Nuevas Solicitudes', description: 'Recibir notificaciones cuando un cliente solicita tu servicio' },
   { key: 'notifyRequestUpdates' as const, title: 'Actualizaciones de Solicitudes', description: 'Cambios de estado en tus solicitudes activas' },
-  { key: 'notifyDailyReports' as const, title: 'Reportes Diarios', description: 'Recibir resumen diario de tu actividad' },
-  { key: 'notifyCustomerReviews' as const, title: 'Reseñas de Clientes', description: 'Notificaciones de nuevas reseñas' },
 ]
 
-const items = computed(() => props.isFreelancer ? freelancerItems : commerceItems)
+const items = computed(() => [
+  ...(props.showCommerce ? commerceItems : []),
+  ...(props.showFreelancer ? freelancerItems : []),
+  {
+    key: 'notifyDailyReports' as const,
+    title: 'Reportes Diarios',
+    description: props.showCommerce && !props.showFreelancer ? 'Recibir resumen diario de ventas' : 'Recibir resumen diario de tu actividad',
+  },
+  { key: 'notifyCustomerReviews' as const, title: 'Reseñas de Clientes', description: 'Notificaciones de nuevas reseñas' },
+])
 
 const form = ref<Record<string, boolean>>({ notifyNewOrders: true, notifyLowStock: true, notifyDailyReports: false, notifyCustomerReviews: true })
 
-watch(() => props.settings, (s) => {
-  if (!s) return
-  if (props.isFreelancer) {
-    const fs = s as FreelancerSettingsData
-    form.value = {
-      notifyNewRequests: fs.notifyNewRequests,
-      notifyRequestUpdates: fs.notifyRequestUpdates,
-      notifyDailyReports: fs.notifyDailyReports,
-      notifyCustomerReviews: fs.notifyCustomerReviews,
-    }
-  } else {
-    const cs = s as CommerceSettings
-    form.value = {
-      notifyNewOrders: cs.notifyNewOrders,
-      notifyLowStock: cs.notifyLowStock,
-      notifyDailyReports: cs.notifyDailyReports,
-      notifyCustomerReviews: cs.notifyCustomerReviews,
-    }
+watch(() => [props.commerceSettings, props.freelancerSettings, props.showCommerce, props.showFreelancer] as const, ([cs, fs]) => {
+  const next: Record<string, boolean> = {}
+  if (props.showFreelancer && fs) {
+    next.notifyNewRequests = fs.notifyNewRequests
+    next.notifyRequestUpdates = fs.notifyRequestUpdates
+    next.notifyDailyReports = fs.notifyDailyReports
+    next.notifyCustomerReviews = fs.notifyCustomerReviews
   }
+  // Las compartidas se leen de CommerceSettings si existe (pisa a las de arriba).
+  if (props.showCommerce && cs) {
+    next.notifyNewOrders = cs.notifyNewOrders
+    next.notifyLowStock = cs.notifyLowStock
+    next.notifyDailyReports = cs.notifyDailyReports
+    next.notifyCustomerReviews = cs.notifyCustomerReviews
+  }
+  if (Object.keys(next).length > 0) form.value = { ...form.value, ...next }
 }, { immediate: true })
 
 function toggle(key: string) {
