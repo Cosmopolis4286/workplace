@@ -6,12 +6,12 @@ export class ResolveDisputeDto {
   resolution: EscrowDisputeResolution;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   releaseAmount?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   refundAmount?: number;
 

@@ -3,6 +3,7 @@ import { EscrowService } from '../../domains/money/escrow/escrow.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletsService } from '../../domains/money/wallets/wallets.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
+import { money } from '../money-matcher';
 
 describe('EscrowService', () => {
   let service: EscrowService;
@@ -156,7 +157,10 @@ describe('EscrowService', () => {
 
       expect(mockPrismaService.escrow.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          create: expect.objectContaining({ amount: 200, status: 'HELD' }),
+          create: expect.objectContaining({
+            amount: money(200),
+            status: 'HELD',
+          }),
         })
       );
     });
@@ -179,7 +183,7 @@ describe('EscrowService', () => {
       // 100 ya retenido + 50 de delta = 150 total, NUNCA 50 sobrescribiendo el total
       expect(mockPrismaService.escrow.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          update: expect.objectContaining({ amount: 150 }),
+          update: expect.objectContaining({ amount: money(150) }),
         })
       );
       expect(mockWalletsService.holdEscrow).toHaveBeenCalledWith(
@@ -479,7 +483,7 @@ describe('EscrowService', () => {
       expect(mockWalletsService.releaseEscrow).toHaveBeenCalledWith(
         'req-1',
         'provider-1',
-        100
+        money(100)
       );
       expect(mockWalletsService.refundEscrow).not.toHaveBeenCalled();
     });
@@ -496,7 +500,7 @@ describe('EscrowService', () => {
       expect(mockWalletsService.refundEscrow).toHaveBeenCalledWith(
         'req-1',
         'client-1',
-        100
+        money(100)
       );
       expect(mockWalletsService.releaseEscrow).not.toHaveBeenCalled();
     });
@@ -542,12 +546,42 @@ describe('EscrowService', () => {
       expect(mockWalletsService.releaseEscrow).toHaveBeenCalledWith(
         'req-1',
         'provider-1',
-        60
+        money(60)
       );
       expect(mockWalletsService.refundEscrow).toHaveBeenCalledWith(
         'req-1',
         'client-1',
-        40
+        money(40)
+      );
+    });
+
+    it('SPLIT cuadra al centavo exacto, sin la tolerancia de ±0.01 de Float', async () => {
+      mockPrismaService.escrowDispute.findUnique.mockResolvedValue(openDispute);
+      // 100 retenidos: 33.33 + 66.66 = 99.99 deja un centavo sin asignar.
+      await expect(
+        service.resolveDispute({
+          disputeId: 'dispute-1',
+          resolvedById: 'admin-1',
+          resolution: 'SPLIT',
+          releaseAmount: 33.33,
+          refundAmount: 66.66,
+        })
+      ).rejects.toThrow(
+        'releaseAmount + refundAmount debe ser igual al monto total retenido'
+      );
+      expect(mockWalletsService.releaseEscrow).not.toHaveBeenCalled();
+
+      await service.resolveDispute({
+        disputeId: 'dispute-1',
+        resolvedById: 'admin-1',
+        resolution: 'SPLIT',
+        releaseAmount: 33.33,
+        refundAmount: 66.67,
+      });
+      expect(mockWalletsService.releaseEscrow).toHaveBeenCalledWith(
+        'req-1',
+        'provider-1',
+        money('33.33')
       );
     });
 

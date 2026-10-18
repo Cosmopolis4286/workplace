@@ -37,6 +37,13 @@ import { fetchImageFromUrlSafely } from '../../../common/utils/safe-url-image-fe
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import {
+  add,
+  gt,
+  isPositive,
+  sub,
+  toNumber,
+} from '../../../common/money/money';
 
 const SERVICE_SELECT = {
   id: true,
@@ -1187,11 +1194,11 @@ export class ServicesService {
     // Libera el escrow al proveedor. El monto liberado ya viene neto de la
     // comisión cuando el proveedor la paga (feeData) — la comisión en sí ya se
     // cobró arriba vía chargeProviderFee, así que acá no se duplica.
-    if (req.escrowStatus === 'HELD' && req.escrowAmount) {
+    if (req.escrowStatus === 'HELD' && isPositive(req.escrowAmount)) {
       const releaseAmount = feeData
-        ? req.escrowAmount - feeData.feeAmount
+        ? sub(req.escrowAmount, feeData.feeAmount)
         : req.escrowAmount;
-      if (releaseAmount > 0) {
+      if (gt(releaseAmount, 0)) {
         await this.escrow.release({
           entityType: 'SERVICE_REQUEST',
           entityId: id,
@@ -1258,7 +1265,7 @@ export class ServicesService {
     this.assertValidStatusTransition(req.status, 'CANCELLED');
 
     const escrowUpdate: any = {};
-    if (req.escrowStatus === 'HELD' && req.escrowAmount) {
+    if (req.escrowStatus === 'HELD' && isPositive(req.escrowAmount)) {
       await this.escrow.refund({
         entityType: 'SERVICE_REQUEST',
         entityId: id,
@@ -1385,7 +1392,10 @@ export class ServicesService {
           data: {
             escrowStatus: 'HELD',
             price: req.price! + pendingProposal.deltaAmount,
-            escrowAmount: (req.escrowAmount ?? 0) + pendingProposal.deltaAmount,
+            escrowAmount: add(
+              req.escrowAmount ?? 0,
+              pendingProposal.deltaAmount
+            ),
           },
         }),
         this.prisma.serviceRequestPriceChangeProposal.update({
@@ -1404,7 +1414,7 @@ export class ServicesService {
       return true;
     }
 
-    if (!req.escrowAmount) return false;
+    if (!isPositive(req.escrowAmount)) return false;
     try {
       await this.escrow.hold({
         entityType: 'SERVICE_REQUEST',
@@ -1425,7 +1435,7 @@ export class ServicesService {
         req.requesterId,
         req.providerName,
         req.serviceName,
-        req.escrowAmount
+        toNumber(req.escrowAmount)
       )
       .catch(() => {});
     return true;
@@ -1657,7 +1667,7 @@ export class ServicesService {
         where: { id: req.id },
         data: {
           price: (req.price ?? 0) + deltaWithFee,
-          escrowAmount: (req.escrowAmount ?? 0) + deltaWithFee,
+          escrowAmount: add(req.escrowAmount ?? 0, deltaWithFee),
           ...(feeConfig?.payer === 'CLIENT'
             ? {
                 platformFeeAmount:

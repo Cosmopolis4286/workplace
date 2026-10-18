@@ -32,6 +32,27 @@ export function toDecimal(value: MoneyInput): Prisma.Decimal {
   return new D(value);
 }
 
+/**
+ * true si hay un monto > 0. Reemplaza los `if (x.amount)` de cuando era Float:
+ * un Decimal en cero es un objeto y por lo tanto truthy.
+ */
+export function isPositive(
+  value: MoneyInput | null | undefined
+): value is MoneyInput {
+  return value != null && toDecimal(value).gt(0);
+}
+
+/**
+ * Monto como string para interpolar en $queryRaw/$executeRaw (`${sqlNumeric(x)}::numeric`).
+ *
+ * Nunca pasar un Decimal directo a una consulta raw: Prisma lo serializa con
+ * toJSON(), que decimal-json.ts redefine para devolver number, y el motor
+ * rechaza el parámetro. Un string con ::numeric es exacto y siempre funciona.
+ */
+export function sqlNumeric(value: MoneyInput): string {
+  return toDecimal(value).toFixed();
+}
+
 /** Redondea a `places` decimales (2 por defecto, HALF_UP). */
 export function round(
   value: MoneyInput,

@@ -5,10 +5,12 @@ import {
   div,
   eq,
   gte,
+  isPositive,
   lt,
   mul,
   round,
   roundRate,
+  sqlNumeric,
   sub,
   sum,
   toDecimal,
@@ -75,6 +77,28 @@ describe('money', () => {
   it('toNumber redondea para la salida', () => {
     expect(toNumber(div(10, 3))).toBe(3.33);
     expect(toNumber(div(10, 3), 4)).toBe(3.3333);
+  });
+});
+
+describe('isPositive', () => {
+  it('trata un Decimal en cero como "sin monto" (un objeto siempre es truthy)', () => {
+    const zero = new Prisma.Decimal('0.00');
+    expect(Boolean(zero)).toBe(true);
+    expect(isPositive(zero)).toBe(false);
+    expect(isPositive(null)).toBe(false);
+    expect(isPositive(undefined)).toBe(false);
+    expect(isPositive(-1)).toBe(false);
+    expect(isPositive(new Prisma.Decimal('0.01'))).toBe(true);
+  });
+});
+
+describe('sqlNumeric', () => {
+  it('devuelve el monto exacto como string para consultas raw', () => {
+    expect(sqlNumeric(add(0.1, 0.2))).toBe('0.3');
+    expect(sqlNumeric(new Prisma.Decimal('12345678901234567.89'))).toBe(
+      '12345678901234567.89'
+    );
+    expect(sqlNumeric(5)).toBe('5');
   });
 });
 

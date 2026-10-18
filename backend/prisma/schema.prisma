@@ -1395,7 +1395,7 @@ model Escrow {
   payeeId String // User.id de quien la recibe al liberarse (proveedor/comercio)
 
   status EscrowStatus @default(NONE)
-  amount Float
+  amount Decimal      @db.Decimal(20, 2)
 
   heldAt     DateTime?
   releasedAt DateTime?
@@ -1452,8 +1452,8 @@ model EscrowDispute {
   status EscrowDisputeStatus @default(OPEN)
 
   resolution     EscrowDisputeResolution?
-  releaseAmount  Float? // al payee — suma con refundAmount = escrow.amount cuando se resuelve
-  refundAmount   Float? // al payer
+  releaseAmount  Decimal?                 @db.Decimal(20, 2) // al payee — suma con refundAmount = escrow.amount cuando se resuelve
+  refundAmount   Decimal?                 @db.Decimal(20, 2) // al payer
   resolutionNote String?
   resolvedById   String?
   resolvedAt     DateTime?
@@ -2199,7 +2199,7 @@ model CatalogOrder {
   // join, igual patrón que ServiceRequest.escrowStatus/escrowAmount, aunque
   // la fuente de verdad real es la fila Escrow (entityType=CATALOG_ORDER).
   escrowStatus      EscrowStatus @default(NONE)
-  escrowAmount      Float?
+  escrowAmount      Decimal?     @db.Decimal(20, 2)
   platformFeeRate   Float?
   platformFeeAmount Float?
 
@@ -2362,7 +2362,7 @@ model ServiceRequest {
   // Escrow opcional (Service.hasEscrow) — retención del monto total en la
   // wallet de plataforma entre la fijación de precio y la finalización.
   escrowStatus         EscrowStatus                        @default(NONE)
-  escrowAmount         Float?
+  escrowAmount         Decimal?                            @db.Decimal(20, 2)
   escrowHeldAt         DateTime?
   status               ServiceRequestStatus                @default(PENDING)
   providerNotes        String?

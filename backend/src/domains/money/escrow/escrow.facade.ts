@@ -4,6 +4,7 @@ import {
   EscrowDisputeRaisedByRole,
   EscrowDisputeResolution,
 } from '@prisma/client';
+import type { MoneyInput } from '../../../common/money/money';
 
 export interface EscrowView {
   id: string;
@@ -48,7 +49,7 @@ export interface EscrowFacade {
     payerId: string;
     payeeId: string;
     /** Monto a debitar en ESTA operación (delta, no el acumulado) — ver EscrowService.hold */
-    deltaAmount: number;
+    deltaAmount: MoneyInput;
     referenceOverride?: string;
   }): Promise<EscrowView>;
 
@@ -56,14 +57,14 @@ export interface EscrowFacade {
     entityType: EscrowEntityType;
     entityId: string;
     payeeId: string;
-    amount: number;
+    amount: MoneyInput;
   }): Promise<EscrowView>;
 
   refund(params: {
     entityType: EscrowEntityType;
     entityId: string;
     payerId: string;
-    amount: number;
+    amount: MoneyInput;
   }): Promise<EscrowView>;
 
   getByEntity(
