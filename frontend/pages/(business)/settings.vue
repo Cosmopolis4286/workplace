@@ -230,13 +230,12 @@ const isCommerce = computed(() => role.value === 'PROFESIONAL')
 // que vende producto ("opción 2") también lo tiene; antes estas tarjetas
 // se mostraban a cualquier PROFESIONAL y terminaban en 403.
 const hasCommerce = computed(() => hasCapability('HAS_COMMERCE'))
-// Refleja qué estrategia de settings eligió el backend
-// (SettingsService.resolveStrategy): define la FORMA de `settings`
-// (FreelancerSettings vs. CommerceSettings), no permisos ni acceso.
-const isFreelancer = computed(() => user.value?.accountType === 'FREELANCER')
-// URL /pro/:slug: quien tiene perfil profesional (CapabilityGuard exige
-// HAS_PROFESSIONAL_PROFILE) y cuyo `settings` es FreelancerSettings.
-const showProfessionalSlug = computed(() => isFreelancer.value && hasCapability('HAS_PROFESSIONAL_PROFILE'))
+// URL /pro/:slug y bio/redes: quien tiene perfil profesional, con o sin
+// Commerce — es lo único que exige el backend (PATCH /settings/freelancer/*
+// con @RequireCapability('HAS_PROFESSIONAL_PROFILE')). Antes también pedía
+// accountType === 'FREELANCER', y un híbrido con perfil BUSINESS no veía su
+// URL /pro/:slug aunque tuviera FreelancerSettings.
+const showProfessionalSlug = computed(() => hasCapability('HAS_PROFESSIONAL_PROFILE'))
 // Sin Commerce los settings son siempre FreelancerSettings; con Commerce,
 // solo si además tiene perfil profesional (híbrido) — mismo criterio que
 // SettingsService.getSettings/updateNotificationSettings.
