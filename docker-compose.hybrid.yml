@@ -55,7 +55,9 @@ services:
     environment:
       APP_ENV: development
       PORT: ${NODE_PORT:-3001}
-      DEBUG: "*"
+      # Logs de depuración de librerías (express, prisma, ioredis...): apagados
+      # por defecto. Activar con: DEBUG=* docker compose ... up -d
+      DEBUG: ${DEBUG:-}
       LOG_LEVEL: debug
       DB_HOST: postgres
       DB_PORT: 5432
