@@ -270,9 +270,9 @@ model Commerce {
   bnplTransactions   BnplTransaction[]
   driverInvitations  DriverInvitation[]
 
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  SupplierQuote SupplierQuote[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  SupplierQuote      SupplierQuote[]
   groupBuyingPledges Pledge[]
 
   @@index([avgRating])
@@ -1298,7 +1298,7 @@ model WalletDepositRequest {
   userId String
   user   User   @relation("WalletDepositRequester", fields: [userId], references: [id], onDelete: Cascade)
 
-  amount        Float
+  amount        Decimal @db.Decimal(20, 2)
   paymentMethod String // texto libre: "Transferencia bancaria", "Zelle", "Binance Pay", "Pago móvil"...
   reference     String? // número de referencia/confirmación declarado por el usuario
   proofImageUrl String // comprobante subido (imagen)
@@ -1327,7 +1327,7 @@ model Wallet {
   userId   String       @unique
   user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   currency String       @default("USD")
-  balance  Float        @default(0)
+  balance  Decimal      @default(0) @db.Decimal(20, 2)
   status   WalletStatus @default(ACTIVE)
 
   pin      String? // bcrypt hash of 6-digit PIN
@@ -1353,8 +1353,8 @@ model WalletTransaction {
   user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   type         WalletTransactionType
   status       WalletTransactionStatus @default(COMPLETED)
-  amount       Float
-  balanceAfter Float
+  amount       Decimal                 @db.Decimal(20, 2)
+  balanceAfter Decimal                 @db.Decimal(20, 2)
   description  String?
   reference    String?
   metadata     Json?
@@ -1397,9 +1397,9 @@ model Escrow {
   status EscrowStatus @default(NONE)
   amount Float
 
-  heldAt      DateTime?
-  releasedAt  DateTime?
-  refundedAt  DateTime?
+  heldAt     DateTime?
+  releasedAt DateTime?
+  refundedAt DateTime?
 
   disputes EscrowDispute[]
 
@@ -1445,7 +1445,7 @@ model EscrowDispute {
   escrowId String
   escrow   Escrow @relation(fields: [escrowId], references: [id], onDelete: Cascade)
 
-  raisedById String // User.id — debe ser escrow.payerId o escrow.payeeId
+  raisedById   String // User.id — debe ser escrow.payerId o escrow.payeeId
   raisedByRole EscrowDisputeRaisedByRole
   reason       String
 
@@ -3260,9 +3260,9 @@ model GroupBuyingCampaign {
   organizerId String
   organizer   User   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
 
-  title       String
-  description String?
-  unit        String
+  title        String
+  description  String?
+  unit         String
   currencyCode String
 
   // Tramos de precio por volumen mínimo acumulado: [{ minQuantity, unitPrice }].

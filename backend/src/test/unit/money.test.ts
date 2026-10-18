@@ -77,3 +77,14 @@ describe('money', () => {
     expect(toNumber(div(10, 3), 4)).toBe(3.3333);
   });
 });
+
+describe('decimal-json', () => {
+  it('serializa Decimal como number en JSON (contrato de la API)', () => {
+    require('../../common/money/decimal-json');
+    const body = {
+      balance: new Prisma.Decimal('20.00'),
+      amount: add('0.1', '0.2'),
+    };
+    expect(JSON.stringify(body)).toBe('{"balance":20,"amount":0.3}');
+  });
+});

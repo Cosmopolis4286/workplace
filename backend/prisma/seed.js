@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt')
 const Redis = require('ioredis')
 const veLocationsData = require('./data/ve-locations.json')
 const { USER_CATEGORIES, SERVICE_CATEGORIES, JOB_CATEGORIES } = require('./data/catalog-categories.js')
+const { DEMO_PASSWORDS } = require('./data/demo-passwords.js')
 
 const prisma = new PrismaClient()
 
@@ -10,7 +11,7 @@ const DEMO_USERS = [
   {
     role: Role.SUPERADMIN,
     email: 'superadmin@demo.com',
-    password: 'S4p3rAdm1n!#2026',
+    password: DEMO_PASSWORDS['superadmin@demo.com'],
     firstName: 'Super',
     lastName: 'Admin',
     userType: 'APP',  // Usuario propio de la app, no demo
@@ -19,7 +20,7 @@ const DEMO_USERS = [
   {
     role: Role.ADMIN,
     email: 'admin@demo.com',
-    password: 'Adm1n@Sec#2026',
+    password: DEMO_PASSWORDS['admin@demo.com'],
     firstName: 'Admin',
     lastName: 'Demo',
     country: 'Venezuela', state: 'Distrito Capital', municipality: 'Libertador', city: 'Caracas', parish: 'Altagracia',
@@ -28,7 +29,7 @@ const DEMO_USERS = [
     role: Role.PROFESIONAL,
     profileType: ProfileType.BUSINESS,
     email: 'commerce@demo.com',
-    password: 'C0mm3rc3!Biz#26',
+    password: DEMO_PASSWORDS['commerce@demo.com'],
     firstName: 'Comercio',
     lastName: 'Demo',
     commerceName: 'Restaurante Demo',
@@ -40,7 +41,7 @@ const DEMO_USERS = [
     role: Role.PROFESIONAL,
     profileType: ProfileType.BUSINESS,
     email: 'tecnologia@demo.com',
-    password: 'T3ch@Biz#26',
+    password: DEMO_PASSWORDS['tecnologia@demo.com'],
     firstName: 'Tech',
     lastName: 'Demo',
     commerceName: 'Tech Solutions Demo',
@@ -53,7 +54,7 @@ const DEMO_USERS = [
     profileType: ProfileType.PROFESSIONAL,
     subtype: ProfessionalSubtype.FREELANCER,
     email: 'freelancer@demo.com',
-    password: 'Fr33lanc3r!#2026',
+    password: DEMO_PASSWORDS['freelancer@demo.com'],
     firstName: 'Freelancer',
     lastName: 'Demo',
     categoryName: 'Diseño',
@@ -65,7 +66,7 @@ const DEMO_USERS = [
     profileType: ProfileType.PROFESSIONAL,
     subtype: ProfessionalSubtype.SERVICE_PROVIDER,
     email: 'delivery@demo.com',
-    password: 'D3l1v3ry@Fast#26',
+    password: DEMO_PASSWORDS['delivery@demo.com'],
     firstName: 'Carlos',
     lastName: 'Delivery',
     categoryName: 'Transporte',
@@ -80,7 +81,7 @@ const DEMO_USERS = [
     profileType: ProfileType.PROFESSIONAL,
     subtype: ProfessionalSubtype.SERVICE_PROVIDER,
     email: 'comidarapida@demo.com',
-    password: 'C0m1d4R4p!d4#26',
+    password: DEMO_PASSWORDS['comidarapida@demo.com'],
     firstName: 'María',
     lastName: 'González',
     categoryName: 'Comida',
@@ -94,7 +95,7 @@ const DEMO_USERS = [
     profileType: ProfileType.PROFESSIONAL,
     subtype: ProfessionalSubtype.SERVICE_PROVIDER,
     email: 'costura@demo.com',
-    password: 'C0stur4T3c!#2026',
+    password: DEMO_PASSWORDS['costura@demo.com'],
     firstName: 'Ana',
     lastName: 'Rivas',
     categoryName: 'Reparación y Oficios Técnicos',
@@ -104,7 +105,7 @@ const DEMO_USERS = [
   {
     role: Role.NORMAL,
     email: 'normal@demo.com',
-    password: 'N0rm4lUs3r!#2026',
+    password: DEMO_PASSWORDS['normal@demo.com'],
     firstName: 'Usuario',
     lastName: 'Normal',
     country: 'Venezuela', state: 'Aragua', municipality: 'Girardot', city: 'Maracay', parish: 'Las Delicias',

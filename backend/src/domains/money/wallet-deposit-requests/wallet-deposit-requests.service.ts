@@ -9,6 +9,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { CreateDepositRequestDto } from './dto/create-deposit-request.dto';
 import { ReviewDepositRequestDto } from './dto/review-deposit-request.dto';
+import { toNumber } from '../../../common/money/money';
 
 @Injectable()
 export class WalletDepositRequestsService {
@@ -131,7 +132,7 @@ export class WalletDepositRequestsService {
       request.userId,
       user.role,
       {
-        amount: request.amount,
+        amount: toNumber(request.amount),
         description: `Depósito aprobado (${request.paymentMethod}${request.reference ? ` — ${request.reference}` : ''})`,
         reference: `DEPOSIT-REQ-${id}`,
       }

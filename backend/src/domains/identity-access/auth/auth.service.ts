@@ -6,6 +6,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import * as path from 'path';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { I18nService } from 'nestjs-i18n';
@@ -739,20 +740,10 @@ export class AuthService {
       throw new ForbiddenException(this.i18n.t('auth.demo.no_users'));
     }
 
-    // Demo passwords come from environment variables (not hardcoded)
-    const emailPasswords: Record<string, string> = {
-      'superadmin@demo.com': this.config.get('DEMO_PWD_SUPERADMIN', 'Demo123'),
-      'admin@demo.com': this.config.get('DEMO_PWD_ADMIN', 'Demo123'),
-      'commerce@demo.com': this.config.get('DEMO_PWD_COMMERCE', 'Demo123'),
-      'tecnologia@demo.com': this.config.get('DEMO_PWD_TECNOLOGIA', 'Demo123'),
-      'freelancer@demo.com': this.config.get('DEMO_PWD_FREELANCER', 'Demo123'),
-      'delivery@demo.com': this.config.get('DEMO_PWD_DELIVERY', 'Demo123'),
-      'comidarapida@demo.com': this.config.get(
-        'DEMO_PWD_COMIDARAPIDA',
-        'Demo123'
-      ),
-      'normal@demo.com': this.config.get('DEMO_PWD_NORMAL', 'Demo123'),
-    };
+    // Misma fuente que el seed (prisma/data/demo-passwords.js, con override
+    // DEMO_PWD_*): la lista propia de antes caía en 'Demo123', que no es la
+    // contraseña sembrada, y el login con las credenciales mostradas fallaba.
+    const emailPasswords = loadDemoPasswords();
 
     const credentials = demoUsers.map((user) => {
       const profiles = (user as any).profiles as {
@@ -776,7 +767,7 @@ export class AuthService {
         profileType,
         subtype,
         email: user.email,
-        password: emailPasswords[user.email] ?? 'Demo123',
+        password: emailPasswords[user.email] ?? null,
         label: `${user.firstName} ${user.lastName}`,
         description: this.getRoleDescription(user.role, profileType, subtype),
         commerceName: (user as any).commerce?.name ?? null,
@@ -1185,4 +1176,17 @@ export class AuthService {
     };
     return value * map[unit];
   }
+}
+
+/**
+ * prisma/data/demo-passwords.js se resuelve desde el directorio del backend
+ * (cwd de la app en dev, Docker y producción: ahí vive prisma/), no relativo a
+ * este archivo, que en dist/ queda a otra profundidad.
+ */
+function loadDemoPasswords(): Record<string, string> {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { DEMO_PASSWORDS } = require(
+    path.join(process.cwd(), 'prisma', 'data', 'demo-passwords.js')
+  );
+  return DEMO_PASSWORDS;
 }

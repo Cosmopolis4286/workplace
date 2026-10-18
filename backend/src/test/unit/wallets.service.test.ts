@@ -379,10 +379,28 @@ describe('WalletsService — escrow', () => {
       } as any);
 
       expect(result.transaction.description).toBe('ajuste de prueba');
-      expect(mockPrismaService.wallet.update).toHaveBeenCalledWith({
-        where: { id: wallet({ userId: TARGET_ID }).id },
-        data: { balance: 110 },
+      // El saldo se calcula con Decimal (common/money): se compara el valor,
+      // no el tipo.
+      const [updateArgs] = mockPrismaService.wallet.update.mock.calls[0];
+      expect(updateArgs.where).toEqual({
+        id: wallet({ userId: TARGET_ID }).id,
       });
+      expect(updateArgs.data.balance.toString()).toBe('110');
+    });
+
+    it('ajusta sin error de coma flotante (Float daba 0.30000000000000004)', async () => {
+      mockPrismaService.wallet.findUnique.mockResolvedValue(
+        wallet({ userId: TARGET_ID, balance: 0.1 })
+      );
+
+      await service.adjust(TARGET_ID, ADMIN_ID, Role.ADMIN, {
+        type: 'CREDIT',
+        amount: 0.2,
+        description: 'motivo',
+      } as any);
+
+      const [updateArgs] = mockPrismaService.wallet.update.mock.calls[0];
+      expect(updateArgs.data.balance.toString()).toBe('0.3');
     });
 
     it('rechaza si el débito dejaría el saldo en negativo', async () => {
