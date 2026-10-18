@@ -1,0 +1,38 @@
+name: Reporte de bug
+description: Algo no funciona como debería
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "⚠️ Si es una vulnerabilidad de seguridad, NO uses este formulario: ver SECURITY.md."
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Qué pasó
+      description: Describí el problema y qué esperabas que pasara.
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducir
+      placeholder: |
+        1. Entrar como ...@demo.com
+        2. Ir a /menu
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: perfil
+    attributes:
+      label: Usuario / perfil afectado
+      description: Rol, perfil activo (BUSINESS, PROFESSIONAL…) y categoría de negocio.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options: [Frontend, Backend / API, Base de datos, App móvil, Infraestructura / deploy]
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Capturas o logs

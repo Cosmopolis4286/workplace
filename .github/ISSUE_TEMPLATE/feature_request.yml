@@ -1,0 +1,25 @@
+name: Propuesta de funcionalidad
+description: Idea o mejora para WorkPlace
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema o necesidad
+      description: ¿Qué quiere lograr el usuario y por qué hoy no puede?
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Propuesta
+  - type: checkboxes
+    id: perfiles
+    attributes:
+      label: Perfiles afectados
+      options:
+        - label: Cliente
+        - label: Profesional (freelancer / proveedor de servicios)
+        - label: Negocio
+        - label: Candidato de empleo
+        - label: Administración

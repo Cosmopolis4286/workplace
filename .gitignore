@@ -176,3 +176,6 @@ frontend/node_modules/@capacitor/
 .lock-wscript
 *.tgz
 *.tar.gz
+
+# Caché de compilación de Node (NODE_COMPILE_CACHE), generada al correr nuxi/vue-tsc
+**/node-compile-cache/
